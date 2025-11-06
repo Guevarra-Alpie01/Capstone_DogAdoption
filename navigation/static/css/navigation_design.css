@@ -1,0 +1,209 @@
+/* --- navigation_design.css (CORRECTED) --- */
+
+body {
+    background-color: #FEFEFA;
+    /* Removed: padding-top: 60px; */ 
+}
+
+/* Fix 1: Use a pseudo-element to create space for the fixed navbar 
+   without breaking the desktop sidebar layout */
+body::before {
+    content: "";
+    display: block;
+    height: 60px; /* Assuming your navbar is 60px tall */
+}
+
+#wrapper {
+    overflow-x: hidden; /* Hide horizontal scrollbar */
+    min-height: 100vh; /* Full viewport height */
+}
+
+#page-content-wrapper {
+    width: 100%;
+    min-width: 0; 
+    padding-left: 0; 
+    transition: padding-left .25s ease-out;
+    background-color: transparent !important;
+    
+    /* Background image remains on the wrapper for the overall backdrop */
+    /*background-image: url('/static/images/bayawan-city.jpg');*/
+    background-repeat: no-repeat;
+    background-size:cover;
+    background-position: center center;
+    
+    /* Removed: padding-top: 60px !important; */ 
+}
+
+/* Fix 2: NEW STYLE for content visibility. 
+   Apply this class to the content wrapper inside base.html */
+.content-area-block {
+    background-color: white; /* Ensures text is visible over the background image */
+    padding: 20px; 
+    border-radius: 8px;
+    max-width: 800px; /* Limits the content box width */
+    margin: 20px; /* Adds space around the content box */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+    /* Ensures the content box is always on top */
+    position: relative; 
+    z-index: 2; 
+}
+
+
+.navbar {
+    background-color:#88A06A !important;
+}
+
+/*This is for the sidebar design*/
+/*Sidebar*/
+#sidebar-wrapper {
+    min-height: calc(100vh - 60px); /* Adjust for navbar height */
+    width: 250px;
+    margin-left: -250px;
+    transition: margin .25s ease-out;
+    position: fixed;
+    top: 60px; /* Start below navbar */
+    left: 0; /* Ensures proper fixed positioning */
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    background-color:#88A06A !important;
+}
+#sidebar-wrapper .sidebar-heading{
+    background-color:#88A06A;
+}
+
+#sidebar-wrapper .list-group-item-action {
+    background-color: #88A06A;
+}
+
+#wrapper.toggled #sidebar-wrapper {
+    margin-left: 0; /* Show sidebar when toggled */
+}
+
+#wrapper.toggled #page-content-wrapper {
+    padding-left: 250px; /* Make space for sidebar */
+}
+
+/* Ensure footer is always at the bottom of the sidebar */
+#sidebar-wrapper .list-group {
+    flex-grow: 1; /* Allow list-group to take available space */
+    overflow-y: auto; /* Enable scrolling for many items */
+}
+
+.sidebar-section-title {
+    font-size: 0.75rem;
+    color: white !important; /* Lighter text for section titles */
+}
+
+.sidebar-footer {
+    margin-top: auto; /* Push footer to the bottom */
+}
+
+/* Hide the main navbar brand on small screens when the sidebar is open */
+@media (max-width: 991.98px) {
+ 
+    #page-content-wrapper {
+        background-size: contain;
+        background-attachment:scroll;
+    }
+    #sidebar-wrapper {
+        width: 200px;
+        margin-left: -200px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.5); /* Add shadow for better visual separation */
+    }
+    #wrapper.toggled #sidebar-wrapper {
+        margin-left:0;
+    }
+    #wrapper.toggled #page-content-wrapper {
+        padding-left: 0; /* No padding on content area when sidebar is open on small screens */
+    }
+    /* This rule is now redundant as navbar is outside #page-content-wrapper */
+    /*
+    #page-content-wrapper .navbar .navbar-brand {
+        display: none;
+    }
+    */
+    #sidebar-wrapper .list-group-item {
+        font-size: 0.85rem; /* smaller fontsize for navigation links when screen is smaller */
+        padding-top: 0.85rem !important;
+        padding-bottom: 0.5rem !important;
+
+    }
+    /* Smaller fontsize and Logo image for heading in sidebar  when the screensize become smaller */
+    #sidebar-wrapper .sidebar-heading .fs-4,
+    #sidebar-wrapper .sidebar-heading .app-logo.text {
+        font-size: 1.1rem !important;
+    }
+ 
+    #sidebarToggle {
+        display: block !important;
+        background-color: transparent !important;
+        border: none !important;
+        padding: 0.375rem !important;
+        box-shadow: none !important;
+        color: white !important;
+    }
+    
+    #sidebarToggle:hover {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        border-radius: 50%;
+    }
+
+    .navbar-brand {
+        color: white !important;
+        font-size: 1.25rem;
+    }
+
+    .navbar-brand:hover {
+        color: rgba(255, 255, 255, 0.9) !important;
+    }
+    
+    .navbar .fixed-bottom {
+        background-color: #88A06A !important;
+        padding-top: 5px;
+        padding-bottom: 5px;  
+    }
+    .navbar .fixed-bottom a, .navbar .fixed-bottom small {
+        color:white !important;
+    }
+    /* This block is likely unnecessary since the navbar is fixed-top */
+    /*
+    #page-content-wrapper > .navbar {
+        min-height: 60px;
+        display: flex;
+        align-items: center;
+    }
+    #page-content-wrapper > .navbar .container-fluid {
+        width: 100%;
+    }
+    */
+
+}
+
+/* Desktop Styles (lg and up) */
+@media (min-width: 992px) {
+    /* Sidebar is FIXED and visible by default */
+    #sidebar-wrapper {
+        margin-left: 0; 
+        position: fixed; 
+        top: 60px; 
+        left: 0;
+        min-height: calc(100vh - 60px);
+        z-index: 1000;
+    }
+
+    /* Content area should account for the sidebar width */
+    #page-content-wrapper {
+        padding-left: 250px; 
+        padding-top: 0; /* Cleared by body::before */
+    }
+
+    /* When toggled (user hides sidebar), slide it out and remove content padding */
+    #wrapper.toggled #sidebar-wrapper {
+        margin-left: -250px;
+    }
+
+    #wrapper.toggled #page-content-wrapper {
+        padding-left: 0;
+    }
+}

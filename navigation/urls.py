@@ -10,6 +10,6 @@ urlpatterns = [
     path('',views.user_home, name="user_home"),
     path('sidebar/',views.sidebar, name="sidebar"),
 
-    path('user-trial/', views.Trial, name="Trial"),
+    
 
 ]

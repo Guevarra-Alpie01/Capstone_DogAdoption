@@ -3,4 +3,8 @@ from django.conf import settings
 from django.contrib import messages
 
 
-# Create your views here.
+def admin_base(request):
+    return render (request, 'admin_base.html')
+
+def admin_sidebar(request):
+    return render (request, 'admin_sidebar.html')

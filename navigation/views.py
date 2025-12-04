@@ -5,15 +5,12 @@ from django.contrib import messages
 
 
 def user_home(request):
-    return render (request, 'user_navigation/user_home.html')
+    return render (request, 'user_home.html')
 
 def sidebar(request):
-    return render (request, 'navigation/sidebar.html')
+    return render (request, 'sidebar.html')
 
 def base(request):
     return render (request, 'base.html')
 
 
-
-def Trial(request):
-    return render (request, 'user_navigation/user_trial.html')

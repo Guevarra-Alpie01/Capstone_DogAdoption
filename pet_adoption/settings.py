@@ -37,7 +37,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'navigation',
     'dogadoption_admin',
     'user',
 ]
@@ -79,7 +78,7 @@ WSGI_APPLICATION = 'pet_adoption.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'petadoption_database',
+        'NAME': 'dogadoption_database',
         'USER': 'root',
         'PASSWORD': '',
         'PORT': '3306',

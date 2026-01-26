@@ -1,0 +1,25 @@
+<h1>Dog Adoption Feed 🐾</h1>
+
+<a href="{% url 'dogadoption_admin:create_post' %}">Create Post</a>
+<hr>
+
+{% for post in posts %}
+    <div style="border:1px solid #ccc; padding:10px; margin-bottom:20px;">
+        <strong>{{ post.user.username }}</strong>
+        <p>{{ post.caption }}</p>
+
+        {% if post.location %}
+            <small>📍 {{ post.location }}</small><br>
+        {% endif %}
+
+        <small>Posted on {{ post.created_at }}</small>
+
+        <div style="margin-top:10px;">
+            {% for image in post.images.all %}
+                <img src="{{ image.image.url }}" width="200" style="margin-right:10px;">
+            {% endfor %}
+        </div>
+    </div>
+{% empty %}
+    <p>No dog adoption posts yet 🐶</p>
+{% endfor %}

@@ -4,6 +4,10 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from .models import Post, PostImage
+from .forms import PostForm, ImageForm
 
 
 def admin_login(request):
@@ -46,3 +50,36 @@ def admin_base(request):
 
 def admin_sidebar(request):
     return render(request, 'admin_sidebar.html')
+
+
+#for user home views
+
+@login_required
+def create_post(request):
+    if request.method == 'POST':
+        post_form = PostForm(request.POST)
+        image_form = ImageForm(request.POST, request.FILES)
+
+        if post_form.is_valid() and image_form.is_valid():
+            post = post_form.save(commit=False)
+            post.user = request.user
+            post.save()
+
+            images = request.FILES.getlist('images')
+            for image in images:
+                PostImage.objects.create(post=post, image=image)
+
+            return redirect('dogadoption_admin:post_list')
+
+    else:
+        post_form = PostForm()
+        image_form = ImageForm()
+
+    return render(request, 'create_post.html', {
+        'post_form': post_form,
+        'image_form': image_form
+    })
+
+def post_list(request):
+    posts = Post.objects.all().order_by('-created_at')
+    return render(request, 'post_list.html', {'posts': posts})

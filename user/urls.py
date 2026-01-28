@@ -14,7 +14,6 @@ urlpatterns = [
 
     #navigation links/ home  urls
     path('',views.user_home, name="user_home"),
-    path('feed/', views.post_feed, name='post_feed'),
 
     #navigation links/ request  urls
     path('request/', views.user_request, name="request"),

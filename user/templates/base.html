@@ -2,100 +2,136 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>PETSHELP</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/navigation_design.css' %}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 
 <body>
 
+<!-- TOP NAVBAR -->
 <nav class="navbar navbar-expand-lg fixed-top">
     <div class="container-fluid">
-        <button class="btn btn-sm text-white d-none d-lg-block" id="sidebarToggle"> 
-            <span class="navbar-toggler-icon"></span>
-        </button>
+
+        {% if user.is_authenticated %}
+            <button class="btn btn-sm text-white d-none d-lg-block" id="sidebarToggle">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        {% endif %}
+
         <a class="navbar-brand ms-3 text-white" href="{% url 'user:user_home' %}">
-            <img src="{% static 'images/dog_logo.jpg' %}" alt="Logo" height="24" class="d-inline-block align-text-top">
-            <span class="text-white fw-bold">PETSHELP</span> 
+            <img src="{% static 'images/dog_logo.jpg' %}" alt="Logo" height="24">
+            <span class="fw-bold text-white">PETSHELP</span>
         </a>
 
-        <div class="d-flex ms-auto">
-                                <div class="dropdown">
-                                    <a class="btn p-0" href="#" role="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <img src="{% static 'images/default-user-image.jpg' %}" alt="User Avatar" width="30" height="30" class="rounded-circle">
-                                    </a>
+        <div class="ms-auto">
 
-                                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                                        <li><h6 class="dropdown-header">User Options</h6></li> 
-                                        <li><a href="#" class="dropdown-item">Settings</a></li>
-                                        <li><a href="#" class="dropdown-item">Profile</a></li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a href="#" class="dropdown-item">Log out</a></li>
-                                    </ul> 
-                                </div> 
-                        </div>
+            {% if user.is_authenticated %}
+                <!-- USER DROPDOWN -->
+                <div class="dropdown">
+                    <a class="btn p-0" href="#" id="userDropdown" data-bs-toggle="dropdown">
+                        <img src="{% static 'images/default-user-image.jpg' %}"
+                             width="30" height="30" class="rounded-circle">
+                    </a>
 
-            </div>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><h6 class="dropdown-header">{{ user.username }}</h6></li>
+                        <li><a href="#" class="dropdown-item">Profile</a></li>
+                        <li><a href="#" class="dropdown-item">Settings</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a href="{% url 'user:login' %}" class="dropdown-item text-danger">
+                                Log out
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            {% else %}
+                <!-- GUEST -->
+                <a href="{% url 'user:login' %}" class="btn btn-outline-light btn-sm">
+                    Login
+                </a>
+            {% endif %}
+
+        </div>
+    </div>
 </nav>
 
+<!-- PAGE WRAPPER -->
 <div class="d-flex" id="wrapper">
-    {% include 'sidebar.html' %} 
-    
+
+    {% if user.is_authenticated %}
+        {% include 'sidebar.html' %}
+    {% endif %}
+
     <div id="page-content-wrapper" class="flex-grow-1">
         <div class="content-container">
-            <div class="container-fluid pt-3 pb-5"> 
-                {% block content %}
-                
-                {% endblock content %}
+            <div class="container-fluid pt-4 pb-5 mt-4">
+                {% block content %}{% endblock %}
             </div>
         </div>
     </div>
-</div> 
 
-<nav class="navbar fixed-bottom d-lg-none border-top">
+</div>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="navbar fixed-bottom d-lg-none border-top bg-white">
     <div class="container-fluid justify-content-around">
-        <a href="{% url 'user:user_home'%}" class="nav-link text-dark text-center p-0">
-            <i class="bi bi-house-fill me-2"></i><br>
+
+        <!-- Home always -->
+        <a href="{% url 'user:user_home' %}" class="nav-link text-center">
+            <i class="bi bi-house-fill"></i><br>
             <small>Home</small>
         </a>
-        <a href="#" class="nav-link text-dark text-center p-0">
-              <i class="bi bi-send-fill me-2"></i><br>
-            <small>Request</small>
-        </a>
-        <a href="#" class="nav-link text-dark text-center p-0">
-            <i class="bi bi-clipboard-check-fill me-2"></i><br>
-            <small>Claim</small>
-        </a>
-        <a href="#" class="nav-link text-dark text-center p-0">
-                         <i class="bi bi-megaphone-fill me-2"></i><br>
-            <small>Announcement</small>
-        </a>
-        <a href="#" class="nav-link text-dark text-center p-0">
-             <i class="bi bi-life-preserver me-2"></i><br>
-            <small>Adopt</small>
-        </a>
+
+        {% if user.is_authenticated %}
+            <a href="#" class="nav-link text-center">
+                <i class="bi bi-send-fill"></i><br>
+                <small>Request</small>
+            </a>
+
+            <a href="#" class="nav-link text-center">
+                <i class="bi bi-clipboard-check-fill"></i><br>
+                <small>Claim</small>
+            </a>
+
+            <a href="#" class="nav-link text-center">
+                <i class="bi bi-megaphone-fill"></i><br>
+                <small>Announcement</small>
+            </a>
+
+            <a href="#" class="nav-link text-center">
+                <i class="bi bi-life-preserver"></i><br>
+                <small>Adopt</small>
+            </a>
+        {% endif %}
+
     </div>
 </nav>
 
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+<!-- SCRIPTS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
+{% if user.is_authenticated %}
 <script>
-    // Simple JavaScript to handle the toggle functionality
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const sidebarToggle = document.getElementById('sidebarToggle');
         const wrapper = document.getElementById('wrapper');
 
-        if (sidebarToggle && wrapper) {
-            sidebarToggle.addEventListener('click', function(e) {
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', function (e) {
                 e.preventDefault();
                 wrapper.classList.toggle('toggled');
             });
         }
     });
 </script>
+{% endif %}
 
 </body>
 </html>

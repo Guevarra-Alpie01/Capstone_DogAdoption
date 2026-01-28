@@ -53,7 +53,6 @@ def admin_sidebar(request):
 
 
 #for user home views
-
 @login_required
 def create_post(request):
     if request.method == 'POST':
@@ -75,11 +74,16 @@ def create_post(request):
         post_form = PostForm()
         image_form = ImageForm()
 
-    return render(request, 'create_post.html', {
+    return render(request, 'home/create_post.html', {
         'post_form': post_form,
         'image_form': image_form
     })
 
 def post_list(request):
     posts = Post.objects.all().order_by('-created_at')
-    return render(request, 'post_list.html', {'posts': posts})
+    return render(request, 'home/post_list.html', {'posts': posts})
+
+
+
+
+#for request views

@@ -1,72 +1,68 @@
-{% include 'firstnavigation.html' %}
+{% extends 'base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Login</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/login.css' %}">
-    <link rel="stylesheet" href="{% static 'css/user_home.css' %}">
-</head>
+<link rel="stylesheet" href="{% static 'css/login.css' %}">
+{% block content %}
 
-
-<body>
-    {% if error %}
-    <div class="alert alert-danger text-center">
-        {{ error }}
-    </div>
+{% if error %}
+<div class="alert alert-danger text-center">
+    {{ error }}
+</div>
 {% endif %}
 
-<div class="auth-wrapper" id="authWrapper">
-    <div class="auth-card" id="authCard">
+<div class="auth-wrapper d-flex justify-content-center align-items-center">
+    <div class="auth-card">
 
-        <h2>PETSHELP</h2>
+        <h2 class="text-center mb-4">PETSHELP</h2>
 
         <form method="post">
             {% csrf_token %}
 
             <div class="mb-3">
-                <input type="text" name="username" class="form-control" placeholder="Username" required>
+                <input type="text"
+                       name="username"
+                       class="form-control"
+                       placeholder="Username"
+                       required>
             </div>
 
             <div class="mb-3">
-                <input type="password" name="password" class="form-control" placeholder="Password" required>
+                <input type="password"
+                       name="password"
+                       class="form-control"
+                       placeholder="Password"
+                       required>
             </div>
 
-            <button type="submit" class="btn btn-primary w-100 login-btn">
+            <button type="submit" class="btn btn-primary w-100">
                 Log In
             </button>
         </form>
 
-        <div class="auth-divider">
-            <span>or</span>
+        <div class="text-center my-3">
+            <span class="text-muted">or</span>
         </div>
 
-        <a href="{% url 'user:signup' %}" class="btn btn-success w-100 signup-btn">
-            Create new account
+        <a href="{% url 'user:signup' %}" class="btn btn-success w-100">
+            Create New Account
         </a>
 
     </div>
 </div>
 
+<!--- Script to prevent click propagation and redirect to user home --->
 <script>
-    const wrapper = document.getElementById("authWrapper");
-    const card = document.getElementById("authCard");
+    const authCard = document.querySelector(".auth-card");
 
-    // Click outside → go home
-    wrapper.addEventListener("click", function () {
+    if (authCard) {
+        authCard.addEventListener("click", function (event) {
+            event.stopPropagation();
+        });
+    }
+
+    document.addEventListener("click", function () {
         window.location.href = "{% url 'user:user_home' %}";
-    });
-
-    // Click inside card → do nothing
-    card.addEventListener("click", function (event) {
-        event.stopPropagation();
     });
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+{% endblock %}

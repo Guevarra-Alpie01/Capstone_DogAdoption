@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <label>Reason for Capture</label><br>
+    <select name="reason" required>
+        <option value="">-- Select --</option>
+        <option value="biting">Dog is biting people</option>
+        <option value="aggressive">Dog is aggressive</option>
+        <option value="injured">Dog is injured</option>
+        <option value="sick">Dog looks sick</option>
+        <option value="stray">Stray dog</option>
+        <option value="other">Other</option>
+    </select>
+
+    <br><br>
+
+    <label>Additional Details (Optional)</label><br>
+    <textarea name="description" placeholder="Extra details..."></textarea>
+
+    <br><br>
+
+    <label>Upload Picture (Optional)</label><br>
+    <input type="file" name="image" accept="image/*">
+
+    <br><br>
+
+    <input type="hidden" name="latitude" id="latitude">
+    <input type="hidden" name="longitude" id="longitude">
+
+    <button type="button" onclick="getLocation()">Use My Location</button>
+
+    <br><br>
+
+    <button type="submit">Submit Request</button>
+</form>
+
+<script>
+function getLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            document.getElementById("latitude").value = position.coords.latitude;
+            document.getElementById("longitude").value = position.coords.longitude;
+            alert("Location captured successfully!");
+        }, function() {
+            alert("Unable to retrieve location.");
+        });
+    } else {
+        alert("Geolocation not supported.");
+    }
+}
+</script>
+
+{% endblock %}

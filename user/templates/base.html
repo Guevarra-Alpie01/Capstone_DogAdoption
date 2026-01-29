@@ -45,9 +45,12 @@
                         <li><a href="#" class="dropdown-item">Settings</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
-                            <a href="{% url 'user:login' %}" class="dropdown-item text-danger">
-                                Log out
-                            </a>
+<form method="post" action="{% url 'user:logout' %}">
+    {% csrf_token %}
+    <button type="submit" class="dropdown-item text-danger">
+        Log out
+    </button>
+</form>
                         </li>
                     </ul>
                 </div>
@@ -90,7 +93,7 @@
         </a>
 
         {% if user.is_authenticated %}
-            <a href="#" class="nav-link text-center">
+            <a href="{% url 'user:dog_capture_request' %}" class="nav-link text-center">
                 <i class="bi bi-send-fill"></i><br>
                 <small>Request</small>
             </a>

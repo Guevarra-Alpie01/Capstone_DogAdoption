@@ -4,35 +4,57 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/user_home.css' %}">
 
-<div class="container">
-    <h1>🐾 Dog Adoption Posts</h1>
+<div class="home-content container">
 
     {% for post in posts %}
-        <div class="post">
-            <div class="post-header">
-                {{ post.user.username }}
-            </div>
+    <div class="card mb-4 shadow-sm post-card">
 
-            <div class="post-time">
-                {{ post.created_at|date:"M d, Y • h:i A" }}
-            </div>
+        <!-- Main Image -->
+        {% with post.images.first as main_image %}
+            {% if main_image %}
+                <img src="{{ main_image.image.url }}" class="card-img-top main-img">
+            {% endif %}
+        {% endwith %}
+
+        <div class="card-body">
+
+            <h5 class="card-title">Dog for Adoption 🐾</h5>
+            <p class="card-text">{{ post.caption }}</p>
 
             {% if post.location %}
-                <div class="post-location">
-                    📍 {{ post.location }}
-                </div>
+                <small>📍 {{ post.location }}</small><br>
             {% endif %}
 
-            <p>{{ post.caption }}</p>
+            <!-- View More Button -->
+            {% if post.images.count > 1 %}
+            <button class="btn btn-link view-more-btn" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#gallery-{{ post.id }}">
+                View more photos
+            </button>
 
-            <div class="post-images">
-                {% for image in post.images.all %}
-                    <img src="{{ image.image.url }}" alt="Dog image">
+            <div class="collapse gallery mt-2" id="gallery-{{ post.id }}">
+                {% for image in post.images.all|slice:"1:" %}
+                    <img src="{{ image.image.url }}" class="gallery-img">
                 {% endfor %}
             </div>
+            {% endif %}
+
+            <hr>
+
+            <!-- Action Buttons -->
+            <div class="d-flex gap-2">
+                <a href="{% url 'user:claim' %}" class="btn btn-outline-warning btn-sm">
+                    Claim
+                </a>
+                <a href="{% url 'user:adopt' %}" class="btn btn-success btn-sm">
+                    Adopt
+                </a>
+            </div>
         </div>
+    </div>
     {% empty %}
-        <p>No adoption posts yet 🐶</p>
+    <p>No dogs available for adoption yet 🐶</p>
     {% endfor %}
+
 </div>
 {% endblock %}

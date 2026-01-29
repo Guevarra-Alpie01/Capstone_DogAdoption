@@ -1,0 +1,67 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/admin_requests.css' %}">
+
+<div class="container">
+    <h1>🐕 Dog Capture Requests</h1>
+
+    {% if requests %}
+        {% for req in requests %}
+            <div class="request-card">
+                <div class="request-header">
+                    <strong>Requested by:</strong> {{ req.requested_by.username }}
+                    <span class="date">
+                        {{ req.created_at|date:"M d, Y • h:i A" }}
+                    </span>
+                </div>
+
+                <p>
+                    <strong>Reason:</strong>
+                    {{ req.get_reason_display }}
+                </p>
+
+                {% if req.description %}
+                    <p>
+                        <strong>Details:</strong><br>
+                        {{ req.description }}
+                    </p>
+                {% endif %}
+
+                {% if req.image %}
+                    <div class="request-image">
+                        <img src="{{ req.image.url }}" alt="Dog image">
+                    </div>
+                {% endif %}
+
+                {% if req.latitude and req.longitude %}
+                    <p>
+                        <strong>Location:</strong>
+                        <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}"
+                           target="_blank">
+                            View on Map 📍
+                        </a>
+                    </p>
+                {% else %}
+                    <p><em>No location provided</em></p>
+                {% endif %}
+
+                {% if req.assigned_admin %}
+                    <p>
+                        <strong>Assigned to:</strong>
+                        {{ req.assigned_admin.username }}
+                    </p>
+                {% else %}
+                    <p class="unassigned">
+                        ⚠️ Not assigned yet
+                    </p>
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>No capture requests yet.</p>
+    {% endif %}
+</div>
+
+{% endblock %}

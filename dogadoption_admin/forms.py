@@ -7,5 +7,3 @@ class PostForm(forms.ModelForm):
         fields = ['caption', 'location']
 
 
-class ImageForm(forms.Form):
-    images = forms.ImageField(required=True)

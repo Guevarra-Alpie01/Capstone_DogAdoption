@@ -1,19 +1,29 @@
-from django.shortcuts import render,redirect, get_object_or_404
-from django.conf import settings
+from django.shortcuts import render, redirect
 from django.contrib import messages
-from dogadoption_admin .models import Post
-from django.contrib.auth.models import User
 from django.contrib.auth import login, logout, authenticate
-from .models import Profile 
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+
+from dogadoption_admin.models import Post
+from .models import Profile, DogCaptureRequest
 
 
-# this is for the navigations
-def sidebar(request):
-    return render (request, 'sidebar.html')
+# =========================
+# USER-ONLY DECORATOR
+# =========================
+def user_only(view_func):
+    @login_required(login_url='user:login')
+    def _wrapped_view(request, *args, **kwargs):
+        if request.user.is_staff:
+            messages.error(request, "Admins cannot access user pages.")
+            return redirect('dogadoption_admin:admin_dashboard')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
 
-def base(request):
-    return render (request, 'base.html')
 
+# =========================
+# AUTH VIEWS (USER)
+# =========================
 def login_view(request):
     if request.method == "POST":
         username = request.POST.get("username")
@@ -22,12 +32,18 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
+            #  Prevent admins from logging in here
+            if user.is_staff:
+                return render(request, "login.html", {
+                    "error": "Please login through the admin portal."
+                })
+
             login(request, user)
-            return redirect("user:base")  # redirect after login
-        else:
-            return render(request, "login.html", {
-                "error": "Invalid username or password"
-            })
+            return redirect("user:user_home")
+
+        return render(request, "login.html", {
+            "error": "Invalid username or password"
+        })
 
     return render(request, "login.html")
 
@@ -43,7 +59,6 @@ def signup_view(request):
         address = request.POST.get("address")
         age = request.POST.get("age")
 
-        # Prevent duplicate usernames
         if User.objects.filter(username=username).exists():
             return render(request, "signup.html", {
                 "error": "Username already exists"
@@ -63,39 +78,51 @@ def signup_view(request):
             age=age
         )
 
-        login(request, user)  # auto-login after signup
+        login(request, user)
         return redirect("user:user_home")
 
     return render(request, "signup.html")
 
 
-def navigation(request):
-    return render (request, 'firstnavigation.html')
+# =========================
+# USER PAGES
+# =========================
 
-
-#navigation links / home views
 def user_home(request):
     posts = Post.objects.all().order_by('-created_at')
     return render(request, 'home/user_home.html', {
         'posts': posts
     })
 
-    
-#navigation links / request views
-def user_request(request):
-    return render (request, 'request/request.html')
+
+@user_only
+def request_dog_capture(request):
+    if request.method == 'POST':
+        DogCaptureRequest.objects.create(
+            requested_by=request.user,
+            reason=request.POST.get('reason'),
+            description=request.POST.get('description'),
+            latitude=request.POST.get('latitude') or None,
+            longitude=request.POST.get('longitude') or None,
+            image=request.FILES.get('image')
+        )
+
+        messages.success(request, "Request submitted successfully.")
+        return redirect('user:dog_capture_request')
+
+    return render(request, 'request/request.html')
 
 
-#navigation links / claim views
+@user_only
 def claim(request):
-    return render (request, 'claim/claim.html')
+    return render(request, 'claim/claim.html')
 
-#navigation links/ adopt views
+
+@user_only
 def adopt(request):
-    return render (request, 'adopt/adopt.html')
+    return render(request, 'adopt/adopt.html')
 
-#navigation links / announcement views
+
+@user_only
 def announcement(request):
-    return render (request, 'announcement/announcement.html')
-
-
+    return render(request, 'announcement/announcement.html')

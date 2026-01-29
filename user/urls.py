@@ -1,22 +1,21 @@
 from django.contrib import admin
 from django.urls import path
 from . import views
+from django.contrib.auth import views as auth_views
 
 app_name="user"
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('base/', views.base, name="base"),
-    path('sidebar/',views.sidebar, name="sidebar"),
-    path('login/', views.login_view, name="login"),
+    path('user-login/', views.login_view, name="login"),
+    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('sign-up/', views.signup_view, name="signup"),
-    path('navigation/', views.navigation, name="firstnavigation"),
 
     #navigation links/ home  urls
     path('',views.user_home, name="user_home"),
 
     #navigation links/ request  urls
-    path('request/', views.user_request, name="request"),
+     path('request/', views.request_dog_capture, name='dog_capture_request'),
 
     #navigation links/ claim  urls
     path('claim/', views.claim, name="claim"),

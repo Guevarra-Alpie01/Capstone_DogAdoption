@@ -1,68 +1,71 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.conf import settings
+from dogadoption_admin.models import Post
 
 
 #users profile for sign up
+class FaceImage(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    image = models.ImageField(upload_to="face_auth/")
+    created_at = models.DateTimeField(auto_now_add=True)
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-
     middle_initial = models.CharField(max_length=1, blank=True)
     address = models.TextField()
-    age = models.PositiveIntegerField()
-
-    def __str__(self):
-        return self.user.username
+    age = models.IntegerField()
+    consent_given = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
     
 #request dog capture
 class DogCaptureRequest(models.Model):
-    CAPTURE_CHOICES = [
-        ('biting', 'Dog is biting people'),
-        ('aggressive', 'Dog is aggressive'),
-        ('injured', 'Dog is injured'),
-        ('sick', 'Dog looks sick'),
-        ('stray', 'Stray dog'),
-        ('other', 'Other'),
-    ]
 
-    requested_by = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='dog_requests'
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('declined', 'Declined'),
     )
 
+    requested_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='dog_requests')
     assigned_admin = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='assigned_requests',
-        limit_choices_to={'is_staff': True}
+        User, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='assigned_captures'
     )
 
-    reason = models.CharField(max_length=50, choices=CAPTURE_CHOICES)
-    description = models.TextField(blank=True)
+    reason = models.CharField(max_length=50)
+    description = models.TextField(blank=True, null=True)
 
-    image = models.ImageField(
-        upload_to='dog_requests/',
-        null=True,
-        blank=True
-    )
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
 
-    latitude = models.DecimalField(
-        max_digits=9,
-        decimal_places=6,
-        null=True,
-        blank=True
-    )
+    image = models.ImageField(upload_to='dog_requests/', null=True, blank=True)
 
-    longitude = models.DecimalField(
-        max_digits=9,
-        decimal_places=6,
-        null=True,
-        blank=True
-    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    scheduled_date = models.DateTimeField(null=True, blank=True)
+    admin_message = models.TextField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.reason} - {self.requested_by.username}"
+        return f"{self.requested_by} - {self.reason} ({self.status})"
+    
+
+class AdoptionRequest(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('declined', 'Declined'),
+    )
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='adoption_requests')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    requested_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'post')  # user can request once
+
+    def __str__(self):
+        return f"{self.user} - {self.post} ({self.status})"

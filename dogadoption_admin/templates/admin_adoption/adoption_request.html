@@ -1,0 +1,19 @@
+<h2>Adoption Requests 🐾</h2>
+<p><strong>{{ post.caption }}</strong></p>
+
+{% for req in requests %}
+<div class="card p-3 mb-2">
+    <p>User: <strong>{{ req.user.username }}</strong></p>
+    <p>Status: {{ req.status }}</p>
+
+    {% if req.status == 'pending' %}
+        <a href="{% url 'dogadoption_admin:update_request' req.id 'accept' %}"
+           class="btn btn-success btn-sm">Accept</a>
+
+        <a href="{% url 'dogadoption_admin:update_request' req.id 'decline' %}"
+           class="btn btn-danger btn-sm">Decline</a>
+    {% endif %}
+</div>
+{% empty %}
+<p>No adoption requests yet.</p>
+{% endfor %}

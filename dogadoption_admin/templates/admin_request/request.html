@@ -9,59 +9,80 @@
 
     {% if requests %}
         {% for req in requests %}
-            <div class="request-card">
-                <div class="request-header">
-                    <strong>Requested by:</strong> {{ req.requested_by.username }}
-                    <span class="date">
-                        {{ req.created_at|date:"M d, Y • h:i A" }}
-                    </span>
-                </div>
+    <div class="request-card">
 
-                <p>
-                    <strong>Reason:</strong>
-                    {{ req.get_reason_display }}
-                </p>
+        <div class="request-header">
+            <strong>Requested by:</strong> {{ req.requested_by.username }}
+            <span class="date">
+                {{ req.created_at|date:"M d, Y • h:i A" }}
+            </span>
+        </div>
 
-                {% if req.description %}
-                    <p>
-                        <strong>Details:</strong><br>
-                        {{ req.description }}
-                    </p>
-                {% endif %}
+        <p>
+            <strong>Reason:</strong>
+            {{ req.get_reason_display }}
+        </p>
 
-                {% if req.image %}
-                    <div class="request-image">
-                        <img src="{{ req.image.url }}" alt="Dog image">
-                    </div>
-                {% endif %}
+        {% if req.description %}
+            <p><strong>Details:</strong><br>{{ req.description }}</p>
+        {% endif %}
 
-                {% if req.latitude and req.longitude %}
-                    <p>
-                        <strong>Location:</strong>
-                        <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}"
-                           target="_blank">
-                            View on Map 📍
-                        </a>
-                    </p>
-                {% else %}
-                    <p><em>No location provided</em></p>
-                {% endif %}
-
-                {% if req.assigned_admin %}
-                    <p>
-                        <strong>Assigned to:</strong>
-                        {{ req.assigned_admin.username }}
-                    </p>
-                {% else %}
-                    <p class="unassigned">
-                        ⚠️ Not assigned yet
-                    </p>
-                {% endif %}
+        {% if req.image %}
+            <div class="request-image">
+                <img src="{{ req.image.url }}" alt="Dog image">
             </div>
-        {% endfor %}
+        {% endif %}
+
+        {% if req.latitude and req.longitude %}
+            <p>
+                <strong>Location:</strong>
+                <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}"
+                   target="_blank">
+                    View on Map 📍
+                </a>
+            </p>
+        {% else %}
+            <p><em>No location provided</em></p>
+        {% endif %}
+
+        {% if req.assigned_admin %}
+            <p>
+                <strong>Assigned to:</strong>
+                {{ req.assigned_admin.username }}
+            </p>
+        {% else %}
+            <p class="unassigned">⚠️ Not assigned yet</p>
+        {% endif %}
+
+        <!-- ✅ STATUS + BUTTON -->
+        <hr>
+
+        {% if req.status == 'pending' %}
+            <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}"
+               class="btn btn-primary">
+                Review Request
+            </a>
+        {% else %}
+            <p>
+                <strong>Status:</strong>
+                {{ req.get_status_display }}
+            </p>
+
+            {% if req.scheduled_date %}
+                <p>
+                    <strong>Scheduled:</strong>
+                    {{ req.scheduled_date|date:"M d, Y • h:i A" }}
+                </p>
+            {% endif %}
+        {% endif %}
+
+    </div>
+{% endfor %}
+
     {% else %}
         <p>No capture requests yet.</p>
     {% endif %}
+
 </div>
 
 {% endblock %}

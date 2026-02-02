@@ -1,11 +1,11 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect , get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-
+from django.views.decorators.csrf import csrf_exempt
 from dogadoption_admin.models import Post
-from .models import Profile, DogCaptureRequest
+from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage
 
 
 # =========================
@@ -51,38 +51,140 @@ def login_view(request):
 def signup_view(request):
     if request.method == "POST":
         username = request.POST.get("username")
-        password = request.POST.get("password")
-        first_name = request.POST.get("first_name")
-        last_name = request.POST.get("last_name")
-
-        middle_initial = request.POST.get("middle_initial")
-        address = request.POST.get("address")
-        age = request.POST.get("age")
 
         if User.objects.filter(username=username).exists():
             return render(request, "signup.html", {
                 "error": "Username already exists"
             })
 
-        user = User.objects.create_user(
-            username=username,
-            password=password,
-            first_name=first_name,
-            last_name=last_name
-        )
+        # SAVE DATA TEMPORARILY (SESSION)
+        request.session["signup_data"] = {
+            "username": username,
+            "password": request.POST.get("password"),
+            "first_name": request.POST.get("first_name"),
+            "last_name": request.POST.get("last_name"),
+            "middle_initial": request.POST.get("middle_initial"),
+            "address": request.POST.get("address"),
+            "age": request.POST.get("age"),
+        }
 
-        Profile.objects.create(
-            user=user,
-            middle_initial=middle_initial,
-            address=address,
-            age=age
-        )
-
-        login(request, user)
-        return redirect("user:user_home")
+        # GO TO FACE AUTH STEP
+        return redirect("user:face_auth")
 
     return render(request, "signup.html")
 
+
+import os
+import json
+import base64
+from django.shortcuts import render, redirect
+from django.contrib.auth import login
+from django.contrib.auth.models import User
+from django.http import JsonResponse
+from django.core.files.base import ContentFile
+from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+def face_auth(request):
+    if "signup_data" not in request.session:
+        return redirect("user:signup")
+    return render(request, "face_auth.html")
+
+
+# ------------------------
+# Step 2: Save Face Images
+# ------------------------
+@csrf_exempt
+def save_face(request):
+    if request.method != "POST":
+        return JsonResponse({"status": "error"}, status=400)
+
+    if "signup_data" not in request.session:
+        return JsonResponse({"status": "error", "message": "Signup step missing"}, status=400)
+
+    data = json.loads(request.body)
+    images = data.get("images", [])
+
+    if not images or len(images) < 3:
+        return JsonResponse({"status": "error", "message": "At least 3 images required"}, status=400)
+
+    temp_dir = os.path.join(settings.MEDIA_ROOT, "temp_faces")
+    os.makedirs(temp_dir, exist_ok=True)
+    saved_files = []
+
+    for idx, img_data in enumerate(images):
+        if ";base64," not in img_data:
+            continue
+        format, imgstr = img_data.split(";base64,")
+        filename = f"{request.session['signup_data']['username']}_{idx}.png"
+        filepath = os.path.join(temp_dir, filename)
+        with open(filepath, "wb") as f:
+            f.write(base64.b64decode(imgstr))
+        saved_files.append(f"temp_faces/{filename}")
+
+    request.session["face_images_files"] = saved_files
+    return JsonResponse({"status": "ok"})
+
+
+# ------------------------
+# Step 3: Consent Page
+# ------------------------
+def consent_view(request):
+    if "signup_data" not in request.session or "face_images_files" not in request.session:
+        return redirect("user:signup")
+
+    if request.method == "POST":
+        return redirect("user:signup_complete")
+
+    return render(request, "consent.html")
+
+
+# ------------------------
+# Step 4: Signup Complete
+# ------------------------
+def signup_complete(request):
+    if "signup_data" not in request.session or "face_images_files" not in request.session:
+        return redirect("user:signup")
+
+    data = request.session["signup_data"]
+    images_files = request.session["face_images_files"]
+
+    # Create user
+    user = User.objects.create_user(
+        username=data["username"],
+        password=data["password"],
+        first_name=data["first_name"],
+        last_name=data["last_name"]
+    )
+
+    # Create profile
+    profile = Profile.objects.create(
+        user=user,
+        middle_initial=data["middle_initial"],
+        address=data["address"],
+        age=data["age"],
+        consent_given=True
+    )
+
+    # Move temp images into FaceImage model
+    for path in images_files:
+        full_path = os.path.join(settings.MEDIA_ROOT, path)
+        with open(full_path, "rb") as f:
+            FaceImage.objects.create(
+                user=user,
+                image=ContentFile(f.read(), name=os.path.basename(path))
+            )
+        # Remove temp file
+        os.remove(full_path)
+
+    # Clear session
+    request.session.pop("signup_data", None)
+    request.session.pop("face_images_files", None)
+
+    # Login user
+    login(request, user)
+    return redirect("user:login")
 
 # =========================
 # USER PAGES
@@ -106,11 +208,19 @@ def request_dog_capture(request):
             longitude=request.POST.get('longitude') or None,
             image=request.FILES.get('image')
         )
-
         messages.success(request, "Request submitted successfully.")
-        return redirect('user:dog_capture_request')
 
-    return render(request, 'request/request.html')
+    requests = DogCaptureRequest.objects.filter(
+        requested_by=request.user
+    ).order_by('-created_at')
+
+    return render(request, 'user_request/request.html', {
+        'requests': requests
+    })
+
+
+
+
 
 
 @user_only
@@ -119,10 +229,25 @@ def claim(request):
 
 
 @user_only
-def adopt(request):
-    return render(request, 'adopt/adopt.html')
+def adopt_request(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+
+    AdoptionRequest.objects.get_or_create(
+        user=request.user,
+        post=post
+    )
+
+    messages.success(request, "Adoption request sent 🐾")
+    return redirect('user:adopt_status')
+
+@user_only
+def adopt_status(request):
+    requests = AdoptionRequest.objects.filter(user=request.user).select_related('post')
+    return render(request, 'adopt/adopt.html', {'requests': requests})
 
 
 @user_only
 def announcement(request):
     return render(request, 'announcement/announcement.html')
+
+

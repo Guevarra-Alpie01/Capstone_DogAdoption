@@ -1,12 +1,13 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 from .models import Post, PostImage
 from .forms import PostForm
-from user.models import DogCaptureRequest
+from user.models import DogCaptureRequest, AdoptionRequest
 
 
 # =========================
@@ -105,5 +106,62 @@ def admin_dog_capture_requests(request):
     ).order_by('-created_at')
 
     return render(request, 'admin_request/request.html', {
+        'requests': requests
+    })
+
+
+
+@admin_required
+def update_dog_capture_request(request, pk):
+    req = get_object_or_404(DogCaptureRequest, pk=pk)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'accept':
+            req.status = 'accepted'
+            req.assigned_admin = request.user
+            req.scheduled_date = request.POST.get('scheduled_date')
+            req.admin_message = request.POST.get('admin_message')
+            req.save()
+
+            messages.success(request, "Request accepted and scheduled.")
+
+        elif action == 'decline':
+            req.status = 'declined'
+            req.admin_message = request.POST.get('admin_message')
+            req.assigned_admin = request.user
+            req.save()
+
+            messages.warning(request, "Request declined.")
+
+        return redirect('dogadoption_admin:requests')
+
+    return render(request, 'admin_request/update_request.html', {
+        'req': req
+    })
+
+
+#Request
+@admin_required
+def update_request(request, req_id, action):
+    req = get_object_or_404(AdoptionRequest, id=req_id)
+
+    if action == 'accept':
+        req.status = 'accepted'
+    elif action == 'decline':
+        req.status = 'declined'
+
+    req.save()
+    return redirect('dogadoption_admin:adoption_requests', req.post.id)
+
+
+#adoption
+@admin_required
+def adoption_requests(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+    requests = post.adoption_requests.select_related('user')
+    return render(request, 'admin_adoption/adoption_request.html', {
+        'post': post,
         'requests': requests
     })

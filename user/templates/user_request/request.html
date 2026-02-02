@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/user_request.css' %}">
+
+<div class="container">
+
+    <!-- 🐕 REQUEST FORM -->
+    <div class="card">
+        <h2>🐕 Request Dog Capture</h2>
+
+        <form method="POST" enctype="multipart/form-data" class="capture-form">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label>Reason for Capture</label>
+                <select name="reason" required>
+                    <option value="">-- Select --</option>
+                    <option value="biting">Dog is biting people</option>
+                    <option value="aggressive">Dog is aggressive</option>
+                    <option value="injured">Dog is injured</option>
+                    <option value="sick">Dog looks sick</option>
+                    <option value="stray">Stray dog</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Additional Details</label>
+                <textarea name="description" placeholder="Extra details..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Upload Picture</label>
+                <input type="file" name="image" accept="image/*">
+            </div>
+
+            <input type="hidden" name="latitude" id="latitude">
+            <input type="hidden" name="longitude" id="longitude">
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="getLocation()">
+                    📍 Use My Location
+                </button>
+                <button type="submit" class="btn-primary">
+                    Submit Request
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 📋 MY REQUESTS -->
+    <div class="card">
+        <h2>📋 My Requests</h2>
+
+        {% for req in requests %}
+            <div class="request-card {{ req.status }}">
+                <div class="request-header">
+                    <strong>{{ req.get_reason_display }}</strong>
+                    <span class="status-badge {{ req.status }}">
+                        {{ req.get_status_display }}
+                    </span>
+                </div>
+
+                {% if req.status == 'accepted' %}
+                    <p>
+                        ✅ Scheduled:
+                        <strong>{{ req.scheduled_date|date:"M d, Y • h:i A" }}</strong>
+                    </p>
+                {% elif req.status == 'declined' %}
+                    <p>❌ Request Declined</p>
+                {% else %}
+                    <p>⏳ Waiting for admin verification</p>
+                {% endif %}
+
+                {% if req.admin_message %}
+                    <p class="admin-note">
+                        <strong>Admin:</strong> {{ req.admin_message }}
+                    </p>
+                {% endif %}
+            </div>
+        {% empty %}
+            <p>No requests yet.</p>
+        {% endfor %}
+    </div>
+
+</div>
+
+<script>
+function getLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            document.getElementById("latitude").value = position.coords.latitude;
+            document.getElementById("longitude").value = position.coords.longitude;
+            alert("Location captured successfully!");
+        }, function() {
+            alert("Unable to retrieve location.");
+        });
+    } else {
+        alert("Geolocation not supported.");
+    }
+}
+</script>
+
+{% endblock %}

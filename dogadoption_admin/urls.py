@@ -20,5 +20,13 @@ urlpatterns = [
     path('create/', views.create_post, name='create_post'),
 
     # Dog capture requests
-    path('dog-capture-requests/', views.admin_dog_capture_requests, name='requests'),
+    path('dog-capture/requests/',views.admin_dog_capture_requests,name='requests'),
+    path('dog-capture/request/<int:pk>/update/',views.update_dog_capture_request,name='update_dog_capture_request'),
+
+
+    # admin/urls.py
+    path('post/<int:post_id>/requests/', views.adoption_requests, name='adoption_requests'),
+    path('request/<int:req_id>/<str:action>/', views.update_request, name='update_request'),
+
+
 ]

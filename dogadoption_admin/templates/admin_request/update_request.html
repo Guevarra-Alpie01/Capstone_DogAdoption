@@ -1,0 +1,26 @@
+<h2>Dog Capture Request</h2>
+
+<p><strong>User:</strong> {{ req.requested_by.username }}</p>
+<p><strong>Reason:</strong> {{ req.get_reason_display }}</p>
+
+<form method="POST">
+    {% csrf_token %}
+
+    <label>Admin Message (optional)</label><br>
+    <textarea name="admin_message"></textarea>
+
+    <br><br>
+
+    <label>Schedule Date (only if accepting)</label><br>
+    <input type="datetime-local" name="scheduled_date">
+
+    <br><br>
+
+    <button type="submit" name="action" value="accept">
+        ✅ Accept & Schedule
+    </button>
+
+    <button type="submit" name="action" value="decline">
+        ❌ Decline
+    </button>
+</form>

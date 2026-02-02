@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<h2>Face Verification</h2>
+<p>Please look at the camera and turn your head slowly. Capture at least 3 images.</p>
+
+<video id="video" autoplay playsinline></video>
+<canvas id="canvas" style="display:none;"></canvas>
+
+<div class="mt-2">
+    <button id="capture" class="btn btn-primary">Capture</button>
+    <button id="next" class="btn btn-success" disabled>Next</button>
+</div>
+
+<form id="csrf-form" style="display:none;">
+    {% csrf_token %}
+</form>
+
+<script>
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const captureBtn = document.getElementById("capture");
+const nextBtn = document.getElementById("next");
+
+// CSRF token
+const csrftoken = document.querySelector('#csrf-form input[name="csrfmiddlewaretoken"]').value;
+
+let images = [];
+
+// Start camera
+navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => {
+        video.srcObject = stream;
+    })
+    .catch(err => {
+        alert("Camera access denied: " + err);
+    });
+
+// Capture face
+captureBtn.addEventListener("click", () => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    images.push(canvas.toDataURL("image/png"));
+
+    alert(`Captured ${images.length} / 3 images`);
+
+    if (images.length >= 3) {
+        nextBtn.disabled = false;
+    }
+});
+
+// Submit images
+nextBtn.addEventListener("click", () => {
+    if (images.length < 3) {
+        alert("Please capture at least 3 images.");
+        return;
+    }
+
+    fetch("{% url 'user:save_face' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrftoken
+        },
+        body: JSON.stringify({ images: images })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === "ok") {
+            window.location.href = "{% url 'user:consent' %}";
+        } else {
+            alert("Failed to save face data. Try again.");
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Error uploading images.");
+    });
+});
+</script>
+{% endblock %}

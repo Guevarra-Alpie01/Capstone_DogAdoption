@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h2 class="mb-4">🐾 My Dog Claims</h2>
+
+    {% for claim in claims %}
+        <div class="card mb-3 shadow-sm p-3">
+
+            <h5 class="mb-1">🐕 {{ claim.post.caption }}</h5>
+
+            {% if claim.post.location %}
+                <small class="text-muted">📍 {{ claim.post.location }}</small><br>
+            {% endif %}
+
+            <small class="text-muted">
+                🗓 Submitted on {{ claim.submitted_at|date:"M d, Y" }}
+            </small>
+
+            <hr>
+
+            <p class="mb-1">
+                <strong>Status:</strong>
+                {% if claim.status == 'pending' %}
+                    <span class="text-warning fw-semibold">
+                        Pending ⏳
+                    </span>
+                {% elif claim.status == 'approved' %}
+                    <span class="text-success fw-semibold">
+                        Approved ✅
+                    </span>
+                {% else %}
+                    <span class="text-danger fw-semibold">
+                        Rejected ❌
+                    </span>
+                {% endif %}
+            </p>
+
+            {% if claim.explanation %}
+                <p class="mt-2">
+                    <strong>Your Explanation:</strong><br>
+                    {{ claim.explanation|truncatewords:30 }}
+                </p>
+            {% endif %}
+
+            {% if claim.images.exists %}
+                <p class="mt-2 mb-1"><strong>📸 Submitted Photos:</strong></p>
+                <div class="d-flex gap-2 flex-wrap">
+                    {% for img in claim.images.all %}
+                        <img src="{{ img.image.url }}"
+                             width="100"
+                             height="100"
+                             style="object-fit:cover;border-radius:6px;">
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+        </div>
+
+    {% empty %}
+        <p class="text-muted">
+            You haven’t submitted any claims yet 🐶
+        </p>
+    {% endfor %}
+
+</div>
+{% endblock %}

@@ -69,3 +69,33 @@ class AdoptionRequest(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.post} ({self.status})"
+    
+
+class OwnerClaim(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    )
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='claims')
+
+    explanation = models.TextField(blank=True)
+    last_known_location = models.CharField(max_length=255, blank=True)
+
+    face_verified = models.BooleanField(default=False)
+
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user} - {self.post} ({self.status})"
+
+class ClaimImage(models.Model):
+    claim = models.ForeignKey(
+        OwnerClaim,
+        on_delete=models.CASCADE,
+        related_name='images'
+    )
+    image = models.ImageField(upload_to='claim_proofs/')

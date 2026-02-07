@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from dogadoption_admin.models import Post
-from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage
+from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
 
 from django.db.models import Q
 
@@ -274,3 +274,45 @@ def announcement(request):
     return render(request, 'announcement/announcement.html')
 
 
+
+#CLAIM PAGE
+
+@user_only
+def my_claims(request):
+    claims = OwnerClaim.objects.filter(
+        user=request.user
+    ).select_related('post').order_by('-submitted_at')
+
+    return render(request, 'claim/claim.html', {
+        'claims': claims
+    })
+
+
+@user_only
+def claim_confirm(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+
+    if OwnerClaim.objects.filter(user=request.user, post=post).exists():
+        messages.info(request, "You already submitted a claim for this dog.")
+        return redirect('user:user_home')
+
+    if request.method == 'POST':
+        claim = OwnerClaim.objects.create(
+            user=request.user,
+            post=post,
+            explanation=request.POST.get('explanation', ''),
+            last_known_location=request.POST.get('last_known_location', ''),
+        )
+
+        for img in request.FILES.getlist('images'):
+            ClaimImage.objects.create(claim=claim, image=img)
+
+        messages.success(
+            request,
+            "Claim submitted successfully. Admin will review it carefully 🐾"
+        )
+        return redirect('user:user_home')
+
+    return render(request, 'claim/claim_confirm.html', {
+        'post': post
+    })

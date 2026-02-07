@@ -21,7 +21,8 @@ urlpatterns = [
     path('request/', views.request_dog_capture, name='dog_capture_request'),
 
     #navigation links/ claim  urls
-    path('claim/', views.claim, name="claim"),
+    path('my-claims/', views.my_claims, name='my_claims'),
+    path('claim/<int:post_id>/', views.claim_confirm, name='claim_confirm'),
 
     #navigation links/ adopt  urls
     path('adopt/<int:post_id>/', views.adopt_confirm, name='adopt_confirm'),

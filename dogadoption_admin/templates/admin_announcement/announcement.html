@@ -1,0 +1,100 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/create_announcement.css' %}">
+{% if request.user.is_staff %}
+<div class="create-announcement-bar">
+    <a href="{% url 'dogadoption_admin:announcement_create' %}" class="create-btn">
+        ➕ Create Announcement
+    </a>
+</div>
+{% endif %}
+
+<div class="announcement-feed">
+    {% for post in announcements %}
+    <div class="card">
+        
+        <div class="card-header">
+            <div class="avatar">🐾</div>
+            <div class="meta">
+                <span class="admin-name">Admin Announcement</span>
+                <span class="timestamp">{{ post.created_at|timesince }} ago</span>
+            </div>
+        </div>
+
+        {% if post.post_type == 'COLOR' or post.post_type == 'IMAGE_BG' %}
+       <div class="hero-body {% if post.post_type == 'IMAGE_BG' %}has-bg{% endif %}" 
+            style=" {% if post.post_type == 'IMAGE_BG' and post.background_image %}background-image:url('{{ post.background_image.url }}');
+            
+            {% else %}
+                background-color:{{ post.background_color|default:'#4f46e5' }};
+            {% endif %}">
+    
+    <div class="hero-overlay">
+        <h2 class="hero-text">{{ post.content }}</h2>
+    </div>
+</div>
+        {% endif %}
+
+        {% if post.post_type == 'PHOTO' %}
+        <div class="photo-body">
+            <p class="caption">{{ post.content }}</p>
+            {% if post.background_image %}
+                <img src="{{ post.background_image.url }}" alt="Announcement Photo" class="main-photo">
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if post.schedule_data %}
+        <div class="schedule-section">
+            <h4 class="schedule-title">📅 Dog Activity Schedule</h4>
+            <div class="schedule-list">
+                {% for item in post.schedule_data %}
+                <div class="schedule-row">
+                    <span class="time">{{ item.time }}</span>
+                    <span class="task">{{ item.task }}</span>
+                </div>
+                {% empty %}
+                <p>No activities scheduled.</p>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card-footer">
+
+    <!-- LIKE -->
+    <form method="POST" action="{% url 'dogadoption_admin:announcement_like' post.id %}">
+        {% csrf_token %}
+        <button class="footer-btn">
+            👍 Like ({{ post.likes.count }})
+        </button>
+    </form>
+
+    <!-- COMMENT -->
+    <form method="POST" action="{% url 'dogadoption_admin:announcement_comment' post.id %}">
+        {% csrf_token %}
+        <input type="text" name="comment" placeholder="Write a comment..." required>
+        <button class="footer-btn">💬 Comment</button>
+    </form>
+
+    </div>
+    <div class="comments-section">
+    {% for comment in post.comments.all %}
+        <p>
+            <strong>{{ comment.user.username }}</strong>:
+            {{ comment.comment }}
+        </p>
+    {% empty %}
+        <p>No comments yet.</p>
+    {% endfor %}
+</div>
+
+
+    </div>
+    {% empty %}
+    <p class="no-posts">No announcements yet.</p>
+    {% endfor %}
+</div>
+{% endblock %}

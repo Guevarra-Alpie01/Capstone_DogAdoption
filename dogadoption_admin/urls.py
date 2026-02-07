@@ -23,5 +23,11 @@ urlpatterns = [
     path('post/<int:post_id>/requests/', views.adoption_requests, name='adoption_requests'),
     path('request/<int:req_id>/<str:action>/', views.update_request, name='update_request'),
 
+    #announcement
+    path('admin/announcements/', views.announcement_list, name='admin_announcements'),
+    path("announcement/create/", views.announcement_create, name="announcement_create"),
+    path("like/<int:post_id>/", views.announcement_like, name="announcement_like"),
+    path("comment/<int:post_id>/", views.announcement_comment, name="announcement_comment"),
+
 
 ]

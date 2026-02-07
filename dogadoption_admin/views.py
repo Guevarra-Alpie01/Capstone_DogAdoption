@@ -4,8 +4,8 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.utils import timezone
-
-from .models import Post, PostImage
+import json
+from .models import Post, PostImage , DogAnnouncement, AnnouncementLike, AnnouncementComment
 from .forms import PostForm
 from user.models import DogCaptureRequest, AdoptionRequest
 
@@ -157,3 +157,44 @@ def adoption_requests(request, post_id):
         'post': post,
         'requests': requests
     })
+
+
+#announcement
+def announcement_list(request):
+    posts = DogAnnouncement.objects.all().order_by('-created_at')
+    return render(request, 'admin_announcement/announcement.html', {
+        'announcements': posts
+    })
+
+def announcement_create(request):
+    if request.method == "POST":
+        DogAnnouncement.objects.create(
+            content=request.POST.get("content"),
+            post_type=request.POST.get("post_type"),
+            background_color=request.POST.get("background_color"),
+            background_image=request.FILES.get("background_image"),
+            created_by=request.user
+        )
+        return redirect("dogadoption_admin:admin_announcements")
+
+    return render(request, "admin_announcement/create_announcement.html")
+
+
+@login_required
+def announcement_like(request, post_id):
+    post = DogAnnouncement.objects.get(id=post_id)
+    AnnouncementLike.objects.get_or_create(
+        announcement=post,
+        user=request.user
+    )
+    return redirect("dogadoption_admin:admin_announcements")
+
+@login_required
+def announcement_comment(request, post_id):
+    if request.method == "POST":
+        AnnouncementComment.objects.create(
+            announcement_id=post_id,
+            user=request.user,
+            comment=request.POST.get("comment")
+        )
+    return redirect("dogadoption_admin:announcement_list")

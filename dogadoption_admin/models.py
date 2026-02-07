@@ -59,3 +59,54 @@ class PostImage(models.Model):
     def __str__(self):
         return f"Image for post {self.post.id}"
 
+
+class DogAnnouncement(models.Model):
+    POST_TYPES = [
+        ('COLOR', 'Plain Color with Text'),
+        ('IMAGE_BG', 'Image Background with Text'),
+        ('PHOTO', 'Standard Photo Post'),
+    ]
+
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    post_type = models.CharField(max_length=10, choices=POST_TYPES, default='COLOR')
+    
+    # Background options
+    background_image = models.ImageField(upload_to='announcements/bg/', blank=True, null=True)
+    background_color = models.CharField(max_length=20, default="#4f46e5", help_text="Hex code or Tailwind class")
+    
+    # For schedules (stored as a list of dicts: [{"time": "9am", "task": "Feeding"}])
+    schedule_data = models.JSONField(blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="announcements")
+
+    def __str__(self):
+        return self.title
+    
+class AnnouncementLike(models.Model):
+    announcement = models.ForeignKey(
+        DogAnnouncement,
+        on_delete=models.CASCADE,
+        related_name="likes"
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ("announcement", "user")
+
+class AnnouncementComment(models.Model):
+    announcement = models.ForeignKey(
+        DogAnnouncement,
+        on_delete=models.CASCADE,
+        related_name="comments"
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    comment = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+

@@ -129,6 +129,11 @@ LOGOUT_REDIRECT_URL = 'user:user_home'
 LOGIN_REDIRECT_URL = 'user:user_home'
 LOGIN_URL = 'user:login'
 
+# upload limits (images only)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024   # 20 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024   # 20 MB
+
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 

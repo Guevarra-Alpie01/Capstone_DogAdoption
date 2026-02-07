@@ -24,8 +24,8 @@ urlpatterns = [
     path('claim/', views.claim, name="claim"),
 
     #navigation links/ adopt  urls
-    path('adopt/<int:post_id>/', views.adopt_request, name='adopt'),
-    path('my-adoptions/', views.adopt_status, name='adopt_status'),
+    path('adopt/<int:post_id>/', views.adopt_confirm, name='adopt_confirm'),
+    path('adopt/status/', views.adopt_status, name='adopt_status'),
 
 
 

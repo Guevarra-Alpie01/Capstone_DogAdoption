@@ -6,8 +6,29 @@
 
 <div class="home-content container">
 
+<!-- SEARCH BAR -->
+<form method="get" class="search-bar mb-4">
+    <div class="input-group">
+        <input
+            type="text"
+            name="q"
+            class="form-control"
+            placeholder="Search by location, status, or keyword 🐕"
+            value="{{ request.GET.q }}"
+        >
+        <button class="btn btn-primary" type="submit">
+            🔍 Search
+        </button>
+    </div>
+</form>
+
     {% for post in posts %}
-    <div class="card mb-4 shadow-sm post-card">
+    <div class="card mb-4 shadow-sm post-card position-relative">
+
+        <!-- STATUS BADGE -->
+        <span class="badge status-badge {{ post.status }}">
+            {{ post.get_status_display }}
+        </span>
 
         <!-- Main Image -->
         {% with post.images.first as main_image %}
@@ -18,16 +39,44 @@
 
         <div class="card-body">
 
-            <h5 class="card-title">Dog for Adoption 🐾</h5>
+            <h5 class="card-title">🐕 Dog Update</h5>
             <p class="card-text">{{ post.caption }}</p>
 
             {% if post.location %}
-                <small>📍 {{ post.location }}</small><br>
+                <small class="text-muted">📍 {{ post.location }}</small><br>
             {% endif %}
+
+            <small class="text-muted">
+                🗓 Rescued on {{ post.rescued_date }}
+            </small>
+
+            <!-- CLAIM / ADOPTION TIMELINE -->
+            <div class="mt-2">
+                {% if post.status == 'rescued' or post.status == 'under_care' %}
+                    {% if not post.is_open_for_adoption %}
+                        <span class="text-warning fw-semibold">
+                            Owner claim open until {{ post.claim_deadline }}
+                        </span>
+                    {% else %}
+                        <span class="text-success fw-semibold">
+                            Open for adoption 🐾
+                        </span>
+                    {% endif %}
+                {% elif post.status == 'reunited' %}
+                    <span class="text-success fw-semibold">
+                        Reunited with owner ❤️
+                    </span>
+                {% elif post.status == 'adopted' %}
+                    <span class="text-secondary fw-semibold">
+                        Adopted 🏡
+                    </span>
+                {% endif %}
+            </div>
 
             <!-- View More Button -->
             {% if post.images.count > 1 %}
-            <button class="btn btn-link view-more-btn" type="button" data-bs-toggle="collapse"
+            <button class="btn btn-link view-more-btn p-0 mt-2" type="button"
+                    data-bs-toggle="collapse"
                     data-bs-target="#gallery-{{ post.id }}">
                 View more photos
             </button>
@@ -41,19 +90,31 @@
 
             <hr>
 
-            <!-- Action Buttons -->
+            <!-- ACTION BUTTONS -->
             <div class="d-flex gap-2">
-                <a href="{% url 'user:claim' %}" class="btn btn-outline-warning btn-sm">
-                    Claim
-                </a>
-                <a href="{% url 'user:adopt' post.id %}" class="btn btn-success btn-sm">
-                    Adopt
-                </a>
+
+                {% if not post.is_open_for_adoption %}
+                    <a href="#"
+                       class="btn btn-outline-warning btn-sm">
+                        Claim
+                    </a>
+                {% endif %}
+
+                {% if post.is_open_for_adoption and post.status != 'adopted' %}
+                   <a href="{% url 'user:adopt_confirm' post.id %}"
+   class="btn btn-success btn-sm">
+    Adopt
+</a>
+
+                {% endif %}
+
             </div>
+
         </div>
     </div>
+
     {% empty %}
-    <p>No dogs available for adoption yet 🐶</p>
+    <p>No dogs available yet 🐶</p>
     {% endfor %}
 
 </div>

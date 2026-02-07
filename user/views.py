@@ -7,23 +7,20 @@ from django.views.decorators.csrf import csrf_exempt
 from dogadoption_admin.models import Post
 from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage
 
+from django.db.models import Q
 
-# =========================
 # USER-ONLY DECORATOR
-# =========================
 def user_only(view_func):
     @login_required(login_url='user:login')
     def _wrapped_view(request, *args, **kwargs):
         if request.user.is_staff:
             messages.error(request, "Admins cannot access user pages.")
-            return redirect('dogadoption_admin:admin_dashboard')
+            return redirect('dogadoption_admin:admin_login')
         return view_func(request, *args, **kwargs)
     return _wrapped_view
 
 
-# =========================
-# AUTH VIEWS (USER)
-# =========================
+# User Authentication through log in 
 def login_view(request):
     if request.method == "POST":
         username = request.POST.get("username")
@@ -48,6 +45,8 @@ def login_view(request):
     return render(request, "login.html")
 
 
+
+# Sign up for users
 def signup_view(request):
     if request.method == "POST":
         username = request.POST.get("username")
@@ -77,8 +76,6 @@ def signup_view(request):
 import os
 import json
 import base64
-from django.shortcuts import render, redirect
-from django.contrib.auth import login
 from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
@@ -91,10 +88,8 @@ def face_auth(request):
         return redirect("user:signup")
     return render(request, "face_auth.html")
 
+#Save Face Images
 
-# ------------------------
-# Step 2: Save Face Images
-# ------------------------
 @csrf_exempt
 def save_face(request):
     if request.method != "POST":
@@ -103,7 +98,7 @@ def save_face(request):
     if "signup_data" not in request.session:
         return JsonResponse({"status": "error", "message": "Signup step missing"}, status=400)
 
-    data = json.loads(request.body)
+    data = json.loads(request.body.decode("utf-8"))
     images = data.get("images", [])
 
     if not images or len(images) < 3:
@@ -127,9 +122,7 @@ def save_face(request):
     return JsonResponse({"status": "ok"})
 
 
-# ------------------------
-# Step 3: Consent Page
-# ------------------------
+#Consent Page
 def consent_view(request):
     if "signup_data" not in request.session or "face_images_files" not in request.session:
         return redirect("user:signup")
@@ -140,9 +133,8 @@ def consent_view(request):
     return render(request, "consent.html")
 
 
-# ------------------------
-# Step 4: Signup Complete
-# ------------------------
+
+# Signup Complete
 def signup_complete(request):
     if "signup_data" not in request.session or "face_images_files" not in request.session:
         return redirect("user:signup")
@@ -182,21 +174,33 @@ def signup_complete(request):
     request.session.pop("signup_data", None)
     request.session.pop("face_images_files", None)
 
-    # Login user
-    login(request, user)
     return redirect("user:login")
 
-# =========================
-# USER PAGES
-# =========================
+
+
+
+# USER  HOME PAGE
+
 
 def user_home(request):
+    query = request.GET.get('q')
+
     posts = Post.objects.all().order_by('-created_at')
+
+    if query:
+        posts = posts.filter(
+            Q(caption__icontains=query) |
+            Q(location__icontains=query) |
+            Q(status__icontains=query)
+        )
+
     return render(request, 'home/user_home.html', {
         'posts': posts
     })
 
 
+
+#USER REQUEST PAGE 
 @user_only
 def request_dog_capture(request):
     if request.method == 'POST':
@@ -222,30 +226,49 @@ def request_dog_capture(request):
 
 
 
-
+#CLAIM PAGE 
 @user_only
 def claim(request):
     return render(request, 'claim/claim.html')
 
 
-@user_only
-def adopt_request(request, post_id):
-    post = get_object_or_404(Post, id=post_id)
 
-    AdoptionRequest.objects.get_or_create(
-        user=request.user,
-        post=post
-    )
 
-    messages.success(request, "Adoption request sent 🐾")
-    return redirect('user:adopt_status')
+#ADOPTION PAGE
 
+@login_required
 @user_only
 def adopt_status(request):
     requests = AdoptionRequest.objects.filter(user=request.user).select_related('post')
     return render(request, 'adopt/adopt.html', {'requests': requests})
 
+@user_only
+def adopt_confirm(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
 
+    # Prevent duplicate requests
+    if AdoptionRequest.objects.filter(user=request.user, post=post).exists():
+        messages.info(request, "You already requested to adopt this dog 🐾")
+        return redirect('user:adopt_status')
+
+    if request.method == 'POST':
+        AdoptionRequest.objects.create(
+            user=request.user,
+            post=post
+        )
+        messages.success(
+            request,
+            "Adoption request submitted! Please wait for admin verification 🐶"
+        )
+        return redirect('user:adopt_status')
+
+    # GET request → show details + violations
+    return render(request, 'adopt/adopt_confirm.html', {
+        'post': post
+    })
+
+
+#ANNOUNCEMENT PAGE 
 @user_only
 def announcement(request):
     return render(request, 'announcement/announcement.html')

@@ -10,9 +10,9 @@ from .forms import PostForm
 from user.models import DogCaptureRequest, AdoptionRequest
 
 
-# =========================
+
 # ADMIN-ONLY DECORATOR
-# =========================
+
 def admin_required(view_func):
     @login_required(login_url='dogadoption_admin:admin_login')
     def _wrapped_view(request, *args, **kwargs):
@@ -23,9 +23,9 @@ def admin_required(view_func):
     return _wrapped_view
 
 
-# =========================
+
 # AUTH VIEWS
-# =========================
+
 def admin_login(request):
     """Custom admin login view"""
     if request.method == 'POST':
@@ -37,7 +37,7 @@ def admin_login(request):
         if user is not None:
             if user.is_staff:
                 login(request, user)
-                return redirect('dogadoption_admin:admin_dashboard')
+                return redirect('dogadoption_admin:post_list')
             else:
                 messages.error(request, 'You do not have admin access.')
         else:
@@ -52,17 +52,15 @@ def admin_logout(request):
     return redirect('dogadoption_admin:admin_login')
 
 
-# =========================
+
 # ADMIN DASHBOARD
-# =========================
 @admin_required
 def admin_dashboard(request):
     return render(request, 'admin_base.html')
 
 
-# =========================
-# POSTS (ADMIN)
-# =========================
+# POST / HOME PAGE
+
 @admin_required
 def create_post(request):
     if request.method == 'POST':
@@ -73,13 +71,12 @@ def create_post(request):
             post.user = request.user
             post.save()
 
-            # ✅ MULTIPLE FILE HANDLING (CORRECT WAY)
+            # MULTIPLE IMAGE HANDLING (unchanged)
             for image in request.FILES.getlist('images'):
                 PostImage.objects.create(post=post, image=image)
 
             messages.success(request, "Post created successfully.")
             return redirect('dogadoption_admin:post_list')
-
     else:
         post_form = PostForm()
 
@@ -89,16 +86,13 @@ def create_post(request):
 
 
 
-
 @admin_required
 def post_list(request):
     posts = Post.objects.all().order_by('-created_at')
     return render(request, 'admin_home/post_list.html', {'posts': posts})
 
 
-# =========================
-# DOG CAPTURE REQUESTS (ADMIN)
-# =========================
+# DOG CAPTURE REQUESTS 
 @admin_required
 def admin_dog_capture_requests(request):
     requests = DogCaptureRequest.objects.select_related(
@@ -108,7 +102,6 @@ def admin_dog_capture_requests(request):
     return render(request, 'admin_request/request.html', {
         'requests': requests
     })
-
 
 
 @admin_required
@@ -140,7 +133,6 @@ def update_dog_capture_request(request, pk):
     return render(request, 'admin_request/update_request.html', {
         'req': req
     })
-
 
 #Request
 @admin_required

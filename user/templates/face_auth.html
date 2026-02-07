@@ -3,81 +3,212 @@
 
 {% block content %}
 <h2>Face Verification</h2>
-<p>Please look at the camera and turn your head slowly. Capture at least 3 images.</p>
+<h4 id="instruction" class="mb-2"></h4>
+<p id="status" class="text-muted"></p>
 
-<video id="video" autoplay playsinline></video>
+<video id="video" autoplay playsinline class="border"></video>
 <canvas id="canvas" style="display:none;"></canvas>
-
-<div class="mt-2">
-    <button id="capture" class="btn btn-primary">Capture</button>
-    <button id="next" class="btn btn-success" disabled>Next</button>
-</div>
 
 <form id="csrf-form" style="display:none;">
     {% csrf_token %}
 </form>
 
+<!-- Mirror camera like selfie / GCash -->
+<style>
+#video {
+    transform: scaleX(-1);
+}
+</style>
+
+<!-- MediaPipe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
 <script>
+/* ======================
+   BASIC SETUP
+====================== */
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
-const captureBtn = document.getElementById("capture");
-const nextBtn = document.getElementById("next");
-
-// CSRF token
-const csrftoken = document.querySelector('#csrf-form input[name="csrfmiddlewaretoken"]').value;
+const instruction = document.getElementById("instruction");
+const statusText = document.getElementById("status");
+const csrftoken = document.querySelector(
+    '#csrf-form input[name="csrfmiddlewaretoken"]'
+).value;
 
 let images = [];
+let step = 0;
+let lastCaptureTime = 0;
 
-// Start camera
-navigator.mediaDevices.getUserMedia({ video: true })
-    .then(stream => {
-        video.srcObject = stream;
-    })
-    .catch(err => {
-        alert("Camera access denied: " + err);
-    });
+/* ======================
+   LIVENESS STEPS
+====================== */
+const STEPS = [
+    "LOOK_FORWARD",
+    "TURN_LEFT",
+    "TURN_RIGHT",
+    "BLINK"
+];
 
-// Capture face
-captureBtn.addEventListener("click", () => {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext("2d").drawImage(video, 0, 0);
-    images.push(canvas.toDataURL("image/png"));
+const STEP_TEXT = {
+    LOOK_FORWARD: "Look straight at the camera",
+    TURN_LEFT: "Turn your head LEFT",
+    TURN_RIGHT: "Turn your head RIGHT",
+    BLINK: "Blink your eyes"
+};
 
-    alert(`Captured ${images.length} / 3 images`);
+instruction.innerText = STEP_TEXT[STEPS[step]];
 
-    if (images.length >= 3) {
-        nextBtn.disabled = false;
-    }
+/* ======================
+   FACE MESH INIT
+====================== */
+const faceMesh = new FaceMesh({
+    locateFile: file =>
+        `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
 });
 
-// Submit images
-nextBtn.addEventListener("click", () => {
-    if (images.length < 3) {
-        alert("Please capture at least 3 images.");
-        return;
+faceMesh.setOptions({
+    maxNumFaces: 1,
+    refineLandmarks: true,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.6
+});
+
+faceMesh.onResults(onResults);
+
+/* ======================
+   CAMERA INIT
+====================== */
+const camera = new Camera(video, {
+    onFrame: async () => {
+        await faceMesh.send({ image: video });
+    },
+    width: 640,
+    height: 480
+});
+camera.start();
+
+/* ======================
+   MAIN DETECTION LOGIC
+====================== */
+function onResults(results) {
+    if (!results.multiFaceLandmarks) return;
+
+    const landmarks = results.multiFaceLandmarks[0];
+
+    if (checkStep(landmarks) && canCapture()) {
+        captureImage();
+        step++;
+
+        if (step >= STEPS.length) {
+            uploadImages();
+        } else {
+            instruction.innerText = STEP_TEXT[STEPS[step]];
+        }
     }
 
+    // DEBUG (optional – remove later)
+    statusText.innerText = `Step ${step + 1}/${STEPS.length} | Yaw: ${headYaw(landmarks).toFixed(2)}`;
+}
+
+/* ======================
+   HEAD YAW (LEFT / RIGHT)
+====================== */
+function headYaw(landmarks) {
+    const nose = landmarks[1].x;
+    const leftCheek = landmarks[234].x;
+    const rightCheek = landmarks[454].x;
+
+    const faceWidth = rightCheek - leftCheek;
+    const faceCenter = leftCheek + faceWidth / 2;
+
+    return (nose - faceCenter) / faceWidth;
+}
+
+/* ======================
+   STEP CHECKS
+====================== */
+function checkStep(landmarks) {
+    const yaw = headYaw(landmarks);
+
+    switch (STEPS[step]) {
+        case "LOOK_FORWARD":
+            return Math.abs(yaw) < 0.05;
+
+        // MIRRORED CAMERA LOGIC
+        case "TURN_LEFT":
+            return yaw > 0.15;
+
+        case "TURN_RIGHT":
+            return yaw < -0.15;
+
+        case "BLINK":
+            return isBlinking(landmarks);
+    }
+}
+
+/* ======================
+   BLINK DETECTION
+====================== */
+function isBlinking(landmarks) {
+    const top = landmarks[159].y;
+    const bottom = landmarks[145].y;
+    return (bottom - top) < 0.01;
+}
+
+/* ======================
+   CAPTURE DELAY (STABILITY)
+====================== */
+function canCapture() {
+    const now = Date.now();
+    if (now - lastCaptureTime > 1200) {
+        lastCaptureTime = now;
+        return true;
+    }
+    return false;
+}
+
+/* ======================
+   IMAGE CAPTURE
+====================== */
+function captureImage() {
+    // Reduce resolution (bank-style)
+    canvas.width = 480;
+    canvas.height = 360;
+
+    const ctx = canvas.getContext("2d");
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+    ctx.restore();
+
+    // JPEG compression (massive size reduction)
+    const compressedImage = canvas.toDataURL("image/jpeg", 0.6);
+    images.push(compressedImage);
+}
+
+
+/* ======================
+   UPLOAD TO DJANGO
+====================== */
+function uploadImages() {
     fetch("{% url 'user:save_face' %}", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             "X-CSRFToken": csrftoken
         },
-        body: JSON.stringify({ images: images })
+        body: JSON.stringify({ images })
     })
     .then(res => res.json())
     .then(data => {
         if (data.status === "ok") {
             window.location.href = "{% url 'user:consent' %}";
         } else {
-            alert("Failed to save face data. Try again.");
+            alert("Face verification failed");
         }
     })
-    .catch(err => {
-        console.error(err);
-        alert("Error uploading images.");
-    });
-});
+    .catch(() => alert("Upload error"));
+}
 </script>
 {% endblock %}

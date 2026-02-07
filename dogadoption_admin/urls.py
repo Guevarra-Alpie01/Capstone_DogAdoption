@@ -11,12 +11,7 @@ urlpatterns = [
     # Auth
     path('admin-login/', views.admin_login, name="admin_login"),
     path('logout/', views.admin_logout, name="admin_logout"),
-
-    # Admin dashboard
-    path('dashboard/', views.admin_dashboard, name="admin_dashboard"),
-
-    # Posts
-    path('list/', views.post_list, name='post_list'),
+    path('post-list/', views.post_list, name='post_list'),
     path('create/', views.create_post, name='create_post'),
 
     # Dog capture requests

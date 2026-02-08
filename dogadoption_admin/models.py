@@ -85,20 +85,52 @@ class DogAnnouncement(models.Model):
         User,
         on_delete=models.CASCADE,
         related_name="announcements")
+    
+    @property
+    def like_count(self):
+        return self.reactions.filter(reaction="LIKE").count()
+
+    @property
+    def love_count(self):
+        return self.reactions.filter(reaction="LOVE").count()
+
+    @property
+    def wow_count(self):
+        return self.reactions.filter(reaction="WOW").count()
+
+    @property
+    def sad_count(self):
+        return self.reactions.filter(reaction="SAD").count()
+
+    @property
+    def angry_count(self):
+        return self.reactions.filter(reaction="ANGRY").count()
 
     def __str__(self):
         return self.title
     
-class AnnouncementLike(models.Model):
+    
+class AnnouncementReaction(models.Model):
+    REACTION_CHOICES = [
+        ('LIKE', '👍'),
+        ('LOVE', '❤️'),
+        ('WOW', '😮'),
+        ('SAD', '😢'),
+        ('ANGRY', '😡'),
+    ]
+
     announcement = models.ForeignKey(
         DogAnnouncement,
         on_delete=models.CASCADE,
-        related_name="likes"
+        related_name="reactions"
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    reaction = models.CharField(max_length=10, choices=REACTION_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ("announcement", "user")
+        unique_together = ('announcement', 'user')
+
 
 class AnnouncementComment(models.Model):
     announcement = models.ForeignKey(
@@ -108,5 +140,7 @@ class AnnouncementComment(models.Model):
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     comment = models.TextField()
+    reply = models.TextField(blank=True, null=True)  # For admin replies
     created_at = models.DateTimeField(auto_now_add=True)
-
+    def __str__(self):
+        return f"{self.user.username} - {self.comment[:20]}"

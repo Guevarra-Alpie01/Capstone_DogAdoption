@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/create_announcement.css' %}">
+
+<h2 class="page-title">📢 Announcements</h2>
+
+<div class="announcement-feed">
+    {% for post in announcements %}
+    <div class="card">
+
+        <!-- HEADER -->
+        <div class="card-header">
+            <div class="avatar">🐾</div>
+            <div class="meta">
+                <span class="admin-name">Admin</span>
+                <span class="timestamp">{{ post.created_at|timesince }} ago</span>
+            </div>
+        </div>
+
+        <!-- TEXT / COLOR / IMAGE BACKGROUND -->
+  {% if post.post_type == 'IMAGE_BG' and post.background_image %}
+    <div class="hero-body has-bg"
+         style="background-image: url('{{ post.background_image.url }}');">
+{% else %}
+    <div class="hero-body"
+         style="background-color: {{ post.background_color|default:'#4f46e5' }};">
+{% endif %}
+        <div class="hero-overlay">
+            <h2 class="hero-text">{{ post.content }}</h2>
+        </div>
+    </div>
+
+
+        <!-- PHOTO POST -->
+        {% if post.post_type == 'PHOTO' %}
+        <div class="photo-body">
+            <p class="caption">{{ post.content }}</p>
+            {% if post.background_image %}
+                <img src="{{ post.background_image.url }}" class="main-photo">
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- SCHEDULE -->
+        {% if post.schedule_data %}
+        <div class="schedule-section">
+            <h4 class="schedule-title">📅 Dog Activity Schedule</h4>
+            {% for item in post.schedule_data %}
+                <div class="schedule-row">
+                    <span class="time">{{ item.time }}</span>
+                    <span class="task">{{ item.task }}</span>
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- FOOTER -->
+        <div class="card-footer">
+
+    <div class="fb-reaction" data-post="{{ post.id }}">
+    <!-- MAIN BUTTON -->
+    <button class="fb-react-btn">
+        {{ post.user_reaction|default:"👍 Like" }}
+    </button>
+
+    <!-- POPUP REACTIONS -->
+    <div class="reaction-bar">
+        <span data-reaction="LIKE">👍</span>
+        <span data-reaction="LOVE">❤️</span>
+        <span data-reaction="WOW">😮</span>
+        <span data-reaction="SAD">😢</span>
+        <span data-reaction="ANGRY">😡</span>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="reaction-summary">
+        {% for key, count in post.reaction_counts.items %}
+            {% if count > 0 %}
+                {% if key == "LIKE" %}👍{% elif key == "LOVE" %}❤️{% elif key == "WOW" %}😮{% elif key == "SAD" %}😢{% elif key == "ANGRY" %}😡{% endif %} {{ count }}
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+
+
+
+            <!-- COMMENT -->
+            <form method="POST" action="{% url 'user:announcement_comment' post.id %}">
+                {% csrf_token %}
+                <input type="text" name="comment" placeholder="Write a comment..." required>
+                <button class="footer-btn">💬</button>
+            </form>
+
+        </div>
+
+        <!-- COMMENTS -->
+        <div class="comments-section">
+            {% for comment in post.comments.all %}
+                <p>
+                    <strong>{{ comment.user.username }}</strong>: {{ comment.comment }}
+                </p>
+            {% empty %}
+                <p>No comments yet.</p>
+            {% endfor %}
+        </div>
+
+    </div>
+    {% empty %}
+        <p class="no-posts">No announcements available.</p>
+    {% endfor %}
+</div>
+
+
+
+<script>
+document.querySelectorAll('.fb-reaction').forEach(box => {
+    const postId = box.dataset.post;
+    const button = box.querySelector('.fb-react-btn');
+    const bar = box.querySelector('.reaction-bar');
+
+    // Show bar on hover
+    button.addEventListener('mouseenter', () => bar.style.opacity = 1);
+    button.addEventListener('mouseleave', () => {
+        if (!box.classList.contains('reaction-open')) {
+            bar.style.opacity = 0;
+        }
+    });
+
+    // Handle reaction click
+    bar.querySelectorAll('span').forEach(emoji => {
+        emoji.addEventListener('click', () => {
+            sendReaction(postId, emoji.dataset.reaction, box);
+        });
+    });
+
+    // Clicking main button toggles LIKE
+    button.addEventListener('click', () => {
+        sendReaction(postId, 'LIKE', box);
+    });
+});
+
+function sendReaction(postId, reaction, box) {
+    fetch(`/announcements/${postId}/react/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `reaction=${reaction}`
+    })
+    .then(res => res.json())
+    .then(data => {
+        // Update button text
+        box.querySelector('.fb-react-btn').innerText = data.user_reaction || '👍 Like';
+        // Keep the bar open
+        box.classList.add('reaction-open');
+
+        // Update summary
+        fetch(location.href)
+        .then(r => r.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newSummary = doc.querySelector(`.fb-reaction[data-post="${postId}"] .reaction-summary`);
+            box.querySelector('.reaction-summary').innerHTML = newSummary.innerHTML;
+        });
+    });
+}
+
+</script>
+{% endblock %}

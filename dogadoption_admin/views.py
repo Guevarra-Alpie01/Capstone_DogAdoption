@@ -5,43 +5,45 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.utils import timezone
 import json
-from .models import Post, PostImage , DogAnnouncement, AnnouncementLike, AnnouncementComment
+from .models import Post, PostImage , DogAnnouncement, AnnouncementComment, AnnouncementReaction
 from .forms import PostForm
 from user.models import DogCaptureRequest, AdoptionRequest
+from django.conf import settings
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 
 
 
 # ADMIN-ONLY DECORATOR
 
 def admin_required(view_func):
-    @login_required(login_url='dogadoption_admin:admin_login')
-    def _wrapped_view(request, *args, **kwargs):
-        if not request.user.is_staff:
-            messages.error(request, "You do not have permission to access this page.")
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated or not request.user.is_staff:
             return redirect('dogadoption_admin:admin_login')
         return view_func(request, *args, **kwargs)
-    return _wrapped_view
-
+    return wrapper
 
 
 # AUTH VIEWS
 
 def admin_login(request):
-    """Custom admin login view"""
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
 
         user = authenticate(request, username=username, password=password)
 
-        if user is not None:
-            if user.is_staff:
-                login(request, user)
-                return redirect('dogadoption_admin:post_list')
-            else:
-                messages.error(request, 'You do not have admin access.')
-        else:
-            messages.error(request, 'Invalid username or password.')
+        if user is not None and user.is_staff:
+            # Login normally
+            login(request, user)
+
+            # Save session key in a separate cookie for admin
+            response = redirect('dogadoption_admin:post_list')
+            response.set_cookie('admin_sessionid', request.session.session_key)
+            return response
+
+        messages.error(request, 'Invalid credentials or not an admin.')
+        return render(request, 'admin_login.html')
 
     return render(request, 'admin_login.html')
 
@@ -160,36 +162,84 @@ def adoption_requests(request, post_id):
 
 
 #announcement
+
+from django.db.models import Count
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import user_passes_test
+
+# Decorator to restrict access to admins
+def admin_required(view_func):
+    return user_passes_test(lambda u: u.is_staff, login_url='/admin/login/')(view_func)
+
+
 def announcement_list(request):
-    posts = DogAnnouncement.objects.all().order_by('-created_at')
+    # Fetch all announcements with related comments & reactions
+    announcements = DogAnnouncement.objects.all().prefetch_related('comments', 'reactions')
+
+    for post in announcements:
+        # Build reaction summary
+        reactions = post.reactions.values('reaction').annotate(count=Count('id'))
+        summary = {r['reaction']: r['count'] for r in reactions}
+
+        # Ensure all reaction types exist
+        for key in ["LIKE", "LOVE", "WOW", "SAD", "ANGRY"]:
+            summary.setdefault(key, 0)
+        post.reaction_summary = summary
+
+        # Current user's reaction (for logged-in users)
+        if request.user.is_authenticated:
+            user_reaction_obj = post.reactions.filter(user=request.user).first()
+            post.user_reaction = user_reaction_obj.reaction if user_reaction_obj else None
+        else:
+            post.user_reaction = None
+
     return render(request, 'admin_announcement/announcement.html', {
-        'announcements': posts
+        'announcements': announcements
     })
 
+
+@admin_required
 def announcement_create(request):
     if request.method == "POST":
         DogAnnouncement.objects.create(
             content=request.POST.get("content"),
-            post_type=request.POST.get("post_type"),
-            background_color=request.POST.get("background_color"),
+            post_type=request.POST.get("post_type", "COLOR"),
+            background_color=request.POST.get("background_color", "#4f46e5"),
             background_image=request.FILES.get("background_image"),
             created_by=request.user
         )
-        return redirect("dogadoption_admin:admin_announcements")
+        return redirect("dogadoption_admin:announcement_list")
 
     return render(request, "admin_announcement/create_announcement.html")
 
 
-@login_required
-def announcement_like(request, post_id):
+@admin_required
+@require_POST
+def announcement_react(request, post_id):
+    reaction_type = request.POST.get("reaction")
     post = DogAnnouncement.objects.get(id=post_id)
-    AnnouncementLike.objects.get_or_create(
-        announcement=post,
-        user=request.user
-    )
-    return redirect("dogadoption_admin:admin_announcements")
 
-@login_required
+    existing = post.reactions.filter(user=request.user).first()
+
+    if existing and existing.reaction == reaction_type:
+        # Remove reaction if same clicked again
+        existing.delete()
+        user_reaction = None
+    else:
+        obj, _ = post.reactions.update_or_create(
+            user=request.user,
+            announcement=post,
+            defaults={"reaction": reaction_type}
+        )
+        user_reaction = obj.get_reaction_display()
+
+    return JsonResponse({
+        "total": post.reactions.count(),
+        "user_reaction": user_reaction
+    })
+
+
+@admin_required
 def announcement_comment(request, post_id):
     if request.method == "POST":
         AnnouncementComment.objects.create(
@@ -197,4 +247,36 @@ def announcement_comment(request, post_id):
             user=request.user,
             comment=request.POST.get("comment")
         )
+    return redirect("dogadoption_admin:announcement_list")
+
+@admin_required
+def announcement_edit(request, post_id):
+    post = DogAnnouncement.objects.get(id=post_id)
+
+    if request.method == "POST":
+        post.content = request.POST.get("content")
+        post.post_type = request.POST.get("post_type", post.post_type)
+        post.background_color = request.POST.get("background_color", post.background_color)
+        if request.FILES.get("background_image"):
+            post.background_image = request.FILES.get("background_image")
+        post.save()
+        return redirect("dogadoption_admin:announcement_list")
+
+    return render(request, "admin_announcement/edit_announcement.html", {
+        "post": post
+    })
+
+@admin_required
+def announcement_delete(request, post_id):
+    post = DogAnnouncement.objects.get(id=post_id)
+    post.delete()
+    return redirect("dogadoption_admin:announcement_list")
+
+@admin_required
+def comment_reply(request, comment_id):
+    comment = AnnouncementComment.objects.get(id=comment_id)
+
+    if request.method == "POST":
+        comment.reply = request.POST.get("reply")
+        comment.save()
     return redirect("dogadoption_admin:announcement_list")

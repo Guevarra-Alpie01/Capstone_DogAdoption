@@ -3,18 +3,26 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/create_announcement.css' %}">
+
 {% if request.user.is_staff %}
 <div class="create-announcement-bar">
-    <a href="{% url 'dogadoption_admin:announcement_create' %}" class="create-btn">
-        ➕ Create Announcement
-    </a>
+    <a href="{% url 'dogadoption_admin:announcement_create' %}" class="create-btn">➕ Create Announcement</a>
 </div>
 {% endif %}
 
 <div class="announcement-feed">
     {% for post in announcements %}
     <div class="card">
-        
+
+        <!-- ADMIN CONTROLS (inside loop!) -->
+        {% if request.user.is_staff %}
+        <div class="admin-controls">
+            <a href="{% url 'dogadoption_admin:announcement_edit' post.id %}">✏️ Edit</a>
+            <a href="{% url 'dogadoption_admin:announcement_delete' post.id %}" onclick="return confirm('Delete this announcement?');">🗑️ Delete</a>
+        </div>
+        {% endif %}
+
+        <!-- HEADER -->
         <div class="card-header">
             <div class="avatar">🐾</div>
             <div class="meta">
@@ -23,26 +31,21 @@
             </div>
         </div>
 
-        {% if post.post_type == 'COLOR' or post.post_type == 'IMAGE_BG' %}
-       <div class="hero-body {% if post.post_type == 'IMAGE_BG' %}has-bg{% endif %}" 
-            style=" {% if post.post_type == 'IMAGE_BG' and post.background_image %}background-image:url('{{ post.background_image.url }}');
-            
-            {% else %}
-                background-color:{{ post.background_color|default:'#4f46e5' }};
-            {% endif %}">
-    
-    <div class="hero-overlay">
-        <h2 class="hero-text">{{ post.content }}</h2>
-    </div>
-</div>
+        <!-- POST CONTENT -->
+        {% if post.post_type == 'IMAGE_BG' and post.background_image %}
+        <div class="hero-body has-bg" style="background-image: url('{{ post.background_image.url }}');">
+        {% else %}
+        <div class="hero-body" style="background-color: {{ post.background_color|default:'#4f46e5' }};">
         {% endif %}
+            <div class="hero-overlay">
+                <h2 class="hero-text">{{ post.content }}</h2>
+            </div>
+        </div>
 
-        {% if post.post_type == 'PHOTO' %}
+        {% if post.post_type == 'PHOTO' and post.background_image %}
         <div class="photo-body">
             <p class="caption">{{ post.content }}</p>
-            {% if post.background_image %}
-                <img src="{{ post.background_image.url }}" alt="Announcement Photo" class="main-photo">
-            {% endif %}
+            <img src="{{ post.background_image.url }}" alt="Announcement Photo" class="main-photo">
         </div>
         {% endif %}
 
@@ -62,39 +65,113 @@
         </div>
         {% endif %}
 
+        <!-- FOOTER -->
         <div class="card-footer">
 
-    <!-- LIKE -->
-    <form method="POST" action="{% url 'dogadoption_admin:announcement_like' post.id %}">
-        {% csrf_token %}
-        <button class="footer-btn">
-            👍 Like ({{ post.likes.count }})
-        </button>
-    </form>
+            {% if request.user.is_staff %}
+            <!-- Admin: reaction summary -->
+            <div class="reaction-summary" id="summary-{{ post.id }}">
+                {% for key, count in post.reaction_summary.items %}
+                    {% if key == "LIKE" %}👍{% elif key == "LOVE" %}❤️{% elif key == "WOW" %}😮{% elif key == "SAD" %}😢{% elif key == "ANGRY" %}😡{% endif %} {{ count }}
+                {% endfor %}
+            </div>
+            {% else %}
+            <!-- User: interactive reactions -->
+            <div class="fb-reaction" data-post="{{ post.id }}">
+                <button class="fb-react-btn">{{ post.user_reaction|default:"👍 Like" }}</button>
+                <div class="reaction-bar">
+                    <span data-reaction="LIKE">👍</span>
+                    <span data-reaction="LOVE">❤️</span>
+                    <span data-reaction="WOW">😮</span>
+                    <span data-reaction="SAD">😢</span>
+                    <span data-reaction="ANGRY">😡</span>
+                </div>
+                <div class="reaction-summary" id="summary-{{ post.id }}">
+                    {% for key, count in post.reaction_summary.items %}
+                        {% if count > 0 %}
+                            {% if key == "LIKE" %}👍{% elif key == "LOVE" %}❤️{% elif key == "WOW" %}😮{% elif key == "SAD" %}😢{% elif key == "ANGRY" %}😡{% endif %} {{ count }}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
 
-    <!-- COMMENT -->
-    <form method="POST" action="{% url 'dogadoption_admin:announcement_comment' post.id %}">
-        {% csrf_token %}
-        <input type="text" name="comment" placeholder="Write a comment..." required>
-        <button class="footer-btn">💬 Comment</button>
-    </form>
+            <!-- COMMENT FORM -->
+            <form method="POST" action="{% url 'dogadoption_admin:announcement_comment' post.id %}">
+                {% csrf_token %}
+                <input type="text" name="comment" placeholder="Write a comment..." required>
+                <button class="footer-btn">💬 Comment</button>
+            </form>
+        </div>
 
-    </div>
-    <div class="comments-section">
-    {% for comment in post.comments.all %}
-        <p>
-            <strong>{{ comment.user.username }}</strong>:
-            {{ comment.comment }}
-        </p>
+        <!-- COMMENTS -->
+        <div class="comments-section">
+            {% for comment in post.comments.all %}
+                <p><strong>{{ comment.user.username }}</strong>: {{ comment.comment }}</p>
+                {% if comment.reply %}
+                    <p class="admin-reply"><strong>Admin Reply:</strong> {{ comment.reply }}</p>
+                {% elif request.user.is_staff %}
+                    <form method="POST" action="{% url 'dogadoption_admin:comment_reply' comment.id %}">
+                        {% csrf_token %}
+                        <input type="text" name="reply" placeholder="Write a reply..." required>
+                        <button>↩️ Reply</button>
+                    </form>
+                {% endif %}
+            {% empty %}
+                <p>No comments yet.</p>
+            {% endfor %}
+        </div>
+
+    </div> <!-- END card -->
     {% empty %}
-        <p>No comments yet.</p>
+        <p class="no-posts">No announcements yet.</p>
     {% endfor %}
-</div>
+</div> <!-- END announcement-feed -->
 
+{% if not request.user.is_staff %}
+<script>
+document.querySelectorAll('.fb-reaction').forEach(box => {
+    const postId = box.dataset.post;
+    const button = box.querySelector('.fb-react-btn');
+    const bar = box.querySelector('.reaction-bar');
 
-    </div>
-    {% empty %}
-    <p class="no-posts">No announcements yet.</p>
-    {% endfor %}
-</div>
+    button.addEventListener('mouseenter', () => bar.style.opacity = 1);
+    button.addEventListener('mouseleave', () => {
+        if (!box.classList.contains('reaction-open')) bar.style.opacity = 0;
+    });
+
+    bar.querySelectorAll('span').forEach(emoji => {
+        emoji.addEventListener('click', () => sendReaction(postId, emoji.dataset.reaction, box));
+    });
+
+    button.addEventListener('click', () => sendReaction(postId, 'LIKE', box));
+});
+
+function sendReaction(postId, reaction, box) {
+    fetch(`/admin/announcements/${postId}/react/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `reaction=${reaction}`
+    })
+    .then(res => res.json())
+    .then(data => {
+        box.querySelector('.fb-react-btn').innerText = data.user_reaction || '👍 Like';
+        box.classList.add('reaction-open');
+
+        fetch(location.href)
+        .then(r => r.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newSummary = doc.querySelector(`.fb-reaction[data-post="${postId}"] .reaction-summary`);
+            box.querySelector('.reaction-summary').innerHTML = newSummary.innerHTML;
+        });
+    });
+}
+</script>
+{% endif %}
+
 {% endblock %}

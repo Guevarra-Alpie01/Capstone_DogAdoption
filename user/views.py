@@ -11,14 +11,13 @@ from django.db.models import Q
 
 # USER-ONLY DECORATOR
 def user_only(view_func):
-    @login_required(login_url='user:login')
-    def _wrapped_view(request, *args, **kwargs):
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('user:login')
         if request.user.is_staff:
-            messages.error(request, "Admins cannot access user pages.")
-            return redirect('dogadoption_admin:admin_login')
+            return redirect('dogadoption_admin:post_list')  # admin goes to admin dashboard
         return view_func(request, *args, **kwargs)
-    return _wrapped_view
-
+    return wrapper
 
 # User Authentication through log in 
 def login_view(request):
@@ -29,11 +28,15 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
-            #  Prevent admins from logging in here
+            # Prevent admins from logging in here
             if user.is_staff:
                 return render(request, "login.html", {
                     "error": "Please login through the admin portal."
                 })
+
+            # Force logout any existing admin session before logging in as a user
+            if request.user.is_authenticated and request.user.is_staff:
+                logout(request)
 
             login(request, user)
             return redirect("user:user_home")
@@ -268,11 +271,70 @@ def adopt_confirm(request, post_id):
     })
 
 
-#ANNOUNCEMENT PAGE 
-@user_only
-def announcement(request):
-    return render(request, 'announcement/announcement.html')
+from django.shortcuts import render, redirect, get_object_or_404
+from dogadoption_admin.models import DogAnnouncement, AnnouncementReaction, AnnouncementComment
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 
+
+# Decorator to allow only users
+
+from collections import Counter
+
+@user_only
+def announcement_list(request):
+    posts = DogAnnouncement.objects.all().order_by('-created_at')
+
+    # Add reaction counts for admin view
+    for post in posts:
+        reactions = post.reactions.values_list('reaction', flat=True)
+        post.reaction_summary = Counter(reactions)  # e.g. {'LIKE': 3, 'LOVE': 1}
+
+        # Optional: add user reaction if needed for non-admin
+        if not request.user.is_staff:
+            reaction = post.reactions.filter(user=request.user).first()
+            post.user_reaction = reaction.get_reaction_display() if reaction else None
+
+    return render(request, 'announcement/announcement.html', {
+        'announcements': posts
+    })
+
+# POST endpoint to handle reactions
+@user_only
+@require_POST
+def announcement_react(request, post_id):
+    post = get_object_or_404(DogAnnouncement, id=post_id)
+    reaction_type = request.POST.get('reaction')
+
+    # Ensure it's a valid reaction
+    if reaction_type not in dict(AnnouncementReaction.REACTION_CHOICES):
+        return JsonResponse({'error': 'Invalid reaction'}, status=400)
+
+    # Update or create reaction
+    reaction, created = AnnouncementReaction.objects.update_or_create(
+        announcement=post,
+        user=request.user,
+        defaults={'reaction': reaction_type}
+    )
+
+    # Return JSON with updated info
+    total_count = post.reactions.count()
+    user_reaction = reaction.get_reaction_display()
+
+    return JsonResponse({
+        'total': total_count,
+        'user_reaction': user_reaction
+    })
+
+@user_only
+def announcement_comment(request, post_id):
+    if request.method == "POST":
+        AnnouncementComment.objects.create(
+            announcement_id=post_id,
+            user=request.user,
+            comment=request.POST.get("comment")
+        )
+    return redirect('user:announcement_list')
 
 
 #CLAIM PAGE

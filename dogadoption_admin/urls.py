@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path
 from . import views
-
+from .views import all_users_view
 app_name = "dogadoption_admin"
 
 urlpatterns = [
@@ -11,6 +11,8 @@ urlpatterns = [
     # Auth
     path('admin-login/', views.admin_login, name="admin_login"),
     path('logout/', views.admin_logout, name="admin_logout"),
+
+    #ADMIN HOME
     path('post-list/', views.post_list, name='post_list'),
     path('create/', views.create_post, name='create_post'),
 
@@ -19,7 +21,7 @@ urlpatterns = [
     path('dog-capture/request/<int:pk>/update/',views.update_dog_capture_request,name='update_dog_capture_request'),
 
 
-    # admin/urls.py
+    # admin adoption
     path('post/<int:post_id>/requests/', views.adoption_requests, name='adoption_requests'),
     path('request/<int:req_id>/<str:action>/', views.update_request, name='update_request'),
 
@@ -31,6 +33,9 @@ urlpatterns = [
     path('announcements/<int:post_id>/react/', views.announcement_react, name='announcement_react'),
     path('announcements/<int:post_id>/comment/', views.announcement_comment, name='announcement_comment'),
     path('comments/<int:comment_id>/reply/', views.comment_reply, name='comment_reply'),
+
+    #user management
+    path("users/", all_users_view, name="users_list"),
 ]
 
 

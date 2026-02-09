@@ -65,27 +65,41 @@
             </ul>
         </div>
                 <!-- USER DROPDOWN -->
-                <div class="dropdown">
-                    <a class="btn p-0" href="#" id="userDropdown" data-bs-toggle="dropdown">
-                        <img src="{% static 'images/default-user-image.jpg' %}"
-                             width="30" height="30" class="rounded-circle">
-                    </a>
+               <!-- USER DROPDOWN -->
+<div class="dropdown">
+    <a class="btn p-0" href="#" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+        {% if user.profile.profile_image %}
+            <img src="{{ user.profile.profile_image.url }}"
+                 width="30" height="30"
+                 class="rounded-circle"
+                 style="object-fit: cover;">
+        {% else %}
+            <img src="{% static 'images/default-user-image.jpg' %}"
+                 width="30" height="30"
+                 class="rounded-circle">
+        {% endif %}
+    </a>
 
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><h6 class="dropdown-header">{{ user.username }}</h6></li>
-                        <li><a href="#" class="dropdown-item">Profile</a></li>
-                        <li><a href="#" class="dropdown-item">Settings</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-<form method="post" action="{% url 'user:logout' %}">
-    {% csrf_token %}
-    <button type="submit" class="dropdown-item text-danger">
-        Log out
-    </button>
-</form>
-                        </li>
-                    </ul>
-                </div>
+    <ul class="dropdown-menu dropdown-menu-end">
+        <li><h6 class="dropdown-header">{{ user.username }}</h6></li>
+        <li>
+            <a href="{% url 'user:edit_profile' %}" class="dropdown-item">
+                Profile
+            </a>
+        </li>
+        <li><a href="#" class="dropdown-item">Settings</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li>
+            <form method="post" action="{% url 'user:logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="dropdown-item text-danger">
+                    Log out
+                </button>
+            </form>
+        </li>
+    </ul>
+</div>
+
             {% else %}
                 <!-- GUEST -->
                 <a href="{% url 'user:login' %}" class="btn btn-outline-light btn-sm">

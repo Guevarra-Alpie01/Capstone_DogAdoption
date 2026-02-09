@@ -59,6 +59,42 @@ class PostImage(models.Model):
     def __str__(self):
         return f"Image for post {self.post.id}"
 
+class PostRequest(models.Model):
+
+    REQUEST_TYPE_CHOICES = [
+        ('claim', 'Claim'),
+        ('adopt', 'Adopt'),
+    ]
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+    ]
+
+    post = models.ForeignKey(
+        Post,
+        related_name='requests',
+        on_delete=models.CASCADE
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    request_type = models.CharField(
+        max_length=10,
+        choices=REQUEST_TYPE_CHOICES
+    )
+
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.request_type} ({self.status})"
+
 
 class DogAnnouncement(models.Model):
     POST_TYPES = [

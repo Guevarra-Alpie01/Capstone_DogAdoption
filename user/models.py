@@ -16,6 +16,9 @@ class Profile(models.Model):
     address = models.TextField()
     age = models.IntegerField()
     consent_given = models.BooleanField(default=False)
+    profile_image = models.ImageField(
+    upload_to ="profile_images/",
+    default="profile_images/default-user-image.jpg")
     created_at = models.DateTimeField(auto_now_add=True)
     
 #request dog capture

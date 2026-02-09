@@ -1,0 +1,68 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/create_announcement.css' %}">
+
+<div class="create-announcement-container">
+    <h2>✏️ Edit Announcement</h2>
+
+    <form method="POST"
+          action="{% url 'dogadoption_admin:announcement_edit' post.id %}"
+          enctype="multipart/form-data"
+          class="announcement-form">
+        {% csrf_token %}
+
+        <!-- POST TYPE -->
+        <label>Post Type</label>
+        <select name="post_type" required id="postType">
+            <option value="COLOR" {% if post.post_type == "COLOR" %}selected{% endif %}>Color Post</option>
+            <option value="IMAGE_BG" {% if post.post_type == "IMAGE_BG" %}selected{% endif %}>Image Background</option>
+            <option value="PHOTO" {% if post.post_type == "PHOTO" %}selected{% endif %}>Photo Post</option>
+        </select>
+
+        <!-- CONTENT -->
+        <label>Announcement Text</label>
+        <textarea name="content" rows="4" required>{{ post.content }}</textarea>
+
+        <!-- BACKGROUND COLOR -->
+        <div id="colorField">
+            <label>Background Color</label>
+            <input type="color" name="background_color"
+                   value="{{ post.background_color|default:'#4f46e5' }}">
+        </div>
+
+        <!-- IMAGE -->
+        <div id="imageField" style="display:none;">
+            <label>Upload New Image (optional)</label>
+            <input type="file" name="background_image" accept="image/*">
+            {% if post.background_image %}
+                <p>Current image:</p>
+                <img src="{{ post.background_image.url }}" style="max-width:200px;">
+            {% endif %}
+        </div>
+
+        <button type="submit" class="submit-btn">💾 Save Changes</button>
+    </form>
+</div>
+
+<script>
+const postType = document.getElementById("postType");
+const colorField = document.getElementById("colorField");
+const imageField = document.getElementById("imageField");
+
+function toggleFields() {
+    if (postType.value === "COLOR") {
+        colorField.style.display = "block";
+        imageField.style.display = "none";
+    } else {
+        colorField.style.display = "none";
+        imageField.style.display = "block";
+    }
+}
+
+postType.addEventListener("change", toggleFields);
+toggleFields();
+</script>
+
+{% endblock %}

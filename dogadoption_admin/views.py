@@ -5,9 +5,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.utils import timezone
 import json
-from .models import Post, PostImage , DogAnnouncement, AnnouncementComment, AnnouncementReaction
+from .models import Post, PostImage , DogAnnouncement, AnnouncementComment, AnnouncementReaction, PostRequest
 from .forms import PostForm
-from user.models import DogCaptureRequest, AdoptionRequest
+from user.models import DogCaptureRequest, AdoptionRequest,FaceImage, Profile
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
@@ -90,8 +90,15 @@ def create_post(request):
 
 @admin_required
 def post_list(request):
-    posts = Post.objects.all().order_by('-created_at')
-    return render(request, 'admin_home/post_list.html', {'posts': posts})
+    posts = Post.objects.all().prefetch_related('requests')
+
+    for post in posts:
+        post.pending_requests = post.requests.filter(status='pending').count()
+
+    return render(request, 'admin_home/post_list.html', {
+        'posts': posts
+    })
+
 
 
 # DOG CAPTURE REQUESTS 
@@ -138,27 +145,40 @@ def update_dog_capture_request(request, pk):
 
 #Request
 @admin_required
-def update_request(request, req_id, action):
-    req = get_object_or_404(AdoptionRequest, id=req_id)
-
-    if action == 'accept':
-        req.status = 'accepted'
-    elif action == 'decline':
-        req.status = 'declined'
-
-    req.save()
-    return redirect('dogadoption_admin:adoption_requests', req.post.id)
-
-
-#adoption
-@admin_required
 def adoption_requests(request, post_id):
     post = get_object_or_404(Post, id=post_id)
-    requests = post.adoption_requests.select_related('user')
+    requests = post.requests.select_related('user')  # 
+
     return render(request, 'admin_adoption/adoption_request.html', {
         'post': post,
         'requests': requests
     })
+
+
+@admin_required
+def update_request(request, req_id, action):
+    req = get_object_or_404(PostRequest, id=req_id)
+    post = req.post
+
+    if action == 'accept':
+        req.status = 'accepted'
+
+        # 🔥 Update post status
+        if req.request_type == 'claim':
+            post.status = 'reunited'
+        elif req.request_type == 'adopt':
+            post.status = 'adopted'
+
+        post.save()
+
+        # Auto-reject other requests
+        post.requests.exclude(id=req.id).update(status='rejected')
+
+    elif action == 'reject':
+        req.status = 'rejected'
+
+    req.save()
+    return redirect('dogadoption_admin:adoption_requests', post.id)
 
 
 #announcement
@@ -260,7 +280,7 @@ def announcement_edit(request, post_id):
         if request.FILES.get("background_image"):
             post.background_image = request.FILES.get("background_image")
         post.save()
-        return redirect("dogadoption_admin:announcement_list")
+        return redirect("dogadoption_admin:admin_announcements")
 
     return render(request, "admin_announcement/edit_announcement.html", {
         "post": post
@@ -268,9 +288,9 @@ def announcement_edit(request, post_id):
 
 @admin_required
 def announcement_delete(request, post_id):
-    post = DogAnnouncement.objects.get(id=post_id)
+    post = get_object_or_404(DogAnnouncement, id=post_id)
     post.delete()
-    return redirect("dogadoption_admin:announcement_list")
+    return redirect("dogadoption_admin:admin_announcements")
 
 @admin_required
 def comment_reply(request, comment_id):
@@ -279,4 +299,17 @@ def comment_reply(request, comment_id):
     if request.method == "POST":
         comment.reply = request.POST.get("reply")
         comment.save()
-    return redirect("dogadoption_admin:announcement_list")
+    return redirect("dogadoption_admin:admin_announcements")
+
+
+
+#user management
+@admin_required
+def all_users_view(request):
+    users = User.objects.filter(is_staff=False).prefetch_related(
+        "faceimage_set", "profile"
+    )
+
+    return render(request, "admin_user/users.html", {
+        "users": users
+    })

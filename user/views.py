@@ -75,6 +75,42 @@ def signup_view(request):
 
     return render(request, "signup.html")
 
+#editing users profileS
+@user_only
+def edit_profile(request):
+    user = request.user
+    profile, created = Profile.objects.get_or_create(
+        user=user,
+        defaults={
+            "address": "",
+            "age": 18,
+            "consent_given": True
+        }
+    )
+
+    if request.method == "POST":
+        # User fields
+        user.first_name = request.POST.get("first_name", "").strip()
+        user.last_name = request.POST.get("last_name", "").strip()
+
+        # Profile fields
+        profile.middle_initial = request.POST.get("middle_initial", "").strip()
+        profile.address = request.POST.get("address", "").strip()
+        profile.age = request.POST.get("age") or profile.age
+
+        if request.FILES.get("profile_image"):
+            profile.profile_image = request.FILES["profile_image"]
+
+        user.save()
+        profile.save()
+
+        messages.success(request, "Profile updated successfully")
+        return redirect("user:edit_profile")
+
+    return render(request, "edit_profile.html", {
+        "profile": profile
+    })
+
 
 import os
 import json

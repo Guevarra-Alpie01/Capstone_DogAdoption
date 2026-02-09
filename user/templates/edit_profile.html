@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+
+                <h4 class="mb-4 text-center">Edit Profile</h4>
+
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <!-- Profile Image -->
+                    <div class="text-center mb-4">
+                        <img src="{{ profile.profile_image.url }}"
+                             class="rounded-circle mb-2"
+                             width="120" height="120"
+                             style="object-fit: cover;">
+                        <div>
+                            <input type="file"
+                                   name="profile_image"
+                                   class="form-control form-control-sm">
+                        </div>
+                    </div>
+
+                    <!-- Names -->
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label class="form-label">First Name</label>
+                            <input type="text"
+                                   name="first_name"
+                                   class="form-control"
+                                   value="{{ user.first_name }}">
+                        </div>
+
+                        <div class="col">
+                            <label class="form-label">Last Name</label>
+                            <input type="text"
+                                   name="last_name"
+                                   class="form-control"
+                                   value="{{ user.last_name }}">
+                        </div>
+                    </div>
+
+                    <!-- Middle Initial -->
+                    <div class="mb-3">
+                        <label class="form-label">Middle Initial</label>
+                        <input type="text"
+                               name="middle_initial"
+                               maxlength="1"
+                               class="form-control"
+                               value="{{ profile.middle_initial }}">
+                    </div>
+
+                    <!-- Address -->
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <textarea name="address"
+                                  class="form-control"
+                                  rows="3">{{ profile.address }}</textarea>
+                    </div>
+
+                    <!-- Age -->
+                    <div class="mb-4">
+                        <label class="form-label">Age</label>
+                        <input type="number"
+                               name="age"
+                               class="form-control"
+                               value="{{ profile.age }}">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">
+                        Save Changes
+                    </button>
+                </form>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

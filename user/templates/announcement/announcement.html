@@ -97,21 +97,29 @@
         </div>
 
         <!-- COMMENTS -->
-        <div class="comments-section">
-            {% for comment in post.comments.all %}
-                <p>
-                    <strong>{{ comment.user.username }}</strong>: {{ comment.comment }}
-                </p>
-            {% empty %}
-                <p>No comments yet.</p>
-            {% endfor %}
+      <!-- COMMENTS -->
+<div class="comments-section">
+    {% for comment in post.comments.all %}
+        <div class="comment">
+            <p>
+                <strong>{{ comment.user.username }}</strong>: {{ comment.comment }}
+            </p>
+
+            {% if comment.reply %}
+                <div class="admin-reply">
+                    <p>
+                        <strong>Admin</strong>: {{ comment.reply }}
+                    </p>
+                </div>
+            {% endif %}
         </div>
+    {% empty %}
+        <p>No comments yet.</p>
+    {% endfor %}
+    </div>
 
     </div>
-    {% empty %}
-        <p class="no-posts">No announcements available.</p>
     {% endfor %}
-</div>
 
 
 

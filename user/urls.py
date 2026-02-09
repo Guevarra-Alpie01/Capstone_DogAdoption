@@ -14,6 +14,7 @@ urlpatterns = [
     path('signup/consent/', views.consent_view, name="consent"),
     path('signup/complete/', views.signup_complete, name="signup_complete"),
     path('signup/save-face/', views.save_face, name="save_face"),
+    path("profile/edit/", views.edit_profile, name="edit_profile"),
     #navigation links/ home  urls
     path('',views.user_home, name="user_home"),
 

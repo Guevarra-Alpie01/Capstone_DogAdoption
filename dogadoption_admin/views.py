@@ -1,28 +1,31 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
-from django.utils import timezone
-import json
-from .models import Post, PostImage , DogAnnouncement, AnnouncementComment, AnnouncementReaction, PostRequest
-from .forms import PostForm
-from user.models import DogCaptureRequest, AdoptionRequest,FaceImage, Profile
-from django.conf import settings
-from django.http import JsonResponse
+from django.contrib.auth.decorators import user_passes_test
 from django.views.decorators.http import require_POST
 
+from django.contrib import messages
+from django.utils import timezone
+from django.conf import settings
+from django.http import JsonResponse
+import json
 
+#forms.py
+from .forms import PostForm
+
+#models
+from .models import Post, PostImage , DogAnnouncement, AnnouncementComment, AnnouncementReaction, PostRequest
+from user.models import DogCaptureRequest, AdoptionRequest,FaceImage, Profile
+from django.db.models import Count
+from django.contrib.auth.models import User
 
 # ADMIN-ONLY DECORATOR
-
 def admin_required(view_func):
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated or not request.user.is_staff:
             return redirect('dogadoption_admin:admin_login')
         return view_func(request, *args, **kwargs)
     return wrapper
-
 
 # AUTH VIEWS
 
@@ -54,15 +57,7 @@ def admin_logout(request):
     return redirect('dogadoption_admin:admin_login')
 
 
-
-# ADMIN DASHBOARD
-@admin_required
-def admin_dashboard(request):
-    return render(request, 'admin_base.html')
-
-
-# POST / HOME PAGE
-
+#  HOME PAGE OF THE ADMIN
 @admin_required
 def create_post(request):
     if request.method == 'POST':
@@ -73,7 +68,7 @@ def create_post(request):
             post.user = request.user
             post.save()
 
-            # MULTIPLE IMAGE HANDLING (unchanged)
+            # MULTIPLE IMAGE HANDLING
             for image in request.FILES.getlist('images'):
                 PostImage.objects.create(post=post, image=image)
 
@@ -86,8 +81,7 @@ def create_post(request):
         'post_form': post_form
     })
 
-
-
+#LIST OF ALL THE POST OF DOG ADOPTION BY THE ADMIN 
 @admin_required
 def post_list(request):
     posts = Post.objects.all().prefetch_related('requests')
@@ -100,7 +94,6 @@ def post_list(request):
     })
 
 
-
 # DOG CAPTURE REQUESTS 
 @admin_required
 def admin_dog_capture_requests(request):
@@ -111,7 +104,6 @@ def admin_dog_capture_requests(request):
     return render(request, 'admin_request/request.html', {
         'requests': requests
     })
-
 
 @admin_required
 def update_dog_capture_request(request, pk):
@@ -143,7 +135,7 @@ def update_dog_capture_request(request, pk):
         'req': req
     })
 
-#Request
+# REQUEST DOG ADOPTION 
 @admin_required
 def adoption_requests(request, post_id):
     post = get_object_or_404(Post, id=post_id)
@@ -154,7 +146,6 @@ def adoption_requests(request, post_id):
         'requests': requests
     })
 
-
 @admin_required
 def update_request(request, req_id, action):
     req = get_object_or_404(PostRequest, id=req_id)
@@ -163,7 +154,7 @@ def update_request(request, req_id, action):
     if action == 'accept':
         req.status = 'accepted'
 
-        # 🔥 Update post status
+        # Update post status
         if req.request_type == 'claim':
             post.status = 'reunited'
         elif req.request_type == 'adopt':
@@ -181,12 +172,7 @@ def update_request(request, req_id, action):
     return redirect('dogadoption_admin:adoption_requests', post.id)
 
 
-#announcement
-
-from django.db.models import Count
-from django.views.decorators.http import require_POST
-from django.contrib.auth.decorators import user_passes_test
-
+#ANNOUNCEMENTS PAGE
 # Decorator to restrict access to admins
 def admin_required(view_func):
     return user_passes_test(lambda u: u.is_staff, login_url='/admin/login/')(view_func)
@@ -217,7 +203,7 @@ def announcement_list(request):
         'announcements': announcements
     })
 
-
+#CREATING ANNOUNCEMENTS 
 @admin_required
 def announcement_create(request):
     if request.method == "POST":
@@ -302,8 +288,7 @@ def comment_reply(request, comment_id):
     return redirect("dogadoption_admin:admin_announcements")
 
 
-
-#user management
+#USES MANAGEMENT PAGE
 @admin_required
 def all_users_view(request):
     users = User.objects.filter(is_staff=False).prefetch_related(

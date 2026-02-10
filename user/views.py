@@ -2,12 +2,26 @@ from django.shortcuts import render, redirect , get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
-from dogadoption_admin.models import Post
-from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
+from django.views.decorators.http import require_POST
 
 from django.db.models import Q
+import os
+import json
+import base64
+from django.contrib.auth.models import User
+from django.http import JsonResponse
+from django.core.files.base import ContentFile
+from django.conf import settings
+
+#MODELS.PY 
+from dogadoption_admin.models import DogAnnouncement, AnnouncementReaction, AnnouncementComment
+from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
+from dogadoption_admin.models import Post
+from django.contrib.auth.models import User
+# Decorator to allow only users
+from collections import Counter
+
 
 # USER-ONLY DECORATOR
 def user_only(view_func):
@@ -111,15 +125,6 @@ def edit_profile(request):
         "profile": profile
     })
 
-
-import os
-import json
-import base64
-from django.contrib.auth.models import User
-from django.http import JsonResponse
-from django.core.files.base import ContentFile
-from django.conf import settings
-from django.views.decorators.csrf import csrf_exempt
 
 @csrf_exempt
 def face_auth(request):
@@ -307,15 +312,7 @@ def adopt_confirm(request, post_id):
     })
 
 
-from django.shortcuts import render, redirect, get_object_or_404
-from dogadoption_admin.models import DogAnnouncement, AnnouncementReaction, AnnouncementComment
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
 
-
-# Decorator to allow only users
-
-from collections import Counter
 
 @user_only
 def announcement_list(request):

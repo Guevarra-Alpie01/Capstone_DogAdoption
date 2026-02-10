@@ -1,215 +1,140 @@
+/* =========================
+   GLOBAL STYLES
+========================= */
 body {
-    background-color: #E0E0E0;
-    
+    background-color: #F9F8F4; /* Very light warm cream background (soft neutral, complements yellow/green) */
+    color: #000000; /* Black text globally */
 }
 
+/* Offset for fixed BIG navbar */
 body::before {
     content: "";
     display: block;
-    height: 56px; 
+    height: 90px; /* Desktop navbar height */
 }
 
+@media (max-width: 991.98px) {
+    body::before {
+        height: 76px; /* Mobile navbar height */
+    }
+}
+
+/* =========================
+   WRAPPER & CONTENT
+========================= */
 #wrapper {
-    overflow-x: hidden; 
+    overflow-x: hidden;
     min-height: 100vh;
 }
 
 #page-content-wrapper {
     width: 100%;
-    min-width: 0; 
-    padding-left: 0; 
+    min-width: 0;
+    padding-left: 0;
     transition: padding-left .25s ease-out;
-    background-color: #808080 !important;
+    background-color: white; /* Content background stays white */
     background-repeat: no-repeat;
-    background-size:cover;
+    background-size: cover;
     background-position: center center;
+    color: #000000; /* content text black */
 }
-
 
 .content-area-block {
-    background-color: white; /* Ensures text is visible over the background image */
-    padding: 20px; 
+    background-color: white; /* keep content blocks white */
+    color: #000000; /* black text */
+    padding: 20px;
     border-radius: 8px;
-    max-width: 800px; /* Limits the content box width */
-    margin: 20px; 
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
-    /* Ensures the content box is always on top */
-    position: relative; 
-    z-index: 2; 
+    max-width: 800px;
+    margin: 20px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    position: relative;
+    z-index: 2;
 }
 
-
+/* =========================
+   TOP NAVBAR (EXTRA BIG)
+========================= */
 .navbar {
-   
-    background-color:#808080 !important;
-    border-bottom: 1px solid #707070;
+    background-color: #F7C600 !important; /* Bayawan yellow */
+    border-bottom: 1px solid #9B8B00;    /* Slightly darker yellow */
+    min-height: 90px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    color: #254E1E; /* Dark green text/icon color for contrast */
 }
 
-/*This is for the sidebar design*/
+/* Navbar logo */
+.navbar-logo {
+    height: 72px;
+    width: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* Navbar icons */
+.navbar .bi {
+    font-size: 1.6rem;
+    color: #254E1E; /* dark green */
+}
+
+/* User avatar */
+.navbar img.rounded-circle {
+    width: 44px;
+    height: 44px;
+}
+
+/* Mobile navbar */
+@media (max-width: 991.98px) {
+    .navbar {
+        min-height: 76px;
+    }
+
+    .navbar-logo {
+        height: 58px;
+        width: 58px;
+    }
+
+    .navbar .bi {
+        font-size: 1.4rem;
+        color: #254E1E; /* keep dark green */
+    }
+
+    .navbar img.rounded-circle {
+        width: 38px;
+        height: 38px;
+    }
+}
+
+/* =========================
+   SIDEBAR
+========================= */
 #sidebar-wrapper {
-    min-height: calc(100vh - 56px); /* Exact navbar height */
     width: 250px;
     margin-left: -250px;
     transition: margin .25s ease-out;
     position: fixed;
-    top: 56px; /* Exact navbar height */
-    left: 0; /* Ensures proper fixed positioning */
+    left: 0;
     z-index: 1000;
     display: flex;
     flex-direction: column;
-    background-color:#808080 !important;
-    border-right: 1px solid #707070;
+    background-color: #254E1E !important; /* Bayawan dark green */
+    border-right: 1px solid #1B3A14; /* darker green border */
+    color: white;
 }
 
-#sidebar-wrapper .sidebar-heading{
-    /* Updated: Light background for sidebar heading */
-    background-color:#808080;
-}
-
-#sidebar-wrapper .list-group-item-action {
-    background-color: #808080;
-    /* Ensure text is WHITE for contrast on the dark background */
-    color: white !important 
-}
-
-/* New: Hover/Active state using the vibrant accent color */
-#sidebar-wrapper .list-group-item-action:hover,
-#sidebar-wrapper .list-group-item-action.active {
-    background-color: #707070 !important; /* Subtle hover background */
-    color: #C8FF2C !important; /* Lime accent for icon/text */
-    font-weight: bold;
-}
-
-#wrapper.toggled #sidebar-wrapper {
-    margin-left: 0; /* Show sidebar when toggled */
-}
-
-#wrapper.toggled #page-content-wrapper {
-    padding-left: 250px; /* Make space for sidebar */
-}
-
-/* Ensure footer is always at the bottom of the sidebar */
-#sidebar-wrapper .list-group {
-    flex-grow: 1; /* Allow list-group to take available space */
-    overflow-y: auto; /* Enable scrolling for many items */
-}
-
-.sidebar-section-title {
-    font-size: 0.75rem;
-    /* Updated: Darker text for section titles */
-    color: #666666 !important; 
-}
-
-.sidebar-footer {
-    margin-top: auto; /* Push footer to the bottom */
-}
-
-/* Hide the main navbar brand on small screens when the sidebar is open */
-@media (max-width: 991.98px) {
- 
-    #page-content-wrapper {
-        background-size: contain;
-        background-attachment:scroll;
-    }
-    #sidebar-wrapper {
-        width: 200px;
-        margin-left: -200px;
-        box-shadow: 0 0 10px rgba(0,0,0,0.1); /* Lighter shadow */
-    }
-    #wrapper.toggled #sidebar-wrapper {
-        margin-left:0;
-    }
-    #wrapper.toggled #page-content-wrapper {
-        padding-left: 0; /* No padding on content area when sidebar is open on small screens */
-    }
-    
-    #sidebar-wrapper .list-group-item {
-        font-size: 0.75rem; /* smaller fontsize for navigation links when screen is smaller */
-        padding-top: 0.5rem !important;
-        padding-bottom: 0.5rem !important;
-    }
-
-    /* Scale down icons on smaller screens */
-    #sidebar-wrapper .list-group-item i {
-        font-size: 1rem;
-    }
-
-    /* Smaller fontsize and Logo image for heading in sidebar  when the screensize become smaller */
-    #sidebar-wrapper .sidebar-heading .fs-4,
-    #sidebar-wrapper .sidebar-heading .app-logo.text {
-        font-size: 1.1rem !important;
-    }
- 
-    #sidebarToggle {
-        background-color: transparent !important;
-        border: none !important;
-        padding: 0.375rem !important;
-        box-shadow: none !important;
-        /* Updated: Dark icon for light background */
-        color: white !important;
-    }
-    /* Make the default Bootstrap toggler icon white by overriding its SVG */
-    #sidebarToggle .navbar-toggler-icon {
-        background-image: url("data:image/svg+xml;charset=utf8,%3Csvg viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath stroke='rgba(255,255,255,1)' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 7h22M4 15h22M4 23h22'/%3E%3C/svg%3E");
-        width: 1.25rem;
-        height: 1.25rem;
-    }
-    
-    #sidebarToggle:hover {
-        background-color: rgba(0, 0, 0, 0.1) !important; /* Dark hover */
-        border-radius: 50%;
-    }
-
-    .navbar-brand {
-        /* Updated: Darker text for light background */
-        color: white !important; 
-        font-size: 1.25rem;
-    }
-
-    .navbar-brand:hover {
-        /* Updated: Subtle hover for dark text */
-        color: rgba(51, 51, 51, 0.9) !important; 
-    }
-    
-    .navbar .fixed-bottom {
-        /* Updated: Light background for bottom nav */
-        background-color: #F5F5F5 !important; 
-        padding-top: 5px;
-        padding-bottom: 5px;  
-    }
-    .navbar .fixed-bottom a, .navbar .fixed-bottom small {
-        /* Ensure bottom nav icons/text are white on small screens */
-        color: #ffffff !important;
-    }
-    
-    /* New: Bottom Nav Active State (Example) */
-    .navbar .fixed-bottom a:focus,
-    .navbar .fixed-bottom a:active,
-    .navbar .fixed-bottom a[href$='navigation:user_home'] { /* Example for home link */
-        color: #C8FF2C !important; 
-    }
-
-}
-
-/* Desktop Styles (lg and up) */
+/* Desktop sidebar */
 @media (min-width: 992px) {
-    /* Sidebar is FIXED and visible by default */
     #sidebar-wrapper {
-        margin-left: 0; 
-        position: fixed; 
-        top: 56px; /* Exact navbar height */
-        left: 0;
-        min-height: calc(100vh - 60px);
-        z-index: 1000;
+        top: 90px;
+        margin-left: 0;
+        min-height: calc(100vh - 90px);
     }
 
-    /* Content area should account for the sidebar width */
     #page-content-wrapper {
-        padding-left: 250px; 
-        padding-top: 0; /* Cleared by body::before */
+        padding-left: 250px;
     }
 
-    /* When toggled (user hides sidebar), slide it out and remove content padding */
     #wrapper.toggled #sidebar-wrapper {
         margin-left: -250px;
     }
@@ -217,28 +142,16 @@ body::before {
     #wrapper.toggled #page-content-wrapper {
         padding-left: 0;
     }
-     #sidebar-wrapper .list-group-item i {
-         font-size: 1rem;
-     }
-
 }
 
-/* Extra small screens (mobile phones) */
-@media (max-width: 576px) {
+/* Mobile sidebar */
+@media (max-width: 991.98px) {
     #sidebar-wrapper {
-        width: 160px;
-        margin-left: -160px;
-    }
-
-    #sidebar-wrapper .list-group-item {
-        font-size: 0.65rem;
-        padding-top: 0.4rem !important;
-        padding-bottom: 0.4rem !important;
-    }
-
-    #sidebar-wrapper .list-group-item i {
-        font-size: 0.8rem;
-
+        top: 76px;
+        width: 200px;
+        margin-left: -200px;
+        min-height: calc(100vh - 76px);
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
 
     #wrapper.toggled #sidebar-wrapper {
@@ -248,13 +161,131 @@ body::before {
     #wrapper.toggled #page-content-wrapper {
         padding-left: 0;
     }
-     #sidebar-wrapper .list-group-item i {
-         font-size: 18px;
-     }
-
 }
 
-/* Notification bell */
+/* Extra small screens */
+@media (max-width: 576px) {
+    #sidebar-wrapper {
+        width: 160px;
+        margin-left: -160px;
+    }
+}
+
+/* Sidebar content */
+#sidebar-wrapper .sidebar-heading {
+    background-color: #254E1E;
+    color: #F7C600; /* yellow text for headings */
+}
+
+#sidebar-wrapper .list-group {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+#sidebar-wrapper .list-group-item-action {
+    background-color: #254E1E;
+    color: #F7C600 !important; /* yellow text */
+}
+
+#sidebar-wrapper .list-group-item-action:hover,
+#sidebar-wrapper .list-group-item-action.active {
+    background-color: #F7C600 !important; /* yellow background on hover */
+    color: #254E1E !important; /* dark green text on hover */
+    font-weight: bold;
+}
+
+.sidebar-section-title {
+    font-size: 0.75rem;
+    color: #BBD399 !important; /* lighter green */
+}
+
+.sidebar-footer {
+    margin-top: auto;
+}
+
+/* =========================
+   SIDEBAR FONT SCALING
+========================= */
+
+/* Desktop / PC – BIGGER TEXT & ICONS */
+@media (min-width: 992px) {
+    #sidebar-wrapper .list-group-item {
+        font-size: 1rem;
+        padding-top: 0.85rem !important;
+        padding-bottom: 0.85rem !important;
+        letter-spacing: 0.3px;
+    }
+
+    #sidebar-wrapper .list-group-item i {
+        font-size: 1.3rem;
+        vertical-align: middle;
+    }
+}
+
+/* Tablet */
+@media (max-width: 991.98px) {
+    #sidebar-wrapper .list-group-item {
+        font-size: 0.75rem;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+
+    #sidebar-wrapper .list-group-item i {
+        font-size: 1rem;
+    }
+}
+
+/* Mobile */
+@media (max-width: 576px) {
+    #sidebar-wrapper .list-group-item {
+        font-size: 0.65rem;
+        padding-top: 0.4rem !important;
+        padding-bottom: 0.4rem !important;
+    }
+
+    #sidebar-wrapper .list-group-item i {
+        font-size: 0.8rem;
+    }
+}
+
+/* =========================
+   SIDEBAR TOGGLE BUTTON
+========================= */
+#sidebarToggle {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #254E1E !important; /* dark green hamburger */
+}
+
+/* Desktop hamburger bigger to match logo & user avatar */
+@media (min-width: 992px) {
+    #sidebarToggle {
+        width: 72px;       /* same as navbar-logo */
+        height: 72px;      /* same as navbar-logo */
+        font-size: 1.6rem; /* match navbar icons */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border-radius: 50%;
+    }
+
+    /* Make hamburger lines bigger */
+    #sidebarToggle .navbar-toggler-icon {
+        width: 36px;
+        height: 36px;
+        background-size: 36px 36px;
+    }
+}
+
+#sidebarToggle .navbar-toggler-icon {
+    background-image: url("data:image/svg+xml;charset=utf8,%3Csvg viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath stroke='%23254E1E' stroke-width='2' stroke-linecap='round' stroke-miterlimit='10' d='M4 7h22M4 15h22M4 23h22'/%3E%3C/svg%3E");
+}
+
+/* =========================
+   NOTIFICATIONS
+========================= */
 .notification-badge {
     position: absolute;
     top: -6px;
@@ -271,9 +302,47 @@ body::before {
     width: 260px;
 }
 
-/* Mobile tweak */
 @media (max-width: 576px) {
     .notification-dropdown {
         width: 220px;
     }
 }
+
+/* =========================
+   BUTTONS (override hover colors)
+========================= */
+
+.btn {
+    color: #000000;
+    background-color: #F7C600; /* Bayawan yellow */
+    border: 1px solid #254E1E; /* dark green border */
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.btn:hover,
+.btn:focus {
+    background-color: #e0e0e0; /* light gray hover background */
+    color: #000000; /* black text on hover */
+    border-color: #999999; /* gray border on hover */
+    box-shadow: none;
+    text-decoration: none;
+}
+
+/* Outline buttons */
+.btn-outline-light {
+    color: #000000;
+    border-color: #000000;
+}
+
+.btn-outline-light:hover,
+.btn-outline-light:focus {
+    background-color: #000000;
+    color: #FFFFFF;
+    border-color: #000000;
+}
+
+/* Specific small button for sidebarToggle (transparent with dark green) */
+#sidebarToggle.btn-sm {
+    color: #254E1E;
+}
+

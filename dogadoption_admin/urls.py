@@ -2,10 +2,11 @@ from django.contrib import admin
 from django.urls import path
 from . import views
 from .views import all_users_view
+
 app_name = "dogadoption_admin"
 
 urlpatterns = [
-    # Django admin (optional – usually stays in project urls.py)
+    # Django admin
     path('admin-/', admin.site.urls),
 
     # Auth
@@ -16,16 +17,16 @@ urlpatterns = [
     path('post-list/', views.post_list, name='post_list'),
     path('create/', views.create_post, name='create_post'),
 
-    # Dog capture requests
+    # DOG CAPTURE REQUESTS
     path('dog-capture/requests/',views.admin_dog_capture_requests,name='requests'),
     path('dog-capture/request/<int:pk>/update/',views.update_dog_capture_request,name='update_dog_capture_request'),
 
 
-    # admin adoption
+    #ADOPTION REQUEST OF USERS 
     path('post/<int:post_id>/requests/', views.adoption_requests, name='adoption_requests'),
     path('request/<int:req_id>/<str:action>/', views.update_request, name='update_request'),
 
-    #announcement
+    #ADMIN ANNOUNCEMENTS
     path('admin/announcements/', views.announcement_list, name='admin_announcements'),
     path('announcements/create/', views.announcement_create, name='announcement_create'),
     path('announcements/<int:post_id>/edit/', views.announcement_edit, name='announcement_edit'),
@@ -34,7 +35,7 @@ urlpatterns = [
     path('announcements/<int:post_id>/comment/', views.announcement_comment, name='announcement_comment'),
     path('comments/<int:comment_id>/reply/', views.comment_reply, name='comment_reply'),
 
-    #user management
+    #USER MANAGEMENT
     path("users/", all_users_view, name="users_list"),
 ]
 

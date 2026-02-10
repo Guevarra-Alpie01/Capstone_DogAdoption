@@ -6,7 +6,7 @@
 
 <div class="request-header">
     <span class="close-btn" onclick="window.location.href='{% url "dogadoption_admin:post_list" %}'">✕</span>
-    <h1 class="request-title">Adoption Requests for: "{{ post.caption }}" 🐾</h1>
+    <h1 class="request-title">Owner Claims for: "{{ post.caption }}" 🧾</h1>
 </div>
 
 {% if requests_meta %}
@@ -14,6 +14,7 @@
     {% with req=item.req profile=item.profile face_imgs=item.face_images %}
     <div class="request-card">
 
+        <!-- PROFILE BLOCK -->
         <div class="user-profile-block">
             {% if profile.profile_image %}
             <img src="{{ profile.profile_image.url }}" class="profile-img" alt="Profile">
@@ -22,14 +23,16 @@
                 <div><strong>{{ req.user.first_name }} {{ req.user.last_name }} {{ profile.middle_initial }}</strong></div>
                 <div class="text-muted">{{ profile.address }}</div>
             </div>
-            <a href="{% url 'dogadoption_admin:view_faceauth' req.user.id %}" class="btn view-face-btn">View Face Auth</a>
+        <a href="{% url 'dogadoption_admin:view_faceauth' req.user.id %}" class="btn view-face-btn">View Face Auth</a>
 
         </div>
 
+        <!-- DATE -->
         <div class="request-top">
             <div><strong>Requested on:</strong> {{ req.created_at|date:"M d, Y H:i" }}</div>
         </div>
 
+        <!-- STATUS -->
         <p class="request-status">
             Status:
             {% if req.status == 'pending' %}
@@ -41,10 +44,12 @@
             {% endif %}
         </p>
 
+        <!-- EXPLANATION -->
         {% if req.explanation %}
         <p class="request-explanation"><strong>Explanation:</strong> {{ req.explanation }}</p>
         {% endif %}
 
+        <!-- CLAIM IMAGES -->
         {% if req.images.exists %}
         <div class="request-images">
             {% for img in req.images.all %}
@@ -53,6 +58,7 @@
         </div>
         {% endif %}
 
+        <!-- ACTIONS -->
         {% if req.status == 'pending' %}
         <div class="request-actions">
             <a href="{% url 'dogadoption_admin:update_request' req.id 'accept' %}" class="btn accept-btn">Accept</a>
@@ -64,6 +70,6 @@
     {% endwith %}
     {% endfor %}
 {% else %}
-<p class="no-requests">No adoption requests submitted for this post yet.</p>
+<p class="no-requests">No claims submitted for this post yet.</p>
 {% endif %}
 {% endblock %}

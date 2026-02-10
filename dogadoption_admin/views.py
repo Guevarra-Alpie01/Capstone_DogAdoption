@@ -3,6 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.views.decorators.http import require_POST
+from django.db.models import Count, Q
 
 from django.contrib import messages
 from django.utils import timezone
@@ -15,8 +16,7 @@ from .forms import PostForm
 
 #models
 from .models import Post, PostImage , DogAnnouncement, AnnouncementComment, AnnouncementReaction, PostRequest
-from user.models import DogCaptureRequest, AdoptionRequest,FaceImage, Profile
-from django.db.models import Count
+from user.models import DogCaptureRequest, AdoptionRequest,FaceImage, Profile,OwnerClaim, ClaimImage
 from django.contrib.auth.models import User
 
 # ADMIN-ONLY DECORATOR
@@ -84,14 +84,112 @@ def create_post(request):
 #LIST OF ALL THE POST OF DOG ADOPTION BY THE ADMIN 
 @admin_required
 def post_list(request):
-    posts = Post.objects.all().prefetch_related('requests')
-
-    for post in posts:
-        post.pending_requests = post.requests.filter(status='pending').count()
+    # Annotate claim and adoption request counts
+    posts = Post.objects.annotate(
+        claim_count=Count('requests', filter=Q(requests__request_type='claim', requests__status='pending')),
+        adopt_count=Count('requests', filter=Q(requests__request_type='adopt', requests__status='pending'))
+    ).order_by('-created_at')
 
     return render(request, 'admin_home/post_list.html', {
         'posts': posts
     })
+@admin_required
+def view_faceauth(request, user_id):
+    user = get_object_or_404(User, id=user_id)
+
+    # Get all face auth images for this user
+    face_images = FaceImage.objects.filter(user=user)
+
+    # Optionally include profile info
+    profile = Profile.objects.filter(user=user).first()
+
+    return render(request, 'admin_home/view_faceauth.html', {
+        'user': user,
+        'profile': profile,
+        'face_images': face_images,
+    })
+
+@admin_required
+def claim_requests(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+
+    claims = post.requests.filter(request_type='claim') \
+                          .select_related('user') \
+                          .prefetch_related('images')
+
+    # Fetch profiles and face images
+    user_ids = [req.user.id for req in claims]
+    profiles = Profile.objects.filter(user_id__in=user_ids)
+    faceauth = FaceImage.objects.filter(user_id__in=user_ids)
+
+    # Build list of (req, profile, face images)
+    requests_with_meta = []
+    for req in claims:
+        profile = profiles.filter(user_id=req.user.id).first()
+        face_images = faceauth.filter(user_id=req.user.id)
+        requests_with_meta.append({
+            'req': req,
+            'profile': profile,
+            'face_images': face_images
+        })
+
+    return render(request, 'admin_claim/claim_requests.html', {
+        'post': post,
+        'requests_meta': requests_with_meta
+    })
+
+@admin_required
+def adoption_requests(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+
+    adoptions = post.requests.filter(request_type='adopt') \
+                             .select_related('user') \
+                             .prefetch_related('images')
+
+    user_ids = [req.user.id for req in adoptions]
+    profiles = Profile.objects.filter(user_id__in=user_ids)
+    faceauth = FaceImage.objects.filter(user_id__in=user_ids)
+
+    requests_with_meta = []
+    for req in adoptions:
+        profile = profiles.filter(user_id=req.user.id).first()
+        face_images = faceauth.filter(user_id=req.user.id)
+        requests_with_meta.append({
+            'req': req,
+            'profile': profile,
+            'face_images': face_images
+        })
+
+    return render(request, 'admin_adoption/adoption_request.html', {
+        'post': post,
+        'requests_meta': requests_with_meta
+    })
+
+@admin_required
+def update_request(request, req_id, action):
+    req = get_object_or_404(PostRequest, id=req_id)
+    post = req.post
+
+    if action == 'accept':
+        req.status = 'accepted'
+
+        # Update post status
+        if req.request_type == 'claim':
+            post.status = 'reunited'
+        elif req.request_type == 'adopt':
+            post.status = 'adopted'
+
+        post.save()
+
+        # Auto-reject other requests
+        post.requests.exclude(id=req.id).update(status='rejected')
+
+    elif action == 'reject':
+        req.status = 'rejected'
+
+    req.save()
+    return redirect('dogadoption_admin:adoption_requests', post.id)
+
 
 
 # DOG CAPTURE REQUESTS 
@@ -134,42 +232,6 @@ def update_dog_capture_request(request, pk):
     return render(request, 'admin_request/update_request.html', {
         'req': req
     })
-
-# REQUEST DOG ADOPTION 
-@admin_required
-def adoption_requests(request, post_id):
-    post = get_object_or_404(Post, id=post_id)
-    requests = post.requests.select_related('user')  # 
-
-    return render(request, 'admin_adoption/adoption_request.html', {
-        'post': post,
-        'requests': requests
-    })
-
-@admin_required
-def update_request(request, req_id, action):
-    req = get_object_or_404(PostRequest, id=req_id)
-    post = req.post
-
-    if action == 'accept':
-        req.status = 'accepted'
-
-        # Update post status
-        if req.request_type == 'claim':
-            post.status = 'reunited'
-        elif req.request_type == 'adopt':
-            post.status = 'adopted'
-
-        post.save()
-
-        # Auto-reject other requests
-        post.requests.exclude(id=req.id).update(status='rejected')
-
-    elif action == 'reject':
-        req.status = 'rejected'
-
-    req.save()
-    return redirect('dogadoption_admin:adoption_requests', post.id)
 
 
 #ANNOUNCEMENTS PAGE
@@ -288,7 +350,7 @@ def comment_reply(request, comment_id):
     return redirect("dogadoption_admin:admin_announcements")
 
 
-#USES MANAGEMENT PAGE
+#USER MANAGEMENT PAGE
 @admin_required
 def all_users_view(request):
     users = User.objects.filter(is_staff=False).prefetch_related(

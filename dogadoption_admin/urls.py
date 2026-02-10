@@ -20,12 +20,15 @@ urlpatterns = [
     # DOG CAPTURE REQUESTS
     path('dog-capture/requests/',views.admin_dog_capture_requests,name='requests'),
     path('dog-capture/request/<int:pk>/update/',views.update_dog_capture_request,name='update_dog_capture_request'),
+    path('user/<int:user_id>/faceauth/', views.view_faceauth, name='view_faceauth'),
+
 
 
     #ADOPTION REQUEST OF USERS 
     path('post/<int:post_id>/requests/', views.adoption_requests, name='adoption_requests'),
     path('request/<int:req_id>/<str:action>/', views.update_request, name='update_request'),
-
+    path('posts/<int:post_id>/claims/', views.claim_requests, name='claim_requests'),
+  
     #ADMIN ANNOUNCEMENTS
     path('admin/announcements/', views.announcement_list, name='admin_announcements'),
     path('announcements/create/', views.announcement_create, name='announcement_create'),

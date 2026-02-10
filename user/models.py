@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings
-from dogadoption_admin.models import Post
+from dogadoption_admin.models import Post, PostRequest
 
 
 #users profile for sign up
@@ -97,8 +97,8 @@ class OwnerClaim(models.Model):
 
 class ClaimImage(models.Model):
     claim = models.ForeignKey(
-        OwnerClaim,
-        on_delete=models.CASCADE,
-        related_name='images'
+        PostRequest,
+        related_name='images',
+        on_delete=models.CASCADE
     )
-    image = models.ImageField(upload_to='claim_proofs/')
+    image = models.ImageField(upload_to='claim_images/')

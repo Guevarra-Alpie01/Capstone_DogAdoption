@@ -2,64 +2,58 @@
 {% load static %}
 
 {% block content %}
+<link rel="stylesheet" href="{% static 'css/post_list.css' %}">
 
-<h1>Dog Adoption Feed 🐾</h1>
-
-<a href="{% url 'dogadoption_admin:create_post' %}">Create Post</a>
-<hr>
+<div class="d-flex justify-content-start mb-3">
+    <a href="{% url 'dogadoption_admin:create_post' %}" class="btn btn-primary btn-lg create-post-btn">
+        <i class="fas fa-plus-circle me-2"></i> Create Post
+    </a>
+</div>
 
 {% for post in posts %}
-<div style="border:1px solid #ccc; padding:15px; margin-bottom:20px; position:relative;">
+<div class="post-card">
 
-    <!-- CLAIM & ADOPT BUTTON -->
-    <a href="{% url 'dogadoption_admin:adoption_requests' post.id %}"
-   style="
-       position:absolute;
-       top:10px;
-       right:10px;
-       background:#2563eb;
-       color:white;
-       padding:6px 14px;
-       border-radius:20px;
-       text-decoration:none;
-       font-size:14px;
-   ">
-    🐶 Claim & Adopt
-    {% if post.pending_requests > 0 %}
-        <span style="
-            background:red;
-            color:white;
-            padding:2px 8px;
-            border-radius:50%;
-            font-size:12px;
-            margin-left:6px;
-        ">
-            {{ post.pending_requests }}
-        </span>
-    {% endif %}
-</a>
+    <!-- POST INFO -->
+    <div class="post-user">{{ post.user.username }}</div>
+    <p class="post-caption">{{ post.caption }}</p>
 
+    <div class="post-meta">
+        {% if post.location %}
+            📍 {{ post.location }} <br>
+        {% endif %}
+        Status: <b>{{ post.get_status_display }}</b><br>
+        Posted on {{ post.created_at|date:"M d, Y H:i" }}
+    </div>
 
-    <strong>{{ post.user.username }}</strong>
-    <p>{{ post.caption }}</p>
-
-    {% if post.location %}
-        <small>📍 {{ post.location }}</small><br>
-    {% endif %}
-
-    <small>Status: <b>{{ post.get_status_display }}</b></small><br>
-    <small>Posted on {{ post.created_at }}</small>
-
-    <div style="margin-top:10px;">
+    <!-- IMAGES -->
+    {% if post.images.exists %}
+    <div class="post-images">
         {% for image in post.images.all %}
-            <img src="{{ image.image.url }}" width="200">
+            <img src="{{ image.image.url }}" alt="Dog image">
         {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- 🔹 BUTTONS AT BOTTOM -->
+    <div class="post-actions mt-3">
+        <a href="{% url 'dogadoption_admin:claim_requests' post.id %}" class="btn btn-warning btn-sm action-btn">
+            🧾 Claim
+            {% if post.claim_count > 0 %}
+                <span class="badge bg-danger">{{ post.claim_count }}</span>
+            {% endif %}
+        </a>
+
+        <a href="{% url 'dogadoption_admin:adoption_requests' post.id %}" class="btn btn-success btn-sm action-btn">
+            🐾 Adopt
+            {% if post.adopt_count > 0 %}
+                <span class="badge bg-danger">{{ post.adopt_count }}</span>
+            {% endif %}
+        </a>
     </div>
 
 </div>
 {% empty %}
-<p>No dog adoption posts yet 🐶</p>
+<p class="text-muted">No dog adoption posts yet</p>
 {% endfor %}
-
 
 {% endblock %}

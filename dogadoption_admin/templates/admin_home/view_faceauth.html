@@ -1,0 +1,38 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/view_faceauth.css' %}">
+
+<div class="container-faceauth">
+
+    <h2 class="fa-title">Face Authentication — {{ user.first_name }} {{ user.last_name }}</h2>
+
+    {% if profile %}
+    <p class="fa-meta">
+        <strong>Address:</strong> {{ profile.address }}<br>
+        <strong>Age:</strong> {{ profile.age }}<br>
+        <strong>MI:</strong> {{ profile.middle_initial }}
+    </p>
+    {% endif %}
+
+    {% if face_images %}
+    <div class="face-img-grid">
+        {% for img in face_images %}
+            <div class="face-img-card">
+                <img src="{{ img.image.url }}" alt="Face Image">
+                <div class="img-date">
+                    Uploaded: {{ img.created_at|date:"M d, Y H:i" }}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    {% else %}
+        <p class="text-muted">No face authentication images available.</p>
+    {% endif %}
+
+    <a href="javascript:history.back()" class="btn btn-secondary mt-3">⬅ Back</a>
+
+</div>
+
+{% endblock %}

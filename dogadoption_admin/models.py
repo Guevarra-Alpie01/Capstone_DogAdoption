@@ -180,3 +180,59 @@ class AnnouncementComment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     def __str__(self):
         return f"{self.user.username} - {self.comment[:20]}"
+
+# models.py
+class Dog(models.Model):
+    date_registered = models.DateField()
+    name = models.CharField(max_length=100)
+    species = models.CharField(max_length=50, default="Canine")
+    sex = models.CharField(max_length=1, choices=[('M', 'Male'), ('F', 'Female')])
+    age = models.CharField(max_length=20, blank=True)  # e.g. "4 mos", "3 yrs"
+    neutering_status = models.CharField(max_length=2, choices=[('No', 'No'), ('C', 'Castrated'), ('S', 'Spayed')], default='No')
+    color = models.CharField(max_length=50, blank=True)
+    owner_name = models.CharField(max_length=100)
+    owner_address = models.TextField(blank=True)
+    barangay = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.species})"
+
+
+#dog certification 
+class CertificateSettings(models.Model):
+    reg_no = models.CharField(max_length=50, default="REG-001")
+    print_immediately = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Certificate Settings ({self.reg_no})"
+
+
+class DogRegistration(models.Model):
+    SEX_CHOICES = (
+        ('M', 'Male'),
+        ('F', 'Female'),
+    )
+
+    STATUS_CHOICES = (
+        ('Castrated', 'Castrated'),
+        ('Spayed', 'Spayed'),
+        ('Intact', 'Intact'),
+    )
+
+    reg_no = models.CharField(max_length=50)
+    name_of_pet = models.CharField(max_length=100)
+    breed = models.CharField(max_length=100)
+    dob = models.DateField()
+    color_markings = models.CharField(max_length=100)
+    sex = models.CharField(max_length=1, choices=SEX_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+
+    # Owner Personal Details
+    owner_name = models.CharField(max_length=100)
+    address = models.TextField()
+    contact_no = models.CharField(max_length=20)
+
+    date_registered = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name_of_pet} - {self.reg_no}"

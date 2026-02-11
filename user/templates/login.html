@@ -1,8 +1,16 @@
 {% extends 'base.html' %}
 {% load static %}
 
-<link rel="stylesheet" href="{% static 'css/login.css' %}">
 {% block content %}
+<link rel="stylesheet" href="{% static 'css/login.css' %}">
+<style>
+body {
+    background: url("{% static 'images/OIP.webp' %}") no-repeat center center fixed;
+    background-size: cover;
+    position: relative;
+}
+</style>
+
 
 {% if error %}
 <div class="alert alert-danger text-center">
@@ -11,9 +19,21 @@
 {% endif %}
 
 <div class="auth-wrapper d-flex justify-content-center align-items-center">
+
     <div class="auth-card">
 
-        <h2 class="text-center mb-4">PETSHELP</h2>
+        <!--  Logos Inside Log in  Card -->
+        <div class="card-logos d-flex justify-content-between align-items-center mb-3">
+            <img src="{% static 'images/bayawan_logo.webp' %}" 
+                 class="card-logo" 
+                 alt="Bayawan Logo">
+
+            <img src="{% static 'images/OIP.webp' %}" 
+                 class="card-logo" 
+                 alt="Bayawan harvest logo">
+        </div>
+
+        <h2 class="text-center mb-4 brand-title">Login</h2>
 
         <form method="post">
             {% csrf_token %}
@@ -34,7 +54,7 @@
                        required>
             </div>
 
-            <button type="submit" class="btn btn-primary w-100">
+            <button type="submit" class="w-100 login-btn py-2">
                 Log In
             </button>
         </form>
@@ -43,26 +63,12 @@
             <span class="text-muted">or</span>
         </div>
 
-        <a href="{% url 'user:signup' %}" class="btn btn-success w-100">
-            Create New Account
-        </a>
+      <a href="{% url 'user:signup' %}" class="w-100 login-btn d-block text-center py-2">
+    Create New Account
+      </a>
+
 
     </div>
 </div>
-
-<!--- Script to prevent click propagation and redirect to user home --->
-<script>
-    const authCard = document.querySelector(".auth-card");
-
-    if (authCard) {
-        authCard.addEventListener("click", function (event) {
-            event.stopPropagation();
-        });
-    }
-
-    document.addEventListener("click", function () {
-        window.location.href = "{% url 'user:user_home' %}";
-    });
-</script>
 
 {% endblock %}

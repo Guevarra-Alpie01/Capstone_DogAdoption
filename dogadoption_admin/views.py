@@ -4,6 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.views.decorators.http import require_POST
 from django.db.models import Count, Q
+from datetime import timedelta
+from django.utils import timezone
 
 from django.contrib import messages
 from django.utils import timezone
@@ -82,17 +84,51 @@ def create_post(request):
     })
 
 #LIST OF ALL THE POST OF DOG ADOPTION BY THE ADMIN 
+
 @admin_required
 def post_list(request):
-    # Annotate claim and adoption request counts
-    posts = Post.objects.annotate(
-        claim_count=Count('requests', filter=Q(requests__request_type='claim', requests__status='pending')),
-        adopt_count=Count('requests', filter=Q(requests__request_type='adopt', requests__status='pending'))
-    ).order_by('-created_at')
 
-    return render(request, 'admin_home/post_list.html', {
-        'posts': posts
+    status_filter = request.GET.get('status')  # ✅ NEW
+
+    posts = Post.objects.annotate(
+        claim_count=Count(
+            'requests',
+            filter=Q(requests__request_type='claim', requests__status='pending')
+        ),
+        adopt_count=Count(
+            'requests',
+            filter=Q(requests__request_type='adopt', requests__status='pending')
+        )
+    )
+
+    # ✅ STATUS FILTERING LOGIC
+    if status_filter == 'reunited':
+        posts = posts.filter(status='reunited')
+
+    elif status_filter == 'adopted':
+        posts = posts.filter(status='adopted')
+
+    elif status_filter == 'ready_adoption':
+        posts = posts.filter(
+            status__in=['rescued', 'under_care']
+        ).filter(
+            rescued_date__lt=timezone.now().date() - timedelta(days=3)
+        )
+
+    elif status_filter == 'ready_claim':
+        posts = posts.filter(
+            status__in=['rescued', 'under_care']
+        ).filter(
+            rescued_date__gte=timezone.now().date() - timedelta(days=3)
+        )
+
+    posts = posts.order_by('-created_at')
+
+    return render(request, 'admin_home/status_filtered.html', {
+        'posts': posts,
+        'current_filter': status_filter
     })
+
 @admin_required
 def view_faceauth(request, user_id):
     user = get_object_or_404(User, id=user_id)
@@ -266,19 +302,42 @@ def announcement_list(request):
     })
 
 #CREATING ANNOUNCEMENTS 
+# views.py
+
+from django.shortcuts import render, redirect
+from django.views.decorators.http import require_http_methods
+from functools import wraps
+import json
+
 @admin_required
+@require_http_methods(["GET", "POST"])   # ✅ ADDED: Restrict methods properly
 def announcement_create(request):
+
     if request.method == "POST":
+
+        # ✅ ADDED: Safe JSON parsing for schedule
+        schedule_raw = request.POST.get("schedule_data")
+        schedule = None
+
+        if schedule_raw:
+            try:
+                schedule = json.loads(schedule_raw)
+            except json.JSONDecodeError:
+                schedule = None
+
         DogAnnouncement.objects.create(
             content=request.POST.get("content"),
             post_type=request.POST.get("post_type", "COLOR"),
             background_color=request.POST.get("background_color", "#4f46e5"),
             background_image=request.FILES.get("background_image"),
+            schedule_data=schedule,   # ✅ ADDED
             created_by=request.user
         )
-        return redirect("dogadoption_admin:announcement_list")
+
+        return redirect("dogadoption_admin:admin_announcements")
 
     return render(request, "admin_announcement/create_announcement.html")
+
 
 
 @admin_required
@@ -360,3 +419,153 @@ def all_users_view(request):
     return render(request, "admin_user/users.html", {
         "users": users
     })
+
+
+#registration
+from .models import Dog
+
+from datetime import datetime
+# views.py
+
+import json
+from datetime import datetime
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .models import Dog
+
+def register_dogs(request):
+    # Admin-controlled barangay and date stored in session
+    barangay = request.session.get('barangay', '')
+    date = request.session.get('date', '')
+
+    if request.method == 'POST':
+        barangay = request.POST.get('barangay', barangay)
+        date = request.POST.get('date', date)
+        request.session['barangay'] = barangay
+        request.session['date'] = date
+
+        name = request.POST.get('name', '').strip()
+        species = request.POST.get('species', 'Canine')
+        sex = request.POST.get('sex', 'M')
+        age = request.POST.get('age', '').strip()
+        neutering = request.POST.get('neutering', 'No')
+        color = request.POST.get('color', '').strip()
+        owner_name = request.POST.get('owner_name', '').strip()
+        owner_address = request.POST.get('owner_address', '').strip()
+
+        if not name or not owner_name:
+            messages.error(request, "Dog Name and Owner Name are required.")
+            return redirect('dogadoption_admin:register_dogs')
+
+        try:
+            date_registered = datetime.strptime(date, '%Y-%m-%d').date()
+        except ValueError:
+            messages.error(request, "Invalid date format.")
+            return redirect('dogadoption_admin:register_dogs')
+
+        dog = Dog(
+            date_registered=date_registered,
+            name=name,
+            species=species,
+            sex=sex,
+            age=age,
+            neutering_status=neutering,
+            color=color,
+            owner_name=owner_name,
+            owner_address=owner_address,
+            barangay=barangay
+        )
+        dog.save()
+        messages.success(request, f"Dog '{name}' registered successfully!")
+        return redirect('dogadoption_admin:register_dogs')
+
+    return render(request, 'admin_registration/registration.html', {
+        'barangay': barangay,
+        'date': date
+    })
+
+
+def registration_record(request):
+    selected_barangay = request.GET.get('barangay', '').strip()
+
+    # Get unique barangays, sort alphabetically
+    barangay_list = list(Dog.objects.values_list('barangay', flat=True).distinct().order_by('barangay'))
+    barangay_list_json = json.dumps(barangay_list)  # Serialize to JSON string for JS usage
+
+    if selected_barangay:
+        # Case-insensitive partial match to show results even with partial typing
+        dogs = Dog.objects.filter(barangay__icontains=selected_barangay).order_by('-date_registered')
+    else:
+        # Show recent 20 records if no barangay selected
+        dogs = Dog.objects.all().order_by('-date_registered')[:20]
+
+    context = {
+        'selected_barangay': selected_barangay,
+        'dogs': dogs,
+        'barangay_list': barangay_list_json,  # Pass JSON string here
+    }
+    return render(request, 'admin_registration/registration_record.html', context)
+
+
+#certification for dogs views.py
+from .models import DogRegistration, CertificateSettings
+
+
+
+from django.shortcuts import render, redirect
+from .models import DogRegistration, CertificateSettings
+
+def dog_certificate(request):
+    settings = CertificateSettings.objects.first()  # get current reg no if exists
+
+    if request.method == "POST":
+        reg_no = request.POST.get("reg_no")
+
+        # Update settings if reg_no changed manually
+        if settings:
+            if settings.reg_no != reg_no:
+                settings.reg_no = reg_no
+                settings.save()
+        else:
+            # First time creating settings
+            settings = CertificateSettings.objects.create(reg_no=reg_no)
+
+        # Create DogRegistration
+        registration = DogRegistration.objects.create(
+            reg_no=settings.reg_no,
+            name_of_pet=request.POST.get('name_of_pet'),
+            breed=request.POST.get('breed'),
+            dob=request.POST.get('dob'),
+            color_markings=request.POST.get('color_markings'),
+            sex=request.POST.get('sex'),
+            status=request.POST.get('status'),
+            owner_name=request.POST.get('owner_name'),
+            address=request.POST.get('address'),
+            contact_no=request.POST.get('contact_no'),
+        )
+
+        # Check print option
+        if request.POST.get('print_immediately'):
+            settings.print_immediately = True
+        else:
+            settings.print_immediately = False
+        settings.save()
+
+        # Redirect accordingly
+        if settings.print_immediately:
+            return redirect('dogadoption_admin:certificate_print', registration.id)
+        else:
+            return redirect('dogadoption_admin:certificate_list')
+
+    return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+
+
+
+def certificate_print(request, pk):
+    registration = get_object_or_404(DogRegistration, pk=pk)
+    return render(request, 'admin_registration/certificate_print.html', {'data': registration})
+
+
+def certificate_list(request):
+    certificates = DogRegistration.objects.all().order_by('-date_registered')
+    return render(request, 'admin_registration/certificate_list.html', {'certificates': certificates})

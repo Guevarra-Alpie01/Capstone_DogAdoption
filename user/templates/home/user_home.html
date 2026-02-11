@@ -88,27 +88,46 @@
             </div>
             {% endif %}
 
-            <hr>
+          <hr>
 
-            <!-- ACTION BUTTONS -->
-            <div class="d-flex gap-2">
+<!-- STATUS / ACTION AREA -->
+<div class="text-center mt-3">
 
-                {% if not post.is_open_for_adoption %}
-                 <a href="{% url 'user:claim_confirm' post.id %}"
-   class="btn btn-outline-warning btn-sm">
-    Claim
-</a>
-                {% endif %}
+    {% if post.status == 'reunited' %}
+        <span class="badge bg-success fs-6 px-3 py-2">
+            ❤️ Reunited with Owner
+        </span>
 
-                {% if post.is_open_for_adoption and post.status != 'adopted' %}
-                   <a href="{% url 'user:adopt_confirm' post.id %}"
-   class="btn btn-success btn-sm">
-    Adopt
-</a>
+    {% elif post.status == 'adopted' %}
+        <span class="badge bg-secondary fs-6 px-3 py-2">
+            🏡 Adopted — No longer available
+        </span>
 
-                {% endif %}
+    {% else %}
+        <!-- ACTIVE POSTS ONLY -->
 
-            </div>
+        <div class="d-flex justify-content-center gap-2">
+
+            {% if not post.is_open_for_adoption %}
+                <a href="{% url 'user:claim_confirm' post.id %}"
+                   class="btn btn-outline-warning btn-sm">
+                    Claim
+                </a>
+            {% endif %}
+
+            {% if post.is_open_for_adoption %}
+                <a href="{% url 'user:adopt_confirm' post.id %}"
+                   class="btn btn-success btn-sm">
+                    Adopt
+                </a>
+            {% endif %}
+
+        </div>
+
+    {% endif %}
+
+</div>
+
 
         </div>
     </div>

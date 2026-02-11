@@ -40,6 +40,16 @@ urlpatterns = [
 
     #USER MANAGEMENT
     path("users/", all_users_view, name="users_list"),
+
+    #REGISTRATION
+    
+    path('register/', views.register_dogs, name='register_dogs'),
+    path('registration-record/', views.registration_record, name='registration_record'),
+
+    #CERTIFICATION
+    path('dog-certificate/', views.dog_certificate, name='dog_certificate'),
+    path('certificate/<int:pk>/', views.certificate_print, name='certificate_print'),
+    path('certificates/', views.certificate_list, name='certificate_list'),
 ]
 
 

@@ -1,0 +1,82 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block title %}Dog Vaccination Certificate{% endblock %}
+
+{% block content %}
+  <link rel="stylesheet" href="{% static 'css/certificate_print.css' %}">
+
+  <div class="certificate">
+
+    <div class="header">
+      <img src="{% static 'images/logo_left.png' %}" alt="Left Logo" class="logo-left" />
+      <div class="title">
+        <h1>DOG VACCINATION CERTIFICATE</h1>
+      </div>
+      <img src="{% static 'images/logo_right.png' %}" alt="Right Logo" class="logo-right" />
+    </div>
+
+    <div class="body-content">
+
+      <div class="line">
+        <span class="label">Reg No:</span>
+        <span class="underline">{{ data.reg_no }}</span>
+      </div>
+
+      <div class="line">
+        <span class="label">Name of Pet:</span>
+        <span class="underline">{{ data.name_of_pet }}</span>
+
+        <span class="inline-group breed-dob">
+          <span class="label">Breed:</span>
+          <span class="underline">{{ data.breed }}</span>
+        </span>
+
+        <span class="inline-group dob-color">
+          <span class="label">DOB:</span>
+          <span class="underline">{{ data.dob }}</span>
+        </span>
+
+        <span class="inline-group dob-color">
+          <span class="label">Color/Markings:</span>
+          <span class="underline">{{ data.color_markings }}</span>
+        </span>
+      </div>
+
+      <div class="line">
+        <span class="label">Sex:</span>
+        <span class="sex-underline">( ) {{ data.get_sex_display }}</span>
+
+        <span class="inline-group" style="margin-left: 40px;">
+          <span class="label">Castrated ( )</span>
+          <span class="label">Spayed ( )</span>
+          <span class="label">Intact ( )</span>
+        </span>
+      </div>
+
+      <div class="owner-details">
+        <div class="line">
+          <span class="label">Name of Owner:</span>
+          <span class="underline">{{ data.owner_name }}</span>
+        </div>
+
+        <div class="line">
+          <span class="label">Address:</span>
+          <span class="underline">{{ data.address }}</span>
+        </div>
+
+        <div class="line">
+          <span class="label">Contact No:</span>
+          <span class="underline">{{ data.contact_no }}</span>
+        </div>
+      </div>
+
+      <div class="footer">
+        Republic Act No. 9482 – Anti Rabies Act of 2007
+      </div>
+
+    </div>
+
+    <button onclick="window.print()" class="print-btn">Print</button>
+  </div>
+{% endblock %}

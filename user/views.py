@@ -227,6 +227,9 @@ def signup_complete(request):
 
 
 def user_home(request):
+    if request.user.is_authenticated and request.user.is_staff:
+        return redirect('dogadoption_admin:post_list')
+    
     query = request.GET.get('q')
 
     posts = Post.objects.all().order_by('-created_at')
@@ -290,27 +293,38 @@ def adopt_status(request):
 def adopt_confirm(request, post_id):
     post = get_object_or_404(Post, id=post_id)
 
+    # 🚫 Block if already claimed or adopted
+    if post.status in ['reunited', 'adopted']:
+        messages.warning(request, "This dog is no longer available.")
+        return redirect('user:user_home')
+
     # Prevent duplicate adoption requests
-    if PostRequest.objects.filter(user=request.user, post=post, request_type='adopt').exists():
-        messages.info(request, "You already requested to adopt this dog 🐾")
-        return redirect('user:adopt_status')
+    if PostRequest.objects.filter(
+        user=request.user,
+        post=post,
+        request_type='adopt'
+    ).exists():
+        messages.info(request, "You already submitted an adoption request.")
+        return redirect('user:user_home')
 
     if request.method == 'POST':
-        PostRequest.objects.create(
+        req = PostRequest.objects.create(
             user=request.user,
             post=post,
             request_type='adopt',
             status='pending'
         )
+
+        for img in request.FILES.getlist('images'):
+            ClaimImage.objects.create(claim=req, image=img)
+
         messages.success(
             request,
-            "Adoption request submitted! Please wait for admin verification 🐶"
+            "Adoption request submitted successfully! 🐾"
         )
-        return redirect('user:adopt_status')
+        return redirect('user:user_home')
 
-    return render(request, 'adopt/adopt_confirm.html', {
-        'post': post
-    })
+    return render(request, 'adopt/adopt_confirm.html', {'post': post})
 
 
 
@@ -374,9 +388,10 @@ def announcement_comment(request, post_id):
 
 @user_only
 def my_claims(request):
-    claims = OwnerClaim.objects.filter(
-        user=request.user
-    ).select_related('post').order_by('-submitted_at')
+    claims = PostRequest.objects.filter(
+        user=request.user,
+        request_type='claim'
+    ).select_related('post').order_by('-created_at')
 
     return render(request, 'claim/claim.html', {
         'claims': claims
@@ -387,13 +402,21 @@ def my_claims(request):
 def claim_confirm(request, post_id):
     post = get_object_or_404(Post, id=post_id)
 
+    # 🚫 Block if already claimed or adopted
+    if post.status in ['reunited', 'adopted']:
+        messages.warning(request, "This dog is no longer available.")
+        return redirect('user:user_home')
+
     # Prevent duplicate claim requests
-    if PostRequest.objects.filter(user=request.user, post=post, request_type='claim').exists():
+    if PostRequest.objects.filter(
+        user=request.user,
+        post=post,
+        request_type='claim'
+    ).exists():
         messages.info(request, "You already submitted a claim for this dog.")
         return redirect('user:user_home')
 
     if request.method == 'POST':
-        # Create the PostRequest for a claim
         req = PostRequest.objects.create(
             user=request.user,
             post=post,
@@ -401,7 +424,6 @@ def claim_confirm(request, post_id):
             status='pending'
         )
 
-        # Save uploaded images linked to the PostRequest
         for img in request.FILES.getlist('images'):
             ClaimImage.objects.create(claim=req, image=img)
 
@@ -411,6 +433,4 @@ def claim_confirm(request, post_id):
         )
         return redirect('user:user_home')
 
-    return render(request, 'claim/claim_confirm.html', {
-        'post': post
-    })
+    return render(request, 'claim/claim_confirm.html', {'post': post})

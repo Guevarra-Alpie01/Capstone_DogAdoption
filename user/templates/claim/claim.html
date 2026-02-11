@@ -15,36 +15,39 @@
             {% endif %}
 
             <small class="text-muted">
-                🗓 Submitted on {{ claim.submitted_at|date:"M d, Y" }}
+                🗓 Submitted on {{ claim.created_at|date:"M d, Y" }}
             </small>
 
             <hr>
 
             <p class="mb-1">
                 <strong>Status:</strong>
+
                 {% if claim.status == 'pending' %}
                     <span class="text-warning fw-semibold">
                         Pending ⏳
                     </span>
-                {% elif claim.status == 'approved' %}
+
+                {% elif claim.status == 'accepted' %}
                     <span class="text-success fw-semibold">
                         Approved ✅
                     </span>
-                {% else %}
+
+                {% elif claim.status == 'rejected' %}
                     <span class="text-danger fw-semibold">
                         Rejected ❌
                     </span>
                 {% endif %}
             </p>
 
-            {% if claim.explanation %}
+            {% if claim.message %}
                 <p class="mt-2">
-                    <strong>Your Explanation:</strong><br>
-                    {{ claim.explanation|truncatewords:30 }}
+                    <strong>Your Message:</strong><br>
+                    {{ claim.message|truncatewords:30 }}
                 </p>
             {% endif %}
 
-            {% if claim.images.exists %}
+            {% if claim.images.all %}
                 <p class="mt-2 mb-1"><strong>📸 Submitted Photos:</strong></p>
                 <div class="d-flex gap-2 flex-wrap">
                     {% for img in claim.images.all %}

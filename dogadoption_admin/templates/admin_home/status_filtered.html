@@ -1,0 +1,84 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/post_list.css' %}">
+
+<h2 class="mb-4">Dog Posts</h2>
+
+<!-- 🔥 FILTER BUTTONS -->
+<div class="mb-4 d-flex gap-2 flex-wrap">
+
+    <a href="{% url 'dogadoption_admin:post_list' %}"
+       class="btn btn-outline-dark {% if not current_filter %}active{% endif %}">
+        All
+    </a>
+
+    <a href="?status=ready_claim"
+       class="btn btn-outline-primary {% if current_filter == 'ready_claim' %}active{% endif %}">
+        🕒 Ready for Claim
+    </a>
+
+    <a href="?status=ready_adoption"
+       class="btn btn-outline-success {% if current_filter == 'ready_adoption' %}active{% endif %}">
+        🐾 Ready for Adoption
+    </a>
+
+    <a href="?status=reunited"
+       class="btn btn-outline-warning {% if current_filter == 'reunited' %}active{% endif %}">
+        🧾 Claimed (Reunited)
+    </a>
+
+    <a href="?status=adopted"
+       class="btn btn-outline-info {% if current_filter == 'adopted' %}active{% endif %}">
+        🏠 Adopted
+    </a>
+
+</div>
+
+
+<!-- 🔥 POSTS DISPLAY -->
+{% for post in posts %}
+<div class="post-card">
+
+    <div class="post-user">{{ post.user.username }}</div>
+    <p class="post-caption">{{ post.caption }}</p>
+
+    <div class="post-meta">
+        {% if post.location %}
+            📍 {{ post.location }} <br>
+        {% endif %}
+        Status: <b>{{ post.get_status_display }}</b><br>
+        Posted on {{ post.created_at|date:"M d, Y H:i" }}
+    </div>
+
+    {% if post.images.exists %}
+    <div class="post-images">
+        {% for image in post.images.all %}
+            <img src="{{ image.image.url }}" alt="Dog image">
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="post-actions mt-3">
+        <a href="{% url 'dogadoption_admin:claim_requests' post.id %}" class="btn btn-warning btn-sm">
+            🧾 Claim
+            {% if post.claim_count > 0 %}
+                <span class="badge bg-danger">{{ post.claim_count }}</span>
+            {% endif %}
+        </a>
+
+        <a href="{% url 'dogadoption_admin:adoption_requests' post.id %}" class="btn btn-success btn-sm">
+            🐾 Adopt
+            {% if post.adopt_count > 0 %}
+                <span class="badge bg-danger">{{ post.adopt_count }}</span>
+            {% endif %}
+        </a>
+    </div>
+
+</div>
+{% empty %}
+<p class="text-muted">No posts found for this filter.</p>
+{% endfor %}
+
+{% endblock %}

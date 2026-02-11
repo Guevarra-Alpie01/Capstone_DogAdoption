@@ -1,0 +1,96 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block title %}Dog Registry and Vaccination Record{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/registration.css' %}">
+
+<h2>National Rabies Prevention and Control Program</h2>
+<h3>Rabies Free Visayas Project</h3>
+<h3>Dog Registry and Vaccination Record</h3>
+
+<form method="post" action="{% url 'dogadoption_admin:dog_certificate' %}"> 
+  {% csrf_token %}
+
+  <!-- Dog Certification / REG NO input -->
+  <div class="field-group">
+    <label for="reg_no">Registration Number:</label>
+   <input type="text" id="reg_no" name="reg_no" value="{{ settings.reg_no|default:'' }}" required>
+
+    <small>Once submitted, it will not change unless edited by admin.</small>
+  </div>
+
+  <!-- Button to navigate to records -->
+  <a href="{% url 'dogadoption_admin:certificate_list' %}" class="btn btn-secondary" style="margin-bottom: 10px; display: inline-block;">
+    View Registration Records
+  </a>
+
+  <!-- Dog Registration -->
+  <div class="dog-card">
+    <h4>Dog Registration</h4>
+
+    <div class="field-group">
+      <label for="name_of_pet">Dog Name:</label>
+      <input type="text" name="name_of_pet" id="name_of_pet" required>
+    </div>
+
+    <div class="field-group">
+      <label for="breed">Breed:</label>
+      <input type="text" name="breed" id="breed">
+    </div>
+
+    <div class="field-group">
+      <label for="dob">DOB:</label>
+      <input type="date" name="dob" id="dob">
+    </div>
+
+    <div class="field-group">
+      <label for="color_markings">Color/Markings:</label>
+      <input type="text" name="color_markings" id="color_markings">
+    </div>
+
+    <div class="field-group">
+      <label for="sex">Sex (M/F):</label>
+      <select name="sex" id="sex">
+        <option value="M">M</option>
+        <option value="F">F</option>
+      </select>
+    </div>
+
+    <div class="field-group">
+      <label for="status">Status:</label>
+      <select name="status" id="status">
+        <option value="Castrated">Castrated</option>
+        <option value="Spayed">Spayed</option>
+        <option value="Intact">Intact</option>
+      </select>
+    </div>
+
+    <h4>Owner Personal Details</h4>
+    <div class="field-group">
+      <label for="owner_name">Owner Name:</label>
+      <input type="text" name="owner_name" id="owner_name" required>
+    </div>
+
+    <div class="field-group">
+      <label for="address">Complete Address:</label>
+      <textarea name="address" id="address"></textarea>
+    </div>
+
+    <div class="field-group">
+      <label for="contact_no">Contact No:</label>
+      <input type="text" name="contact_no" id="contact_no">
+    </div>
+  </div>
+
+  <div class="field-group">
+    <label>
+      <input type="checkbox" name="print_immediately" checked>
+      Print Immediately After Submission
+    </label>
+  </div>
+
+  <button type="submit">Submit Registration</button>
+</form>
+{% endblock %}

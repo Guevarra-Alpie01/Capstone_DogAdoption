@@ -60,6 +60,14 @@ def admin_logout(request):
 
 
 #  HOME PAGE OF THE ADMIN
+
+from django.db.models import Count, Q
+
+from .models import Post, PostImage, PostRequest
+from .forms import PostForm
+from user.models import Profile,FaceImage
+
+# 🔹 CREATE POST
 @admin_required
 def create_post(request):
     if request.method == 'POST':
@@ -70,7 +78,7 @@ def create_post(request):
             post.user = request.user
             post.save()
 
-            # MULTIPLE IMAGE HANDLING
+            # Multiple images
             for image in request.FILES.getlist('images'):
                 PostImage.objects.create(post=post, image=image)
 
@@ -83,68 +91,62 @@ def create_post(request):
         'post_form': post_form
     })
 
-#LIST OF ALL THE POST OF DOG ADOPTION BY THE ADMIN 
 
+# 🔹 POST LIST WITH DROPDOWN FILTER
 @admin_required
 def post_list(request):
+    status_filter = request.GET.get('status', 'all')
 
-    status_filter = request.GET.get('status')  # ✅ NEW
-
-    posts = Post.objects.annotate(
-        claim_count=Count(
-            'requests',
-            filter=Q(requests__request_type='claim', requests__status='pending')
-        ),
-        adopt_count=Count(
-            'requests',
-            filter=Q(requests__request_type='adopt', requests__status='pending')
-        )
+    # Base queryset with annotation
+    base_qs = Post.objects.annotate(
+        claim_count=Count('requests', filter=Q(requests__request_type='claim', requests__status='pending')),
+        adopt_count=Count('requests', filter=Q(requests__request_type='adopt', requests__status='pending'))
     )
 
-    # ✅ STATUS FILTERING LOGIC
-    if status_filter == 'reunited':
-        posts = posts.filter(status='reunited')
-
+    # FILTER
+    if status_filter == 'ready':
+        # Only posts still within time window & not reunited/adopted
+        posts = [p for p in base_qs if p.is_open_for_claim_adopt()]
+    elif status_filter == 'reunited':
+        posts = base_qs.filter(status='reunited')
     elif status_filter == 'adopted':
-        posts = posts.filter(status='adopted')
+        posts = base_qs.filter(status='adopted')
+    else:
+        posts = base_qs  # All
 
-    elif status_filter == 'ready_adoption':
-        posts = posts.filter(
-            status__in=['rescued', 'under_care']
-        ).filter(
-            rescued_date__lt=timezone.now().date() - timedelta(days=3)
-        )
+    # Calculate days/hours/minutes left
+    enriched = []
+    now = timezone.now()
 
-    elif status_filter == 'ready_claim':
-        posts = posts.filter(
-            status__in=['rescued', 'under_care']
-        ).filter(
-            rescued_date__gte=timezone.now().date() - timedelta(days=3)
-        )
+    for p in posts:
+        days = hours = minutes = 0
 
-    posts = posts.order_by('-created_at')
+        if p.is_open_for_claim_adopt():
+            diff = p.claim_deadline() - now
+            total_seconds = max(int(diff.total_seconds()), 0)
 
-    return render(request, 'admin_home/status_filtered.html', {
-        'posts': posts,
-        'current_filter': status_filter
+            days = total_seconds // 86400
+            remainder = total_seconds % 86400
+            hours = remainder // 3600
+            remainder = remainder % 3600
+            minutes = remainder // 60
+
+        enriched.append({
+            'post': p,
+            'days_left': days,
+            'hours_left': hours,
+            'minutes_left': minutes,
+        })
+
+    # Sort by newest
+    enriched.sort(key=lambda x: x['post'].created_at, reverse=True)
+
+    return render(request, 'admin_home/post_list.html', {
+        'posts': enriched,
+        'current_filter': status_filter,
     })
 
-@admin_required
-def view_faceauth(request, user_id):
-    user = get_object_or_404(User, id=user_id)
-
-    # Get all face auth images for this user
-    face_images = FaceImage.objects.filter(user=user)
-
-    # Optionally include profile info
-    profile = Profile.objects.filter(user=user).first()
-
-    return render(request, 'admin_home/view_faceauth.html', {
-        'user': user,
-        'profile': profile,
-        'face_images': face_images,
-    })
-
+# 🔹 CLAIM REQUESTS
 @admin_required
 def claim_requests(request, post_id):
     post = get_object_or_404(Post, id=post_id)
@@ -153,12 +155,10 @@ def claim_requests(request, post_id):
                           .select_related('user') \
                           .prefetch_related('images')
 
-    # Fetch profiles and face images
     user_ids = [req.user.id for req in claims]
     profiles = Profile.objects.filter(user_id__in=user_ids)
     faceauth = FaceImage.objects.filter(user_id__in=user_ids)
 
-    # Build list of (req, profile, face images)
     requests_with_meta = []
     for req in claims:
         profile = profiles.filter(user_id=req.user.id).first()
@@ -174,6 +174,8 @@ def claim_requests(request, post_id):
         'requests_meta': requests_with_meta
     })
 
+
+# 🔹 ADOPTION REQUESTS
 @admin_required
 def adoption_requests(request, post_id):
     post = get_object_or_404(Post, id=post_id)
@@ -201,6 +203,8 @@ def adoption_requests(request, post_id):
         'requests_meta': requests_with_meta
     })
 
+
+# 🔹 ACCEPT / REJECT REQUEST
 @admin_required
 def update_request(request, req_id, action):
     req = get_object_or_404(PostRequest, id=req_id)
@@ -209,7 +213,7 @@ def update_request(request, req_id, action):
     if action == 'accept':
         req.status = 'accepted'
 
-        # Update post status
+        # 🔥 Move post automatically
         if req.request_type == 'claim':
             post.status = 'reunited'
         elif req.request_type == 'adopt':
@@ -217,16 +221,35 @@ def update_request(request, req_id, action):
 
         post.save()
 
-        # Auto-reject other requests
+        # Auto reject others
         post.requests.exclude(id=req.id).update(status='rejected')
 
     elif action == 'reject':
         req.status = 'rejected'
 
     req.save()
-    return redirect('dogadoption_admin:adoption_requests', post.id)
 
+    # 🔥 Smart redirect
+    if req.request_type == 'claim':
+        return redirect('dogadoption_admin:claim_requests', post.id)
+    else:
+        return redirect('dogadoption_admin:adoption_requests', post.id)
 
+@admin_required
+def view_faceauth(request, user_id):
+    user = get_object_or_404(User, id=user_id)
+
+    # Get all face auth images for this user
+    face_images = FaceImage.objects.filter(user=user)
+
+    # Optionally include profile info
+    profile = Profile.objects.filter(user=user).first()
+
+    return render(request, 'admin_home/view_faceauth.html', {
+        'user': user,
+        'profile': profile,
+        'face_images': face_images,
+    })
 
 # DOG CAPTURE REQUESTS 
 @admin_required
@@ -271,11 +294,7 @@ def update_dog_capture_request(request, pk):
 
 
 #ANNOUNCEMENTS PAGE
-# Decorator to restrict access to admins
-def admin_required(view_func):
-    return user_passes_test(lambda u: u.is_staff, login_url='/admin/login/')(view_func)
-
-
+@admin_required
 def announcement_list(request):
     # Fetch all announcements with related comments & reactions
     announcements = DogAnnouncement.objects.all().prefetch_related('comments', 'reactions')
@@ -412,14 +431,18 @@ def comment_reply(request, comment_id):
 #USER MANAGEMENT PAGE
 @admin_required
 def all_users_view(request):
-    users = User.objects.filter(is_staff=False).prefetch_related(
+    users = User.objects.filter(is_staff=False).annotate(
+        claim_violations=Count(
+            'postrequest',
+            filter=Q(postrequest__request_type='claim')
+        )
+    ).prefetch_related(
         "faceimage_set", "profile"
     )
 
     return render(request, "admin_user/users.html", {
         "users": users
     })
-
 
 #registration
 from .models import Dog
@@ -433,6 +456,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from .models import Dog
 
+@admin_required
 def register_dogs(request):
     # Admin-controlled barangay and date stored in session
     barangay = request.session.get('barangay', '')
@@ -484,7 +508,7 @@ def register_dogs(request):
         'date': date
     })
 
-
+@admin_required
 def registration_record(request):
     selected_barangay = request.GET.get('barangay', '').strip()
 
@@ -515,6 +539,7 @@ from .models import DogRegistration, CertificateSettings
 from django.shortcuts import render, redirect
 from .models import DogRegistration, CertificateSettings
 
+@admin_required
 def dog_certificate(request):
     settings = CertificateSettings.objects.first()  # get current reg no if exists
 
@@ -560,12 +585,12 @@ def dog_certificate(request):
     return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
 
 
-
+@admin_required
 def certificate_print(request, pk):
     registration = get_object_or_404(DogRegistration, pk=pk)
     return render(request, 'admin_registration/certificate_print.html', {'data': registration})
 
-
+@admin_required
 def certificate_list(request):
     certificates = DogRegistration.objects.all().order_by('-date_registered')
     return render(request, 'admin_registration/certificate_list.html', {'certificates': certificates})

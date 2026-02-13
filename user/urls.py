@@ -35,6 +35,10 @@ urlpatterns = [
     path("announcements/<int:post_id>/react/",views.announcement_react,name="announcement_react"),
     path('announcements/<int:post_id>/comment/', views.announcement_comment, name='announcement_comment'),
 
+    #share button to facebook
+    path('post/<int:post_id>/', views.post_detail, name='post_detail'),
+    
+
 
   
 

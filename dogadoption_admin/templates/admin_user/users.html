@@ -9,17 +9,18 @@
 
 {% if users %}
 <table>
-    <thead>
-        <tr>
-            <th>User Info</th>
-            <th>Profile</th>
-            <th>Face Auth Images</th>
-            <th>Joined</th>
-        </tr>
-    </thead>
-    <tbody>
+        <thead>
+            <tr>
+                <th>User Info</th>
+                <th>Profile</th>
+                <th>Face Auth Images</th>
+                <th>Violations</th>
+                <th>Joined</th>
+            </tr>
+        </thead>
 
-    {% for user in users %}
+            <tbody>
+        {% for user in users %}
         <tr>
             <!-- USER INFO -->
             <td>
@@ -31,8 +32,8 @@
             <td>
                 {% if user.profile.profile_image %}
                     <img src="{{ user.profile.profile_image.url }}"
-                         class="profile-img"
-                         width="60" height="60">
+                        class="profile-img"
+                        width="60" height="60">
                 {% endif %}
                 <br>
                 <small>
@@ -53,14 +54,21 @@
                 {% endif %}
             </td>
 
+            <!-- VIOLATIONS COLUMN -->
+            <td>
+                <button class="violation-btn">
+                    Claims: {{ user.claim_violations }}
+                </button>
+            </td>
+
             <!-- CREATED -->
             <td>
                 {{ user.date_joined|date:"M d, Y" }}
             </td>
         </tr>
-    {% endfor %}
+        {% endfor %}
+        </tbody>
 
-    </tbody>
 </table>
 {% else %}
 <p>No users found.</p>

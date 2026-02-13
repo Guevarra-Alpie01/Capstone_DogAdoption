@@ -6,23 +6,22 @@
 
 <div class="home-content container">
 
-<!-- SEARCH BAR -->
-<form method="get" class="search-bar mb-4">
-    <div class="input-group">
-        <input
-            type="text"
-            name="q"
-            class="form-control"
-            placeholder="Search by location, status, or keyword 🐕"
-            value="{{ request.GET.q }}"
-        >
-        <button class="btn btn-primary" type="submit">
-            🔍 Search
-        </button>
-    </div>
-</form>
+    <!-- SEARCH BAR -->
+    <form method="get" class="search-bar mb-4">
+        <div class="input-group">
+            <input
+                type="text"
+                name="q"
+                class="form-control"
+                placeholder="Search by location, status, or keyword 🐕"
+                value="{{ request.GET.q }}"
+            >
+            <button class="btn btn-primary" type="submit">🔍 Search</button>
+        </div>
+    </form>
 
-    {% for post in posts %}
+{% for item in posts %}
+    {% with post=item.post %}
     <div class="card mb-4 shadow-sm post-card position-relative">
 
         <!-- STATUS BADGE -->
@@ -47,94 +46,78 @@
             {% endif %}
 
             <small class="text-muted">
-                🗓 Rescued on {{ post.rescued_date }}
+                🗓 Posted on {{ post.created_at|date:"M d, Y H:i" }}
             </small>
 
-            <!-- CLAIM / ADOPTION TIMELINE -->
-            <div class="mt-2">
-                {% if post.status == 'rescued' or post.status == 'under_care' %}
-                    {% if not post.is_open_for_adoption %}
-                        <span class="text-warning fw-semibold">
-                            Owner claim open until {{ post.claim_deadline }}
-                        </span>
-                    {% else %}
-                        <span class="text-success fw-semibold">
-                            Open for adoption 🐾
-                        </span>
-                    {% endif %}
-                {% elif post.status == 'reunited' %}
+            <!-- TIME LEFT -->
+            {% if post.is_open_for_adoption %}
+                <div class="mt-2">
                     <span class="text-success fw-semibold">
-                        Reunited with owner ❤️
+                        ⏱ Time left:
+                        {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m
                     </span>
-                {% elif post.status == 'adopted' %}
-                    <span class="text-secondary fw-semibold">
-                        Adopted 🏡
-                    </span>
-                {% endif %}
-            </div>
+                </div>
+            {% endif %}
 
             <!-- View More Button -->
             {% if post.images.count > 1 %}
-            <button class="btn btn-link view-more-btn p-0 mt-2" type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#gallery-{{ post.id }}">
-                View more photos
-            </button>
+                <button class="btn btn-link view-more-btn p-0 mt-2"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#gallery-{{ post.id }}">
+                    View more photos
+                </button>
 
-            <div class="collapse gallery mt-2" id="gallery-{{ post.id }}">
-                {% for image in post.images.all|slice:"1:" %}
-                    <img src="{{ image.image.url }}" class="gallery-img">
-                {% endfor %}
+                <div class="collapse gallery mt-2" id="gallery-{{ post.id }}">
+                    {% for image in post.images.all|slice:"1:" %}
+                        <img src="{{ image.image.url }}" class="gallery-img">
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <hr>
+
+            <div class="text-center mt-3">
+
+                {% if post.status == 'reunited' %}
+                    <span class="badge bg-success fs-6 px-3 py-2">
+                        ❤️ Reunited with Owner
+                    </span>
+
+                {% elif post.status == 'adopted' %}
+                    <span class="badge bg-secondary fs-6 px-3 py-2">
+                        🏡 Adopted — No longer available
+                    </span>
+
+                {% else %}
+                    <div class="d-flex justify-content-center gap-2">
+
+                        {% if post.is_open_for_adoption %}
+                            <a href="{% url 'user:adopt_confirm' post.id %}"
+                               class="btn btn-success btn-sm">Adopt</a>
+
+                            <a href="{% url 'user:claim_confirm' post.id %}"
+                               class="btn btn-outline-warning btn-sm">Claim</a>
+
+                            <!-- FACEBOOK SHARE BUTTON -->
+                            <a target="_blank"
+                               href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}"
+                               class="btn btn-outline-primary btn-sm">
+                               📢 Share
+                            </a>
+                        {% endif %}
+
+                    </div>
+                {% endif %}
+
             </div>
-            {% endif %}
-
-          <hr>
-
-<!-- STATUS / ACTION AREA -->
-<div class="text-center mt-3">
-
-    {% if post.status == 'reunited' %}
-        <span class="badge bg-success fs-6 px-3 py-2">
-            ❤️ Reunited with Owner
-        </span>
-
-    {% elif post.status == 'adopted' %}
-        <span class="badge bg-secondary fs-6 px-3 py-2">
-            🏡 Adopted — No longer available
-        </span>
-
-    {% else %}
-        <!-- ACTIVE POSTS ONLY -->
-
-        <div class="d-flex justify-content-center gap-2">
-
-            {% if not post.is_open_for_adoption %}
-                <a href="{% url 'user:claim_confirm' post.id %}"
-                   class="btn btn-outline-warning btn-sm">
-                    Claim
-                </a>
-            {% endif %}
-
-            {% if post.is_open_for_adoption %}
-                <a href="{% url 'user:adopt_confirm' post.id %}"
-                   class="btn btn-success btn-sm">
-                    Adopt
-                </a>
-            {% endif %}
-
-        </div>
-
-    {% endif %}
-
-</div>
-
 
         </div>
     </div>
-
-    {% empty %}
+    {% endwith %}
+{% empty %}
     <p>No dogs available yet 🐶</p>
-    {% endfor %}
+{% endfor %}
 
 </div>
 {% endblock %}

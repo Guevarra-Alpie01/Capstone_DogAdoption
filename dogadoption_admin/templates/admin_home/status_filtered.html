@@ -3,38 +3,45 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/post_list.css' %}">
+<div class="mb-4">
+    <div class="dropdown">
+        <button class="btn btn-dark dropdown-toggle" type="button" data-bs-toggle="dropdown">
+            {% if current_filter == "ready" %}
+                🕒 Ready for Adoption / Claim
+            {% elif current_filter == "reunited" %}
+                🧾 Reunited (Claimed)
+            {% elif current_filter == "adopted" %}
+                🏠 Adopted
+            {% else %}
+                📋 All Posts
+            {% endif %}
+        </button>
 
-<h2 class="mb-4">Dog Posts</h2>
-
-<!-- 🔥 FILTER BUTTONS -->
-<div class="mb-4 d-flex gap-2 flex-wrap">
-
-    <a href="{% url 'dogadoption_admin:post_list' %}"
-       class="btn btn-outline-dark {% if not current_filter %}active{% endif %}">
-        All
-    </a>
-
-    <a href="?status=ready_claim"
-       class="btn btn-outline-primary {% if current_filter == 'ready_claim' %}active{% endif %}">
-        🕒 Ready for Claim
-    </a>
-
-    <a href="?status=ready_adoption"
-       class="btn btn-outline-success {% if current_filter == 'ready_adoption' %}active{% endif %}">
-        🐾 Ready for Adoption
-    </a>
-
-    <a href="?status=reunited"
-       class="btn btn-outline-warning {% if current_filter == 'reunited' %}active{% endif %}">
-        🧾 Claimed (Reunited)
-    </a>
-
-    <a href="?status=adopted"
-       class="btn btn-outline-info {% if current_filter == 'adopted' %}active{% endif %}">
-        🏠 Adopted
-    </a>
-
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="?status=all">
+                    📋 All Posts
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="?status=ready">
+                    🕒 Ready for Adoption / Claim
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="?status=reunited">
+                    🧾 Reunited (Claimed)
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="?status=adopted">
+                    🏠 Adopted
+                </a>
+            </li>
+        </ul>
+    </div>
 </div>
+
 
 
 <!-- 🔥 POSTS DISPLAY -->

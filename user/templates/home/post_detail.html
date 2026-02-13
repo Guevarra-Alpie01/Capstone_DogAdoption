@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+{% with post.images.first as main_image %}
+<!-- Open Graph Meta Tags for Facebook Preview -->
+<meta property="og:title" content="🐕 Dog for Adoption">
+<meta property="og:description" content="{{ post.caption }}">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+{% if main_image %}
+<meta property="og:image" content="{{ main_image.image.url }}">
+{% endif %}
+{% endwith %}
+
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        {% if main_image %}
+            <img src="{{ main_image.image.url }}" class="card-img-top">
+        {% endif %}
+        <div class="card-body">
+            <h4>🐶 Dog Update</h4>
+            <p>{{ post.caption }}</p>
+            <p><strong>📍 Location:</strong> {{ post.location }}</p>
+            <p><small>Posted on {{ post.created_at|date:"M d, Y H:i" }}</small></p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

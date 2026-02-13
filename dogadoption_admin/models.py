@@ -39,13 +39,37 @@ class Post(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def claim_deadline(self):
-        return self.rescued_date + timedelta(days=self.claim_days)
+        """Deadline for claim/adopt (created_at + claim_days)."""
+        if self.created_at and self.claim_days:
+            return self.created_at + timedelta(days=self.claim_days)
+        return None
+
+    def time_left(self):
+        """
+        Return remaining time until deadline.
+        If no deadline, returns zero timedelta.
+        """
+        deadline = self.claim_deadline()
+        if deadline:
+            return deadline - timezone.now()
+        return timedelta(seconds=0)
+
+    def is_expired(self):
+        """Return True if the current time is past the deadline."""
+        deadline = self.claim_deadline()
+        return deadline and timezone.now() > deadline
 
     def is_open_for_adoption(self):
-        return timezone.now().date() > self.claim_deadline() and self.status not in ['reunited', 'adopted']
+        """
+        True if still within the allowed claim/adopt window
+        and not reunited or adopted.
+        """
+        return not self.is_expired() and self.status not in ['reunited', 'adopted']
 
-    def __str__(self):
-        return f"Post by {self.user.username}"
+    # Optional alias
+    def is_open_for_claim_adopt(self):
+        return self.is_open_for_adoption()
+
 
 
 class PostImage(models.Model):

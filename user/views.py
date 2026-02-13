@@ -4,6 +4,7 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from django.utils import timezone
 
 from django.db.models import Q
 import os
@@ -225,26 +226,54 @@ def signup_complete(request):
 
 # USER  HOME PAGE
 
-
 def user_home(request):
     if request.user.is_authenticated and request.user.is_staff:
         return redirect('dogadoption_admin:post_list')
     
     query = request.GET.get('q')
 
-    posts = Post.objects.all().order_by('-created_at')
+    posts_qs = Post.objects.all().order_by('-created_at')
 
     if query:
-        posts = posts.filter(
+        posts_qs = posts_qs.filter(
             Q(caption__icontains=query) |
             Q(location__icontains=query) |
             Q(status__icontains=query)
         )
 
+    enriched = []
+    now = timezone.now()
+
+    for p in posts_qs:
+        days = hours = minutes = 0
+
+        if p.is_open_for_adoption():
+            diff = p.time_left()
+            total_seconds = max(int(diff.total_seconds()), 0)
+
+            days = total_seconds // 86400
+            remainder = total_seconds % 86400
+            hours = remainder // 3600
+            remainder = remainder % 3600
+            minutes = remainder // 60
+
+        enriched.append({
+            'post': p,
+            'days_left': days,
+            'hours_left': hours,
+            'minutes_left': minutes,
+        })
+
     return render(request, 'home/user_home.html', {
-        'posts': posts
+        'posts': enriched,
+        'query': query
     })
 
+# VIEW FOR FACEBOOK SHARED LINK PREVIEW
+@user_only
+def post_detail(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+    return render(request, 'home/post_detail.html', {'post': post})
 
 
 #USER REQUEST PAGE 

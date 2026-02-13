@@ -1,18 +1,40 @@
-<h2>Terms & Conditions</h2>
+﻿{% extends 'base.html' %}
 
-<p>
-By proceeding, you agree that:
-</p>
-<ul>
-    <li>Your facial images will be used strictly for identity verification</li>
-    <li>Only authorized administrators can access them</li>
-    <li>Images will NOT be publicly displayed</li>
-</ul>
+{% block content %}
+<section class="ui-page ui-page--narrow">
+    <article class="ui-card">
+        <div class="ui-card__header">
+            <h1 class="ui-card__title">Consent and Privacy</h1>
+            <p class="ui-card__subtitle">Please review how facial data is used before completing signup.</p>
+        </div>
+        <div class="ui-card__body">
+            <ul class="mb-4">
+                <li>Facial images are used only for identity verification.</li>
+                <li>Only authorized administrators can access stored images.</li>
+                <li>Images are not displayed publicly.</li>
+            </ul>
 
-<form method="post">
-    {% csrf_token %}
-    <input type="checkbox" required> I agree to the terms
-    <button type="submit" class="btn btn-success mt-3">
-        Complete Signup
-    </button>
-</form>
+            <form method="post"
+                  class="ui-form js-validate"
+                  data-disable-submit="true"
+                  novalidate>
+                {% csrf_token %}
+
+                <div class="form-error-summary" hidden role="alert" aria-live="assertive"></div>
+
+                <label class="ui-check" for="consent-agree">
+                    <input id="consent-agree" type="checkbox" name="consent_given" required>
+                    <span>I agree to the privacy terms above.</span>
+                </label>
+
+                <button type="submit"
+                        class="ui-btn ui-btn--primary"
+                        data-loading-text="Completing signup...">
+                    Complete Signup
+                </button>
+            </form>
+        </div>
+    </article>
+</section>
+{% endblock %}
+

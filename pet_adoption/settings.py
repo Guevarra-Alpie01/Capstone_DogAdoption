@@ -77,15 +77,22 @@ WSGI_APPLICATION = 'pet_adoption.wsgi.application'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
+     'default': {
+         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'dogadoption_database',
-        'USER': 'root',
-        'PASSWORD': '',
-        'PORT': '3306',
-        'HOST': 'localhost',
+         'USER': 'root',
+         'PASSWORD': '',
+         'PORT': '3306',
+         'HOST': 'localhost',
     }
-}
+ }
+
+#DATABASES = {
+ #   'default': {
+  #      'ENGINE': 'django.db.backends.sqlite3',
+   #     'NAME': BASE_DIR / 'db.sqlite3',
+    #}
+#}
 
 
 # Password validation

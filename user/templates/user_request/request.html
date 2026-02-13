@@ -1,106 +1,136 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% load static %}
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/user_request.css' %}">
 
-<div class="container">
-
-    <!-- 🐕 REQUEST FORM -->
-    <div class="card">
-        <h2>🐕 Request Dog Capture</h2>
-
-        <form method="POST" enctype="multipart/form-data" class="capture-form">
-            {% csrf_token %}
-
-            <div class="form-group">
-                <label>Reason for Capture</label>
-                <select name="reason" required>
-                    <option value="">-- Select --</option>
-                    <option value="biting">Dog is biting people</option>
-                    <option value="aggressive">Dog is aggressive</option>
-                    <option value="injured">Dog is injured</option>
-                    <option value="sick">Dog looks sick</option>
-                    <option value="stray">Stray dog</option>
-                    <option value="other">Other</option>
-                </select>
+<section class="ui-page">
+    <div class="capture-dashboard">
+        <article class="ui-card">
+            <div class="ui-card__header">
+                <h1 class="ui-card__title">Request Dog Capture</h1>
+                <p class="ui-card__subtitle">Submit a verified report so the rescue team can review and act faster.</p>
             </div>
+            <div class="ui-card__body">
+                <form method="POST"
+                      enctype="multipart/form-data"
+                      class="ui-form js-validate capture-form"
+                      data-disable-submit="true"
+                      novalidate>
+                    {% csrf_token %}
 
-            <div class="form-group">
-                <label>Additional Details</label>
-                <textarea name="description" placeholder="Extra details..."></textarea>
-            </div>
+                    <div class="form-error-summary" hidden role="alert" aria-live="assertive"></div>
 
-            <div class="form-group">
-                <label>Upload Picture</label>
-                <input type="file" name="image" accept="image/*">
-            </div>
+                    <div class="ui-field">
+                        <label for="capture-reason" class="ui-label">Reason for Capture</label>
+                        <select id="capture-reason" name="reason" class="ui-select" required>
+                            <option value="">Select a reason</option>
+                            <option value="biting">Dog is biting people</option>
+                            <option value="aggressive">Dog is aggressive</option>
+                            <option value="injured">Dog is injured</option>
+                            <option value="sick">Dog looks sick</option>
+                            <option value="stray">Stray dog in area</option>
+                            <option value="other">Other safety concern</option>
+                        </select>
+                    </div>
 
-            <input type="hidden" name="latitude" id="latitude">
-            <input type="hidden" name="longitude" id="longitude">
+                    <div class="ui-field">
+                        <label for="capture-description" class="ui-label">Additional Details (Optional)</label>
+                        <textarea id="capture-description"
+                                  name="description"
+                                  class="ui-textarea"
+                                  rows="4"
+                                  placeholder="Add landmarks, behavior, or timing details that help responders."></textarea>
+                    </div>
 
-            <div class="form-actions">
-                <button type="button" class="btn-secondary" onclick="getLocation()">
-                    📍 Use My Location
-                </button>
-                <button type="submit" class="btn-primary">
-                    Submit Request
-                </button>
-            </div>
-        </form>
-    </div>
+                    <div class="ui-field">
+                        <label for="capture-image" class="ui-label">Upload Photo (Optional)</label>
+                        <input type="file"
+                               id="capture-image"
+                               name="image"
+                               class="ui-input"
+                               accept="image/*">
+                        <p class="ui-hint">A photo helps validate the report quickly.</p>
+                    </div>
 
-    <!-- 📋 MY REQUESTS -->
-    <div class="card">
-        <h2>📋 My Requests</h2>
+                    <input type="hidden" name="latitude" id="latitude">
+                    <input type="hidden" name="longitude" id="longitude">
 
-        {% for req in requests %}
-            <div class="request-card {{ req.status }}">
-                <div class="request-header">
-                    <strong>{{ req.get_reason_display }}</strong>
-                    <span class="status-badge {{ req.status }}">
-                        {{ req.get_status_display }}
-                    </span>
-                </div>
-
-                {% if req.status == 'accepted' %}
-                    <p>
-                        ✅ Scheduled:
-                        <strong>{{ req.scheduled_date|date:"M d, Y • h:i A" }}</strong>
+                    <p id="location-status" class="ui-hint" aria-live="polite">
+                        Location is optional, but enabling it helps rescue teams navigate faster.
                     </p>
-                {% elif req.status == 'declined' %}
-                    <p>❌ Request Declined</p>
-                {% else %}
-                    <p>⏳ Waiting for admin verification</p>
-                {% endif %}
 
-                {% if req.admin_message %}
-                    <p class="admin-note">
-                        <strong>Admin:</strong> {{ req.admin_message }}
-                    </p>
-                {% endif %}
+                    <div class="ui-actions">
+                        <button type="button" class="ui-btn ui-btn--secondary" onclick="getLocation()">
+                            Use My Location
+                        </button>
+                        <button type="submit"
+                                class="ui-btn ui-btn--primary"
+                                data-loading-text="Submitting...">
+                            Submit Request
+                        </button>
+                    </div>
+                </form>
             </div>
-        {% empty %}
-            <p>No requests yet.</p>
-        {% endfor %}
-    </div>
+        </article>
 
-</div>
+        <article class="ui-card">
+            <div class="ui-card__header">
+                <h2 class="ui-card__title">My Requests</h2>
+                <p class="ui-card__subtitle">Track each request status and updates from admin.</p>
+            </div>
+            <div class="ui-card__body">
+                {% for req in requests %}
+                    <div class="request-card {{ req.status }}">
+                        <div class="request-header">
+                            <strong>{{ req.get_reason_display }}</strong>
+                            <span class="status-badge {{ req.status }}">{{ req.get_status_display }}</span>
+                        </div>
+
+                        {% if req.status == 'accepted' %}
+                            <p>
+                                Scheduled: <strong>{{ req.scheduled_date|date:"M d, Y \a\t h:i A" }}</strong>
+                            </p>
+                        {% elif req.status == 'declined' %}
+                            <p>Request was declined.</p>
+                        {% else %}
+                            <p>Awaiting admin review.</p>
+                        {% endif %}
+
+                        {% if req.admin_message %}
+                            <p class="admin-note">
+                                <strong>Admin note:</strong> {{ req.admin_message }}
+                            </p>
+                        {% endif %}
+                    </div>
+                {% empty %}
+                    <p class="ui-muted mb-0">No requests submitted yet.</p>
+                {% endfor %}
+            </div>
+        </article>
+    </div>
+</section>
 
 <script>
 function getLocation() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(position) {
-            document.getElementById("latitude").value = position.coords.latitude;
-            document.getElementById("longitude").value = position.coords.longitude;
-            alert("Location captured successfully!");
-        }, function() {
-            alert("Unable to retrieve location.");
-        });
-    } else {
-        alert("Geolocation not supported.");
+    const statusEl = document.getElementById("location-status");
+
+    if (!navigator.geolocation) {
+        statusEl.textContent = "Geolocation is not supported on this device.";
+        return;
     }
+
+    statusEl.textContent = "Getting your location...";
+
+    navigator.geolocation.getCurrentPosition(function (position) {
+        document.getElementById("latitude").value = position.coords.latitude;
+        document.getElementById("longitude").value = position.coords.longitude;
+        statusEl.textContent = "Location captured successfully.";
+    }, function () {
+        statusEl.textContent = "Unable to retrieve your location. You can still submit without it.";
+    });
 }
 </script>
 
 {% endblock %}
+

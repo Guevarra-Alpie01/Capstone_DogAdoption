@@ -1,4 +1,4 @@
-{% extends 'admin_base.html' %}
+﻿{% extends 'admin_base.html' %}
 {% load static %}
 
 {% block title %}Dog Registry and Vaccination Record{% endblock %}
@@ -6,99 +6,124 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/registration.css' %}">
 
-<h2>National Rabies Prevention and Control Program</h2>
-<h3>Rabies Free Visayas Project</h3>
-<h3>Dog Registry and Vaccination Record</h3>
+<section class="ui-page">
+    <article class="ui-card">
+        <div class="ui-card__header">
+            <h1 class="ui-card__title">Dog Registry and Vaccination Record</h1>
+            <p class="ui-card__subtitle">National Rabies Prevention and Control Program • Rabies Free Visayas Project</p>
+        </div>
 
-<form method="post" action="{% url 'dogadoption_admin:register_dogs' %}">
-  {% csrf_token %}
-  <!-- Button to navigate to records -->
-  <a href="{% url 'dogadoption_admin:registration_record' %}" class="btn btn-secondary" style="margin-bottom: 10px; display: inline-block;">
-    View Registration Records
-  </a>
-  <!-- Button to navigate to Dog Certification -->
-<div style="margin-bottom:15px;">
-  <a href="{% url 'dogadoption_admin:certificate_list' %}" 
-     class="btn btn-secondary">
-     View certificate list
-  </a>
+        <div class="ui-card__body">
+            <div class="ui-actions mb-4">
+                <a href="{% url 'dogadoption_admin:registration_record' %}" class="ui-btn ui-btn--secondary">View Registration Records</a>
+                <a href="{% url 'dogadoption_admin:certificate_list' %}" class="ui-btn ui-btn--secondary">View Certificate List</a>
+                <a href="{% url 'dogadoption_admin:dog_certificate' %}" class="ui-btn ui-btn--primary">Dog Certification</a>
+            </div>
 
-  <a href="{% url 'dogadoption_admin:dog_certificate' %}" 
-     class="btn btn-primary" 
-     style="margin-left:10px;">
-     Dog Certification
-  </a>
-</div>
+            <form method="post"
+                  action="{% url 'dogadoption_admin:register_dogs' %}"
+                  class="ui-form js-validate"
+                  data-disable-submit="true"
+                  novalidate>
+                {% csrf_token %}
 
+                <div class="form-error-summary" hidden role="alert" aria-live="assertive"></div>
 
-  <!-- Admin-controlled Barangay -->
-  <div class="field-group">
-    <label for="barangay">Name of Barangay:</label>
-    <input type="text" id="barangay" name="barangay" value="{{ barangay }}" required>
-  </div>
+                <fieldset class="ui-field">
+                    <legend class="ui-label">Registration Context</legend>
 
-  <!-- Admin-controlled Date -->
-  <div class="field-group">
-    <label for="date">Date:</label>
-    <input type="date" id="date" name="date" value="{{ date }}" required>
-  </div>
+                    <div class="ui-field">
+                        <label for="reg-barangay" class="ui-label">Barangay Name</label>
+                        <input type="text"
+                               id="reg-barangay"
+                               name="barangay"
+                               class="ui-input"
+                               value="{{ barangay }}"
+                               required>
+                    </div>
 
-  <!-- Single Dog Registration -->
-  <div class="dog-card">
-    <h4>Dog Registration</h4>
+                    <div class="ui-field">
+                        <label for="reg-date" class="ui-label">Registration Date</label>
+                        <input type="date"
+                               id="reg-date"
+                               name="date"
+                               class="ui-input"
+                               value="{{ date }}"
+                               required>
+                    </div>
+                </fieldset>
 
-    <div class="field-group">
-      <label for="name">Dog Name:</label>
-      <input type="text" name="name" id="name" required>
-    </div>
+                <fieldset class="ui-field">
+                    <legend class="ui-label">Dog Details</legend>
 
-    <div class="field-group">
-      <label for="species">Species:</label>
-      <select name="species" id="species">
-        <option value="Canine" selected>Canine</option>
-        <option value="Feline">Feline</option>
-        <option value="Other">Other</option>
-      </select>
-    </div>
+                    <div class="ui-field">
+                        <label for="dog-name" class="ui-label">Dog Name</label>
+                        <input type="text" id="dog-name" name="name" class="ui-input" required>
+                    </div>
 
-    <div class="field-group">
-      <label for="sex">Sex (M/F):</label>
-      <select name="sex" id="sex">
-        <option value="M">M</option>
-        <option value="F">F</option>
-      </select>
-    </div>
+                    <div class="ui-field">
+                        <label for="dog-species" class="ui-label">Species</label>
+                        <select name="species" id="dog-species" class="ui-select">
+                            <option value="Canine" selected>Canine</option>
+                            <option value="Feline">Feline</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
 
-    <div class="field-group">
-      <label for="age">Age:</label>
-      <input type="text" name="age" id="age" placeholder="e.g., 4 mos or 3 yrs">
-    </div>
+                    <div class="ui-field">
+                        <label for="dog-sex" class="ui-label">Sex</label>
+                        <select name="sex" id="dog-sex" class="ui-select">
+                            <option value="M">Male</option>
+                            <option value="F">Female</option>
+                        </select>
+                    </div>
 
-    <div class="field-group">
-      <label for="neutering">Neutering (No/C/S):</label>
-      <select name="neutering" id="neutering">
-        <option value="No" selected>No</option>
-        <option value="C">C</option>
-        <option value="S">S</option>
-      </select>
-    </div>
+                    <div class="ui-field">
+                        <label for="dog-age" class="ui-label">Age (Optional)</label>
+                        <input type="text"
+                               name="age"
+                               id="dog-age"
+                               class="ui-input"
+                               placeholder="Example: 4 months or 3 years">
+                    </div>
 
-    <div class="field-group">
-      <label for="color">Color:</label>
-      <input type="text" name="color" id="color">
-    </div>
+                    <div class="ui-field">
+                        <label for="dog-neutering" class="ui-label">Neutering Status</label>
+                        <select name="neutering" id="dog-neutering" class="ui-select">
+                            <option value="No" selected>No</option>
+                            <option value="C">Castrated</option>
+                            <option value="S">Spayed</option>
+                        </select>
+                    </div>
 
-    <div class="field-group">
-      <label for="owner_name">Pet Owner Name:</label>
-      <input type="text" name="owner_name" id="owner_name" required>
-    </div>
+                    <div class="ui-field">
+                        <label for="dog-color" class="ui-label">Color (Optional)</label>
+                        <input type="text" name="color" id="dog-color" class="ui-input">
+                    </div>
+                </fieldset>
 
-    <div class="field-group">
-      <label for="owner_address">Complete Address:</label>
-      <textarea name="owner_address" id="owner_address"></textarea>
-    </div>
-  </div>
+                <fieldset class="ui-field">
+                    <legend class="ui-label">Owner Details</legend>
 
-  <button type="submit">Submit Registration</button>
-</form>
+                    <div class="ui-field">
+                        <label for="owner-name" class="ui-label">Pet Owner Name</label>
+                        <input type="text" name="owner_name" id="owner-name" class="ui-input" required>
+                    </div>
+
+                    <div class="ui-field">
+                        <label for="owner-address" class="ui-label">Complete Address</label>
+                        <textarea name="owner_address" id="owner-address" class="ui-textarea" rows="3"></textarea>
+                    </div>
+                </fieldset>
+
+                <button type="submit"
+                        class="ui-btn ui-btn--primary"
+                        data-loading-text="Saving registration...">
+                    Submit Registration
+                </button>
+            </form>
+        </div>
+    </article>
+</section>
 {% endblock %}
+

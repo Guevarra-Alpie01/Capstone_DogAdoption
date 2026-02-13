@@ -1,69 +1,74 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
+
 {% block content %}
-
-<div class="card shadow p-4">
-
-    <h3 class="mb-3">🐕 Adoption Review</h3>
-
-    <!-- DOG INFO -->
-    <p><strong>Description:</strong></p>
-    <p>{{ post.caption }}</p>
-
-    {% if post.location %}
-        <p><strong>📍 Location:</strong> {{ post.location }}</p>
-    {% endif %}
-
-    <p><strong>🗓 Rescued on:</strong> {{ post.rescued_date }}</p>
-
-    <!-- VIOLATIONS -->
-    <hr>
-    <h5>⚠️ Reported Violations</h5>
-
-    {% if post.violations %}
-        <ul>
-            {% for violation in post.violations %}
-                <li>{{ violation|capfirst }}</li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p class="text-muted">No violations reported 🐾</p>
-    {% endif %}
-
-    <!-- IMAGES -->
-    {% if post.images.exists %}
-        <hr>
-        <h5>📸 Dog Photos</h5>
-        <div class="d-flex gap-2 flex-wrap">
-            {% for image in post.images.all %}
-                <img src="{{ image.image.url }}"
-                     width="120"
-                     height="120"
-                     style="object-fit: cover; border-radius: 8px;">
-            {% endfor %}
+<section class="ui-page ui-page--narrow">
+    <article class="ui-card">
+        <div class="ui-card__header">
+            <h1 class="ui-card__title">Confirm Adoption Request</h1>
+            <p class="ui-card__subtitle">Review the dog details below before sending your request to admin.</p>
         </div>
-    {% endif %}
 
-    <hr>
+        <div class="ui-card__body ui-stack">
+            <div>
+                <p class="mb-2"><strong>Description</strong></p>
+                <p class="mb-2">{{ post.caption }}</p>
+                {% if post.location %}
+                    <p class="ui-muted mb-2">Location: {{ post.location }}</p>
+                {% endif %}
+                <p class="ui-muted mb-0">Rescued on: {{ post.rescued_date }}</p>
+            </div>
 
-    <!-- CONFIRMATION -->
-    <form method="post">
-        {% csrf_token %}
-        <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-success">
-                ✅ Confirm Adoption Request
-            </button>
+            <hr class="ui-divider">
 
-            <a href="{% url 'user:user_home' %}"
-               class="btn btn-outline-secondary">
-                Cancel
-            </a>
+            <section>
+                <h2 class="h5">Reported Violations</h2>
+                {% if post.violations %}
+                    <ul class="mb-0">
+                        {% for violation in post.violations %}
+                            <li>{{ violation|capfirst }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="ui-muted mb-0">No violations reported.</p>
+                {% endif %}
+            </section>
+
+            {% if post.images.exists %}
+                <section>
+                    <h2 class="h5">Dog Photos</h2>
+                    <div class="d-flex gap-2 flex-wrap">
+                        {% for image in post.images.all %}
+                            <img src="{{ image.image.url }}"
+                                 width="120"
+                                 height="120"
+                                 alt="Dog image"
+                                 style="object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endif %}
+
+            <form method="post"
+                  class="ui-form js-validate"
+                  data-disable-submit="true"
+                  novalidate>
+                {% csrf_token %}
+
+                <div class="form-error-summary" hidden role="alert" aria-live="assertive"></div>
+
+                <div class="ui-actions">
+                    <button type="submit"
+                            class="ui-btn ui-btn--success"
+                            data-loading-text="Submitting...">
+                        Confirm Adoption Request
+                    </button>
+                    <a href="{% url 'user:user_home' %}" class="ui-btn ui-btn--secondary">Cancel</a>
+                </div>
+            </form>
+
+            <p class="ui-hint mb-0">After submission, your request will be reviewed by admin.</p>
         </div>
-    </form>
-
-    <p class="text-muted mt-3 small">
-        After confirmation, your request will be reviewed by the admin.
-    </p>
-
-</div>
-
+    </article>
+</section>
 {% endblock %}
+

@@ -1,88 +1,77 @@
-{% extends 'admin_base.html' %}
+﻿{% extends 'admin_base.html' %}
 {% load static %}
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/admin_requests.css' %}">
 
-<div class="container">
-    <h1>🐕 Dog Capture Requests</h1>
+<section class="ui-page">
+    <header class="mb-4">
+        <h1 class="mb-1">Dog Capture Requests</h1>
+        <p class="ui-muted mb-0">Review incoming reports and assign schedules where needed.</p>
+    </header>
 
     {% if requests %}
-        {% for req in requests %}
-    <div class="request-card">
+        <div class="request-list">
+            {% for req in requests %}
+                <article class="request-card ui-card">
+                    <div class="ui-card__body">
+                        <div class="request-headline">
+                            <div>
+                                <p class="mb-1"><strong>Requested by:</strong> {{ req.requested_by.username }}</p>
+                                <p class="ui-muted mb-0">{{ req.created_at|date:"M d, Y \a\t h:i A" }}</p>
+                            </div>
+                            <span class="status-chip status-chip--{{ req.status }}">{{ req.get_status_display }}</span>
+                        </div>
 
-        <div class="request-header">
-            <strong>Requested by:</strong> {{ req.requested_by.username }}
-            <span class="date">
-                {{ req.created_at|date:"M d, Y • h:i A" }}
-            </span>
+                        <p class="mb-2"><strong>Reason:</strong> {{ req.get_reason_display }}</p>
+
+                        {% if req.description %}
+                            <p class="mb-2"><strong>Details:</strong> {{ req.description }}</p>
+                        {% endif %}
+
+                        {% if req.image %}
+                            <div class="request-image mb-2">
+                                <img src="{{ req.image.url }}" alt="Request image">
+                            </div>
+                        {% endif %}
+
+                        {% if req.latitude and req.longitude %}
+                            <p class="mb-2">
+                                <strong>Location:</strong>
+                                <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank" rel="noopener noreferrer">
+                                    View on map
+                                </a>
+                            </p>
+                        {% else %}
+                            <p class="ui-muted mb-2"><em>No location provided.</em></p>
+                        {% endif %}
+
+                        {% if req.assigned_admin %}
+                            <p class="mb-3"><strong>Assigned to:</strong> {{ req.assigned_admin.username }}</p>
+                        {% else %}
+                            <p class="mb-3 text-warning"><strong>Not assigned yet.</strong></p>
+                        {% endif %}
+
+                        {% if req.status == 'pending' %}
+                            <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="ui-btn ui-btn--primary">
+                                Review Request
+                            </a>
+                        {% else %}
+                            {% if req.scheduled_date %}
+                                <p class="mb-0"><strong>Scheduled:</strong> {{ req.scheduled_date|date:"M d, Y \a\t h:i A" }}</p>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </article>
+            {% endfor %}
         </div>
-
-        <p>
-            <strong>Reason:</strong>
-            {{ req.get_reason_display }}
-        </p>
-
-        {% if req.description %}
-            <p><strong>Details:</strong><br>{{ req.description }}</p>
-        {% endif %}
-
-        {% if req.image %}
-            <div class="request-image">
-                <img src="{{ req.image.url }}" alt="Dog image">
-            </div>
-        {% endif %}
-
-        {% if req.latitude and req.longitude %}
-            <p>
-                <strong>Location:</strong>
-                <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}"
-                   target="_blank">
-                    View on Map 📍
-                </a>
-            </p>
-        {% else %}
-            <p><em>No location provided</em></p>
-        {% endif %}
-
-        {% if req.assigned_admin %}
-            <p>
-                <strong>Assigned to:</strong>
-                {{ req.assigned_admin.username }}
-            </p>
-        {% else %}
-            <p class="unassigned">⚠️ Not assigned yet</p>
-        {% endif %}
-
-        <!-- ✅ STATUS + BUTTON -->
-        <hr>
-
-        {% if req.status == 'pending' %}
-            <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}"
-               class="btn btn-primary">
-                Review Request
-            </a>
-        {% else %}
-            <p>
-                <strong>Status:</strong>
-                {{ req.get_status_display }}
-            </p>
-
-            {% if req.scheduled_date %}
-                <p>
-                    <strong>Scheduled:</strong>
-                    {{ req.scheduled_date|date:"M d, Y • h:i A" }}
-                </p>
-            {% endif %}
-        {% endif %}
-
-    </div>
-{% endfor %}
-
     {% else %}
-        <p>No capture requests yet.</p>
+        <div class="ui-card">
+            <div class="ui-card__body">
+                <p class="ui-muted mb-0">No capture requests yet.</p>
+            </div>
+        </div>
     {% endif %}
-
-</div>
-
+</section>
 {% endblock %}
+

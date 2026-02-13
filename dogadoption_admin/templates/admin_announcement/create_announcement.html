@@ -1,80 +1,95 @@
-{% extends 'admin_base.html' %}
+﻿{% extends 'admin_base.html' %}
 {% load static %}
-
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/create_announcement.css' %}">
-<div class="create-announcement-container">
 
-    <h2>📢 Create Announcement</h2>
-
-    <form method="POST" action="{% url 'dogadoption_admin:announcement_create' %}" enctype="multipart/form-data" class="announcement-form">
-        {% csrf_token %}
-
-        <!-- POST TYPE -->
-        <label>Post Type</label>
-        <select name="post_type" required id="postType">
-            <option value="COLOR">Color Post</option>
-            <option value="IMAGE_BG">Image Background</option>
-            <option value="PHOTO">Photo Post</option>
-        </select>
-
-        <!-- CONTENT -->
-        <label>Announcement Text</label>
-        <textarea name="content" rows="4" placeholder="Write your announcement..." required></textarea>
-
-        <!-- BACKGROUND COLOR -->
-        <div id="colorField">
-            <label>Background Color</label>
-            <input type="color" name="background_color" value="#4f46e5">
+<section class="ui-page ui-page--narrow">
+    <article class="ui-card create-announcement-container">
+        <div class="ui-card__header">
+            <h1 class="ui-card__title">Create Announcement</h1>
+            <p class="ui-card__subtitle">Publish clear updates for the community using color or image-based posts.</p>
         </div>
 
-        <!-- IMAGE -->
-        <div id="imageField" style="display:none;">
-            <label>Upload Image</label>
-            <input type="file" name="background_image" accept="image/*">
+        <div class="ui-card__body">
+            <form method="POST"
+                  action="{% url 'dogadoption_admin:announcement_create' %}"
+                  enctype="multipart/form-data"
+                  class="announcement-form ui-form js-validate"
+                  data-disable-submit="true"
+                  novalidate>
+                {% csrf_token %}
+
+                <div class="form-error-summary" hidden role="alert" aria-live="assertive"></div>
+
+                <div class="ui-field">
+                    <label for="postType" class="ui-label">Post Type</label>
+                    <select name="post_type" class="ui-select" required id="postType">
+                        <option value="COLOR">Color Post</option>
+                        <option value="IMAGE_BG">Image Background</option>
+                        <option value="PHOTO">Photo Post</option>
+                    </select>
+                </div>
+
+                <div class="ui-field">
+                    <label for="announcement-content" class="ui-label">Announcement Text</label>
+                    <textarea id="announcement-content"
+                              name="content"
+                              class="ui-textarea"
+                              rows="5"
+                              placeholder="Write your announcement here..."
+                              required></textarea>
+                </div>
+
+                <div id="colorField" class="ui-field toggle-field">
+                    <label for="background-color" class="ui-label">Background Color</label>
+                    <input type="color" id="background-color" name="background_color" value="#186c5e" class="color-input">
+                </div>
+
+                <div id="imageField" class="ui-field toggle-field" style="display:none;">
+                    <label for="background-image" class="ui-label">Upload Background / Photo</label>
+                    <input type="file" id="background-image" name="background_image" class="ui-input" accept="image/*">
+                </div>
+
+                <details class="advanced-panel">
+                    <summary>Advanced: Activity Schedule JSON (Optional)</summary>
+                    <div class="ui-field mt-3">
+                        <label for="schedule-data" class="ui-label">Schedule Data</label>
+                        <textarea id="schedule-data"
+                                  name="schedule_data"
+                                  class="ui-textarea"
+                                  rows="5"
+                                  placeholder='[{"time": "9:00 AM", "task": "Morning Walk"}]'></textarea>
+                        <p class="ui-hint">Use valid JSON array format if you need timeline blocks.</p>
+                    </div>
+                </details>
+
+                <button type="submit"
+                        class="ui-btn ui-btn--primary"
+                        id="submitBtn"
+                        data-loading-text="Posting...">
+                    Post Announcement
+                </button>
+            </form>
         </div>
+    </article>
+</section>
 
-        <!-- SCHEDULE (OPTIONAL) -->
-        <label>Dog Activity Schedule (Optional)</label>
-        <textarea name="schedule_data" rows="4"
-                  placeholder='Example:
-[
-  {"time": "9:00 AM", "task": "Morning Walk"},
-  {"time": "12:00 PM", "task": "Feeding"}
-]'></textarea>
-
-<button type="submit" class="submit-btn" id="submitBtn">Post Announcement</button>
-
-    </form>
-
-</div>
-
-<!-- SIMPLE JS -->
 <script>
-    const postType = document.getElementById("postType");
-    const colorField = document.getElementById("colorField");
-    const imageField = document.getElementById("imageField");
+(function () {
+    const postType = document.getElementById('postType');
+    const colorField = document.getElementById('colorField');
+    const imageField = document.getElementById('imageField');
 
     function toggleFields() {
-        if (postType.value === "COLOR") {
-            colorField.style.display = "block";
-            imageField.style.display = "none";
-        }
-        else if (postType.value === "IMAGE_BG" || postType.value === "PHOTO") {
-            colorField.style.display = "none";
-            imageField.style.display = "block";
-        }
+        const isColor = postType.value === 'COLOR';
+        colorField.style.display = isColor ? 'grid' : 'none';
+        imageField.style.display = isColor ? 'none' : 'grid';
     }
 
-    postType.addEventListener("change", toggleFields);
+    postType.addEventListener('change', toggleFields);
     toggleFields();
+})();
 </script>
-<!-- ✅ ADDED: Prevent double submit -->
-<script>
-document.querySelector('.announcement-form').addEventListener('submit', function() {
-    document.getElementById('submitBtn').disabled = true;
-});
-</script>
-
 {% endblock %}
+

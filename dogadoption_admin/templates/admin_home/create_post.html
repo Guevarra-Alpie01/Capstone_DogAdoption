@@ -1,24 +1,114 @@
-{% extends 'admin_base.html' %}
+﻿{% extends 'admin_base.html' %}
 
 {% block content %}
-<h2>Create Dog Adoption Post</h2>
+<section class="ui-page ui-page--narrow">
+    <article class="ui-card">
+        <div class="ui-card__header">
+            <h1 class="ui-card__title">Create Dog Adoption Post</h1>
+            <p class="ui-card__subtitle">Fill in complete details so users can claim or adopt with fewer questions.</p>
+        </div>
+        <div class="ui-card__body">
+            <form method="POST"
+                  enctype="multipart/form-data"
+                  class="ui-form js-validate"
+                  data-disable-submit="true"
+                  novalidate>
+                {% csrf_token %}
 
-<form method="POST" enctype="multipart/form-data">
-    {% csrf_token %}
+                <div class="form-error-summary" role="alert" aria-live="assertive" {% if not post_form.errors %}hidden{% endif %}>
+                    {% if post_form.errors %}
+                        <p><strong>Please fix the highlighted fields:</strong></p>
+                        <ul>
+                            {% for field in post_form %}
+                                {% for error in field.errors %}
+                                    <li><strong>{{ field.label }}</strong>: {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in post_form.non_field_errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
 
-    {{ post_form.as_p }}
+                <div class="ui-field">
+                    <label for="id_caption" class="ui-label">{{ post_form.caption.label }}</label>
+                    {{ post_form.caption }}
+                    {% for error in post_form.caption.errors %}
+                        <p class="ui-field-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
 
-    <label class="form-label">Upload dog images (first image = main)</label>
-    <input
-        type="file"
-        name="images"
-        multiple
-        accept="image/*"
-        class="form-control"
-        required
-    >
+                <div class="ui-field">
+                    <label for="id_location" class="ui-label">{{ post_form.location.label }}</label>
+                    {{ post_form.location }}
+                    {% for error in post_form.location.errors %}
+                        <p class="ui-field-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
 
-    <br>
-    <button type="submit" class="btn btn-primary">Post</button>
-</form>
+                <div class="ui-form__grid ui-form__grid--2">
+                    <div class="ui-field">
+                        <label for="id_status" class="ui-label">{{ post_form.status.label }}</label>
+                        {{ post_form.status }}
+                        {% for error in post_form.status.errors %}
+                            <p class="ui-field-error">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+
+                    <div class="ui-field">
+                        <label for="id_rescued_date" class="ui-label">{{ post_form.rescued_date.label }}</label>
+                        {{ post_form.rescued_date }}
+                        {% for error in post_form.rescued_date.errors %}
+                            <p class="ui-field-error">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="ui-field">
+                    <label for="id_claim_days" class="ui-label">{{ post_form.claim_days.label }}</label>
+                    {{ post_form.claim_days }}
+                    <p class="ui-hint">{{ post_form.claim_days.help_text }}</p>
+                    {% for error in post_form.claim_days.errors %}
+                        <p class="ui-field-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <fieldset class="ui-field">
+                    <legend class="ui-label">{{ post_form.violations.label }}</legend>
+                    <div class="violations-grid">
+                        {% for checkbox in post_form.violations %}
+                            <label class="ui-check">
+                                {{ checkbox.tag }}
+                                <span>{{ checkbox.choice_label }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+
+                <div class="ui-field">
+                    <label for="post-images" class="ui-label">Upload Dog Images</label>
+                    <input id="post-images"
+                           type="file"
+                           name="images"
+                           class="ui-input"
+                           accept="image/*"
+                           multiple
+                           required>
+                    <p class="ui-hint">Upload at least one image. The first image appears as the main card photo.</p>
+                </div>
+
+                <div class="ui-actions">
+                    <button type="submit"
+                            class="ui-btn ui-btn--primary"
+                            data-loading-text="Publishing...">
+                        Publish Post
+                    </button>
+                    <a href="{% url 'dogadoption_admin:post_list' %}" class="ui-btn ui-btn--secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </article>
+</section>
 {% endblock %}
+

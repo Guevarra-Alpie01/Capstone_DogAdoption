@@ -3,72 +3,69 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/login.css' %}">
-<style>
-body {
-    background: url("{% static 'images/OIP.webp' %}") no-repeat center center fixed;
-    background-size: cover;
-    position: relative;
-}
-</style>
-
-
-{% if error %}
-<div class="alert alert-danger text-center">
-    {{ error }}
-</div>
-{% endif %}
-
-<div class="auth-wrapper d-flex justify-content-center align-items-center">
-
-    <div class="auth-card">
-
-        <!--  Logos Inside Log in  Card -->
-        <div class="card-logos d-flex justify-content-between align-items-center mb-3">
-            <img src="{% static 'images/bayawan_logo.webp' %}" 
-                 class="card-logo" 
-                 alt="Bayawan Logo">
-
-            <img src="{% static 'images/OIP.webp' %}" 
-                 class="card-logo" 
-                 alt="Bayawan harvest logo">
-        </div>
-
-        <h2 class="text-center mb-4 brand-title">Login</h2>
-
-        <form method="post">
-            {% csrf_token %}
-
-            <div class="mb-3">
-                <input type="text"
-                       name="username"
-                       class="form-control"
-                       placeholder="Username"
-                       required>
+<section class="auth-shell" aria-labelledby="login-title">
+    <div class="auth-card ui-card">
+        <div class="ui-card__body">
+            <div class="card-logos">
+                <img src="{% static 'images/bayawan_logo.webp' %}"
+                     class="card-logo"
+                     alt="Bayawan city logo">
+                <img src="{% static 'images/OIP.webp' %}"
+                     class="card-logo"
+                     alt="PETSHELP logo">
             </div>
 
-            <div class="mb-3">
-                <input type="password"
-                       name="password"
-                       class="form-control"
-                       placeholder="Password"
-                       required>
-            </div>
+            <h1 id="login-title" class="auth-title">Welcome Back</h1>
+            <p class="auth-subtitle">Sign in to manage claims, adoptions, and capture requests.</p>
 
-            <button type="submit" class="w-100 login-btn py-2">
-                Log In
-            </button>
-        </form>
+            {% if error %}
+                <div class="ui-alert ui-alert--danger" role="alert" aria-live="assertive">
+                    {{ error }}
+                </div>
+            {% endif %}
 
-        <div class="text-center my-3">
-            <span class="text-muted">or</span>
+            <form method="post"
+                  class="ui-form js-validate"
+                  data-disable-submit="true"
+                  novalidate>
+                {% csrf_token %}
+
+                <div class="form-error-summary" hidden role="alert" aria-live="assertive"></div>
+
+                <div class="ui-field">
+                    <label for="login-username" class="ui-label">Username</label>
+                    <input id="login-username"
+                           type="text"
+                           name="username"
+                           class="ui-input"
+                           autocomplete="username"
+                           required>
+                </div>
+
+                <div class="ui-field">
+                    <label for="login-password" class="ui-label">Password</label>
+                    <input id="login-password"
+                           type="password"
+                           name="password"
+                           class="ui-input"
+                           autocomplete="current-password"
+                           required>
+                </div>
+
+                <button type="submit"
+                        class="ui-btn ui-btn--primary ui-btn--full"
+                        data-loading-text="Signing in...">
+                    Sign In
+                </button>
+            </form>
+
+            <p class="auth-divider" aria-hidden="true">or</p>
+
+            <a href="{% url 'user:signup' %}" class="ui-btn ui-btn--secondary ui-btn--full">
+                Create New Account
+            </a>
         </div>
-
-      <a href="{% url 'user:signup' %}" class="w-100 login-btn d-block text-center py-2">
-    Create New Account
-      </a>
-
-
     </div>
-</div>
+</section>
 
 {% endblock %}

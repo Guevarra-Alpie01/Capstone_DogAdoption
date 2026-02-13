@@ -1,26 +1,70 @@
-<h2>Dog Capture Request</h2>
+﻿{% extends 'admin_base.html' %}
 
-<p><strong>User:</strong> {{ req.requested_by.username }}</p>
-<p><strong>Reason:</strong> {{ req.get_reason_display }}</p>
+{% block content %}
+<section class="ui-page ui-page--narrow">
+    <article class="ui-card">
+        <div class="ui-card__header">
+            <h1 class="ui-card__title">Review Capture Request</h1>
+            <p class="ui-card__subtitle">Provide feedback and schedule only when accepting a request.</p>
+        </div>
 
-<form method="POST">
-    {% csrf_token %}
+        <div class="ui-card__body ui-stack">
+            <div class="ui-alert ui-alert--info">
+                <p class="mb-1"><strong>Requested by:</strong> {{ req.requested_by.username }}</p>
+                <p class="mb-0"><strong>Reason:</strong> {{ req.get_reason_display }}</p>
+            </div>
 
-    <label>Admin Message (optional)</label><br>
-    <textarea name="admin_message"></textarea>
+            <form method="POST"
+                  class="ui-form js-validate"
+                  data-disable-submit="true"
+                  novalidate>
+                {% csrf_token %}
 
-    <br><br>
+                <div class="form-error-summary" hidden role="alert" aria-live="assertive"></div>
 
-    <label>Schedule Date (only if accepting)</label><br>
-    <input type="datetime-local" name="scheduled_date">
+                <div class="ui-field">
+                    <label for="admin-message" class="ui-label">Admin Message (Optional)</label>
+                    <textarea id="admin-message"
+                              name="admin_message"
+                              class="ui-textarea"
+                              rows="4"
+                              placeholder="Share next steps, reminders, or rejection reason."></textarea>
+                </div>
 
-    <br><br>
+                <div class="ui-field">
+                    <label for="scheduled-date" class="ui-label">Schedule Date and Time</label>
+                    <input id="scheduled-date"
+                           type="datetime-local"
+                           name="scheduled_date"
+                           class="ui-input">
+                    <p class="ui-hint">Required only when accepting the request.</p>
+                </div>
 
-    <button type="submit" name="action" value="accept">
-        ✅ Accept & Schedule
-    </button>
+                <div class="ui-actions">
+                    <button type="submit"
+                            id="accept-btn"
+                            name="action"
+                            value="accept"
+                            class="ui-btn ui-btn--success"
+                            data-loading-text="Accepting...">
+                        Accept and Schedule
+                    </button>
 
-    <button type="submit" name="action" value="decline">
-        ❌ Decline
-    </button>
-</form>
+                    <button type="submit"
+                            id="decline-btn"
+                            name="action"
+                            value="decline"
+                            class="ui-btn ui-btn--danger"
+                            data-loading-text="Declining..."
+                            onclick="return confirm('Decline this request?');">
+                        Decline Request
+                    </button>
+
+                    <a href="{% url 'dogadoption_admin:requests' %}" class="ui-btn ui-btn--secondary">Back</a>
+                </div>
+            </form>
+        </div>
+    </article>
+</section>
+{% endblock %}
+

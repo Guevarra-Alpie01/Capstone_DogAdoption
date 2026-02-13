@@ -1,128 +1,86 @@
-/* =========================
-   BACKGROUND OVERLAY
-========================= */
-body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    z-index: 0;
+.auth-shell {
+    min-height: calc(100vh - 120px);
+    display: grid;
+    place-items: center;
+    padding: 1rem;
 }
 
-/* =========================
-   CENTER WRAPPER
-========================= */
-.auth-wrapper {
-    min-height: calc(100vh - 90px);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.auth-card {
+    width: min(100%, 520px);
+    position: relative;
+    overflow: hidden;
+}
+
+.auth-card--wide {
+    width: min(100%, 620px);
+}
+
+.auth-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    pointer-events: none;
+}
+
+.auth-card .ui-card__body {
     position: relative;
     z-index: 1;
-    padding: 20px;
 }
 
-/* =========================
-   AUTH CARD
-========================= */
-.auth-card {
-    padding: 45px;
-    border-radius: 18px;
-    width: 100%;
-    max-width: 430px;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.3);
-
-    background: linear-gradient(
-        135deg,
-        #F7C600 50%,
-        #254E1E 50%
-    );
-
-    color: white;
+.card-logos {
+    display: flex;
+    justify-content: center;
+    gap: 0.85rem;
+    margin-bottom: 1.25rem;
 }
 
-/* =========================
-   FIX LOGO SIZE (LOCKED)
-========================= */
-.auth-card .card-logo {
-    width: 65px !important;
-    height: 65px !important;
-    object-fit: contain;
-    background: white;
-    padding: 6px;
+.card-logo {
+    width: 58px;
+    height: 58px;
     border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(24, 108, 94, 0.28);
+    background: #ffffff;
+    padding: 0.2rem;
 }
 
-@media (max-width: 768px) {
-    .auth-card .card-logo {
-        width: 50px !important;
-        height: 50px !important;
-    }
-}
-
-/* =========================
-   TITLE
-========================= */
-.auth-card h2 {
+.auth-title {
+    margin: 0;
     text-align: center;
-    font-weight: bold;
-    margin-bottom: 25px;
+    font-size: clamp(1.35rem, 2.8vw, 1.9rem);
 }
 
-/* =========================
-   INPUTS
-========================= */
-.auth-card .form-control {
-    border-radius: 8px;
-    border: none;
-    padding: 12px;
+.auth-subtitle {
+    margin: 0.4rem 0 1.3rem;
+    text-align: center;
+    color: var(--color-muted);
 }
 
-.auth-card .form-control:focus {
-    box-shadow: 0 0 0 0.2rem rgba(255,255,255,0.4);
-}
-
-/* =========================
-   LOGIN / SIGNUP BUTTON
-========================= */
-.auth-card .login-btn {
-    background-color: white !important;
-    color: #254E1E !important;
+.auth-divider {
+    margin: 1rem 0 0.85rem;
+    text-align: center;
+    color: var(--color-muted);
+    text-transform: uppercase;
     font-weight: 700;
-    border-radius: 8px;
-    border: none;
-    transition: 0.3s ease;
+    font-size: 0.82rem;
+    letter-spacing: 0.08em;
 }
 
-.auth-card .login-btn:hover {
-    background-color: #254E1E !important;
-    color: white !important;
+.auth-footnote {
+    text-align: center;
+    margin: 1rem 0 0;
+    color: var(--color-muted);
 }
 
-/* =========================
-   SECONDARY BUTTON (Create Account)
-========================= */
-.auth-card .btn-success {
-    background-color: white !important;
-    color: #254E1E !important;
-    border: none;
-    font-weight: 600;
-}
+@media (max-width: 576px) {
+    .auth-shell {
+        min-height: calc(100vh - 92px);
+        padding: 0.65rem;
+    }
 
-.auth-card .btn-success:hover {
-    background-color: #254E1E !important;
-    color: white !important;
-}
-
-/* =========================
-   FIX LINK COLOR (NO BLUE)
-========================= */
-.auth-card a {
-    color: white !important;
-    text-decoration: none;
-}
-
-.auth-card a:hover {
-    color: #F7C600 !important;
-    text-decoration: underline;
+    .card-logo {
+        width: 52px;
+        height: 52px;
+    }
 }

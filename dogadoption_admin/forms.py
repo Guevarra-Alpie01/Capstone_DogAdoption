@@ -30,6 +30,52 @@ class PostForm(forms.ModelForm):
             'claim_days',
             'violations',
         ]
+        labels = {
+            'caption': 'Dog Description',
+            'location': 'Location (Optional)',
+            'status': 'Current Status',
+            'rescued_date': 'Rescued Date',
+            'claim_days': 'Claim/Adoption Window (Days)',
+            'violations': 'Reported Violations',
+        }
+        help_texts = {
+            'claim_days': 'Number of days that owners can claim the dog before adoption-only processing.',
+        }
+        widgets = {
+            'caption': forms.Textarea(attrs={'rows': 4}),
+            'location': forms.TextInput(),
+            'status': forms.Select(),
+            'claim_days': forms.NumberInput(attrs={'min': 1, 'max': 30}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        for name, field in self.fields.items():
+            if name == 'violations':
+                field.widget.attrs.update({'class': 'violations-list'})
+                continue
+
+            widget = field.widget
+            if isinstance(widget, forms.Textarea):
+                control_class = 'ui-textarea'
+            elif isinstance(widget, forms.Select):
+                control_class = 'ui-select'
+            else:
+                control_class = 'ui-input'
+
+            existing = widget.attrs.get('class', '')
+            widget.attrs['class'] = f"{existing} {control_class}".strip()
+
+        self.fields['caption'].widget.attrs.setdefault(
+            'placeholder',
+            'Describe the dog, behavior, and context of rescue.'
+        )
+        self.fields['location'].widget.attrs.setdefault(
+            'placeholder',
+            'Street, barangay, or landmark'
+        )
+        self.fields['rescued_date'].widget.attrs.setdefault('class', 'ui-input')
 
     def save(self, commit=True):
         instance = super().save(commit=False)

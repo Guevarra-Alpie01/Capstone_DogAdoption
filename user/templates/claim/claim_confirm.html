@@ -1,25 +1,67 @@
-<form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
+﻿{% extends 'base.html' %}
 
-    <h5>📝 Explanation (optional)</h5>
-    <textarea name="explanation" class="form-control"
-        placeholder="Where and when did you lose the dog? Any unique marks or behavior?"
-        rows="4"></textarea>
+{% block content %}
+<section class="ui-page ui-page--narrow">
+    <article class="ui-card">
+        <div class="ui-card__header">
+            <h1 class="ui-card__title">Submit Ownership Claim</h1>
+            <p class="ui-card__subtitle">Provide supporting details to help admin verify the rightful owner.</p>
+        </div>
+        <div class="ui-card__body">
+            <p class="mb-2"><strong>Dog report:</strong> {{ post.caption }}</p>
+            {% if post.location %}
+                <p class="ui-muted mb-3">Last seen location: {{ post.location }}</p>
+            {% endif %}
 
-    <h5 class="mt-3">📍 Last Known Location (optional)</h5>
-    <input type="text" name="last_known_location"
-           class="form-control"
-           placeholder="Example: Near Barangay Hall, Main Street">
+            <form method="post"
+                  enctype="multipart/form-data"
+                  class="ui-form js-validate"
+                  data-disable-submit="true"
+                  novalidate>
+                {% csrf_token %}
 
-    <h5 class="mt-3">📸 Upload Photos (optional)</h5>
-    <input type="file" name="images" multiple accept="image/*">
+                <div class="form-error-summary" hidden role="alert" aria-live="assertive"></div>
 
-    <p class="text-muted small mt-2">
-        You can submit this claim even without photos or explanation.
-        An admin will review all details carefully.
-    </p>
+                <div class="ui-field">
+                    <label for="claim-explanation" class="ui-label">Explanation (Optional)</label>
+                    <textarea id="claim-explanation"
+                              name="explanation"
+                              class="ui-textarea"
+                              rows="4"
+                              placeholder="Describe when and where the dog was lost, and identifying behavior or marks."></textarea>
+                </div>
 
-    <button type="submit" class="btn btn-warning mt-3">
-        Submit Claim
-    </button>
-</form>
+                <div class="ui-field">
+                    <label for="claim-location" class="ui-label">Last Known Location (Optional)</label>
+                    <input id="claim-location"
+                           type="text"
+                           name="last_known_location"
+                           class="ui-input"
+                           placeholder="Example: Near Barangay Hall, Main Street">
+                </div>
+
+                <div class="ui-field">
+                    <label for="claim-images" class="ui-label">Supporting Photos (Optional)</label>
+                    <input id="claim-images"
+                           type="file"
+                           name="images"
+                           class="ui-input"
+                           multiple
+                           accept="image/*">
+                    <p class="ui-hint">You can submit this claim without photos. Photos may help with faster verification.</p>
+                </div>
+
+                <div class="ui-actions">
+                    <button type="submit"
+                            class="ui-btn ui-btn--warning"
+                            data-loading-text="Submitting...">
+                        Submit Claim
+                    </button>
+                    <a href="{% url 'user:user_home' %}" class="ui-btn ui-btn--secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </article>
+</section>
+{% endblock %}
+

@@ -3,58 +3,116 @@
 
 {% block content %}
 
-<!-- Signup Page CSS -->
 <link rel="stylesheet" href="{% static 'css/login.css' %}">
 
-<div class="auth-wrapper">
-    <div class="auth-card">
+<section class="auth-shell" aria-labelledby="signup-title">
+    <div class="auth-card ui-card auth-card--wide">
+        <div class="ui-card__body">
+            <h1 id="signup-title" class="auth-title">Create Account</h1>
+            <p class="auth-subtitle">Complete this step first, then continue to face verification.</p>
 
-        <h2>Create Account</h2>
+            {% if error %}
+                <div class="ui-alert ui-alert--danger" role="alert" aria-live="assertive">
+                    {{ error }}
+                </div>
+            {% endif %}
 
-        <form method="post">
-            {% csrf_token %}
+            <form method="post"
+                  class="ui-form js-validate"
+                  data-disable-submit="true"
+                  novalidate>
+                {% csrf_token %}
 
-            <div class="mb-2">
-                <input type="text" name="username" class="form-control" placeholder="Username" required>
-            </div>
+                <div class="form-error-summary" hidden role="alert" aria-live="assertive"></div>
 
-            <div class="mb-2">
-                <input type="password" name="password" class="form-control" placeholder="Password" required>
-            </div>
+                <div class="ui-field">
+                    <label for="signup-username" class="ui-label">Username</label>
+                    <input id="signup-username"
+                           type="text"
+                           name="username"
+                           class="ui-input"
+                           autocomplete="username"
+                           required>
+                </div>
 
-            <div class="mb-2">
-                <input type="text" name="first_name" class="form-control" placeholder="First Name" required>
-            </div>
+                <div class="ui-field">
+                    <label for="signup-password" class="ui-label">Password</label>
+                    <input id="signup-password"
+                           type="password"
+                           name="password"
+                           class="ui-input"
+                           autocomplete="new-password"
+                           required>
+                    <p class="ui-hint">Use at least 8 characters.</p>
+                </div>
 
-            <div class="mb-2">
-                <input type="text" name="middle_initial" class="form-control" placeholder="Middle Initial">
-            </div>
+                <div class="ui-form__grid ui-form__grid--2">
+                    <div class="ui-field">
+                        <label for="signup-first-name" class="ui-label">First Name</label>
+                        <input id="signup-first-name"
+                               type="text"
+                               name="first_name"
+                               class="ui-input"
+                               autocomplete="given-name"
+                               required>
+                    </div>
 
-            <div class="mb-2">
-                <input type="text" name="last_name" class="form-control" placeholder="Last Name" required>
-            </div>
+                    <div class="ui-field">
+                        <label for="signup-last-name" class="ui-label">Last Name</label>
+                        <input id="signup-last-name"
+                               type="text"
+                               name="last_name"
+                               class="ui-input"
+                               autocomplete="family-name"
+                               required>
+                    </div>
+                </div>
 
-            <div class="mb-2">
-                <input type="text" name="address" class="form-control" placeholder="Address" required>
-            </div>
+                <div class="ui-field">
+                    <label for="signup-middle-initial" class="ui-label">Middle Initial (Optional)</label>
+                    <input id="signup-middle-initial"
+                           type="text"
+                           name="middle_initial"
+                           maxlength="1"
+                           class="ui-input"
+                           autocomplete="additional-name">
+                </div>
 
-            <div class="mb-3">
-                <input type="number" name="age" class="form-control" placeholder="Age" required>
-            </div>
+                <div class="ui-field">
+                    <label for="signup-address" class="ui-label">Address</label>
+                    <input id="signup-address"
+                           type="text"
+                           name="address"
+                           class="ui-input"
+                           autocomplete="street-address"
+                           required>
+                </div>
 
-            <button type="submit" class="login-btn w-100 py-2">
-                Next
-            </button>
+                <div class="ui-field">
+                    <label for="signup-age" class="ui-label">Age</label>
+                    <input id="signup-age"
+                           type="number"
+                           name="age"
+                           class="ui-input"
+                           min="1"
+                           max="120"
+                           inputmode="numeric"
+                           required>
+                </div>
 
-        </form>
+                <button type="submit"
+                        class="ui-btn ui-btn--primary ui-btn--full"
+                        data-loading-text="Saving...">
+                    Continue to Face Verification
+                </button>
+            </form>
 
-        <div class="mt-3 text-center">
-            <a href="{% url 'user:login' %}">
-                Already have an account? Log in
-            </a>
+            <p class="auth-footnote">
+                Already have an account?
+                <a href="{% url 'user:login' %}">Log in</a>
+            </p>
         </div>
-
     </div>
-</div>
+</section>
 
 {% endblock %}

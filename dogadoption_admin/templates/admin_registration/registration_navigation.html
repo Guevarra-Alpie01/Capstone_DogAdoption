@@ -1,14 +1,18 @@
-
 {% load static %}
-
-{% block content %}
-
 <link rel="stylesheet" href="{% static 'css/registration_navigation.css' %}">
-<div class="subtop-nav">
-  <a href="{% url 'dogadoption_admin:register_dogs' %}" class="nav-item active">Dog Registration</a>
-  <a href="{% url 'dogadoption_admin:registration_record' %}" class="nav-item">Registration List</a>
-  <a href="{% url 'dogadoption_admin:dog_certificate' %}" class="nav-item">Dog Certification</a>
-  <a href="{% url 'dogadoption_admin:certificate_list' %}" class="nav-item">Certificate List</a>
-</div>
-{% endblock %}
 
+<div class="subtop-nav">
+  {% with request.resolver_match.url_name as url_name %}
+    <a href="{% url 'dogadoption_admin:register_dogs' %}" 
+       class="nav-item {% if url_name == 'register_dogs' %}active{% endif %}">Registration</a>
+       
+    <a href="{% url 'dogadoption_admin:registration_record' %}" 
+       class="nav-item {% if url_name == 'registration_record' %}active{% endif %}">Registration List</a>
+       
+    <a href="{% url 'dogadoption_admin:dog_certificate' %}" 
+       class="nav-item {% if url_name == 'dog_certificate' %}active{% endif %}">Vaccination</a>
+       
+    <a href="{% url 'dogadoption_admin:certificate_list' %}" 
+       class="nav-item {% if url_name == 'certificate_list' %}active{% endif %}">VaccinationList</a>
+  {% endwith %}
+</div>

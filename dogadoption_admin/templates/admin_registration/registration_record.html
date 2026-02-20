@@ -1,150 +1,111 @@
 {% extends 'admin_base.html' %}
 {% load static %}
 
-{% block title %}Dog Registration Records{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/registration.css' %}">
+{% endblock extra_css %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/registration.css' %}">
 {% include 'admin_registration/registration_navigation.html' %}
-<link rel="stylesheet" href="{% static 'css/registration_navigation.css' %}">
-<h2>National Rabies Prevention and Control Program</h2>
-<h3>Rabies Free Visayas Project</h3>
-<h3>Dog Registry and Vaccination Record</h3>
 
-<!-- Barangay input with suggestions -->
-<form method="get" action="{% url 'dogadoption_admin:registration_record' %}" autocomplete="off" id="barangay-form" style="position: relative; max-width: 320px;">
-  <label for="barangay-input">Name of Barangay:</label>
-  <input 
-    type="text" 
-    id="barangay-input" 
-    name="barangay" 
-    value="{{ selected_barangay|default:'' }}" 
-    placeholder="Type barangay name..."
-    oninput="showSuggestions(this.value)" 
-    autocomplete="off"
-  >
-  <div id="suggestions" class="suggestions-box" style="display:none;"></div>
-  <button type="submit" style="margin-top: 10px;">Show Records</button>
-</form>
+<div class="content-body">
+    <form method="get" action="{% url 'dogadoption_admin:registration_record' %}" autocomplete="off" class="barangay-search-form">
+      <label for="barangay-input">Name of Barangay:</label>
+      <input type="text" id="barangay-input" name="barangay" value="{{ selected_barangay|default:'' }}" placeholder="Type barangay name..." oninput="showSuggestions(this.value)">
+      <div id="suggestions" class="suggestions-box" style="display:none;"></div>
+      <button type="submit">Show Records</button>
+    </form>
 
-<!-- Display dog records -->
-{% if dogs %}
-  <h4>Records for Barangay: <em>{{ selected_barangay|default:"All (Recent 20)" }}</em></h4>
-  <table class="records-table">
-    <thead>
-      <tr>
-        <th rowspan="2">No.</th>
-        <th rowspan="2">Date</th>
-        <th rowspan="2">Name</th>
-        <th rowspan="2">Species</th>
-        <th rowspan="2">Sex (M/F)</th>
-        <th rowspan="2">Age (yrs)</th>
-        <th rowspan="2">Neutering (No/C/S)</th>
-        <th rowspan="2">Color</th>
-        <th colspan="2">Pet Owner</th>
-      </tr>
-      <tr>
-        <th>Name</th>
-        <th>Complete Address</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for dog in dogs %}
-      <tr>
-        <td>{{ forloop.counter }}</td>
-        <td>{{ dog.date_registered|date:"m-d-Y" }}</td>
-        <td>{{ dog.name }}</td>
-        <td>{{ dog.species }}</td>
-        <td>{{ dog.sex }}</td>
-        <td>{{ dog.age }}</td>
-        <td>{{ dog.neutering_status }}</td>
-        <td>{{ dog.color }}</td>
-        <td>{{ dog.owner_name }}</td>
-        <td>{{ dog.owner_address }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-{% elif selected_barangay %}
-  <p>No records found for barangay: <strong>{{ selected_barangay }}</strong>.</p>
-{% endif %}
-
-<style>
-  /* Minimal styling for suggestions & table */
-  #barangay-input {
-    width: 300px;
-    padding: 6px;
-    font-size: 1em;
-  }
-  .suggestions-box {
-    border: 1px solid #ccc;
-    max-height: 120px;
-    overflow-y: auto;
-    width: 300px;
-    background: white;
-    position: absolute;
-    z-index: 1000;
-  }
-  .suggestion-item {
-    padding: 6px;
-    cursor: pointer;
-  }
-  .suggestion-item:hover {
-    background-color: #eee;
-  }
-  .records-table {
-    border-collapse: collapse;
-    width: 100%;
-    font-family: Arial, sans-serif;
-    margin-top: 20px;
-  }
-  .records-table th, .records-table td {
-    border: 1px solid #999;
-    padding: 6px;
-    font-size: 0.9em;
-  }
-  .records-table th {
-    background-color: #ddd;
-    text-align: center;
-  }
-</style>
+    {% if dogs %}
+      <h4>Records for Barangay: <em>{{ selected_barangay|default:"All (Recent 20)" }}</em></h4>
+      
+      <div class="table-container">
+          <table class="records-table">
+            <thead>
+              <tr>
+                <th rowspan="2">No.</th>
+                <th rowspan="2">Date</th>
+                <th rowspan="2">Name</th>
+                <th rowspan="2">Species</th>
+                <th rowspan="2">Sex (M/F)</th>
+                <th rowspan="2">Age (yrs)</th>
+                <th rowspan="2">Neutering (No/C/S)</th>
+                <th rowspan="2">Color</th>
+                <th colspan="2">Pet Owner</th>
+              </tr>
+              <tr>
+                <th>Name</th>
+                <th>Complete Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for dog in dogs %}
+              <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ dog.date_registered|date:"m-d-Y" }}</td>
+                <td>{{ dog.name }}</td>
+                <td>{{ dog.species }}</td>
+                <td>{{ dog.sex }}</td>
+                <td>{{ dog.age }}</td>
+                <td>{{ dog.neutering_status }}</td>
+                <td>{{ dog.color }}</td>
+                <td>{{ dog.owner_name }}</td>
+                <td>{{ dog.owner_address }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+      </div>
+    {% elif selected_barangay %}
+      <p>No records found for barangay: <strong>{{ selected_barangay }}</strong>.</p>
+    {% endif %}
+</div>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const barangays = {{ barangay_list|safe }};
-    const suggestionsBox = document.getElementById('suggestions');
-    const barangayInput = document.getElementById('barangay-input');
+  // Default list of barangays
+  const barangays = [
+    "Ali-is","Banaybanay","Banga","Boyco","Bugay","Cansumalig","Dawis","Kalamtukan",
+    "Kalumboyan","Malabugas","Mandu-ao","Maninihon","Minaba","Nangka","Narra",
+    "Pagatban","Poblacion","San Isidro","San Jose","San Miguel","San Roque","Suba",
+    "Tabuan","Tayawan","Tinago","Ubos","Villareal","Villasol"
+  ];
 
-    window.showSuggestions = function(value) {
-      const input = value.toLowerCase().trim();
-      if (!input) {
-        suggestionsBox.style.display = 'none';
-        suggestionsBox.innerHTML = '';
-        return;
-      }
+  const input = document.getElementById('barangay-input');
+  const suggestionsBox = document.getElementById('suggestions');
 
-      const filtered = barangays.filter(b => b.toLowerCase().startsWith(input));
-      if (filtered.length === 0) {
-        suggestionsBox.style.display = 'none';
-        suggestionsBox.innerHTML = '';
-        return;
-      }
-
-      suggestionsBox.innerHTML = filtered.map(b => `<div class="suggestion-item" onclick="selectBarangay('${b}')">${b}</div>`).join('');
-      suggestionsBox.style.display = 'block';
-    };
-
-    window.selectBarangay = function(name) {
-      barangayInput.value = name;
+  function showSuggestions(value) {
+    const val = value.trim().toLowerCase();
+    if (!val) {
       suggestionsBox.style.display = 'none';
-    };
+      return;
+    }
 
-    document.addEventListener('click', function(e) {
-      if (!barangayInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
-        suggestionsBox.style.display = 'none';
-      }
-    });
+    // Filter barangays that match the input (case-insensitive)
+    const matches = barangays.filter(b => b.toLowerCase().includes(val));
+
+    if (matches.length === 0) {
+      suggestionsBox.style.display = 'none';
+      return;
+    }
+
+    // Build suggestion items
+    suggestionsBox.innerHTML = matches.map(b => 
+      `<div class="suggestion-item" onclick="selectBarangay('${b}')">${b}</div>`
+    ).join('');
+
+    suggestionsBox.style.display = 'block';
+  }
+
+  function selectBarangay(value) {
+    input.value = value;
+    suggestionsBox.style.display = 'none';
+  }
+
+  // Hide suggestions when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!suggestionsBox.contains(e.target) && e.target !== input) {
+      suggestionsBox.style.display = 'none';
+    }
   });
 </script>
-
 {% endblock %}

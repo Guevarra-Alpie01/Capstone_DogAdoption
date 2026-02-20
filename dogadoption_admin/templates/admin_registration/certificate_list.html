@@ -2,67 +2,49 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/certificate_list.css' %}">
-
-<style>
-/* Override for table buttons to match certificate theme */
-.certificate-list .print-btn {
-    position: relative;     /* inline inside the table cell */
-    bottom: auto;
-    right: auto;
-    margin: 0;
-    padding: 6px 12px;      /* smaller padding to fit table */
-    font-size: 0.85rem;
-    border-radius: 4px;
-    background-color: #3b5e28;
-    color: #fff;
-    font-weight: 600;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    display: inline-block;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-.certificate-list .print-btn:hover {
-    background-color: #2c4820;
-}
-</style>
+<link rel="stylesheet" href="{% static 'css/registration.css' %}">
 {% endblock extra_css %}
 
 {% block content %}
 {% include 'admin_registration/registration_navigation.html' %}
-<!-- Added translate="no" to prevent browser translation -->
-<div class="certificate-list" translate="no">
-    <h2>Saved Certificates</h2>
+
+<div class="registration-wrapper">
+    <div class="header-section">
+        <h2>Saved Vaccination Certificates</h2>
+        <a href="{% url 'dogadoption_admin:dog_certificate' %}" class="btn-link">+ New Certificate</a>
+    </div>
 
     <div class="table-container">
-        <table>
-            <tr>
-                <th>Reg No</th>
-                <th>Pet</th>
-                <th>Owner</th>
-                <th>Date</th>
-                <th>Action</th>
-            </tr>
-
-            {% for cert in certificates %}
-            <tr>
-                <td data-label="Reg No">{{ cert.reg_no }}</td>
-                <td data-label="Pet">{{ cert.name_of_pet }}</td>
-                <td data-label="Owner">{{ cert.owner_name }}</td>
-                <td data-label="Date">{{ cert.date_registered }}</td>
-                <td data-label="Action">
-                    <a href="{% url 'dogadoption_admin:certificate_print' cert.id %}" class="print-btn">Print</a>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="5" style="text-align:center; font-style: italic;">No certificates found.</td>
-            </tr>
-            {% endfor %}
+        <table class="records-table">
+            <thead>
+                <tr>
+                    <th>Reg No</th>
+                    <th>Pet Name</th>
+                    <th>Owner</th>
+                    <th>Date Issued</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cert in certificates %}
+                <tr>
+                    <td data-label="Reg No"><strong>{{ cert.reg_no }}</strong></td>
+                    <td data-label="Pet">{{ cert.name_of_pet }}</td>
+                    <td data-label="Owner">{{ cert.owner_name }}</td>
+                    <td data-label="Date">{{ cert.date_registered|date:"M d, Y" }}</td>
+                    <td data-label="Action">
+                        <a href="{% url 'dogadoption_admin:certificate_print' cert.id %}" class="action-btn-print">
+                           <i class="fas fa-print"></i> Print
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="empty-row">No certificates found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
     </div>
 </div>
-
-{% endblock content %}
+{% endblock %}

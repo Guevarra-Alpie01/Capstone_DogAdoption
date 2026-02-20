@@ -3,84 +3,142 @@
 
 {% block title %}Dog Registry and Vaccination Record{% endblock %}
 
-{% block content %}
+{% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/registration.css' %}">
+{% endblock extra_css %}
+
+{% block content %}
 {% include 'admin_registration/registration_navigation.html' %}
-<h2>National Rabies Prevention and Control Program</h2>
-<h3>Rabies Free Visayas Project</h3>
-<h3>Dog Registry and Vaccination Record</h3>
 
-<form method="post" action="{% url 'dogadoption_admin:register_dogs' %}">
-  {% csrf_token %}
-  
-  <!-- Admin-controlled Barangay -->
-  <div class="field-group">
-    <label for="barangay">Name of Barangay:</label>
-    <input type="text" id="barangay" name="barangay" value="{{ barangay }}" required>
-  </div>
-
-  <!-- Admin-controlled Date -->
-  <div class="field-group">
-    <label for="date">Date:</label>
-    <input type="date" id="date" name="date" value="{{ date }}" required>
-  </div>
-
-  <!-- Single Dog Registration -->
-  <div class="dog-card">
-    <h4>Dog Registration</h4>
-
-    <div class="field-group">
-      <label for="name">Dog Name:</label>
-      <input type="text" name="name" id="name" required>
+<div class="registration-wrapper">
+    <div class="header-section">
+        <h2>National Rabies Prevention and Control Program</h2>
+        <h3>Rabies Free Visayas Project</h3>
+        <p class="sub-header">Dog Registry and Vaccination Record</p>
     </div>
 
-    <div class="field-group">
-      <label for="species">Species:</label>
-      <select name="species" id="species">
-        <option value="Canine" selected>Canine</option>
-        <option value="Feline">Feline</option>
-        <option value="Other">Other</option>
-      </select>
-    </div>
+    <div class="form-card">
+        <form method="post" action="{% url 'dogadoption_admin:register_dogs' %}">
+            {% csrf_token %}
+            
+            <div class="admin-fields">
+                <div class="field-group">
+                  <label for="barangay">Name of Barangay</label>
+                    <input type="text" id="barangay" name="barangay" value="{{ barangay }}" placeholder="Enter Barangay" oninput="showSuggestions(this.value)" autocomplete="off" required>
+                <div id="suggestions" class="suggestions-box" style="display:none;"></div>
+            </div>
 
-    <div class="field-group">
-      <label for="sex">Sex (M/F):</label>
-      <select name="sex" id="sex">
-        <option value="M">M</option>
-        <option value="F">F</option>
-      </select>
-    </div>
+                <div class="field-group">
+                    <label for="date">Registration Date</label>
+                    <input type="date" id="date" name="date" value="{{ date }}" required>
+                </div>
+            </div>
 
-    <div class="field-group">
-      <label for="age">Age:</label>
-      <input type="text" name="age" id="age" placeholder="e.g., 4 mos or 3 yrs">
-    </div>
+            <hr class="form-divider">
 
-    <div class="field-group">
-      <label for="neutering">Neutering (No/C/S):</label>
-      <select name="neutering" id="neutering">
-        <option value="No" selected>No</option>
-        <option value="C">C</option>
-        <option value="S">S</option>
-      </select>
-    </div>
+            <div class="dog-info-section">
+                <h4 class="section-title"><i class="fas fa-paw"></i> Pet Information</h4>
 
-    <div class="field-group">
-      <label for="color">Color:</label>
-      <input type="text" name="color" id="color">
-    </div>
+                <div class="grid-row">
+                    <div class="field-group">
+                        <label for="name">Dog Name</label>
+                        <input type="text" name="name" id="name" placeholder="Name" required>
+                    </div>
+                    <div class="field-group">
+                        <label for="species">Species</label>
+                        <select name="species" id="species">
+                            <option value="Canine" selected>Canine</option>
+                            <option value="Feline">Feline</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
 
-    <div class="field-group">
-      <label for="owner_name">Pet Owner Name:</label>
-      <input type="text" name="owner_name" id="owner_name" required>
-    </div>
+                <div class="grid-row three-cols">
+                    <div class="field-group">
+                        <label for="sex">Sex</label>
+                        <select name="sex" id="sex">
+                            <option value="M">Male</option>
+                            <option value="F">Female</option>
+                        </select>
+                    </div>
+                    <div class="field-group">
+                        <label for="age">Age</label>
+                        <input type="text" name="age" id="age" placeholder="e.g. 2 yrs">
+                    </div>
+                    <div class="field-group">
+                        <label for="neutering">Neutering</label>
+                        <select name="neutering" id="neutering">
+                            <option value="No" selected>No</option>
+                            <option value="C">Castrated</option>
+                            <option value="S">Spayed</option>
+                        </select>
+                    </div>
+                </div>
 
-    <div class="field-group">
-      <label for="owner_address">Complete Address:</label>
-      <textarea name="owner_address" id="owner_address"></textarea>
-    </div>
-  </div>
+                <div class="field-group">
+                    <label for="color">Color / Markings</label>
+                    <input type="text" name="color" id="color" placeholder="e.g. Black and White">
+                </div>
 
-  <button type="submit">Submit Registration</button>
-</form>
+                <h4 class="section-title"><i class="fas fa-user"></i> Owner Information</h4>
+                
+                <div class="field-group">
+                    <label for="owner_name">Pet Owner Full Name</label>
+                    <input type="text" name="owner_name" id="owner_name" placeholder="Full Name" required>
+                </div>
+
+                <div class="field-group">
+                    <label for="owner_address">Complete Address</label>
+                    <textarea name="owner_address" id="owner_address" rows="3" placeholder="Street, Barangay, City"></textarea>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn">Save Registration Record</button>
+        </form>
+    </div>
+</div>
+<script>
+  const barangays = [
+    "Ali-is","Banaybanay","Banga","Boyco","Bugay","Cansumalig","Dawis","Kalamtukan",
+    "Kalumboyan","Malabugas","Mandu-ao","Maninihon","Minaba","Nangka","Narra",
+    "Pagatban","Poblacion","San Isidro","San Jose","San Miguel","San Roque","Suba",
+    "Tabuan","Tayawan","Tinago","Ubos","Villareal","Villasol"
+  ];
+
+  const input = document.getElementById('barangay'); // updated
+  const suggestionsBox = document.getElementById('suggestions'); // already added
+
+  function showSuggestions(value) {
+    const val = value.trim().toLowerCase();
+    if (!val) {
+      suggestionsBox.style.display = 'none';
+      return;
+    }
+
+    const matches = barangays.filter(b => b.toLowerCase().includes(val));
+
+    if (matches.length === 0) {
+      suggestionsBox.style.display = 'none';
+      return;
+    }
+
+    suggestionsBox.innerHTML = matches.map(b =>
+      `<div class="suggestion-item" onclick="selectBarangay('${b}')">${b}</div>`
+    ).join('');
+
+    suggestionsBox.style.display = 'block';
+  }
+
+  function selectBarangay(value) {
+    input.value = value;
+    suggestionsBox.style.display = 'none';
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!suggestionsBox.contains(e.target) && e.target !== input) {
+      suggestionsBox.style.display = 'none';
+    }
+  });
+</script>
 {% endblock %}

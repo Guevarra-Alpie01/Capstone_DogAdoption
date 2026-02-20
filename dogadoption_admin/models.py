@@ -29,7 +29,6 @@ class Post(models.Model):
         help_text="Days allowed for owner to claim dog"
     )
 
-    # 👇 ADD THIS
     violations = models.JSONField(
         blank=True,
         null=True,

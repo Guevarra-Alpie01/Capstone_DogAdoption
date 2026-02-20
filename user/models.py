@@ -23,7 +23,6 @@ class Profile(models.Model):
     
 #request dog capture
 class DogCaptureRequest(models.Model):
-
     STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('accepted', 'Accepted'),
@@ -40,8 +39,13 @@ class DogCaptureRequest(models.Model):
     reason = models.CharField(max_length=50)
     description = models.TextField(blank=True, null=True)
 
+    # GPS location
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+
+    # Manual location
+    barangay = models.CharField(max_length=100, null=True, blank=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
 
     image = models.ImageField(upload_to='dog_requests/', null=True, blank=True)
 
@@ -53,7 +57,7 @@ class DogCaptureRequest(models.Model):
 
     def __str__(self):
         return f"{self.requested_by} - {self.reason} ({self.status})"
-    
+
 
 class AdoptionRequest(models.Model):
     STATUS_CHOICES = (

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path
 from . import views
-from .views import all_users_view
+from .views import admin_users
 
 app_name = "dogadoption_admin"
 
@@ -39,7 +39,9 @@ urlpatterns = [
     path('comments/<int:comment_id>/reply/', views.comment_reply, name='comment_reply'),
 
     #USER MANAGEMENT
-    path("users/", all_users_view, name="users_list"),
+    path('users/', views.admin_users, name='admin_users'),
+    path('admin/user/<int:id>/', views.admin_user_detail, name='admin_user_detail'),
+    path('users/search/', views.admin_user_search_results, name='admin_user_search'),
 
     #REGISTRATION
     

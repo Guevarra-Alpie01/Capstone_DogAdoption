@@ -10,9 +10,30 @@
     <div class="card">
         <h2>🐕 Request Dog Capture</h2>
 
+        <!-- CAPTURE TYPE -->
+        <div class="capture-choice">
+            <button type="button" class="btn-secondary" onclick="showUpload()">📁 Upload Photo</button>
+            <button type="button" class="btn-secondary" onclick="showCamera()">📷 Live Capture</button>
+        </div>
+
         <form method="POST" enctype="multipart/form-data" class="capture-form">
             {% csrf_token %}
 
+            <!-- 📁 Upload Section -->
+            <div id="uploadSection" style="display:none;">
+                <label>Upload Photo</label>
+                <input type="file" name="image" accept="image/*">
+            </div>
+
+            <!-- 📷 Camera Section -->
+            <div id="cameraSection" style="display:none;">
+                <video id="video" autoplay playsinline style="width:100%; border-radius:10px;"></video>
+                <button type="button" class="btn-primary" onclick="capturePhoto()">Capture Photo</button>
+                <canvas id="canvas" style="display:none;"></canvas>
+                <input type="hidden" name="captured_image" id="capturedImage">
+            </div>
+
+            <!-- Reason -->
             <div class="form-group">
                 <label>Reason for Capture</label>
                 <select name="reason" required>
@@ -26,29 +47,39 @@
                 </select>
             </div>
 
+            <!-- Description -->
             <div class="form-group">
                 <label>Additional Details</label>
-                <textarea name="description" placeholder="Extra details..."></textarea>
+                <textarea name="description" placeholder="Describe the dog, location, behavior..."></textarea>
             </div>
 
-            <div class="form-group">
-                <label>Upload Picture</label>
-                <input type="file" name="image" accept="image/*">
+            <!-- LOCATION OPTIONS -->
+            <h4>📍 Location Options</h4>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="getLocation()">
+                    Use Exact GPS Location
+                </button>
             </div>
 
             <input type="hidden" name="latitude" id="latitude">
             <input type="hidden" name="longitude" id="longitude">
 
-            <div class="form-actions">
-                <button type="button" class="btn-secondary" onclick="getLocation()">
-                    📍 Use My Location
-                </button>
-                <button type="submit" class="btn-primary">
-                    Submit Request
-                </button>
+            <p class="mt-2"><strong>OR</strong> type manually:</p>
+
+            <div class="form-group">
+                <input type="text" name="barangay" placeholder="Barangay">
             </div>
+            <div class="form-group">
+                <input type="text" name="city" placeholder="City / Municipality">
+            </div>
+
+            <button type="submit" class="btn-primary mt-3">
+                Submit Request
+            </button>
         </form>
     </div>
+
 
     <!-- 📋 MY REQUESTS -->
     <div class="card">
@@ -87,7 +118,52 @@
 
 </div>
 
+
 <script>
+let stream;
+
+// Show Upload
+function showUpload() {
+    document.getElementById("uploadSection").style.display = "block";
+    document.getElementById("cameraSection").style.display = "none";
+
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+}
+
+// Show Camera
+function showCamera() {
+    document.getElementById("cameraSection").style.display = "block";
+    document.getElementById("uploadSection").style.display = "none";
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+        .then(s => {
+            stream = s;
+            document.getElementById('video').srcObject = stream;
+        })
+        .catch(err => {
+            alert("Camera access denied or not supported.");
+        });
+}
+
+// Capture Photo
+function capturePhoto() {
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    context.drawImage(video, 0, 0);
+
+    const imageData = canvas.toDataURL('image/png');
+    document.getElementById('capturedImage').value = imageData;
+
+    alert("Photo captured successfully!");
+}
+
+// Get GPS Location
 function getLocation() {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function(position) {

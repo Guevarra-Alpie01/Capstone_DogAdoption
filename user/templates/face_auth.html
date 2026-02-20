@@ -2,36 +2,78 @@
 {% load static %}
 
 {% block content %}
-<h2>Face Verification</h2>
-<h4 id="instruction" class="mb-2"></h4>
-<p id="status" class="text-muted"></p>
+<link rel="stylesheet" href="{% static 'css/face_auth.css' %}">
 
-<video id="video" autoplay playsinline class="border"></video>
-<canvas id="canvas" style="display:none;"></canvas>
+<div class="face-wrapper">
+    <div class="face-card">
 
-<form id="csrf-form" style="display:none;">
-    {% csrf_token %}
-</form>
+        <!-- STEP LABEL -->
+        <div class="step-label" id="stepLabel">STEP 1</div>
 
-<!-- Mirror camera like selfie / GCash -->
-<style>
-#video {
-    transform: scaleX(-1);
-}
-</style>
+        <!-- MAIN INSTRUCTION -->
+        <h2 id="instructionTitle">Face Verification</h2>
+        <p id="instructionDesc">Position your face inside the circle</p>
+
+        <!-- CAMERA CIRCLE -->
+        <div class="camera-circle">
+            <video id="video" autoplay playsinline></video>
+        </div>
+
+        <!-- STATUS -->
+        <p id="status"></p>
+
+        <canvas id="canvas" style="display:none;"></canvas>
+
+        <form id="csrf-form" style="display:none;">
+            {% csrf_token %}
+        </form>
+
+        <!-- CONSENT SECTION (HIDDEN FIRST) -->
+            <div id="consentSection" class="consent-box" style="display:none;">
+                <h4>Terms and Conditions</h4>
+
+                <p>
+                    By proceeding with this facial verification process, you acknowledge and consent that the facial images captured will be used solely for identity verification and account security purposes within the system.
+                </p>
+
+                <p>
+                    You understand that access to these facial images is strictly limited to authorized system administrators and will be handled in accordance with applicable data protection and privacy standards.
+                </p>
+
+                <p>
+                    You further agree that the captured facial images will not be publicly displayed, shared, or used for any purpose outside of secure authentication and verification within the platform.
+                </p>
+
+                <label class="consent-check">
+                    <input type="checkbox" id="agreeCheckbox">
+                    I have read and agree to the Terms and Conditions
+                </label>
+
+                <button id="completeSignupBtn" class="btn btn-success mt-3" disabled>
+                    Complete Signup
+                </button>
+            </div>
+
+
+    </div>
+</div>
 
 <!-- MediaPipe -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
-/* ======================
-   BASIC SETUP
-====================== */
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
-const instruction = document.getElementById("instruction");
+const stepLabel = document.getElementById("stepLabel");
+const instructionTitle = document.getElementById("instructionTitle");
+const instructionDesc = document.getElementById("instructionDesc");
 const statusText = document.getElementById("status");
+
+const consentSection = document.getElementById("consentSection");
+const agreeCheckbox = document.getElementById("agreeCheckbox");
+const completeSignupBtn = document.getElementById("completeSignupBtn");
+
 const csrftoken = document.querySelector(
     '#csrf-form input[name="csrfmiddlewaretoken"]'
 ).value;
@@ -39,25 +81,28 @@ const csrftoken = document.querySelector(
 let images = [];
 let step = 0;
 let lastCaptureTime = 0;
+let uploadDone = false;
 
 /* ======================
-   LIVENESS STEPS
+   STEP CONFIG (GCASH STYLE)
 ====================== */
 const STEPS = [
-    "LOOK_FORWARD",
-    "TURN_LEFT",
-    "TURN_RIGHT",
-    "BLINK"
+    { key: "LOOK_FORWARD", title: "Look Straight", desc: "Align your face inside the circle" },
+    { key: "TURN_LEFT", title: "Turn Left", desc: "Slowly turn your head to the LEFT" },
+    { key: "TURN_RIGHT", title: "Turn Right", desc: "Slowly turn your head to the RIGHT" },
+    { key: "BLINK", title: "Blink", desc: "Blink your eyes naturally" }
 ];
 
-const STEP_TEXT = {
-    LOOK_FORWARD: "Look straight at the camera",
-    TURN_LEFT: "Turn your head LEFT",
-    TURN_RIGHT: "Turn your head RIGHT",
-    BLINK: "Blink your eyes"
-};
+updateStepUI();
 
-instruction.innerText = STEP_TEXT[STEPS[step]];
+/* ======================
+   UPDATE UI
+====================== */
+function updateStepUI(){
+    stepLabel.innerText = `STEP ${step + 1}`;
+    instructionTitle.innerText = STEPS[step].title;
+    instructionDesc.innerText = STEPS[step].desc;
+}
 
 /* ======================
    FACE MESH INIT
@@ -89,10 +134,10 @@ const camera = new Camera(video, {
 camera.start();
 
 /* ======================
-   MAIN DETECTION LOGIC
+   MAIN DETECTION
 ====================== */
 function onResults(results) {
-    if (!results.multiFaceLandmarks) return;
+    if (!results.multiFaceLandmarks || uploadDone) return;
 
     const landmarks = results.multiFaceLandmarks[0];
 
@@ -101,18 +146,16 @@ function onResults(results) {
         step++;
 
         if (step >= STEPS.length) {
-            uploadImages();
+            statusText.innerText = "Face verification complete!";
+            uploadImages(); // upload first
         } else {
-            instruction.innerText = STEP_TEXT[STEPS[step]];
+            updateStepUI();
         }
     }
-
-    // DEBUG (optional – remove later)
-    statusText.innerText = `Step ${step + 1}/${STEPS.length} | Yaw: ${headYaw(landmarks).toFixed(2)}`;
 }
 
 /* ======================
-   HEAD YAW (LEFT / RIGHT)
+   HEAD YAW
 ====================== */
 function headYaw(landmarks) {
     const nose = landmarks[1].x;
@@ -131,25 +174,18 @@ function headYaw(landmarks) {
 function checkStep(landmarks) {
     const yaw = headYaw(landmarks);
 
-    switch (STEPS[step]) {
+    switch (STEPS[step].key) {
         case "LOOK_FORWARD":
             return Math.abs(yaw) < 0.05;
-
-        // MIRRORED CAMERA LOGIC
         case "TURN_LEFT":
             return yaw > 0.15;
-
         case "TURN_RIGHT":
             return yaw < -0.15;
-
         case "BLINK":
             return isBlinking(landmarks);
     }
 }
 
-/* ======================
-   BLINK DETECTION
-====================== */
 function isBlinking(landmarks) {
     const top = landmarks[159].y;
     const bottom = landmarks[145].y;
@@ -157,7 +193,7 @@ function isBlinking(landmarks) {
 }
 
 /* ======================
-   CAPTURE DELAY (STABILITY)
+   CAPTURE CONTROL
 ====================== */
 function canCapture() {
     const now = Date.now();
@@ -169,10 +205,9 @@ function canCapture() {
 }
 
 /* ======================
-   IMAGE CAPTURE
+   CAPTURE IMAGE
 ====================== */
 function captureImage() {
-    // Reduce resolution (bank-style)
     canvas.width = 480;
     canvas.height = 360;
 
@@ -182,16 +217,16 @@ function captureImage() {
     ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
     ctx.restore();
 
-    // JPEG compression (massive size reduction)
-    const compressedImage = canvas.toDataURL("image/jpeg", 0.6);
-    images.push(compressedImage);
+    const img = canvas.toDataURL("image/jpeg", 0.6);
+    images.push(img);
 }
 
-
 /* ======================
-   UPLOAD TO DJANGO
+   UPLOAD FIRST THEN SHOW CONSENT
 ====================== */
 function uploadImages() {
+    uploadDone = true;
+
     fetch("{% url 'user:save_face' %}", {
         method: "POST",
         headers: {
@@ -203,12 +238,26 @@ function uploadImages() {
     .then(res => res.json())
     .then(data => {
         if (data.status === "ok") {
-            window.location.href = "{% url 'user:consent' %}";
+            consentSection.style.display = "block";
+            statusText.innerText = "Please review and accept the consent to continue.";
         } else {
             alert("Face verification failed");
         }
-    })
-    .catch(() => alert("Upload error"));
+    });
 }
+
+/* ======================
+   ENABLE BUTTON ONLY IF CHECKED
+====================== */
+agreeCheckbox.addEventListener("change", function(){
+    completeSignupBtn.disabled = !this.checked;
+});
+
+/* ======================
+   FINAL COMPLETE SIGNUP
+====================== */
+completeSignupBtn.addEventListener("click", function(){
+    window.location.href = "{% url 'user:signup_complete' %}";
+});
 </script>
 {% endblock %}

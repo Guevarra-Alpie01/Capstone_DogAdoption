@@ -430,19 +430,66 @@ def comment_reply(request, comment_id):
 
 #USER MANAGEMENT PAGE
 @admin_required
-def all_users_view(request):
-    users = User.objects.filter(is_staff=False).annotate(
-        claim_violations=Count(
-            'postrequest',
-            filter=Q(postrequest__request_type='claim')
-        )
-    ).prefetch_related(
-        "faceimage_set", "profile"
-    )
+def admin_users(request):
+    query = request.GET.get('q', '')
 
-    return render(request, "admin_user/users.html", {
-        "users": users
+    users = User.objects.select_related('profile').all().order_by('first_name')
+
+    if query:
+        users = users.filter(
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query) |
+            Q(username__icontains=query)
+        )
+
+    # suggestions based on most recently registered users
+    suggestions = User.objects.order_by('-date_joined')[:5]
+
+    context = {
+        'users': users,
+        'query': query,
+        'suggestions': suggestions,
+    }
+    return render(request, 'admin_user/users.html', context)
+
+
+def admin_user_search_results(request):
+    query = request.GET.get('q', '')
+
+    results = User.objects.select_related('profile').filter(
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query) |
+        Q(username__icontains=query)
+    ).order_by('first_name')
+
+    return render(request, 'admin_user/user_search_results.html', {
+        'results': results,
+        'query': query
     })
+
+
+def admin_user_detail(request, id):
+    user = get_object_or_404(User, id=id)
+    return render(request, 'admin_user/user_detail.html', {'user': user})
+
+def admin_user_search_results(request):
+    """
+    Separate template for search results
+    """
+    query = request.GET.get('q', '')
+
+    results = User.objects.select_related('profile').filter(
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query) |
+        Q(username__icontains=query)
+    ).order_by('first_name')
+
+    context = {
+        'results': results,
+        'query': query,
+    }
+
+    return render(request, 'admin_user/user_search_results.html', context)
 
 #registration
 from .models import Dog

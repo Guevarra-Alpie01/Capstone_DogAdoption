@@ -3,32 +3,14 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/admin_users.css' %}">
-{% endblock extra_css %}
+{% endblock %}
 
 {% block content %}
 
-<h1 class="page-title">Registered Users</h1>
-
-<!-- SEARCH BAR -->
-<form method="GET" action="{% url 'dogadoption_admin:admin_user_search' %}" class="search-bar">
-    <input type="text" name="q" placeholder="Search users by name..." value="{{ query }}">
-    <button type="submit">Search</button>
-</form>
-
-<!-- SUGGESTIONS -->
-{% if suggestions %}
-<div class="suggestions-box">
-    <p>Recently Registered:</p>
-    <ul>
-        {% for s in suggestions %}
-            <li>{{ s.first_name }} {{ s.last_name }}</li>
-        {% endfor %}
-    </ul>
-</div>
-{% endif %}
+<h1 class="page-title">Search Results for "{{ query }}"</h1>
 
 <div class="user-container">
-    {% for user in users %}
+    {% for user in results %}
     <div class="user-card">
 
         <div class="user-left">
@@ -61,7 +43,7 @@
 
     </div>
     {% empty %}
-        <p>No users found.</p>
+        <p>No matching users found.</p>
     {% endfor %}
 </div>
 

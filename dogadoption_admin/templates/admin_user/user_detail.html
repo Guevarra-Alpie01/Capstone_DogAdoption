@@ -1,0 +1,41 @@
+{% extends "admin_base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/admin_users.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="detail-card">
+
+    <div class="detail-header">
+        <img src="{{ user.profile.profile_image.url }}" class="detail-avatar">
+        <div>
+            <h2>{{ user.first_name }} {{ user.last_name }}</h2>
+            <p>@{{ user.username }}</p>
+        </div>
+    </div>
+
+    <div class="detail-section">
+        <h3>Personal Information</h3>
+        <p><strong>Middle Initial:</strong> {{ user.profile.middle_initial|default:"—" }}</p>
+        <p><strong>Age:</strong> {{ user.profile.age|default:"—" }}</p>
+        <p><strong>Address:</strong> {{ user.profile.address|default:"—" }}</p>
+        <p><strong>Date Joined:</strong> {{ user.date_joined|date:"M d, Y" }}</p>
+    </div>
+
+    <div class="detail-section">
+        <h3>Face Authentication Images</h3>
+        <div class="face-grid">
+            {% for face in user.faceimage_set.all %}
+                <img src="{{ face.image.url }}" class="face-img">
+            {% empty %}
+                <p>No face images uploaded.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

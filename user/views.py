@@ -167,17 +167,6 @@ def save_face(request):
     return JsonResponse({"status": "ok"})
 
 
-#Consent Page
-def consent_view(request):
-    if "signup_data" not in request.session or "face_images_files" not in request.session:
-        return redirect("user:signup")
-
-    if request.method == "POST":
-        return redirect("user:signup_complete")
-
-    return render(request, "consent.html")
-
-
 
 # Signup Complete
 def signup_complete(request):
@@ -286,6 +275,8 @@ def request_dog_capture(request):
             description=request.POST.get('description'),
             latitude=request.POST.get('latitude') or None,
             longitude=request.POST.get('longitude') or None,
+            barangay=request.POST.get('barangay'),
+            city=request.POST.get('city'),
             image=request.FILES.get('image')
         )
         messages.success(request, "Request submitted successfully.")
@@ -297,7 +288,6 @@ def request_dog_capture(request):
     return render(request, 'user_request/request.html', {
         'requests': requests
     })
-
 
 
 

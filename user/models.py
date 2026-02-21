@@ -177,3 +177,35 @@ class UserAdoptionRequest(models.Model):
 
     def __str__(self):
         return f"{self.requester.username} → {self.post.dog_name}"
+    
+
+#post for lost dogs
+
+class MissingDogPost(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    
+    dog_name = models.CharField(max_length=100)
+    description = models.TextField()
+
+    image = models.ImageField(upload_to='missing_dogs/')
+    
+    date_lost = models.DateField()
+    time_lost = models.TimeField()
+
+    location = models.CharField(max_length=255)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    STATUS_CHOICES = [
+        ('missing', 'Missing'),
+        ('found', 'Found'),
+    ]
+
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='missing'
+    )
+
+    def __str__(self):
+        return f"{self.dog_name} - {self.status}"

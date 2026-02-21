@@ -18,6 +18,7 @@ urlpatterns = [
     path('',views.user_home, name="user_home"),
     path('user-adopt/create/', views.create_user_adoption_post, name='create_user_adoption_post'),
     path('user-adopt/<int:post_id>/', views.adopt_user_post, name='adopt_user_post'),
+    path("post-missing/", views.create_missing_post, name="create_missing_post"),
 
     #navigation links/ request  urls
     path('request/', views.request_dog_capture, name='dog_capture_request'),
@@ -27,6 +28,7 @@ urlpatterns = [
     path('claim/<int:post_id>/', views.claim_confirm, name='claim_confirm'),
 
     #navigation links/ adopt  urls
+    path("adopt-list/", views.adopt_list, name="adopt_list"),
     path('adopt/<int:post_id>/', views.adopt_confirm, name='adopt_confirm'),
     path('adopt/status/', views.adopt_status, name='adopt_status'),
 

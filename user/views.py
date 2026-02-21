@@ -20,8 +20,9 @@ from dogadoption_admin.models import DogAnnouncement, AnnouncementReaction, Anno
 from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
 from dogadoption_admin.models import Post, PostRequest
 from django.contrib.auth.models import User
-from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest
-from .forms import UserAdoptionPostForm
+from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, MissingDogPost
+from .forms import UserAdoptionPostForm,MissingDogPostForm
+ 
 # Decorator to allow only users
 from collections import Counter
 
@@ -212,74 +213,103 @@ def signup_complete(request):
 
     return redirect("user:login")
 
-
-
-
-# USER  HOME PAGE
+# USER HOME VIEW
 def user_home(request):
-    # Redirect staff to admin posts page
+    # Redirect staff to admin dashboard
     if request.user.is_authenticated and request.user.is_staff:
         return redirect('dogadoption_admin:post_list')
 
     query = request.GET.get('q')
 
-    # Fetch admin posts
+    # Admin posts
     admin_posts = Post.objects.all().prefetch_related('images').order_by('-created_at')
 
-    # Fetch user posts
+    # User adoption posts
     user_posts = UserAdoptionPost.objects.filter(status='available').prefetch_related('images')
 
-    # Apply search filter for both
+    # Missing dog posts
+    missing_posts = MissingDogPost.objects.filter(status='missing').order_by('-created_at')
+
+    # SEARCH FILTER
     if query:
         admin_posts = admin_posts.filter(
             Q(caption__icontains=query) |
             Q(location__icontains=query) |
             Q(status__icontains=query)
         )
+
         user_posts = user_posts.filter(
             Q(dog_name__icontains=query) |
             Q(description__icontains=query) |
             Q(location__icontains=query)
         )
 
-    # Combine posts and sort by created_at
-    combined_posts = sorted(
-        list(admin_posts) + list(user_posts),
-        key=lambda x: x.created_at,
-        reverse=True
-    )
+        missing_posts = missing_posts.filter(
+            Q(dog_name__icontains=query) |
+            Q(description__icontains=query) |
+            Q(location__icontains=query)
+        )
 
-    # Enrich posts with time left for admin posts (optional)
-    enriched_posts = []
-    now = timezone.now()
-    for p in combined_posts:
+    combined_posts = []
+
+    # ADMIN POSTS
+    for p in admin_posts:
         days = hours = minutes = 0
         is_open_for_adoption = False
 
-        # Only admin posts have the is_open_for_adoption and time_left logic
         if hasattr(p, 'is_open_for_adoption') and p.is_open_for_adoption():
             is_open_for_adoption = True
             diff = p.time_left()
             total_seconds = max(int(diff.total_seconds()), 0)
+
             days = total_seconds // 86400
             remainder = total_seconds % 86400
             hours = remainder // 3600
             remainder = remainder % 3600
             minutes = remainder // 60
 
-        enriched_posts.append({
+        combined_posts.append({
             'post': p,
+            'post_type': 'admin',
             'days_left': days,
             'hours_left': hours,
             'minutes_left': minutes,
             'is_open_for_adoption': is_open_for_adoption
         })
 
+    # USER ADOPTION POSTS
+    for p in user_posts:
+        combined_posts.append({
+            'post': p,
+            'post_type': 'user',
+            'days_left': 0,
+            'hours_left': 0,
+            'minutes_left': 0,
+            'is_open_for_adoption': False
+        })
+
+    # MISSING POSTS
+    for p in missing_posts:
+        combined_posts.append({
+            'post': p,
+            'post_type': 'missing',
+            'days_left': 0,
+            'hours_left': 0,
+            'minutes_left': 0,
+            'is_open_for_adoption': False
+        })
+
+    # SORT ALL POSTS
+    combined_posts = sorted(
+        combined_posts,
+        key=lambda x: x['post'].created_at,
+        reverse=True
+    )
+
     return render(request, 'home/user_home.html', {
-        'posts': enriched_posts,
+        'posts': combined_posts,
         'query': query,
     })
-
 
 @user_only
 def create_user_adoption_post(request):
@@ -319,6 +349,28 @@ def adopt_user_post(request, post_id):
     )
 
     return redirect('user:user_home')
+
+
+from .models import MissingDogPost
+from .forms import MissingDogPostForm
+
+
+@user_only
+def create_missing_post(request):
+    if request.method == 'POST':
+        form = MissingDogPostForm(request.POST, request.FILES)
+        if form.is_valid():
+            post = form.save(commit=False)
+            post.owner = request.user
+            post.save()
+            messages.success(request, "Missing dog post created successfully 🐶")
+            return redirect('user:user_home')
+    else:
+        form = MissingDogPostForm()
+
+    return render(request, 'home/post_missing.html', {
+        'form': form
+    })
 
 # VIEW FOR FACEBOOK SHARED LINK PREVIEW
 @user_only
@@ -363,8 +415,39 @@ def claim(request):
 
 
 #ADOPTION PAGE
+@user_only
+def adopt_list(request):
+    filter_type = request.GET.get("filter", "all")
 
-@login_required
+    posts = Post.objects.all().prefetch_related("images").order_by("-created_at")
+
+    # Filtering logic based on YOUR model
+    if filter_type == "ready_claim":
+        posts = [
+            p for p in posts
+            if p.status == "rescued" and p.is_open_for_adoption()
+        ]
+
+    elif filter_type == "ready_adopt":
+        posts = [
+            p for p in posts
+            if p.status == "under_care" and p.is_open_for_adoption()
+        ]
+
+    elif filter_type == "adopted":
+        posts = posts.filter(status="adopted")
+
+    elif filter_type == "claimed":
+        posts = posts.filter(status="reunited")
+
+    elif filter_type == "all":
+        posts = posts
+
+    return render(request, "adopt/adopt_list.html", {
+        "posts": posts,
+        "current_filter": filter_type
+    })
+
 @user_only
 def adopt_status(request):
     requests = AdoptionRequest.objects.filter(user=request.user).select_related('post')

@@ -6,11 +6,14 @@
 
 <div class="home-content container">
 
-    <!-- Upload / Create Post (User Only) -->
+    <!-- CREATE BUTTONS -->
     {% if request.user.is_authenticated %}
     <div class="mb-3">
         <a href="{% url 'user:create_user_adoption_post' %}" class="btn btn-primary">
             ➕ Post Dog for Adoption
+        </a>
+        <a href="{% url 'user:create_missing_post' %}" class="btn btn-danger ms-2">
+            🚨 Post Missing Dog
         </a>
     </div>
     {% endif %}
@@ -23,7 +26,7 @@
                 name="q"
                 class="form-control"
                 placeholder="Search by location, status, or keyword 🐕"
-                value="{{ request.GET.q }}"
+                value="{{ query }}"
             >
             <button class="btn btn-primary" type="submit">🔍 Search</button>
         </div>
@@ -34,9 +37,9 @@
     <div class="card mb-4 shadow-sm post-card position-relative">
 
         <!-- STATUS BADGE -->
-        {% if item.post_type == 'user' %}
-            <span class="badge status-badge {{ post.status }}">
-                {{ post.get_status_display }}
+        {% if item.post_type == 'missing' %}
+            <span class="badge bg-danger status-badge">
+                🚨 Missing
             </span>
         {% else %}
             <span class="badge status-badge {{ post.status }}">
@@ -44,12 +47,18 @@
             </span>
         {% endif %}
 
-        <!-- Main Image -->
-        {% with post.images.first as main_image %}
-            {% if main_image %}
-                <img src="{{ main_image.image.url }}" class="card-img-top main-img">
+        <!-- IMAGE SECTION -->
+        {% if item.post_type == 'missing' %}
+            {% if post.image %}
+                <img src="{{ post.image.url }}" class="card-img-top main-img">
             {% endif %}
-        {% endwith %}
+        {% else %}
+            {% with post.images.first as main_image %}
+                {% if main_image %}
+                    <img src="{{ main_image.image.url }}" class="card-img-top main-img">
+                {% endif %}
+            {% endwith %}
+        {% endif %}
 
         <div class="card-body">
 
@@ -57,30 +66,39 @@
             <h5 class="card-title">
                 {% if item.post_type == 'user' %}
                     {{ post.dog_name }}
+                {% elif item.post_type == 'missing' %}
+                    🚨 MISSING: {{ post.dog_name }}
                 {% else %}
-                    Dog Update
+                    Dog Rescue Update
                 {% endif %}
             </h5>
 
-            <!-- DESCRIPTION / CAPTION -->
+            <!-- DESCRIPTION -->
             <p class="card-text">
                 {% if item.post_type == 'user' %}
                     {{ post.description }}
+
+                {% elif item.post_type == 'missing' %}
+                    {{ post.description }}<br>
+                    <strong>Lost On:</strong> {{ post.date_lost }} at {{ post.time_lost }}
+
                 {% else %}
                     {{ post.caption }}
                 {% endif %}
             </p>
 
+            <!-- LOCATION -->
             {% if post.location %}
                 <small class="text-muted">📍 {{ post.location }}</small><br>
             {% endif %}
 
+            <!-- DATE POSTED -->
             <small class="text-muted">
                 🗓 Posted on {{ post.created_at|date:"M d, Y H:i" }}
             </small>
 
-            <!-- TIME LEFT (if user adoption post) -->
-            {% if item.post_type == 'user' and item.is_open_for_adoption %}
+            <!-- COUNTDOWN (ADMIN POSTS ONLY) -->
+            {% if item.post_type == 'admin' and item.is_open_for_adoption %}
                 <div class="mt-2">
                     <span class="text-success fw-semibold">
                         ⏱ Time left: {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m
@@ -88,20 +106,22 @@
                 </div>
             {% endif %}
 
-            <!-- View More Images -->
-            {% if post.images.count > 1 %}
-                <button class="btn btn-link view-more-btn p-0 mt-2"
-                        type="button"
-                        data-bs-toggle="collapse"
-                        data-bs-target="#gallery-{{ post.id }}">
-                    View more photos
-                </button>
+            <!-- EXTRA IMAGES (NOT FOR MISSING) -->
+            {% if item.post_type != 'missing' %}
+                {% if post.images.count > 1 %}
+                    <button class="btn btn-link view-more-btn p-0 mt-2"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#gallery-{{ post.id }}">
+                        View more photos
+                    </button>
 
-                <div class="collapse gallery mt-2" id="gallery-{{ post.id }}">
-                    {% for image in post.images.all|slice:"1:" %}
-                        <img src="{{ image.image.url }}" class="gallery-img">
-                    {% endfor %}
-                </div>
+                    <div class="collapse gallery mt-2" id="gallery-{{ post.id }}">
+                        {% for image in post.images.all|slice:"1:" %}
+                            <img src="{{ image.image.url }}" class="gallery-img">
+                        {% endfor %}
+                    </div>
+                {% endif %}
             {% endif %}
 
             <hr>
@@ -109,30 +129,52 @@
             <!-- ACTION BUTTONS -->
             <div class="text-center mt-3">
 
-                {% if item.post_type == 'user' %}
+                <!-- MISSING POSTS -->
+                {% if item.post_type == 'missing' %}
+                    <span class="badge bg-danger fs-6 px-3 py-2">
+                        🚨 Missing Dog
+                    </span>
+
+                <!-- USER ADOPTION POSTS -->
+                {% elif item.post_type == 'user' %}
                     {% if post.status == 'available' and request.user != post.owner %}
                         <a href="{% url 'user:adopt_user_post' post.id %}" class="btn btn-success btn-sm">
                             Adopt
                         </a>
                     {% elif post.status == 'adopted' %}
-                        <span class="badge bg-secondary fs-6 px-3 py-2">🏡 Adopted</span>
+                        <span class="badge bg-secondary fs-6 px-3 py-2">
+                            🏡 Adopted
+                        </span>
                     {% endif %}
 
+                <!-- ADMIN POSTS -->
                 {% else %}
                     {% if post.status == 'reunited' %}
-                        <span class="badge bg-success fs-6 px-3 py-2">❤️ Reunited with Owner</span>
+                        <span class="badge bg-success fs-6 px-3 py-2">
+                            ❤️ Reunited with Owner
+                        </span>
+
                     {% elif post.status == 'adopted' %}
-                        <span class="badge bg-secondary fs-6 px-3 py-2">🏡 Adopted — No longer available</span>
+                        <span class="badge bg-secondary fs-6 px-3 py-2">
+                            🏡 Adopted — No longer available
+                        </span>
+
                     {% else %}
-                        <div class="d-flex justify-content-center gap-2">
-                            {% if post.is_open_for_adoption %}
-                                <a href="{% url 'user:adopt_confirm' post.id %}" class="btn btn-success btn-sm">Adopt</a>
-                                <a href="{% url 'user:claim_confirm' post.id %}" class="btn btn-outline-warning btn-sm">Claim</a>
+                        {% if item.is_open_for_adoption %}
+                            <div class="d-flex justify-content-center gap-2">
+                                <a href="{% url 'user:adopt_confirm' post.id %}" class="btn btn-success btn-sm">
+                                    Adopt
+                                </a>
+                                <a href="{% url 'user:claim_confirm' post.id %}" class="btn btn-outline-warning btn-sm">
+                                    Claim
+                                </a>
                                 <a target="_blank"
                                    href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}"
-                                   class="btn btn-outline-primary btn-sm">📢 Share</a>
-                            {% endif %}
-                        </div>
+                                   class="btn btn-outline-primary btn-sm">
+                                   📢 Share
+                                </a>
+                            </div>
+                        {% endif %}
                     {% endif %}
                 {% endif %}
 
@@ -142,7 +184,7 @@
     </div>
     {% endwith %}
     {% empty %}
-        <p>No dogs available yet 🐶</p>
+        <p class="text-center">No dogs available yet 🐶</p>
     {% endfor %}
 
 </div>

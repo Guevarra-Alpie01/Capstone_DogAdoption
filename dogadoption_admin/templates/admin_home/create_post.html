@@ -1,24 +1,33 @@
 {% extends 'admin_base.html' %}
+{% load static %}
 
 {% block content %}
-<h2>Create Dog Adoption Post</h2>
+<link rel="stylesheet" href="{% static 'css/create_post.css' %}">
 
-<form method="POST" enctype="multipart/form-data">
-    {% csrf_token %}
+<div class="form-container">
+    <h2>Create Dog Adoption Post</h2>
 
-    {{ post_form.as_p }}
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
 
-    <label class="form-label">Upload dog images (first image = main)</label>
-    <input
-        type="file"
-        name="images"
-        multiple
-        accept="image/*"
-        class="form-control"
-        required
-    >
+        <div class="form-fields">
+            {{ post_form.as_p }}
+        </div>
 
-    <br>
-    <button type="submit" class="btn btn-primary">Post</button>
-</form>
+        <div class="file-upload-section">
+            <label class="form-label-bold">Upload Dog Images</label>
+            <p class="helptext">The first image selected will be the main display photo.</p>
+            <input
+                type="file"
+                name="images"
+                multiple
+                accept="image/*"
+                class="form-control"
+                required
+            >
+        </div>
+
+        <button type="submit" class="btn-submit">Post</button>
+    </form>
+</div>
 {% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}">
+<div class="subtop-nav">
+    <a href="?filter=all" class="nav-item {% if current_filter == 'all' or not current_filter %}active{% endif %}">All</a>
+    <a href="?filter=ready_claim" class="nav-item {% if current_filter == 'ready_claim' %}active{% endif %}">Ready to Claim</a>
+    <a href="?filter=ready_adopt" class="nav-item {% if current_filter == 'ready_adopt' %}active{% endif %}">Ready to Adopt</a>
+    <a href="?filter=adopted" class="nav-item {% if current_filter == 'adopted' %}active{% endif %}">Adopted</a>
+    <a href="?filter=claimed" class="nav-item {% if current_filter == 'claimed' %}active{% endif %}">Reunited</a>
+</div>
+<h2>Dogs for Adoption</h2>
+{% if posts %}
+    {% for post in posts %}
+        <div class="post-card">
+            {% if post.images.all %}
+                <img src="{{ post.images.first.image.url }}" width="250" height="180">
+            {% endif %}
+
+            <div class="post-details">
+                <h3>{{ post.caption }}</h3>
+                <p><strong>Location:</strong> {{ post.location }}</p>
+                <p><strong>Status:</strong> {{ post.get_status_display }}</p>
+
+                {% if post.is_open_for_adoption %}
+                    <span class="status-tag status-open">Open for Claim/Adoption</span>
+                {% else %}
+                    <span class="status-tag status-closed">Closed</span>
+                {% endif %}
+
+                <br>
+
+                {% if post.status == "rescued" and post.is_open_for_adoption %}
+                    <a href="{% url 'user:claim_confirm' post.id %}" class="btn-action">Claim Dog</a>
+                {% elif post.status == "under_care" and post.is_open_for_adoption %}
+                    <a href="{% url 'user:adopt_confirm' post.id %}" class="btn-action">Adopt Dog</a>
+                {% endif %}
+            </div>
+        </div>
+        <hr style="border: 0.5px solid #eee;">
+    {% endfor %}
+{% else %}
+    <p style="padding: 40px; color: #999; font-style: italic;">No dogs found in this category.</p>
+{% endif %}
+{% endblock %}

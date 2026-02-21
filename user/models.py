@@ -106,3 +106,74 @@ class ClaimImage(models.Model):
         on_delete=models.CASCADE
     )
     image = models.ImageField(upload_to='claim_images/')
+
+
+#user post for adoption 
+class UserAdoptionPost(models.Model):
+    STATUS_CHOICES = [
+        ('available', 'Available'),
+        ('adopted', 'Adopted'),
+    ]
+
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='adoption_posts'
+    )
+
+    dog_name = models.CharField(max_length=100)
+    description = models.TextField()
+    location = models.CharField(max_length=255)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='available'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.dog_name} - {self.owner.username}"
+
+
+class UserAdoptionImage(models.Model):
+    post = models.ForeignKey(
+        UserAdoptionPost,
+        related_name='images',
+        on_delete=models.CASCADE
+    )
+    image = models.ImageField(upload_to='user_adoption/')
+
+
+class UserAdoptionRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    post = models.ForeignKey(
+        UserAdoptionPost,
+        related_name='requests',
+        on_delete=models.CASCADE
+    )
+
+    requester = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='adoption_requests'
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('post', 'requester')
+
+    def __str__(self):
+        return f"{self.requester.username} → {self.post.dog_name}"

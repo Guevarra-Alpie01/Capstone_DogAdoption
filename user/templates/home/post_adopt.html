@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/post_adopt.css' %}">
+
+<div class="container mt-4">
+    <div class="card shadow p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <a href="{% url 'user:user_home' %}" class="btn btn-light">← Back</a>
+            <h4>Create Adoption Post</h4>
+            <span></span>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <label>Dog Name</label>
+                {{ form.dog_name }}
+            </div>
+
+            <div class="mb-3">
+                <label>Description</label>
+                {{ form.description }}
+            </div>
+
+            <div class="mb-3">
+                <label>Location</label>
+                {{ form.location }}
+            </div>
+
+            <div class="mb-3">
+                <label>Main Photo (Profile Image)</label>
+                {{ form.main_image }}
+            </div>
+
+            <div class="mb-3">
+                <label>Extra Photos (Optional)</label>
+                <input type="file" name="extra_images" multiple class="form-control">
+            </div>
+
+            <button type="submit" class="btn btn-success w-100">Upload Post</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

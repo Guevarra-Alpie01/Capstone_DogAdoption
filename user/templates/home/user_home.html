@@ -6,6 +6,15 @@
 
 <div class="home-content container">
 
+    <!-- Upload / Create Post (User Only) -->
+    {% if request.user.is_authenticated %}
+    <div class="mb-3">
+        <a href="{% url 'user:create_user_adoption_post' %}" class="btn btn-primary">
+            ➕ Post Dog for Adoption
+        </a>
+    </div>
+    {% endif %}
+
     <!-- SEARCH BAR -->
     <form method="get" class="search-bar mb-4">
         <div class="input-group">
@@ -20,14 +29,20 @@
         </div>
     </form>
 
-{% for item in posts %}
+    {% for item in posts %}
     {% with post=item.post %}
     <div class="card mb-4 shadow-sm post-card position-relative">
 
         <!-- STATUS BADGE -->
-        <span class="badge status-badge {{ post.status }}">
-            {{ post.get_status_display }}
-        </span>
+        {% if item.post_type == 'user' %}
+            <span class="badge status-badge {{ post.status }}">
+                {{ post.get_status_display }}
+            </span>
+        {% else %}
+            <span class="badge status-badge {{ post.status }}">
+                {{ post.get_status_display }}
+            </span>
+        {% endif %}
 
         <!-- Main Image -->
         {% with post.images.first as main_image %}
@@ -38,8 +53,23 @@
 
         <div class="card-body">
 
-            <h5 class="card-title">🐕 Dog Update</h5>
-            <p class="card-text">{{ post.caption }}</p>
+            <!-- TITLE -->
+            <h5 class="card-title">
+                {% if item.post_type == 'user' %}
+                    {{ post.dog_name }}
+                {% else %}
+                    Dog Update
+                {% endif %}
+            </h5>
+
+            <!-- DESCRIPTION / CAPTION -->
+            <p class="card-text">
+                {% if item.post_type == 'user' %}
+                    {{ post.description }}
+                {% else %}
+                    {{ post.caption }}
+                {% endif %}
+            </p>
 
             {% if post.location %}
                 <small class="text-muted">📍 {{ post.location }}</small><br>
@@ -49,17 +79,16 @@
                 🗓 Posted on {{ post.created_at|date:"M d, Y H:i" }}
             </small>
 
-            <!-- TIME LEFT -->
-            {% if post.is_open_for_adoption %}
+            <!-- TIME LEFT (if user adoption post) -->
+            {% if item.post_type == 'user' and item.is_open_for_adoption %}
                 <div class="mt-2">
                     <span class="text-success fw-semibold">
-                        ⏱ Time left:
-                        {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m
+                        ⏱ Time left: {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m
                     </span>
                 </div>
             {% endif %}
 
-            <!-- View More Button -->
+            <!-- View More Images -->
             {% if post.images.count > 1 %}
                 <button class="btn btn-link view-more-btn p-0 mt-2"
                         type="button"
@@ -77,37 +106,34 @@
 
             <hr>
 
+            <!-- ACTION BUTTONS -->
             <div class="text-center mt-3">
 
-                {% if post.status == 'reunited' %}
-                    <span class="badge bg-success fs-6 px-3 py-2">
-                        ❤️ Reunited with Owner
-                    </span>
-
-                {% elif post.status == 'adopted' %}
-                    <span class="badge bg-secondary fs-6 px-3 py-2">
-                        🏡 Adopted — No longer available
-                    </span>
+                {% if item.post_type == 'user' %}
+                    {% if post.status == 'available' and request.user != post.owner %}
+                        <a href="{% url 'user:adopt_user_post' post.id %}" class="btn btn-success btn-sm">
+                            Adopt
+                        </a>
+                    {% elif post.status == 'adopted' %}
+                        <span class="badge bg-secondary fs-6 px-3 py-2">🏡 Adopted</span>
+                    {% endif %}
 
                 {% else %}
-                    <div class="d-flex justify-content-center gap-2">
-
-                        {% if post.is_open_for_adoption %}
-                            <a href="{% url 'user:adopt_confirm' post.id %}"
-                               class="btn btn-success btn-sm">Adopt</a>
-
-                            <a href="{% url 'user:claim_confirm' post.id %}"
-                               class="btn btn-outline-warning btn-sm">Claim</a>
-
-                            <!-- FACEBOOK SHARE BUTTON -->
-                            <a target="_blank"
-                               href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}"
-                               class="btn btn-outline-primary btn-sm">
-                               📢 Share
-                            </a>
-                        {% endif %}
-
-                    </div>
+                    {% if post.status == 'reunited' %}
+                        <span class="badge bg-success fs-6 px-3 py-2">❤️ Reunited with Owner</span>
+                    {% elif post.status == 'adopted' %}
+                        <span class="badge bg-secondary fs-6 px-3 py-2">🏡 Adopted — No longer available</span>
+                    {% else %}
+                        <div class="d-flex justify-content-center gap-2">
+                            {% if post.is_open_for_adoption %}
+                                <a href="{% url 'user:adopt_confirm' post.id %}" class="btn btn-success btn-sm">Adopt</a>
+                                <a href="{% url 'user:claim_confirm' post.id %}" class="btn btn-outline-warning btn-sm">Claim</a>
+                                <a target="_blank"
+                                   href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}"
+                                   class="btn btn-outline-primary btn-sm">📢 Share</a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
                 {% endif %}
 
             </div>
@@ -115,9 +141,9 @@
         </div>
     </div>
     {% endwith %}
-{% empty %}
-    <p>No dogs available yet 🐶</p>
-{% endfor %}
+    {% empty %}
+        <p>No dogs available yet 🐶</p>
+    {% endfor %}
 
 </div>
 {% endblock %}

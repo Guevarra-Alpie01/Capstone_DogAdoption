@@ -16,6 +16,8 @@ urlpatterns = [
     path("profile/edit/", views.edit_profile, name="edit_profile"),
     #navigation links/ home  urls
     path('',views.user_home, name="user_home"),
+    path('user-adopt/create/', views.create_user_adoption_post, name='create_user_adoption_post'),
+    path('user-adopt/<int:post_id>/', views.adopt_user_post, name='adopt_user_post'),
 
     #navigation links/ request  urls
     path('request/', views.request_dog_capture, name='dog_capture_request'),

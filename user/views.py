@@ -20,6 +20,8 @@ from dogadoption_admin.models import DogAnnouncement, AnnouncementReaction, Anno
 from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
 from dogadoption_admin.models import Post, PostRequest
 from django.contrib.auth.models import User
+from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest
+from .forms import UserAdoptionPostForm
 # Decorator to allow only users
 from collections import Counter
 
@@ -214,49 +216,109 @@ def signup_complete(request):
 
 
 # USER  HOME PAGE
-
 def user_home(request):
+    # Redirect staff to admin posts page
     if request.user.is_authenticated and request.user.is_staff:
         return redirect('dogadoption_admin:post_list')
-    
+
     query = request.GET.get('q')
 
-    posts_qs = Post.objects.all().order_by('-created_at')
+    # Fetch admin posts
+    admin_posts = Post.objects.all().prefetch_related('images').order_by('-created_at')
 
+    # Fetch user posts
+    user_posts = UserAdoptionPost.objects.filter(status='available').prefetch_related('images')
+
+    # Apply search filter for both
     if query:
-        posts_qs = posts_qs.filter(
+        admin_posts = admin_posts.filter(
             Q(caption__icontains=query) |
             Q(location__icontains=query) |
             Q(status__icontains=query)
         )
+        user_posts = user_posts.filter(
+            Q(dog_name__icontains=query) |
+            Q(description__icontains=query) |
+            Q(location__icontains=query)
+        )
 
-    enriched = []
+    # Combine posts and sort by created_at
+    combined_posts = sorted(
+        list(admin_posts) + list(user_posts),
+        key=lambda x: x.created_at,
+        reverse=True
+    )
+
+    # Enrich posts with time left for admin posts (optional)
+    enriched_posts = []
     now = timezone.now()
-
-    for p in posts_qs:
+    for p in combined_posts:
         days = hours = minutes = 0
+        is_open_for_adoption = False
 
-        if p.is_open_for_adoption():
+        # Only admin posts have the is_open_for_adoption and time_left logic
+        if hasattr(p, 'is_open_for_adoption') and p.is_open_for_adoption():
+            is_open_for_adoption = True
             diff = p.time_left()
             total_seconds = max(int(diff.total_seconds()), 0)
-
             days = total_seconds // 86400
             remainder = total_seconds % 86400
             hours = remainder // 3600
             remainder = remainder % 3600
             minutes = remainder // 60
 
-        enriched.append({
+        enriched_posts.append({
             'post': p,
             'days_left': days,
             'hours_left': hours,
             'minutes_left': minutes,
+            'is_open_for_adoption': is_open_for_adoption
         })
 
     return render(request, 'home/user_home.html', {
-        'posts': enriched,
-        'query': query
+        'posts': enriched_posts,
+        'query': query,
     })
+
+
+@user_only
+def create_user_adoption_post(request):
+    if request.method == 'POST':
+        form = UserAdoptionPostForm(request.POST, request.FILES)
+        if form.is_valid():
+            post = form.save(commit=False)
+            post.owner = request.user
+            post.save()
+
+            # Save main image
+            main_image = request.FILES.get('main_image')
+            if main_image:
+                UserAdoptionImage.objects.create(post=post, image=main_image)
+
+            # Save extra images
+            for img in request.FILES.getlist('extra_images'):
+                UserAdoptionImage.objects.create(post=post, image=img)
+
+            return redirect('user:user_home')
+    else:
+        form = UserAdoptionPostForm()
+
+    return render(request, 'post_adopt.html', {'form': form})
+
+
+@user_only
+def adopt_user_post(request, post_id):
+    post = get_object_or_404(UserAdoptionPost, id=post_id)
+
+    if post.owner == request.user:
+        return redirect('user:user_home')
+
+    UserAdoptionRequest.objects.get_or_create(
+        post=post,
+        requester=request.user
+    )
+
+    return redirect('user:user_home')
 
 # VIEW FOR FACEBOOK SHARED LINK PREVIEW
 @user_only

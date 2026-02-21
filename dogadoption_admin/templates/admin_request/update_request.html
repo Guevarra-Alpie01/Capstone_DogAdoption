@@ -1,26 +1,52 @@
-<h2>Dog Capture Request</h2>
+{% extends 'admin_base.html' %}
+{% load static %}
 
-<p><strong>User:</strong> {{ req.requested_by.username }}</p>
-<p><strong>Reason:</strong> {{ req.get_reason_display }}</p>
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/update_request.css' %}">
 
-<form method="POST">
-    {% csrf_token %}
+<div class="form-wrapper">
+    <div class="nav-header">
+        <a href="{% url 'dogadoption_admin:requests' %}" class="nav-icon back-btn" title="Back">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <h2 class="form-title">Review Request</h2>
+        <a href="{% url 'dogadoption_admin:requests' %}" class="nav-icon close-btn" title="Close">
+            <i class="fas fa-times"></i>
+        </a>
+    </div>
 
-    <label>Admin Message (optional)</label><br>
-    <textarea name="admin_message"></textarea>
+    <div class="request-summary">
+        <div class="summary-item">
+            <strong>Requested By</strong>
+            <span>{{ req.requested_by.username }}</span>
+        </div>
+        <div class="summary-item">
+            <strong>Reason</strong>
+            <span>{{ req.get_reason_display }}</span>
+        </div>
+    </div>
 
-    <br><br>
+    <form method="POST" class="admin-action-form">
+        {% csrf_token %}
 
-    <label>Schedule Date (only if accepting)</label><br>
-    <input type="datetime-local" name="scheduled_date">
+        <div class="input-group">
+            <label>Admin Message <small>(Optional)</small></label>
+            <textarea name="admin_message" placeholder="Provide details for the user..."></textarea>
+        </div>
 
-    <br><br>
+        <div class="input-group">
+            <label>Schedule Capture Date <small>(Required for Acceptance)</small></label>
+            <input type="datetime-local" name="scheduled_date">
+        </div>
 
-    <button type="submit" name="action" value="accept">
-        ✅ Accept & Schedule
-    </button>
-
-    <button type="submit" name="action" value="decline">
-        ❌ Decline
-    </button>
-</form>
+        <div class="form-actions">
+            <button type="submit" name="action" value="accept" class="btn-accept">
+                <i class="fas fa-check"></i> Accept & Schedule
+            </button>
+            <button type="submit" name="action" value="decline" class="btn-decline">
+                <i class="fas fa-ban"></i> Decline Request
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

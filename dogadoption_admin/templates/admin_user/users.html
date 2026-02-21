@@ -4,33 +4,17 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/admin_users.css' %}">
 {% endblock extra_css %}
-
 {% block content %}
+<h1 class="page-title">User Management</h1>
 
-<h1 class="page-title">Registered Users</h1>
-
-<!-- SEARCH BAR -->
 <form method="GET" action="{% url 'dogadoption_admin:admin_user_search' %}" class="search-bar">
-    <input type="text" name="q" placeholder="Search users by name..." value="{{ query }}">
-    <button type="submit">Search</button>
+    <input type="text" name="q" placeholder="SEARCH BY NAME..." value="{{ query }}">
+    <button type="submit">SEARCH</button>
 </form>
-
-<!-- SUGGESTIONS -->
-{% if suggestions %}
-<div class="suggestions-box">
-    <p>Recently Registered:</p>
-    <ul>
-        {% for s in suggestions %}
-            <li>{{ s.first_name }} {{ s.last_name }}</li>
-        {% endfor %}
-    </ul>
-</div>
-{% endif %}
 
 <div class="user-container">
     {% for user in users %}
     <div class="user-card">
-
         <div class="user-left">
             <div class="user-avatar">
                 {% if user.profile.profile_image %}
@@ -42,27 +26,23 @@
 
             <div class="user-info">
                 <h3>{{ user.first_name }} {{ user.last_name }}</h3>
-                <p class="brgy">
-                    {{ user.profile.address|default:"No Barangay Provided" }}
-                </p>
+                <p class="brgy">{{ user.profile.address|upper|default:"N/A" }}</p>
             </div>
         </div>
 
         <div class="user-right">
-            <div class="violation-box">
+            <div class="violation-box {% if user.calculated_violations > 0 %}has-violations{% endif %}">
                 <span>Violations</span>
-                <h2>{{ user.claim_violations }}</h2>
+                <h2>{{ user.calculated_violations|default:"0" }}</h2>
             </div>
 
             <a href="{% url 'dogadoption_admin:admin_user_detail' user.id %}" class="view-btn">
-                View More
+                Profile
             </a>
         </div>
-
     </div>
     {% empty %}
-        <p>No users found.</p>
+        <p style="text-align: center; margin-top: 50px; font-weight: bold;">NO USERS FOUND.</p>
     {% endfor %}
 </div>
-
 {% endblock %}

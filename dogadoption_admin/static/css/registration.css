@@ -3,13 +3,13 @@
    ====================================================== */
 html, body {
     height: 100%;
-    overflow-y: auto; /* Ensures PC mouse wheel works */
+    overflow-y: auto;
     margin: 0;
     background-color: #f8f9fa;
 }
 
 .registration-wrapper {
-    max-width: 1200px; /* Wider for PC screens */
+    max-width: 1200px;
     margin: 20px auto;
     padding: 0 20px;
     font-family: 'Segoe UI', sans-serif;
@@ -17,32 +17,38 @@ html, body {
     display: block;
     overflow: visible; 
 }
+
+/* ======================================================
+   AUTOCOMPLETE / SUGGESTIONS
+   ====================================================== */
 .suggestions-box {
-  border: 1px solid #ccc;
-  max-height: 150px;
-  overflow-y: auto;
-  position: absolute;
-  background: #fff;
-  width: 300px;
-  z-index: 999;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  padding: 0;
-  margin-top: 2px;
+    border: 1px solid #ccc;
+    max-height: 150px;
+    overflow-y: auto;
+    position: absolute;
+    background: #fff;
+    width: 300px;
+    z-index: 999;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    padding: 0;
+    margin-top: 2px;
 }
 
 .suggestion-item {
-  padding: 8px 12px;
-  cursor: pointer;
+    padding: 8px 12px;
+    cursor: pointer;
 }
 
 .suggestion-item:hover {
-  background-color: #f0f0f0;
+    background-color: #f0f0f0;
 }
 
-/* Adjust this if your sidebar width is different */
+/* ======================================================
+   SIDEBAR & RESPONSIVE CONTAINERS
+   ====================================================== */
 @media (min-width: 993px) {
     .registration-wrapper {
-        margin-left: 270px; /* Prevents sidebar overlap on PC */
+        margin-left: 270px;
     }
 }
 
@@ -54,79 +60,7 @@ html, body {
 }
 
 /* ======================================================
-   MODERN TABLE UI (Borders & Design)
-   ====================================================== */
-.table-container {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    margin-top: 25px;
-    background: #fff;
-    border-radius: 10px;
-    border: 1px solid #dee2e6;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
-    position: relative;
-}
-
-.records-table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 900px; /* Keeps table from squishing on PC */
-}
-
-.records-table th {
-    background-color: #f8f9fa;
-    color: #495057;
-    font-weight: 700;
-    padding: 14px;
-    border: 1px solid #dee2e6;
-    text-transform: uppercase;
-    font-size: 0.8rem;
-    text-align: center;
-}
-
-.records-table td {
-    padding: 12px;
-    border: 1px solid #dee2e6;
-    text-align: center;
-    font-size: 0.9rem;
-    color: #333;
-}
-
-.records-table tbody tr:nth-child(even) { background-color: #fcfdfb; }
-.records-table tbody tr:hover { background-color: #f1f5f0; }
-
-/* ======================================================
-   BUTTONS & ACTIONS
-   ====================================================== */
-.action-btn-print {
-    background: #3b5e28; /* Dark Green Theme */
-    color: white !important;
-    padding: 8px 18px;
-    border-radius: 6px;
-    text-decoration: none;
-    font-size: 0.85rem;
-    font-weight: 600;
-    transition: 0.3s;
-}
-
-.action-btn-print:hover {
-    background: #2c4820;
-    transform: translateY(-1px);
-}
-
-.btn-link {
-    display: inline-block;
-    padding: 10px 20px;
-    background: #3b5e28;
-    color: #fff;
-    text-decoration: none;
-    border-radius: 6px;
-    font-weight: 600;
-    margin-bottom: 15px;
-}
-
-/* ======================================================
-   FORM CARD DESIGN (Registration & Vaccination)
+   FORM CARD & INPUTS
    ====================================================== */
 .form-card {
     background: #fff;
@@ -142,14 +76,102 @@ html, body {
     flex-direction: column;
 }
 
-.field-group input, .field-group select, .field-group textarea {
+.field-group label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #495057;
+}
+
+.field-group input, 
+.field-group select, 
+.field-group textarea {
     padding: 12px;
     border: 1px solid #ced4da;
     border-radius: 6px;
     font-size: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: #fff;
 }
 
-.field-group input:focus {
+.field-group input:focus,
+.field-group select:focus {
     border-color: #3b5e28;
+    outline: none;
     box-shadow: 0 0 0 3px rgba(59, 94, 40, 0.1);
+}
+
+/* ======================================================
+   MOBILE FIXES: DROPDOWN & GRID SIZE
+   ====================================================== */
+@media (max-width: 600px) {
+    .form-card {
+        padding: 20px 15px; /* Tighter padding on mobile */
+    }
+
+    /* Reduce vertical bulk of inputs and dropdowns */
+    .field-group input, 
+    .field-group select {
+        padding: 8px 10px; 
+        font-size: 0.95rem; /* Prevents iOS auto-zoom while staying compact */
+        height: 40px; /* Forces a consistent, smaller height */
+    }
+
+    .field-group label {
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+    }
+
+    /* Fix for the 3-column section (Sex, Age, Neutering) */
+    .three-cols {
+        display: flex;
+        flex-direction: column;
+        gap: 0; /* Stacked vertically to prevent squishing */
+    }
+
+    .suggestions-box {
+        width: calc(100% - 30px);
+    }
+}
+
+/* ======================================================
+   TABLES & BUTTONS
+   ====================================================== */
+.table-container {
+    overflow-x: auto;
+    margin-top: 25px;
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+}
+
+.records-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 900px;
+}
+
+.records-table th {
+    background-color: #f8f9fa;
+    padding: 14px;
+    border: 1px solid #dee2e6;
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+.submit-btn {
+    width: 100%;
+    padding: 14px;
+    background: #3b5e28;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.submit-btn:hover {
+    background: #2c4820;
 }

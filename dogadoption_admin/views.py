@@ -429,29 +429,31 @@ def comment_reply(request, comment_id):
 
 
 #USER MANAGEMENT PAGE
-@admin_required
+
+@login_required
 def admin_users(request):
     query = request.GET.get('q', '')
 
-    users = User.objects.select_related('profile').all().order_by('first_name')
+    users = User.objects.select_related('profile').annotate(
+        calculated_violations=Count(
+            'postrequest',
+            filter=Q(postrequest__request_type='claim')
+        )
+    )
 
+    # Search functionality
     if query:
         users = users.filter(
             Q(first_name__icontains=query) |
-            Q(last_name__icontains=query) |
-            Q(username__icontains=query)
+            Q(last_name__icontains=query)
         )
 
-    # suggestions based on most recently registered users
-    suggestions = User.objects.order_by('-date_joined')[:5]
+    users = users.order_by('-calculated_violations', 'first_name')
 
-    context = {
+    return render(request, 'admin_user/users.html', {
         'users': users,
-        'query': query,
-        'suggestions': suggestions,
-    }
-    return render(request, 'admin_user/users.html', context)
-
+        'query': query
+    })
 
 def admin_user_search_results(request):
     query = request.GET.get('q', '')

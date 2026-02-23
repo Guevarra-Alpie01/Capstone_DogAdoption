@@ -34,7 +34,6 @@ urlpatterns = [
     path('announcements/create/', views.announcement_create, name='announcement_create'),
     path('announcements/<int:post_id>/edit/', views.announcement_edit, name='announcement_edit'),
     path('announcements/<int:post_id>/delete/', views.announcement_delete, name='announcement_delete'),
-    path('announcements/<int:post_id>/react/', views.announcement_react, name='announcement_react'),
     path('announcements/<int:post_id>/comment/', views.announcement_comment, name='announcement_comment'),
     path('comments/<int:comment_id>/reply/', views.comment_reply, name='comment_reply'),
 

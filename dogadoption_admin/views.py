@@ -17,7 +17,7 @@ import json
 from .forms import PostForm
 
 #models
-from .models import Post, PostImage , DogAnnouncement, AnnouncementComment, AnnouncementReaction, PostRequest
+from .models import Post, PostImage , DogAnnouncement, AnnouncementComment, PostRequest
 from user.models import DogCaptureRequest, AdoptionRequest,FaceImage, Profile,OwnerClaim, ClaimImage
 from django.contrib.auth.models import User
 
@@ -296,25 +296,8 @@ def update_dog_capture_request(request, pk):
 #ANNOUNCEMENTS PAGE
 @admin_required
 def announcement_list(request):
-    # Fetch all announcements with related comments & reactions
-    announcements = DogAnnouncement.objects.all().prefetch_related('comments', 'reactions')
 
-    for post in announcements:
-        # Build reaction summary
-        reactions = post.reactions.values('reaction').annotate(count=Count('id'))
-        summary = {r['reaction']: r['count'] for r in reactions}
-
-        # Ensure all reaction types exist
-        for key in ["LIKE", "LOVE", "WOW", "SAD", "ANGRY"]:
-            summary.setdefault(key, 0)
-        post.reaction_summary = summary
-
-        # Current user's reaction (for logged-in users)
-        if request.user.is_authenticated:
-            user_reaction_obj = post.reactions.filter(user=request.user).first()
-            post.user_reaction = user_reaction_obj.reaction if user_reaction_obj else None
-        else:
-            post.user_reaction = None
+    announcements = DogAnnouncement.objects.all().prefetch_related('comments').order_by('-created_at')
 
     return render(request, 'admin_announcement/announcement.html', {
         'announcements': announcements
@@ -329,12 +312,11 @@ from functools import wraps
 import json
 
 @admin_required
-@require_http_methods(["GET", "POST"])   # ✅ ADDED: Restrict methods properly
+@require_http_methods(["GET", "POST"])
 def announcement_create(request):
 
     if request.method == "POST":
 
-        # ✅ ADDED: Safe JSON parsing for schedule
         schedule_raw = request.POST.get("schedule_data")
         schedule = None
 
@@ -345,54 +327,30 @@ def announcement_create(request):
                 schedule = None
 
         DogAnnouncement.objects.create(
+            title=request.POST.get("title"),
             content=request.POST.get("content"),
-            post_type=request.POST.get("post_type", "COLOR"),
-            background_color=request.POST.get("background_color", "#4f46e5"),
+            post_type=request.POST.get("post_type"),
+            background_color=request.POST.get("background_color"),
             background_image=request.FILES.get("background_image"),
-            schedule_data=schedule,   # ✅ ADDED
+            schedule_data=schedule,
             created_by=request.user
         )
 
-        return redirect("dogadoption_admin:admin_announcements")
+        return redirect("dogadoption_admin:announcement_list")
 
     return render(request, "admin_announcement/create_announcement.html")
 
 
-
-@admin_required
-@require_POST
-def announcement_react(request, post_id):
-    reaction_type = request.POST.get("reaction")
-    post = DogAnnouncement.objects.get(id=post_id)
-
-    existing = post.reactions.filter(user=request.user).first()
-
-    if existing and existing.reaction == reaction_type:
-        # Remove reaction if same clicked again
-        existing.delete()
-        user_reaction = None
-    else:
-        obj, _ = post.reactions.update_or_create(
-            user=request.user,
-            announcement=post,
-            defaults={"reaction": reaction_type}
-        )
-        user_reaction = obj.get_reaction_display()
-
-    return JsonResponse({
-        "total": post.reactions.count(),
-        "user_reaction": user_reaction
-    })
-
-
 @admin_required
 def announcement_comment(request, post_id):
+
     if request.method == "POST":
         AnnouncementComment.objects.create(
             announcement_id=post_id,
             user=request.user,
             comment=request.POST.get("comment")
         )
+
     return redirect("dogadoption_admin:announcement_list")
 
 @admin_required
@@ -416,7 +374,8 @@ def announcement_edit(request, post_id):
 def announcement_delete(request, post_id):
     post = get_object_or_404(DogAnnouncement, id=post_id)
     post.delete()
-    return redirect("dogadoption_admin:admin_announcements")
+
+    return redirect("dogadoption_admin:announcement_list")
 
 @admin_required
 def comment_reply(request, comment_id):

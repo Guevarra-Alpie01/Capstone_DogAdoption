@@ -96,7 +96,7 @@ class PostRequest(models.Model):
     ]
 
     post = models.ForeignKey(
-        Post,
+        'Post',
         related_name='requests',
         on_delete=models.CASCADE
     )
@@ -119,7 +119,9 @@ class PostRequest(models.Model):
         return f"{self.user.username} - {self.request_type} ({self.status})"
 
 
+# ✅ CLEAN ANNOUNCEMENT MODEL (NO REACTIONS)
 class DogAnnouncement(models.Model):
+
     POST_TYPES = [
         ('COLOR', 'Plain Color with Text'),
         ('IMAGE_BG', 'Image Background with Text'),
@@ -128,79 +130,63 @@ class DogAnnouncement(models.Model):
 
     title = models.CharField(max_length=200)
     content = models.TextField()
-    post_type = models.CharField(max_length=10, choices=POST_TYPES, default='COLOR')
-    
+
+    post_type = models.CharField(
+        max_length=10,
+        choices=POST_TYPES,
+        default='COLOR'
+    )
+
     # Background options
-    background_image = models.ImageField(upload_to='announcements/bg/', blank=True, null=True)
-    background_color = models.CharField(max_length=20, default="#4f46e5", help_text="Hex code or Tailwind class")
-    
-    # For schedules (stored as a list of dicts: [{"time": "9am", "task": "Feeding"}])
-    schedule_data = models.JSONField(blank=True, null=True)
-    
+    background_image = models.ImageField(
+        upload_to='announcements/bg/',
+        blank=True,
+        null=True
+    )
+
+    background_color = models.CharField(
+        max_length=20,
+        default="#4f46e5"
+    )
+
+    # Optional schedule
+    schedule_data = models.JSONField(
+        blank=True,
+        null=True
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
-    
     created_by = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="announcements")
-    
-    @property
-    def like_count(self):
-        return self.reactions.filter(reaction="LIKE").count()
-
-    @property
-    def love_count(self):
-        return self.reactions.filter(reaction="LOVE").count()
-
-    @property
-    def wow_count(self):
-        return self.reactions.filter(reaction="WOW").count()
-
-    @property
-    def sad_count(self):
-        return self.reactions.filter(reaction="SAD").count()
-
-    @property
-    def angry_count(self):
-        return self.reactions.filter(reaction="ANGRY").count()
+        related_name="announcements"
+    )
 
     def __str__(self):
         return self.title
-    
-    
-class AnnouncementReaction(models.Model):
-    REACTION_CHOICES = [
-        ('LIKE', '👍'),
-        ('LOVE', '❤️'),
-        ('WOW', '😮'),
-        ('SAD', '😢'),
-        ('ANGRY', '😡'),
-    ]
-
-    announcement = models.ForeignKey(
-        DogAnnouncement,
-        on_delete=models.CASCADE,
-        related_name="reactions"
-    )
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    reaction = models.CharField(max_length=10, choices=REACTION_CHOICES)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ('announcement', 'user')
 
 
+#  COMMENTS ONLY (NO REACTIONS)
 class AnnouncementComment(models.Model):
+
     announcement = models.ForeignKey(
         DogAnnouncement,
         on_delete=models.CASCADE,
         related_name="comments"
     )
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+
     comment = models.TextField()
-    reply = models.TextField(blank=True, null=True)  # For admin replies
+
+    reply = models.TextField(
+        blank=True,
+        null=True
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
+
     def __str__(self):
         return f"{self.user.username} - {self.comment[:20]}"
 

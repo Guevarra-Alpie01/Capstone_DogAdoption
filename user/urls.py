@@ -35,7 +35,6 @@ urlpatterns = [
 
     #navigation links/ announcement  urls
     path('announcements/', views.announcement_list, name='announcement_list'),
-    path("announcements/<int:post_id>/react/",views.announcement_react,name="announcement_react"),
     path('announcements/<int:post_id>/comment/', views.announcement_comment, name='announcement_comment'),
 
     #share button to facebook

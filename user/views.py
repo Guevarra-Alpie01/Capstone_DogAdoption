@@ -16,7 +16,7 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 
 #MODELS.PY 
-from dogadoption_admin.models import DogAnnouncement, AnnouncementReaction, AnnouncementComment
+from dogadoption_admin.models import DogAnnouncement, AnnouncementComment
 from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
 from dogadoption_admin.models import Post, PostRequest
 from django.contrib.auth.models import User
@@ -333,7 +333,7 @@ def create_user_adoption_post(request):
     else:
         form = UserAdoptionPostForm()
 
-    return render(request, 'post_adopt.html', {'form': form})
+    return render(request, 'home/post_adopt.html', {'form': form})
 
 
 @user_only
@@ -494,48 +494,14 @@ def adopt_confirm(request, post_id):
 
 @user_only
 def announcement_list(request):
-    posts = DogAnnouncement.objects.all().order_by('-created_at')
-
-    # Add reaction counts for admin view
-    for post in posts:
-        reactions = post.reactions.values_list('reaction', flat=True)
-        post.reaction_summary = Counter(reactions)  # e.g. {'LIKE': 3, 'LOVE': 1}
-
-        # Optional: add user reaction if needed for non-admin
-        if not request.user.is_staff:
-            reaction = post.reactions.filter(user=request.user).first()
-            post.user_reaction = reaction.get_reaction_display() if reaction else None
+    posts = DogAnnouncement.objects.all() \
+        .prefetch_related('comments') \
+        .order_by('-created_at')
 
     return render(request, 'announcement/announcement.html', {
         'announcements': posts
     })
 
-# POST endpoint to handle reactions
-@user_only
-@require_POST
-def announcement_react(request, post_id):
-    post = get_object_or_404(DogAnnouncement, id=post_id)
-    reaction_type = request.POST.get('reaction')
-
-    # Ensure it's a valid reaction
-    if reaction_type not in dict(AnnouncementReaction.REACTION_CHOICES):
-        return JsonResponse({'error': 'Invalid reaction'}, status=400)
-
-    # Update or create reaction
-    reaction, created = AnnouncementReaction.objects.update_or_create(
-        announcement=post,
-        user=request.user,
-        defaults={'reaction': reaction_type}
-    )
-
-    # Return JSON with updated info
-    total_count = post.reactions.count()
-    user_reaction = reaction.get_reaction_display()
-
-    return JsonResponse({
-        'total': total_count,
-        'user_reaction': user_reaction
-    })
 
 @user_only
 def announcement_comment(request, post_id):
@@ -546,7 +512,6 @@ def announcement_comment(request, post_id):
             comment=request.POST.get("comment")
         )
     return redirect('user:announcement_list')
-
 
 #CLAIM PAGE
 

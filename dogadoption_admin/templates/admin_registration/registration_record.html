@@ -9,103 +9,76 @@
 {% include 'admin_registration/registration_navigation.html' %}
 
 <div class="content-body">
-    <form method="get" action="{% url 'dogadoption_admin:registration_record' %}" autocomplete="off" class="barangay-search-form">
-      <label for="barangay-input">Name of Barangay:</label>
-      <input type="text" id="barangay-input" name="barangay" value="{{ selected_barangay|default:'' }}" placeholder="Type barangay name..." oninput="showSuggestions(this.value)">
-      <div id="suggestions" class="suggestions-box" style="display:none;"></div>
-      <button type="submit">Show Records</button>
+  
+    <form method="get" action="{% url 'dogadoption_admin:registration_record' %}" class="mini-search-form">
+        <input type="text" name="barangay" placeholder="Search other..." value="{{ selected_barangay|default:'' }}">
+        <button type="submit" class="search-btn"> Search </button>
     </form>
+    <div class="barangay-nav-container">
+        <label class="nav-label">Filter by Barangay:</label>
+        <div class="barangay-scroll-wrapper">
+            <a href="{% url 'dogadoption_admin:registration_record' %}" 
+               class="barangay-pill {% if not selected_barangay %}active{% endif %}">
+               All Records
+            </a>
+            {% for b_name in barangay_list_parsed %}
+            <a href="?barangay={{ b_name }}" 
+               class="barangay-pill {% if selected_barangay == b_name %}active{% endif %}">
+               {{ b_name }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
 
-    {% if dogs %}
-      <h4>Records for Barangay: <em>{{ selected_barangay|default:"All (Recent 20)" }}</em></h4>
-      
-      <div class="table-container">
-          <table class="records-table">
+
+    <div class="table-header-info">
+        <h3>
+            {% if selected_barangay %}
+                Showing Records for: <span class="highlight">{{ selected_barangay }}</span>
+            {% else %}
+                Recent Registrations <span class="highlight">(All Barangays)</span>
+            {% endif %}
+        </h3>
+    </div>
+
+    <div class="table-container">
+        <table class="records-table">
             <thead>
-              <tr>
-                <th rowspan="2">No.</th>
-                <th rowspan="2">Date</th>
-                <th rowspan="2">Name</th>
-                <th rowspan="2">Species</th>
-                <th rowspan="2">Sex (M/F)</th>
-                <th rowspan="2">Age (yrs)</th>
-                <th rowspan="2">Neutering (No/C/S)</th>
-                <th rowspan="2">Color</th>
-                <th colspan="2">Pet Owner</th>
-              </tr>
-              <tr>
-                <th>Name</th>
-                <th>Complete Address</th>
-              </tr>
+                <tr>
+                    <th rowspan="2">No.</th>
+                    <th rowspan="2">Date</th>
+                    <th rowspan="2">Dog Name</th>
+                    <th rowspan="2">Species</th>
+                    <th rowspan="2">Sex</th>
+                    <th rowspan="2">Age</th>
+                    <th rowspan="2">Neutering</th>
+                    <th colspan="2">Pet Owner</th>
+                </tr>
+                <tr>
+                    <th>Name</th>
+                    <th>Address</th>
+                </tr>
             </thead>
             <tbody>
-              {% for dog in dogs %}
-              <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>{{ dog.date_registered|date:"m-d-Y" }}</td>
-                <td>{{ dog.name }}</td>
-                <td>{{ dog.species }}</td>
-                <td>{{ dog.sex }}</td>
-                <td>{{ dog.age }}</td>
-                <td>{{ dog.neutering_status }}</td>
-                <td>{{ dog.color }}</td>
-                <td>{{ dog.owner_name }}</td>
-                <td>{{ dog.owner_address }}</td>
-              </tr>
-              {% endfor %}
+                {% for dog in dogs %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ dog.date_registered|date:"m-d-Y" }}</td>
+                    <td>{{ dog.name }}</td>
+                    <td>{{ dog.species }}</td>
+                    <td>{{ dog.sex }}</td>
+                    <td>{{ dog.age }}</td>
+                    <td>{{ dog.neutering_status }}</td>
+                    <td>{{ dog.owner_name }}</td>
+                    <td>{{ dog.owner_address }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" style="text-align:center; padding: 30px;">No dogs registered in this barangay yet.</td>
+                </tr>
+                {% endfor %}
             </tbody>
-          </table>
-      </div>
-    {% elif selected_barangay %}
-      <p>No records found for barangay: <strong>{{ selected_barangay }}</strong>.</p>
-    {% endif %}
+        </table>
+    </div>
 </div>
-
-<script>
-  // Default list of barangays
-  const barangays = [
-    "Ali-is","Banaybanay","Banga","Boyco","Bugay","Cansumalig","Dawis","Kalamtukan",
-    "Kalumboyan","Malabugas","Mandu-ao","Maninihon","Minaba","Nangka","Narra",
-    "Pagatban","Poblacion","San Isidro","San Jose","San Miguel","San Roque","Suba",
-    "Tabuan","Tayawan","Tinago","Ubos","Villareal","Villasol"
-  ];
-
-  const input = document.getElementById('barangay-input');
-  const suggestionsBox = document.getElementById('suggestions');
-
-  function showSuggestions(value) {
-    const val = value.trim().toLowerCase();
-    if (!val) {
-      suggestionsBox.style.display = 'none';
-      return;
-    }
-
-    // Filter barangays that match the input (case-insensitive)
-    const matches = barangays.filter(b => b.toLowerCase().includes(val));
-
-    if (matches.length === 0) {
-      suggestionsBox.style.display = 'none';
-      return;
-    }
-
-    // Build suggestion items
-    suggestionsBox.innerHTML = matches.map(b => 
-      `<div class="suggestion-item" onclick="selectBarangay('${b}')">${b}</div>`
-    ).join('');
-
-    suggestionsBox.style.display = 'block';
-  }
-
-  function selectBarangay(value) {
-    input.value = value;
-    suggestionsBox.style.display = 'none';
-  }
-
-  // Hide suggestions when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!suggestionsBox.contains(e.target) && e.target !== input) {
-      suggestionsBox.style.display = 'none';
-    }
-  });
-</script>
 {% endblock %}

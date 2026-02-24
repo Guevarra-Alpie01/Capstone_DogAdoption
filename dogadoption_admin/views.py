@@ -389,7 +389,7 @@ def comment_reply(request, comment_id):
 
 #USER MANAGEMENT PAGE
 
-@login_required
+@admin_required
 def admin_users(request):
     query = request.GET.get('q', '')
 
@@ -483,7 +483,6 @@ def register_dogs(request):
         neutering = request.POST.get('neutering', 'No')
         color = request.POST.get('color', '').strip()
         owner_name = request.POST.get('owner_name', '').strip()
-        owner_address = request.POST.get('owner_address', '').strip()
 
         if not name or not owner_name:
             messages.error(request, "Dog Name and Owner Name are required.")
@@ -494,6 +493,8 @@ def register_dogs(request):
         except ValueError:
             messages.error(request, "Invalid date format.")
             return redirect('dogadoption_admin:register_dogs')
+        
+        formatted_address = f"{barangay}, Bayawan City, Negros Oriental"
 
         dog = Dog(
             date_registered=date_registered,
@@ -504,7 +505,7 @@ def register_dogs(request):
             neutering_status=neutering,
             color=color,
             owner_name=owner_name,
-            owner_address=owner_address,
+            owner_address=formatted_address,
             barangay=barangay
         )
         dog.save()
@@ -515,29 +516,30 @@ def register_dogs(request):
         'barangay': barangay,
         'date': date
     })
-
 @admin_required
 def registration_record(request):
     selected_barangay = request.GET.get('barangay', '').strip()
-
-    # Get unique barangays, sort alphabetically
-    barangay_list = list(Dog.objects.values_list('barangay', flat=True).distinct().order_by('barangay'))
-    barangay_list_json = json.dumps(barangay_list)  # Serialize to JSON string for JS usage
+    
+    # Static list or dynamic list from DB
+    barangay_list_parsed = [
+        "Ali-is","Banaybanay","Banga","Boyco","Bugay","Cansumalig","Dawis","Kalamtukan",
+        "Kalumboyan","Malabugas","Mandu-ao","Maninihon","Minaba","Nangka","Narra",
+        "Pagatban","Poblacion","San Isidro","San Jose","San Miguel","San Roque","Suba",
+        "Tabuan","Tayawan","Tinago","Ubos","Villareal","Villasol"
+    ]
 
     if selected_barangay:
-        # Case-insensitive partial match to show results even with partial typing
-        dogs = Dog.objects.filter(barangay__icontains=selected_barangay).order_by('-date_registered')
+        dogs = Dog.objects.filter(barangay__iexact=selected_barangay).order_by('-date_registered')
     else:
-        # Show recent 20 records if no barangay selected
-        dogs = Dog.objects.all().order_by('-date_registered')[:20]
+        # Default view: show all dogs sorted by date
+        dogs = Dog.objects.all().order_by('-date_registered')
 
     context = {
         'selected_barangay': selected_barangay,
         'dogs': dogs,
-        'barangay_list': barangay_list_json,  # Pass JSON string here
+        'barangay_list_parsed': barangay_list_parsed,
     }
     return render(request, 'admin_registration/registration_record.html', context)
-
 
 #certification for dogs views.py
 from .models import DogRegistration, CertificateSettings

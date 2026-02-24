@@ -131,12 +131,6 @@ class DogAnnouncement(models.Model):
     title = models.CharField(max_length=200)
     content = models.TextField()
 
-    post_type = models.CharField(
-        max_length=10,
-        choices=POST_TYPES,
-        default='COLOR'
-    )
-
     # Background options
     background_image = models.ImageField(
         upload_to='announcements/bg/',
@@ -146,7 +140,7 @@ class DogAnnouncement(models.Model):
 
     background_color = models.CharField(
         max_length=20,
-        default="#4f46e5"
+        default="#eeedf3"
     )
 
     # Optional schedule
@@ -245,3 +239,41 @@ class DogRegistration(models.Model):
 
     def __str__(self):
         return f"{self.name_of_pet} - {self.reg_no}"
+
+
+#for deworming and vaccination records
+class Pet(models.Model):
+    PET_TYPE_CHOICES = (
+        ('Dog', 'Dog'),
+        ('Cat', 'Cat'),
+    )
+
+    name = models.CharField(max_length=100)
+    pet_type = models.CharField(max_length=10, choices=PET_TYPE_CHOICES)
+
+    def __str__(self):
+        return f"{self.name} ({self.pet_type})"
+
+
+class VaccinationRecord(models.Model):
+    pet = models.ForeignKey(Pet, on_delete=models.CASCADE)
+    date = models.DateField()
+    vaccine_name = models.CharField(max_length=100)
+    vaccine_expiry_date = models.DateField()
+    vaccination_expiry_date = models.DateField()
+    veterinarian = models.CharField(max_length=150)
+
+    def __str__(self):
+        return f"{self.pet.name} - {self.vaccine_name}"
+
+
+class DewormingTreatmentRecord(models.Model):
+    pet = models.ForeignKey(Pet, on_delete=models.CASCADE)
+    date = models.DateField()
+    medicine_given = models.CharField(max_length=150)
+    route = models.CharField(max_length=100)
+    frequency = models.CharField(max_length=100)
+    veterinarian = models.CharField(max_length=150)
+
+    def __str__(self):
+        return f"{self.pet.name} - {self.medicine_given}"

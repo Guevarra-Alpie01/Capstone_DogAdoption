@@ -9,11 +9,14 @@
 {% include 'admin_registration/registration_navigation.html' %}
 
 <div class="content-body">
-  
+
+    <!-- Mini search form -->
     <form method="get" action="{% url 'dogadoption_admin:registration_record' %}" class="mini-search-form">
         <input type="text" name="barangay" placeholder="Search other..." value="{{ selected_barangay|default:'' }}">
         <button type="submit" class="search-btn"> Search </button>
     </form>
+
+    <!-- Barangay filter pills -->
     <div class="barangay-nav-container">
         <label class="nav-label">Filter by Barangay:</label>
         <div class="barangay-scroll-wrapper">
@@ -30,7 +33,7 @@
         </div>
     </div>
 
-
+    <!-- Header info -->
     <div class="table-header-info">
         <h3>
             {% if selected_barangay %}
@@ -41,8 +44,15 @@
         </h3>
     </div>
 
-    <div class="table-container">
-        <table class="records-table">
+    <!-- Print / Convert Buttons -->
+    <div class="table-actions" style="margin-bottom: 15px;">
+        <button onclick="printTable()" class="action-btn">Print Table</button>
+        <a href="{% url 'dogadoption_admin:download_registration' 'pdf' %}?barangay={{ selected_barangay }}" class="action-btn">Download PDF</a>
+        <a href="{% url 'dogadoption_admin:download_registration' 'excel' %}?barangay={{ selected_barangay }}" class="action-btn">Download Excel</a>
+    </div>
+    <!-- Table -->
+    <div class="table-container" id="table-container">
+        <table class="records-table" id="records-table">
             <thead>
                 <tr>
                     <th rowspan="2">No.</th>
@@ -81,4 +91,43 @@
         </table>
     </div>
 </div>
+
+<!-- JS Libraries for PDF/Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+    // Print table
+    function printTable() {
+        let printContents = document.getElementById('table-container').innerHTML;
+        let originalContents = document.body.innerHTML;
+        document.body.innerHTML = printContents;
+        window.print();
+        document.body.innerHTML = originalContents;
+        location.reload(); // reload to restore JS functionality
+    }
+
+    // Export table
+    function exportTable(type) {
+        const table = document.getElementById('records-table');
+
+        if(type === 'excel') {
+            // Convert table to workbook
+            let wb = XLSX.utils.table_to_book(table, {sheet: "Registrations"});
+            XLSX.writeFile(wb, 'Dog_Registrations.xlsx');
+        } else if(type === 'pdf') {
+            const { jsPDF } = window.jspdf;
+            let doc = new jsPDF('l', 'pt', 'a4'); // landscape, points
+            doc.html(table, {
+                callback: function (doc) {
+                    doc.save('Dog_Registrations.pdf');
+                },
+                x: 10,
+                y: 10,
+                html2canvas: { scale: 0.57 } // optional scaling for better fit
+            });
+        }
+    }
+</script>
+
 {% endblock %}

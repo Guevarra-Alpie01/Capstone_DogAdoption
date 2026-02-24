@@ -3,64 +3,98 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/admin_announcement/create_announcement.css' %}">
+
 <div class="create-announcement-container">
+    <div class="fb-card-header">
+        <h3>Create Post</h3>
+    </div>
 
-    <h2>Create Announcement</h2>
-
-    <form method="POST" enctype="multipart/form-data">
+    <form method="POST" enctype="multipart/form-data" class="announcement-form">
         {% csrf_token %}
-
-        <!-- TITLE -->
-        <label>Title</label>
-        <input type="text" name="title" required>
-
-        <!-- POST TYPE -->
-        <label>Post Type</label>
-        <select name="post_type" id="postType">
-            <option value="COLOR">Color Post</option>
-            <option value="IMAGE_BG">Image Background</option>
-            <option value="PHOTO">Photo Post</option>
-        </select>
-
-        <!-- CONTENT -->
-        <label>Content</label>
-        <textarea name="content" rows="4" required></textarea>
-
-        <!-- COLOR -->
-        <div id="colorField">
-            <label>Background Color</label>
-            <input type="color" name="background_color" value="#4f46e5">
+        
+        <div class="fb-post-user">
+            <div class="avatar">A</div>
+            <div class="user-meta">
+                <span class="admin-name">Administrator</span>
+                <span class="post-visibility"><i class="fas fa-globe-americas"></i> Public</span>
+            </div>
         </div>
 
-        <!-- IMAGE -->
-        <div id="imageField" style="display:none;">
-            <label>Upload Image</label>
-            <input type="file" name="background_image" accept="image/*">
+        <div class="fb-editor-body" id="editorBody">
+            <input type="text" name="title" class="fb-title-input" placeholder="Title (Optional)...">
+            
+            <textarea name="content" id="postContent" class="fb-textarea" placeholder="What's on your mind, Admin?" required></textarea>
+            
+            <div id="imagePreviewContainer" class="fb-preview-grid"></div>
         </div>
 
-        <button type="submit">Post</button>
+        <div class="fb-add-to-post">
+            <span>Add to your post</span>
+            <div class="fb-tools">
+                <label class="tool-icon" title="Upload Photos">
+                    <input type="file" name="background_image" id="imageInput" accept="image/*" multiple onchange="handleImageSelect(event)" style="display:none;">
+                    📸
+                </label>
+                
+                <div class="tool-icon" title="Text Background" onclick="toggleColorPicker()">
+                    🎨
+                </div>
+            </div>
+        </div>
 
+        <div id="colorPickerWrapper" style="display:none; padding: 10px 16px;">
+            <label style="font-size: 12px; font-weight: bold; color: #65676b;">Background Color:</label>
+            <input type="color" name="background_color" id="bgColorInput" value="#ffffff" oninput="updateTextareaBg(this.value)">
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">Post</button>
     </form>
-
 </div>
 
 <script>
-const postType = document.getElementById("postType");
-const colorField = document.getElementById("colorField");
-const imageField = document.getElementById("imageField");
+    const postContent = document.getElementById('postContent');
+    const editorBody = document.getElementById('editorBody');
+    const previewContainer = document.getElementById('imagePreviewContainer');
 
-function toggleFields() {
-    if (postType.value === "COLOR") {
-        colorField.style.display = "block";
-        imageField.style.display = "none";
-    } else {
-        colorField.style.display = "none";
-        imageField.style.display = "block";
+    // 1. Handle Background Color
+    function toggleColorPicker() {
+        const wrapper = document.getElementById('colorPickerWrapper');
+        wrapper.style.display = wrapper.style.display === 'none' ? 'block' : 'none';
     }
-}
 
-postType.addEventListener("change", toggleFields);
-toggleFields();
+    function updateTextareaBg(color) {
+        editorBody.style.backgroundColor = color;
+        // Adjust text color for readability
+        const rgb = parseInt(color.substring(1), 16);
+        const r = (rgb >> 16) & 0xff;
+        const g = (rgb >>  8) & 0xff;
+        const b = (rgb >>  0) & 0xff;
+        const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        
+        postContent.style.color = luma < 128 ? 'white' : 'black';
+        document.querySelector('.fb-title-input').style.color = luma < 128 ? 'white' : 'black';
+    }
+
+    // 2. Handle Multiple Image Previews
+    function handleImageSelect(event) {
+        const files = event.target.files;
+        previewContainer.innerHTML = ''; // Clear previous
+        
+        if (files.length > 0) {
+            editorBody.style.backgroundColor = '#ffffff'; // Reset BG if images added
+            postContent.style.color = 'black';
+        }
+
+        Array.from(files).forEach(file => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imgDiv = document.createElement('div');
+                imgDiv.className = 'preview-item';
+                imgDiv.innerHTML = `<img src="${e.target.result}">`;
+                previewContainer.appendChild(imgDiv);
+            }
+            reader.readAsDataURL(file);
+        });
+    }
 </script>
-
 {% endblock %}

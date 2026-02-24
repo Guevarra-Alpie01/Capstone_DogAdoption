@@ -1,0 +1,113 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/register/med_record.css' %}">
+
+<h2>Medical Records</h2>
+
+<select id="recordSelector" onchange="toggleForm()">
+    <option value="">-- Select Record Type --</option>
+    <option value="vaccination">Vaccination</option>
+    <option value="deworming">Deworming & Treatment</option>
+</select>
+
+<!-- ================= VACCINATION FORM ================= -->
+<form method="POST" id="vaccinationForm" class="hidden">
+    {% csrf_token %}
+    <input type="hidden" name="record_type" value="vaccination">
+
+    <select name="pet" required>
+        <option value="">Select Pet</option>
+        {% for pet in pets %}
+            <option value="{{ pet.id }}">{{ pet.name }} ({{ pet.pet_type }})</option>
+        {% endfor %}
+    </select>
+
+    <input type="date" name="date" required placeholder="Date">
+    <input type="text" name="vaccine_name" placeholder="Vaccine Name (e.g Rabisin)" required>
+    <input type="date" name="vaccine_expiry_date" required>
+    <input type="date" name="vaccination_expiry_date" required>
+    <input type="text" name="veterinarian" placeholder="Veterinarian / Livestock Technician" required>
+
+    <button type="submit">Save Vaccination</button>
+</form>
+
+<!-- ================= DEWORMING FORM ================= -->
+<form method="POST" id="dewormingForm" class="hidden">
+    {% csrf_token %}
+    <input type="hidden" name="record_type" value="deworming">
+
+    <select name="pet" required>
+        <option value="">Select Pet</option>
+        {% for pet in pets %}
+            <option value="{{ pet.id }}">{{ pet.name }} ({{ pet.pet_type }})</option>
+        {% endfor %}
+    </select>
+
+    <input type="date" name="date" required>
+    <input type="text" name="medicine_given" placeholder="Medicine Given" required>
+    <input type="text" name="route" placeholder="Route" required>
+    <input type="text" name="frequency" placeholder="Frequency" required>
+    <input type="text" name="veterinarian" placeholder="Veterinarian" required>
+
+    <button type="submit">Save Deworming</button>
+</form>
+
+<hr>
+
+<h3>Vaccination Records</h3>
+<table>
+    <tr>
+        <th>Pet</th>
+        <th>Date</th>
+        <th>Vaccine</th>
+        <th>Vaccine Expiry</th>
+        <th>Vaccination Expiry</th>
+        <th>Veterinarian</th>
+    </tr>
+    {% for v in vaccinations %}
+    <tr>
+        <td>{{ v.pet }}</td>
+        <td>{{ v.date }}</td>
+        <td>{{ v.vaccine_name }}</td>
+        <td>{{ v.vaccine_expiry_date }}</td>
+        <td>{{ v.vaccination_expiry_date }}</td>
+        <td>{{ v.veterinarian }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<h3>Deworming & Treatment Records</h3>
+<table>
+    <tr>
+        <th>Pet</th>
+        <th>Date</th>
+        <th>Medicine</th>
+        <th>Route</th>
+        <th>Frequency</th>
+        <th>Veterinarian</th>
+    </tr>
+    {% for d in dewormings %}
+    <tr>
+        <td>{{ d.pet }}</td>
+        <td>{{ d.date }}</td>
+        <td>{{ d.medicine_given }}</td>
+        <td>{{ d.route }}</td>
+        <td>{{ d.frequency }}</td>
+        <td>{{ d.veterinarian }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<script>
+function toggleForm() {
+    let value = document.getElementById("recordSelector").value;
+    document.getElementById("vaccinationForm").classList.add("hidden");
+    document.getElementById("dewormingForm").classList.add("hidden");
+
+    if (value === "vaccination") {
+        document.getElementById("vaccinationForm").classList.remove("hidden");
+    }
+    if (value === "deworming") {
+        document.getElementById("dewormingForm").classList.remove("hidden");
+    }
+}
+</script>

@@ -329,14 +329,13 @@ def announcement_create(request):
         DogAnnouncement.objects.create(
             title=request.POST.get("title"),
             content=request.POST.get("content"),
-            post_type=request.POST.get("post_type"),
             background_color=request.POST.get("background_color"),
             background_image=request.FILES.get("background_image"),
             schedule_data=schedule,
             created_by=request.user
         )
 
-        return redirect("dogadoption_admin:announcement_list")
+        return redirect("dogadoption_admin:admin_announcements")
 
     return render(request, "admin_announcement/create_announcement.html")
 
@@ -351,7 +350,7 @@ def announcement_comment(request, post_id):
             comment=request.POST.get("comment")
         )
 
-    return redirect("dogadoption_admin:announcement_list")
+    return redirect("dogadoption_admin:admin_announcements")
 
 @admin_required
 def announcement_edit(request, post_id):
@@ -375,7 +374,7 @@ def announcement_delete(request, post_id):
     post = get_object_or_404(DogAnnouncement, id=post_id)
     post.delete()
 
-    return redirect("dogadoption_admin:announcement_list")
+    return redirect("dogadoption_admin:admin_announcements")
 
 @admin_required
 def comment_reply(request, comment_id):
@@ -516,6 +515,94 @@ def register_dogs(request):
         'barangay': barangay,
         'date': date
     })
+
+import datetime
+import io
+from django.http import HttpResponse
+from openpyxl import Workbook
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+
+from .models import Dog  # your Dog model
+
+def download_registration(request, file_type):
+    selected_barangay = request.GET.get('barangay', None)
+
+    # Filter dogs
+    dogs = Dog.objects.all()
+    if selected_barangay:
+        dogs = dogs.filter(owner_address__icontains=selected_barangay)
+
+    # Create Excel
+    if file_type == 'excel':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Dog Registrations"
+
+        # Headers
+        headers = ['No.', 'Date', 'Dog Name', 'Species', 'Sex', 'Age', 'Neutering', 'Owner Name', 'Owner Address']
+        ws.append(headers)
+
+        # Data
+        for idx, dog in enumerate(dogs, start=1):
+            ws.append([
+                idx,
+                dog.date_registered.strftime("%m-%d-%Y"),
+                dog.name,
+                dog.species,
+                dog.sex,
+                dog.age,
+                dog.neutering_status,
+                dog.owner_name,
+                dog.owner_address
+            ])
+
+        # Save to response
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        filename = f"Dog_Registrations_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response['Content-Disposition'] = f'attachment; filename={filename}'
+        wb.save(response)
+        return response
+
+    # Create PDF
+    elif file_type == 'pdf':
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        data = [['No.', 'Date', 'Dog Name', 'Species', 'Sex', 'Age', 'Neutering', 'Owner Name', 'Owner Address']]
+        for idx, dog in enumerate(dogs, start=1):
+            data.append([
+                idx,
+                dog.date_registered.strftime("%m-%d-%Y"),
+                dog.name,
+                dog.species,
+                dog.sex,
+                dog.age,
+                dog.neutering_status,
+                dog.owner_name,
+                dog.owner_address
+            ])
+
+        table = Table(data)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.grey),
+            ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
+            ('ALIGN',(0,0),(-1,-1),'CENTER'),
+            ('FONTNAME', (0,0),(-1,0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING',(0,0),(-1,0),12),
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ]))
+
+        doc.build([table])
+        buffer.seek(0)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        filename = f"Dog_Registrations_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        response['Content-Disposition'] = f'attachment; filename={filename}'
+        return response
+
+    else:
+        return HttpResponse("Invalid file type.", status=400)
+    
 @admin_required
 def registration_record(request):
     selected_barangay = request.GET.get('barangay', '').strip()
@@ -543,11 +630,46 @@ def registration_record(request):
 
 #certification for dogs views.py
 from .models import DogRegistration, CertificateSettings
+from .models import Pet, VaccinationRecord, DewormingTreatmentRecord
 
+@admin_required
+def med_record(request):
+    pets = Pet.objects.all()
+    vaccinations = VaccinationRecord.objects.all().order_by('-date')
+    dewormings = DewormingTreatmentRecord.objects.all().order_by('-date')
 
+    if request.method == "POST":
+        record_type = request.POST.get("record_type")
 
-from django.shortcuts import render, redirect
-from .models import DogRegistration, CertificateSettings
+        if record_type == "vaccination":
+            VaccinationRecord.objects.create(
+                pet_id=request.POST.get("pet"),
+                date=request.POST.get("date"),
+                vaccine_name=request.POST.get("vaccine_name"),
+                vaccine_expiry_date=request.POST.get("vaccine_expiry_date"),
+                vaccination_expiry_date=request.POST.get("vaccination_expiry_date"),
+                veterinarian=request.POST.get("veterinarian"),
+            )
+
+        elif record_type == "deworming":
+            DewormingTreatmentRecord.objects.create(
+                pet_id=request.POST.get("pet"),
+                date=request.POST.get("date"),
+                medicine_given=request.POST.get("medicine_given"),
+                route=request.POST.get("route"),
+                frequency=request.POST.get("frequency"),
+                veterinarian=request.POST.get("veterinarian"),
+            )
+
+        return redirect("dogadoption_admin:med_records")
+
+    context = {
+        "pets": pets,
+        "vaccinations": vaccinations,
+        "dewormings": dewormings,
+    }
+
+    return render(request, "admin_registration/med_record.html", context)
 
 @admin_required
 def dog_certificate(request):

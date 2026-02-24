@@ -256,24 +256,35 @@ class Pet(models.Model):
 
 
 class VaccinationRecord(models.Model):
-    pet = models.ForeignKey(Pet, on_delete=models.CASCADE)
+    registration = models.ForeignKey(
+        DogRegistration,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="vaccinations"
+    )
     date = models.DateField()
-    vaccine_name = models.CharField(max_length=100)
+    vaccine_name = models.CharField(max_length=255)
     vaccine_expiry_date = models.DateField()
     vaccination_expiry_date = models.DateField()
-    veterinarian = models.CharField(max_length=150)
+    veterinarian = models.CharField(max_length=255)
 
     def __str__(self):
-        return f"{self.pet.name} - {self.vaccine_name}"
-
+        return f"{self.registration.name_of_pet} - {self.vaccine_name}"
 
 class DewormingTreatmentRecord(models.Model):
-    pet = models.ForeignKey(Pet, on_delete=models.CASCADE)
+    registration = models.ForeignKey(
+        DogRegistration,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="dewormings"
+    )
     date = models.DateField()
-    medicine_given = models.CharField(max_length=150)
-    route = models.CharField(max_length=100)
-    frequency = models.CharField(max_length=100)
-    veterinarian = models.CharField(max_length=150)
+    medicine_given = models.CharField(max_length=255)
+    route = models.CharField(max_length=255)
+    frequency = models.CharField(max_length=255)
+    veterinarian = models.CharField(max_length=255)
 
     def __str__(self):
-        return f"{self.pet.name} - {self.medicine_given}"
+        return f"{self.registration.name_of_pet} - {self.medicine_given}"

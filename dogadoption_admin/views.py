@@ -633,38 +633,63 @@ from .models import DogRegistration, CertificateSettings
 from .models import Pet, VaccinationRecord, DewormingTreatmentRecord
 
 @admin_required
-def med_record(request):
-    pets = Pet.objects.all()
-    vaccinations = VaccinationRecord.objects.all().order_by('-date')
-    dewormings = DewormingTreatmentRecord.objects.all().order_by('-date')
+def med_record(request, registration_id):
+    registration = DogRegistration.objects.get(id=registration_id)
+
+    vaccinations = VaccinationRecord.objects.filter(
+        registration=registration
+    ).order_by('-date')
+
+    dewormings = DewormingTreatmentRecord.objects.filter(
+        registration=registration
+    ).order_by('-date')
 
     if request.method == "POST":
         record_type = request.POST.get("record_type")
 
         if record_type == "vaccination":
             VaccinationRecord.objects.create(
-                pet_id=request.POST.get("pet"),
-                date=request.POST.get("date"),
+                registration=registration,
+                date=request.POST.get("vac_date"),
                 vaccine_name=request.POST.get("vaccine_name"),
                 vaccine_expiry_date=request.POST.get("vaccine_expiry_date"),
                 vaccination_expiry_date=request.POST.get("vaccination_expiry_date"),
-                veterinarian=request.POST.get("veterinarian"),
+                veterinarian=request.POST.get("vac_veterinarian"),
             )
 
         elif record_type == "deworming":
             DewormingTreatmentRecord.objects.create(
-                pet_id=request.POST.get("pet"),
-                date=request.POST.get("date"),
+                registration=registration,
+                date=request.POST.get("dew_date"),
                 medicine_given=request.POST.get("medicine_given"),
                 route=request.POST.get("route"),
                 frequency=request.POST.get("frequency"),
-                veterinarian=request.POST.get("veterinarian"),
+                veterinarian=request.POST.get("dew_veterinarian"),
             )
 
-        return redirect("dogadoption_admin:med_records")
+        elif record_type == "all":
+            VaccinationRecord.objects.create(
+                registration=registration,
+                date=request.POST.get("vac_date"),
+                vaccine_name=request.POST.get("vaccine_name"),
+                vaccine_expiry_date=request.POST.get("vaccine_expiry_date"),
+                vaccination_expiry_date=request.POST.get("vaccination_expiry_date"),
+                veterinarian=request.POST.get("vac_veterinarian"),
+            )
+
+            DewormingTreatmentRecord.objects.create(
+                registration=registration,
+                date=request.POST.get("dew_date"),
+                medicine_given=request.POST.get("medicine_given"),
+                route=request.POST.get("route"),
+                frequency=request.POST.get("frequency"),
+                veterinarian=request.POST.get("dew_veterinarian"),
+            )
+
+        return redirect('dogadoption_admin:med_records', registration_id=registration.id)
 
     context = {
-        "pets": pets,
+        "registration": registration,
         "vaccinations": vaccinations,
         "dewormings": dewormings,
     }
@@ -673,21 +698,18 @@ def med_record(request):
 
 @admin_required
 def dog_certificate(request):
-    settings = CertificateSettings.objects.first()  # get current reg no if exists
+    settings = CertificateSettings.objects.first()
 
     if request.method == "POST":
         reg_no = request.POST.get("reg_no")
 
-        # Update settings if reg_no changed manually
         if settings:
             if settings.reg_no != reg_no:
                 settings.reg_no = reg_no
                 settings.save()
         else:
-            # First time creating settings
             settings = CertificateSettings.objects.create(reg_no=reg_no)
 
-        # Create DogRegistration
         registration = DogRegistration.objects.create(
             reg_no=settings.reg_no,
             name_of_pet=request.POST.get('name_of_pet'),
@@ -701,21 +723,10 @@ def dog_certificate(request):
             contact_no=request.POST.get('contact_no'),
         )
 
-        # Check print option
-        if request.POST.get('print_immediately'):
-            settings.print_immediately = True
-        else:
-            settings.print_immediately = False
-        settings.save()
-
-        # Redirect accordingly
-        if settings.print_immediately:
-            return redirect('dogadoption_admin:certificate_print', registration.id)
-        else:
-            return redirect('dogadoption_admin:certificate_list')
+        #  Redirect to medical record with dog ID
+        return redirect('dogadoption_admin:med_records', registration_id=registration.id)
 
     return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
-
 
 @admin_required
 def certificate_print(request, pk):

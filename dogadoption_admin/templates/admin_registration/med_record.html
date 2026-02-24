@@ -1,62 +1,68 @@
+{% extends 'admin_base.html' %}
 {% load static %}
+
+{% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/register/med_record.css' %}">
+{% endblock extra_css %}
+
+{% block content %}
+{% include 'admin_registration/registration_navigation.html' %}
 
 <h2>Medical Records</h2>
 
+<!--  SHOW CONNECTED DOG INFORMATION -->
+<div class="dog-info-header">
+    <h3>
+        Dog: {{ registration.name_of_pet }} |
+        Owner: {{ registration.owner_name }} |
+        Reg No: {{ registration.reg_no }}
+    </h3>
+</div>
+
+<!-- ================= RECORD SELECTOR ================= -->
 <select id="recordSelector" onchange="toggleForm()">
-    <option value="">-- Select Record Type --</option>
+    <option value="all" selected>All</option>
     <option value="vaccination">Vaccination</option>
     <option value="deworming">Deworming & Treatment</option>
 </select>
 
-<!-- ================= VACCINATION FORM ================= -->
-<form method="POST" id="vaccinationForm" class="hidden">
+<!-- ================= MAIN FORM ================= -->
+<form method="POST" id="mainForm">
     {% csrf_token %}
-    <input type="hidden" name="record_type" value="vaccination">
+    <input type="hidden" name="record_type" id="recordTypeInput">
 
-    <select name="pet" required>
-        <option value="">Select Pet</option>
-        {% for pet in pets %}
-            <option value="{{ pet.id }}">{{ pet.name }} ({{ pet.pet_type }})</option>
-        {% endfor %}
-    </select>
+    <!-- ================= VACCINATION SECTION ================= -->
+    <div id="vaccinationForm" class="hidden">
+        <h3>Vaccination</h3>
+        <input type="date" name="vac_date">
+        <input type="text" name="vaccine_name" placeholder="Vaccine Name (e.g Rabisin)">
+        <input type="date" name="vaccine_expiry_date">
+        <input type="date" name="vaccination_expiry_date">
+        <input type="text" name="vac_veterinarian" placeholder="Veterinarian / Livestock Technician">
+    </div>
 
-    <input type="date" name="date" required placeholder="Date">
-    <input type="text" name="vaccine_name" placeholder="Vaccine Name (e.g Rabisin)" required>
-    <input type="date" name="vaccine_expiry_date" required>
-    <input type="date" name="vaccination_expiry_date" required>
-    <input type="text" name="veterinarian" placeholder="Veterinarian / Livestock Technician" required>
+    <!-- ================= DEWORMING SECTION ================= -->
+    <div id="dewormingForm" class="hidden">
+        <h3>Deworming & Treatment</h3>
+        <input type="date" name="dew_date">
+        <input type="text" name="medicine_given" placeholder="Medicine Given">
+        <input type="text" name="route" placeholder="Route">
+        <input type="text" name="frequency" placeholder="Frequency">
+        <input type="text" name="dew_veterinarian" placeholder="Veterinarian">
+    </div>
 
-    <button type="submit">Save Vaccination</button>
-</form>
-
-<!-- ================= DEWORMING FORM ================= -->
-<form method="POST" id="dewormingForm" class="hidden">
-    {% csrf_token %}
-    <input type="hidden" name="record_type" value="deworming">
-
-    <select name="pet" required>
-        <option value="">Select Pet</option>
-        {% for pet in pets %}
-            <option value="{{ pet.id }}">{{ pet.name }} ({{ pet.pet_type }})</option>
-        {% endfor %}
-    </select>
-
-    <input type="date" name="date" required>
-    <input type="text" name="medicine_given" placeholder="Medicine Given" required>
-    <input type="text" name="route" placeholder="Route" required>
-    <input type="text" name="frequency" placeholder="Frequency" required>
-    <input type="text" name="veterinarian" placeholder="Veterinarian" required>
-
-    <button type="submit">Save Deworming</button>
+    <!-- SINGLE SUBMIT BUTTON -->
+    <button type="submit" id="mainSubmitBtn" class="hidden">
+        Save Record
+    </button>
 </form>
 
 <hr>
 
+<!-- ================= VACCINATION TABLE ================= -->
 <h3>Vaccination Records</h3>
 <table>
     <tr>
-        <th>Pet</th>
         <th>Date</th>
         <th>Vaccine</th>
         <th>Vaccine Expiry</th>
@@ -65,20 +71,23 @@
     </tr>
     {% for v in vaccinations %}
     <tr>
-        <td>{{ v.pet }}</td>
         <td>{{ v.date }}</td>
         <td>{{ v.vaccine_name }}</td>
         <td>{{ v.vaccine_expiry_date }}</td>
         <td>{{ v.vaccination_expiry_date }}</td>
         <td>{{ v.veterinarian }}</td>
     </tr>
+    {% empty %}
+    <tr>
+        <td colspan="5">No vaccination records yet.</td>
+    </tr>
     {% endfor %}
 </table>
 
+<!-- ================= DEWORMING TABLE ================= -->
 <h3>Deworming & Treatment Records</h3>
 <table>
     <tr>
-        <th>Pet</th>
         <th>Date</th>
         <th>Medicine</th>
         <th>Route</th>
@@ -87,27 +96,55 @@
     </tr>
     {% for d in dewormings %}
     <tr>
-        <td>{{ d.pet }}</td>
         <td>{{ d.date }}</td>
         <td>{{ d.medicine_given }}</td>
         <td>{{ d.route }}</td>
         <td>{{ d.frequency }}</td>
         <td>{{ d.veterinarian }}</td>
     </tr>
+    {% empty %}
+    <tr>
+        <td colspan="5">No deworming records yet.</td>
+    </tr>
     {% endfor %}
 </table>
 
+<!-- ================= SCRIPT ================= -->
 <script>
 function toggleForm() {
     let value = document.getElementById("recordSelector").value;
-    document.getElementById("vaccinationForm").classList.add("hidden");
-    document.getElementById("dewormingForm").classList.add("hidden");
+
+    let vaccinationForm = document.getElementById("vaccinationForm");
+    let dewormingForm = document.getElementById("dewormingForm");
+    let submitBtn = document.getElementById("mainSubmitBtn");
+    let recordTypeInput = document.getElementById("recordTypeInput");
+
+    vaccinationForm.classList.add("hidden");
+    dewormingForm.classList.add("hidden");
+    submitBtn.classList.add("hidden");
 
     if (value === "vaccination") {
-        document.getElementById("vaccinationForm").classList.remove("hidden");
-    }
-    if (value === "deworming") {
-        document.getElementById("dewormingForm").classList.remove("hidden");
+        vaccinationForm.classList.remove("hidden");
+        submitBtn.classList.remove("hidden");
+        recordTypeInput.value = "vaccination";
+    } 
+    else if (value === "deworming") {
+        dewormingForm.classList.remove("hidden");
+        submitBtn.classList.remove("hidden");
+        recordTypeInput.value = "deworming";
+    } 
+    else if (value === "all") {
+        vaccinationForm.classList.remove("hidden");
+        dewormingForm.classList.remove("hidden");
+        submitBtn.classList.remove("hidden");
+        recordTypeInput.value = "all";
     }
 }
+
+// Auto-run on page load (default = All)
+document.addEventListener("DOMContentLoaded", function() {
+    toggleForm();
+});
 </script>
+
+{% endblock %}

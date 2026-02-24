@@ -47,7 +47,7 @@ urlpatterns = [
     path('register/', views.register_dogs, name='register_dogs'),
     path('registration-record/', views.registration_record, name='registration_record'),
     path('registration_record/download/<str:file_type>/', views.download_registration, name='download_registration'),
-    path('medical-records/', views.med_record, name='med_records'),
+    path("med-records/<int:registration_id>/",views.med_record,name="med_records"),
 
     #CERTIFICATION
     path('dog-certificate/', views.dog_certificate, name='dog_certificate'),

@@ -516,93 +516,10 @@ def register_dogs(request):
         'date': date
     })
 
-import datetime
-import io
-from django.http import HttpResponse
-from openpyxl import Workbook
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+
 
 from .models import Dog  # your Dog model
 
-def download_registration(request, file_type):
-    selected_barangay = request.GET.get('barangay', None)
-
-    # Filter dogs
-    dogs = Dog.objects.all()
-    if selected_barangay:
-        dogs = dogs.filter(owner_address__icontains=selected_barangay)
-
-    # Create Excel
-    if file_type == 'excel':
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Dog Registrations"
-
-        # Headers
-        headers = ['No.', 'Date', 'Dog Name', 'Species', 'Sex', 'Age', 'Neutering', 'Owner Name', 'Owner Address']
-        ws.append(headers)
-
-        # Data
-        for idx, dog in enumerate(dogs, start=1):
-            ws.append([
-                idx,
-                dog.date_registered.strftime("%m-%d-%Y"),
-                dog.name,
-                dog.species,
-                dog.sex,
-                dog.age,
-                dog.neutering_status,
-                dog.owner_name,
-                dog.owner_address
-            ])
-
-        # Save to response
-        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        filename = f"Dog_Registrations_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        response['Content-Disposition'] = f'attachment; filename={filename}'
-        wb.save(response)
-        return response
-
-    # Create PDF
-    elif file_type == 'pdf':
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
-        data = [['No.', 'Date', 'Dog Name', 'Species', 'Sex', 'Age', 'Neutering', 'Owner Name', 'Owner Address']]
-        for idx, dog in enumerate(dogs, start=1):
-            data.append([
-                idx,
-                dog.date_registered.strftime("%m-%d-%Y"),
-                dog.name,
-                dog.species,
-                dog.sex,
-                dog.age,
-                dog.neutering_status,
-                dog.owner_name,
-                dog.owner_address
-            ])
-
-        table = Table(data)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.grey),
-            ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
-            ('ALIGN',(0,0),(-1,-1),'CENTER'),
-            ('FONTNAME', (0,0),(-1,0), 'Helvetica-Bold'),
-            ('BOTTOMPADDING',(0,0),(-1,0),12),
-            ('GRID', (0,0), (-1,-1), 1, colors.black),
-        ]))
-
-        doc.build([table])
-        buffer.seek(0)
-        response = HttpResponse(buffer, content_type='application/pdf')
-        filename = f"Dog_Registrations_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        response['Content-Disposition'] = f'attachment; filename={filename}'
-        return response
-
-    else:
-        return HttpResponse("Invalid file type.", status=400)
-    
 @admin_required
 def registration_record(request):
     selected_barangay = request.GET.get('barangay', '').strip()
@@ -731,9 +648,217 @@ def dog_certificate(request):
 @admin_required
 def certificate_print(request, pk):
     registration = get_object_or_404(DogRegistration, pk=pk)
-    return render(request, 'admin_registration/certificate_print.html', {'data': registration})
+
+    vaccinations = VaccinationRecord.objects.filter(
+        registration=registration
+    ).order_by('-date')
+
+    dewormings = DewormingTreatmentRecord.objects.filter(
+        registration=registration
+    ).order_by('-date')
+
+    context = {
+        'data': registration,
+        'vaccinations': vaccinations,
+        'dewormings': dewormings,
+    }
+
+    return render(request, 'admin_registration/certificate_print.html', context)
 
 @admin_required
 def certificate_list(request):
     certificates = DogRegistration.objects.all().order_by('-date_registered')
-    return render(request, 'admin_registration/certificate_list.html', {'certificates': certificates})
+    return render(request, 'admin_registration/certificate_list.html', {
+        'certificates': certificates
+    })
+
+import pandas as pd
+from django.http import HttpResponse
+from reportlab.platypus import SimpleDocTemplate, Table
+from docx import Document
+from openpyxl import Workbook
+from .models import DogRegistration
+import datetime
+import io
+from django.http import HttpResponse
+from openpyxl import Workbook
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+
+@admin_required
+def export_certificates_pdf(request):
+    certificates = DogRegistration.objects.all().order_by('-date_registered')
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="certificates.pdf"'
+
+    doc = SimpleDocTemplate(response)
+    data = [["Reg No", "Pet Name", "Owner", "Date Issued"]]
+
+    for cert in certificates:
+        data.append([
+            cert.reg_no,
+            cert.name_of_pet,
+            cert.owner_name,
+            cert.date_registered.strftime("%b %d, %Y")
+        ])
+
+    table = Table(data)
+    doc.build([table])
+    return response
+
+@admin_required
+def export_certificates_word(request):
+    certificates = DogRegistration.objects.all().order_by('-date_registered')
+
+    document = Document()
+    document.add_heading('Vaccination Certificates', level=1)
+
+    table = document.add_table(rows=1, cols=4)
+    headers = ["Reg No", "Pet Name", "Owner", "Date Issued"]
+
+    for i, header in enumerate(headers):
+        table.rows[0].cells[i].text = header
+
+    for cert in certificates:
+        row_cells = table.add_row().cells
+        row_cells[0].text = cert.reg_no
+        row_cells[1].text = cert.name_of_pet
+        row_cells[2].text = cert.owner_name
+        row_cells[3].text = cert.date_registered.strftime("%b %d, %Y")
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    response['Content-Disposition'] = 'attachment; filename="certificates.docx"'
+    document.save(response)
+    return response
+
+@admin_required
+def export_certificates_excel(request):
+    certificates = DogRegistration.objects.all().order_by('-date_registered')
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Certificates"
+
+    ws.append(["Reg No", "Pet Name", "Owner", "Date Issued"])
+
+    for cert in certificates:
+        ws.append([
+            cert.reg_no,
+            cert.name_of_pet,
+            cert.owner_name,
+            cert.date_registered.strftime("%b %d, %Y")
+        ])
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="certificates.xlsx"'
+    wb.save(response)
+    return response
+
+
+#handles all the download/multi select
+
+from django.views.decorators.csrf import csrf_exempt
+
+from reportlab.platypus import Paragraph, Spacer
+
+from reportlab.lib.styles import getSampleStyleSheet
+
+from io import BytesIO
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from django.views.decorators.csrf import csrf_exempt
+from io import BytesIO
+
+from xhtml2pdf import pisa
+from docx import Document
+from openpyxl import Workbook
+
+from .models import (
+    DogRegistration,
+    CertificateSettings,
+    VaccinationRecord,
+    DewormingTreatmentRecord
+)
+@admin_required
+def export_selected_certificates(request):
+    if request.method == "POST":
+        selected_ids = request.POST.getlist('selected_ids')
+        file_format = request.POST.get('format')
+
+        registrations = DogRegistration.objects.filter(
+            id__in=selected_ids
+        ).order_by('-date_registered')
+
+        # ================= PDF =================
+        if file_format == "pdf":
+
+            response = HttpResponse(content_type='application/pdf')
+            response['Content-Disposition'] = 'attachment; filename="selected_certificates.pdf"'
+
+            html_content = ""
+
+            for reg in registrations:
+                vaccinations = VaccinationRecord.objects.filter(registration=reg)
+                dewormings = DewormingTreatmentRecord.objects.filter(registration=reg)
+
+                rendered = render_to_string(
+                    "admin_registration/certificate_pdf.html",
+                    {
+                        "data": reg,
+                        "vaccinations": vaccinations,
+                        "dewormings": dewormings,
+                        "request": request
+                    }
+                )
+
+                html_content += rendered
+                html_content += '<div style="page-break-after: always;"></div>'
+
+            pisa.CreatePDF(html_content, dest=response)
+            return response
+
+        # ================= WORD =================
+        elif file_format == "word":
+            ...
+        
+        # ================= EXCEL =================
+        elif file_format == "excel":
+            ...
+
+    return HttpResponse("Invalid request", status=400)
+
+@admin_required
+def bulk_certificate_print(request):
+    if request.method == "POST":
+        selected_ids = request.POST.getlist("selected_ids")
+
+        # ONLY fetch the selected certificates
+        registrations = DogRegistration.objects.filter(id__in=selected_ids).order_by('id')
+
+        certificates = []
+
+        for registration in registrations:
+            vaccinations = VaccinationRecord.objects.filter(
+                registration=registration
+            ).order_by('-date')
+
+            dewormings = DewormingTreatmentRecord.objects.filter(
+                registration=registration
+            ).order_by('-date')
+
+            certificates.append({
+                "data": registration,
+                "vaccinations": vaccinations,
+                "dewormings": dewormings,
+            })
+
+        return render(
+            request,
+            "admin_registration/bulk_certificate_print.html",
+            {"certificates": certificates}
+        )
+
+    return redirect("dogadoption_admin:certificate_list")

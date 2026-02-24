@@ -9,15 +9,41 @@
 {% include 'admin_registration/registration_navigation.html' %}
 
 <div class="registration-wrapper">
+
     <div class="header-section">
+        <div class="export-buttons">
+
+            <select id="download-format">
+                <option value="pdf">PDF</option>
+                <option value="word">Word</option>
+                <option value="excel">Excel</option>
+            </select>
+
+            <button id="download-selected" class="btn-export">
+                Download Selected
+            </button>
+
+            <button id="print-selected" class="btn-export">
+                Print Selected
+            </button>
+
+            <a href="{% url 'dogadoption_admin:dog_certificate' %}" class="btn-link">
+                + New Certificate
+            </a>
+
+        </div>
+
         <h2>Saved Vaccination Certificates</h2>
-        <a href="{% url 'dogadoption_admin:dog_certificate' %}" class="btn-link">+ New Certificate</a>
     </div>
+
 
     <div class="table-container">
         <table class="records-table">
             <thead>
                 <tr>
+                    <th>
+                        <input type="checkbox" id="select-all">
+                    </th>
                     <th>Reg No</th>
                     <th>Pet Name</th>
                     <th>Owner</th>
@@ -25,26 +51,147 @@
                     <th>Action</th>
                 </tr>
             </thead>
+
             <tbody>
                 {% for cert in certificates %}
                 <tr>
-                    <td data-label="Reg No"><strong>{{ cert.reg_no }}</strong></td>
-                    <td data-label="Pet">{{ cert.name_of_pet }}</td>
-                    <td data-label="Owner">{{ cert.owner_name }}</td>
-                    <td data-label="Date">{{ cert.date_registered|date:"M d, Y" }}</td>
+                    <td>
+                        <input type="checkbox"
+                               class="select-cert"
+                               value="{{ cert.id }}">
+                    </td>
+
+                    <td data-label="Reg No">
+                        <strong>{{ cert.reg_no }}</strong>
+                    </td>
+
+                    <td data-label="Pet">
+                        {{ cert.name_of_pet }}
+                    </td>
+
+                    <td data-label="Owner">
+                        {{ cert.owner_name }}
+                    </td>
+
+                    <td data-label="Date">
+                        {{ cert.date_registered|date:"M d, Y" }}
+                    </td>
+
                     <td data-label="Action">
-                        <a href="{% url 'dogadoption_admin:certificate_print' cert.id %}" class="action-btn-print">
-                           <i class="fas fa-print"></i> Print
+                        <a href="{% url 'dogadoption_admin:certificate_print' cert.id %}"
+                           class="action-btn-print">
+                            <i class="fas fa-print"></i> Print
                         </a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="empty-row">No certificates found.</td>
+                    <td colspan="6" class="empty-row">
+                        No certificates found.
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
+
         </table>
     </div>
 </div>
+
+<script>
+/* ===========================
+   SELECT ALL FUNCTION
+=========================== */
+document.getElementById('select-all').addEventListener('change', function() {
+    const checked = this.checked;
+    document.querySelectorAll('.select-cert')
+            .forEach(cb => cb.checked = checked);
+});
+
+
+/* ===========================
+   DOWNLOAD SELECTED
+=========================== */
+document.getElementById('download-selected').addEventListener('click', function() {
+
+    const selectedIds = Array.from(
+        document.querySelectorAll('.select-cert:checked')
+    ).map(cb => cb.value);
+
+    if (selectedIds.length === 0) {
+        alert("Please select at least one certificate to download.");
+        return;
+    }
+
+    const form = document.createElement('form');
+    form.method = "POST";
+    form.action = "{% url 'dogadoption_admin:export_selected_certificates' %}";
+
+    // CSRF
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = '{{ csrf_token }}';
+    form.appendChild(csrfInput);
+
+    // Selected IDs
+    selectedIds.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'selected_ids';
+        input.value = id;
+        form.appendChild(input);
+    });
+
+    // Selected Format
+    const formatInput = document.createElement('input');
+    formatInput.type = 'hidden';
+    formatInput.name = 'format';
+    formatInput.value = document.getElementById('download-format').value;
+    form.appendChild(formatInput);
+
+    document.body.appendChild(form);
+    form.submit();
+});
+
+
+/* ===========================
+   PRINT SELECTED (MULTI PRINT)
+=========================== */
+document.getElementById('print-selected').addEventListener('click', function() {
+
+    const selectedIds = Array.from(
+        document.querySelectorAll('.select-cert:checked')
+    ).map(cb => cb.value);
+
+    if (selectedIds.length === 0) {
+        alert("Please select at least one certificate to print.");
+        return;
+    }
+
+    const form = document.createElement('form');
+    form.method = "POST";
+    form.action = "{% url 'dogadoption_admin:bulk_certificate_print' %}";
+    form.target = "_blank";  // open in new tab
+
+    // CSRF
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = '{{ csrf_token }}';
+    form.appendChild(csrfInput);
+
+    // Selected IDs
+    selectedIds.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'selected_ids';
+        input.value = id;
+        form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+});
+</script>
+
 {% endblock %}

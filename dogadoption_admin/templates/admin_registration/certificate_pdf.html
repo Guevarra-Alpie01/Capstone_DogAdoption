@@ -1,0 +1,90 @@
+{% load static %}
+<link rel="stylesheet" href="{{ request.scheme }}://{{ request.get_host }}{% static 'css/register/certificate_pdf.css' %}">
+
+<div class="certificate-container">
+    <div class="certificate-border">
+        
+        <table class="header-table">
+            <tr>
+                <td width="20%"><img src="{{ request.scheme }}://{{ request.get_host }}{% static 'images/officialseal.webp' %}" class="logo"></td>
+                <td width="60%" class="title-cell">
+                    <h1 class="main-title">DOG VACCINATION CERTIFICATE</h1>
+                </td>
+                <td width="20%" align="right"><img src="{{ request.scheme }}://{{ request.get_host }}{% static 'images/Logo-Bagong-Pilipinas.png' %}" class="logo"></td>
+            </tr>
+        </table>
+
+        <div class="content-body">
+            <div class="info-row"><span class="label">Reg No:</span> <span class="value">{{ data.reg_no }}</span></div>
+            <div class="info-row"><span class="label">Name of Pet:</span> <span class="value">{{ data.name_of_pet }}</span></div>
+            <div class="info-row"><span class="label">Breed:</span> <span class="value">{{ data.breed }}</span></div>
+            <div class="info-row"><span class="label">Date of Birth:</span> <span class="value">{{ data.dob }}</span></div>
+            <div class="info-row"><span class="label">Color/Markings:</span> <span class="value">{{ data.color_markings }}</span></div>
+            <div class="info-row">
+                <span class="label">Sex:</span> 
+                <span class="value">
+                    {{ data.get_sex_display }} &nbsp;&nbsp; 
+                    Castrated ( {% if data.is_castrated %}✓{% else %}&nbsp;{% endif %} ) &nbsp; 
+                    Spayed ( {% if data.is_spayed %}✓{% else %}&nbsp;{% endif %} ) &nbsp; 
+                    Intact ( {% if not data.is_castrated and not data.is_spayed %}✓{% else %}&nbsp;{% endif %} )
+                </span>
+            </div>
+
+            <div class="info-row"><span class="label">Name of Owner:</span> <span class="value">{{ data.owner_name }}</span></div>
+            <div class="info-row"><span class="label">Address:</span> <span class="value">{{ data.address }}</span></div>
+            <div class="info-row"><span class="label">Contact No:</span> <span class="value">{{ data.contact_no }}</span></div>
+
+            <p class="law-text">Republic Act No. 9482 – Anti Rabies Act of 2007</p>
+            
+            <h2 class="section-title">MEDICAL RECORDS</h2>
+
+            <h3 class="table-label">Vaccination Records</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Vaccine</th>
+                        <th>Vaccine Expiry</th>
+                        <th>Vaccination Expiry</th>
+                        <th>Veterinarian</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in vaccinations %}
+                    <tr>
+                        <td>{{ record.date }}</td>
+                        <td>{{ record.vaccine }}</td>
+                        <td>{{ record.expiry }}</td>
+                        <td>{{ record.vac_expiry }}</td>
+                        <td>{{ record.vet }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <h3 class="table-label">Deworming & Treatment Records</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Medicine</th>
+                        <th>Route</th>
+                        <th>Frequency</th>
+                        <th>Veterinarian</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in deworming %}
+                    <tr>
+                        <td>{{ record.date }}</td>
+                        <td>{{ record.medicine }}</td>
+                        <td>{{ record.route }}</td>
+                        <td>{{ record.freq }}</td>
+                        <td>{{ record.vet }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

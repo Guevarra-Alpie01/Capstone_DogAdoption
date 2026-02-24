@@ -46,13 +46,18 @@ urlpatterns = [
     
     path('register/', views.register_dogs, name='register_dogs'),
     path('registration-record/', views.registration_record, name='registration_record'),
-    path('registration_record/download/<str:file_type>/', views.download_registration, name='download_registration'),
     path("med-records/<int:registration_id>/",views.med_record,name="med_records"),
+
 
     #CERTIFICATION
     path('dog-certificate/', views.dog_certificate, name='dog_certificate'),
     path('certificate/<int:pk>/', views.certificate_print, name='certificate_print'),
     path('certificates/', views.certificate_list, name='certificate_list'),
+    path('export/pdf/', views.export_certificates_pdf, name='export_certificates_pdf'),
+    path('export/word/', views.export_certificates_word, name='export_certificates_word'),
+    path('export/excel/', views.export_certificates_excel, name='export_certificates_excel'),
+    path('export_selected_certificates/', views.export_selected_certificates, name='export_selected_certificates'),
+    path("certificates/bulk-print/",views.bulk_certificate_print,name="bulk_certificate_print"),
 ]
 
 

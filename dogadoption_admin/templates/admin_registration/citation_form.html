@@ -1,0 +1,82 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/register/citation.css' %}">
+
+<h2>Dog Violation Citation</h2>
+
+{% if citation %}
+    <a class="print-btn"
+       href="{% url 'dogadoption_admin:citation_print' citation.pk %}">
+       🖨 Print Citation
+    </a>
+{% endif %}
+  <a
+       href="{% url 'dogadoption_admin:penalty_manage'  %}">
+        Penalty Manager
+    </a>
+<form method="post">
+    {% csrf_token %}
+
+    <div class="form-group">
+        <label>Owner Name</label>
+        {{ form.owner_name }}
+    </div>
+
+    <div class="form-group">
+        <label>Address</label>
+        {{ form.address }}
+    </div>
+
+    <div class="form-group">
+        <label>Dog Description</label>
+        {{ form.dog_description }}
+    </div>
+
+    <h3>Select Violation</h3>
+
+    <div class="penalty-options">
+
+        {% regroup form.penalty.field.queryset by section as grouped_penalties %}
+
+        {% for group in grouped_penalties %}
+            <div class="penalty-section">
+
+                <div class="section-title">
+                    {{ group.grouper.title }}
+                </div>
+
+                {% for penalty in group.list %}
+                    <label class="radio-item">
+                        <input type="radio"
+                               name="penalty"
+                               value="{{ penalty.id }}"
+                               required>
+
+                        <span class="number">
+                            {{ penalty.number }}.
+                        </span>
+
+                        <span class="title">
+                            {{ penalty.title }}
+                        </span>
+
+                        <span class="amount">
+                            ₱{{ penalty.amount }}
+                        </span>
+                    </label>
+                {% endfor %}
+
+            </div>
+        {% endfor %}
+
+    </div>
+
+    <div class="form-group">
+        <label>Remarks</label>
+        {{ form.remarks }}
+    </div>
+
+    <button type="submit" class="save-btn">
+        Save Citation
+    </button>
+
+</form>

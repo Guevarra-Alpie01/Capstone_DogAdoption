@@ -1,3 +1,8 @@
 from django.contrib import admin
+from .models import  Citation
 
-# Register your models here.
+
+
+@admin.register(Citation)
+class CitationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'owner_name', 'penalty', 'date_issued')

@@ -12,6 +12,18 @@ from django.utils import timezone
 from django.conf import settings
 from django.http import JsonResponse
 import json
+from .forms import CitationForm
+from .models import Citation
+from django.db.models import Count, Q
+
+from .models import Post, PostImage, PostRequest
+from .forms import PostForm
+from user.models import Profile,FaceImage
+
+from django.shortcuts import render, redirect
+from django.views.decorators.http import require_http_methods
+from functools import wraps
+import json
 
 #forms.py
 from .forms import PostForm
@@ -60,12 +72,6 @@ def admin_logout(request):
 
 
 #  HOME PAGE OF THE ADMIN
-
-from django.db.models import Count, Q
-
-from .models import Post, PostImage, PostRequest
-from .forms import PostForm
-from user.models import Profile,FaceImage
 
 # 🔹 CREATE POST
 @admin_required
@@ -306,10 +312,6 @@ def announcement_list(request):
 #CREATING ANNOUNCEMENTS 
 # views.py
 
-from django.shortcuts import render, redirect
-from django.views.decorators.http import require_http_methods
-from functools import wraps
-import json
 
 @admin_required
 @require_http_methods(["GET", "POST"])
@@ -454,7 +456,6 @@ def admin_user_search_results(request):
 #registration
 from .models import Dog
 
-from datetime import datetime
 # views.py
 
 import json
@@ -520,11 +521,11 @@ def register_dogs(request):
 
 from .models import Dog  # your Dog model
 
+
 @admin_required
 def registration_record(request):
     selected_barangay = request.GET.get('barangay', '').strip()
-    
-    # Static list or dynamic list from DB
+
     barangay_list_parsed = [
         "Ali-is","Banaybanay","Banga","Boyco","Bugay","Cansumalig","Dawis","Kalamtukan",
         "Kalumboyan","Malabugas","Mandu-ao","Maninihon","Minaba","Nangka","Narra",
@@ -533,9 +534,10 @@ def registration_record(request):
     ]
 
     if selected_barangay:
-        dogs = Dog.objects.filter(barangay__iexact=selected_barangay).order_by('-date_registered')
+        dogs = Dog.objects.filter(
+            barangay__iexact=selected_barangay
+        ).order_by('-date_registered')
     else:
-        # Default view: show all dogs sorted by date
         dogs = Dog.objects.all().order_by('-date_registered')
 
     context = {
@@ -543,8 +545,95 @@ def registration_record(request):
         'dogs': dogs,
         'barangay_list_parsed': barangay_list_parsed,
     }
+
     return render(request, 'admin_registration/registration_record.html', context)
 
+def download_registration(request, file_type):
+    selected_barangay = request.GET.get('barangay', None)
+
+    dogs = Dog.objects.all()
+
+    if selected_barangay:
+        dogs = dogs.filter(barangay__iexact=selected_barangay)
+
+    # ================= EXCEL =================
+    if file_type == 'excel':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Dog Registrations"
+
+        headers = [
+            'No.', 'Date', 'Dog Name', 'Species', 'Sex',
+            'Age', 'Neutering', 'Owner Name', 'Owner Address'
+        ]
+        ws.append(headers)
+
+        for idx, dog in enumerate(dogs, start=1):
+            ws.append([
+                idx,
+                dog.date_registered.strftime("%m-%d-%Y") if dog.date_registered else "",
+                dog.name,
+                dog.species,
+                dog.sex,
+                dog.age,
+                dog.neutering_status,
+                dog.owner_name,
+                dog.owner_address
+            ])
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        filename = f"Dog_Registrations_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response['Content-Disposition'] = f'attachment; filename={filename}'
+
+        wb.save(response)
+        return response
+
+    # ================= PDF =================
+    elif file_type == 'pdf':
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+
+        data = [[
+            'No.', 'Date', 'Dog Name', 'Species', 'Sex',
+            'Age', 'Neutering', 'Owner Name', 'Owner Address'
+        ]]
+
+        for idx, dog in enumerate(dogs, start=1):
+            data.append([
+                idx,
+                dog.date_registered.strftime("%m-%d-%Y") if dog.date_registered else "",
+                dog.name,
+                dog.species,
+                dog.sex,
+                dog.age,
+                dog.neutering_status,
+                dog.owner_name,
+                dog.owner_address
+            ])
+
+        table = Table(data)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.grey),
+            ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
+            ('ALIGN',(0,0),(-1,-1),'CENTER'),
+            ('FONTNAME', (0,0),(-1,0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING',(0,0),(-1,0),12),
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ]))
+
+        doc.build([table])
+        buffer.seek(0)
+
+        response = HttpResponse(buffer, content_type='application/pdf')
+        filename = f"Dog_Registrations_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        response['Content-Disposition'] = f'attachment; filename={filename}'
+
+        return response
+
+    return HttpResponse("Invalid file type.", status=400)
 #certification for dogs views.py
 from .models import DogRegistration, CertificateSettings
 from .models import Pet, VaccinationRecord, DewormingTreatmentRecord
@@ -678,7 +767,6 @@ from reportlab.platypus import SimpleDocTemplate, Table
 from docx import Document
 from openpyxl import Workbook
 from .models import DogRegistration
-import datetime
 import io
 from django.http import HttpResponse
 from openpyxl import Workbook
@@ -862,3 +950,51 @@ def bulk_certificate_print(request):
         )
 
     return redirect("dogadoption_admin:certificate_list")
+
+
+#penalty form
+def citation_create(request):
+    form = CitationForm(request.POST or None)
+
+    if form.is_valid():
+        citation = form.save()
+        return redirect('dogadoption_admin:citation_print', citation.pk)
+
+    return render(request, 'admin_registration/citation_form.html', {
+        'form': form
+    })
+
+def citation_print(request, pk):
+    citation = get_object_or_404(Citation, pk=pk)
+    return render(request, 'admin_registration/citation_print.html', {'citation': citation})
+
+from .models import Penalty, PenaltySection
+from .forms import PenaltyForm, SectionForm
+
+
+def penalty_manager(request):
+    sections = PenaltySection.objects.prefetch_related('penalties')
+
+    # ✅ ALWAYS initialize forms
+    s_form = SectionForm()
+    p_form = PenaltyForm()
+
+    if request.method == 'POST':
+
+        if 'add_section' in request.POST:
+            s_form = SectionForm(request.POST)
+            if s_form.is_valid():
+                s_form.save()
+                s_form = SectionForm()   # reset form
+
+        elif 'add_penalty' in request.POST:
+            p_form = PenaltyForm(request.POST)
+            if p_form.is_valid():
+                p_form.save()
+                p_form = PenaltyForm()   # reset form
+
+    return render(request, 'admin_registration/penalty_manage.html', {
+        'sections': sections,
+        's_form': s_form,
+        'p_form': p_form
+    })

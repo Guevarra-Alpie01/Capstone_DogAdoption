@@ -1,0 +1,34 @@
+<h2>Penalty Sections</h2>
+
+<form method="post">
+    {% csrf_token %}
+    <h3>Add Section</h3>
+    {{ s_form.as_p }}
+    <button name="add_section">Add Section</button>
+</form>
+
+<hr>
+
+<form method="post">
+    {% csrf_token %}
+    <h3>Add Penalty</h3>
+    {{ p_form.as_p }}
+    <button name="add_penalty">Add Penalty</button>
+</form>
+
+<hr>
+
+<h3>Existing Sections & Penalties</h3>
+
+{% for section in sections %}
+    <h4>{{ section.title }}</h4>
+    <ul>
+        {% for penalty in section.penalties.all %}
+            <li>
+                {{ penalty.number }} —
+                {{ penalty.title }}
+                (₱{{ penalty.amount }})
+            </li>
+        {% endfor %}
+    </ul>
+{% endfor %}

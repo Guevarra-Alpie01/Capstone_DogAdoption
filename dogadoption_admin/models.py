@@ -288,3 +288,46 @@ class DewormingTreatmentRecord(models.Model):
 
     def __str__(self):
         return f"{self.registration.name_of_pet} - {self.medicine_given}"
+    
+class PenaltySection(models.Model):
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'title']
+
+    def __str__(self):
+        return self.title
+    
+class Penalty(models.Model):
+    section = models.ForeignKey(
+        PenaltySection,
+        on_delete=models.CASCADE,
+        related_name="penalties",
+    )
+    number = models.PositiveIntegerField()
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['section', 'number']
+        unique_together = ('section', 'number')
+
+    def __str__(self):
+        return f"{self.section} - {self.number}"
+    
+class Citation(models.Model):
+    owner_name = models.CharField(max_length=255)
+    address = models.TextField()
+    dog_description = models.CharField(max_length=255)
+
+    penalty = models.ForeignKey(Penalty, on_delete=models.CASCADE)
+
+    date_issued = models.DateTimeField(auto_now_add=True)
+    remarks = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"Citation #{self.id} - {self.owner_name}"

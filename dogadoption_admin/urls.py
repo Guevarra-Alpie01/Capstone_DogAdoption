@@ -46,6 +46,7 @@ urlpatterns = [
     
     path('register/', views.register_dogs, name='register_dogs'),
     path('registration-record/', views.registration_record, name='registration_record'),
+     path('registration_record/download/<str:file_type>/', views.download_registration, name='download_registration'),
     path("med-records/<int:registration_id>/",views.med_record,name="med_records"),
 
 
@@ -58,6 +59,13 @@ urlpatterns = [
     path('export/excel/', views.export_certificates_excel, name='export_certificates_excel'),
     path('export_selected_certificates/', views.export_selected_certificates, name='export_selected_certificates'),
     path("certificates/bulk-print/",views.bulk_certificate_print,name="bulk_certificate_print"),
+
+    #PENALTIES AND CITATIONS
+    path('citation/new/', views.citation_create, name='citation_create'),
+    path('citation/<int:pk>/print/', views.citation_print, name='citation_print'),
+
+    # PENALTY MANAGEMENT (custom admin)
+    path('penalties/', views.penalty_manager, name='penalty_manage'),
 ]
 
 

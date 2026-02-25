@@ -40,3 +40,27 @@ class PostForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
+    
+
+from .models import Citation, Penalty,PenaltySection
+class CitationForm(forms.ModelForm):
+    penalty = forms.ModelChoiceField(
+        queryset=Penalty.objects.filter(active=True),
+        widget=forms.RadioSelect,
+        empty_label=None
+    )
+
+    class Meta:
+        model = Citation
+        fields = ['owner_name', 'address', 'dog_description', 'penalty', 'remarks']
+
+class SectionForm(forms.ModelForm):
+    class Meta:
+        model = PenaltySection
+        fields = ['title', 'description', 'order']
+
+
+class PenaltyForm(forms.ModelForm):
+    class Meta:
+        model = Penalty
+        fields = ['section', 'number', 'title', 'amount', 'active']

@@ -29,14 +29,14 @@
         {% endif %}
 
             <div class="hero-overlay">
-                <h2 class="hero-text">{{ post.content }}</h2>
+                <h2 class="hero-text">{{ post.content|linebreaksbr }}</h2>
             </div>
         </div>
 
         <!-- PHOTO POST -->
         {% if post.post_type == 'PHOTO' %}
         <div class="photo-body">
-            <p class="caption">{{ post.content }}</p>
+            <p class="caption">{{ post.content|linebreaksbr }}</p>
             {% if post.background_image %}
                 <img src="{{ post.background_image.url }}" class="main-photo">
             {% endif %}
@@ -63,14 +63,18 @@
             <form method="POST" action="{% url 'user:announcement_comment' post.id %}">
                 {% csrf_token %}
                 <input type="text" name="comment" placeholder="Write a comment..." required>
-                <button class="footer-btn">💬</button>
+                <button class="footer-btn">??</button>
             </form>
 
-            <!-- ✅ FACEBOOK SHARE BUTTON -->
+            <button type="button" class="share-icon-btn" data-share-url="{{ request.build_absolute_uri }}" aria-label="Share">
+                <i class="fas fa-share"></i>
+            </button>
+
             <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri }}"
                target="_blank"
-               class="share-btn">
-               🔗 Share on Facebook
+               class="fb-share-btn"
+               aria-label="Share on Facebook">
+               <i class="fab fa-facebook-f"></i>
             </a>
 
         </div>
@@ -100,5 +104,34 @@
     </div>
     {% endfor %}
 </div>
+
+
+<script>
+(function () {
+    const buttons = document.querySelectorAll('.share-icon-btn');
+    if (!buttons.length) return;
+
+    buttons.forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const url = btn.getAttribute('data-share-url') || window.location.href;
+            if (navigator.share) {
+                try {
+                    await navigator.share({ url });
+                    return;
+                } catch (err) {
+                    // fall through to clipboard
+                }
+            }
+            try {
+                await navigator.clipboard.writeText(url);
+                btn.classList.add('copied');
+                setTimeout(() => btn.classList.remove('copied'), 1200);
+            } catch (err) {
+                window.open(url, '_blank');
+            }
+        });
+    });
+})();
+</script>
 
 {% endblock %}

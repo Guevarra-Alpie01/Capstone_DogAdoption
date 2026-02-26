@@ -53,7 +53,7 @@ from .forms import PenaltyForm, SectionForm,CitationForm
 
 #models in admin 
 from .models import Post, PostImage , DogAnnouncement, AnnouncementComment, PostRequest
-from .models import DogCatcherContact
+from .models import DogCatcherContact, AdminNotification
 from .models import Citation
 from .models import Post, PostImage, PostRequest
 from .models import Penalty, PenaltySection
@@ -550,6 +550,30 @@ def admin_user_search_results(request):
     }
 
     return render(request, 'admin_user/user_search_results.html', context)
+
+
+@admin_required
+def admin_notifications(request):
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "mark_all_read":
+            AdminNotification.objects.filter(is_read=False).update(is_read=True)
+        return redirect("dogadoption_admin:admin_notifications")
+
+    notifications = AdminNotification.objects.all()
+    return render(request, "admin_notifications/notifications.html", {
+        "notifications": notifications,
+    })
+
+
+@admin_required
+@require_POST
+def mark_notification_read(request, pk):
+    notif = get_object_or_404(AdminNotification, pk=pk)
+    notif.is_read = True
+    notif.save(update_fields=["is_read"])
+    target = notif.url or "dogadoption_admin:admin_notifications"
+    return redirect(target)
 
 #+++++++++++++++++++++++++++++  ADMIN REGISTRATION  +++++++++++++++++++++++++++++++++++++++++
 

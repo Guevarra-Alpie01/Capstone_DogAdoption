@@ -406,7 +406,7 @@ def request_dog_capture(request):
             filename = f"capture_{request.user.id}_{int(timezone.now().timestamp())}.png"
             image_file = ContentFile(base64.b64decode(imgstr), name=filename)
 
-        DogCaptureRequest.objects.create(
+        new_req = DogCaptureRequest.objects.create(
             requested_by=request.user,
             reason=request.POST.get('reason'),
             description=request.POST.get('description'),
@@ -415,6 +415,12 @@ def request_dog_capture(request):
             barangay=request.POST.get('barangay'),
             city=request.POST.get('city'),
             image=image_file
+        )
+        from dogadoption_admin.models import AdminNotification
+        AdminNotification.objects.create(
+            title="New dog capture request",
+            message=f"{request.user.username} submitted a request.",
+            url="/vetadmin/dog-capture/requests/",
         )
         messages.success(request, "Request submitted successfully.")
 

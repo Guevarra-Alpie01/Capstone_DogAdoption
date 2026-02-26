@@ -229,6 +229,20 @@ class AnnouncementComment(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.comment[:20]}"
 
+
+class AdminNotification(models.Model):
+    title = models.CharField(max_length=160)
+    message = models.TextField(blank=True)
+    url = models.CharField(max_length=255, blank=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
+
 # models.py
 class Dog(models.Model):
     date_registered = models.DateField()

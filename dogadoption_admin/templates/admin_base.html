@@ -25,7 +25,35 @@
 
         </a>
 
-        <div class="d-flex ms-auto">
+        <div class="d-flex ms-auto align-items-center gap-2">
+                            <div class="dropdown">
+                                <a class="btn p-0 nav-bell" href="#" role="button" id="notifDropdown" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
+                                    <i class="bi bi-bell"></i>
+                                    {% if admin_unread_notifications %}
+                                        <span class="notification-badge">{{ admin_unread_notifications }}</span>
+                                    {% endif %}
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end notification-dropdown" aria-labelledby="notifDropdown">
+                                    <li><h6 class="dropdown-header">Notifications</h6></li>
+                                    {% if admin_latest_notifications %}
+                                        {% for n in admin_latest_notifications %}
+                                            <li>
+                                                <form method="POST" action="{% url 'dogadoption_admin:notification_read' n.id %}">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="dropdown-item notification-item {% if not n.is_read %}unread{% endif %}">
+                                                        <span class="notif-title">{{ n.title }}</span>
+                                                        <span class="notif-time">{{ n.created_at|timesince }} ago</span>
+                                                    </button>
+                                                </form>
+                                            </li>
+                                        {% endfor %}
+                                    {% else %}
+                                        <li><span class="dropdown-item-text">No notifications yet</span></li>
+                                    {% endif %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-center" href="{% url 'dogadoption_admin:admin_notifications' %}">View all</a></li>
+                                </ul>
+                            </div>
                             <div class="dropdown">
                                 <a class="btn p-0" href="#" role="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                                     <img src="{% static 'images/default-user-image.jpg' %}" alt="User Avatar" width="30" height="30" class="rounded-circle">

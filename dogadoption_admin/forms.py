@@ -43,7 +43,17 @@ class PostForm(forms.ModelForm):
     
 
 from .models import Citation, Penalty,PenaltySection
+from user.models import User
+
 class CitationForm(forms.ModelForm):
+    owner = forms.ModelChoiceField(
+        queryset=User.objects.all(),
+        label="Search Owner",
+        widget=forms.Select(attrs={
+            "class": "user-search",
+        })
+    )
+
     penalty = forms.ModelChoiceField(
         queryset=Penalty.objects.filter(active=True),
         widget=forms.RadioSelect,
@@ -52,12 +62,15 @@ class CitationForm(forms.ModelForm):
 
     class Meta:
         model = Citation
-        fields = ['owner_name', 'address', 'dog_description', 'penalty', 'remarks']
+        fields = ['owner', 'penalty', 'remarks']
 
 class SectionForm(forms.ModelForm):
     class Meta:
         model = PenaltySection
-        fields = ['title', 'description', 'order']
+        fields = ['number']
+        labels = {
+            'number': 'Section Number'
+        }
 
 
 class PenaltyForm(forms.ModelForm):

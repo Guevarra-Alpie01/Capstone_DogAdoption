@@ -6,32 +6,68 @@ from django.views.decorators.http import require_POST
 from django.db.models import Count, Q
 from datetime import timedelta
 from django.utils import timezone
-
+from datetime import datetime
 from django.contrib import messages
-from django.utils import timezone
 from django.conf import settings
 from django.http import JsonResponse
-import json
-from .forms import CitationForm
-from .models import Citation
-from django.db.models import Count, Q
 
-from .models import Post, PostImage, PostRequest
-from .forms import PostForm
-from user.models import Profile,FaceImage
-
-from django.shortcuts import render, redirect
+from django.contrib.auth.models import User
 from django.views.decorators.http import require_http_methods
 from functools import wraps
 import json
 
+
+
+from django.http import HttpResponse
+
+
+import io
+from io import BytesIO
+
+
+from django.template.loader import render_to_string
+from django.views.decorators.csrf import csrf_exempt
+
+from reportlab.platypus import Paragraph, Spacer
+from openpyxl import Workbook
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+import pandas as pd
+from reportlab.platypus import SimpleDocTemplate, Table
+from docx import Document
+from openpyxl import Workbook
+from xhtml2pdf import pisa
+from docx import Document
+
+
+
+
+
 #forms.py
 from .forms import PostForm
+from .forms import PenaltyForm, SectionForm,CitationForm
 
-#models
+
+#models in admin 
 from .models import Post, PostImage , DogAnnouncement, AnnouncementComment, PostRequest
+from .models import Citation
+from .models import Post, PostImage, PostRequest
+from .models import Penalty, PenaltySection
+from .models import Dog
+from .models import DogRegistration, CertificateSettings
+from .models import Pet, VaccinationRecord, DewormingTreatmentRecord
+
+
+#models from users
+from user.models import Profile,FaceImage 
 from user.models import DogCaptureRequest, AdoptionRequest,FaceImage, Profile,OwnerClaim, ClaimImage
-from django.contrib.auth.models import User
+
+
+
+# views.py
+
 
 # ADMIN-ONLY DECORATOR
 def admin_required(view_func):
@@ -71,9 +107,9 @@ def admin_logout(request):
     return redirect('dogadoption_admin:admin_login')
 
 
-#  HOME PAGE OF THE ADMIN
+# ===================       HOMEPAGE OF THE ADMIN        ===================
 
-# 🔹 CREATE POST
+# CREATE POST
 @admin_required
 def create_post(request):
     if request.method == 'POST':
@@ -98,7 +134,7 @@ def create_post(request):
     })
 
 
-# 🔹 POST LIST WITH DROPDOWN FILTER
+# POST LIST WITH DROPDOWN FILTER
 @admin_required
 def post_list(request):
     status_filter = request.GET.get('status', 'all')
@@ -152,7 +188,7 @@ def post_list(request):
         'current_filter': status_filter,
     })
 
-# 🔹 CLAIM REQUESTS
+#   CLAIM REQUESTS
 @admin_required
 def claim_requests(request, post_id):
     post = get_object_or_404(Post, id=post_id)
@@ -181,7 +217,7 @@ def claim_requests(request, post_id):
     })
 
 
-# 🔹 ADOPTION REQUESTS
+# ADOPTION REQUESTS
 @admin_required
 def adoption_requests(request, post_id):
     post = get_object_or_404(Post, id=post_id)
@@ -210,7 +246,7 @@ def adoption_requests(request, post_id):
     })
 
 
-# 🔹 ACCEPT / REJECT REQUEST
+# ACCEPT / REJECT REQUEST
 @admin_required
 def update_request(request, req_id, action):
     req = get_object_or_404(PostRequest, id=req_id)
@@ -219,7 +255,7 @@ def update_request(request, req_id, action):
     if action == 'accept':
         req.status = 'accepted'
 
-        # 🔥 Move post automatically
+        #  Move post automatically
         if req.request_type == 'claim':
             post.status = 'reunited'
         elif req.request_type == 'adopt':
@@ -235,12 +271,13 @@ def update_request(request, req_id, action):
 
     req.save()
 
-    # 🔥 Smart redirect
+    # Smart redirect
     if req.request_type == 'claim':
         return redirect('dogadoption_admin:claim_requests', post.id)
     else:
         return redirect('dogadoption_admin:adoption_requests', post.id)
 
+# Authenticating users using face auth dashboard
 @admin_required
 def view_faceauth(request, user_id):
     user = get_object_or_404(User, id=user_id)
@@ -257,7 +294,7 @@ def view_faceauth(request, user_id):
         'face_images': face_images,
     })
 
-# DOG CAPTURE REQUESTS 
+#+++++++++++++++++++++ DOG CAPTURE REQUESTS  ++++++++++++++++++++++++++++=
 @admin_required
 def admin_dog_capture_requests(request):
     requests = DogCaptureRequest.objects.select_related(
@@ -299,7 +336,7 @@ def update_dog_capture_request(request, pk):
     })
 
 
-#ANNOUNCEMENTS PAGE
+#  ++++++++++++++++++++++  ANNOUNCEMENTS PAGE   ++++++++++++++++++++++++++++++++++++++
 @admin_required
 def announcement_list(request):
 
@@ -309,10 +346,7 @@ def announcement_list(request):
         'announcements': announcements
     })
 
-#CREATING ANNOUNCEMENTS 
-# views.py
-
-
+#   -CREATING ANNOUNCEMENTS 
 @admin_required
 @require_http_methods(["GET", "POST"])
 def announcement_create(request):
@@ -388,8 +422,7 @@ def comment_reply(request, comment_id):
     return redirect("dogadoption_admin:admin_announcements")
 
 
-#USER MANAGEMENT PAGE
-
+#++++++++++++++++++++++++++++ USER MANAGEMENT PAGE +++++++++++++++++++++++++++++++++++++
 @admin_required
 def admin_users(request):
     query = request.GET.get('q', '')
@@ -453,16 +486,8 @@ def admin_user_search_results(request):
 
     return render(request, 'admin_user/user_search_results.html', context)
 
-#registration
-from .models import Dog
+#+++++++++++++++++++++++++++++  ADMIN REGISTRATION  +++++++++++++++++++++++++++++++++++++++++
 
-# views.py
-
-import json
-from datetime import datetime
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from .models import Dog
 
 @admin_required
 def register_dogs(request):
@@ -518,8 +543,6 @@ def register_dogs(request):
     })
 
 
-
-from .models import Dog  # your Dog model
 
 
 @admin_required
@@ -635,8 +658,7 @@ def download_registration(request, file_type):
 
     return HttpResponse("Invalid file type.", status=400)
 #certification for dogs views.py
-from .models import DogRegistration, CertificateSettings
-from .models import Pet, VaccinationRecord, DewormingTreatmentRecord
+
 
 @admin_required
 def med_record(request, registration_id):
@@ -761,18 +783,6 @@ def certificate_list(request):
         'certificates': certificates
     })
 
-import pandas as pd
-from django.http import HttpResponse
-from reportlab.platypus import SimpleDocTemplate, Table
-from docx import Document
-from openpyxl import Workbook
-from .models import DogRegistration
-import io
-from django.http import HttpResponse
-from openpyxl import Workbook
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
 
 @admin_required
 def export_certificates_pdf(request):
@@ -847,29 +857,7 @@ def export_certificates_excel(request):
 
 #handles all the download/multi select
 
-from django.views.decorators.csrf import csrf_exempt
 
-from reportlab.platypus import Paragraph, Spacer
-
-from reportlab.lib.styles import getSampleStyleSheet
-
-from io import BytesIO
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse
-from django.template.loader import render_to_string
-from django.views.decorators.csrf import csrf_exempt
-from io import BytesIO
-
-from xhtml2pdf import pisa
-from docx import Document
-from openpyxl import Workbook
-
-from .models import (
-    DogRegistration,
-    CertificateSettings,
-    VaccinationRecord,
-    DewormingTreatmentRecord
-)
 @admin_required
 def export_selected_certificates(request):
     if request.method == "POST":
@@ -952,7 +940,7 @@ def bulk_certificate_print(request):
     return redirect("dogadoption_admin:certificate_list")
 
 
-#penalty form
+# Penalty and Citation  form
 def citation_create(request):
     form = CitationForm(request.POST or None)
 
@@ -968,14 +956,13 @@ def citation_print(request, pk):
     citation = get_object_or_404(Citation, pk=pk)
     return render(request, 'admin_registration/citation_print.html', {'citation': citation})
 
-from .models import Penalty, PenaltySection
-from .forms import PenaltyForm, SectionForm
+
 
 
 def penalty_manager(request):
     sections = PenaltySection.objects.prefetch_related('penalties')
 
-    # ✅ ALWAYS initialize forms
+    # ALWAYS initialize forms
     s_form = SectionForm()
     p_form = PenaltyForm()
 

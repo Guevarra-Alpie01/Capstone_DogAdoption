@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
-
+from django.contrib.auth.models import User
 from django.db.models import Q
 import os
 import json
@@ -15,14 +15,16 @@ from django.http import JsonResponse
 from django.core.files.base import ContentFile
 from django.conf import settings
 
-#MODELS.PY 
+#MODELS FROM ADMIN APP 
 from dogadoption_admin.models import DogAnnouncement, AnnouncementComment
-from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
 from dogadoption_admin.models import Post, PostRequest
-from django.contrib.auth.models import User
+
+#MODELS FROM USER APP
+from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
 from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, MissingDogPost
+
+#FORMS.PY 
 from .forms import UserAdoptionPostForm,MissingDogPostForm
- 
 # Decorator to allow only users
 from collections import Counter
 
@@ -548,7 +550,7 @@ def my_claims(request):
 def claim_confirm(request, post_id):
     post = get_object_or_404(Post, id=post_id)
 
-    # 🚫 Block if already claimed or adopted
+    #  Block if already claimed or adopted
     if post.status in ['reunited', 'adopted']:
         messages.warning(request, "This dog is no longer available.")
         return redirect('user:user_home')

@@ -29,6 +29,7 @@
     </div>
 </div>
 
+<div class="post-grid">
 {% for item in posts %}
     {% with post=item.post %}
 <div class="post-card">
@@ -51,16 +52,57 @@
         {% if post.location %}
             {{ post.location }} <br>
         {% endif %}
-        Status: <b>{{ post.get_status_display }}</b> <br>
         Rescued on {{ post.created_at|date:"M d, Y H:i" }}
     </div>
 
     {% if post.images.exists %}
-    <div class="post-images">
-        {% for image in post.images.all %}
-            <img src="{{ image.image.url }}" alt="Dog image">
-        {% endfor %}
-    </div>
+        {% with images=post.images.all %}
+        <div class="post-media">
+            {% with first_image=images|first %}
+                <img src="{{ first_image.image.url }}" alt="Dog image" class="post-main-img">
+            {% endwith %}
+            {% if images|length > 1 %}
+                <button type="button"
+                        class="view-all-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#postImages{{ post.id }}">
+                    View all ({{ images|length }})
+                </button>
+            {% endif %}
+        </div>
+
+        <div class="modal fade" id="postImages{{ post.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Post Images</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="carousel{{ post.id }}" class="carousel slide" data-bs-ride="carousel">
+                            <div class="carousel-inner">
+                                {% for image in images %}
+                                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                        <img src="{{ image.image.url }}" class="d-block w-100 modal-img" alt="Dog image">
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            {% if images|length > 1 %}
+                                <button class="carousel-control-prev" type="button" data-bs-target="#carousel{{ post.id }}" data-bs-slide="prev">
+                                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                    <span class="visually-hidden">Previous</span>
+                                </button>
+                                <button class="carousel-control-next" type="button" data-bs-target="#carousel{{ post.id }}" data-bs-slide="next">
+                                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                    <span class="visually-hidden">Next</span>
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endwith %}
     {% endif %}
 
     <div class="post-actions mt-3">
@@ -84,5 +126,6 @@
 {% empty %}
 <p class="text-muted">No dog adoption posts found</p>
 {% endfor %}
+</div>
 
 {% endblock %}

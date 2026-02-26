@@ -41,6 +41,7 @@ urlpatterns = [
     path('users/', views.admin_users, name='admin_users'),
     path('admin/user/<int:id>/', views.admin_user_detail, name='admin_user_detail'),
     path('users/search/', views.admin_user_search_results, name='admin_user_search'),
+    path('profile/edit/', views.admin_edit_profile, name='admin_edit_profile'),
     path('notifications/', views.admin_notifications, name='admin_notifications'),
     path('notifications/<int:pk>/read/', views.mark_notification_read, name='notification_read'),
 

@@ -4,22 +4,48 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/admin_home/create_post.css' %}">
 
-<div class="form-container">
-    <h2>Create Dog Adoption Post</h2>
+<div class="form-shell">
+    <div class="form-header">
+        <div>
+            <h2>Create Dog Adoption Post</h2>
+            <p>Share rescue details, status, and claim window for adoption monitoring.</p>
+        </div>
+    </div>
 
-    <form method="POST" enctype="multipart/form-data">
+    <form method="POST" enctype="multipart/form-data" class="post-form">
         {% csrf_token %}
 
-        <div class="form-fields">
-            {{ post_form.as_p }}
-        </div>
-        <p class="helptext">
-            Claim duration comes from <strong>claim_days</strong>. After claim ends, adoption automatically opens for 3 days.
-        </p>
+        <div class="form-grid">
+            <div class="form-group full">
+                <label for="{{ post_form.caption.id_for_label }}">Caption</label>
+                {{ post_form.caption }}
+            </div>
 
-        <div class="file-upload-section">
-            <label class="form-label-bold">Upload Dog Images</label>
-            <p class="helptext">The first image selected will be the main display photo.</p>
+            <div class="form-group">
+                <label for="{{ post_form.location.id_for_label }}">Location</label>
+                {{ post_form.location }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ post_form.status.id_for_label }}">Status</label>
+                {{ post_form.status }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ post_form.rescued_date.id_for_label }}">Rescued Date</label>
+                {{ post_form.rescued_date }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ post_form.claim_days.id_for_label }}">Claim Days</label>
+                {{ post_form.claim_days }}
+                <small>After claim ends, adoption opens for 3 days.</small>
+            </div>
+        </div>
+
+        <div class="upload-card">
+            <div class="upload-title">Upload Dog Images</div>
+            <p>The first image will be used as the main display photo.</p>
             <input
                 type="file"
                 name="images"
@@ -30,7 +56,9 @@
             >
         </div>
 
-        <button type="submit" class="btn-submit">Post</button>
+        <div class="form-actions">
+            <button type="submit" class="btn-submit">Publish Post</button>
+        </div>
     </form>
 </div>
 {% endblock %}

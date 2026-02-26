@@ -56,13 +56,17 @@
                             </div>
                             <div class="dropdown">
                                 <a class="btn p-0" href="#" role="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <img src="{% static 'images/default-user-image.jpg' %}" alt="User Avatar" width="30" height="30" class="rounded-circle">
+                                    {% if request.user.profile.profile_image %}
+                                        <img src="{{ request.user.profile.profile_image.url }}" alt="User Avatar" width="30" height="30" class="rounded-circle">
+                                    {% else %}
+                                        <img src="{% static 'images/default-user-image.jpg' %}" alt="User Avatar" width="30" height="30" class="rounded-circle">
+                                    {% endif %}
                                 </a>
 
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                                     <li><h6 class="dropdown-header">User Options</h6></li> 
                                     <li><a href="#" class="dropdown-item">Settings</a></li>
-                                    <li><a href="#" class="dropdown-item">Profile</a></li>
+                                    <li><a href="{% url 'dogadoption_admin:admin_edit_profile' %}" class="dropdown-item">Profile</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a href="{% url 'dogadoption_admin:admin_logout' %}" class="dropdown-item">Log out</a></li>
                                 </ul> 

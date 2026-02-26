@@ -30,24 +30,65 @@
         </div>
     </form>
 
+    <div class="post-grid">
     {% for item in posts %}
     {% with post=item.post %}
     <div class="card mb-4 shadow-sm post-card position-relative">
+        <div class="post-author">
+            {% if item.post_type == 'admin' %}
+                {% if post.user.profile.profile_image %}
+                    <img src="{{ post.user.profile.profile_image.url }}" class="author-avatar-img" alt="Author">
+                {% else %}
+                    <div class="author-avatar">A</div>
+                {% endif %}
+                <div class="author-meta">
+                    <span class="author-name">Admin</span>
+                    <span class="author-role">Municipal Staff</span>
+                </div>
+            {% elif item.post_type == 'user' %}
+                {% if post.owner.profile.profile_image %}
+                    <img src="{{ post.owner.profile.profile_image.url }}" class="author-avatar-img" alt="Author">
+                {% else %}
+                    <div class="author-avatar">U</div>
+                {% endif %}
+                <div class="author-meta">
+                    <span class="author-name">{{ post.owner.username }}</span>
+                    <span class="author-role">Community Post</span>
+                </div>
+            {% elif item.post_type == 'missing' %}
+                {% if post.owner.profile.profile_image %}
+                    <img src="{{ post.owner.profile.profile_image.url }}" class="author-avatar-img" alt="Author">
+                {% else %}
+                    <div class="author-avatar">U</div>
+                {% endif %}
+                <div class="author-meta">
+                    <span class="author-name">{{ post.owner.username }}</span>
+                    <span class="author-role">Missing Report</span>
+                </div>
+            {% endif %}
+        </div>
 
-        {% if item.post_type == 'missing' %}
-            <span class="badge bg-danger status-badge">Missing</span>
-        {% else %}
-            <span class="badge status-badge {{ post.status }}">{{ post.get_status_display }}</span>
+        {% if item.post_type != 'missing' and post.images.count > 1 %}
+            <button class="btn btn-light view-all-badge"
+                    type="button"
+                    data-bs-toggle="modal"
+                    data-bs-target="#postImages{{ post.id }}">
+                View all ({{ post.images.count }})
+            </button>
         {% endif %}
 
         {% if item.post_type == 'missing' %}
             {% if post.image %}
-                <img src="{{ post.image.url }}" class="card-img-top main-img">
+                <div class="media-wrap">
+                    <img src="{{ post.image.url }}" class="card-img-top main-img">
+                </div>
             {% endif %}
         {% else %}
             {% with post.images.first as main_image %}
                 {% if main_image %}
-                    <img src="{{ main_image.image.url }}" class="card-img-top main-img">
+                    <div class="media-wrap">
+                        <img src="{{ main_image.image.url }}" class="card-img-top main-img">
+                    </div>
                 {% endif %}
             {% endwith %}
         {% endif %}
@@ -99,17 +140,34 @@
 
             {% if item.post_type != 'missing' %}
                 {% if post.images.count > 1 %}
-                    <button class="btn btn-link view-more-btn p-0 mt-2"
-                            type="button"
-                            data-bs-toggle="collapse"
-                            data-bs-target="#gallery-{{ post.id }}">
-                        View more photos
-                    </button>
-
-                    <div class="collapse gallery mt-2" id="gallery-{{ post.id }}">
-                        {% for image in post.images.all|slice:"1:" %}
-                            <img src="{{ image.image.url }}" class="gallery-img">
-                        {% endfor %}
+                    <div class="modal fade" id="postImages{{ post.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-lg modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Post Images</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div id="carousel{{ post.id }}" class="carousel slide" data-bs-ride="carousel">
+                                        <div class="carousel-inner">
+                                            {% for image in post.images.all %}
+                                                <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                                    <img src="{{ image.image.url }}" class="d-block w-100 modal-img" alt="Dog image">
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                        <button class="carousel-control-prev" type="button" data-bs-target="#carousel{{ post.id }}" data-bs-slide="prev">
+                                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                            <span class="visually-hidden">Previous</span>
+                                        </button>
+                                        <button class="carousel-control-next" type="button" data-bs-target="#carousel{{ post.id }}" data-bs-slide="next">
+                                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                            <span class="visually-hidden">Next</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 {% endif %}
             {% endif %}
@@ -160,6 +218,7 @@
     {% empty %}
         <p class="text-center">No dogs available yet</p>
     {% endfor %}
+    </div>
 
 </div>
 {% endblock %}

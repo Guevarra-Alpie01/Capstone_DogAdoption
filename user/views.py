@@ -41,6 +41,11 @@ def user_only(view_func):
 
 # User Authentication through log in 
 def login_view(request):
+    if request.user.is_authenticated:
+        if request.user.is_staff:
+            return redirect("dogadoption_admin:post_list")
+        return redirect("user:user_home")
+
     if request.method == "POST":
         username = request.POST.get("username")
         password = request.POST.get("password")
@@ -48,24 +53,29 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
-            # Prevent admins from logging in here
             if user.is_staff:
-                return render(request, "login.html", {
-                    "error": "Please login through the admin portal."
-                })
-
-            # Force logout any existing admin session before logging in as a user
-            if request.user.is_authenticated and request.user.is_staff:
-                logout(request)
+                login(request, user)
+                response = redirect("dogadoption_admin:post_list")
+                response.set_cookie("admin_sessionid", request.session.session_key)
+                return response
 
             login(request, user)
-            return redirect("user:user_home")
+            response = redirect("user:user_home")
+            response.delete_cookie("admin_sessionid")
+            return response
 
         return render(request, "login.html", {
             "error": "Invalid username or password"
         })
 
     return render(request, "login.html")
+
+
+def logout_view(request):
+    logout(request)
+    response = redirect("user:login")
+    response.delete_cookie("admin_sessionid")
+    return response
 
 
 
@@ -257,10 +267,10 @@ def user_home(request):
     # ADMIN POSTS
     for p in admin_posts:
         days = hours = minutes = 0
-        is_open_for_adoption = False
+        phase = p.current_phase() if hasattr(p, "current_phase") else "closed"
+        is_open_for_adoption = phase in ["claim", "adopt"]
 
-        if hasattr(p, 'is_open_for_adoption') and p.is_open_for_adoption():
-            is_open_for_adoption = True
+        if is_open_for_adoption:
             diff = p.time_left()
             total_seconds = max(int(diff.total_seconds()), 0)
 
@@ -276,7 +286,8 @@ def user_home(request):
             'days_left': days,
             'hours_left': hours,
             'minutes_left': minutes,
-            'is_open_for_adoption': is_open_for_adoption
+            'is_open_for_adoption': is_open_for_adoption,
+            'phase': phase,
         })
 
     # USER ADOPTION POSTS
@@ -287,7 +298,8 @@ def user_home(request):
             'days_left': 0,
             'hours_left': 0,
             'minutes_left': 0,
-            'is_open_for_adoption': False
+            'is_open_for_adoption': False,
+            'phase': 'closed',
         })
 
     # MISSING POSTS
@@ -298,7 +310,8 @@ def user_home(request):
             'days_left': 0,
             'hours_left': 0,
             'minutes_left': 0,
-            'is_open_for_adoption': False
+            'is_open_for_adoption': False,
+            'phase': 'closed',
         })
 
     # SORT ALL POSTS
@@ -421,32 +434,53 @@ def claim(request):
 def adopt_list(request):
     filter_type = request.GET.get("filter", "all")
 
-    posts = Post.objects.all().prefetch_related("images").order_by("-created_at")
+    posts_qs = Post.objects.all().prefetch_related("images").order_by("-created_at")
+    posts = []
 
-    # Filtering logic based on YOUR model
+    # Filtering logic based on active timeline phase
     if filter_type == "ready_claim":
         posts = [
-            p for p in posts
-            if p.status == "rescued" and p.is_open_for_adoption()
+            p for p in posts_qs
+            if p.is_open_for_claim()
         ]
 
     elif filter_type == "ready_adopt":
         posts = [
-            p for p in posts
-            if p.status == "under_care" and p.is_open_for_adoption()
+            p for p in posts_qs
+            if p.is_open_for_adoption()
         ]
 
     elif filter_type == "adopted":
-        posts = posts.filter(status="adopted")
+        posts = list(posts_qs.filter(status="adopted"))
 
     elif filter_type == "claimed":
-        posts = posts.filter(status="reunited")
+        posts = list(posts_qs.filter(status="reunited"))
 
     elif filter_type == "all":
-        posts = posts
+        posts = list(posts_qs)
+
+    post_items = []
+    for p in posts:
+        phase = p.current_phase()
+        days = hours = minutes = 0
+        if phase in ["claim", "adopt"]:
+            diff = p.time_left()
+            total_seconds = max(int(diff.total_seconds()), 0)
+            days = total_seconds // 86400
+            remainder = total_seconds % 86400
+            hours = remainder // 3600
+            remainder = remainder % 3600
+            minutes = remainder // 60
+        post_items.append({
+            "post": p,
+            "phase": phase,
+            "days_left": days,
+            "hours_left": hours,
+            "minutes_left": minutes,
+        })
 
     return render(request, "adopt/adopt_list.html", {
-        "posts": posts,
+        "posts": post_items,
         "current_filter": filter_type
     })
 
@@ -462,6 +496,10 @@ def adopt_confirm(request, post_id):
     # Block if already claimed or adopted
     if post.status in ['reunited', 'adopted']:
         messages.warning(request, "This dog is no longer available.")
+        return redirect('user:user_home')
+
+    if not post.is_open_for_adoption():
+        messages.warning(request, "Adoption is not open yet or has already closed.")
         return redirect('user:user_home')
 
     # Prevent duplicate adoption requests
@@ -536,6 +574,10 @@ def claim_confirm(request, post_id):
     #  Block if already claimed or adopted
     if post.status in ['reunited', 'adopted']:
         messages.warning(request, "This dog is no longer available.")
+        return redirect('user:user_home')
+
+    if not post.is_open_for_claim():
+        messages.warning(request, "Claim period has ended for this post.")
         return redirect('user:user_home')
 
     # Prevent duplicate claim requests

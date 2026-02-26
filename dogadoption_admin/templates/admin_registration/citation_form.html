@@ -1,82 +1,96 @@
 {% extends 'admin_base.html' %}
 {% load static %}
 
-
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/register/citation.css' %}">
-<h2>Dog Violation Citation</h2>
+{% include 'admin_registration/registration_navigation.html' %}
 
-{% if citation %}
-    <a class="print-btn"
-       href="{% url 'dogadoption_admin:citation_print' citation.pk %}">
-       🖨 Print Citation
-    </a>
-{% endif %}
-
-<a href="{% url 'dogadoption_admin:penalty_manage' %}">
-    Penalty Manager
-</a>
-
-<form method="post">
-    {% csrf_token %}
-
-    <!-- 🔍 OWNER SEARCH -->
-    <div class="form-group">
-        <label>Select Owner</label>
-        {{ form.owner }}
+<div class="citation-page">
+    <div class="citation-header">
+        <h2>Dog Violation Citation</h2>
+        <p>Create a citation and print it immediately.</p>
     </div>
 
-    <h3>Select Violation</h3>
+    <div class="citation-toolbar" id="print-options">
+        <a class="toolbar-btn secondary" href="{% url 'dogadoption_admin:penalty_manage' %}">Penalty Manager</a>
 
-    <div class="penalty-options">
+        {% if latest_citation %}
+            <a class="toolbar-btn" href="{% url 'dogadoption_admin:citation_print' latest_citation.pk %}">Print Latest Citation (#{{ latest_citation.pk }})</a>
+        {% else %}
+            <button class="toolbar-btn" type="button" disabled>No Citation Yet</button>
+        {% endif %}
 
-        {% regroup form.penalty.field.queryset by section as grouped_penalties %}
+        <form class="quick-print" onsubmit="event.preventDefault(); quickPrintCitation();">
+            <label for="citation-id">Quick Print by ID</label>
+            <input id="citation-id" type="number" min="1" placeholder="Citation ID" required>
+            <button type="submit" class="toolbar-btn">Open Print</button>
+        </form>
+    </div>
 
-        {% for group in grouped_penalties %}
-            <div class="penalty-section">
+    <form method="post" class="citation-form-card">
+        {% csrf_token %}
 
-                <div class="section-title">
-                    {{ group.grouper.title }}
+        <div class="form-group">
+            <label>Select Owner</label>
+            {{ form.owner }}
+            {% if form.owner.errors %}<small class="error-text">{{ form.owner.errors|striptags }}</small>{% endif %}
+        </div>
+
+        <h3>Select Violation</h3>
+
+        <div class="penalty-options">
+            {% regroup form.penalty.field.queryset by section as grouped_penalties %}
+
+            {% for group in grouped_penalties %}
+                <div class="penalty-section">
+                    <div class="section-title">
+                        {% if group.grouper.number %}
+                            Section {{ group.grouper.number }}
+                        {% else %}
+                            Section Unset
+                        {% endif %}
+                    </div>
+
+                    {% for penalty in group.list %}
+                        <label class="radio-item">
+                            <input
+                                type="radio"
+                                name="penalty"
+                                value="{{ penalty.id }}"
+                                {% if form.penalty.value|stringformat:"s" == penalty.id|stringformat:"s" %}checked{% endif %}
+                                required
+                            >
+
+                            <span class="number">{{ penalty.number }}.</span>
+                            <span class="title">{{ penalty.title }}</span>
+                            <span class="amount">PHP {{ penalty.amount }}</span>
+                        </label>
+                    {% endfor %}
                 </div>
+            {% endfor %}
 
-                {% for penalty in group.list %}
-                    <label class="radio-item">
-                        <input type="radio"
-                               name="penalty"
-                               value="{{ penalty.id }}"
-                               required>
+            {% if form.penalty.errors %}<small class="error-text">{{ form.penalty.errors|striptags }}</small>{% endif %}
+        </div>
 
-                        <span class="number">
-                            {{ penalty.number }}.
-                        </span>
+        <div class="form-group">
+            <label>Remarks</label>
+            {{ form.remarks }}
+            {% if form.remarks.errors %}<small class="error-text">{{ form.remarks.errors|striptags }}</small>{% endif %}
+        </div>
 
-                        <span class="title">
-                            {{ penalty.title }}
-                        </span>
+        <button type="submit" class="save-btn">Save Citation</button>
+    </form>
+</div>
 
-                        <span class="amount">
-                            ₱{{ penalty.amount }}
-                        </span>
-                    </label>
-                {% endfor %}
-
-            </div>
-        {% endfor %}
-
-    </div>
-
-    <div class="form-group">
-        <label>Remarks</label>
-        {{ form.remarks }}
-    </div>
-
-    <button type="submit" class="save-btn">
-        Save Citation
-    </button>
-
-</form>
-
-<!-- Required if using django-select2 -->
 {{ form.media }}
 
+<script>
+function quickPrintCitation() {
+    const field = document.getElementById('citation-id');
+    const citationId = (field.value || '').trim();
+    if (!citationId) return;
+    const base = "{% url 'dogadoption_admin:citation_print' 0 %}";
+    window.open(base.replace('/0/', '/' + citationId + '/'), '_blank');
+}
+</script>
 {% endblock %}

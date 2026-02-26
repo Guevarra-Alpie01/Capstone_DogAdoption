@@ -3,6 +3,7 @@ from .models import Post
 class PostForm(forms.ModelForm):
 
     rescued_date = forms.DateField(
+        required=False,
         widget=forms.DateInput(attrs={'type': 'date'})
     )
 
@@ -34,7 +35,7 @@ class PostForm(forms.ModelForm):
     def save(self, commit=True):
         instance = super().save(commit=False)
 
-        # 👇 explicitly store as list (JSON-safe)
+        #  explicitly store as list (JSON-safe)
         instance.violations = self.cleaned_data.get('violations', [])
 
         if commit:

@@ -3,21 +3,21 @@
 
 <div class="card shadow p-4">
 
-    <h3 class="mb-3">🐕 Adoption Review</h3>
+    <h3 class="mb-3">Adoption Review</h3>
 
-    <!-- DOG INFO -->
     <p><strong>Description:</strong></p>
     <p>{{ post.caption }}</p>
 
     {% if post.location %}
-        <p><strong>📍 Location:</strong> {{ post.location }}</p>
+        <p><strong>Location:</strong> {{ post.location }}</p>
     {% endif %}
 
-    <p><strong>🗓 Rescued on:</strong> {{ post.rescued_date }}</p>
+    {% if post.rescued_date %}
+        <p><strong>Rescued on:</strong> {{ post.rescued_date|date:"M d, Y" }}</p>
+    {% endif %}
 
-    <!-- VIOLATIONS -->
     <hr>
-    <h5>⚠️ Reported Violations</h5>
+    <h5>Reported Violations</h5>
 
     {% if post.violations %}
         <ul>
@@ -26,13 +26,12 @@
             {% endfor %}
         </ul>
     {% else %}
-        <p class="text-muted">No violations reported 🐾</p>
+        <p class="text-muted">No violations reported.</p>
     {% endif %}
 
-    <!-- IMAGES -->
     {% if post.images.exists %}
         <hr>
-        <h5>📸 Dog Photos</h5>
+        <h5>Dog Photos</h5>
         <div class="d-flex gap-2 flex-wrap">
             {% for image in post.images.all %}
                 <img src="{{ image.image.url }}"
@@ -45,12 +44,11 @@
 
     <hr>
 
-    <!-- CONFIRMATION -->
     <form method="post">
         {% csrf_token %}
         <div class="d-flex gap-2">
             <button type="submit" class="btn btn-success">
-                ✅ Confirm Adoption Request
+                Confirm Adoption Request
             </button>
 
             <a href="{% url 'user:user_home' %}"

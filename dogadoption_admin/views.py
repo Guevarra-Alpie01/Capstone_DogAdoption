@@ -73,38 +73,22 @@ from user.models import DogCaptureRequest, AdoptionRequest,FaceImage, Profile,Ow
 def admin_required(view_func):
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated or not request.user.is_staff:
-            return redirect('dogadoption_admin:admin_login')
+            return redirect('user:login')
         return view_func(request, *args, **kwargs)
     return wrapper
 
 # AUTH VIEWS
 
 def admin_login(request):
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-
-        user = authenticate(request, username=username, password=password)
-
-        if user is not None and user.is_staff:
-            # Login normally
-            login(request, user)
-
-            # Save session key in a separate cookie for admin
-            response = redirect('dogadoption_admin:post_list')
-            response.set_cookie('admin_sessionid', request.session.session_key)
-            return response
-
-        messages.error(request, 'Invalid credentials or not an admin.')
-        return render(request, 'admin_login.html')
-
-    return render(request, 'admin_login.html')
+    return redirect('user:login')
 
 
 @login_required
 def admin_logout(request):
     logout(request)
-    return redirect('dogadoption_admin:admin_login')
+    response = redirect('user:login')
+    response.delete_cookie('admin_sessionid')
+    return response
 
 
 # ===================       HOMEPAGE OF THE ADMIN        ===================
@@ -162,9 +146,10 @@ def post_list(request):
 
     for p in posts:
         days = hours = minutes = 0
+        phase = p.current_phase()
 
-        if p.is_open_for_claim_adopt():
-            diff = p.claim_deadline() - now
+        if phase in ['claim', 'adopt']:
+            diff = p.time_left()
             total_seconds = max(int(diff.total_seconds()), 0)
 
             days = total_seconds // 86400
@@ -178,6 +163,7 @@ def post_list(request):
             'days_left': days,
             'hours_left': hours,
             'minutes_left': minutes,
+            'phase': phase,
         })
 
     # Sort by newest
@@ -943,18 +929,24 @@ def bulk_certificate_print(request):
 # Penalty and Citation  form
 def citation_create(request):
     form = CitationForm(request.POST or None)
+    latest_citation = Citation.objects.order_by('-id').first()
 
     if form.is_valid():
         citation = form.save()
         return redirect('dogadoption_admin:citation_print', citation.pk)
 
     return render(request, 'admin_registration/citation_form.html', {
-        'form': form
+        'form': form,
+        'latest_citation': latest_citation,
     })
 
 def citation_print(request, pk):
     citation = get_object_or_404(Citation, pk=pk)
-    return render(request, 'admin_registration/citation_print.html', {'citation': citation})
+    penalties = Penalty.objects.filter(active=True).select_related('section').order_by('section__number', 'number')
+    return render(request, 'admin_registration/citation_print.html', {
+        'citation': citation,
+        'penalties': penalties,
+    })
 
 
 

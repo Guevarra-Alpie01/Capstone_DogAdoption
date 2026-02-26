@@ -5,27 +5,26 @@
 <link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}">
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <a href="{% url 'dogadoption_admin:create_post' %}" 
-       class="btn btn-primary btn-lg create-post-btn">
+    <a href="{% url 'dogadoption_admin:create_post' %}" class="btn btn-primary btn-lg create-post-btn">
         <i class="fas fa-plus-circle me-2"></i> Create Post
     </a>
     <div class="dropdown">
         <button class="btn btn-dark dropdown-toggle" type="button" data-bs-toggle="dropdown">
             {% if current_filter == "ready" %}
-                🕒 Ready for Adoption / Claim
+                Ready Window
             {% elif current_filter == "reunited" %}
-                🧾 Reunited (Claimed)
+                Reunited
             {% elif current_filter == "adopted" %}
-                🏠 Adopted
+                Adopted
             {% else %}
-                📋 All Posts
+                All Posts
             {% endif %}
         </button>
         <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="?status=all">📋 All Posts</a></li>
-            <li><a class="dropdown-item" href="?status=ready">🕒 Ready for Adoption / Claim</a></li>
-            <li><a class="dropdown-item" href="?status=reunited">🧾 Reunited (Claimed)</a></li>
-            <li><a class="dropdown-item" href="?status=adopted">🏠 Adopted</a></li>
+            <li><a class="dropdown-item" href="?status=all">All Posts</a></li>
+            <li><a class="dropdown-item" href="?status=ready">Ready Window</a></li>
+            <li><a class="dropdown-item" href="?status=reunited">Reunited</a></li>
+            <li><a class="dropdown-item" href="?status=adopted">Adopted</a></li>
         </ul>
     </div>
 </div>
@@ -34,10 +33,14 @@
     {% with post=item.post %}
 <div class="post-card">
 
-    {% if post.is_open_for_claim_adopt %}
+    {% if item.phase == 'claim' or item.phase == 'adopt' %}
         <div class="alert alert-info mb-2">
-            ⏱ Time left:
-            {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m
+            {% if item.phase == 'claim' %}
+                Claim phase
+            {% else %}
+                Adoption phase
+            {% endif %}
+            : {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m left
         </div>
     {% endif %}
 
@@ -46,10 +49,10 @@
 
     <div class="post-meta">
         {% if post.location %}
-            📍 {{ post.location }} <br>
+            {{ post.location }} <br>
         {% endif %}
         Status: <b>{{ post.get_status_display }}</b> <br>
-        Posted on {{ post.created_at|date:"M d, Y H:i" }}
+        Rescued on {{ post.created_at|date:"M d, Y H:i" }}
     </div>
 
     {% if post.images.exists %}
@@ -61,17 +64,15 @@
     {% endif %}
 
     <div class="post-actions mt-3">
-        <a href="{% url 'dogadoption_admin:claim_requests' post.id %}" 
-           class="btn btn-warning btn-sm">
-            🧾 Claim
+        <a href="{% url 'dogadoption_admin:claim_requests' post.id %}" class="btn btn-warning btn-sm">
+            Claim
             {% if post.claim_count > 0 %}
                 <span class="badge bg-danger">{{ post.claim_count }}</span>
             {% endif %}
         </a>
 
-        <a href="{% url 'dogadoption_admin:adoption_requests' post.id %}" 
-           class="btn btn-success btn-sm">
-            🐾 Adopt
+        <a href="{% url 'dogadoption_admin:adoption_requests' post.id %}" class="btn btn-success btn-sm">
+            Adopt
             {% if post.adopt_count > 0 %}
                 <span class="badge bg-danger">{{ post.adopt_count }}</span>
             {% endif %}

@@ -4,6 +4,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 class Post(models.Model):
+    ADOPTION_DAYS = 3
 
     STATUS_CHOICES = [
         ('rescued', 'Rescued'),
@@ -22,7 +23,7 @@ class Post(models.Model):
         default='rescued'
     )
 
-    rescued_date = models.DateField(default=timezone.now)
+    rescued_date = models.DateField(blank=True, null=True)
 
     claim_days = models.PositiveIntegerField(
         default=3,
@@ -38,36 +39,65 @@ class Post(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def claim_deadline(self):
-        """Deadline for claim/adopt (created_at + claim_days)."""
+        """Deadline for owner claim window."""
         if self.created_at and self.claim_days:
             return self.created_at + timedelta(days=self.claim_days)
         return None
 
+    def adoption_deadline(self):
+        """Deadline for adoption window (claim deadline + fixed 3 days)."""
+        claim_end = self.claim_deadline()
+        if claim_end:
+            return claim_end + timedelta(days=self.ADOPTION_DAYS)
+        return None
+
+    def current_phase(self):
+        """
+        Returns one of:
+        - claim
+        - adopt
+        - closed
+        """
+        if self.status in ['reunited', 'adopted']:
+            return 'closed'
+
+        now = timezone.now()
+        claim_end = self.claim_deadline()
+        adopt_end = self.adoption_deadline()
+
+        if claim_end and now <= claim_end:
+            return 'claim'
+        if adopt_end and now <= adopt_end:
+            return 'adopt'
+        return 'closed'
+
     def time_left(self):
-        """
-        Return remaining time until deadline.
-        If no deadline, returns zero timedelta.
-        """
-        deadline = self.claim_deadline()
-        if deadline:
-            return deadline - timezone.now()
+        """Return remaining time in the active phase."""
+        phase = self.current_phase()
+        now = timezone.now()
+
+        if phase == 'claim':
+            return self.claim_deadline() - now
+        if phase == 'adopt':
+            return self.adoption_deadline() - now
         return timedelta(seconds=0)
 
     def is_expired(self):
-        """Return True if the current time is past the deadline."""
-        deadline = self.claim_deadline()
+        """Return True if both claim and adoption windows are finished."""
+        deadline = self.adoption_deadline()
         return deadline and timezone.now() > deadline
 
     def is_open_for_adoption(self):
-        """
-        True if still within the allowed claim/adopt window
-        and not reunited or adopted.
-        """
-        return not self.is_expired() and self.status not in ['reunited', 'adopted']
+        """True only during adoption phase."""
+        return self.current_phase() == 'adopt'
+
+    def is_open_for_claim(self):
+        """True only during claim phase."""
+        return self.current_phase() == 'claim'
 
     # Optional alias
     def is_open_for_claim_adopt(self):
-        return self.is_open_for_adoption()
+        return self.current_phase() in ['claim', 'adopt']
 
 
 

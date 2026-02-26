@@ -3,35 +3,184 @@
 <head>
     <title>Citation Ticket</title>
     <style>
-        body { font-family: Arial; }
-        .ticket { width: 700px; margin: auto; }
-        .title { text-align:center; font-size:22px; font-weight:bold; }
-        .section { margin-top: 20px; }
+        @page {
+            size: 8.5in 11in;
+            margin: 0.28in 0.32in;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            color: #111;
+            margin: 0;
+            padding: 0;
+            background: #fff;
+            font-size: 11px;
+            line-height: 1.18;
+        }
+
+        .ticket {
+            width: 100%;
+            margin: 0 auto;
+            border: 1px solid #111;
+            padding: 8px 10px;
+            box-sizing: border-box;
+        }
+
+        .top-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 6px;
+            margin-bottom: 6px;
+        }
+
+        .title-block {
+            text-align: center;
+            flex: 1;
+        }
+
+        .title-block h2,
+        .title-block h3,
+        .title-block p {
+            margin: 0;
+        }
+
+        .meta {
+            margin-bottom: 6px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px 10px;
+        }
+
+        .label { font-weight: 700; }
+
+        .ordinance-note {
+            margin: 4px 0 6px;
+            font-weight: 600;
+        }
+
+        .list-columns {
+            column-count: 2;
+            column-gap: 14px;
+            column-fill: auto;
+        }
+
+        .section-block {
+            break-inside: avoid-column;
+            margin-bottom: 6px;
+            border-top: 1px dashed #bbb;
+            padding-top: 3px;
+        }
+
+        .section-title {
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .item-row {
+            display: grid;
+            grid-template-columns: 26px 1fr 70px 16px;
+            gap: 4px;
+            margin: 1px 0;
+            align-items: baseline;
+        }
+
+        .num { font-weight: 700; }
+        .amt { text-align: right; white-space: nowrap; }
+        .mark { text-align: center; font-weight: 700; }
+        .selected {
+            font-weight: 700;
+            text-decoration: underline;
+        }
+
+        .remarks {
+            margin-top: 6px;
+            border-top: 1px solid #333;
+            padding-top: 4px;
+        }
+
+        .footer {
+            margin-top: 12px;
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+        }
+
+        .sign-box {
+            flex: 1;
+            border-top: 1px solid #333;
+            padding-top: 4px;
+            text-align: center;
+        }
+
+        @media print {
+            html, body {
+                width: 8.5in;
+                height: 11in;
+            }
+            .ticket {
+                border: 1px solid #111;
+            }
+        }
     </style>
 </head>
 <body onload="window.print()">
-
 <div class="ticket">
-    <div class="title">CITY VETERINARY OFFICE</div>
-    <div class="title">CITATION TICKET</div>
-
-    <div class="section">
-        <strong>Owner:</strong> {{ citation.owner_name }} <br>
-        <strong>Address:</strong> {{ citation.address }} <br>
-        <strong>Dog:</strong> {{ citation.dog_description }} <br>
-        <strong>Date:</strong> {{ citation.date_issued }}
+    <div class="top-head">
+        <div><strong>Bayawan</strong></div>
+        <div class="title-block">
+            <h2>CITY VETERINARY OFFICE</h2>
+            <h3>CITATION TICKET</h3>
+            <p>Citation No. {{ citation.id }}</p>
+        </div>
+        <div><strong>Date:</strong> {{ citation.date_issued|date:"M d, Y" }}</div>
     </div>
 
-    <div class="section">
-        <strong>Violation No:</strong> {{ citation.penalty.number }} <br>
-        <strong>Offense:</strong> {{ citation.penalty.title }} <br>
-        <strong>Penalty:</strong> ₱{{ citation.penalty.amount }}
+    <div class="meta">
+        <div><span class="label">Owner:</span> {{ citation.owner.get_full_name|default:citation.owner.username }}</div>
+        <div><span class="label">Address:</span> {{ citation.owner.profile.address|default:"-" }}</div>
+        <div><span class="label">Selected Section:</span> {% if citation.penalty.section.number %}Section {{ citation.penalty.section.number }}{% else %}Section Unset{% endif %}</div>
+        <div><span class="label">Selected Violation:</span> #{{ citation.penalty.number }} - {{ citation.penalty.title }}</div>
     </div>
 
-    <div class="section">
-        <strong>Remarks:</strong> {{ citation.remarks }}
+    <div class="ordinance-note">
+        City Ordinance No. 8 entitled "Bayawan City Dog Domestication Ordinance of 2022" penalties:
+    </div>
+
+    <div class="list-columns">
+        {% regroup penalties by section as grouped_penalties %}
+        {% for group in grouped_penalties %}
+            <div class="section-block">
+                <div class="section-title">
+                    {% if group.grouper.number %}
+                        Sec. {{ group.grouper.number }}
+                    {% else %}
+                        Section Unset
+                    {% endif %}
+                </div>
+
+                {% for p in group.list %}
+                    <div class="item-row {% if p.id == citation.penalty.id %}selected{% endif %}">
+                        <div class="num">{{ p.number }})</div>
+                        <div>{{ p.title }}</div>
+                        <div class="amt">PHP {{ p.amount }}</div>
+                        <div class="mark">{% if p.id == citation.penalty.id %}&#9673;{% else %}&#9711;{% endif %}</div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="remarks">
+        <span class="label">Remarks:</span> {{ citation.remarks|default:"None" }}
+    </div>
+
+    <div class="footer">
+        <div class="sign-box">By authority of the Office of the Veterinarian</div>
+        <div class="sign-box">Owner / Recipient</div>
     </div>
 </div>
-
 </body>
 </html>

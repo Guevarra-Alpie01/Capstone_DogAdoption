@@ -16,6 +16,8 @@ class Profile(models.Model):
     address = models.TextField()
     age = models.IntegerField()
     consent_given = models.BooleanField(default=False)
+    phone_number = models.CharField(max_length=20, blank=True)
+    facebook_url = models.URLField(blank=True)
     profile_image = models.ImageField(
     upload_to ="profile_images/",
     default="profile_images/default-user-image.jpg")

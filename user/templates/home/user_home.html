@@ -180,9 +180,12 @@
 
                 {% elif item.post_type == 'user' %}
                     {% if post.status == 'available' and request.user != post.owner %}
-                        <a href="{% url 'user:adopt_user_post' post.id %}" class="btn btn-success btn-sm">Adopt</a>
+                        <a href="{% url 'user:adopt_user_post' post.id %}" class="btn btn-success btn-sm">Request Adoption</a>
                     {% elif post.status == 'adopted' %}
                         <span class="badge bg-secondary fs-6 px-3 py-2">Adopted</span>
+                    {% endif %}
+                    {% if request.user == post.owner %}
+                        <a href="{% url 'user:user_adoption_requests' %}" class="btn btn-outline-dark btn-sm ms-2">View Requests</a>
                     {% endif %}
 
                 {% else %}

@@ -127,6 +127,8 @@ def edit_profile(request):
         profile.middle_initial = request.POST.get("middle_initial", "").strip()
         profile.address = request.POST.get("address", "").strip()
         profile.age = request.POST.get("age") or profile.age
+        profile.phone_number = request.POST.get("phone_number", "").strip()
+        profile.facebook_url = request.POST.get("facebook_url", "").strip()
 
         if request.FILES.get("profile_image"):
             profile.profile_image = request.FILES["profile_image"]
@@ -358,12 +360,57 @@ def adopt_user_post(request, post_id):
     if post.owner == request.user:
         return redirect('user:user_home')
 
+    if post.status != "available":
+        messages.warning(request, "This dog is no longer available.")
+        return redirect("user:user_home")
+
+    profile = Profile.objects.filter(user=request.user).first()
+    if not profile or not profile.phone_number or not profile.facebook_url:
+        messages.warning(request, "Please add your phone number and Facebook profile before requesting adoption.")
+        return redirect("user:edit_profile")
+
     UserAdoptionRequest.objects.get_or_create(
         post=post,
         requester=request.user
     )
 
     return redirect('user:user_home')
+
+
+@user_only
+def user_adoption_requests(request):
+    requests = UserAdoptionRequest.objects.filter(
+        post__owner=request.user
+    ).select_related("post", "requester", "requester__profile").order_by("-created_at")
+
+    return render(request, "adopt/user_post_requests.html", {
+        "requests": requests,
+    })
+
+
+@user_only
+def user_adoption_request_action(request, req_id, action):
+    req = get_object_or_404(
+        UserAdoptionRequest,
+        id=req_id,
+        post__owner=request.user
+    )
+
+    if action == "accept":
+        req.status = "approved"
+        req.save(update_fields=["status"])
+        UserAdoptionRequest.objects.filter(
+            post=req.post
+        ).exclude(id=req.id).update(status="rejected")
+        req.post.status = "adopted"
+        req.post.save(update_fields=["status"])
+        messages.success(request, "Adoption request accepted.")
+    elif action == "decline":
+        req.status = "rejected"
+        req.save(update_fields=["status"])
+        messages.info(request, "Adoption request declined.")
+
+    return redirect("user:user_adoption_requests")
 
 
 from .models import MissingDogPost

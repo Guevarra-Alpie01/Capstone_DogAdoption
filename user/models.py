@@ -23,6 +23,15 @@ class Profile(models.Model):
     
 #request dog capture
 class DogCaptureRequest(models.Model):
+    REASON_LABELS = {
+        'biting': 'Dog is biting people',
+        'aggressive': 'Dog is aggressive',
+        'injured': 'Dog is injured',
+        'sick': 'Dog looks sick',
+        'stray': 'Stray dog',
+        'other': 'Other',
+    }
+
     STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('accepted', 'Accepted'),
@@ -54,6 +63,9 @@ class DogCaptureRequest(models.Model):
     admin_message = models.TextField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def get_reason_display(self):
+        return self.REASON_LABELS.get(self.reason, self.reason.replace('_', ' ').title() if self.reason else 'Unknown')
 
     def __str__(self):
         return f"{self.requested_by} - {self.reason} ({self.status})"

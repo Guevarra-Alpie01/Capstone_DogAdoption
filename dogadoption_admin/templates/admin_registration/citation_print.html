@@ -36,15 +36,64 @@
             margin-bottom: 6px;
         }
 
+        .brand-block {
+            width: 24%;
+            font-size: 10px;
+            line-height: 1.1;
+        }
+
+        .brand-name {
+            font-size: 34px;
+            font-weight: 700;
+            line-height: 0.9;
+            letter-spacing: 0.3px;
+        }
+
+        .brand-tagline {
+            margin-top: 2px;
+            font-size: 10px;
+        }
+
         .title-block {
             text-align: center;
-            flex: 1;
+            width: 46%;
         }
 
         .title-block h2,
         .title-block h3,
         .title-block p {
             margin: 0;
+        }
+
+        .title-block h2 {
+            font-size: 13px;
+            letter-spacing: 0.3px;
+        }
+
+        .title-block h3 {
+            font-size: 35px;
+            letter-spacing: 0.5px;
+            line-height: 0.9;
+            margin: 2px 0;
+        }
+
+        .title-block .subtitle {
+            font-size: 10px;
+            margin-top: 2px;
+            line-height: 1.2;
+        }
+
+        .office-block {
+            width: 30%;
+            text-align: right;
+            font-size: 10px;
+            line-height: 1.2;
+        }
+
+        .office-name {
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            margin-bottom: 2px;
         }
 
         .meta {
@@ -95,23 +144,50 @@
             text-decoration: underline;
         }
 
-        .remarks {
-            margin-top: 6px;
-            border-top: 1px solid #333;
-            padding-top: 4px;
-        }
-
         .footer {
             margin-top: 12px;
             display: flex;
-            justify-content: space-between;
-            gap: 14px;
+            justify-content: flex-end;
         }
 
-        .sign-box {
-            flex: 1;
+        .authority-block {
+            width: 42%;
+            text-align: center;
+            font-size: 10px;
+        }
+
+        .authority-title {
+            margin-bottom: 8px;
+        }
+
+        .signature-line {
             border-top: 1px solid #333;
-            padding-top: 4px;
+            width: 86%;
+            margin: 0 auto 4px;
+        }
+
+        .authority-name {
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            line-height: 1.1;
+        }
+
+        .authority-role {
+            line-height: 1.1;
+            margin-bottom: 3px;
+        }
+
+        .authority-date {
+            text-align: left;
+            width: 86%;
+            margin: 0 auto;
+        }
+
+        .date-line {
+            display: inline-block;
+            min-width: 90px;
+            border-bottom: 1px solid #333;
+            padding: 0 4px 1px;
             text-align: center;
         }
 
@@ -126,28 +202,52 @@
         }
     </style>
 </head>
-<body onload="window.print()">
+<body onload="setPrintDate(); window.print();">
 <div class="ticket">
     <div class="top-head">
-        <div><strong>Bayawan</strong></div>
-        <div class="title-block">
-            <h2>CITY VETERINARY OFFICE</h2>
-            <h3>CITATION TICKET</h3>
-            <p>Citation No. {{ citation.id }}</p>
+        <div class="brand-block">
+            <div class="brand-name">Bayawan</div>
+            <div class="brand-tagline">Celebrate Life's Harvest</div>
         </div>
-        <div><strong>Date:</strong> {{ citation.date_issued|date:"M d, Y" }}</div>
+        <div class="title-block">
+            <h2>CITY ORDINANCE NO. 8</h2>
+            <h3>CITATION TICKET</h3>
+            <p class="subtitle">
+                City Ordinance No. 8 entitled, "Bayawan City Dog Domestication Ordinance of 2022,"
+                hereby charges you the following fines and penalties.
+            </p>
+        </div>
+        <div class="office-block">
+            <div class="office-name">CITY VETERINARY OFFICE</div>
+            <div>National Highway, Barangay Villareal, Bayawan City</div>
+            <div>Negros Oriental, 6221 Philippines</div>
+            <div style="margin-top:4px;"><strong>Date:</strong> {{ citation.date_issued|date:"M d, Y" }}</div>
+            <div><strong>Citation No:</strong> {{ citation.id }}</div>
+        </div>
     </div>
 
     <div class="meta">
         <div><span class="label">Owner:</span> {{ citation.owner.get_full_name|default:citation.owner.username }}</div>
-        <div><span class="label">Address:</span> {{ citation.owner.profile.address|default:"-" }}</div>
-        <div><span class="label">Selected Section:</span> {% if citation.penalty.section.number %}Section {{ citation.penalty.section.number }}{% else %}Section Unset{% endif %}</div>
-        <div><span class="label">Selected Violation:</span> #{{ citation.penalty.number }} - {{ citation.penalty.title }}</div>
+        <div><span class="label">Address:</span> {{ owner_address }}</div>
+        <div>
+            <span class="label">Selected Sections:</span>
+            {% for p in selected_penalties %}
+                {% if p.section.number %}Sec. {{ p.section.number }}{% else %}Unset{% endif %}{% if not forloop.last %}, {% endif %}
+            {% empty %}
+                None
+            {% endfor %}
+        </div>
+        <div>
+            <span class="label">Selected Violations:</span>
+            {% for p in selected_penalties %}
+                #{{ p.number }}{% if not forloop.last %}, {% endif %}
+            {% empty %}
+                None
+            {% endfor %}
+        </div>
     </div>
 
-    <div class="ordinance-note">
-        City Ordinance No. 8 entitled "Bayawan City Dog Domestication Ordinance of 2022" penalties:
-    </div>
+    <div class="ordinance-note">Penalties:</div>
 
     <div class="list-columns">
         {% regroup penalties by section as grouped_penalties %}
@@ -162,25 +262,39 @@
                 </div>
 
                 {% for p in group.list %}
-                    <div class="item-row {% if p.id == citation.penalty.id %}selected{% endif %}">
+                    <div class="item-row {% if p.id in selected_penalty_ids %}selected{% endif %}">
                         <div class="num">{{ p.number }})</div>
                         <div>{{ p.title }}</div>
                         <div class="amt">PHP {{ p.amount }}</div>
-                        <div class="mark">{% if p.id == citation.penalty.id %}&#9673;{% else %}&#9711;{% endif %}</div>
+                        <div class="mark">{% if p.id in selected_penalty_ids %}&#9673;{% else %}&#9711;{% endif %}</div>
                     </div>
                 {% endfor %}
             </div>
         {% endfor %}
     </div>
 
-    <div class="remarks">
-        <span class="label">Remarks:</span> {{ citation.remarks|default:"None" }}
-    </div>
-
     <div class="footer">
-        <div class="sign-box">By authority of the Office of the Veterinarian</div>
-        <div class="sign-box">Owner / Recipient</div>
+        <div class="authority-block">
+            <div class="authority-title">By authority of the Office of the Veterinarian</div>
+            <div class="signature-line"></div>
+            <div class="authority-name">REYNALDO L. SOLAMILLO</div>
+            <div class="authority-role">Team Leader, Rabies/Dog Control</div>
+            <div class="authority-date">
+                Date: <span class="date-line" id="printed-date"></span>
+            </div>
+        </div>
     </div>
 </div>
+<script>
+function setPrintDate() {
+    const el = document.getElementById('printed-date');
+    if (!el) return;
+    const now = new Date();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const yyyy = now.getFullYear();
+    el.textContent = `${mm}/${dd}/${yyyy}`;
+}
+</script>
 </body>
 </html>

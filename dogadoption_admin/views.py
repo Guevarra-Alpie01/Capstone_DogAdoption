@@ -287,8 +287,27 @@ def admin_dog_capture_requests(request):
         'requested_by', 'assigned_admin'
     ).order_by('-created_at')
 
+    map_points = []
+    for req in requests:
+        if req.latitude is not None and req.longitude is not None:
+            scheduled_iso = req.scheduled_date.date().isoformat() if req.scheduled_date else ''
+            scheduled_display = req.scheduled_date.strftime('%b %d, %Y %I:%M %p') if req.scheduled_date else ''
+            map_points.append({
+                'id': req.id,
+                'user': req.requested_by.username,
+                'reason': req.get_reason_display(),
+                'status': req.get_status_display(),
+                'status_key': req.status,
+                'lat': float(req.latitude),
+                'lng': float(req.longitude),
+                'created_at': req.created_at.strftime('%b %d, %Y %I:%M %p'),
+                'scheduled_date_iso': scheduled_iso,
+                'scheduled_date_display': scheduled_display,
+            })
+
     return render(request, 'admin_request/request.html', {
-        'requests': requests
+        'requests': requests,
+        'map_points': map_points,
     })
 
 @admin_required
@@ -930,22 +949,48 @@ def bulk_certificate_print(request):
 def citation_create(request):
     form = CitationForm(request.POST or None)
     latest_citation = Citation.objects.order_by('-id').first()
+    penalties = Penalty.objects.filter(active=True).select_related('section').order_by('section__number', 'number')
 
-    if form.is_valid():
-        citation = form.save()
-        return redirect('dogadoption_admin:citation_print', citation.pk)
+    if request.method == 'POST' and form.is_valid():
+        selected_ids = request.POST.getlist('penalties')
+        selected_penalties = list(Penalty.objects.filter(id__in=selected_ids, active=True).order_by('section__number', 'number'))
+
+        if not selected_penalties:
+            messages.error(request, 'Please select at least one violation.')
+        else:
+            citation = form.save(commit=False)
+            # Keep backward compatibility with existing single-penalty references.
+            citation.penalty = selected_penalties[0]
+            citation.save()
+            citation.penalties.set(selected_penalties)
+            return redirect('dogadoption_admin:citation_print', citation.pk)
 
     return render(request, 'admin_registration/citation_form.html', {
         'form': form,
         'latest_citation': latest_citation,
+        'penalties': penalties,
+        'selected_penalty_ids': [int(x) for x in request.POST.getlist('penalties') if str(x).isdigit()] if request.method == 'POST' else [],
     })
 
 def citation_print(request, pk):
     citation = get_object_or_404(Citation, pk=pk)
     penalties = Penalty.objects.filter(active=True).select_related('section').order_by('section__number', 'number')
+    selected_penalties = list(citation.penalties.all().select_related('section').order_by('section__number', 'number'))
+    if not selected_penalties and citation.penalty_id:
+        selected_penalties = [citation.penalty]
+    owner_address = "-"
+    if citation.owner_id:
+        try:
+            owner_address = citation.owner.profile.address or "-"
+        except Exception:
+            owner_address = "-"
+
     return render(request, 'admin_registration/citation_print.html', {
         'citation': citation,
         'penalties': penalties,
+        'selected_penalties': selected_penalties,
+        'selected_penalty_ids': {p.id for p in selected_penalties},
+        'owner_address': owner_address,
     })
 
 

@@ -3,85 +3,195 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/admin_req/admin_request.css' %}">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <div class="container">
-    <h1>🐕 Dog Capture Requests</h1>
+    <div class="page-head">
+        <h1>Dog Capture Requests</h1>
+        <p>Review user reports and monitor exact GPS requests on the general map.</p>
+    </div>
 
     {% if requests %}
-        {% for req in requests %}
-    <div class="request-card">
+        <div class="requests-grid">
+            {% for req in requests %}
+                <div class="request-card status-{{ req.status }}">
+                    <div class="request-header">
+                        <div>
+                            <strong class="request-user">{{ req.requested_by.username }}</strong>
+                            <span class="request-date">{{ req.created_at|date:"M d, Y h:i A" }}</span>
+                        </div>
+                        <span class="status-badge">{{ req.get_status_display }}</span>
+                    </div>
 
-        <div class="request-header">
-            <strong>Requested by:</strong> {{ req.requested_by.username }}
-            <span class="date">
-                {{ req.created_at|date:"M d, Y • h:i A" }}
-            </span>
+                    {% if req.scheduled_date %}
+                        <div class="schedule-tag">
+                            Scheduled: {{ req.scheduled_date|date:"M d, Y h:i A" }}
+                        </div>
+                    {% endif %}
+
+                    <div class="request-body">
+                        <p><span class="label">Reason</span>{{ req.get_reason_display }}</p>
+
+                        {% if req.description %}
+                            <p><span class="label">Details</span>{{ req.description }}</p>
+                        {% endif %}
+
+                        {% if req.image %}
+                            <div class="request-image">
+                                <img src="{{ req.image.url }}" alt="Dog image">
+                            </div>
+                        {% endif %}
+
+                        {% if req.latitude and req.longitude %}
+                            <p>
+                                <span class="label">Exact Location</span>
+                                <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}"
+                                   target="_blank"
+                                   class="map-link-btn">
+                                    View in Google Maps
+                                </a>
+                            </p>
+                        {% elif req.barangay or req.city %}
+                            <p>
+                                <span class="label">Manual Location</span>
+                                {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}
+                            </p>
+                        {% else %}
+                            <p><span class="label">Location</span><em>No location provided</em></p>
+                        {% endif %}
+
+                        {% if req.assigned_admin %}
+                            <p><span class="label">Assigned to</span>{{ req.assigned_admin.username }}</p>
+                        {% else %}
+                            <p class="unassigned">Not assigned yet</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="request-footer">
+                        {% if req.status == 'pending' %}
+                            <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-primary">Review Request</a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
         </div>
-
-        <p>
-            <strong>Reason:</strong>
-            {{ req.get_reason_display }}
-        </p>
-
-        {% if req.description %}
-            <p><strong>Details:</strong><br>{{ req.description }}</p>
-        {% endif %}
-
-        {% if req.image %}
-            <div class="request-image">
-                <img src="{{ req.image.url }}" alt="Dog image">
-            </div>
-        {% endif %}
-
-        {% if req.latitude and req.longitude %}
-            <p>
-                <strong>Location:</strong>
-                <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}"
-                   target="_blank">
-                    View on Map 📍
-                </a>
-            </p>
-        {% else %}
-            <p><em>No location provided</em></p>
-        {% endif %}
-
-        {% if req.assigned_admin %}
-            <p>
-                <strong>Assigned to:</strong>
-                {{ req.assigned_admin.username }}
-            </p>
-        {% else %}
-            <p class="unassigned">⚠️ Not assigned yet</p>
-        {% endif %}
-
-        <hr>
-
-        {% if req.status == 'pending' %}
-            <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}"
-               class="btn btn-primary">
-                Review Request
-            </a>
-        {% else %}
-           <p>
-                <strong>Status:</strong>
-                    <span class="status-badge">{{ req.get_status_display }}</span>
-            </p>
-
-            {% if req.scheduled_date %}
-                <p>
-                    <strong>Scheduled:</strong>
-                    {{ req.scheduled_date|date:"M d, Y • h:i A" }}
-                </p>
-            {% endif %}
-        {% endif %}
-
-    </div>
-{% endfor %}
-
     {% else %}
         <p>No capture requests yet.</p>
     {% endif %}
 
+    <div class="map-card">
+        <h2>General Request Map</h2>
+        <p>Shows all requests that used exact GPS location. Scheduled requests include appointment date and time.</p>
+
+        {% if map_points %}
+            <div class="map-toolbar">
+                <label for="mapDateFilter">Filter by scheduled date</label>
+                <input type="date" id="mapDateFilter">
+                <button type="button" id="clearDateFilter" class="clear-filter-btn">Clear</button>
+            </div>
+            <div class="map-legend">
+                <span><i class="legend-dot pending"></i> Pending</span>
+                <span><i class="legend-dot accepted"></i> Scheduled/Accepted</span>
+                <span><i class="legend-dot declined"></i> Declined</span>
+            </div>
+            <div id="requests-map"></div>
+            <p id="mapEmptyState" class="empty-map" style="display:none;">No mapped requests match this date filter.</p>
+            {{ map_points|json_script:"map-points-data" }}
+        {% else %}
+            <p class="empty-map">No exact-location requests yet.</p>
+        {% endif %}
+    </div>
 </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+    const dataEl = document.getElementById('map-points-data');
+    if (!dataEl) return;
+
+    const points = JSON.parse(dataEl.textContent || '[]');
+    if (!points.length) return;
+
+    const map = L.map('requests-map');
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri'
+    }).addTo(map);
+    L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Labels &copy; Esri'
+    }).addTo(map);
+
+    const dateFilter = document.getElementById('mapDateFilter');
+    const clearDateFilter = document.getElementById('clearDateFilter');
+    const emptyState = document.getElementById('mapEmptyState');
+    const markersLayer = L.layerGroup().addTo(map);
+
+    function colorForStatus(statusKey) {
+        if (statusKey === 'accepted') return '#2e8b57';
+        if (statusKey === 'declined') return '#c0392b';
+        return '#f39c12';
+    }
+
+    function filteredPoints() {
+        const selectedDate = dateFilter?.value || '';
+        if (!selectedDate) return points;
+        return points.filter(p => p.scheduled_date_iso && p.scheduled_date_iso === selectedDate);
+    }
+
+    function renderMarkers() {
+        markersLayer.clearLayers();
+        const visible = filteredPoints();
+
+        if (!visible.length) {
+            emptyState.style.display = 'block';
+            map.setView([9.2, 122.85], 12);
+            return;
+        }
+        emptyState.style.display = 'none';
+
+        const bounds = [];
+        visible.forEach(point => {
+            const scheduledLine = point.scheduled_date_display
+                ? `Scheduled: ${point.scheduled_date_display}`
+                : 'Scheduled: Not set';
+
+            const popup = [
+                `<strong>Request #${point.id}</strong>`,
+                `User: ${point.user}`,
+                `Reason: ${point.reason}`,
+                `Status: ${point.status}`,
+                scheduledLine,
+                `Created: ${point.created_at}`
+            ].join('<br>');
+
+            const marker = L.circleMarker([point.lat, point.lng], {
+                radius: 8,
+                color: colorForStatus(point.status_key),
+                fillColor: colorForStatus(point.status_key),
+                fillOpacity: 0.88,
+                weight: 2,
+            }).bindPopup(popup);
+
+            marker.addTo(markersLayer);
+            bounds.push([point.lat, point.lng]);
+        });
+
+        if (bounds.length === 1) {
+            map.setView(bounds[0], 16);
+        } else {
+            map.fitBounds(bounds, { padding: [30, 30] });
+        }
+    }
+
+    dateFilter?.addEventListener('change', renderMarkers);
+    clearDateFilter?.addEventListener('click', () => {
+        if (dateFilter) dateFilter.value = '';
+        renderMarkers();
+    });
+
+    renderMarkers();
+})();
+</script>
 
 {% endblock %}

@@ -3,87 +3,107 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/user_request.css' %}">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <div class="container">
 
-    <!-- 🐕 REQUEST FORM -->
     <div class="card">
-        <h2>🐕 Request Dog Capture</h2>
+        <h2>Request Dog Capture</h2>
 
-        <!-- CAPTURE TYPE -->
-        <div class="capture-choice">
-            <button type="button" class="btn-secondary" onclick="showUpload()">📁 Upload Photo</button>
-            <button type="button" class="btn-secondary" onclick="showCamera()">📷 Live Capture</button>
+        <div class="step-indicator">
+            <div class="step-dot active" data-step-dot="1">1</div>
+            <div class="step-dot" data-step-dot="2">2</div>
+            <div class="step-dot" data-step-dot="3">3</div>
         </div>
 
-        <form method="POST" enctype="multipart/form-data" class="capture-form">
+        <form method="POST" enctype="multipart/form-data" class="capture-form" id="captureForm">
             {% csrf_token %}
 
-            <!-- 📁 Upload Section -->
-            <div id="uploadSection" style="display:none;">
-                <label>Upload Photo</label>
-                <input type="file" name="image" accept="image/*">
+            <div class="step-panel" data-step="1">
+                <h3>Step 1: Photo</h3>
+                <div class="capture-choice">
+                    <button type="button" class="btn-secondary" id="uploadModeBtn">Upload Photo</button>
+                    <button type="button" class="btn-secondary" id="cameraModeBtn">Take Picture</button>
+                </div>
+
+                <div id="uploadSection" class="media-section">
+                    <label>Upload Photo</label>
+                    <input type="file" name="image" id="imageInput" accept="image/*">
+                </div>
+
+                <div id="cameraSection" class="media-section" style="display:none;">
+                    <video id="video" autoplay playsinline></video>
+                    <div class="form-actions mt-2">
+                        <button type="button" class="btn-primary" id="startCameraBtn">Open Camera</button>
+                        <button type="button" class="btn-primary" id="captureBtn">Capture</button>
+                    </div>
+                    <canvas id="canvas" style="display:none;"></canvas>
+                    <input type="hidden" name="captured_image" id="capturedImage">
+                    <img id="capturedPreview" class="captured-preview" alt="Captured preview" style="display:none;">
+                </div>
             </div>
 
-            <!-- 📷 Camera Section -->
-            <div id="cameraSection" style="display:none;">
-                <video id="video" autoplay playsinline style="width:100%; border-radius:10px;"></video>
-                <button type="button" class="btn-primary" onclick="capturePhoto()">Capture Photo</button>
-                <canvas id="canvas" style="display:none;"></canvas>
-                <input type="hidden" name="captured_image" id="capturedImage">
+            <div class="step-panel" data-step="2" style="display:none;">
+                <h3>Step 2: Reason</h3>
+                <div class="form-group">
+                    <label>Reason for Capture</label>
+                    <select name="reason" id="reasonField" required>
+                        <option value="">-- Select --</option>
+                        <option value="biting">Dog is biting people</option>
+                        <option value="aggressive">Dog is aggressive</option>
+                        <option value="injured">Dog is injured</option>
+                        <option value="sick">Dog looks sick</option>
+                        <option value="stray">Stray dog</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Additional Details</label>
+                    <textarea name="description" placeholder="Describe the dog, behavior, landmarks, and situation."></textarea>
+                </div>
             </div>
 
-            <!-- Reason -->
-            <div class="form-group">
-                <label>Reason for Capture</label>
-                <select name="reason" required>
-                    <option value="">-- Select --</option>
-                    <option value="biting">Dog is biting people</option>
-                    <option value="aggressive">Dog is aggressive</option>
-                    <option value="injured">Dog is injured</option>
-                    <option value="sick">Dog looks sick</option>
-                    <option value="stray">Stray dog</option>
-                    <option value="other">Other</option>
-                </select>
+            <div class="step-panel" data-step="3" style="display:none;">
+                <h3>Step 3: Location</h3>
+
+                <div class="location-mode">
+                    <label><input type="radio" name="location_mode" value="exact" checked> Use Exact Location</label>
+                    <label><input type="radio" name="location_mode" value="manual"> Enter Barangay Manually</label>
+                </div>
+
+                <div id="exactLocationBox">
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="getLocationBtn">Use Exact GPS Location</button>
+                    </div>
+                    <p id="gpsStatus" class="helper-text">Waiting for location...</p>
+                    <div id="requestMap"></div>
+                    <input type="hidden" name="latitude" id="latitude">
+                    <input type="hidden" name="longitude" id="longitude">
+                </div>
+
+                <div id="manualLocationBox" style="display:none;">
+                    <div class="form-group">
+                        <label>Barangay</label>
+                        <input type="text" name="barangay" id="barangayField" placeholder="Barangay">
+                    </div>
+                    <div class="form-group">
+                        <label>City / Municipality</label>
+                        <input type="text" name="city" id="cityField" placeholder="City / Municipality">
+                    </div>
+                </div>
             </div>
 
-            <!-- Description -->
-            <div class="form-group">
-                <label>Additional Details</label>
-                <textarea name="description" placeholder="Describe the dog, location, behavior..."></textarea>
+            <div class="wizard-actions">
+                <button type="button" class="btn-secondary" id="prevBtn" style="display:none;">Back</button>
+                <button type="button" class="btn-primary" id="nextBtn">Next</button>
+                <button type="submit" class="btn-primary" id="submitBtn" style="display:none;">Submit Request</button>
             </div>
-
-            <!-- LOCATION OPTIONS -->
-            <h4>📍 Location Options</h4>
-
-            <div class="form-actions">
-                <button type="button" class="btn-secondary" onclick="getLocation()">
-                    Use Exact GPS Location
-                </button>
-            </div>
-
-            <input type="hidden" name="latitude" id="latitude">
-            <input type="hidden" name="longitude" id="longitude">
-
-            <p class="mt-2"><strong>OR</strong> type manually:</p>
-
-            <div class="form-group">
-                <input type="text" name="barangay" placeholder="Barangay">
-            </div>
-            <div class="form-group">
-                <input type="text" name="city" placeholder="City / Municipality">
-            </div>
-
-            <button type="submit" class="btn-primary mt-3">
-                Submit Request
-            </button>
         </form>
     </div>
 
-
-    <!-- 📋 MY REQUESTS -->
     <div class="card">
-        <h2>📋 My Requests</h2>
+        <h2>My Requests</h2>
 
         {% for req in requests %}
             <div class="request-card {{ req.status }}">
@@ -96,13 +116,13 @@
 
                 {% if req.status == 'accepted' %}
                     <p>
-                        ✅ Scheduled:
-                        <strong>{{ req.scheduled_date|date:"M d, Y • h:i A" }}</strong>
+                        Scheduled:
+                        <strong>{{ req.scheduled_date|date:"M d, Y h:i A" }}</strong>
                     </p>
                 {% elif req.status == 'declined' %}
-                    <p>❌ Request Declined</p>
+                    <p>Request Declined</p>
                 {% else %}
-                    <p>⏳ Waiting for admin verification</p>
+                    <p>Waiting for admin verification</p>
                 {% endif %}
 
                 {% if req.admin_message %}
@@ -118,65 +138,204 @@
 
 </div>
 
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+let currentStep = 1;
 let stream;
+let map;
+let marker;
 
-// Show Upload
-function showUpload() {
-    document.getElementById("uploadSection").style.display = "block";
-    document.getElementById("cameraSection").style.display = "none";
+function addRealisticLayers(mapInstance) {
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri'
+    }).addTo(mapInstance);
+    L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Labels &copy; Esri'
+    }).addTo(mapInstance);
+}
 
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+const stepPanels = document.querySelectorAll('.step-panel');
+const stepDots = document.querySelectorAll('.step-dot');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const submitBtn = document.getElementById('submitBtn');
+
+function setStep(step) {
+    currentStep = step;
+    stepPanels.forEach(panel => {
+        panel.style.display = Number(panel.dataset.step) === step ? 'block' : 'none';
+    });
+
+    stepDots.forEach(dot => {
+        dot.classList.toggle('active', Number(dot.dataset.stepDot) === step);
+    });
+
+    prevBtn.style.display = step > 1 ? 'inline-block' : 'none';
+    nextBtn.style.display = step < 3 ? 'inline-block' : 'none';
+    submitBtn.style.display = step === 3 ? 'inline-block' : 'none';
+
+    if (step === 3) {
+        setTimeout(() => {
+            if (!map) {
+                map = L.map('requestMap').setView([9.2000, 122.8500], 13);
+                addRealisticLayers(map);
+            }
+            map.invalidateSize();
+        }, 120);
     }
 }
 
-// Show Camera
-function showCamera() {
-    document.getElementById("cameraSection").style.display = "block";
-    document.getElementById("uploadSection").style.display = "none";
+function validateStep(step) {
+    if (step === 1) {
+        const hasUpload = document.getElementById('imageInput').files.length > 0;
+        const hasCapture = document.getElementById('capturedImage').value.trim() !== '';
+        if (!hasUpload && !hasCapture) {
+            alert('Please upload a photo or capture one using camera.');
+            return false;
+        }
+    }
 
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then(s => {
-            stream = s;
-            document.getElementById('video').srcObject = stream;
-        })
-        .catch(err => {
-            alert("Camera access denied or not supported.");
-        });
+    if (step === 2) {
+        const reason = document.getElementById('reasonField').value;
+        if (!reason) {
+            alert('Please select a reason.');
+            return false;
+        }
+    }
+
+    return true;
 }
 
-// Capture Photo
-function capturePhoto() {
+nextBtn.addEventListener('click', () => {
+    if (!validateStep(currentStep)) return;
+    if (currentStep < 3) setStep(currentStep + 1);
+});
+
+prevBtn.addEventListener('click', () => {
+    if (currentStep > 1) setStep(currentStep - 1);
+});
+
+const uploadSection = document.getElementById('uploadSection');
+const cameraSection = document.getElementById('cameraSection');
+const uploadModeBtn = document.getElementById('uploadModeBtn');
+const cameraModeBtn = document.getElementById('cameraModeBtn');
+
+uploadModeBtn.addEventListener('click', () => {
+    uploadSection.style.display = 'block';
+    cameraSection.style.display = 'none';
+    stopCamera();
+});
+
+cameraModeBtn.addEventListener('click', () => {
+    uploadSection.style.display = 'none';
+    cameraSection.style.display = 'block';
+});
+
+function stopCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+}
+
+document.getElementById('startCameraBtn').addEventListener('click', async () => {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        document.getElementById('video').srcObject = stream;
+    } catch (e) {
+        alert('Camera access denied or not supported on this device.');
+    }
+});
+
+document.getElementById('captureBtn').addEventListener('click', () => {
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    const context = canvas.getContext('2d');
+    if (!video.videoWidth) {
+        alert('Open camera first before capturing.');
+        return;
+    }
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
     context.drawImage(video, 0, 0);
 
     const imageData = canvas.toDataURL('image/png');
     document.getElementById('capturedImage').value = imageData;
 
-    alert("Photo captured successfully!");
-}
+    const preview = document.getElementById('capturedPreview');
+    preview.src = imageData;
+    preview.style.display = 'block';
+});
 
-// Get GPS Location
-function getLocation() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(position) {
-            document.getElementById("latitude").value = position.coords.latitude;
-            document.getElementById("longitude").value = position.coords.longitude;
-            alert("Location captured successfully!");
-        }, function() {
-            alert("Unable to retrieve location.");
-        });
-    } else {
-        alert("Geolocation not supported.");
+const locationModeInputs = document.querySelectorAll('input[name="location_mode"]');
+const exactLocationBox = document.getElementById('exactLocationBox');
+const manualLocationBox = document.getElementById('manualLocationBox');
+
+locationModeInputs.forEach(input => {
+    input.addEventListener('change', () => {
+        const mode = document.querySelector('input[name="location_mode"]:checked').value;
+        const isExact = mode === 'exact';
+
+        exactLocationBox.style.display = isExact ? 'block' : 'none';
+        manualLocationBox.style.display = isExact ? 'none' : 'block';
+
+        document.getElementById('barangayField').required = !isExact;
+        document.getElementById('cityField').required = !isExact;
+    });
+});
+
+document.getElementById('getLocationBtn').addEventListener('click', () => {
+    const status = document.getElementById('gpsStatus');
+
+    if (!navigator.geolocation) {
+        alert('Geolocation is not supported on this device/browser.');
+        return;
     }
-}
+
+    status.textContent = 'Getting exact location...';
+    navigator.geolocation.getCurrentPosition(position => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        document.getElementById('latitude').value = lat.toFixed(6);
+        document.getElementById('longitude').value = lng.toFixed(6);
+        status.textContent = `Location captured: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+        if (!map) {
+            map = L.map('requestMap').setView([lat, lng], 16);
+            addRealisticLayers(map);
+        } else {
+            map.setView([lat, lng], 16);
+        }
+
+        if (marker) marker.remove();
+        marker = L.marker([lat, lng]).addTo(map).bindPopup('Exact location').openPopup();
+    }, () => {
+        status.textContent = 'Unable to retrieve location. Please try again.';
+        alert('Unable to retrieve location.');
+    }, {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 0
+    });
+});
+
+document.getElementById('captureForm').addEventListener('submit', (e) => {
+    const mode = document.querySelector('input[name="location_mode"]:checked').value;
+    if (mode === 'exact') {
+        const lat = document.getElementById('latitude').value;
+        const lng = document.getElementById('longitude').value;
+        if (!lat || !lng) {
+            e.preventDefault();
+            alert('Please capture exact location first.');
+        }
+    }
+});
+
+setStep(1);
 </script>
 
 {% endblock %}

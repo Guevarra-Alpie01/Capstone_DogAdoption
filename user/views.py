@@ -398,6 +398,14 @@ def post_detail(request, post_id):
 @user_only
 def request_dog_capture(request):
     if request.method == 'POST':
+        image_file = request.FILES.get('image')
+        captured_image = request.POST.get('captured_image')
+
+        if not image_file and captured_image and ';base64,' in captured_image:
+            _, imgstr = captured_image.split(';base64,', 1)
+            filename = f"capture_{request.user.id}_{int(timezone.now().timestamp())}.png"
+            image_file = ContentFile(base64.b64decode(imgstr), name=filename)
+
         DogCaptureRequest.objects.create(
             requested_by=request.user,
             reason=request.POST.get('reason'),
@@ -406,7 +414,7 @@ def request_dog_capture(request):
             longitude=request.POST.get('longitude') or None,
             barangay=request.POST.get('barangay'),
             city=request.POST.get('city'),
-            image=request.FILES.get('image')
+            image=image_file
         )
         messages.success(request, "Request submitted successfully.")
 

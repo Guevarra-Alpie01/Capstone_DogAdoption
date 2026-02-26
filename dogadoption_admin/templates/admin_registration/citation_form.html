@@ -37,9 +37,10 @@
         </div>
 
         <h3>Select Violation</h3>
+        <p class="helper-text">You can select multiple violations. Click again to unselect.</p>
 
         <div class="penalty-options">
-            {% regroup form.penalty.field.queryset by section as grouped_penalties %}
+            {% regroup penalties by section as grouped_penalties %}
 
             {% for group in grouped_penalties %}
                 <div class="penalty-section">
@@ -54,11 +55,11 @@
                     {% for penalty in group.list %}
                         <label class="radio-item">
                             <input
-                                type="radio"
-                                name="penalty"
+                                type="checkbox"
+                                name="penalties"
                                 value="{{ penalty.id }}"
-                                {% if form.penalty.value|stringformat:"s" == penalty.id|stringformat:"s" %}checked{% endif %}
-                                required
+                                class="violation-check"
+                                {% if penalty.id in selected_penalty_ids %}checked{% endif %}
                             >
 
                             <span class="number">{{ penalty.number }}.</span>
@@ -69,13 +70,6 @@
                 </div>
             {% endfor %}
 
-            {% if form.penalty.errors %}<small class="error-text">{{ form.penalty.errors|striptags }}</small>{% endif %}
-        </div>
-
-        <div class="form-group">
-            <label>Remarks</label>
-            {{ form.remarks }}
-            {% if form.remarks.errors %}<small class="error-text">{{ form.remarks.errors|striptags }}</small>{% endif %}
         </div>
 
         <button type="submit" class="save-btn">Save Citation</button>

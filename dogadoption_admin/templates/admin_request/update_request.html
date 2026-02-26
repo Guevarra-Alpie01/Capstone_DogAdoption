@@ -4,49 +4,98 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/admin_req/update_request.css' %}">
 
-<div class="form-wrapper">
+<div class="container">
     <div class="nav-header">
         <a href="{% url 'dogadoption_admin:requests' %}" class="nav-icon back-btn" title="Back">
             <i class="fas fa-arrow-left"></i>
         </a>
-        <h2 class="form-title">Review Request</h2>
+        <span class="nav-title">Review Request</span>
         <a href="{% url 'dogadoption_admin:requests' %}" class="nav-icon close-btn" title="Close">
             <i class="fas fa-times"></i>
         </a>
     </div>
 
-    <div class="request-summary">
-        <div class="summary-item">
-            <strong>Requested By</strong>
-            <span>{{ req.requested_by.username }}</span>
+    <div class="page-head">
+        <div>
+            <h1>Review Capture Request</h1>
+            <p>Validate request details and decide whether to accept with schedule or decline.</p>
         </div>
-        <div class="summary-item">
-            <strong>Reason</strong>
-            <span>{{ req.get_reason_display }}</span>
-        </div>
+        <a href="{% url 'dogadoption_admin:requests' %}" class="btn-back">Back to Requests</a>
     </div>
 
-    <form method="POST" class="admin-action-form">
-        {% csrf_token %}
+    <div class="review-grid">
+        <div class="card review-card">
+            <div class="meta-grid">
+                <div class="meta-item">
+                    <span class="label">Requested By</span>
+                    <strong>{{ req.requested_by.username }}</strong>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Date Submitted</span>
+                    <strong>{{ req.created_at|date:"M d, Y h:i A" }}</strong>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Reason</span>
+                    <strong>{{ req.get_reason_display }}</strong>
+                </div>
+                <div class="meta-item">
+                    <span class="label">Current Status</span>
+                    <strong>{{ req.get_status_display }}</strong>
+                </div>
+            </div>
 
-        <div class="input-group">
-            <label>Admin Message <small>(Optional)</small></label>
-            <textarea name="admin_message" placeholder="Provide details for the user..."></textarea>
+            {% if req.description %}
+                <div class="info-block">
+                    <span class="label">Details</span>
+                    <p>{{ req.description }}</p>
+                </div>
+            {% endif %}
+
+            {% if req.image %}
+                <div class="info-block">
+                    <span class="label">Attached Photo</span>
+                    <div class="request-image">
+                        <img src="{{ req.image.url }}" alt="Request image">
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="info-block">
+                <span class="label">Location</span>
+                {% if req.latitude and req.longitude %}
+                    <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank" class="map-link-btn">
+                        View in Google Maps
+                    </a>
+                    <small class="coords">{{ req.latitude }}, {{ req.longitude }}</small>
+                {% elif req.barangay or req.city %}
+                    <p>{{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}</p>
+                {% else %}
+                    <p><em>No location provided.</em></p>
+                {% endif %}
+            </div>
         </div>
 
-        <div class="input-group">
-            <label>Schedule Capture Date <small>(Required for Acceptance)</small></label>
-            <input type="datetime-local" name="scheduled_date">
-        </div>
+        <div class="card action-card">
+            <h2>Admin Action</h2>
+            <form method="POST" class="admin-action-form">
+                {% csrf_token %}
 
-        <div class="form-actions">
-            <button type="submit" name="action" value="accept" class="btn-accept">
-                <i class="fas fa-check"></i> Accept & Schedule
-            </button>
-            <button type="submit" name="action" value="decline" class="btn-decline">
-                <i class="fas fa-ban"></i> Decline Request
-            </button>
+                <div class="input-group">
+                    <label for="admin_message">Admin Message (Optional)</label>
+                    <textarea id="admin_message" name="admin_message" placeholder="Provide notes for the user..."></textarea>
+                </div>
+
+                <div class="input-group">
+                    <label for="scheduled_date">Schedule Capture Date (Required for Accept)</label>
+                    <input id="scheduled_date" type="datetime-local" name="scheduled_date">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" name="action" value="accept" class="btn-accept">Accept and Schedule</button>
+                    <button type="submit" name="action" value="decline" class="btn-decline">Decline Request</button>
+                </div>
+            </form>
         </div>
-    </form>
+    </div>
 </div>
 {% endblock %}

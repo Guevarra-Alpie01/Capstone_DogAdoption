@@ -351,6 +351,7 @@ class Citation(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
 
     penalty = models.ForeignKey(Penalty, on_delete=models.CASCADE)
+    penalties = models.ManyToManyField(Penalty, related_name='citations', blank=True)
     date_issued = models.DateTimeField(auto_now_add=True)
     remarks = models.TextField(blank=True)
 

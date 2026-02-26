@@ -55,15 +55,9 @@ class CitationForm(forms.ModelForm):
         })
     )
 
-    penalty = forms.ModelChoiceField(
-        queryset=Penalty.objects.filter(active=True),
-        widget=forms.RadioSelect,
-        empty_label=None
-    )
-
     class Meta:
         model = Citation
-        fields = ['owner', 'penalty', 'remarks']
+        fields = ['owner']
 
 class SectionForm(forms.ModelForm):
     class Meta:

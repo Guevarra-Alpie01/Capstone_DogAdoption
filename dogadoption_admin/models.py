@@ -191,6 +191,21 @@ class DogAnnouncement(models.Model):
         return self.title
 
 
+# Dog catcher contact numbers for SMS notifications
+class DogCatcherContact(models.Model):
+    name = models.CharField(max_length=120, blank=True)
+    phone_number = models.CharField(max_length=32)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        label = self.name.strip() if self.name else "Dog Catcher"
+        return f"{label} ({self.phone_number})"
+
+
 #  COMMENTS ONLY (NO REACTIONS)
 class AnnouncementComment(models.Model):
 

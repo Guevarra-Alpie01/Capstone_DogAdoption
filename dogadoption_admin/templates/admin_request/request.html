@@ -11,69 +11,189 @@
         <p>Review user reports and monitor exact GPS requests on the general map.</p>
     </div>
 
-    {% if requests %}
-        <div class="requests-grid">
-            {% for req in requests %}
-                <div class="request-card status-{{ req.status }}">
-                    <div class="request-header">
+    <div class="contacts-card">
+        <div class="contacts-header">
+            <div>
+                <h2>Dog Catcher Contacts</h2>
+                <p>SMS alerts go to active contacts 8 hours before the scheduled capture time.</p>
+                <p class="trial-note">Twilio trial accounts can only send to verified numbers.</p>
+            </div>
+            <form method="POST" class="contact-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_contact">
+                <input type="text" name="contact_name" placeholder="Name (optional)">
+                <input type="text" name="contact_phone" placeholder="Phone number" required>
+                <button type="submit" class="btn-primary">Add Contact</button>
+            </form>
+        </div>
+
+        {% if contacts %}
+            <div class="contact-list">
+                {% for contact in contacts %}
+                    <div class="contact-row">
                         <div>
-                            <strong class="request-user">{{ req.requested_by.username }}</strong>
-                            <span class="request-date">{{ req.created_at|date:"M d, Y h:i A" }}</span>
+                            <strong>{{ contact.name|default:"Dog Catcher" }}</strong>
+                            <span class="contact-phone">{{ contact.phone_number }}</span>
+                            {% if contact.active %}
+                                <span class="status-pill active">Active</span>
+                            {% else %}
+                                <span class="status-pill inactive">Inactive</span>
+                            {% endif %}
                         </div>
-                        <span class="status-badge">{{ req.get_status_display }}</span>
-                    </div>
-
-                    {% if req.scheduled_date %}
-                        <div class="schedule-tag">
-                            Scheduled: {{ req.scheduled_date|date:"M d, Y h:i A" }}
+                        <div class="contact-actions">
+                            <form method="POST">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="toggle_contact">
+                                <input type="hidden" name="contact_id" value="{{ contact.id }}">
+                                <button type="submit" class="btn-ghost">
+                                    {% if contact.active %}Deactivate{% else %}Activate{% endif %}
+                                </button>
+                            </form>
+                            <form method="POST">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_contact">
+                                <input type="hidden" name="contact_id" value="{{ contact.id }}">
+                                <button type="submit" class="btn-danger">Remove</button>
+                            </form>
                         </div>
-                    {% endif %}
-
-                    <div class="request-body">
-                        <p><span class="label">Reason</span>{{ req.get_reason_display }}</p>
-
-                        {% if req.description %}
-                            <p><span class="label">Details</span>{{ req.description }}</p>
-                        {% endif %}
-
-                        {% if req.image %}
-                            <div class="request-image">
-                                <img src="{{ req.image.url }}" alt="Dog image">
-                            </div>
-                        {% endif %}
-
-                        {% if req.latitude and req.longitude %}
-                            <p>
-                                <span class="label">Exact Location</span>
-                                <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}"
-                                   target="_blank"
-                                   class="map-link-btn">
-                                    View in Google Maps
-                                </a>
-                            </p>
-                        {% elif req.barangay or req.city %}
-                            <p>
-                                <span class="label">Manual Location</span>
-                                {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}
-                            </p>
-                        {% else %}
-                            <p><span class="label">Location</span><em>No location provided</em></p>
-                        {% endif %}
-
-                        {% if req.assigned_admin %}
-                            <p><span class="label">Assigned to</span>{{ req.assigned_admin.username }}</p>
-                        {% else %}
-                            <p class="unassigned">Not assigned yet</p>
-                        {% endif %}
                     </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="empty-map">No contacts yet. Add at least one number to receive SMS alerts.</p>
+        {% endif %}
+    </div>
 
-                    <div class="request-footer">
-                        {% if req.status == 'pending' %}
-                            <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-primary">Review Request</a>
-                        {% endif %}
-                    </div>
+    {% if requests %}
+        <div class="requests-board">
+            <div class="tab-bar" role="tablist" aria-label="Request Status Tabs">
+                <button class="tab-btn is-active" data-tab="pending" role="tab" aria-selected="true">Pending Requests</button>
+                <button class="tab-btn" data-tab="accepted" role="tab" aria-selected="false">Scheduled Requests</button>
+                <button class="tab-btn" data-tab="declined" role="tab" aria-selected="false">Rejected Requests</button>
+            </div>
+
+            <div class="tab-panel is-active" data-panel="pending" role="tabpanel">
+                <div class="table-card">
+                    <table class="request-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Location</th>
+                                <th>Submitted</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in requests %}
+                                {% if req.status == 'pending' %}
+                                    <tr>
+                                        <td class="cell-user">{{ req.requested_by.username }}</td>
+                                        <td>
+                                            {% if req.latitude and req.longitude %}
+                                                <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">View map</a>
+                                            {% elif req.barangay or req.city %}
+                                                {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}
+                                            {% else %}
+                                                <span class="muted">No location</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ req.created_at|date:"M d, Y h:i A" }}</td>
+                                        <td><span class="status-pill pending">Pending</span></td>
+                                        <td>
+                                            <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-primary btn-sm">Review</a>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
-            {% endfor %}
+            </div>
+
+            <div class="tab-panel" data-panel="accepted" role="tabpanel">
+                <div class="table-card">
+                    <table class="request-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Location</th>
+                                <th>Scheduled</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in requests %}
+                                {% if req.status == 'accepted' %}
+                                    <tr>
+                                        <td class="cell-user">{{ req.requested_by.username }}</td>
+                                        <td>
+                                            {% if req.latitude and req.longitude %}
+                                                <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">View map</a>
+                                            {% elif req.barangay or req.city %}
+                                                {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}
+                                            {% else %}
+                                                <span class="muted">No location</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if req.scheduled_date %}
+                                                {{ req.scheduled_date|date:"M d, Y h:i A" }}
+                                            {% else %}
+                                                <span class="muted">Not set</span>
+                                            {% endif %}
+                                        </td>
+                                        <td><span class="status-pill accepted">Scheduled</span></td>
+                                        <td>
+                                            <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-ghost btn-sm">View</a>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-panel" data-panel="declined" role="tabpanel">
+                <div class="table-card">
+                    <table class="request-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Location</th>
+                                <th>Submitted</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in requests %}
+                                {% if req.status == 'declined' %}
+                                    <tr>
+                                        <td class="cell-user">{{ req.requested_by.username }}</td>
+                                        <td>
+                                            {% if req.latitude and req.longitude %}
+                                                <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">View map</a>
+                                            {% elif req.barangay or req.city %}
+                                                {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}
+                                            {% else %}
+                                                <span class="muted">No location</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ req.created_at|date:"M d, Y h:i A" }}</td>
+                                        <td><span class="status-pill declined">Rejected</span></td>
+                                        <td>
+                                            <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-ghost btn-sm">View</a>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     {% else %}
         <p>No capture requests yet.</p>
@@ -191,6 +311,27 @@
     });
 
     renderMarkers();
+})();
+</script>
+<script>
+(function () {
+    const tabs = document.querySelectorAll('.tab-btn');
+    const panels = document.querySelectorAll('.tab-panel');
+
+    function activate(tabName) {
+        tabs.forEach(btn => {
+            const active = btn.dataset.tab === tabName;
+            btn.classList.toggle('is-active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        panels.forEach(panel => {
+            panel.classList.toggle('is-active', panel.dataset.panel === tabName);
+        });
+    }
+
+    tabs.forEach(btn => {
+        btn.addEventListener('click', () => activate(btn.dataset.tab));
+    });
 })();
 </script>
 

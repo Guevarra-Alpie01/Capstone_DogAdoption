@@ -6,6 +6,7 @@ from django.views.decorators.http import require_POST
 from django.db.models import Count, Q
 from datetime import timedelta
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from datetime import datetime
 from django.contrib import messages
 from django.conf import settings
@@ -52,6 +53,7 @@ from .forms import PenaltyForm, SectionForm,CitationForm
 
 #models in admin 
 from .models import Post, PostImage , DogAnnouncement, AnnouncementComment, PostRequest
+from .models import DogCatcherContact
 from .models import Citation
 from .models import Post, PostImage, PostRequest
 from .models import Penalty, PenaltySection
@@ -63,6 +65,8 @@ from .models import Pet, VaccinationRecord, DewormingTreatmentRecord
 #models from users
 from user.models import Profile,FaceImage 
 from user.models import DogCaptureRequest, AdoptionRequest,FaceImage, Profile,OwnerClaim, ClaimImage
+
+from .sms import build_capture_message, send_sms
 
 
 
@@ -282,7 +286,40 @@ def view_faceauth(request, user_id):
 
 #+++++++++++++++++++++ DOG CAPTURE REQUESTS  ++++++++++++++++++++++++++++=
 @admin_required
+@require_http_methods(["GET", "POST"])
 def admin_dog_capture_requests(request):
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'add_contact':
+            name = (request.POST.get('contact_name') or '').strip()
+            phone = (request.POST.get('contact_phone') or '').strip()
+            if phone:
+                DogCatcherContact.objects.create(
+                    name=name,
+                    phone_number=phone,
+                    active=True
+                )
+                messages.success(request, "Dog catcher contact added.")
+            else:
+                messages.error(request, "Phone number is required.")
+
+        elif action == 'toggle_contact':
+            contact_id = request.POST.get('contact_id')
+            contact = DogCatcherContact.objects.filter(id=contact_id).first()
+            if contact:
+                contact.active = not contact.active
+                contact.save(update_fields=['active'])
+                state = "activated" if contact.active else "deactivated"
+                messages.success(request, f"Contact {state}.")
+
+        elif action == 'delete_contact':
+            contact_id = request.POST.get('contact_id')
+            DogCatcherContact.objects.filter(id=contact_id).delete()
+            messages.success(request, "Contact removed.")
+
+        return redirect('dogadoption_admin:requests')
+
     requests = DogCaptureRequest.objects.select_related(
         'requested_by', 'assigned_admin'
     ).order_by('-created_at')
@@ -308,6 +345,7 @@ def admin_dog_capture_requests(request):
     return render(request, 'admin_request/request.html', {
         'requests': requests,
         'map_points': map_points,
+        'contacts': DogCatcherContact.objects.all(),
     })
 
 @admin_required
@@ -320,9 +358,31 @@ def update_dog_capture_request(request, pk):
         if action == 'accept':
             req.status = 'accepted'
             req.assigned_admin = request.user
-            req.scheduled_date = request.POST.get('scheduled_date')
+            scheduled_raw = request.POST.get('scheduled_date')
+            scheduled_dt = parse_datetime(scheduled_raw) if scheduled_raw else None
+            if scheduled_dt and timezone.is_naive(scheduled_dt):
+                scheduled_dt = timezone.make_aware(
+                    scheduled_dt, timezone.get_current_timezone()
+                )
+            req.scheduled_date = scheduled_dt
             req.admin_message = request.POST.get('admin_message')
+
+            if scheduled_dt:
+                notify_at = scheduled_dt - timedelta(hours=8)
+                req.notification_scheduled_for = notify_at
+                req.notification_sent_at = None
             req.save()
+
+            # Send immediately if the schedule is within the 8-hour window
+            if scheduled_dt and notify_at <= timezone.now():
+                contacts = list(
+                    DogCatcherContact.objects.filter(active=True).values_list("phone_number", flat=True)
+                )
+                if contacts:
+                    message = build_capture_message(req)
+                    if send_sms(contacts, message):
+                        req.notification_sent_at = timezone.now()
+                        req.save(update_fields=['notification_sent_at'])
 
             messages.success(request, "Request accepted and scheduled.")
 

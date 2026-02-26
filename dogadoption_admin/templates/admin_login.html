@@ -2,33 +2,61 @@
 <link rel="stylesheet" href="{% static 'css/admin_login.css' %}">
 
 <div class="admin-login-page">
-    <div class="card admin-login-card">
-        <div class="card-body">
-
-            <h2>Admin Login</h2>
+    <div class="admin-login-split-card">
+        <section class="admin-login-form-pane">
+            <div class="admin-form-heading">
+                <p class="admin-kicker">Bayawan City Government</p>
+                <h2>Administrator Sign In</h2>
+                <p class="admin-subtitle">Please enter your authorized credentials.</p>
+            </div>
 
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }}">
-                        {{ message }}
-                    </div>
+                    <div class="admin-form-error">{{ message }}</div>
                 {% endfor %}
             {% endif %}
 
-            <form method="post">
+            <form method="post" class="admin-login-form">
                 {% csrf_token %}
 
-                <label class="form-label">Username</label>
-                <input type="text" class="form-control" name="username" required>
+                <div class="mb-3">
+                    <label class="admin-field-label" for="admin-username">Username</label>
+                    <input type="text"
+                           id="admin-username"
+                           class="form-control"
+                           name="username"
+                           placeholder="Enter username"
+                           required>
+                </div>
 
-                <label class="form-label">Password</label>
-                <input type="password" class="form-control" name="password" required>
+                <div class="mb-3">
+                    <label class="admin-field-label" for="admin-password">Password</label>
+                    <input type="password"
+                           id="admin-password"
+                           class="form-control"
+                           name="password"
+                           placeholder="Enter password"
+                           required>
+                </div>
 
-                <button type="submit" class="btn btn-primary">
-                    Login
+                <button type="submit" class="admin-auth-action">
+                    Sign In
                 </button>
             </form>
+        </section>
 
-        </div>
+        <aside class="admin-login-brand-pane">
+            <div class="admin-brand-emblem">
+                <img src="{% static 'images/officialseal.webp' %}"
+                     class="admin-brand-logo"
+                     alt="Bayawan Official Seal">
+            </div>
+
+            <div class="admin-brand-copy">
+                Bayawan City<br>Veterinary Services
+            </div>
+
+            <div class="admin-brand-note">Administrative Access Portal</div>
+        </aside>
     </div>
 </div>

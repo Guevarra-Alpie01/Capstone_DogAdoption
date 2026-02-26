@@ -383,6 +383,23 @@ def post_detail(request, post_id):
 @user_only
 def request_dog_capture(request):
     if request.method == 'POST':
+        image_file = request.FILES.get('image')
+        captured_image_data = request.POST.get('captured_image')
+
+        # Support live camera capture by converting base64 image data into a file.
+        if not image_file and captured_image_data and ';base64,' in captured_image_data:
+            try:
+                header, encoded = captured_image_data.split(';base64,', 1)
+                extension = 'png'
+                if '/' in header:
+                    extension = header.split('/')[-1]
+                image_file = ContentFile(
+                    base64.b64decode(encoded),
+                    name=f"capture_{request.user.id}.{extension}"
+                )
+            except Exception:
+                image_file = None
+
         DogCaptureRequest.objects.create(
             requested_by=request.user,
             reason=request.POST.get('reason'),
@@ -391,7 +408,7 @@ def request_dog_capture(request):
             longitude=request.POST.get('longitude') or None,
             barangay=request.POST.get('barangay'),
             city=request.POST.get('city'),
-            image=request.FILES.get('image')
+            image=image_file
         )
         messages.success(request, "Request submitted successfully.")
 
@@ -400,7 +417,7 @@ def request_dog_capture(request):
     ).order_by('-created_at')
 
     return render(request, 'user_request/request.html', {
-        'requests': requests
+        'requests': requests,
     })
 
 

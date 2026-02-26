@@ -3,180 +3,489 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/user_request.css' %}">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-<div class="container">
+<div class="request-shell container">
+    <div class="request-grid">
+        <section class="wizard-card">
+            <header class="wizard-header">
+                <p class="wizard-kicker">Community Service Portal</p>
+                <h2>Request Dog Capture</h2>
+                <p class="wizard-subtitle">Complete the form step by step for faster processing.</p>
+            </header>
 
-    <!-- 🐕 REQUEST FORM -->
-    <div class="card">
-        <h2>🐕 Request Dog Capture</h2>
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="wizard-alert">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
 
-        <!-- CAPTURE TYPE -->
-        <div class="capture-choice">
-            <button type="button" class="btn-secondary" onclick="showUpload()">📁 Upload Photo</button>
-            <button type="button" class="btn-secondary" onclick="showCamera()">📷 Live Capture</button>
-        </div>
-
-        <form method="POST" enctype="multipart/form-data" class="capture-form">
-            {% csrf_token %}
-
-            <!-- 📁 Upload Section -->
-            <div id="uploadSection" style="display:none;">
-                <label>Upload Photo</label>
-                <input type="file" name="image" accept="image/*">
-            </div>
-
-            <!-- 📷 Camera Section -->
-            <div id="cameraSection" style="display:none;">
-                <video id="video" autoplay playsinline style="width:100%; border-radius:10px;"></video>
-                <button type="button" class="btn-primary" onclick="capturePhoto()">Capture Photo</button>
-                <canvas id="canvas" style="display:none;"></canvas>
-                <input type="hidden" name="captured_image" id="capturedImage">
-            </div>
-
-            <!-- Reason -->
-            <div class="form-group">
-                <label>Reason for Capture</label>
-                <select name="reason" required>
-                    <option value="">-- Select --</option>
-                    <option value="biting">Dog is biting people</option>
-                    <option value="aggressive">Dog is aggressive</option>
-                    <option value="injured">Dog is injured</option>
-                    <option value="sick">Dog looks sick</option>
-                    <option value="stray">Stray dog</option>
-                    <option value="other">Other</option>
-                </select>
-            </div>
-
-            <!-- Description -->
-            <div class="form-group">
-                <label>Additional Details</label>
-                <textarea name="description" placeholder="Describe the dog, location, behavior..."></textarea>
-            </div>
-
-            <!-- LOCATION OPTIONS -->
-            <h4>📍 Location Options</h4>
-
-            <div class="form-actions">
-                <button type="button" class="btn-secondary" onclick="getLocation()">
-                    Use Exact GPS Location
-                </button>
-            </div>
-
-            <input type="hidden" name="latitude" id="latitude">
-            <input type="hidden" name="longitude" id="longitude">
-
-            <p class="mt-2"><strong>OR</strong> type manually:</p>
-
-            <div class="form-group">
-                <input type="text" name="barangay" placeholder="Barangay">
-            </div>
-            <div class="form-group">
-                <input type="text" name="city" placeholder="City / Municipality">
-            </div>
-
-            <button type="submit" class="btn-primary mt-3">
-                Submit Request
-            </button>
-        </form>
-    </div>
-
-
-    <!-- 📋 MY REQUESTS -->
-    <div class="card">
-        <h2>📋 My Requests</h2>
-
-        {% for req in requests %}
-            <div class="request-card {{ req.status }}">
-                <div class="request-header">
-                    <strong>{{ req.get_reason_display }}</strong>
-                    <span class="status-badge {{ req.status }}">
-                        {{ req.get_status_display }}
-                    </span>
+            <div class="wizard-steps" aria-label="Form progress">
+                <div class="step-indicator active" data-step-indicator="1">
+                    <span class="step-dot">1</span>
+                    <span class="step-label">Photo</span>
                 </div>
-
-                {% if req.status == 'accepted' %}
-                    <p>
-                        ✅ Scheduled:
-                        <strong>{{ req.scheduled_date|date:"M d, Y • h:i A" }}</strong>
-                    </p>
-                {% elif req.status == 'declined' %}
-                    <p>❌ Request Declined</p>
-                {% else %}
-                    <p>⏳ Waiting for admin verification</p>
-                {% endif %}
-
-                {% if req.admin_message %}
-                    <p class="admin-note">
-                        <strong>Admin:</strong> {{ req.admin_message }}
-                    </p>
-                {% endif %}
+                <div class="step-indicator" data-step-indicator="2">
+                    <span class="step-dot">2</span>
+                    <span class="step-label">Incident</span>
+                </div>
+                <div class="step-indicator" data-step-indicator="3">
+                    <span class="step-dot">3</span>
+                    <span class="step-label">Location</span>
+                </div>
+                <div class="step-indicator" data-step-indicator="4">
+                    <span class="step-dot">4</span>
+                    <span class="step-label">Review</span>
+                </div>
             </div>
-        {% empty %}
-            <p>No requests yet.</p>
-        {% endfor %}
-    </div>
 
+            <form id="captureForm" method="POST" enctype="multipart/form-data" class="capture-form">
+                {% csrf_token %}
+
+                <section class="wizard-step active" data-step="1">
+                    <h3>Step 1: Add a Photo (Optional)</h3>
+                    <p class="step-hint">Choose upload or live camera capture.</p>
+
+                    <div class="capture-choice">
+                        <button type="button" class="mode-btn active" id="uploadModeBtn" onclick="showUpload()">
+                            <i class="bi bi-folder2-open"></i>
+                            <span>Upload Photo</span>
+                        </button>
+                        <button type="button" class="mode-btn" id="cameraModeBtn" onclick="showCamera()">
+                            <i class="bi bi-camera"></i>
+                            <span>Live Capture</span>
+                        </button>
+                    </div>
+
+                    <div id="uploadSection" class="capture-panel">
+                        <label class="field-label" for="uploadPhoto">Upload image file</label>
+                        <input id="uploadPhoto" type="file" name="image" accept="image/*">
+                    </div>
+
+                    <div id="cameraSection" class="capture-panel" style="display:none;">
+                        <video id="video" autoplay playsinline></video>
+                        <div class="camera-actions">
+                            <button type="button" class="btn-secondary" onclick="capturePhoto()">
+                                Capture Photo
+                            </button>
+                        </div>
+                        <canvas id="canvas" style="display:none;"></canvas>
+                        <input type="hidden" name="captured_image" id="capturedImage">
+                    </div>
+
+                    <div id="photoPreviewWrap" class="photo-preview-wrap" style="display:none;">
+                        <label class="field-label">Captured preview</label>
+                        <img id="photoPreview" src="" alt="Captured preview">
+                    </div>
+                </section>
+
+                <section class="wizard-step" data-step="2">
+                    <h3>Step 2: Incident Details</h3>
+                    <p class="step-hint">Tell us why capture is needed.</p>
+
+                    <div class="form-group">
+                        <label class="field-label" for="reasonSelect">Reason for capture</label>
+                        <select id="reasonSelect" name="reason" required>
+                            <option value="">-- Select --</option>
+                            <option value="biting">Dog is biting people</option>
+                            <option value="aggressive">Dog is aggressive</option>
+                            <option value="injured">Dog is injured</option>
+                            <option value="sick">Dog looks sick</option>
+                            <option value="stray">Stray dog</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="field-label" for="descriptionInput">Additional details</label>
+                        <textarea id="descriptionInput"
+                                  name="description"
+                                  placeholder="Describe behavior, landmarks, or urgency."></textarea>
+                    </div>
+                </section>
+
+                <section class="wizard-step" data-step="3">
+                    <h3>Step 3: Location</h3>
+                    <p class="step-hint">Use GPS or enter location manually.</p>
+
+                    <div class="gps-box">
+                        <button type="button" class="btn-secondary" onclick="getLocation()">
+                            Use Exact GPS Location
+                        </button>
+                        <div id="gpsStatus" class="gps-status">GPS not yet captured.</div>
+                    </div>
+
+                    <div class="map-panel">
+                        <div class="map-panel-head">
+                            <strong>Map Preview</strong>
+                            <small>Tip: click on the map to place a pin manually.</small>
+                        </div>
+                        <div id="locationMap" class="location-map" aria-label="Location map preview"></div>
+                    </div>
+
+                    <input type="hidden" name="latitude" id="latitude">
+                    <input type="hidden" name="longitude" id="longitude">
+
+                    <div class="divider-text">OR enter manually</div>
+
+                    <div class="form-group">
+                        <label class="field-label" for="barangayInput">Barangay</label>
+                        <input id="barangayInput" type="text" name="barangay" placeholder="Barangay">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="field-label" for="cityInput">City / Municipality</label>
+                        <input id="cityInput" type="text" name="city" placeholder="City / Municipality">
+                    </div>
+
+                    <div class="manual-map-actions">
+                        <button type="button" class="btn-secondary" onclick="findManualLocation()">
+                            Find Manual Location on Map
+                        </button>
+                    </div>
+                </section>
+
+                <section class="wizard-step" data-step="4">
+                    <h3>Step 4: Review and Submit</h3>
+                    <p class="step-hint">Please check your details before sending.</p>
+
+                    <div class="review-box">
+                        <div class="review-row">
+                            <span class="review-label">Photo mode</span>
+                            <span id="reviewPhotoMode" class="review-value">Upload</span>
+                        </div>
+                        <div class="review-row">
+                            <span class="review-label">Reason</span>
+                            <span id="reviewReason" class="review-value">-</span>
+                        </div>
+                        <div class="review-row">
+                            <span class="review-label">Details</span>
+                            <span id="reviewDescription" class="review-value">-</span>
+                        </div>
+                        <div class="review-row">
+                            <span class="review-label">Location</span>
+                            <span id="reviewLocation" class="review-value">-</span>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="wizard-nav">
+                    <button type="button" id="prevStepBtn" class="btn-nav">Back</button>
+                    <button type="button" id="nextStepBtn" class="btn-nav primary">Next</button>
+                    <button type="submit" id="submitStepBtn" class="btn-nav success" style="display:none;">
+                        Submit Request
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <aside class="requests-card">
+            <h2>My Requests</h2>
+
+            {% for req in requests %}
+                <div class="request-item {{ req.status }}">
+                    <div class="request-header">
+                        <strong>{{ req.get_reason_display }}</strong>
+                        <span class="status-badge {{ req.status }}">
+                            {{ req.get_status_display }}
+                        </span>
+                    </div>
+
+                    {% if req.status == 'accepted' %}
+                        <p>
+                            Scheduled:
+                            <strong>{{ req.scheduled_date|date:"M d, Y - h:i A" }}</strong>
+                        </p>
+                    {% elif req.status == 'declined' %}
+                        <p>Request declined</p>
+                    {% else %}
+                        <p>Waiting for admin review</p>
+                    {% endif %}
+
+                    {% if req.admin_message %}
+                        <p class="admin-note">
+                            <strong>Admin:</strong> {{ req.admin_message }}
+                        </p>
+                    {% endif %}
+                </div>
+            {% empty %}
+                <p class="empty-note">No requests yet.</p>
+            {% endfor %}
+        </aside>
+    </div>
 </div>
 
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-let stream;
+let stream = null;
+let currentStep = 1;
+const totalSteps = 4;
+let captureMode = "upload";
+let locationMap = null;
+let mapMarker = null;
+const defaultMapCenter = [9.3647, 122.8014];
 
-// Show Upload
-function showUpload() {
-    document.getElementById("uploadSection").style.display = "block";
-    document.getElementById("cameraSection").style.display = "none";
+function showStep(step) {
+    currentStep = step;
 
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+    document.querySelectorAll(".wizard-step").forEach((el) => {
+        const thisStep = Number(el.getAttribute("data-step"));
+        el.classList.toggle("active", thisStep === step);
+    });
+
+    document.querySelectorAll(".step-indicator").forEach((el) => {
+        const thisStep = Number(el.getAttribute("data-step-indicator"));
+        el.classList.toggle("active", thisStep === step);
+        el.classList.toggle("completed", thisStep < step);
+    });
+
+    document.getElementById("prevStepBtn").disabled = step === 1;
+    document.getElementById("nextStepBtn").style.display = step < totalSteps ? "inline-flex" : "none";
+    document.getElementById("submitStepBtn").style.display = step === totalSteps ? "inline-flex" : "none";
+
+    if (step === 4) {
+        fillReview();
+    }
+
+    if (step === 3) {
+        ensureMap();
+        setTimeout(() => {
+            if (locationMap) {
+                locationMap.invalidateSize();
+            }
+        }, 0);
     }
 }
 
-// Show Camera
+function validateStep(step) {
+    if (step === 2) {
+        const reason = document.getElementById("reasonSelect");
+        if (!reason.value) {
+            reason.focus();
+            alert("Please select a reason for capture.");
+            return false;
+        }
+    }
+    return true;
+}
+
+document.getElementById("nextStepBtn").addEventListener("click", function () {
+    if (!validateStep(currentStep)) return;
+    if (currentStep < totalSteps) showStep(currentStep + 1);
+});
+
+document.getElementById("prevStepBtn").addEventListener("click", function () {
+    if (currentStep > 1) showStep(currentStep - 1);
+});
+
+function setMode(mode) {
+    captureMode = mode;
+    document.getElementById("uploadModeBtn").classList.toggle("active", mode === "upload");
+    document.getElementById("cameraModeBtn").classList.toggle("active", mode === "camera");
+}
+
+function stopStream() {
+    if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+        stream = null;
+    }
+}
+
+function showUpload() {
+    setMode("upload");
+    document.getElementById("uploadSection").style.display = "block";
+    document.getElementById("cameraSection").style.display = "none";
+    stopStream();
+    document.getElementById("capturedImage").value = "";
+}
+
 function showCamera() {
+    setMode("camera");
     document.getElementById("cameraSection").style.display = "block";
     document.getElementById("uploadSection").style.display = "none";
 
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("Camera is not supported on this device.");
+        return;
+    }
+
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then(s => {
+        .then((s) => {
             stream = s;
-            document.getElementById('video').srcObject = stream;
+            document.getElementById("video").srcObject = stream;
         })
-        .catch(err => {
+        .catch(() => {
             alert("Camera access denied or not supported.");
         });
 }
 
-// Capture Photo
 function capturePhoto() {
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const context = canvas.getContext('2d');
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const context = canvas.getContext("2d");
+
+    if (!video.videoWidth || !video.videoHeight) {
+        alert("Camera is not ready yet.");
+        return;
+    }
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     context.drawImage(video, 0, 0);
 
-    const imageData = canvas.toDataURL('image/png');
-    document.getElementById('capturedImage').value = imageData;
+    const imageData = canvas.toDataURL("image/png");
+    document.getElementById("capturedImage").value = imageData;
 
-    alert("Photo captured successfully!");
+    const preview = document.getElementById("photoPreview");
+    preview.src = imageData;
+    document.getElementById("photoPreviewWrap").style.display = "block";
 }
 
-// Get GPS Location
 function getLocation() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(position) {
-            document.getElementById("latitude").value = position.coords.latitude;
-            document.getElementById("longitude").value = position.coords.longitude;
-            alert("Location captured successfully!");
-        }, function() {
-            alert("Unable to retrieve location.");
-        });
-    } else {
-        alert("Geolocation not supported.");
+    if (!navigator.geolocation) {
+        setGpsStatus("Geolocation is not supported on this browser.", "error");
+        return;
+    }
+
+    setGpsStatus("Capturing location...", "loading");
+
+    navigator.geolocation.getCurrentPosition(function (position) {
+        const lat = position.coords.latitude.toFixed(6);
+        const lng = position.coords.longitude.toFixed(6);
+        document.getElementById("latitude").value = lat;
+        document.getElementById("longitude").value = lng;
+        setGpsStatus("GPS captured: " + lat + ", " + lng, "ok");
+        ensureMap();
+        updateMapMarker(Number(lat), Number(lng), 16);
+    }, function () {
+        setGpsStatus("Unable to retrieve location.", "error");
+    });
+}
+
+function ensureMap() {
+    if (locationMap || typeof L === "undefined") {
+        return;
+    }
+
+    locationMap = L.map("locationMap", { zoomControl: true }).setView(defaultMapCenter, 13);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(locationMap);
+
+    locationMap.on("click", function (event) {
+        const lat = event.latlng.lat.toFixed(6);
+        const lng = event.latlng.lng.toFixed(6);
+        document.getElementById("latitude").value = lat;
+        document.getElementById("longitude").value = lng;
+        setGpsStatus("Pinned from map: " + lat + ", " + lng, "ok");
+        updateMapMarker(Number(lat), Number(lng), locationMap.getZoom());
+    });
+
+    const latInput = document.getElementById("latitude").value;
+    const lngInput = document.getElementById("longitude").value;
+    if (latInput && lngInput) {
+        updateMapMarker(Number(latInput), Number(lngInput), 16);
     }
 }
+
+function updateMapMarker(lat, lng, zoom = 16) {
+    if (!locationMap) return;
+
+    if (!mapMarker) {
+        mapMarker = L.marker([lat, lng]).addTo(locationMap);
+    } else {
+        mapMarker.setLatLng([lat, lng]);
+    }
+    locationMap.setView([lat, lng], zoom);
+}
+
+function setGpsStatus(message, state = "") {
+    const status = document.getElementById("gpsStatus");
+    status.textContent = message;
+    status.classList.remove("ok", "error", "loading");
+    if (state) {
+        status.classList.add(state);
+    }
+}
+
+function findManualLocation() {
+    const barangay = document.getElementById("barangayInput").value.trim();
+    const city = document.getElementById("cityInput").value.trim();
+    const query = [barangay, city].filter(Boolean).join(", ");
+
+    if (!query) {
+        setGpsStatus("Enter barangay or city first to search on map.", "error");
+        return;
+    }
+
+    setGpsStatus("Finding location on map...", "loading");
+
+    fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(query))
+        .then((response) => response.json())
+        .then((results) => {
+            if (!results.length) {
+                setGpsStatus("Location not found. Try a more specific place.", "error");
+                return;
+            }
+
+            const lat = Number(results[0].lat).toFixed(6);
+            const lng = Number(results[0].lon).toFixed(6);
+            document.getElementById("latitude").value = lat;
+            document.getElementById("longitude").value = lng;
+
+            ensureMap();
+            updateMapMarker(Number(lat), Number(lng), 16);
+            setGpsStatus("Manual location found: " + lat + ", " + lng, "ok");
+        })
+        .catch(() => {
+            setGpsStatus("Could not search location right now.", "error");
+        });
+}
+
+function fillReview() {
+    const reasonSelect = document.getElementById("reasonSelect");
+    const reasonText = reasonSelect.options[reasonSelect.selectedIndex] ? reasonSelect.options[reasonSelect.selectedIndex].text : "-";
+    const description = document.getElementById("descriptionInput").value.trim() || "-";
+    const lat = document.getElementById("latitude").value.trim();
+    const lng = document.getElementById("longitude").value.trim();
+    const barangay = document.getElementById("barangayInput").value.trim();
+    const city = document.getElementById("cityInput").value.trim();
+
+    let locationText = "-";
+    if (lat && lng) {
+        locationText = "GPS: " + lat + ", " + lng;
+    } else if (barangay || city) {
+        locationText = [barangay, city].filter(Boolean).join(", ");
+    }
+
+    document.getElementById("reviewPhotoMode").textContent = captureMode === "camera" ? "Live Capture" : "Upload";
+    document.getElementById("reviewReason").textContent = reasonText || "-";
+    document.getElementById("reviewDescription").textContent = description;
+    document.getElementById("reviewLocation").textContent = locationText;
+}
+
+document.getElementById("captureForm").addEventListener("submit", function (event) {
+    if (!validateStep(2)) {
+        event.preventDefault();
+        showStep(2);
+    }
+});
+
+document.getElementById("uploadPhoto").addEventListener("change", function (event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) {
+        return;
+    }
+    const preview = document.getElementById("photoPreview");
+    preview.src = URL.createObjectURL(file);
+    document.getElementById("photoPreviewWrap").style.display = "block";
+});
+
+window.addEventListener("beforeunload", stopStream);
+showUpload();
+showStep(1);
 </script>
 
 {% endblock %}

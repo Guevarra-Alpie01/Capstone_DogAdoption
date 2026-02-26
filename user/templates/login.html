@@ -3,72 +3,77 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/login.css' %}">
-<style>
-body {
-    background: url("{% static 'images/OIP.webp' %}") no-repeat center center fixed;
-    background-size: cover;
-    position: relative;
-}
-</style>
-
-
-{% if error %}
-<div class="alert alert-danger text-center">
-    {{ error }}
-</div>
-{% endif %}
 
 <div class="auth-wrapper d-flex justify-content-center align-items-center">
+    <div id="authCard" class="login-split-card">
+        <section class="login-form-pane">
+            <h2 class="form-title">Login</h2>
 
-    <div class="auth-card">
+            {% if error %}
+            <div class="form-error">{{ error }}</div>
+            {% endif %}
 
-        <!--  Logos Inside Log in  Card -->
-        <div class="card-logos d-flex justify-content-between align-items-center mb-3">
-            <img src="{% static 'images/bayawan_logo.webp' %}" 
-                 class="card-logo" 
-                 alt="Bayawan Logo">
+            <form method="post" class="login-form">
+                {% csrf_token %}
 
-            <img src="{% static 'images/OIP.webp' %}" 
-                 class="card-logo" 
-                 alt="Bayawan harvest logo">
-        </div>
+                <div class="mb-3">
+                    <input type="text"
+                           name="username"
+                           class="form-control"
+                           placeholder="Username"
+                           required>
+                </div>
 
-        <h2 class="text-center mb-4 brand-title">Login</h2>
+                <div class="mb-3">
+                    <input type="password"
+                           name="password"
+                           class="form-control"
+                           placeholder="Password"
+                           required>
+                </div>
 
-        <form method="post">
-            {% csrf_token %}
+                <button type="submit" class="auth-action w-100 py-2">
+                    Log In
+                </button>
+            </form>
 
-            <div class="mb-3">
-                <input type="text"
-                       name="username"
-                       class="form-control"
-                       placeholder="Username"
-                       required>
+            <div class="or-divider">or</div>
+
+            <a href="{% url 'user:signup' %}"
+               data-auth-transition="to-signup"
+               class="auth-action secondary-action w-100 d-block text-center py-2">
+                Create New Account
+            </a>
+        </section>
+
+        <aside class="login-brand-pane">
+            <div class="brand-logos">
+                <img src="{% static 'images/OIP.webp' %}"
+                     class="brand-logo"
+                     alt="Official Seal">
+
+                <img src="{% static 'images/bayawan_logo.webp' %}"
+                     class="brand-logo"
+                     alt="Bayawan Logo">
             </div>
 
-            <div class="mb-3">
-                <input type="password"
-                       name="password"
-                       class="form-control"
-                       placeholder="Password"
-                       required>
+            <div class="brand-copy">
+                Bayawan City<br>Dog Adoption
             </div>
-
-            <button type="submit" class="w-100 login-btn py-2">
-                Log In
-            </button>
-        </form>
-
-        <div class="text-center my-3">
-            <span class="text-muted">or</span>
-        </div>
-
-      <a href="{% url 'user:signup' %}" class="w-100 login-btn d-block text-center py-2">
-    Create New Account
-      </a>
-
-
+        </aside>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const card = document.getElementById('authCard');
+    const transition = sessionStorage.getItem('authTransition');
+
+    if (card && transition === 'to-login') {
+        card.classList.add('pane-slide-to-login');
+    }
+    sessionStorage.removeItem('authTransition');
+});
+</script>
 
 {% endblock %}

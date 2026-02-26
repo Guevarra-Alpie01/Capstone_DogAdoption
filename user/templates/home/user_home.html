@@ -4,188 +4,184 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/user_home.css' %}">
 
-<div class="home-content container">
+<div class="home-shell container">
+    <section class="home-toolbar">
+        <div class="toolbar-left">
+            <p class="toolbar-kicker">Community Feed</p>
+            <h1 class="toolbar-title">Dog Adoption and Rescue</h1>
+        </div>
 
-    <!-- CREATE BUTTONS -->
-    {% if request.user.is_authenticated %}
-    <div class="mb-3">
-        <a href="{% url 'user:create_user_adoption_post' %}" class="btn btn-primary">
-            ➕ Post Dog for Adoption
-        </a>
-        <a href="{% url 'user:create_missing_post' %}" class="btn btn-danger ms-2">
-            🚨 Post Missing Dog
-        </a>
-    </div>
-    {% endif %}
+        {% if request.user.is_authenticated %}
+        <div class="toolbar-actions">
+            <a href="{% url 'user:create_user_adoption_post' %}" class="quick-action primary">
+                <i class="bi bi-plus-circle"></i>
+                <span>Post Dog for Adoption</span>
+            </a>
+            <a href="{% url 'user:create_missing_post' %}" class="quick-action warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>Post Missing Dog</span>
+            </a>
+        </div>
+        {% endif %}
+    </section>
 
-    <!-- SEARCH BAR -->
-    <form method="get" class="search-bar mb-4">
-        <div class="input-group">
+    <form method="get" class="search-panel">
+        <div class="search-input-wrap">
+            <i class="bi bi-search"></i>
             <input
                 type="text"
                 name="q"
                 class="form-control"
-                placeholder="Search by location, status, or keyword 🐕"
+                placeholder="Search by dog name, location, status, or keyword"
                 value="{{ query }}"
             >
-            <button class="btn btn-primary" type="submit">🔍 Search</button>
         </div>
+        <button class="search-submit" type="submit">Search</button>
     </form>
 
-    {% for item in posts %}
-    {% with post=item.post %}
-    <div class="card mb-4 shadow-sm post-card position-relative">
-
-        <!-- STATUS BADGE -->
-        {% if item.post_type == 'missing' %}
-            <span class="badge bg-danger status-badge">
-                🚨 Missing
-            </span>
-        {% else %}
-            <span class="badge status-badge {{ post.status }}">
-                {{ post.get_status_display }}
-            </span>
-        {% endif %}
-
-        <!-- IMAGE SECTION -->
-        {% if item.post_type == 'missing' %}
-            {% if post.image %}
-                <img src="{{ post.image.url }}" class="card-img-top main-img">
-            {% endif %}
-        {% else %}
-            {% with post.images.first as main_image %}
-                {% if main_image %}
-                    <img src="{{ main_image.image.url }}" class="card-img-top main-img">
-                {% endif %}
-            {% endwith %}
-        {% endif %}
-
-        <div class="card-body">
-
-            <!-- TITLE -->
-            <h5 class="card-title">
-                {% if item.post_type == 'user' %}
-                    {{ post.dog_name }}
-                {% elif item.post_type == 'missing' %}
-                    🚨 MISSING: {{ post.dog_name }}
-                {% else %}
-                    Dog Rescue Update
-                {% endif %}
-            </h5>
-
-            <!-- DESCRIPTION -->
-            <p class="card-text">
-                {% if item.post_type == 'user' %}
-                    {{ post.description }}
-
-                {% elif item.post_type == 'missing' %}
-                    {{ post.description }}<br>
-                    <strong>Lost On:</strong> {{ post.date_lost }} at {{ post.time_lost }}
-
-                {% else %}
-                    {{ post.caption }}
-                {% endif %}
-            </p>
-
-            <!-- LOCATION -->
-            {% if post.location %}
-                <small class="text-muted">📍 {{ post.location }}</small><br>
-            {% endif %}
-
-            <!-- DATE POSTED -->
-            <small class="text-muted">
-                🗓 Posted on {{ post.created_at|date:"M d, Y H:i" }}
-            </small>
-
-            <!-- COUNTDOWN (ADMIN POSTS ONLY) -->
-            {% if item.post_type == 'admin' and item.is_open_for_adoption %}
-                <div class="mt-2">
-                    <span class="text-success fw-semibold">
-                        ⏱ Time left: {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m
-                    </span>
+    <section class="feed-list">
+        {% for item in posts %}
+        {% with post=item.post %}
+        <article class="post-card">
+            {% if item.post_type == 'missing' %}
+                <div class="post-media {% if not post.image %}no-media{% endif %}">
+                    {% if post.image %}
+                        <img src="{{ post.image.url }}"
+                             class="main-img"
+                             alt="Missing dog photo"
+                             onerror="this.onerror=null;this.src='{% static 'images/OIP.webp' %}';">
+                    {% endif %}
+                    <div class="no-media-placeholder">
+                        <i class="bi bi-image"></i>
+                        <span>No image available</span>
+                    </div>
+                    <span class="status-badge missing">Missing</span>
                 </div>
+            {% else %}
+                {% with post.images.first as main_image %}
+                    <div class="post-media {% if not main_image %}no-media{% endif %}">
+                        {% if main_image %}
+                            <img src="{{ main_image.image.url }}"
+                                 class="main-img"
+                                 alt="Post photo"
+                                 onerror="this.onerror=null;this.src='{% static 'images/OIP.webp' %}';">
+                        {% endif %}
+                        <div class="no-media-placeholder">
+                            <i class="bi bi-image"></i>
+                            <span>No image available</span>
+                        </div>
+                        <span class="status-badge {{ post.status }}">
+                            {{ post.get_status_display }}
+                        </span>
+                    </div>
+                {% endwith %}
             {% endif %}
 
-            <!-- EXTRA IMAGES (NOT FOR MISSING) -->
-            {% if item.post_type != 'missing' %}
-                {% if post.images.count > 1 %}
-                    <button class="btn btn-link view-more-btn p-0 mt-2"
+            <div class="post-body">
+                <h3 class="post-title">
+                    {% if item.post_type == 'user' %}
+                        {{ post.dog_name }}
+                    {% elif item.post_type == 'missing' %}
+                        Missing: {{ post.dog_name }}
+                    {% else %}
+                        Dog Rescue Update
+                    {% endif %}
+                </h3>
+
+                <p class="post-text">
+                    {% if item.post_type == 'user' %}
+                        {{ post.description }}
+                    {% elif item.post_type == 'missing' %}
+                        {{ post.description }}
+                        <br>
+                        <strong>Lost On:</strong> {{ post.date_lost }} at {{ post.time_lost }}
+                    {% else %}
+                        {{ post.caption }}
+                    {% endif %}
+                </p>
+
+                <div class="post-meta">
+                    {% if post.location %}
+                    <span><i class="bi bi-geo-alt"></i> {{ post.location }}</span>
+                    {% endif %}
+                    <span><i class="bi bi-calendar3"></i> Posted on {{ post.created_at|date:"M d, Y H:i" }}</span>
+                </div>
+
+                {% if item.post_type == 'admin' and item.is_open_for_adoption %}
+                <div class="countdown-chip">
+                    <i class="bi bi-clock-history"></i>
+                    <span>Time left: {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m</span>
+                </div>
+                {% endif %}
+
+                {% if item.post_type != 'missing' and post.images.count > 1 %}
+                    <button class="gallery-toggle"
                             type="button"
                             data-bs-toggle="collapse"
                             data-bs-target="#gallery-{{ post.id }}">
-                        View more photos
+                        <i class="bi bi-images"></i>
+                        <span>View more photos</span>
                     </button>
 
-                    <div class="collapse gallery mt-2" id="gallery-{{ post.id }}">
+                    <div class="collapse gallery-grid" id="gallery-{{ post.id }}">
                         {% for image in post.images.all|slice:"1:" %}
-                            <img src="{{ image.image.url }}" class="gallery-img">
+                            <img src="{{ image.image.url }}"
+                                 class="gallery-img"
+                                 alt="Additional photo"
+                                 onerror="this.onerror=null;this.src='{% static 'images/OIP.webp' %}';">
                         {% endfor %}
                     </div>
                 {% endif %}
-            {% endif %}
 
-            <hr>
+                <div class="post-actions">
+                    {% if item.post_type == 'missing' %}
+                        <span class="state-pill missing-pill">Missing Dog Report</span>
 
-            <!-- ACTION BUTTONS -->
-            <div class="text-center mt-3">
-
-                <!-- MISSING POSTS -->
-                {% if item.post_type == 'missing' %}
-                    <span class="badge bg-danger fs-6 px-3 py-2">
-                        🚨 Missing Dog
-                    </span>
-
-                <!-- USER ADOPTION POSTS -->
-                {% elif item.post_type == 'user' %}
-                    {% if post.status == 'available' and request.user != post.owner %}
-                        <a href="{% url 'user:adopt_user_post' post.id %}" class="btn btn-success btn-sm">
-                            Adopt
-                        </a>
-                    {% elif post.status == 'adopted' %}
-                        <span class="badge bg-secondary fs-6 px-3 py-2">
-                            🏡 Adopted
-                        </span>
-                    {% endif %}
-
-                <!-- ADMIN POSTS -->
-                {% else %}
-                    {% if post.status == 'reunited' %}
-                        <span class="badge bg-success fs-6 px-3 py-2">
-                            ❤️ Reunited with Owner
-                        </span>
-
-                    {% elif post.status == 'adopted' %}
-                        <span class="badge bg-secondary fs-6 px-3 py-2">
-                            🏡 Adopted — No longer available
-                        </span>
+                    {% elif item.post_type == 'user' %}
+                        {% if post.status == 'available' and request.user != post.owner %}
+                            <a href="{% url 'user:adopt_user_post' post.id %}" class="action-btn success">
+                                <i class="bi bi-heart"></i>
+                                <span>Adopt</span>
+                            </a>
+                        {% elif post.status == 'adopted' %}
+                            <span class="state-pill muted-pill">Adopted</span>
+                        {% elif request.user == post.owner %}
+                            <span class="state-pill info-pill">Your post</span>
+                        {% endif %}
 
                     {% else %}
-                        {% if item.is_open_for_adoption %}
-                            <div class="d-flex justify-content-center gap-2">
-                                <a href="{% url 'user:adopt_confirm' post.id %}" class="btn btn-success btn-sm">
-                                    Adopt
-                                </a>
-                                <a href="{% url 'user:claim_confirm' post.id %}" class="btn btn-outline-warning btn-sm">
-                                    Claim
-                                </a>
-                                <a target="_blank"
-                                   href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}"
-                                   class="btn btn-outline-primary btn-sm">
-                                   📢 Share
-                                </a>
-                            </div>
+                        {% if post.status == 'reunited' %}
+                            <span class="state-pill success-pill">Reunited with owner</span>
+                        {% elif post.status == 'adopted' %}
+                            <span class="state-pill muted-pill">Adopted - no longer available</span>
+                        {% elif item.is_open_for_adoption %}
+                            <a href="{% url 'user:adopt_confirm' post.id %}" class="action-btn success">
+                                <i class="bi bi-heart"></i>
+                                <span>Adopt</span>
+                            </a>
+                            <a href="{% url 'user:claim_confirm' post.id %}" class="action-btn outline">
+                                <i class="bi bi-shield-check"></i>
+                                <span>Claim</span>
+                            </a>
+                            <a target="_blank"
+                               href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}"
+                               class="action-btn share">
+                                <i class="bi bi-share"></i>
+                                <span>Share</span>
+                            </a>
                         {% endif %}
                     {% endif %}
-                {% endif %}
-
+                </div>
             </div>
-
+        </article>
+        {% endwith %}
+        {% empty %}
+        <div class="empty-feed">
+            <i class="bi bi-inboxes"></i>
+            <h3>No posts found</h3>
+            <p>No dogs available right now. Try another keyword or check back soon.</p>
         </div>
-    </div>
-    {% endwith %}
-    {% empty %}
-        <p class="text-center">No dogs available yet 🐶</p>
-    {% endfor %}
-
+        {% endfor %}
+    </section>
 </div>
 {% endblock %}

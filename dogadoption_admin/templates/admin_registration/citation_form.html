@@ -74,6 +74,44 @@
 
         <button type="submit" class="save-btn">Save Citation</button>
     </form>
+
+    <div class="citation-list">
+        <h3>Recent Citations</h3>
+        {% if citation_rows %}
+            <table class="citation-table">
+                <thead>
+                    <tr>
+                        <th>Citation #</th>
+                        <th>Name</th>
+                        <th>Violations</th>
+                        <th>Fees</th>
+                        <th>Print</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in citation_rows %}
+                        <tr>
+                            <td>#{{ row.citation.id }}</td>
+                            <td>
+                                {% if row.citation.owner %}
+                                    {{ row.citation.owner.get_full_name|default:row.citation.owner.username }}
+                                {% else %}
+                                    Unknown Owner
+                                {% endif %}
+                            </td>
+                            <td>{{ row.violations }}</td>
+                            <td>PHP {{ row.total_fees }}</td>
+                            <td>
+                                <a class="print-link" href="{% url 'dogadoption_admin:citation_print' row.citation.pk %}" target="_blank" rel="noopener">Print</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="helper-text">No citations created yet.</p>
+        {% endif %}
+    </div>
 </div>
 
 {{ form.media }}

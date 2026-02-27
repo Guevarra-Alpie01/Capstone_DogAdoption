@@ -1066,6 +1066,21 @@ def bulk_certificate_print(request):
 def citation_create(request):
     form = CitationForm(request.POST or None)
     latest_citation = Citation.objects.order_by('-id').first()
+    citations_qs = Citation.objects.select_related('owner', 'penalty') \
+        .prefetch_related('penalties', 'penalties__section') \
+        .order_by('-id')[:10]
+    citation_rows = []
+    for citation in citations_qs:
+        penalties = list(citation.penalties.all())
+        if not penalties and citation.penalty_id:
+            penalties = [citation.penalty]
+        violations = ", ".join([p.title for p in penalties]) if penalties else "-"
+        total_fees = sum([p.amount for p in penalties]) if penalties else 0
+        citation_rows.append({
+            "citation": citation,
+            "violations": violations,
+            "total_fees": total_fees,
+        })
     penalties = Penalty.objects.filter(active=True).select_related('section').order_by('section__number', 'number')
 
     if request.method == 'POST' and form.is_valid():
@@ -1085,6 +1100,7 @@ def citation_create(request):
     return render(request, 'admin_registration/citation_form.html', {
         'form': form,
         'latest_citation': latest_citation,
+        'citation_rows': citation_rows,
         'penalties': penalties,
         'selected_penalty_ids': [int(x) for x in request.POST.getlist('penalties') if str(x).isdigit()] if request.method == 'POST' else [],
     })

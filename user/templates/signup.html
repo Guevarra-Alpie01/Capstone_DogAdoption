@@ -6,7 +6,7 @@
 <!-- Signup Page CSS -->
 <link rel="stylesheet" href="{% static 'css/login.css' %}">
 
-<div class="auth-wrapper">
+<div class="auth-wrapper" data-home-url="{% url 'user:user_home' %}">
     <div class="auth-card">
 
         <h2>Create Account</h2>
@@ -56,5 +56,28 @@
 
     </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    if (!window.matchMedia("(min-width: 992px)").matches) {
+        return;
+    }
+
+    var wrapper = document.querySelector(".auth-wrapper");
+    var card = document.querySelector(".auth-card");
+    if (!wrapper || !card) {
+        return;
+    }
+
+    wrapper.addEventListener("click", function (event) {
+        if (!card.contains(event.target)) {
+            var homeUrl = wrapper.getAttribute("data-home-url");
+            if (homeUrl) {
+                window.location.href = homeUrl;
+            }
+        }
+    });
+});
+</script>
 
 {% endblock %}

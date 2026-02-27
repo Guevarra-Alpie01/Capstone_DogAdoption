@@ -28,7 +28,7 @@
 
                 <div id="uploadSection" class="media-section">
                     <label>Upload Photo</label>
-                    <input type="file" name="image" id="imageInput" accept="image/*">
+                    <input type="file" name="image" id="imageInput" accept="image/*" capture="environment">
                 </div>
 
                 <div id="cameraSection" class="media-section" style="display:none;">
@@ -240,12 +240,45 @@ function stopCamera() {
     }
 }
 
+function hasCameraApi() {
+    return !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
+}
+
+function cameraHelpMessage() {
+    if (!window.isSecureContext) {
+        return 'Camera requires a secure connection (HTTPS). You are on HTTP/LAN. Use HTTPS, or use Upload Photo to open phone camera.';
+    }
+    if (!hasCameraApi()) {
+        return 'Camera API is not available in this browser. Use Upload Photo instead.';
+    }
+    return 'Unable to open camera. Check browser camera permission and try again.';
+}
+
 document.getElementById('startCameraBtn').addEventListener('click', async () => {
+    if (!hasCameraApi() || !window.isSecureContext) {
+        alert(cameraHelpMessage());
+        return;
+    }
+
     try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        const constraints = {
+            video: {
+                facingMode: { ideal: 'environment' },
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: false
+        };
+
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
         document.getElementById('video').srcObject = stream;
     } catch (e) {
-        alert('Camera access denied or not supported on this device.');
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            document.getElementById('video').srcObject = stream;
+        } catch (fallbackError) {
+            alert(cameraHelpMessage());
+        }
     }
 });
 

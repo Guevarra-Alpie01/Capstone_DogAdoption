@@ -124,14 +124,29 @@ faceMesh.onResults(onResults);
 /* ======================
    CAMERA INIT
 ====================== */
-const camera = new Camera(video, {
-    onFrame: async () => {
-        await faceMesh.send({ image: video });
-    },
-    width: 640,
-    height: 480
-});
-camera.start();
+function hasCameraApi() {
+    return !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === "function");
+}
+
+if (!window.isSecureContext) {
+    statusText.innerText = "Camera requires HTTPS on mobile browsers. Open this page via HTTPS.";
+    alert("Face auth needs HTTPS on phones. Current page is not secure.");
+} else if (!hasCameraApi()) {
+    statusText.innerText = "Camera API is not available in this browser.";
+    alert("No navigator.mediaDevices.getUserMedia support in this browser.");
+} else {
+    const camera = new Camera(video, {
+        onFrame: async () => {
+            await faceMesh.send({ image: video });
+        },
+        width: 640,
+        height: 480
+    });
+    camera.start().catch(() => {
+        statusText.innerText = "Unable to open camera. Check browser permission.";
+        alert("Unable to open camera. Allow camera permission and try again.");
+    });
+}
 
 /* ======================
    MAIN DETECTION

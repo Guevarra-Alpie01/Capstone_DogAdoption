@@ -11,8 +11,8 @@
 <div class="content-body">
 
     <!-- Mini search form -->
-    <form method="get" action="{% url 'dogadoption_admin:registration_record' %}" class="mini-search-form">
-        <input type="text" name="barangay" placeholder="Search other..." value="{{ selected_barangay|default:'' }}">
+    <form method="get" action="{% url 'dogadoption_admin:registration_record' %}" class="mini-search-form" id="registration-record-search-form">
+        <input type="text" name="barangay" id="registration-record-barangay" placeholder="Search other..." value="{{ selected_barangay|default:'' }}" autocomplete="off">
         <button type="submit" class="search-btn"> Search </button>
     </form>
 
@@ -99,6 +99,51 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
+    const barangays = [
+        "Ali-is","Banaybanay","Banga","Boyco","Bugay","Cansumalig","Dawis","Kalamtukan",
+        "Kalumboyan","Malabugas","Mandu-ao","Maninihon","Minaba","Nangka","Narra",
+        "Pagatban","Poblacion","San Isidro","San Jose","San Miguel","San Roque","Suba",
+        "Tabuan","Tayawan","Tinago","Ubos","Villareal","Villasol"
+    ];
+
+    const searchForm = document.getElementById('registration-record-search-form');
+    const searchInput = document.getElementById('registration-record-barangay');
+
+    function cleanInput(value) {
+        return value.replace(/\s+/g, ' ').trim();
+    }
+
+    function normalizeText(value) {
+        return cleanInput(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+    }
+
+    function findExactBarangay(value) {
+        const normalized = normalizeText(value);
+        if (!normalized) {
+            return '';
+        }
+        return barangays.find((b) => normalizeText(b) === normalized) || '';
+    }
+
+    function normalizeSearchBarangay() {
+        if (!searchInput) {
+            return;
+        }
+        const cleaned = cleanInput(searchInput.value);
+        const exactMatch = findExactBarangay(cleaned);
+        searchInput.value = exactMatch || cleaned;
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('blur', normalizeSearchBarangay);
+    }
+
+    if (searchForm) {
+        searchForm.addEventListener('submit', () => {
+            normalizeSearchBarangay();
+        });
+    }
+
     // Print table
     function printTable() {
         let printContents = document.getElementById('table-container').innerHTML;

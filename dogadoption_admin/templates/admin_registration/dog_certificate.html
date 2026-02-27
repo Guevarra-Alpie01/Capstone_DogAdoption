@@ -29,12 +29,13 @@
 
                 <div class="grid-row">
                     <div class="field-group">
-                        <label for="name_of_pet">Dog Name</label>
+                        <label for="name_of_pet">Pet Name</label>
                         <input type="text" name="name_of_pet" id="name_of_pet" required placeholder="Name">
                     </div>
                     <div class="field-group">
                         <label for="breed">Breed</label>
-                        <input type="text" name="breed" id="breed" placeholder="e.g., Aspin / Golden Retriever">
+                        <input type="text" name="breed" id="breed" placeholder="e.g., Aspin / Mongrel" oninput="showBreedSuggestions(this.value)" autocomplete="off">
+                        <div id="breed_suggestions" class="suggestions-box breed-suggestions-box" style="display:none;"></div>
                     </div>
                 </div>
 
@@ -53,9 +54,12 @@
                     <div class="field-group">
                         <label for="status">Status</label>
                         <select name="status" id="status">
+                            <option value="None">None</option>
                             <option value="Castrated">Castrated</option>
-                            <option value="Spayed">Spayed</option>
                             <option value="Intact">Intact</option>
+                            <option value="Spayed">Spayed</option>
+                            
+                           
                         </select>
                     </div>
                 </div>
@@ -85,4 +89,154 @@
         </form>
     </div>
 </div>
+<script>
+    const breedList = [
+        "Aspin (Asong Pinoy)",
+        "Askal",
+        "Mongrel",
+        "Shih Tzu",
+        "Chihuahua",
+        "Pomeranian",
+        "Toy Poodle",
+        "Yorkshire Terrier",
+        "Miniature Pinscher",
+        "Dachshund",
+        "Maltese",
+        "Lhasa Apso",
+        "French Bulldog",
+        "Labrador Retriever",
+        "Golden Retriever",
+        "Siberian Husky",
+        "German Shepherd",
+        "Rottweiler",
+        "Doberman Pinscher",
+        "American Bully",
+        "Belgian Malinois",
+        "Border Collie",
+        "Shiba Inu",
+        "Chow Chow",
+        "Great Dane",
+        "Saint Bernard",
+        "Puspin (Pusang Pinoy)",
+        "Persian",
+        "Siamese",
+        "British Shorthair",
+        "Scottish Fold",
+        "Maine Coon",
+        "Ragdoll",
+        "Bengal",
+        "Russian Blue",
+        "American Shorthair",
+        "Exotic Shorthair",
+        "Sphynx"
+    ];
+
+    const breedInput = document.getElementById('breed');
+    const breedSuggestionsBox = document.getElementById('breed_suggestions');
+    const certificateForm = document.querySelector('form[action*="dog_certificate"]');
+
+    function cleanInput(value) {
+        return value.replace(/\s+/g, ' ').trim();
+    }
+
+    function normalizeText(value) {
+        return cleanInput(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+    }
+
+    function findExactBreed(value) {
+        const normalized = normalizeText(value);
+        if (!normalized) {
+            return '';
+        }
+        return breedList.find((b) => normalizeText(b) === normalized) || '';
+    }
+
+    function findBreedMatches(value) {
+        const normalized = normalizeText(value);
+        if (!normalized) {
+            return [];
+        }
+        return breedList.filter((b) => normalizeText(b).includes(normalized));
+    }
+
+    function showBreedSuggestions(value) {
+        const cleaned = cleanInput(value);
+        breedInput.value = cleaned;
+
+        if (!normalizeText(cleaned)) {
+            breedSuggestionsBox.style.display = 'none';
+            return;
+        }
+
+        const matches = findBreedMatches(breedInput.value);
+        if (matches.length === 0) {
+            breedSuggestionsBox.style.display = 'none';
+            return;
+        }
+
+        breedSuggestionsBox.innerHTML = matches.map((b) =>
+            `<div class="suggestion-item" onclick="selectBreed('${b.replace(/'/g, "\\'")}')">${b}</div>`
+        ).join('');
+        breedSuggestionsBox.style.display = 'block';
+    }
+
+    function selectBreed(value) {
+        breedInput.value = value;
+        breedSuggestionsBox.style.display = 'none';
+    }
+
+    function selectTopBreedSuggestion() {
+        if (!breedSuggestionsBox || breedSuggestionsBox.style.display === 'none') {
+            return false;
+        }
+
+        const firstSuggestion = breedSuggestionsBox.querySelector('.suggestion-item');
+        if (!firstSuggestion) {
+            return false;
+        }
+
+        const topValue = firstSuggestion.textContent.trim();
+        if (!topValue) {
+            return false;
+        }
+
+        selectBreed(topValue);
+        return true;
+    }
+
+    function normalizeBreedField() {
+        const cleaned = cleanInput(breedInput.value);
+        const exactMatch = findExactBreed(cleaned);
+        breedInput.value = exactMatch || cleaned;
+    }
+
+    if (breedInput) {
+        breedInput.addEventListener('blur', normalizeBreedField);
+        breedInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' || e.key === 'Delete') {
+                return;
+            }
+            if (e.key === 'Enter') {
+                if (selectTopBreedSuggestion()) {
+                    e.preventDefault();
+                    return;
+                }
+                normalizeBreedField();
+            }
+        });
+    }
+
+    if (certificateForm) {
+        certificateForm.addEventListener('submit', () => {
+            normalizeBreedField();
+            breedSuggestionsBox.style.display = 'none';
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        if (breedSuggestionsBox && !breedSuggestionsBox.contains(e.target) && e.target !== breedInput) {
+            breedSuggestionsBox.style.display = 'none';
+        }
+    });
+</script>
 {% endblock %}

@@ -276,6 +276,7 @@ class DogRegistration(models.Model):
     )
 
     STATUS_CHOICES = (
+        ('None', 'None'),
         ('Castrated', 'Castrated'),
         ('Spayed', 'Spayed'),
         ('Intact', 'Intact'),

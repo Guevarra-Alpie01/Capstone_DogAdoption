@@ -2,9 +2,36 @@ from django import forms
 from .models import Post
 class PostForm(forms.ModelForm):
 
+    caption = forms.CharField(
+        label="Dog Name",
+        required=False,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Enter dog name'
+        })
+    )
+
     rescued_date = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={'type': 'date'})
+    )
+
+    location = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Enter Barangay',
+            'autocomplete': 'off',
+        })
+    )
+
+    claim_days = forms.IntegerField(
+        required=True,
+        min_value=1,
+        widget=forms.NumberInput(attrs={
+            'type': 'number',
+            'inputmode': 'numeric',
+            'min': '1',
+            'step': '1',
+        })
     )
 
     class Meta:
@@ -12,7 +39,6 @@ class PostForm(forms.ModelForm):
         fields = [
             'caption',
             'location',
-            'status',
             'rescued_date',
             'claim_days',
         ]

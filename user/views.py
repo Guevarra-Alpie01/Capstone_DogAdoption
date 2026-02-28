@@ -14,6 +14,7 @@ from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
 from django.conf import settings
+from datetime import timedelta
 
 #MODELS FROM ADMIN APP 
 from dogadoption_admin.models import DogAnnouncement, AnnouncementComment
@@ -266,6 +267,24 @@ def user_home(request):
 
     combined_posts = []
 
+    def format_posted_label(dt):
+        if not dt:
+            return ""
+        now = timezone.now()
+        delta = now - dt
+        if delta < timedelta(minutes=1):
+            return "Just now"
+        if delta < timedelta(hours=1):
+            minutes = max(int(delta.total_seconds() // 60), 1)
+            return f"{minutes}m"
+        if delta < timedelta(days=1):
+            hours = max(int(delta.total_seconds() // 3600), 1)
+            return f"{hours}h"
+        if delta < timedelta(days=7):
+            days = max(int(delta.total_seconds() // 86400), 1)
+            return f"{days}d"
+        return dt.strftime("%b %d, %Y")
+
     # ADMIN POSTS
     for p in admin_posts:
         days = hours = minutes = 0
@@ -282,6 +301,12 @@ def user_home(request):
             remainder = remainder % 3600
             minutes = remainder // 60
 
+        deadline = None
+        if phase == 'claim':
+            deadline = p.claim_deadline()
+        elif phase == 'adopt':
+            deadline = p.adoption_deadline()
+
         combined_posts.append({
             'post': p,
             'post_type': 'admin',
@@ -290,6 +315,8 @@ def user_home(request):
             'minutes_left': minutes,
             'is_open_for_adoption': is_open_for_adoption,
             'phase': phase,
+            'posted_label': format_posted_label(p.created_at),
+            'deadline_iso': deadline.isoformat() if deadline else "",
         })
 
     # USER ADOPTION POSTS
@@ -302,6 +329,7 @@ def user_home(request):
             'minutes_left': 0,
             'is_open_for_adoption': False,
             'phase': 'closed',
+            'posted_label': format_posted_label(p.created_at),
         })
 
     # MISSING POSTS
@@ -314,6 +342,7 @@ def user_home(request):
             'minutes_left': 0,
             'is_open_for_adoption': False,
             'phase': 'closed',
+            'posted_label': format_posted_label(p.created_at),
         })
 
     # SORT ALL POSTS

@@ -4,11 +4,11 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}">
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="post-toolbar">
     <a href="{% url 'dogadoption_admin:create_post' %}" class="btn btn-primary btn-lg create-post-btn">
         <i class="fas fa-plus-circle me-2"></i> Create Post
     </a>
-    <div class="dropdown">
+    <div class="dropdown post-filter">
         <button class="btn btn-dark dropdown-toggle" type="button" data-bs-toggle="dropdown">
             {% if current_filter == "ready" %}
                 Ready Window
@@ -35,24 +35,42 @@
 <div class="post-card">
 
     {% if item.phase == 'claim' or item.phase == 'adopt' %}
-        <div class="alert alert-info mb-2">
-            {% if item.phase == 'claim' %}
-                Claim phase
-            {% else %}
-                Adoption phase
-            {% endif %}
-            : {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m left
+        <div class="countdown-bar" data-deadline="{{ item.deadline_iso }}">
+            <div class="countdown-label">
+                {% if item.phase == 'claim' %}
+                    Claim time left
+                {% else %}
+                    Adoption time left
+                {% endif %}
+            </div>
+            <div class="countdown-values">
+                <div class="countdown-unit">
+                    <div class="countdown-number" data-unit="days">{{ item.days_left|default:0|stringformat:"02d" }}</div>
+                    <div class="countdown-text">Days</div>
+                </div>
+                <div class="countdown-unit">
+                    <div class="countdown-number" data-unit="hours">{{ item.hours_left|default:0|stringformat:"02d" }}</div>
+                    <div class="countdown-text">Hours</div>
+                </div>
+                <div class="countdown-unit">
+                    <div class="countdown-number" data-unit="minutes">{{ item.minutes_left|default:0|stringformat:"02d" }}</div>
+                    <div class="countdown-text">Minutes</div>
+                </div>
+            </div>
         </div>
     {% endif %}
 
-    <div class="post-user">{{ post.user.username }}</div>
+    <div class="post-user-row">
+        <div class="post-user">{{ post.user.username }}</div>
+        <div class="post-user-time">{{ item.posted_label }}</div>
+    </div>
     <p class="post-caption">{{ post.caption }}</p>
 
     <div class="post-meta">
         {% if post.location %}
             {{ post.location }} <br>
         {% endif %}
-        Rescued on {{ post.created_at|date:"M d, Y H:i" }}
+        
     </div>
 
     {% if post.images.exists %}
@@ -128,4 +146,48 @@
 {% endfor %}
 </div>
 
+<script>
+    function pad2(value) {
+        return String(value).padStart(2, "0");
+    }
+
+    function updateCountdown(card) {
+        const deadline = card.getAttribute("data-deadline");
+        if (!deadline) {
+            return;
+        }
+        const end = new Date(deadline);
+        const now = new Date();
+        let diff = end - now;
+        if (isNaN(end.getTime())) {
+            return;
+        }
+        if (diff < 0) {
+            diff = 0;
+        }
+
+        const totalSeconds = Math.floor(diff / 1000);
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+        const dayEl = card.querySelector('[data-unit="days"]');
+        const hourEl = card.querySelector('[data-unit="hours"]');
+        const minEl = card.querySelector('[data-unit="minutes"]');
+
+        if (dayEl) dayEl.textContent = pad2(days);
+        if (hourEl) hourEl.textContent = pad2(hours);
+        if (minEl) minEl.textContent = pad2(minutes);
+    }
+
+    function initCountdowns() {
+        const cards = document.querySelectorAll(".countdown-bar[data-deadline]");
+        cards.forEach(updateCountdown);
+        setInterval(() => {
+            cards.forEach(updateCountdown);
+        }, 1000 * 30);
+    }
+
+    document.addEventListener("DOMContentLoaded", initCountdowns);
+</script>
 {% endblock %}

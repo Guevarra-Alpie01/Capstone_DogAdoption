@@ -148,6 +148,24 @@ def post_list(request):
     enriched = []
     now = timezone.now()
 
+    def format_posted_label(dt):
+        if not dt:
+            return ""
+        now = timezone.now()
+        delta = now - dt
+        if delta < timedelta(minutes=1):
+            return "Just now"
+        if delta < timedelta(hours=1):
+            minutes = max(int(delta.total_seconds() // 60), 1)
+            return f"{minutes}m"
+        if delta < timedelta(days=1):
+            hours = max(int(delta.total_seconds() // 3600), 1)
+            return f"{hours}h"
+        if delta < timedelta(days=7):
+            days = max(int(delta.total_seconds() // 86400), 1)
+            return f"{days}d"
+        return dt.strftime("%b %d, %Y")
+
     for p in posts:
         days = hours = minutes = 0
         phase = p.current_phase()
@@ -162,12 +180,20 @@ def post_list(request):
             remainder = remainder % 3600
             minutes = remainder // 60
 
+        deadline = None
+        if phase == 'claim':
+            deadline = p.claim_deadline()
+        elif phase == 'adopt':
+            deadline = p.adoption_deadline()
+
         enriched.append({
             'post': p,
             'days_left': days,
             'hours_left': hours,
             'minutes_left': minutes,
             'phase': phase,
+            'posted_label': format_posted_label(p.created_at),
+            'deadline_iso': deadline.isoformat() if deadline else "",
         })
 
     # Sort by newest

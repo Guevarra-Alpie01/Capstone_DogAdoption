@@ -103,16 +103,7 @@
         <div class="card-body">
             <div class="post-body-row {% if item.post_type == 'admin' and item.phase != 'closed' %}has-timer{% endif %}">
                 <div class="post-details">
-            <h5 class="card-title">
-                {% if item.post_type == 'user' %}
-                    {{ post.dog_name }}
-                {% elif item.post_type == 'missing' %}
-                    MISSING: {{ post.dog_name }}
-                {% else %}
-                    {{ post.caption }}
-                {% endif %}
-            </h5>
-
+       
             <p class="card-text">
                 {% if item.post_type == 'user' %}
                     {{ post.description }}
@@ -120,19 +111,20 @@
                     {{ post.description }}<br>
                     <strong>Lost On:</strong> {{ post.date_lost }} at {{ post.time_lost }}
                 {% else %}
-                    
+                    {% if post.caption %}<strong>Name:</strong> {{ post.caption }}<br>{% endif %}
+                    {% if post.location %}<strong>Rescue Location:</strong> {{ post.location }}<br>{% endif %}
+                    <strong>Rescue Date:</strong>
+                    {% if post.rescued_date %}
+                        {{ post.rescued_date|date:"M d, Y" }}
+                    {% else %}
+                        {{ post.created_at|date:"M d, Y" }}
+                    {% endif %}
                 {% endif %}
             </p>
 
-            {% if post.location %}
+            {% if post.location and item.post_type != 'admin' %}
                 <small class="text-muted">{{ post.location }}</small><br>
             {% endif %}
-
-            {% if item.post_type == 'admin' and post.rescued_date %}
-                <small class="text-muted">Rescued on {{ post.rescued_date|date:"M d, Y" }}</small><br>
-            {% endif %}
-
-            
 
             {% if item.post_type == 'admin' and item.phase != 'closed' %}
                 </div>
@@ -200,8 +192,6 @@
                 {% endif %}
             {% endif %}
 
-            <hr>
-
             <div class="text-center mt-3">
                 {% if item.post_type == 'missing' %}
                     <span class="badge bg-danger fs-6 px-3 py-2">Missing Dog</span>
@@ -223,18 +213,28 @@
                         <span class="badge bg-secondary fs-6 px-3 py-2">Adopted - No longer available</span>
                     {% else %}
                         {% if item.phase == 'claim' %}
-                            <div class="d-flex justify-content-center gap-2">
-                                <a href="{% url 'user:claim_confirm' post.id %}" class="btn btn-outline-warning btn-sm">Claim</a>
-                                <a target="_blank"
-                                   href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}"
-                                   class="btn btn-outline-primary btn-sm">Share</a>
+                            <div class="d-flex justify-content-center gap-2 admin-actions">
+                                <a href="{% url 'user:claim_confirm' post.id %}" class="btn btn-success btn-sm action-btn action-claim">Claim</a>
+                                <button type="button"
+                                   class="btn btn-outline-secondary btn-sm action-btn action-share js-open-share"
+                                   data-share-url="{{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}">
+                                    <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path d="M18 8a3 3 0 1 0-2.82-4H15a3 3 0 0 0 .16.95l-6.7 3.35a3 3 0 0 0-2.46-1.3 3 3 0 1 0 0 6c.88 0 1.67-.38 2.22-.97l6.96 3.48A3 3 0 0 0 15 16a3 3 0 1 0 .18-1.02l-6.98-3.49A3 3 0 0 0 9 10c0-.36-.06-.7-.18-1.02l6.97-3.48c.55.62 1.35 1 2.21 1z"></path>
+                                    </svg>
+                                    <span>Share</span>
+                                   </button>
                             </div>
                         {% elif item.phase == 'adopt' %}
-                            <div class="d-flex justify-content-center gap-2">
-                                <a href="{% url 'user:adopt_confirm' post.id %}" class="btn btn-success btn-sm">Adopt</a>
-                                <a target="_blank"
-                                   href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}"
-                                   class="btn btn-outline-primary btn-sm">Share</a>
+                            <div class="d-flex justify-content-center gap-2 admin-actions">
+                                <a href="{% url 'user:adopt_confirm' post.id %}" class="btn btn-success btn-sm action-btn">Adopt</a>
+                                <button type="button"
+                                   class="btn btn-outline-secondary btn-sm action-btn action-share js-open-share"
+                                   data-share-url="{{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}">
+                                    <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path d="M18 8a3 3 0 1 0-2.82-4H15a3 3 0 0 0 .16.95l-6.7 3.35a3 3 0 0 0-2.46-1.3 3 3 0 1 0 0 6c.88 0 1.67-.38 2.22-.97l6.96 3.48A3 3 0 0 0 15 16a3 3 0 1 0 .18-1.02l-6.98-3.49A3 3 0 0 0 9 10c0-.36-.06-.7-.18-1.02l6.97-3.48c.55.62 1.35 1 2.21 1z"></path>
+                                    </svg>
+                                    <span>Share</span>
+                                   </button>
                             </div>
                         {% else %}
                             <span class="badge bg-secondary fs-6 px-3 py-2">Window closed</span>
@@ -252,7 +252,220 @@
     </div>
 
 </div>
+<div id="sharePanel" class="share-panel" hidden>
+    <div class="share-panel-header">Share Panel</div>
+    <div class="share-options">
+        <button type="button" class="share-option" data-network="facebook">
+            <span class="share-logo share-facebook">f</span>
+            <span>Facebook</span>
+        </button>
+        <button type="button" class="share-option" data-network="messenger">
+            <span class="share-logo share-messenger">m</span>
+            <span>Messenger</span>
+        </button>
+        <button type="button" class="share-option" data-network="x">
+            <span class="share-logo share-x">x</span>
+            <span>Twitter/X</span>
+        </button>
+        <button type="button" class="share-option" data-network="instagram">
+            <span class="share-logo share-instagram">i</span>
+            <span>Instagram</span>
+        </button>
+    </div>
+    <label for="shareLinkInput" class="share-url-label">URL</label>
+    <div class="share-link-row">
+        <input id="shareLinkInput" type="text" readonly>
+        <button type="button" id="copyShareLinkBtn" class="btn btn-sm btn-warning">Copy Link</button>
+    </div>
+    <div id="sharePanelStatus" class="share-panel-status" aria-live="polite"></div>
+</div>
 <script>
+    function openFacebookShareUrl(webShareUrl) {
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        if (!isMobile) {
+            window.open(webShareUrl, "_blank", "noopener");
+            return;
+        }
+
+        const appShareUrl = "fb://facewebmodal/f?href=" + encodeURIComponent(webShareUrl);
+        let fallbackTimer = null;
+
+        function cancelFallbackOnAppOpen() {
+            if (document.hidden && fallbackTimer) {
+                clearTimeout(fallbackTimer);
+                fallbackTimer = null;
+                document.removeEventListener("visibilitychange", cancelFallbackOnAppOpen);
+            }
+        }
+
+        document.addEventListener("visibilitychange", cancelFallbackOnAppOpen);
+
+        fallbackTimer = setTimeout(() => {
+            document.removeEventListener("visibilitychange", cancelFallbackOnAppOpen);
+            window.location.href = webShareUrl;
+        }, 900);
+
+        window.location.href = appShareUrl;
+    }
+
+    function openFacebookShare(event, webShareUrl) {
+        event.preventDefault();
+        openFacebookShareUrl(webShareUrl);
+    }
+
+    let activeShareUrl = "";
+    let activeShareTrigger = null;
+
+    function setShareStatus(message) {
+        const statusEl = document.getElementById("sharePanelStatus");
+        if (!statusEl) return;
+        statusEl.textContent = message || "";
+    }
+
+    function openSharePanel(triggerEl, shareUrl) {
+        const panel = document.getElementById("sharePanel");
+        const input = document.getElementById("shareLinkInput");
+        if (!panel || !input) return;
+
+        activeShareUrl = shareUrl;
+        activeShareTrigger = triggerEl;
+        input.value = shareUrl;
+        panel.hidden = false;
+        positionSharePanel();
+        setShareStatus("");
+    }
+
+    function closeSharePanel() {
+        const panel = document.getElementById("sharePanel");
+        if (!panel) return;
+        panel.hidden = true;
+        activeShareUrl = "";
+        activeShareTrigger = null;
+        setShareStatus("");
+    }
+
+    function positionSharePanel() {
+        const panel = document.getElementById("sharePanel");
+        if (!panel || panel.hidden || !activeShareTrigger) return;
+
+        const triggerRect = activeShareTrigger.getBoundingClientRect();
+        const panelWidth = 320;
+        const margin = 12;
+        let left = triggerRect.right - panelWidth;
+        left = Math.max(margin, left);
+        left = Math.min(left, window.innerWidth - panelWidth - margin);
+        const top = Math.min(
+            triggerRect.bottom + 10,
+            window.innerHeight - panel.offsetHeight - margin
+        );
+
+        panel.style.left = `${left}px`;
+        panel.style.top = `${Math.max(margin, top)}px`;
+    }
+
+    async function copyShareLink() {
+        if (!activeShareUrl) return;
+        try {
+            await navigator.clipboard.writeText(activeShareUrl);
+            setShareStatus("Link copied.");
+        } catch (error) {
+            const input = document.getElementById("shareLinkInput");
+            if (!input) return;
+            input.focus();
+            input.select();
+            document.execCommand("copy");
+            setShareStatus("Link copied.");
+        }
+    }
+
+    function shareViaMessenger(url) {
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        if (!isMobile) {
+            copyShareLink();
+            window.open("https://www.messenger.com/", "_blank", "noopener");
+            setShareStatus("Link copied. Paste it in Messenger.");
+            return;
+        }
+
+        const messengerAppUrl = "fb-messenger://share/?link=" + encodeURIComponent(url);
+        const fallback = setTimeout(() => {
+            window.open("https://www.messenger.com/", "_blank", "noopener");
+            setShareStatus("Open Messenger and paste the copied link.");
+        }, 900);
+
+        document.addEventListener("visibilitychange", function onHide() {
+            if (document.hidden) {
+                clearTimeout(fallback);
+                document.removeEventListener("visibilitychange", onHide);
+            }
+        });
+
+        window.location.href = messengerAppUrl;
+    }
+
+    function initSharePanel() {
+        const panel = document.getElementById("sharePanel");
+        const openBtns = document.querySelectorAll(".js-open-share");
+        const optionBtns = document.querySelectorAll(".share-option[data-network]");
+        const copyBtn = document.getElementById("copyShareLinkBtn");
+
+        openBtns.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const shareUrl = btn.getAttribute("data-share-url");
+                if (!shareUrl) return;
+                openSharePanel(btn, shareUrl);
+            });
+        });
+
+        optionBtns.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                if (!activeShareUrl) return;
+                const network = btn.getAttribute("data-network");
+                const encodedUrl = encodeURIComponent(activeShareUrl);
+
+                if (network === "facebook") {
+                    openFacebookShareUrl(`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`);
+                    return;
+                }
+                if (network === "messenger") {
+                    shareViaMessenger(activeShareUrl);
+                    return;
+                }
+                if (network === "x") {
+                    window.open(`https://twitter.com/intent/tweet?url=${encodedUrl}`, "_blank", "noopener");
+                    return;
+                }
+                if (network === "instagram") {
+                    copyShareLink();
+                    window.open("https://www.instagram.com/", "_blank", "noopener");
+                    setShareStatus("Link copied. Paste it in Instagram.");
+                }
+            });
+        });
+
+        if (copyBtn) {
+            copyBtn.addEventListener("click", copyShareLink);
+        }
+
+        document.addEventListener("click", (event) => {
+            if (!panel || panel.hidden) return;
+            const clickedShareBtn = event.target.closest(".js-open-share");
+            const clickedInsidePanel = event.target.closest("#sharePanel");
+            if (!clickedShareBtn && !clickedInsidePanel) {
+                closeSharePanel();
+            }
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                closeSharePanel();
+            }
+        });
+
+        window.addEventListener("resize", positionSharePanel);
+        window.addEventListener("scroll", positionSharePanel, true);
+    }
+
     function pad2(value) {
         return String(value).padStart(2, "0");
     }
@@ -294,6 +507,9 @@
         }, 1000 * 30);
     }
 
-    document.addEventListener("DOMContentLoaded", initCountdowns);
+    document.addEventListener("DOMContentLoaded", () => {
+        initCountdowns();
+        initSharePanel();
+    });
 </script>
 {% endblock %}

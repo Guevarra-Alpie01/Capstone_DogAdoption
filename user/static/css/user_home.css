@@ -142,12 +142,141 @@
     padding: 4px 10px;
     font-size: 0.85rem;
 }
+
+.admin-actions .action-btn {
+    min-width: 88px;
+    border-radius: 999px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+}
+
+.admin-actions .action-claim {
+    background-color: #198754;
+    border-color: #198754;
+}
+
+.admin-actions .action-claim:hover {
+    background-color: #157347;
+    border-color: #146c43;
+}
+
+.admin-actions .action-share {
+    color: #334155;
+    border-color: #cbd5e1;
+    background: #ffffff;
+}
+
+.admin-actions .action-share:hover {
+    color: #1e293b;
+    border-color: #94a3b8;
+    background: #f8fafc;
+}
+
+.share-icon {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+}
+
+.share-panel {
+    position: fixed;
+    z-index: 1080;
+    width: 320px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
+    padding: 14px;
+}
+
+.share-panel-header {
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 10px;
+    color: #0f172a;
+}
+
+.share-options {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.share-option {
+    border: 0;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    color: #334155;
+    padding: 4px;
+    border-radius: 8px;
+}
+
+.share-option:hover {
+    background: #f8fafc;
+}
+
+.share-logo {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-transform: uppercase;
+    font-weight: 800;
+    font-size: 0.9rem;
+}
+
+.share-facebook { background: #1877f2; }
+.share-messenger { background: #0084ff; }
+.share-x { background: #111827; }
+.share-instagram { background: #e1306c; }
+
+.share-url-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+
+.share-link-row {
+    display: flex;
+    gap: 8px;
+}
+
+#shareLinkInput {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 0.75rem;
+    color: #334155;
+}
+
+.share-panel-status {
+    min-height: 18px;
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: #0f766e;
+}
 .post-card {
     border-radius: 12px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    height: 640px;
+    height: auto;
+    min-height: 560px;
 }
 
 .post-card .card-body {
@@ -177,6 +306,30 @@
     justify-content: flex-end;
 }
 
+/* Keep admin details visually level with countdown card */
+.post-body-row.has-timer {
+    align-items: stretch;
+}
+
+.post-body-row.has-timer .post-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.post-body-row.has-timer .post-timer {
+    align-items: stretch;
+}
+
+.post-body-row.has-timer .post-timer .countdown-bar {
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+}
+
 .post-card .card-title,
 .post-card .card-text,
 .post-card .text-muted {
@@ -191,6 +344,11 @@
 
 .post-card .card-text {
     -webkit-line-clamp: 2;
+}
+
+/* Admin cards show labeled metadata (name/location/date), so allow more lines */
+.post-body-row.has-timer .post-details .card-text {
+    -webkit-line-clamp: 4;
 }
 
 .post-card .text-muted {
@@ -260,7 +418,7 @@
 }
 
 .post-card .card-body .text-center.mt-3 {
-    margin-top: auto !important;
+    margin-top: 10px !important;
 }
 
 .status-badge {
@@ -308,6 +466,56 @@
 }
 
 /* Mobile responsiveness */
+@media (max-width: 768px) {
+    .post-card {
+        height: auto;
+        min-height: 0;
+    }
+
+    .main-img {
+        height: 240px;
+    }
+
+    .post-body-row {
+        gap: 10px;
+    }
+
+    .post-body-row.has-timer .post-details {
+        flex: 1.35 1 0;
+        padding: 10px;
+    }
+
+    .post-body-row.has-timer .post-timer {
+        flex: 0.95 1 0;
+    }
+
+    .post-body-row.has-timer .post-details .card-text {
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-height: 1.45;
+        font-size: 0.92rem;
+        margin-bottom: 0;
+    }
+
+    .post-card .card-body .text-center.mt-3 {
+        margin-top: 8px !important;
+    }
+
+    .admin-actions {
+        margin-top: 2px;
+    }
+
+    .countdown-unit {
+        min-width: 56px;
+    }
+
+    .countdown-number {
+        padding: 6px 10px;
+        font-size: 1rem;
+    }
+}
+
 @media (max-width: 400px) {
 
     .search-bar {
@@ -332,6 +540,12 @@
         border-radius: 8px;
         padding: 8px;
         font-size: 0.85rem;
+    }
+
+    .share-panel {
+        width: calc(100vw - 20px);
+        left: 10px !important;
+        right: 10px;
     }
 }
 

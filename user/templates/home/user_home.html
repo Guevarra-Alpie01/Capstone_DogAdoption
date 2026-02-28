@@ -6,16 +6,16 @@
 
 <div class="home-content container">
 
+    <div class="create-post-row mb-3">
     {% if request.user.is_authenticated %}
-    <div class="mb-3">
-        <a href="{% url 'user:create_user_adoption_post' %}" class="btn btn-primary">
-            Post Dog for Adoption
-        </a>
-        <a href="{% url 'user:create_missing_post' %}" class="btn btn-danger ms-2">
-            Post Missing Dog
-        </a>
-    </div>
+    <a href="{% url 'user:create_post' %}"
+       class="create-post-fab"
+       aria-label="Create Post"
+       title="Create Post">
+        <i class="bi bi-plus-lg"></i>
+    </a>
     {% endif %}
+    </div>
 
     <form method="get" class="search-bar mb-4">
         <div class="input-group">
@@ -26,7 +26,9 @@
                 placeholder="Search by location, status, or keyword"
                 value="{{ query }}"
             >
-            <button class="btn btn-primary" type="submit">Search</button>
+            <button class="btn search-submit-btn" type="submit" aria-label="Search">
+                <i class="bi bi-search"></i>
+            </button>
         </div>
     </form>
 
@@ -251,6 +253,15 @@
     {% endfor %}
     </div>
 
+    {% if page_obj.has_next %}
+    <div class="text-center mt-3 mb-4">
+        <a class="btn btn-outline-secondary"
+           href="?{% if query %}q={{ query|urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">
+            Load more
+        </a>
+    </div>
+    {% endif %}
+
 </div>
 <div id="sharePanel" class="share-panel" hidden>
     <div class="share-panel-header">Share Panel</div>
@@ -348,6 +359,18 @@
         const panel = document.getElementById("sharePanel");
         if (!panel || panel.hidden || !activeShareTrigger) return;
 
+        const isMobile = window.matchMedia("(max-width: 768px)").matches;
+        if (isMobile) {
+            // Keep panel above bottom navigation on small screens
+            panel.style.left = "10px";
+            panel.style.right = "10px";
+            panel.style.top = "auto";
+            panel.style.bottom = "74px";
+            return;
+        }
+
+        panel.style.right = "";
+        panel.style.bottom = "";
         const triggerRect = activeShareTrigger.getBoundingClientRect();
         const panelWidth = 320;
         const margin = 12;

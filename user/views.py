@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect , get_object_or_404
+﻿from django.shortcuts import render, redirect , get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
@@ -10,11 +10,11 @@ from django.db.models import Q
 import os
 import json
 import base64
-from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
 from django.conf import settings
 from datetime import timedelta
+from django.core.paginator import Paginator
 
 #MODELS FROM ADMIN APP 
 from dogadoption_admin.models import DogAnnouncement, AnnouncementComment
@@ -27,7 +27,6 @@ from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, Mi
 #FORMS.PY 
 from .forms import UserAdoptionPostForm,MissingDogPostForm
 # Decorator to allow only users
-from collections import Counter
 
 
 # USER-ONLY DECORATOR
@@ -234,7 +233,9 @@ def user_home(request):
     if request.user.is_authenticated and request.user.is_staff:
         return redirect('dogadoption_admin:post_list')
 
-    query = request.GET.get('q')
+    query = (request.GET.get('q') or '').strip()
+    page_number = request.GET.get('page', 1)
+    posts_per_page = 12
 
     # Admin posts
     admin_posts = Post.objects.all().prefetch_related('images').order_by('-created_at')
@@ -352,34 +353,55 @@ def user_home(request):
         reverse=True
     )
 
+    paginator = Paginator(combined_posts, posts_per_page)
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'home/user_home.html', {
-        'posts': combined_posts,
+        'posts': page_obj.object_list,
+        'page_obj': page_obj,
         'query': query,
     })
 
 @user_only
-def create_user_adoption_post(request):
-    if request.method == 'POST':
-        form = UserAdoptionPostForm(request.POST, request.FILES)
-        if form.is_valid():
-            post = form.save(commit=False)
-            post.owner = request.user
-            post.save()
+def create_post(request):
+    selected_type = request.GET.get("type", "adoption")
+    if request.method == "POST":
+        selected_type = request.POST.get("post_type", "adoption")
 
-            # Save main image
-            main_image = request.FILES.get('main_image')
-            if main_image:
-                UserAdoptionImage.objects.create(post=post, image=main_image)
+    adoption_form = UserAdoptionPostForm()
+    missing_form = MissingDogPostForm()
 
-            # Save extra images
-            for img in request.FILES.getlist('extra_images'):
-                UserAdoptionImage.objects.create(post=post, image=img)
+    if request.method == "POST":
+        if selected_type == "missing":
+            missing_form = MissingDogPostForm(request.POST, request.FILES)
+            if missing_form.is_valid():
+                post = missing_form.save(commit=False)
+                post.owner = request.user
+                post.save()
+                messages.success(request, "Missing dog post created successfully.")
+                return redirect("user:user_home")
+        else:
+            adoption_form = UserAdoptionPostForm(request.POST, request.FILES)
+            if adoption_form.is_valid():
+                post = adoption_form.save(commit=False)
+                post.owner = request.user
+                post.save()
 
-            return redirect('user:user_home')
-    else:
-        form = UserAdoptionPostForm()
+                main_image = request.FILES.get("main_image")
+                if main_image:
+                    UserAdoptionImage.objects.create(post=post, image=main_image)
 
-    return render(request, 'home/post_adopt.html', {'form': form})
+                for img in request.FILES.getlist("extra_images"):
+                    UserAdoptionImage.objects.create(post=post, image=img)
+
+                messages.success(request, "Adoption post created successfully.")
+                return redirect("user:user_home")
+
+    return render(request, "home/post_create.html", {
+        "selected_type": selected_type,
+        "adoption_form": adoption_form,
+        "missing_form": missing_form,
+    })
 
 
 @user_only
@@ -442,26 +464,6 @@ def user_adoption_request_action(request, req_id, action):
     return redirect("user:user_adoption_requests")
 
 
-from .models import MissingDogPost
-from .forms import MissingDogPostForm
-
-
-@user_only
-def create_missing_post(request):
-    if request.method == 'POST':
-        form = MissingDogPostForm(request.POST, request.FILES)
-        if form.is_valid():
-            post = form.save(commit=False)
-            post.owner = request.user
-            post.save()
-            messages.success(request, "Missing dog post created successfully 🐶")
-            return redirect('user:user_home')
-    else:
-        form = MissingDogPostForm()
-
-    return render(request, 'home/post_missing.html', {
-        'form': form
-    })
 
 # VIEW FOR FACEBOOK SHARED LINK PREVIEW
 @user_only
@@ -614,7 +616,7 @@ def adopt_confirm(request, post_id):
 
         messages.success(
             request,
-            "Adoption request submitted successfully! 🐾"
+            "Adoption request submitted successfully! ðŸ¾"
         )
         return redirect('user:user_home')
 
@@ -692,7 +694,7 @@ def claim_confirm(request, post_id):
 
         messages.success(
             request,
-            "Claim submitted successfully! Admin will review it carefully 🐾"
+            "Claim submitted successfully! Admin will review it carefully ðŸ¾"
         )
         return redirect('user:user_home')
 

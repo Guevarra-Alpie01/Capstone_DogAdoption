@@ -5,7 +5,10 @@ body::before {
     content: "";
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.45);
+    background:
+        radial-gradient(circle at 20% 12%, rgba(34, 197, 94, 0.26), transparent 34%),
+        radial-gradient(circle at 82% 86%, rgba(21, 128, 61, 0.25), transparent 30%),
+        linear-gradient(135deg, rgba(6, 12, 9, 0.55), rgba(12, 20, 15, 0.5));
     z-index: 0;
 }
 
@@ -26,16 +29,38 @@ body::before {
    AUTH CARD
 ========================= */
 .auth-card {
-    padding: 32px;
-    border-radius: 18px;
+    position: relative;
+    overflow: hidden;
+    padding: 30px;
+    border-radius: 22px;
     width: 100%;
-    max-width: 360px;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.3);
-
+    max-width: 390px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    box-shadow: 0 24px 45px rgba(5, 10, 16, 0.4);
     background:
-        linear-gradient(180deg, rgba(10, 12, 14, 0.62), rgba(10, 12, 14, 0.62)),
+        linear-gradient(180deg, rgba(8, 18, 13, 0.66), rgba(8, 18, 13, 0.5)),
         url("../images/Adobe Express - file.png") center/cover no-repeat;
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
     color: #f8fafc;
+}
+
+.auth-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 86px;
+    background: linear-gradient(120deg, #16a34a, #15803d);
+    clip-path: polygon(0 0, 100% 0, 84% 74%, 0 100%);
+    opacity: 0.88;
+    z-index: 0;
+}
+
+.auth-card > * {
+    position: relative;
+    z-index: 1;
 }
 
 /* =========================
@@ -62,11 +87,11 @@ body::before {
 ========================= */
 .auth-card h2 {
     text-align: center;
-    font-weight: bold;
-    margin-bottom: 18px;
-    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 20px;
+    font-size: 2rem;
     color: #f8fafc;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    text-shadow: 0 4px 10px rgba(0,0,0,0.5);
 }
 
 .auth-card .text-muted {
@@ -77,41 +102,48 @@ body::before {
    INPUTS
 ========================= */
 .auth-card .form-control {
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.25);
-    padding: 10px;
-    background: rgba(255,255,255,0.9);
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    padding: 11px 14px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #0f172a;
 }
 
 .auth-card .form-control:focus {
-    box-shadow: 0 0 0 0.2rem rgba(255,255,255,0.4);
+    border-color: rgba(34, 197, 94, 0.75);
+    box-shadow: 0 0 0 0.2rem rgba(34, 197, 94, 0.22);
 }
 
 .signup-card {
     max-width: 420px;
 }
 
+.login-form .input-group,
 .signup-form .input-group {
-    border-radius: 10px;
+    border-radius: 999px;
     overflow: hidden;
+    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.22);
 }
 
+.login-form .input-group-text,
 .signup-form .input-group-text {
-    background: rgba(255,255,255,0.95);
-    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.72);
     border-right: none;
-    color: #0f172a;
+    color: #1e293b;
     min-width: 42px;
     display: inline-flex;
     justify-content: center;
 }
 
+.login-form .input-group .form-control,
 .signup-form .input-group .form-control {
     border-left: none;
 }
 
+.login-form .input-group:focus-within .input-group-text,
 .signup-form .input-group:focus-within .input-group-text {
-    box-shadow: 0 0 0 0.2rem rgba(255,255,255,0.4);
+    border-color: rgba(34, 197, 94, 0.75);
 }
 
 .signup-barangay-wrap {
@@ -146,20 +178,22 @@ body::before {
    LOGIN / SIGNUP BUTTON
 ========================= */
 .auth-card .login-btn {
-    background-color: rgba(255,255,255,0.95) !important;
-    color: #111827 !important;
-    font-weight: 700;
-    border-radius: 8px;
-    border: none;
-    transition: 0.3s ease;
-    padding: 10px 12px;
-    width: 85%;
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    color: #166534 !important;
+    font-weight: 800;
+    border-radius: 999px;
+    border: 1px solid rgba(22, 101, 52, 0.45);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    padding: 11px 14px;
+    width: 78%;
     margin: 0 auto;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
 }
 
 .auth-card .login-btn:hover {
-    background-color: rgba(255,255,255,0.95) !important;
-    color: #111827 !important;
+    background-color: #166534 !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
 }
 
 /* =========================
@@ -184,6 +218,7 @@ body::before {
 .auth-card a {
     color: #f8fafc !important;
     text-decoration: none;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
 .auth-card a:hover {

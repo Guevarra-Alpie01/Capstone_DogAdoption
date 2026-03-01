@@ -13,6 +13,7 @@
         <!-- MAIN INSTRUCTION -->
         <h2 id="instructionTitle">Face Verification</h2>
         <p id="instructionDesc">Position your face inside the circle</p>
+        <p id="liveHint" class="live-hint">Press Next when your face is centered and well-lit.</p>
 
         <!-- CAMERA CIRCLE -->
         <div class="camera-circle">
@@ -21,8 +22,10 @@
 
         <!-- STATUS -->
         <p id="status"></p>
+        <button type="button" id="nextStepBtn" class="next-step-btn">Next</button>
 
         <canvas id="canvas" style="display:none;"></canvas>
+        <canvas id="analysisCanvas" style="display:none;"></canvas>
 
         <form id="csrf-form" style="display:none;">
             {% csrf_token %}
@@ -33,15 +36,15 @@
                 <h4>Terms and Conditions</h4>
 
                 <p>
-                    By proceeding with this facial verification process, you acknowledge and consent that the facial images captured will be used solely for identity verification and account security purposes within the system.
+                    By continuing with facial verification, you consent to the collection and use of your face images strictly for account security and identity verification in this platform.
                 </p>
 
                 <p>
-                    You understand that access to these facial images is strictly limited to authorized system administrators and will be handled in accordance with applicable data protection and privacy standards.
+                    Access to your face images is limited to authorized administrators and will be handled in accordance with applicable data protection and privacy standards.
                 </p>
 
                 <p>
-                    You further agree that the captured facial images will not be publicly displayed, shared, or used for any purpose outside of secure authentication and verification within the platform.
+                    Your face images will not be publicly displayed, shared, or used for purposes outside secure authentication and verification.
                 </p>
 
                 <label class="consent-check">
@@ -69,6 +72,9 @@ const stepLabel = document.getElementById("stepLabel");
 const instructionTitle = document.getElementById("instructionTitle");
 const instructionDesc = document.getElementById("instructionDesc");
 const statusText = document.getElementById("status");
+const liveHint = document.getElementById("liveHint");
+const nextStepBtn = document.getElementById("nextStepBtn");
+const analysisCanvas = document.getElementById("analysisCanvas");
 
 const consentSection = document.getElementById("consentSection");
 const agreeCheckbox = document.getElementById("agreeCheckbox");
@@ -82,15 +88,18 @@ let images = [];
 let step = 0;
 let lastCaptureTime = 0;
 let uploadDone = false;
+let canProceed = false;
+let awaitingCapture = false;
+let lastHintUpdateTime = 0;
 
 /* ======================
    STEP CONFIG (GCASH STYLE)
 ====================== */
 const STEPS = [
-    { key: "LOOK_FORWARD", title: "Look Straight", desc: "Align your face inside the circle" },
-    { key: "TURN_LEFT", title: "Turn Left", desc: "Slowly turn your head to the LEFT" },
-    { key: "TURN_RIGHT", title: "Turn Right", desc: "Slowly turn your head to the RIGHT" },
-    { key: "BLINK", title: "Blink", desc: "Blink your eyes naturally" }
+    { key: "LOOK_FORWARD", title: "Look Straight", desc: "Center your face inside the circle." },
+    { key: "TURN_LEFT", title: "Turn Left", desc: "Slowly turn your head to the left." },
+    { key: "TURN_RIGHT", title: "Turn Right", desc: "Slowly turn your head to the right." },
+    { key: "BLINK", title: "Blink", desc: "Blink naturally once." }
 ];
 
 updateStepUI();
@@ -102,6 +111,8 @@ function updateStepUI(){
     stepLabel.innerText = `STEP ${step + 1}`;
     instructionTitle.innerText = STEPS[step].title;
     instructionDesc.innerText = STEPS[step].desc;
+    nextStepBtn.disabled = false;
+    nextStepBtn.innerText = step === STEPS.length - 1 ? "Finish Step" : "Next";
 }
 
 /* ======================
@@ -152,18 +163,37 @@ if (!window.isSecureContext) {
    MAIN DETECTION
 ====================== */
 function onResults(results) {
-    if (!results.multiFaceLandmarks || uploadDone) return;
+    if (uploadDone) return;
+
+    if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) {
+        canProceed = false;
+        if (Date.now() - lastHintUpdateTime > 250) {
+            liveHint.innerText = "No face detected. Move closer and center your face.";
+            lastHintUpdateTime = Date.now();
+        }
+        return;
+    }
 
     const landmarks = results.multiFaceLandmarks[0];
+    const readiness = evaluateReadiness(landmarks);
+    canProceed = readiness.ready;
 
-    if (checkStep(landmarks) && canCapture()) {
+    if (Date.now() - lastHintUpdateTime > 250) {
+        liveHint.innerText = readiness.hint;
+        lastHintUpdateTime = Date.now();
+    }
+
+    if (awaitingCapture && canProceed && checkStep(landmarks) && canCapture()) {
+        awaitingCapture = false;
         captureImage();
         step++;
 
         if (step >= STEPS.length) {
-            statusText.innerText = "Face verification complete!";
-            uploadImages(); // upload first
+            statusText.innerText = "Face verification complete.";
+            nextStepBtn.style.display = "none";
+            uploadImages();
         } else {
+            statusText.innerText = "Captured. Continue to the next step.";
             updateStepUI();
         }
     }
@@ -207,6 +237,57 @@ function isBlinking(landmarks) {
     return (bottom - top) < 0.01;
 }
 
+function getBrightnessScore() {
+    if (!video.videoWidth || !video.videoHeight) return 120;
+
+    analysisCanvas.width = 64;
+    analysisCanvas.height = 48;
+    const ctx = analysisCanvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(video, 0, 0, 64, 48);
+    const data = ctx.getImageData(0, 0, 64, 48).data;
+    let total = 0;
+    for (let i = 0; i < data.length; i += 4) {
+        total += (data[i] * 0.299) + (data[i + 1] * 0.587) + (data[i + 2] * 0.114);
+    }
+    return total / (64 * 48);
+}
+
+function evaluateReadiness(landmarks) {
+    const nose = landmarks[1];
+    const yaw = headYaw(landmarks);
+    const brightness = getBrightnessScore();
+
+    if (brightness < 65) {
+        return { ready: false, hint: "Too dark. Move to a brighter area or face the light." };
+    }
+    if (nose.y < 0.35) {
+        return { ready: false, hint: "Move your face a little downward." };
+    }
+    if (nose.y > 0.7) {
+        return { ready: false, hint: "Move your face a little upward." };
+    }
+    if (nose.x < 0.35) {
+        return { ready: false, hint: "Move your face slightly to the right." };
+    }
+    if (nose.x > 0.65) {
+        return { ready: false, hint: "Move your face slightly to the left." };
+    }
+
+    if (STEPS[step].key === "LOOK_FORWARD" && Math.abs(yaw) > 0.08) {
+        return { ready: false, hint: "Look straight at the camera." };
+    }
+    if (STEPS[step].key === "TURN_LEFT" && yaw <= 0.12) {
+        return { ready: false, hint: "Turn your head more to the left." };
+    }
+    if (STEPS[step].key === "TURN_RIGHT" && yaw >= -0.12) {
+        return { ready: false, hint: "Turn your head more to the right." };
+    }
+    if (STEPS[step].key === "BLINK") {
+        return { ready: true, hint: "Press Next and blink once." };
+    }
+    return { ready: true, hint: "Ready. Press Next to capture instantly." };
+}
+
 /* ======================
    CAPTURE CONTROL
 ====================== */
@@ -236,6 +317,18 @@ function captureImage() {
     images.push(img);
 }
 
+nextStepBtn.addEventListener("click", function () {
+    if (uploadDone || step >= STEPS.length) {
+        return;
+    }
+    if (!canProceed) {
+        statusText.innerText = "Face not ready yet. Follow the instruction above.";
+        return;
+    }
+    statusText.innerText = "Detecting... hold still.";
+    awaitingCapture = true;
+});
+
 /* ======================
    UPLOAD FIRST THEN SHOW CONSENT
 ====================== */
@@ -254,9 +347,12 @@ function uploadImages() {
     .then(data => {
         if (data.status === "ok") {
             consentSection.style.display = "block";
-            statusText.innerText = "Please review and accept the consent to continue.";
+            statusText.innerText = "Review and accept the terms to complete signup.";
+            instructionTitle.innerText = "Verification Completed";
+            instructionDesc.innerText = "Your face images were captured successfully.";
+            liveHint.style.display = "none";
         } else {
-            alert("Face verification failed");
+            statusText.innerText = "Face verification failed. Please try again.";
         }
     });
 }

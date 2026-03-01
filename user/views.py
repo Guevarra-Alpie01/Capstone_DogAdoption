@@ -2,6 +2,8 @@
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
@@ -107,13 +109,34 @@ def barangay_list_api(request):
 
 def signup_view(request):
     if request.method == "POST":
-        username = request.POST.get("username")
+        username = (request.POST.get("username") or "").strip()
+        password = request.POST.get("password") or ""
+        confirm_password = request.POST.get("confirm_password") or ""
         barangay = _resolve_barangay_name(request.POST.get("address"))
 
-        if User.objects.filter(username=username).exists():
+        if not username:
+            return render(request, "signup.html", {
+                "error": "Username is required."
+            })
+
+        if User.objects.filter(username__iexact=username).exists():
             return render(request, "signup.html", {
                 "error": "Username already exists"
             })
+
+        if password != confirm_password:
+            return render(request, "signup.html", {
+                "error": "Passwords do not match."
+            })
+
+        try:
+            temp_user = User(username=username, first_name=request.POST.get("first_name"), last_name=request.POST.get("last_name"))
+            validate_password(password, user=temp_user)
+        except ValidationError as exc:
+            return render(request, "signup.html", {
+                "error": " ".join(exc.messages)
+            })
+
         if not barangay:
             return render(request, "signup.html", {
                 "error": "Please select a valid barangay from the suggestions."
@@ -122,7 +145,7 @@ def signup_view(request):
         # SAVE DATA TEMPORARILY (SESSION)
         request.session["signup_data"] = {
             "username": username,
-            "password": request.POST.get("password"),
+            "password": password,
             "first_name": request.POST.get("first_name"),
             "last_name": request.POST.get("last_name"),
             "middle_initial": "",

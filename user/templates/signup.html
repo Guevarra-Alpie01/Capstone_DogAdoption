@@ -22,13 +22,14 @@
 
             <div class="mb-2 input-group">
                 <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                <input type="text" name="username" class="form-control" placeholder="Username" required>
+                <input type="text" name="username" class="form-control" placeholder="Username" value="{{ signup_form_data.username|default:'' }}" required>
             </div>
 
             <div class="mb-2 input-group">
                 <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
                 <input
                     type="password"
+                    id="signupPassword"
                     name="password"
                     class="form-control"
                     placeholder="Password"
@@ -36,12 +37,16 @@
                     autocomplete="new-password"
                     required
                 >
+                <button type="button" class="input-group-text password-toggle" data-password-toggle="signupPassword" aria-label="Show password">
+                    <i class="bi bi-eye"></i>
+                </button>
             </div>
 
             <div class="mb-2 input-group">
                 <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
                 <input
                     type="password"
+                    id="signupConfirmPassword"
                     name="confirm_password"
                     class="form-control"
                     placeholder="Confirm Password"
@@ -49,16 +54,19 @@
                     autocomplete="new-password"
                     required
                 >
+                <button type="button" class="input-group-text password-toggle" data-password-toggle="signupConfirmPassword" aria-label="Show password">
+                    <i class="bi bi-eye"></i>
+                </button>
             </div>
 
             <div class="mb-2 input-group">
                 <span class="input-group-text"><i class="bi bi-person"></i></span>
-                <input type="text" name="first_name" class="form-control" placeholder="First Name" required>
+                <input type="text" name="first_name" class="form-control" placeholder="First Name" value="{{ signup_form_data.first_name|default:'' }}" required>
             </div>
 
             <div class="mb-2 input-group">
                 <span class="input-group-text"><i class="bi bi-person"></i></span>
-                <input type="text" name="last_name" class="form-control" placeholder="Last Name" required>
+                <input type="text" name="last_name" class="form-control" placeholder="Last Name" value="{{ signup_form_data.last_name|default:'' }}" required>
             </div>
 
             <div class="mb-3 signup-barangay-wrap">
@@ -70,6 +78,7 @@
                         id="signupBarangay"
                         class="form-control"
                         placeholder="Barangay"
+                        value="{{ signup_form_data.address|default:'' }}"
                         autocomplete="off"
                         required
                         data-barangay-autocomplete="true"
@@ -118,6 +127,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 });
 </script>
+<script src="{% static 'js/password_reveal.js' %}"></script>
 <script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 
 {% endblock %}

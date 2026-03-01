@@ -13,7 +13,13 @@
         <!-- MAIN INSTRUCTION -->
         <h2 id="instructionTitle">Face Verification</h2>
         <p id="instructionDesc">Position your face inside the circle</p>
-        <p id="liveHint" class="live-hint">Press Next when your face is centered and well-lit.</p>
+        <div id="liveHint" class="live-hint" role="status" aria-live="polite">
+            <span class="live-hint-icon" aria-hidden="true"><i class="bi bi-lightbulb-fill"></i></span>
+            <span class="live-hint-text-wrap">
+                <span class="live-hint-label">Camera Guidance</span>
+                <span id="liveHintText">Keep your face centered and hold still for auto-capture.</span>
+            </span>
+        </div>
 
         <!-- CAMERA CIRCLE -->
         <div class="camera-circle">
@@ -22,7 +28,6 @@
 
         <!-- STATUS -->
         <p id="status"></p>
-        <button type="button" id="nextStepBtn" class="next-step-btn">Next</button>
 
         <canvas id="canvas" style="display:none;"></canvas>
         <canvas id="analysisCanvas" style="display:none;"></canvas>
@@ -73,7 +78,8 @@ const instructionTitle = document.getElementById("instructionTitle");
 const instructionDesc = document.getElementById("instructionDesc");
 const statusText = document.getElementById("status");
 const liveHint = document.getElementById("liveHint");
-const nextStepBtn = document.getElementById("nextStepBtn");
+const liveHintText = document.getElementById("liveHintText");
+const cameraCircle = document.querySelector(".camera-circle");
 const analysisCanvas = document.getElementById("analysisCanvas");
 
 const consentSection = document.getElementById("consentSection");
@@ -89,8 +95,16 @@ let step = 0;
 let lastCaptureTime = 0;
 let uploadDone = false;
 let canProceed = false;
-let awaitingCapture = false;
 let lastHintUpdateTime = 0;
+let stableFrames = 0;
+let holdStartTime = 0;
+let previousSample = null;
+let lowLightStreak = 0;
+
+// Low-end-device safe capture thresholds
+const REQUIRED_STABLE_FRAMES = 9;
+const STABLE_HOLD_MS = 380;
+const MOTION_THRESHOLD = 0.006;
 
 /* ======================
    STEP CONFIG (GCASH STYLE)
@@ -111,8 +125,6 @@ function updateStepUI(){
     stepLabel.innerText = `STEP ${step + 1}`;
     instructionTitle.innerText = STEPS[step].title;
     instructionDesc.innerText = STEPS[step].desc;
-    nextStepBtn.disabled = false;
-    nextStepBtn.innerText = step === STEPS.length - 1 ? "Finish Step" : "Next";
 }
 
 /* ======================
@@ -126,8 +138,8 @@ const faceMesh = new FaceMesh({
 faceMesh.setOptions({
     maxNumFaces: 1,
     refineLandmarks: true,
-    minDetectionConfidence: 0.6,
-    minTrackingConfidence: 0.6
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
 });
 
 faceMesh.onResults(onResults);
@@ -167,8 +179,10 @@ function onResults(results) {
 
     if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) {
         canProceed = false;
+        resetStability();
+        setCaptureState("idle");
         if (Date.now() - lastHintUpdateTime > 250) {
-            liveHint.innerText = "No face detected. Move closer and center your face.";
+            setLiveHint("No face detected. Move closer and center your face.", "warning");
             lastHintUpdateTime = Date.now();
         }
         return;
@@ -177,23 +191,80 @@ function onResults(results) {
     const landmarks = results.multiFaceLandmarks[0];
     const readiness = evaluateReadiness(landmarks);
     canProceed = readiness.ready;
+    const stepPassed = checkStep(landmarks);
 
     if (Date.now() - lastHintUpdateTime > 250) {
-        liveHint.innerText = readiness.hint;
+        setLiveHint(readiness.hint, readiness.type || "info");
         lastHintUpdateTime = Date.now();
     }
 
-    if (awaitingCapture && canProceed && checkStep(landmarks) && canCapture()) {
-        awaitingCapture = false;
+    if (!canProceed || !stepPassed) {
+        resetStability();
+        setCaptureState("idle");
+        return;
+    }
+
+    // Blink step should proceed immediately once detected.
+    if (STEPS[step].key === "BLINK" && canCapture()) {
         captureImage();
+        setCaptureState("done");
+        resetStability();
         step++;
+        statusText.innerText = `Capture ${step}/${STEPS.length} complete.`;
 
         if (step >= STEPS.length) {
             statusText.innerText = "Face verification complete.";
-            nextStepBtn.style.display = "none";
             uploadImages();
         } else {
-            statusText.innerText = "Captured. Continue to the next step.";
+            updateStepUI();
+        }
+        return;
+    }
+
+    if (!isFaceStable(landmarks)) {
+        resetHoldTimerOnly();
+        setCaptureState("idle");
+        if (Date.now() - lastHintUpdateTime > 250) {
+            setLiveHint("Hold still to capture a clear image.", "warning");
+            lastHintUpdateTime = Date.now();
+        }
+        return;
+    }
+
+    setCaptureState("capturing");
+    stableFrames += 1;
+    if (stableFrames < REQUIRED_STABLE_FRAMES) {
+        if (Date.now() - lastHintUpdateTime > 250) {
+            setLiveHint("Almost ready. Keep still.", "info");
+            lastHintUpdateTime = Date.now();
+        }
+        return;
+    }
+
+    if (!holdStartTime) {
+        holdStartTime = Date.now();
+    }
+
+    const holdRemaining = STABLE_HOLD_MS - (Date.now() - holdStartTime);
+    if (holdRemaining > 0) {
+        if (Date.now() - lastHintUpdateTime > 250) {
+            setLiveHint(`Hold steady... ${Math.max(0.1, holdRemaining / 1000).toFixed(1)}s`, "info");
+            lastHintUpdateTime = Date.now();
+        }
+        return;
+    }
+
+    if (canCapture()) {
+        captureImage();
+        setCaptureState("done");
+        resetStability();
+        step++;
+        statusText.innerText = `Capture ${step}/${STEPS.length} complete.`;
+
+        if (step >= STEPS.length) {
+            statusText.innerText = "Face verification complete.";
+            uploadImages();
+        } else {
             updateStepUI();
         }
     }
@@ -237,6 +308,62 @@ function isBlinking(landmarks) {
     return (bottom - top) < 0.01;
 }
 
+function landmarkSample(landmarks) {
+    const ids = [1, 33, 263, 61, 291, 152];
+    return ids.map((idx) => ({ x: landmarks[idx].x, y: landmarks[idx].y }));
+}
+
+function isFaceStable(landmarks) {
+    const current = landmarkSample(landmarks);
+    if (!previousSample) {
+        previousSample = current;
+        return false;
+    }
+
+    let total = 0;
+    for (let i = 0; i < current.length; i++) {
+        total += Math.abs(current[i].x - previousSample[i].x) + Math.abs(current[i].y - previousSample[i].y);
+    }
+    const motion = total / current.length;
+    previousSample = current;
+    return motion < MOTION_THRESHOLD;
+}
+
+function resetHoldTimerOnly() {
+    holdStartTime = 0;
+}
+
+function resetStability() {
+    stableFrames = 0;
+    holdStartTime = 0;
+    previousSample = null;
+}
+
+function setLiveHint(message, type = "info") {
+    if (liveHintText) {
+        liveHintText.innerText = message;
+    }
+    if (liveHint) {
+        liveHint.classList.remove("live-hint--info", "live-hint--warning", "live-hint--success");
+        liveHint.classList.add(`live-hint--${type}`);
+    }
+}
+
+function setCaptureState(state) {
+    if (!cameraCircle) return;
+    cameraCircle.classList.remove("capture-prep", "capture-done");
+    if (state === "capturing") {
+        cameraCircle.classList.add("capture-prep");
+        return;
+    }
+    if (state === "done") {
+        cameraCircle.classList.add("capture-done");
+        setTimeout(() => {
+            cameraCircle.classList.remove("capture-done");
+        }, 750);
+    }
+}
+
 function getBrightnessScore() {
     if (!video.videoWidth || !video.videoHeight) return 120;
 
@@ -257,35 +384,41 @@ function evaluateReadiness(landmarks) {
     const yaw = headYaw(landmarks);
     const brightness = getBrightnessScore();
 
-    if (brightness < 65) {
-        return { ready: false, hint: "Too dark. Move to a brighter area or face the light." };
+    if (brightness < 55) {
+        lowLightStreak += 1;
+        // Grace mode for weak cameras: allow after sustained low-light frames.
+        if (lowLightStreak < 30) {
+            return { ready: false, hint: "Too dark. Move to a brighter area or face the light.", type: "warning" };
+        }
+        return { ready: true, hint: "Low light detected. Keep still for capture.", type: "warning" };
     }
+    lowLightStreak = 0;
     if (nose.y < 0.35) {
-        return { ready: false, hint: "Move your face a little downward." };
+        return { ready: false, hint: "Move your face a little downward.", type: "warning" };
     }
     if (nose.y > 0.7) {
-        return { ready: false, hint: "Move your face a little upward." };
+        return { ready: false, hint: "Move your face a little upward.", type: "warning" };
     }
     if (nose.x < 0.35) {
-        return { ready: false, hint: "Move your face slightly to the right." };
+        return { ready: false, hint: "Move your face slightly to the right.", type: "warning" };
     }
     if (nose.x > 0.65) {
-        return { ready: false, hint: "Move your face slightly to the left." };
+        return { ready: false, hint: "Move your face slightly to the left.", type: "warning" };
     }
 
     if (STEPS[step].key === "LOOK_FORWARD" && Math.abs(yaw) > 0.08) {
-        return { ready: false, hint: "Look straight at the camera." };
+        return { ready: false, hint: "Look straight at the camera.", type: "warning" };
     }
     if (STEPS[step].key === "TURN_LEFT" && yaw <= 0.12) {
-        return { ready: false, hint: "Turn your head more to the left." };
+        return { ready: false, hint: "Turn your head more to the left.", type: "warning" };
     }
     if (STEPS[step].key === "TURN_RIGHT" && yaw >= -0.12) {
-        return { ready: false, hint: "Turn your head more to the right." };
+        return { ready: false, hint: "Turn your head more to the right.", type: "warning" };
     }
     if (STEPS[step].key === "BLINK") {
-        return { ready: true, hint: "Press Next and blink once." };
+        return { ready: true, hint: "Blink once to continue.", type: "info" };
     }
-    return { ready: true, hint: "Ready. Press Next to capture instantly." };
+    return { ready: true, hint: "Ready. Hold still while we capture automatically.", type: "success" };
 }
 
 /* ======================
@@ -313,21 +446,9 @@ function captureImage() {
     ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
     ctx.restore();
 
-    const img = canvas.toDataURL("image/jpeg", 0.6);
+    const img = canvas.toDataURL("image/jpeg", 0.75);
     images.push(img);
 }
-
-nextStepBtn.addEventListener("click", function () {
-    if (uploadDone || step >= STEPS.length) {
-        return;
-    }
-    if (!canProceed) {
-        statusText.innerText = "Face not ready yet. Follow the instruction above.";
-        return;
-    }
-    statusText.innerText = "Detecting... hold still.";
-    awaitingCapture = true;
-});
 
 /* ======================
    UPLOAD FIRST THEN SHOW CONSENT
@@ -350,6 +471,7 @@ function uploadImages() {
             statusText.innerText = "Review and accept the terms to complete signup.";
             instructionTitle.innerText = "Verification Completed";
             instructionDesc.innerText = "Your face images were captured successfully.";
+            setLiveHint("All required captures are complete.", "success");
             liveHint.style.display = "none";
         } else {
             statusText.innerText = "Face verification failed. Please try again.";

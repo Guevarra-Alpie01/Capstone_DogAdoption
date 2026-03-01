@@ -112,21 +112,33 @@ def signup_view(request):
         username = (request.POST.get("username") or "").strip()
         password = request.POST.get("password") or ""
         confirm_password = request.POST.get("confirm_password") or ""
+        first_name = (request.POST.get("first_name") or "").strip()
+        last_name = (request.POST.get("last_name") or "").strip()
+        raw_barangay = request.POST.get("address")
         barangay = _resolve_barangay_name(request.POST.get("address"))
+        signup_form_data = {
+            "username": username,
+            "first_name": first_name,
+            "last_name": last_name,
+            "address": _clean_barangay(raw_barangay),
+        }
 
         if not username:
             return render(request, "signup.html", {
-                "error": "Username is required."
+                "error": "Username is required.",
+                "signup_form_data": signup_form_data,
             })
 
         if User.objects.filter(username__iexact=username).exists():
             return render(request, "signup.html", {
-                "error": "Username already exists"
+                "error": "Username already exists",
+                "signup_form_data": signup_form_data,
             })
 
         if password != confirm_password:
             return render(request, "signup.html", {
-                "error": "Passwords do not match."
+                "error": "Passwords do not match.",
+                "signup_form_data": signup_form_data,
             })
 
         try:
@@ -134,20 +146,22 @@ def signup_view(request):
             validate_password(password, user=temp_user)
         except ValidationError as exc:
             return render(request, "signup.html", {
-                "error": " ".join(exc.messages)
+                "error": " ".join(exc.messages),
+                "signup_form_data": signup_form_data,
             })
 
         if not barangay:
             return render(request, "signup.html", {
-                "error": "Please select a valid barangay from the suggestions."
+                "error": "Please select a valid barangay from the suggestions.",
+                "signup_form_data": signup_form_data,
             })
 
         # SAVE DATA TEMPORARILY (SESSION)
         request.session["signup_data"] = {
             "username": username,
             "password": password,
-            "first_name": request.POST.get("first_name"),
-            "last_name": request.POST.get("last_name"),
+            "first_name": first_name,
+            "last_name": last_name,
             "middle_initial": "",
             "address": barangay,
             "age": 18,

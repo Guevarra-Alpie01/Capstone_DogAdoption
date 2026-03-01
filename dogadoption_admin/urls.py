@@ -49,6 +49,7 @@ urlpatterns = [
     #REGISTRATION
     
     path('register/', views.register_dogs, name='register_dogs'),
+    path('barangays/', views.barangay_list_api, name='barangay_list_api'),
     path('registration-record/', views.registration_record, name='registration_record'),
      path('registration_record/download/<str:file_type>/', views.download_registration, name='download_registration'),
     path("med-records/<int:registration_id>/",views.med_record,name="med_records"),

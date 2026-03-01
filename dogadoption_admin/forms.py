@@ -1,5 +1,5 @@
 from django import forms
-from .models import Post
+from .models import Post, Barangay
 class PostForm(forms.ModelForm):
 
     caption = forms.CharField(
@@ -20,6 +20,9 @@ class PostForm(forms.ModelForm):
         widget=forms.TextInput(attrs={
             'placeholder': 'Enter Barangay',
             'autocomplete': 'off',
+            'data-barangay-autocomplete': 'true',
+            'data-barangay-suggestions-id': 'location-suggestions',
+            'data-barangay-strict': 'true',
         })
     )
 
@@ -42,6 +45,18 @@ class PostForm(forms.ModelForm):
             'rescued_date',
             'claim_days',
         ]
+
+    def clean_location(self):
+        value = " ".join((self.cleaned_data.get("location") or "").split()).strip()
+        if not value:
+            return value
+
+        normalized = "".join(ch.lower() for ch in value if ch.isalnum())
+        for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True):
+            if "".join(ch.lower() for ch in name if ch.isalnum()) == normalized:
+                return name
+
+        raise forms.ValidationError("Please select a valid barangay from the suggestions.")
     
 
 from .models import Citation, Penalty,PenaltySection

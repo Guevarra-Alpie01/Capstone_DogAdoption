@@ -25,8 +25,20 @@
                 <div class="field-group">
                   <label for="barangay">Name of Barangay</label>
                     <div class="barangay-input-row">
-                      <input type="text" id="barangay" name="barangay" value="{{ barangay }}" placeholder="Enter Barangay" oninput="showSuggestions(this.value)" autocomplete="off" required>
-                      <button type="button" class="search-btn" onclick="searchBarangay()">Search</button>
+                      <input
+                          type="text"
+                          id="barangay"
+                          name="barangay"
+                          value="{{ barangay }}"
+                          placeholder="Enter Barangay"
+                          autocomplete="off"
+                          required
+                          data-barangay-autocomplete="true"
+                          data-barangay-source-url="{% url 'dogadoption_admin:barangay_list_api' %}"
+                          data-barangay-suggestions-id="suggestions"
+                          data-barangay-strict="true"
+                      >
+                      <button type="button" class="search-btn" data-barangay-search-target="barangay">Search</button>
                     </div>
                     <div id="suggestions" class="suggestions-box" style="display:none;"></div>
                 </div>
@@ -97,130 +109,5 @@
         </form>
     </div>
 </div>
-<script>
-  const barangays = [
-    "Ali-is","Banaybanay","Banga","Boyco","Bugay","Cansumalig","Dawis","Kalamtukan",
-    "Kalumboyan","Malabugas","Mandu-ao","Maninihon","Minaba","Nangka","Narra",
-    "Pagatban","Poblacion","San Isidro","San Jose","San Miguel","San Roque","Suba",
-    "Tabuan","Tayawan","Tinago","Ubos","Villareal","Villasol"
-  ];
-
-  const input = document.getElementById('barangay');
-  const suggestionsBox = document.getElementById('suggestions');
-  const registrationForm = document.querySelector('form[action*="register_dogs"]');
-
-  function cleanInput(value) {
-    return value.replace(/\s+/g, ' ').trim();
-  }
-
-  function normalizeText(value) {
-    return cleanInput(value).toLowerCase().replace(/[^a-z0-9]/g, '');
-  }
-
-  function findExactBarangay(value) {
-    const normalized = normalizeText(value);
-    if (!normalized) {
-      return '';
-    }
-
-    return barangays.find((b) => normalizeText(b) === normalized) || '';
-  }
-
-  function findBarangayMatches(value) {
-    const normalized = normalizeText(value);
-    if (!normalized) {
-      return [];
-    }
-    return barangays.filter((b) => normalizeText(b).includes(normalized));
-  }
-
-  function showSuggestions(value) {
-    const cleaned = cleanInput(value);
-    const normalizedVal = normalizeText(cleaned);
-
-    input.value = cleaned;
-
-    if (!normalizedVal) {
-      suggestionsBox.style.display = 'none';
-      return;
-    }
-
-    const exactMatch = findExactBarangay(cleaned);
-    if (exactMatch) {
-      input.value = exactMatch;
-    }
-
-    const val = normalizeText(input.value);
-    if (!val) {
-      suggestionsBox.style.display = 'none';
-      return;
-    }
-
-    const matches = findBarangayMatches(input.value);
-
-    if (matches.length === 0) {
-      suggestionsBox.style.display = 'none';
-      return;
-    }
-
-    suggestionsBox.innerHTML = matches.map(b =>
-      `<div class="suggestion-item" onclick="selectBarangay('${b}')">${b}</div>`
-    ).join('');
-
-    suggestionsBox.style.display = 'block';
-  }
-
-  function selectBarangay(value) {
-    input.value = value;
-    suggestionsBox.style.display = 'none';
-  }
-
-  function searchBarangay() {
-    const cleaned = cleanInput(input.value);
-    const exactMatch = findExactBarangay(cleaned);
-    const matches = findBarangayMatches(cleaned);
-
-    if (exactMatch) {
-      selectBarangay(exactMatch);
-      return;
-    }
-
-    if (matches.length === 1) {
-      selectBarangay(matches[0]);
-      return;
-    }
-
-    input.value = cleaned;
-    showSuggestions(cleaned);
-  }
-
-  function normalizeBarangayField() {
-    const cleaned = cleanInput(input.value);
-    const exactMatch = findExactBarangay(cleaned);
-    input.value = exactMatch || cleaned;
-    return Boolean(exactMatch);
-  }
-
-  input.addEventListener('blur', normalizeBarangayField);
-
-  if (registrationForm) {
-    registrationForm.addEventListener('submit', () => {
-      normalizeBarangayField();
-      suggestionsBox.style.display = 'none';
-    });
-  }
-
-  document.addEventListener('click', (e) => {
-    if (!suggestionsBox.contains(e.target) && e.target !== input) {
-      suggestionsBox.style.display = 'none';
-    }
-  });
-
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      searchBarangay();
-    }
-  });
-</script>
+<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 {% endblock %}

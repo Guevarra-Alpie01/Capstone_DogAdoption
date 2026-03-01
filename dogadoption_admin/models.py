@@ -272,6 +272,19 @@ class AdminNotification(models.Model):
     def __str__(self):
         return self.title
 
+
+class Barangay(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+
+    def __str__(self):
+        return self.name
+
+
 # models.py
 class Dog(models.Model):
     date_registered = models.DateField()

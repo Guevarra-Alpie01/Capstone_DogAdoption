@@ -16,6 +16,7 @@ from django.http import JsonResponse
 
 from django.contrib.auth.models import User
 from django.views.decorators.http import require_http_methods
+from django.urls import reverse
 from functools import wraps
 import json
 
@@ -61,7 +62,7 @@ from .models import Post, PostImage, PostRequest
 from .models import GlobalAppointmentDate
 from .models import Penalty, PenaltySection
 from .models import Dog
-from .models import DogRegistration, CertificateSettings
+from .models import DogRegistration, CertificateSettings, Barangay
 from .models import Pet, VaccinationRecord, DewormingTreatmentRecord
 
 
@@ -70,6 +71,24 @@ from user.models import Profile,FaceImage
 from user.models import DogCaptureRequest, AdoptionRequest,FaceImage, Profile,OwnerClaim, ClaimImage
 
 from .sms import build_capture_message, send_sms
+
+
+def _clean_barangay(value):
+    return " ".join((value or "").split()).strip()
+
+
+def _normalize_barangay(value):
+    return "".join(ch.lower() for ch in _clean_barangay(value) if ch.isalnum())
+
+
+def _resolve_barangay_name(value):
+    normalized = _normalize_barangay(value)
+    if not normalized:
+        return ""
+    for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True):
+        if _normalize_barangay(name) == normalized:
+            return name
+    return ""
 
 
 
@@ -119,6 +138,10 @@ def create_post(request):
             return redirect('dogadoption_admin:post_list')
     else:
         post_form = PostForm()
+
+    post_form.fields["location"].widget.attrs["data-barangay-source-url"] = reverse(
+        "dogadoption_admin:barangay_list_api"
+    )
 
     return render(request, 'admin_home/create_post.html', {
         'post_form': post_form
@@ -245,7 +268,7 @@ def appointment_calendar(request):
         ).order_by('appointment_date').values_list('appointment_date', flat=True)
     )
 
-    return render(request, 'admin_adoption/appointment_calendar.html', {
+    return render(request, 'admin_home/appointment_calendar.html', {
         'appointment_dates': [d.strftime('%Y-%m-%d') for d in global_dates],
     })
 
@@ -722,7 +745,8 @@ def register_dogs(request):
     date = request.session.get('date', '')
 
     if request.method == 'POST':
-        barangay = request.POST.get('barangay', barangay)
+        barangay_input = request.POST.get('barangay', barangay)
+        barangay = _resolve_barangay_name(barangay_input)
         date = request.POST.get('date', date)
         request.session['barangay'] = barangay
         request.session['date'] = date
@@ -734,6 +758,10 @@ def register_dogs(request):
         neutering = request.POST.get('neutering', 'No')
         color = request.POST.get('color', '').strip()
         owner_name = request.POST.get('owner_name', '').strip()
+
+        if not barangay:
+            messages.error(request, "Please select a valid barangay from the suggestions.")
+            return redirect('dogadoption_admin:register_dogs')
 
         if not name or not owner_name:
             messages.error(request, "Dog Name and Owner Name are required.")
@@ -773,14 +801,11 @@ def register_dogs(request):
 
 @admin_required
 def registration_record(request):
-    selected_barangay = request.GET.get('barangay', '').strip()
-
-    barangay_list_parsed = [
-        "Ali-is","Banaybanay","Banga","Boyco","Bugay","Cansumalig","Dawis","Kalamtukan",
-        "Kalumboyan","Malabugas","Mandu-ao","Maninihon","Minaba","Nangka","Narra",
-        "Pagatban","Poblacion","San Isidro","San Jose","San Miguel","San Roque","Suba",
-        "Tabuan","Tayawan","Tinago","Ubos","Villareal","Villasol"
-    ]
+    selected_barangay_raw = request.GET.get('barangay', '').strip()
+    selected_barangay = _resolve_barangay_name(selected_barangay_raw) if selected_barangay_raw else ''
+    barangay_list_parsed = list(
+        Barangay.objects.filter(is_active=True).values_list('name', flat=True)
+    )
 
     if selected_barangay:
         dogs = Dog.objects.filter(
@@ -797,8 +822,15 @@ def registration_record(request):
 
     return render(request, 'admin_registration/registration_record.html', context)
 
+
+@admin_required
+def barangay_list_api(request):
+    barangays = list(Barangay.objects.filter(is_active=True).values_list('name', flat=True))
+    return JsonResponse({"barangays": barangays})
+
 def download_registration(request, file_type):
-    selected_barangay = request.GET.get('barangay', None)
+    selected_barangay_raw = request.GET.get('barangay', None)
+    selected_barangay = _resolve_barangay_name(selected_barangay_raw) if selected_barangay_raw else None
 
     dogs = Dog.objects.all()
 
@@ -898,8 +930,40 @@ def med_record(request, registration_id):
         registration=registration
     ).order_by('-date')
 
+    current_address = (registration.address or "").strip()
+    current_street = ""
+    current_barangay = ""
+    if current_address:
+        parts = [p.strip() for p in current_address.split(",") if p.strip()]
+        if len(parts) >= 3 and parts[-2].lower() == "bayawan city" and parts[-1].lower() == "negros oriental":
+            current_barangay = parts[-3]
+            current_street = ", ".join(parts[:-3])
+        else:
+            matched_barangay = _resolve_barangay_name(current_address)
+            current_barangay = matched_barangay
+            if matched_barangay:
+                current_street = current_address.replace(matched_barangay, "").strip(" ,")
+
     if request.method == "POST":
         record_type = request.POST.get("record_type")
+
+        if record_type == "update_address":
+            barangay_input = request.POST.get("barangay", "")
+            street_address = (request.POST.get("street_address") or "").strip()
+            barangay = _resolve_barangay_name(barangay_input)
+
+            if not barangay:
+                messages.error(request, "Please select a valid barangay from the suggestions.")
+                return redirect('dogadoption_admin:med_records', registration_id=registration.id)
+
+            registration.address = (
+                f"{street_address}, {barangay}, Bayawan City, Negros Oriental"
+                if street_address else
+                f"{barangay}, Bayawan City, Negros Oriental"
+            )
+            registration.save(update_fields=["address"])
+            messages.success(request, "Owner address updated.")
+            return redirect('dogadoption_admin:med_records', registration_id=registration.id)
 
         if record_type == "vaccination":
             VaccinationRecord.objects.create(
@@ -946,6 +1010,8 @@ def med_record(request, registration_id):
         "registration": registration,
         "vaccinations": vaccinations,
         "dewormings": dewormings,
+        "current_street": current_street,
+        "current_barangay": current_barangay,
     }
 
     return render(request, "admin_registration/med_record.html", context)
@@ -956,6 +1022,13 @@ def dog_certificate(request):
 
     if request.method == "POST":
         reg_no = request.POST.get("reg_no")
+        barangay_input = request.POST.get("barangay", "")
+        barangay = _resolve_barangay_name(barangay_input)
+        address_line = (request.POST.get("address") or "").strip()
+
+        if not barangay:
+            messages.error(request, "Please select a valid barangay from the suggestions.")
+            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
 
         if settings:
             if settings.reg_no != reg_no:
@@ -965,6 +1038,7 @@ def dog_certificate(request):
             settings = CertificateSettings.objects.create(reg_no=reg_no)
 
         registration = DogRegistration.objects.create(
+            # Keep address format standardized: "<Barangay>, Bayawan City, Negros Oriental"
             reg_no=settings.reg_no,
             name_of_pet=request.POST.get('name_of_pet'),
             breed=request.POST.get('breed'),
@@ -973,7 +1047,7 @@ def dog_certificate(request):
             sex=request.POST.get('sex'),
             status=request.POST.get('status'),
             owner_name=request.POST.get('owner_name'),
-            address=request.POST.get('address'),
+            address=f"{address_line}, {barangay}, Bayawan City, Negros Oriental" if address_line else f"{barangay}, Bayawan City, Negros Oriental",
             contact_no=request.POST.get('contact_no'),
         )
 

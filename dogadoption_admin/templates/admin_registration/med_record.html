@@ -6,7 +6,11 @@
 {% endblock extra_css %}
 
 {% block content %}
-{% include 'admin_registration/registration_navigation.html' %}
+<a href="{% url 'dogadoption_admin:dog_certificate' %}" class="med-record-back" aria-label="Back to dog certificate">
+    <svg class="med-record-back-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M14.7 6.3a1 1 0 0 1 0 1.4L11.41 11H20a1 1 0 1 1 0 2h-8.59l3.3 3.3a1 1 0 0 1-1.42 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.41 0z"/>
+    </svg>
+</a>
 <h2>Medical Records</h2>
 
 <!--  SHOW CONNECTED DOG INFORMATION -->
@@ -16,6 +20,18 @@
         Owner: {{ registration.owner_name }} |
         Reg No: {{ registration.reg_no }}
     </h3>
+</div>
+
+<div class="address-card">
+    <h3>Owner Address</h3>
+    <p class="owner-barangay-display">
+        <strong>Barangay:</strong>
+        {% if current_barangay %}
+            {{ current_barangay }}
+        {% else %}
+            -
+        {% endif %}
+    </p>
 </div>
 
 <!-- ================= RECORD SELECTOR ================= -->
@@ -145,5 +161,4 @@ document.addEventListener("DOMContentLoaded", function() {
     toggleForm();
 });
 </script>
-
 {% endblock %}

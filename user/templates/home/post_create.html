@@ -2,35 +2,31 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="card shadow p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <a href="{% url 'user:user_home' %}" class="btn btn-light">Back</a>
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}">
+
+<div class="container mt-4 post-create-page">
+    <div class="card shadow p-4 post-create-shell">
+        <div class="post-create-header mb-3">
+            <a href="{% url 'user:user_home' %}" class="post-create-back" aria-label="Back to home">
+                <span class="post-create-back-icon" aria-hidden="true">&#8592;</span>
+            </a>
             <h4 class="mb-0">Create Dog Post</h4>
-            <span></span>
         </div>
 
         <div class="mb-3">
             <label class="form-label fw-semibold">Post Type</label>
-            <div class="btn-group w-100" role="group" aria-label="Post Type">
-                <button type="button"
-                        class="btn {% if selected_type != 'missing' %}btn-primary{% else %}btn-outline-primary{% endif %}"
-                        id="typeAdoptionBtn">
-                    For Adoption
-                </button>
-                <button type="button"
-                        class="btn {% if selected_type == 'missing' %}btn-danger{% else %}btn-outline-danger{% endif %}"
-                        id="typeMissingBtn">
-                    Missing Dog
-                </button>
-            </div>
+            <select id="postTypeSelect" class="form-select post-type-select">
+                <option value="adoption" {% if selected_type != 'missing' %}selected{% endif %}>For Adoption</option>
+                <option value="missing" {% if selected_type == 'missing' %}selected{% endif %}>Missing Dog</option>
+            </select>
         </div>
 
-        <form method="POST" enctype="multipart/form-data" novalidate>
+        <form method="POST" enctype="multipart/form-data" novalidate class="post-create-form">
             {% csrf_token %}
             <input type="hidden" name="post_type" id="postTypeInput" value="{% if selected_type == 'missing' %}missing{% else %}adoption{% endif %}">
 
-            <div id="adoptionFields" {% if selected_type == "missing" %}style="display:none;"{% endif %}>
+            <div id="adoptionFields" class="post-type-panel" {% if selected_type == "missing" %}style="display:none;"{% endif %}>
+                <p class="post-section-title">Adoption Details</p>
                 <div class="mb-3">
                     <label class="form-label">Dog Name</label>
                     {{ adoption_form.dog_name }}
@@ -55,10 +51,13 @@
                     <label class="form-label">Extra Photos (Optional)</label>
                     <input type="file" name="extra_images" multiple class="form-control">
                 </div>
-                <button type="submit" class="btn btn-success w-100">Publish Adoption Post</button>
+                <div class="post-submit-row">
+                    <button type="submit" class="btn btn-success w-100">Publish Adoption Post</button>
+                </div>
             </div>
 
-            <div id="missingFields" {% if selected_type != "missing" %}style="display:none;"{% endif %}>
+            <div id="missingFields" class="post-type-panel" {% if selected_type != "missing" %}style="display:none;"{% endif %}>
+                <p class="post-section-title">Missing Dog Details</p>
                 <div class="mb-3">
                     <label class="form-label">Dog Name</label>
                     {{ missing_form.dog_name }}
@@ -89,7 +88,9 @@
                     {{ missing_form.location }}
                     {% if missing_form.location.errors %}<div class="text-danger small">{{ missing_form.location.errors|striptags }}</div>{% endif %}
                 </div>
-                <button type="submit" class="btn btn-danger w-100">Submit Missing Report</button>
+                <div class="post-submit-row">
+                    <button type="submit" class="btn btn-danger w-100">Submit Missing Report</button>
+                </div>
             </div>
         </form>
     </div>
@@ -97,8 +98,7 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        const adoptionBtn = document.getElementById("typeAdoptionBtn");
-        const missingBtn = document.getElementById("typeMissingBtn");
+        const postTypeSelect = document.getElementById("postTypeSelect");
         const adoptionFields = document.getElementById("adoptionFields");
         const missingFields = document.getElementById("missingFields");
         const postTypeInput = document.getElementById("postTypeInput");
@@ -108,15 +108,11 @@
             postTypeInput.value = isMissing ? "missing" : "adoption";
             adoptionFields.style.display = isMissing ? "none" : "";
             missingFields.style.display = isMissing ? "" : "none";
-
-            adoptionBtn.classList.toggle("btn-primary", !isMissing);
-            adoptionBtn.classList.toggle("btn-outline-primary", isMissing);
-            missingBtn.classList.toggle("btn-danger", isMissing);
-            missingBtn.classList.toggle("btn-outline-danger", !isMissing);
+            postTypeSelect.value = postTypeInput.value;
         }
 
-        adoptionBtn.addEventListener("click", function () { setType("adoption"); });
-        missingBtn.addEventListener("click", function () { setType("missing"); });
+        postTypeSelect.addEventListener("change", function () { setType(postTypeSelect.value); });
+        setType(postTypeSelect.value);
     });
 </script>
 {% endblock %}

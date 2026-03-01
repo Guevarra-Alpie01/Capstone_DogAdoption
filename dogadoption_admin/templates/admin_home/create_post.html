@@ -59,116 +59,6 @@
     </form>
 </div>
 <script>
-    const barangays = [
-        "Ali-is","Banaybanay","Banga","Boyco","Bugay","Cansumalig","Dawis","Kalamtukan",
-        "Kalumboyan","Malabugas","Mandu-ao","Maninihon","Minaba","Nangka","Narra",
-        "Pagatban","Poblacion","San Isidro","San Jose","San Miguel","San Roque","Suba",
-        "Tabuan","Tayawan","Tinago","Ubos","Villareal","Villasol"
-    ];
-
-    const locationInput = document.getElementById("{{ post_form.location.id_for_label }}");
-    const locationSuggestions = document.getElementById("location-suggestions");
-
-    function cleanLocationInput(value) {
-        return value.replace(/\s+/g, ' ').trim();
-    }
-
-    function normalizeLocationText(value) {
-        return cleanLocationInput(value).toLowerCase().replace(/[^a-z0-9]/g, '');
-    }
-
-    function findExactBarangay(value) {
-        const normalized = normalizeLocationText(value);
-        if (!normalized) {
-            return '';
-        }
-        return barangays.find((b) => normalizeLocationText(b) === normalized) || '';
-    }
-
-    function findBarangayMatches(value) {
-        const normalized = normalizeLocationText(value);
-        if (!normalized) {
-            return [];
-        }
-        return barangays.filter((b) => normalizeLocationText(b).includes(normalized));
-    }
-
-    function showLocationSuggestions(value) {
-        const cleaned = cleanLocationInput(value);
-        locationInput.value = cleaned;
-
-        const normalizedVal = normalizeLocationText(cleaned);
-        if (!normalizedVal) {
-            locationSuggestions.style.display = 'none';
-            return;
-        }
-
-        const exactMatch = findExactBarangay(cleaned);
-        if (exactMatch) {
-            locationInput.value = exactMatch;
-        }
-
-        const matches = findBarangayMatches(locationInput.value);
-        if (!matches.length) {
-            locationSuggestions.style.display = 'none';
-            return;
-        }
-
-        locationSuggestions.innerHTML = matches.map((b) =>
-            `<div class="suggestion-item" data-value="${b}">${b}</div>`
-        ).join('');
-        locationSuggestions.style.display = 'block';
-    }
-
-    function selectTopSuggestion() {
-        const first = locationSuggestions.querySelector('.suggestion-item');
-        if (first) {
-            selectLocation(first.dataset.value);
-            return true;
-        }
-        return false;
-    }
-
-    function selectLocation(value) {
-        locationInput.value = value;
-        locationSuggestions.style.display = 'none';
-    }
-
-    function normalizeLocationField() {
-        const cleaned = cleanLocationInput(locationInput.value);
-        const exactMatch = findExactBarangay(cleaned);
-        locationInput.value = exactMatch || cleaned;
-    }
-
-    if (locationInput) {
-        locationInput.addEventListener('input', (e) => showLocationSuggestions(e.target.value));
-        locationInput.addEventListener('blur', normalizeLocationField);
-        locationInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                if (!selectTopSuggestion()) {
-                    normalizeLocationField();
-                    locationSuggestions.style.display = 'none';
-                }
-            }
-        });
-    }
-
-    if (locationSuggestions) {
-        locationSuggestions.addEventListener('click', (e) => {
-            const target = e.target.closest('.suggestion-item');
-            if (target) {
-                selectLocation(target.dataset.value);
-            }
-        });
-    }
-
-    document.addEventListener('click', (e) => {
-        if (!locationSuggestions.contains(e.target) && e.target !== locationInput) {
-            locationSuggestions.style.display = 'none';
-        }
-    });
-
     const claimDaysInput = document.getElementById("{{ post_form.claim_days.id_for_label }}");
     const form = document.getElementById("create-post-form");
     const claimDaysStorageKey = "admin_create_post_claim_days";
@@ -198,4 +88,5 @@
         });
     }
 </script>
+<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 {% endblock %}

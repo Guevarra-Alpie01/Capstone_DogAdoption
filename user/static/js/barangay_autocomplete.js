@@ -16,7 +16,6 @@
         if (listCache.has(sourceUrl)) {
             return listCache.get(sourceUrl);
         }
-
         try {
             const response = await fetch(sourceUrl, { credentials: "same-origin" });
             if (!response.ok) {
@@ -57,17 +56,19 @@
 
     function initInput(input) {
         const sourceUrl = input.dataset.barangaySourceUrl || "";
-        const suggestionsId = input.dataset.barangaySuggestionsId || "";
         const strictMode = input.dataset.barangayStrict === "true";
+        const suggestionsId = input.dataset.barangaySuggestionsId || "";
         const suggestionsBox = suggestionsId ? document.getElementById(suggestionsId) : null;
-        const searchTarget = input.id || input.name || "";
-        const searchButton = searchTarget
-            ? document.querySelector(`[data-barangay-search-target="${searchTarget}"]`)
-            : null;
         const parentForm = input.form;
 
         if (!sourceUrl || !suggestionsBox) {
             return;
+        }
+
+        function selectValue(value) {
+            input.value = value;
+            input.setCustomValidity("");
+            hideSuggestions(suggestionsBox);
         }
 
         function renderSuggestions(matches) {
@@ -75,7 +76,6 @@
                 hideSuggestions(suggestionsBox);
                 return;
             }
-
             suggestionsBox.innerHTML = "";
             matches.forEach((value) => {
                 const item = document.createElement("div");
@@ -85,29 +85,6 @@
                 suggestionsBox.appendChild(item);
             });
             suggestionsBox.style.display = "block";
-        }
-
-        function selectValue(value) {
-            input.value = value;
-            input.setCustomValidity("");
-            hideSuggestions(suggestionsBox);
-        }
-
-        async function showSuggestions(rawValue) {
-            const cleaned = cleanInput(rawValue);
-            input.value = cleaned;
-
-            const list = await fetchBarangays(sourceUrl);
-            if (!list.length || !normalizeText(cleaned)) {
-                hideSuggestions(suggestionsBox);
-                return;
-            }
-
-            const exact = findExact(list, cleaned);
-            if (exact) {
-                input.value = exact;
-            }
-            renderSuggestions(findMatches(list, input.value));
         }
 
         async function normalizeField() {
@@ -121,55 +98,51 @@
             return Boolean(exact);
         }
 
-        async function searchNow() {
+        async function searchAndSelect() {
             const list = await fetchBarangays(sourceUrl);
             const cleaned = cleanInput(input.value);
             const exact = findExact(list, cleaned);
             const matches = findMatches(list, cleaned);
-
             if (exact) {
                 selectValue(exact);
                 return;
             }
-            if (matches.length === 1) {
+            if (matches.length) {
                 selectValue(matches[0]);
                 return;
             }
-
-            if (matches.length > 1) {
-                // Enter should accept the top/closest suggestion immediately.
-                selectValue(matches[0]);
-                return;
-            }
-
             input.value = cleaned;
             renderSuggestions(matches);
         }
 
-        input.addEventListener("input", (e) => {
+        input.addEventListener("input", async (e) => {
             input.setCustomValidity("");
-            showSuggestions(e.target.value);
+            const list = await fetchBarangays(sourceUrl);
+            const cleaned = cleanInput(e.target.value);
+            input.value = cleaned;
+            if (!normalizeText(cleaned)) {
+                hideSuggestions(suggestionsBox);
+                return;
+            }
+            renderSuggestions(findMatches(list, cleaned));
         });
+
         input.addEventListener("blur", () => normalizeField());
         input.addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
                 e.preventDefault();
-                searchNow();
+                searchAndSelect();
             }
         });
 
-        if (searchButton) {
-            searchButton.addEventListener("click", () => searchNow());
-        }
-
         if (parentForm) {
             parentForm.addEventListener("submit", async (e) => {
-                const isExact = await normalizeField();
+                const ok = await normalizeField();
                 hideSuggestions(suggestionsBox);
                 if (strictMode) {
                     const hasValue = Boolean(cleanInput(input.value));
                     const shouldEnforce = input.required || hasValue;
-                    if (shouldEnforce && !isExact) {
+                    if (shouldEnforce && !ok) {
                         e.preventDefault();
                         input.setCustomValidity("Please choose a barangay from the suggestions.");
                         input.reportValidity();

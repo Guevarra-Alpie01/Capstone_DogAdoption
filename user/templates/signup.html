@@ -7,39 +7,57 @@
 <link rel="stylesheet" href="{% static 'css/login.css' %}">
 
 <div class="auth-wrapper" data-home-url="{% url 'user:user_home' %}">
-    <div class="auth-card">
+    <div class="auth-card signup-card">
 
         <h2>Create Account</h2>
 
-        <form method="post">
+        {% if error %}
+        <div class="alert alert-danger py-2 mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}
+        </div>
+        {% endif %}
+
+        <form method="post" class="signup-form">
             {% csrf_token %}
 
-            <div class="mb-2">
+            <div class="mb-2 input-group">
+                <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
                 <input type="text" name="username" class="form-control" placeholder="Username" required>
             </div>
 
-            <div class="mb-2">
+            <div class="mb-2 input-group">
+                <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
                 <input type="password" name="password" class="form-control" placeholder="Password" required>
             </div>
 
-            <div class="mb-2">
+            <div class="mb-2 input-group">
+                <span class="input-group-text"><i class="bi bi-person"></i></span>
                 <input type="text" name="first_name" class="form-control" placeholder="First Name" required>
             </div>
 
-            <div class="mb-2">
-                <input type="text" name="middle_initial" class="form-control" placeholder="Middle Initial">
-            </div>
-
-            <div class="mb-2">
+            <div class="mb-2 input-group">
+                <span class="input-group-text"><i class="bi bi-person"></i></span>
                 <input type="text" name="last_name" class="form-control" placeholder="Last Name" required>
             </div>
 
-            <div class="mb-2">
-                <input type="text" name="address" class="form-control" placeholder="Address" required>
-            </div>
-
-            <div class="mb-3">
-                <input type="number" name="age" class="form-control" placeholder="Age" required>
+            <div class="mb-3 signup-barangay-wrap">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                    <input
+                        type="text"
+                        name="address"
+                        id="signupBarangay"
+                        class="form-control"
+                        placeholder="Barangay"
+                        autocomplete="off"
+                        required
+                        data-barangay-autocomplete="true"
+                        data-barangay-source-url="{% url 'user:barangay_list_api' %}"
+                        data-barangay-suggestions-id="signup-barangay-suggestions"
+                        data-barangay-strict="true"
+                    >
+                </div>
+                <div id="signup-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
             </div>
 
             <button type="submit" class="login-btn w-100 py-2">
@@ -79,5 +97,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 });
 </script>
+<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 
 {% endblock %}

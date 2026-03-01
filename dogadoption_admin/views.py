@@ -19,6 +19,7 @@ from django.views.decorators.http import require_http_methods
 from django.urls import reverse
 from functools import wraps
 import json
+import re
 
 
 
@@ -1030,6 +1031,12 @@ def dog_certificate(request):
             messages.error(request, "Please select a valid barangay from the suggestions.")
             return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
 
+        contact_no_raw = (request.POST.get("contact_no") or "").strip()
+        if not re.match(r"^(?:\+63|0)9\d{9}$", contact_no_raw):
+            messages.error(request, "Use a valid PH mobile number: +639XXXXXXXXX or 09XXXXXXXXX.")
+            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+        contact_no = f"+63{contact_no_raw[1:]}" if contact_no_raw.startswith("0") else contact_no_raw
+
         if settings:
             if settings.reg_no != reg_no:
                 settings.reg_no = reg_no
@@ -1048,7 +1055,7 @@ def dog_certificate(request):
             status=request.POST.get('status'),
             owner_name=request.POST.get('owner_name'),
             address=f"{address_line}, {barangay}, Bayawan City, Negros Oriental" if address_line else f"{barangay}, Bayawan City, Negros Oriental",
-            contact_no=request.POST.get('contact_no'),
+            contact_no=contact_no,
         )
 
         #  Redirect to medical record with dog ID

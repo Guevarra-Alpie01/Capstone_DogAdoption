@@ -20,6 +20,7 @@ from django.utils.dateparse import parse_date
 #MODELS FROM ADMIN APP 
 from dogadoption_admin.models import DogAnnouncement, AnnouncementComment
 from dogadoption_admin.models import Post, PostRequest, GlobalAppointmentDate
+from dogadoption_admin.models import Barangay
 
 #MODELS FROM USER APP
 from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
@@ -81,13 +82,41 @@ def logout_view(request):
 
 
 # Sign up for users
+def _clean_barangay(value):
+    return " ".join((value or "").split()).strip()
+
+
+def _normalize_barangay(value):
+    return "".join(ch.lower() for ch in _clean_barangay(value) if ch.isalnum())
+
+
+def _resolve_barangay_name(value):
+    normalized = _normalize_barangay(value)
+    if not normalized:
+        return ""
+    for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True):
+        if _normalize_barangay(name) == normalized:
+            return name
+    return ""
+
+
+def barangay_list_api(request):
+    barangays = list(Barangay.objects.filter(is_active=True).values_list("name", flat=True))
+    return JsonResponse({"barangays": barangays})
+
+
 def signup_view(request):
     if request.method == "POST":
         username = request.POST.get("username")
+        barangay = _resolve_barangay_name(request.POST.get("address"))
 
         if User.objects.filter(username=username).exists():
             return render(request, "signup.html", {
                 "error": "Username already exists"
+            })
+        if not barangay:
+            return render(request, "signup.html", {
+                "error": "Please select a valid barangay from the suggestions."
             })
 
         # SAVE DATA TEMPORARILY (SESSION)
@@ -96,9 +125,9 @@ def signup_view(request):
             "password": request.POST.get("password"),
             "first_name": request.POST.get("first_name"),
             "last_name": request.POST.get("last_name"),
-            "middle_initial": request.POST.get("middle_initial"),
-            "address": request.POST.get("address"),
-            "age": request.POST.get("age"),
+            "middle_initial": "",
+            "address": barangay,
+            "age": 18,
         }
 
         # GO TO FACE AUTH STEP
@@ -205,9 +234,9 @@ def signup_complete(request):
     # Create profile
     profile = Profile.objects.create(
         user=user,
-        middle_initial=data["middle_initial"],
-        address=data["address"],
-        age=data["age"],
+        middle_initial=data.get("middle_initial", ""),
+        address=data.get("address", ""),
+        age=data.get("age", 18),
         consent_given=True
     )
 

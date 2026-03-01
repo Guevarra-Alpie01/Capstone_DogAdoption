@@ -1,5 +1,54 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% block content %}
+
+<style>
+    .appt-calendar {
+        border: 1px solid #dee2e6;
+        border-radius: 12px;
+        padding: 12px;
+        background: #fff;
+    }
+    .appt-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    .appt-weekdays, .appt-days {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 6px;
+    }
+    .appt-weekday {
+        text-align: center;
+        color: #6b7280;
+        font-size: 0.8rem;
+    }
+    .appt-day {
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        min-height: 38px;
+        background: #f8f9fa;
+        font-weight: 600;
+    }
+    .appt-day.empty {
+        border: none;
+        background: transparent;
+    }
+    .appt-day.unavailable {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+    .appt-day.available {
+        background: #e7f8ec;
+        border-color: #8fd19e;
+        cursor: pointer;
+    }
+    .appt-day.selected {
+        background: #facc15;
+        border-color: #ca8a04;
+    }
+</style>
 
 <div class="card shadow p-4">
 
@@ -28,40 +77,35 @@
 
     <hr>
 
-    <form method="post">
+    <form method="post" id="adoptForm">
         {% csrf_token %}
         <div class="mb-3">
-            <label for="appointment_date" class="form-label">Preferred Appointment Date</label>
-            <select id="appointment_date"
-                    name="appointment_date"
-                    class="form-select"
-                    required
-                    {% if not available_dates %}disabled{% endif %}>
-                <option value="" selected disabled>Select an available date</option>
-                {% for slot in available_dates %}
-                    <option value="{{ slot.appointment_date|date:'Y-m-d' }}">
-                        {{ slot.appointment_date|date:"M d, Y" }}
-                    </option>
-                {% endfor %}
-            </select>
+            <label class="form-label">Preferred Appointment Date</label>
+            <input type="hidden" id="appointment_date" name="appointment_date" required>
+
+            <div class="appt-calendar">
+                <div class="appt-toolbar">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="prev_month">&lt;</button>
+                    <strong id="month_label"></strong>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="next_month">&gt;</button>
+                </div>
+                <div class="appt-weekdays" id="weekdays"></div>
+                <div class="appt-days" id="calendar_days"></div>
+            </div>
+
             {% if available_dates %}
-                <div class="form-text">
-                    Choose one of the admin-approved dates for your adoption appointment.
-                </div>
+                <div class="form-text mt-2">Green dates are available. Pick one date.</div>
             {% else %}
-                <div class="form-text text-danger">
-                    No appointment dates are available yet. Please check again later.
-                </div>
+                <div class="form-text text-danger mt-2">No appointment dates are available yet. Please check again later.</div>
             {% endif %}
         </div>
 
         <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-success" {% if not available_dates %}disabled{% endif %}>
+            <button type="submit" id="confirm_btn" class="btn btn-success" {% if not available_dates %}disabled{% endif %}>
                 Confirm Adoption Request
             </button>
 
-            <a href="{% url 'user:user_home' %}"
-               class="btn btn-outline-secondary">
+            <a href="{% url 'user:user_home' %}" class="btn btn-outline-secondary">
                 Cancel
             </a>
         </div>
@@ -72,5 +116,85 @@
     </p>
 
 </div>
+
+<script>
+    (function () {
+        const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const availableDates = new Set([
+            {% for slot in available_dates %}"{{ slot.appointment_date|date:'Y-m-d' }}"{% if not forloop.last %}, {% endif %}{% endfor %}
+        ]);
+
+        const monthLabel = document.getElementById("month_label");
+        const weekdaysEl = document.getElementById("weekdays");
+        const daysEl = document.getElementById("calendar_days");
+        const prevBtn = document.getElementById("prev_month");
+        const nextBtn = document.getElementById("next_month");
+        const inputEl = document.getElementById("appointment_date");
+        const submitBtn = document.getElementById("confirm_btn");
+
+        const state = {
+            currentMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+            selectedDate: "",
+        };
+
+        weekdaysEl.innerHTML = weekdays.map(day => `<div class="appt-weekday">${day}</div>`).join("");
+
+        function toISO(y, m, d) {
+            return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        }
+
+        function syncForm() {
+            inputEl.value = state.selectedDate;
+            if (submitBtn && availableDates.size > 0) {
+                submitBtn.disabled = !state.selectedDate;
+            }
+        }
+
+        function render() {
+            const year = state.currentMonth.getFullYear();
+            const month = state.currentMonth.getMonth();
+            monthLabel.textContent = state.currentMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const monthDays = new Date(year, month + 1, 0).getDate();
+            let html = "";
+
+            for (let i = 0; i < firstDay; i++) {
+                html += '<button type="button" class="appt-day empty" disabled></button>';
+            }
+
+            for (let day = 1; day <= monthDays; day++) {
+                const iso = toISO(year, month, day);
+                const available = availableDates.has(iso);
+                const selected = state.selectedDate === iso;
+                const cls = ["appt-day", available ? "available" : "unavailable", selected ? "selected" : ""].join(" ");
+                html += `<button type="button" class="${cls}" data-date="${iso}" ${available ? "" : "disabled"}>${day}</button>`;
+            }
+
+            daysEl.innerHTML = html;
+            daysEl.querySelectorAll(".appt-day.available").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const picked = btn.getAttribute("data-date");
+                    state.selectedDate = state.selectedDate === picked ? "" : picked;
+                    syncForm();
+                    render();
+                });
+            });
+        }
+
+        prevBtn.addEventListener("click", () => {
+            state.currentMonth = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth() - 1, 1);
+            render();
+        });
+
+        nextBtn.addEventListener("click", () => {
+            state.currentMonth = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth() + 1, 1);
+            render();
+        });
+
+        syncForm();
+        render();
+    })();
+</script>
 
 {% endblock %}

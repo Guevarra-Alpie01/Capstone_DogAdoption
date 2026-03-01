@@ -29,11 +29,6 @@ urlpatterns = [
     path('post/<int:post_id>/requests/', views.adoption_requests, name='adoption_requests'),
     path('request/<int:req_id>/<str:action>/', views.update_request, name='update_request'),
     path('posts/<int:post_id>/claims/', views.claim_requests, name='claim_requests'),
-    path(
-        'posts/<int:post_id>/appointment-dates/<str:request_type>/',
-        views.manage_appointment_dates,
-        name='manage_appointment_dates'
-    ),
   
     #ADMIN ANNOUNCEMENTS
     path('admin/announcements/', views.announcement_list, name='admin_announcements'),

@@ -58,7 +58,7 @@ from .models import Post, PostImage , DogAnnouncement, AnnouncementComment, Post
 from .models import DogCatcherContact, AdminNotification
 from .models import Citation
 from .models import Post, PostImage, PostRequest
-from .models import AppointmentAvailability
+from .models import GlobalAppointmentDate
 from .models import Penalty, PenaltySection
 from .models import Dog
 from .models import DogRegistration, CertificateSettings
@@ -211,95 +211,42 @@ def post_list(request):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def appointment_calendar(request):
-    posts = Post.objects.order_by('-created_at')
-    if not posts.exists():
-        messages.info(request, "No posts available yet. Create a post first.")
-        return redirect('dogadoption_admin:create_post')
-
-    selected_post = None
-    selected_post_id = request.GET.get('post_id')
-
     if request.method == 'POST':
-        selected_post_id = request.POST.get('post_id')
-        selected_post = get_object_or_404(Post, id=selected_post_id)
+        dates_raw = (request.POST.get('appointment_dates') or '').strip()
 
-        claim_dates_raw = (request.POST.get('claim_dates') or '').strip()
-        adopt_dates_raw = (request.POST.get('adopt_dates') or '').strip()
+        parsed_dates = []
+        for value in [v.strip() for v in dates_raw.split(',') if v.strip()]:
+            parsed_date = parse_date(value)
+            if parsed_date:
+                parsed_dates.append(parsed_date)
+        parsed_dates = sorted(set(parsed_dates))
 
-        def parse_date_csv(csv_value):
-            parsed = []
-            for value in [v.strip() for v in csv_value.split(',') if v.strip()]:
-                parsed_date = parse_date(value)
-                if parsed_date:
-                    parsed.append(parsed_date)
-            return sorted(set(parsed))
-
-        claim_dates = parse_date_csv(claim_dates_raw)
-        adopt_dates = parse_date_csv(adopt_dates_raw)
         today = timezone.localdate()
-
-        if any(d < today for d in claim_dates) or any(d < today for d in adopt_dates):
+        if any(d < today for d in parsed_dates):
             messages.error(request, "Past dates are not allowed.")
         else:
             with transaction.atomic():
-                AppointmentAvailability.objects.filter(
-                    post=selected_post,
-                    request_type='claim',
-                ).exclude(appointment_date__in=claim_dates).delete()
-                for day in claim_dates:
-                    AppointmentAvailability.objects.update_or_create(
-                        post=selected_post,
-                        request_type='claim',
+                GlobalAppointmentDate.objects.exclude(
+                    appointment_date__in=parsed_dates
+                ).delete()
+                for day in parsed_dates:
+                    GlobalAppointmentDate.objects.update_or_create(
                         appointment_date=day,
                         defaults={
                             'created_by': request.user,
                             'is_active': True,
                         },
                     )
-
-                AppointmentAvailability.objects.filter(
-                    post=selected_post,
-                    request_type='adopt',
-                ).exclude(appointment_date__in=adopt_dates).delete()
-                for day in adopt_dates:
-                    AppointmentAvailability.objects.update_or_create(
-                        post=selected_post,
-                        request_type='adopt',
-                        appointment_date=day,
-                        defaults={
-                            'created_by': request.user,
-                            'is_active': True,
-                        },
-                    )
-
             messages.success(request, "Appointment dates saved.")
 
-    if selected_post is None:
-        if selected_post_id:
-            selected_post = get_object_or_404(Post, id=selected_post_id)
-        else:
-            selected_post = posts.first()
-
-    claim_dates = list(
-        AppointmentAvailability.objects.filter(
-            post=selected_post,
-            request_type='claim',
-            is_active=True,
-        ).order_by('appointment_date').values_list('appointment_date', flat=True)
-    )
-    adopt_dates = list(
-        AppointmentAvailability.objects.filter(
-            post=selected_post,
-            request_type='adopt',
-            is_active=True,
+    global_dates = list(
+        GlobalAppointmentDate.objects.filter(
+            is_active=True
         ).order_by('appointment_date').values_list('appointment_date', flat=True)
     )
 
     return render(request, 'admin_adoption/appointment_calendar.html', {
-        'posts': posts,
-        'selected_post': selected_post,
-        'claim_dates': [d.strftime('%Y-%m-%d') for d in claim_dates],
-        'adopt_dates': [d.strftime('%Y-%m-%d') for d in adopt_dates],
+        'appointment_dates': [d.strftime('%Y-%m-%d') for d in global_dates],
     })
 
 #   CLAIM REQUESTS
@@ -315,10 +262,9 @@ def claim_requests(request, post_id):
     user_ids = [req.user.id for req in claims]
     profiles = Profile.objects.filter(user_id__in=user_ids)
     faceauth = FaceImage.objects.filter(user_id__in=user_ids)
-    available_dates = AppointmentAvailability.objects.filter(
-        post=post,
-        request_type='claim',
+    available_dates = GlobalAppointmentDate.objects.filter(
         is_active=True,
+        appointment_date__gte=timezone.localdate(),
     ).order_by('appointment_date')
 
     requests_with_meta = []
@@ -351,10 +297,9 @@ def adoption_requests(request, post_id):
     user_ids = [req.user.id for req in adoptions]
     profiles = Profile.objects.filter(user_id__in=user_ids)
     faceauth = FaceImage.objects.filter(user_id__in=user_ids)
-    available_dates = AppointmentAvailability.objects.filter(
-        post=post,
-        request_type='adopt',
+    available_dates = GlobalAppointmentDate.objects.filter(
         is_active=True,
+        appointment_date__gte=timezone.localdate(),
     ).order_by('appointment_date')
 
     requests_with_meta = []
@@ -386,9 +331,7 @@ def update_request(request, req_id, action):
         scheduled_date = parse_date(scheduled_date_raw) if scheduled_date_raw else req.appointment_date
 
         if scheduled_date:
-            is_available = AppointmentAvailability.objects.filter(
-                post=post,
-                request_type=req.request_type,
+            is_available = GlobalAppointmentDate.objects.filter(
                 appointment_date=scheduled_date,
                 is_active=True,
             ).exists()
@@ -427,55 +370,6 @@ def update_request(request, req_id, action):
     else:
         return redirect('dogadoption_admin:adoption_requests', post.id)
 
-
-@admin_required
-@require_POST
-def manage_appointment_dates(request, post_id, request_type):
-    if request_type not in {'claim', 'adopt'}:
-        messages.error(request, "Invalid appointment type.")
-        return redirect('dogadoption_admin:post_list')
-
-    post = get_object_or_404(Post, id=post_id)
-    action = request.POST.get('action')
-
-    if action == 'add_date':
-        appointment_date_raw = request.POST.get('appointment_date')
-        appointment_date = parse_date(appointment_date_raw) if appointment_date_raw else None
-        today = timezone.localdate()
-
-        if not appointment_date:
-            messages.error(request, "Please provide a valid appointment date.")
-        elif appointment_date < today:
-            messages.error(request, "Appointment date cannot be in the past.")
-        else:
-            _, created = AppointmentAvailability.objects.get_or_create(
-                post=post,
-                request_type=request_type,
-                appointment_date=appointment_date,
-                defaults={'created_by': request.user, 'is_active': True},
-            )
-            if created:
-                messages.success(request, "Available appointment date added.")
-            else:
-                messages.info(request, "Appointment date already exists.")
-
-    elif action == 'remove_date':
-        availability_id = request.POST.get('availability_id')
-        deleted, _ = AppointmentAvailability.objects.filter(
-            id=availability_id,
-            post=post,
-            request_type=request_type,
-        ).delete()
-        if deleted:
-            messages.success(request, "Available appointment date removed.")
-        else:
-            messages.warning(request, "Appointment date not found.")
-    else:
-        messages.error(request, "Invalid appointment date action.")
-
-    if request_type == 'claim':
-        return redirect('dogadoption_admin:claim_requests', post.id)
-    return redirect('dogadoption_admin:adoption_requests', post.id)
 
 # Authenticating users using face auth dashboard
 @admin_required

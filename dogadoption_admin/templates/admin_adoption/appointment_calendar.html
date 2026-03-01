@@ -1,4 +1,4 @@
-{% extends 'admin_base.html' %}
+﻿{% extends 'admin_base.html' %}
 {% load static %}
 
 {% block content %}
@@ -7,66 +7,26 @@
 <div class="appointment-page">
     <div class="appointment-header">
         <h2>Set Appointment Date</h2>
-        <p>Select one post, then click multiple days for both Claim and Adoption schedules.</p>
+        <p>Click multiple days to set available appointment dates for both claim and adoption.</p>
     </div>
-
-    <form method="get" class="post-selector-form">
-        <label for="post_id" class="form-label">Select Post</label>
-        <div class="d-flex gap-2 flex-wrap">
-            <select id="post_id" name="post_id" class="form-select" required>
-                {% for post in posts %}
-                    <option value="{{ post.id }}" {% if post.id == selected_post.id %}selected{% endif %}>
-                        #{{ post.id }} - {{ post.caption|truncatechars:60 }}
-                    </option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-dark">Load</button>
-        </div>
-    </form>
 
     <form method="post" id="appointmentForm">
         {% csrf_token %}
-        <input type="hidden" name="post_id" value="{{ selected_post.id }}">
-        <input type="hidden" name="claim_dates" id="claim_dates_input">
-        <input type="hidden" name="adopt_dates" id="adopt_dates_input">
+        <input type="hidden" name="appointment_dates" id="appointment_dates_input">
 
-        <div class="calendar-grid">
-            <section class="calendar-panel">
-                <div class="calendar-panel-head">
-                    <h4>Claim Appointments</h4>
-                    <small>Toggle days to add/remove.</small>
-                </div>
-                <div class="calendar-toolbar">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="claim_prev">&lt;</button>
-                    <strong id="claim_month_label"></strong>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="claim_next">&gt;</button>
-                </div>
-                <div class="calendar-weekdays" id="claim_weekdays"></div>
-                <div class="calendar-days" id="claim_days"></div>
-                <div class="selected-list">
-                    <h6>Selected claim dates</h6>
-                    <div id="claim_selected_badges" class="badge-wrap"></div>
-                </div>
-            </section>
-
-            <section class="calendar-panel">
-                <div class="calendar-panel-head">
-                    <h4>Adoption Appointments</h4>
-                    <small>Toggle days to add/remove.</small>
-                </div>
-                <div class="calendar-toolbar">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="adopt_prev">&lt;</button>
-                    <strong id="adopt_month_label"></strong>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="adopt_next">&gt;</button>
-                </div>
-                <div class="calendar-weekdays" id="adopt_weekdays"></div>
-                <div class="calendar-days" id="adopt_days"></div>
-                <div class="selected-list">
-                    <h6>Selected adoption dates</h6>
-                    <div id="adopt_selected_badges" class="badge-wrap"></div>
-                </div>
-            </section>
-        </div>
+        <section class="calendar-panel single-calendar">
+            <div class="calendar-panel-head">
+                <h4>Available Appointments</h4>
+                <small>Toggle days to add/remove.</small>
+            </div>
+            <div class="calendar-toolbar">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="calendar_prev">&lt;</button>
+                <strong id="month_label"></strong>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="calendar_next">&gt;</button>
+            </div>
+            <div class="calendar-weekdays" id="weekdays"></div>
+            <div class="calendar-days" id="days"></div>
+        </section>
 
         <div class="save-wrap">
             <button type="submit" class="btn btn-warning btn-lg">Save Available Dates</button>
@@ -74,8 +34,7 @@
     </form>
 </div>
 
-{{ claim_dates|json_script:"claim_dates_data" }}
-{{ adopt_dates|json_script:"adopt_dates_data" }}
+{{ appointment_dates|json_script:"appointment_dates_data" }}
 
 <script>
     const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -99,16 +58,15 @@
         }
     }
 
-    function initCalendar(cfg) {
-        const monthLabel = document.getElementById(cfg.monthLabelId);
-        const daysContainer = document.getElementById(cfg.daysId);
-        const weekdaysContainer = document.getElementById(cfg.weekdaysId);
-        const prevBtn = document.getElementById(cfg.prevId);
-        const nextBtn = document.getElementById(cfg.nextId);
-        const hiddenInput = document.getElementById(cfg.hiddenInputId);
-        const badgesWrap = document.getElementById(cfg.badgesId);
+    function initCalendar() {
+        const monthLabel = document.getElementById("month_label");
+        const daysContainer = document.getElementById("days");
+        const weekdaysContainer = document.getElementById("weekdays");
+        const prevBtn = document.getElementById("calendar_prev");
+        const nextBtn = document.getElementById("calendar_next");
+        const hiddenInput = document.getElementById("appointment_dates_input");
 
-        const selected = new Set(cfg.initialDates);
+        const selected = new Set(parseJsonScript("appointment_dates_data"));
         const state = {
             currentMonth: new Date(today.getFullYear(), today.getMonth(), 1),
         };
@@ -118,11 +76,7 @@
             .join("");
 
         function refreshHiddenInput() {
-            const values = Array.from(selected).sort();
-            hiddenInput.value = values.join(",");
-            badgesWrap.innerHTML = values.length
-                ? values.map((v) => `<span class="date-badge">${v}</span>`).join("")
-                : '<span class="text-muted">No dates selected</span>';
+            hiddenInput.value = Array.from(selected).sort().join(",");
         }
 
         function renderMonth() {
@@ -196,28 +150,6 @@
         renderMonth();
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-        initCalendar({
-            monthLabelId: "claim_month_label",
-            daysId: "claim_days",
-            weekdaysId: "claim_weekdays",
-            prevId: "claim_prev",
-            nextId: "claim_next",
-            hiddenInputId: "claim_dates_input",
-            badgesId: "claim_selected_badges",
-            initialDates: parseJsonScript("claim_dates_data"),
-        });
-
-        initCalendar({
-            monthLabelId: "adopt_month_label",
-            daysId: "adopt_days",
-            weekdaysId: "adopt_weekdays",
-            prevId: "adopt_prev",
-            nextId: "adopt_next",
-            hiddenInputId: "adopt_dates_input",
-            badgesId: "adopt_selected_badges",
-            initialDates: parseJsonScript("adopt_dates_data"),
-        });
-    });
+    document.addEventListener("DOMContentLoaded", initCalendar);
 </script>
 {% endblock %}

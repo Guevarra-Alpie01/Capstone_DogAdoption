@@ -19,7 +19,7 @@ from django.utils.dateparse import parse_date
 
 #MODELS FROM ADMIN APP 
 from dogadoption_admin.models import DogAnnouncement, AnnouncementComment
-from dogadoption_admin.models import Post, PostRequest, AppointmentAvailability
+from dogadoption_admin.models import Post, PostRequest, GlobalAppointmentDate
 
 #MODELS FROM USER APP
 from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
@@ -588,9 +588,7 @@ def adopt_status(request):
 @user_only
 def adopt_confirm(request, post_id):
     post = get_object_or_404(Post, id=post_id)
-    available_dates = AppointmentAvailability.objects.filter(
-        post=post,
-        request_type='adopt',
+    available_dates = GlobalAppointmentDate.objects.filter(
         is_active=True,
         appointment_date__gte=timezone.localdate(),
     ).order_by('appointment_date')
@@ -693,9 +691,7 @@ def my_claims(request):
 @user_only
 def claim_confirm(request, post_id):
     post = get_object_or_404(Post, id=post_id)
-    available_dates = AppointmentAvailability.objects.filter(
-        post=post,
-        request_type='claim',
+    available_dates = GlobalAppointmentDate.objects.filter(
         is_active=True,
         appointment_date__gte=timezone.localdate(),
     ).order_by('appointment_date')

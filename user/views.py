@@ -15,10 +15,11 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 from datetime import timedelta
 from django.core.paginator import Paginator
+from django.utils.dateparse import parse_date
 
 #MODELS FROM ADMIN APP 
 from dogadoption_admin.models import DogAnnouncement, AnnouncementComment
-from dogadoption_admin.models import Post, PostRequest
+from dogadoption_admin.models import Post, PostRequest, AppointmentAvailability
 
 #MODELS FROM USER APP
 from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
@@ -578,12 +579,21 @@ def adopt_list(request):
 
 @user_only
 def adopt_status(request):
-    requests = AdoptionRequest.objects.filter(user=request.user).select_related('post')
+    requests = PostRequest.objects.filter(
+        user=request.user,
+        request_type='adopt'
+    ).select_related('post').order_by('-created_at')
     return render(request, 'adopt/adopt.html', {'requests': requests})
 
 @user_only
 def adopt_confirm(request, post_id):
     post = get_object_or_404(Post, id=post_id)
+    available_dates = AppointmentAvailability.objects.filter(
+        post=post,
+        request_type='adopt',
+        is_active=True,
+        appointment_date__gte=timezone.localdate(),
+    ).order_by('appointment_date')
 
     # Block if already claimed or adopted
     if post.status in ['reunited', 'adopted']:
@@ -604,11 +614,29 @@ def adopt_confirm(request, post_id):
         return redirect('user:user_home')
 
     if request.method == 'POST':
+        appointment_date_raw = request.POST.get('appointment_date')
+        appointment_date = parse_date(appointment_date_raw) if appointment_date_raw else None
+
+        if not appointment_date:
+            messages.error(request, "Please select an appointment date.")
+            return render(request, 'adopt/adopt_confirm.html', {
+                'post': post,
+                'available_dates': available_dates,
+            })
+
+        if not available_dates.filter(appointment_date=appointment_date).exists():
+            messages.error(request, "Selected appointment date is not available.")
+            return render(request, 'adopt/adopt_confirm.html', {
+                'post': post,
+                'available_dates': available_dates,
+            })
+
         req = PostRequest.objects.create(
             user=request.user,
             post=post,
             request_type='adopt',
-            status='pending'
+            status='pending',
+            appointment_date=appointment_date,
         )
 
         for img in request.FILES.getlist('images'):
@@ -620,7 +648,10 @@ def adopt_confirm(request, post_id):
         )
         return redirect('user:user_home')
 
-    return render(request, 'adopt/adopt_confirm.html', {'post': post})
+    return render(request, 'adopt/adopt_confirm.html', {
+        'post': post,
+        'available_dates': available_dates,
+    })
 
 
 
@@ -662,6 +693,12 @@ def my_claims(request):
 @user_only
 def claim_confirm(request, post_id):
     post = get_object_or_404(Post, id=post_id)
+    available_dates = AppointmentAvailability.objects.filter(
+        post=post,
+        request_type='claim',
+        is_active=True,
+        appointment_date__gte=timezone.localdate(),
+    ).order_by('appointment_date')
 
     #  Block if already claimed or adopted
     if post.status in ['reunited', 'adopted']:
@@ -682,11 +719,29 @@ def claim_confirm(request, post_id):
         return redirect('user:user_home')
 
     if request.method == 'POST':
+        appointment_date_raw = request.POST.get('appointment_date')
+        appointment_date = parse_date(appointment_date_raw) if appointment_date_raw else None
+
+        if not appointment_date:
+            messages.error(request, "Please select an appointment date.")
+            return render(request, 'claim/claim_confirm.html', {
+                'post': post,
+                'available_dates': available_dates,
+            })
+
+        if not available_dates.filter(appointment_date=appointment_date).exists():
+            messages.error(request, "Selected appointment date is not available.")
+            return render(request, 'claim/claim_confirm.html', {
+                'post': post,
+                'available_dates': available_dates,
+            })
+
         req = PostRequest.objects.create(
             user=request.user,
             post=post,
             request_type='claim',
-            status='pending'
+            status='pending',
+            appointment_date=appointment_date,
         )
 
         for img in request.FILES.getlist('images'):
@@ -698,4 +753,7 @@ def claim_confirm(request, post_id):
         )
         return redirect('user:user_home')
 
-    return render(request, 'claim/claim_confirm.html', {'post': post})
+    return render(request, 'claim/claim_confirm.html', {
+        'post': post,
+        'available_dates': available_dates,
+    })

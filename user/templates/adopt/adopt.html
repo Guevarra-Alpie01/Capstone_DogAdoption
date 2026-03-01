@@ -2,23 +2,25 @@
 {% load static %}
 
 {% block content %}
-<h2>My Adoption Requests 🐶</h2>
+<h2>My Adoption Requests</h2>
 {% for req in requests %}
 <div class="card mb-3 p-3">
     <p><strong>{{ req.post.caption }}</strong></p>
+    <p><strong>Preferred Date:</strong> {{ req.appointment_date|date:"M d, Y"|default:"-" }}</p>
+    <p><strong>Final Date:</strong> {{ req.scheduled_appointment_date|date:"M d, Y"|default:"-" }}</p>
 
     <p>Status:
         {% if req.status == 'pending' %}
-            <span class="text-warning">Pending ⏳</span>
+            <span class="text-warning">Pending</span>
         {% elif req.status == 'accepted' %}
-            <span class="text-success">Accepted ✅</span>
+            <span class="text-success">Accepted</span>
         {% else %}
-            <span class="text-danger">Declined ❌</span>
+            <span class="text-danger">Declined</span>
         {% endif %}
     </p>
 </div>
 {% empty %}
-<p>You have not requested any adoption yet 🐾</p>
+<p>You have not requested any adoption yet.</p>
 {% endfor %}
 
 {% endblock %}

@@ -1,0 +1,223 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/admin_adoption/appointment_calendar.css' %}">
+
+<div class="appointment-page">
+    <div class="appointment-header">
+        <h2>Set Appointment Date</h2>
+        <p>Select one post, then click multiple days for both Claim and Adoption schedules.</p>
+    </div>
+
+    <form method="get" class="post-selector-form">
+        <label for="post_id" class="form-label">Select Post</label>
+        <div class="d-flex gap-2 flex-wrap">
+            <select id="post_id" name="post_id" class="form-select" required>
+                {% for post in posts %}
+                    <option value="{{ post.id }}" {% if post.id == selected_post.id %}selected{% endif %}>
+                        #{{ post.id }} - {{ post.caption|truncatechars:60 }}
+                    </option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-dark">Load</button>
+        </div>
+    </form>
+
+    <form method="post" id="appointmentForm">
+        {% csrf_token %}
+        <input type="hidden" name="post_id" value="{{ selected_post.id }}">
+        <input type="hidden" name="claim_dates" id="claim_dates_input">
+        <input type="hidden" name="adopt_dates" id="adopt_dates_input">
+
+        <div class="calendar-grid">
+            <section class="calendar-panel">
+                <div class="calendar-panel-head">
+                    <h4>Claim Appointments</h4>
+                    <small>Toggle days to add/remove.</small>
+                </div>
+                <div class="calendar-toolbar">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="claim_prev">&lt;</button>
+                    <strong id="claim_month_label"></strong>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="claim_next">&gt;</button>
+                </div>
+                <div class="calendar-weekdays" id="claim_weekdays"></div>
+                <div class="calendar-days" id="claim_days"></div>
+                <div class="selected-list">
+                    <h6>Selected claim dates</h6>
+                    <div id="claim_selected_badges" class="badge-wrap"></div>
+                </div>
+            </section>
+
+            <section class="calendar-panel">
+                <div class="calendar-panel-head">
+                    <h4>Adoption Appointments</h4>
+                    <small>Toggle days to add/remove.</small>
+                </div>
+                <div class="calendar-toolbar">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="adopt_prev">&lt;</button>
+                    <strong id="adopt_month_label"></strong>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="adopt_next">&gt;</button>
+                </div>
+                <div class="calendar-weekdays" id="adopt_weekdays"></div>
+                <div class="calendar-days" id="adopt_days"></div>
+                <div class="selected-list">
+                    <h6>Selected adoption dates</h6>
+                    <div id="adopt_selected_badges" class="badge-wrap"></div>
+                </div>
+            </section>
+        </div>
+
+        <div class="save-wrap">
+            <button type="submit" class="btn btn-warning btn-lg">Save Available Dates</button>
+        </div>
+    </form>
+</div>
+
+{{ claim_dates|json_script:"claim_dates_data" }}
+{{ adopt_dates|json_script:"adopt_dates_data" }}
+
+<script>
+    const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    function formatDate(dateObj) {
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+        const d = String(dateObj.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+    }
+
+    function parseJsonScript(id) {
+        const node = document.getElementById(id);
+        if (!node) return [];
+        try {
+            return JSON.parse(node.textContent || "[]");
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function initCalendar(cfg) {
+        const monthLabel = document.getElementById(cfg.monthLabelId);
+        const daysContainer = document.getElementById(cfg.daysId);
+        const weekdaysContainer = document.getElementById(cfg.weekdaysId);
+        const prevBtn = document.getElementById(cfg.prevId);
+        const nextBtn = document.getElementById(cfg.nextId);
+        const hiddenInput = document.getElementById(cfg.hiddenInputId);
+        const badgesWrap = document.getElementById(cfg.badgesId);
+
+        const selected = new Set(cfg.initialDates);
+        const state = {
+            currentMonth: new Date(today.getFullYear(), today.getMonth(), 1),
+        };
+
+        weekdaysContainer.innerHTML = weekdays
+            .map((day) => `<div class="weekday">${day}</div>`)
+            .join("");
+
+        function refreshHiddenInput() {
+            const values = Array.from(selected).sort();
+            hiddenInput.value = values.join(",");
+            badgesWrap.innerHTML = values.length
+                ? values.map((v) => `<span class="date-badge">${v}</span>`).join("")
+                : '<span class="text-muted">No dates selected</span>';
+        }
+
+        function renderMonth() {
+            const year = state.currentMonth.getFullYear();
+            const month = state.currentMonth.getMonth();
+
+            monthLabel.textContent = state.currentMonth.toLocaleDateString(undefined, {
+                month: "long",
+                year: "numeric",
+            });
+
+            const firstDay = new Date(year, month, 1);
+            const startWeekday = firstDay.getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            let html = "";
+            for (let i = 0; i < startWeekday; i++) {
+                html += '<button type="button" class="day-cell empty" disabled></button>';
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateObj = new Date(year, month, day);
+                dateObj.setHours(0, 0, 0, 0);
+                const iso = formatDate(dateObj);
+                const isPast = dateObj < today;
+                const isSelected = selected.has(iso);
+                const classes = [
+                    "day-cell",
+                    isSelected ? "selected" : "",
+                    isPast ? "disabled" : "",
+                ].join(" ").trim();
+
+                html += `<button type="button" class="${classes}" data-date="${iso}" ${isPast ? "disabled" : ""}>${day}</button>`;
+            }
+
+            daysContainer.innerHTML = html;
+
+            daysContainer.querySelectorAll(".day-cell[data-date]").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const iso = btn.getAttribute("data-date");
+                    if (selected.has(iso)) {
+                        selected.delete(iso);
+                    } else {
+                        selected.add(iso);
+                    }
+                    renderMonth();
+                    refreshHiddenInput();
+                });
+            });
+        }
+
+        prevBtn.addEventListener("click", () => {
+            state.currentMonth = new Date(
+                state.currentMonth.getFullYear(),
+                state.currentMonth.getMonth() - 1,
+                1
+            );
+            renderMonth();
+        });
+
+        nextBtn.addEventListener("click", () => {
+            state.currentMonth = new Date(
+                state.currentMonth.getFullYear(),
+                state.currentMonth.getMonth() + 1,
+                1
+            );
+            renderMonth();
+        });
+
+        refreshHiddenInput();
+        renderMonth();
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        initCalendar({
+            monthLabelId: "claim_month_label",
+            daysId: "claim_days",
+            weekdaysId: "claim_weekdays",
+            prevId: "claim_prev",
+            nextId: "claim_next",
+            hiddenInputId: "claim_dates_input",
+            badgesId: "claim_selected_badges",
+            initialDates: parseJsonScript("claim_dates_data"),
+        });
+
+        initCalendar({
+            monthLabelId: "adopt_month_label",
+            daysId: "adopt_days",
+            weekdaysId: "adopt_weekdays",
+            prevId: "adopt_prev",
+            nextId: "adopt_next",
+            hiddenInputId: "adopt_dates_input",
+            badgesId: "adopt_selected_badges",
+            initialDates: parseJsonScript("adopt_dates_data"),
+        });
+    });
+</script>
+{% endblock %}

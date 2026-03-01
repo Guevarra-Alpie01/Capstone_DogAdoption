@@ -115,12 +115,37 @@
                     <input id="id_images" type="file" name="images" class="form-control" multiple accept="image/*">
                 </div>
 
+                <div class="mb-3">
+                    <label for="appointment_date" class="form-label fw-semibold">Preferred Appointment Date</label>
+                    <select id="appointment_date"
+                            name="appointment_date"
+                            class="form-select"
+                            required
+                            {% if not available_dates %}disabled{% endif %}>
+                        <option value="" selected disabled>Select an available date</option>
+                        {% for slot in available_dates %}
+                            <option value="{{ slot.appointment_date|date:'Y-m-d' }}">
+                                {{ slot.appointment_date|date:"M d, Y" }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if available_dates %}
+                        <p class="text-muted small mt-2 mb-0">
+                            Choose one of the admin-approved dates for your claim appointment.
+                        </p>
+                    {% else %}
+                        <p class="text-danger small mt-2 mb-0">
+                            No appointment dates are available yet. Please check again later.
+                        </p>
+                    {% endif %}
+                </div>
+
                 <p class="text-muted small mt-2 mb-3">
                     You can submit this claim even without photos or explanation. Admin review is still required.
                 </p>
 
                 <div class="d-flex flex-wrap gap-2">
-                    <button type="submit" class="btn btn-claim-submit">Submit Claim</button>
+                    <button type="submit" class="btn btn-claim-submit" {% if not available_dates %}disabled{% endif %}>Submit Claim</button>
                     <a href="{% url 'user:user_home' %}" class="btn btn-outline-secondary">Cancel</a>
                 </div>
             </form>

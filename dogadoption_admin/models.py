@@ -142,11 +142,55 @@ class PostRequest(models.Model):
         choices=STATUS_CHOICES,
         default='pending'
     )
+    appointment_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Preferred date selected by the user."
+    )
+    scheduled_appointment_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Final appointment date assigned by admin."
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.user.username} - {self.request_type} ({self.status})"
+
+
+class AppointmentAvailability(models.Model):
+    REQUEST_TYPE_CHOICES = [
+        ('claim', 'Claim'),
+        ('adopt', 'Adopt'),
+    ]
+
+    post = models.ForeignKey(
+        'Post',
+        related_name='appointment_availability',
+        on_delete=models.CASCADE
+    )
+    request_type = models.CharField(
+        max_length=10,
+        choices=REQUEST_TYPE_CHOICES
+    )
+    appointment_date = models.DateField()
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='created_appointment_dates'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['appointment_date']
+        unique_together = ('post', 'request_type', 'appointment_date')
+
+    def __str__(self):
+        return f"{self.post_id} - {self.request_type} - {self.appointment_date}"
 
 
 # ✅ CLEAN ANNOUNCEMENT MODEL (NO REACTIONS)

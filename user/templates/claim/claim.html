@@ -3,52 +3,40 @@
 {% block content %}
 <div class="container mt-4">
 
-    <h2 class="mb-4">🐾 My Dog Claims</h2>
+    <h2 class="mb-4">My Dog Claims</h2>
 
     {% for claim in claims %}
         <div class="card mb-3 shadow-sm p-3">
 
-            <h5 class="mb-1">🐕 {{ claim.post.caption }}</h5>
+            <h5 class="mb-1">{{ claim.post.caption }}</h5>
 
             {% if claim.post.location %}
-                <small class="text-muted">📍 {{ claim.post.location }}</small><br>
+                <small class="text-muted">{{ claim.post.location }}</small><br>
             {% endif %}
 
             <small class="text-muted">
-                🗓 Submitted on {{ claim.created_at|date:"M d, Y" }}
+                Submitted on {{ claim.created_at|date:"M d, Y" }}
             </small>
 
             <hr>
+
+            <p class="mb-1"><strong>Preferred Date:</strong> {{ claim.appointment_date|date:"M d, Y"|default:"-" }}</p>
+            <p class="mb-1"><strong>Final Date:</strong> {{ claim.scheduled_appointment_date|date:"M d, Y"|default:"-" }}</p>
 
             <p class="mb-1">
                 <strong>Status:</strong>
 
                 {% if claim.status == 'pending' %}
-                    <span class="text-warning fw-semibold">
-                        Pending ⏳
-                    </span>
-
+                    <span class="text-warning fw-semibold">Pending</span>
                 {% elif claim.status == 'accepted' %}
-                    <span class="text-success fw-semibold">
-                        Approved ✅
-                    </span>
-
+                    <span class="text-success fw-semibold">Approved</span>
                 {% elif claim.status == 'rejected' %}
-                    <span class="text-danger fw-semibold">
-                        Rejected ❌
-                    </span>
+                    <span class="text-danger fw-semibold">Rejected</span>
                 {% endif %}
             </p>
 
-            {% if claim.message %}
-                <p class="mt-2">
-                    <strong>Your Message:</strong><br>
-                    {{ claim.message|truncatewords:30 }}
-                </p>
-            {% endif %}
-
             {% if claim.images.all %}
-                <p class="mt-2 mb-1"><strong>📸 Submitted Photos:</strong></p>
+                <p class="mt-2 mb-1"><strong>Submitted Photos:</strong></p>
                 <div class="d-flex gap-2 flex-wrap">
                     {% for img in claim.images.all %}
                         <img src="{{ img.image.url }}"
@@ -63,7 +51,7 @@
 
     {% empty %}
         <p class="text-muted">
-            You haven’t submitted any claims yet 🐶
+            You have not submitted any claims yet.
         </p>
     {% endfor %}
 

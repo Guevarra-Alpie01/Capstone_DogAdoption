@@ -5,28 +5,12 @@
 
     <h3 class="mb-3">Adoption Review</h3>
 
-    <p><strong>Description:</strong></p>
-    <p>{{ post.caption }}</p>
-
     {% if post.location %}
         <p><strong>Location:</strong> {{ post.location }}</p>
     {% endif %}
 
     {% if post.rescued_date %}
         <p><strong>Rescued on:</strong> {{ post.rescued_date|date:"M d, Y" }}</p>
-    {% endif %}
-
-    <hr>
-    <h5>Reported Violations</h5>
-
-    {% if post.violations %}
-        <ul>
-            {% for violation in post.violations %}
-                <li>{{ violation|capfirst }}</li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p class="text-muted">No violations reported.</p>
     {% endif %}
 
     {% if post.images.exists %}
@@ -46,8 +30,33 @@
 
     <form method="post">
         {% csrf_token %}
+        <div class="mb-3">
+            <label for="appointment_date" class="form-label">Preferred Appointment Date</label>
+            <select id="appointment_date"
+                    name="appointment_date"
+                    class="form-select"
+                    required
+                    {% if not available_dates %}disabled{% endif %}>
+                <option value="" selected disabled>Select an available date</option>
+                {% for slot in available_dates %}
+                    <option value="{{ slot.appointment_date|date:'Y-m-d' }}">
+                        {{ slot.appointment_date|date:"M d, Y" }}
+                    </option>
+                {% endfor %}
+            </select>
+            {% if available_dates %}
+                <div class="form-text">
+                    Choose one of the admin-approved dates for your adoption appointment.
+                </div>
+            {% else %}
+                <div class="form-text text-danger">
+                    No appointment dates are available yet. Please check again later.
+                </div>
+            {% endif %}
+        </div>
+
         <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-success">
+            <button type="submit" class="btn btn-success" {% if not available_dates %}disabled{% endif %}>
                 Confirm Adoption Request
             </button>
 

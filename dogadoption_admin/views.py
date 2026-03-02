@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.views.decorators.http import require_POST
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Prefetch
 from django.db.models.functions import TruncDate
 from django.db import transaction
 from datetime import timedelta
@@ -88,6 +88,25 @@ def _resolve_barangay_name(value):
         if _normalize_barangay(name) == normalized:
             return name
     return ""
+
+
+def _extract_barangay_from_address(address):
+    cleaned = _clean_barangay(address)
+    if not cleaned:
+        return ""
+
+    parts = [p.strip() for p in cleaned.split(",") if p.strip()]
+    if len(parts) >= 3 and parts[-2].lower() == "bayawan city" and parts[-1].lower() == "negros oriental":
+        candidate = parts[-3]
+        resolved = _resolve_barangay_name(candidate)
+        return resolved or candidate
+
+    for part in reversed(parts):
+        resolved = _resolve_barangay_name(part)
+        if resolved:
+            return resolved
+
+    return _resolve_barangay_name(cleaned)
 
 
 
@@ -1260,8 +1279,78 @@ def certificate_print(request, pk):
 @admin_required
 def certificate_list(request):
     certificates = DogRegistration.objects.all().order_by('-date_registered')
+    vaccination_only_regs = (
+        DogRegistration.objects.annotate(
+            vac_count=Count('vaccinations', distinct=True),
+            dew_count=Count('dewormings', distinct=True),
+        )
+        .filter(vac_count__gt=0, dew_count=0)
+        .prefetch_related(
+            Prefetch(
+                'vaccinations',
+                queryset=VaccinationRecord.objects.order_by('-date'),
+                to_attr='vaccination_records_sorted',
+            )
+        )
+        .order_by('-date_registered')
+    )
+
+    vaccination_only_rows = []
+    for reg in vaccination_only_regs:
+        latest_vac = reg.vaccination_records_sorted[0] if reg.vaccination_records_sorted else None
+        if not latest_vac:
+            continue
+        vaccination_only_rows.append({
+            'reg_no': reg.reg_no,
+            'owner_name': reg.owner_name,
+            'address': reg.address,
+            'vaccine_expiry_date': latest_vac.vaccine_expiry_date,
+            'dog_vaccination_expiry_date': latest_vac.vaccination_expiry_date,
+        })
+
+    today = timezone.localdate()
+    expired_vaccinations = (
+        VaccinationRecord.objects.select_related('registration')
+        .filter(
+            Q(vaccine_expiry_date__lt=today) |
+            Q(vaccination_expiry_date__lt=today)
+        )
+        .order_by('vaccine_expiry_date', 'vaccination_expiry_date')
+    )
+
+    barangay_names = list(
+        Barangay.objects.filter(is_active=True)
+        .order_by('sort_order', 'name')
+        .values_list('name', flat=True)
+    )
+    tracker_map = {name: [] for name in barangay_names}
+
+    for row in expired_vaccinations:
+        barangay_name = _extract_barangay_from_address(row.registration.address)
+        if barangay_name not in tracker_map:
+            continue
+
+        tracker_map[barangay_name].append({
+            'reg_no': row.registration.reg_no,
+            'owner_name': row.registration.owner_name,
+            'vaccine_name': row.vaccine_name,
+            'vaccine_expiry_date': row.vaccine_expiry_date,
+            'dog_vaccination_expiry_date': row.vaccination_expiry_date,
+        })
+
+    barangay_expiry_tracker = [
+        {
+            'barangay': name,
+            'expired_count': len(tracker_map[name]),
+            'expired_items': tracker_map[name],
+        }
+        for name in barangay_names
+    ]
+
     return render(request, 'admin_registration/certificate_list.html', {
-        'certificates': certificates
+        'certificates': certificates,
+        'vaccination_only_rows': vaccination_only_rows,
+        'barangay_expiry_tracker': barangay_expiry_tracker,
     })
 
 

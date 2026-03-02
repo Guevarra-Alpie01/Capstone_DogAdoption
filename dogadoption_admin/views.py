@@ -1243,11 +1243,23 @@ def dog_certificate(request):
             messages.error(request, "Please select a valid barangay from the suggestions.")
             return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
 
-        contact_no_raw = (request.POST.get("contact_no") or "").strip()
-        if not re.match(r"^(?:\+63|0)9\d{9}$", contact_no_raw):
-            messages.error(request, "Use a valid PH mobile number: +639XXXXXXXXX or 09XXXXXXXXX.")
+        contact_no_input = (request.POST.get("contact_no") or "").strip()
+        contact_no_digits = re.sub(r"\D", "", contact_no_input)
+
+        # Accept common PH mobile formats, including spaced numbers like 0912 345 6789.
+        canonical_local = ""
+        if len(contact_no_digits) == 11 and contact_no_digits.startswith("09"):
+            canonical_local = contact_no_digits
+        elif len(contact_no_digits) == 10 and contact_no_digits.startswith("9"):
+            canonical_local = f"0{contact_no_digits}"
+        elif len(contact_no_digits) == 12 and contact_no_digits.startswith("639"):
+            canonical_local = f"0{contact_no_digits[2:]}"
+
+        if not re.match(r"^09\d{9}$", canonical_local):
+            messages.error(request, "Use a valid PH mobile number: 09XXXXXXXXX (spaces are allowed).")
             return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
-        contact_no = f"+63{contact_no_raw[1:]}" if contact_no_raw.startswith("0") else contact_no_raw
+
+        contact_no = f"+63{canonical_local[1:]}"
 
         if settings:
             if settings.reg_no != reg_no:

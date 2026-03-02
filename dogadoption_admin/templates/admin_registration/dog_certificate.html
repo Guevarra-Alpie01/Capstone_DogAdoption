@@ -3,18 +3,21 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/register/registration.css' %}">
+<link rel="stylesheet" href="{% static 'css/register/dog_certificate.css' %}">
 {% endblock extra_css %}
 
 {% block content %}
 {% include 'admin_registration/registration_navigation.html' %}
 
-<div class="registration-wrapper">
+<div class="registration-wrapper registration-form-page dog-certificate-page">
     <div class="header-section">
-        <h2>Dog Vaccination Certificate</h2>
+        <h2>National Rabies Prevention and Control Program</h2>
+        <h3>Rabies Free Visayas Project</h3>
+        <p class="sub-header">Dog Vaccination Certificate</p>
     </div>
 
     <div class="form-card">
-        <form method="post" action="{% url 'dogadoption_admin:dog_certificate' %}">
+        <form method="post" action="{% url 'dogadoption_admin:dog_certificate' %}" id="dog-certificate-form">
             {% csrf_token %}
 
             <div class="field-group">
@@ -30,7 +33,7 @@
                     title="Use letters, numbers, dash (-), or slash (/)."
                     placeholder="e.g., BRGY-2026-001A"
                 >
-                <small style="color: #666; margin-top: 5px;">Once submitted, this is the permanent record ID.</small>
+                <small class="certificate-field-hint">Once submitted, this is the permanent record ID.</small>
             </div>
 
             <div class="dog-info-section">
@@ -83,7 +86,7 @@
                         placeholder="e.g., Juan Dela Cruz"
                         title="Enter the owner's complete name."
                     >
-                    <small style="color: #666; margin-top: 5px;">Format: First Name Middle Name Last Name</small>
+                    <small class="certificate-field-hint">Format: First Name Middle Name Last Name</small>
                 </div>
                 <div class="field-group">
                     <label for="barangay">Barangay</label>
@@ -107,18 +110,19 @@
                         type="tel"
                         name="contact_no"
                         id="contact_no"
-                        value="+63"
-                        placeholder="+639123456789"
+                        value="09"
+                        placeholder="09XX XXX XXXX"
                         inputmode="numeric"
                         autocomplete="off"
-                        pattern="^(?:\+63|0)9\d{9}$"
-                        title="Use a valid PH mobile number: +639XXXXXXXXX or 09XXXXXXXXX"
+                        pattern="^09\d{2}\s?\d{3}\s?\d{4}$"
+                        maxlength="13"
+                        title="Use a valid PH mobile number: 09XXXXXXXXX"
                         required
                     >
                 </div>
             </div>
             <div class="form-actions">
-                <button type="submit" class="submit-btn">Next</button>
+                <button type="submit" class="submit-btn registration-submit-btn">Next</button>
             </div>
         </form>
     </div>
@@ -167,7 +171,8 @@
 
     const breedInput = document.getElementById('breed');
     const breedSuggestionsBox = document.getElementById('breed_suggestions');
-    const certificateForm = document.querySelector('form[action*="dog_certificate"]');
+    const contactInput = document.getElementById('contact_no');
+    const certificateForm = document.getElementById('dog-certificate-form');
 
     function cleanInput(value) {
         return value.replace(/\s+/g, ' ').trim();
@@ -244,6 +249,41 @@
         breedInput.value = exactMatch || cleaned;
     }
 
+    function formatContactNumber(value) {
+        const digitsOnly = value.replace(/\D/g, '');
+        let normalized = digitsOnly;
+
+        if (normalized.startsWith('63')) {
+            normalized = `0${normalized.slice(2)}`;
+        } else if (normalized.startsWith('9')) {
+            normalized = `0${normalized}`;
+        }
+
+        if (normalized.length > 11) {
+            normalized = normalized.slice(0, 11);
+        }
+
+        if (normalized.length === 0) {
+            return '';
+        }
+
+        const g1 = normalized.slice(0, 4);
+        const g2 = normalized.slice(4, 7);
+        const g3 = normalized.slice(7, 11);
+        return [g1, g2, g3].filter(Boolean).join(' ');
+    }
+
+    function toCanonicalContactNumber(value) {
+        const digits = value.replace(/\D/g, '');
+        if (digits.startsWith('63') && digits.length === 12) {
+            return `0${digits.slice(2)}`;
+        }
+        if (digits.startsWith('9') && digits.length === 10) {
+            return `0${digits}`;
+        }
+        return digits;
+    }
+
     if (breedInput) {
         breedInput.addEventListener('blur', normalizeBreedField);
         breedInput.addEventListener('keydown', (e) => {
@@ -260,10 +300,32 @@
         });
     }
 
+    if (contactInput) {
+        contactInput.addEventListener('focus', () => {
+            if (!contactInput.value.trim()) {
+                contactInput.value = '09';
+            }
+        });
+
+        contactInput.addEventListener('input', () => {
+            const formatted = formatContactNumber(contactInput.value);
+            contactInput.value = formatted || '09';
+        });
+
+        contactInput.addEventListener('blur', () => {
+            const canonical = toCanonicalContactNumber(contactInput.value);
+            contactInput.value = canonical ? formatContactNumber(canonical) : '09';
+        });
+    }
+
     if (certificateForm) {
         certificateForm.addEventListener('submit', () => {
             normalizeBreedField();
             breedSuggestionsBox.style.display = 'none';
+
+            if (contactInput) {
+                contactInput.value = toCanonicalContactNumber(contactInput.value);
+            }
         });
     }
 

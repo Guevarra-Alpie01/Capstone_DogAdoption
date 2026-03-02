@@ -1,170 +1,22 @@
-{% extends 'admin_base.html' %}
 {% load static %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/register/certificate_print.css' %}">
-{% endblock extra_css %}
-
-{% block content %}
-{% include 'admin_registration/registration_navigation.html' %}
-
-<div class="certificate">
-
-  <div class="header">
-    <img src="{% static 'images/officialseal.webp' %}" alt="Left Logo" class="logo-left" />
-    <div class="title">
-      <h1>DOG VACCINATION CERTIFICATE</h1>
-    </div>
-    <img src="{% static 'images/Logo-Bagong-Pilipinas.png' %}" alt="Right Logo" class="logo-right" />
-  </div>
-
-  <div class="body-content">
-
-    <div class="line">
-      <span class="label">Reg No:</span>
-      <span class="underline">{{ data.reg_no }}</span>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dog Vaccination Certificate</title>
+    <link rel="stylesheet" href="{% static 'css/register/small_certificate.css' %}">
+</head>
+<body>
+    <div class="small-certificate-toolbar">
+        <a class="back-link" href="{% url 'dogadoption_admin:certificate_list' %}">Back to Certificate List</a>
+        <button class="print-btn" type="button" onclick="window.print()">Print Certificate</button>
     </div>
 
-    <div class="line">
-      <span class="label">Name of Pet:</span>
-      <span class="underline">{{ data.name_of_pet }}</span>
-    </div>
-
-    <div class="line">
-      <span class="label">Breed:</span>
-      <span class="underline">{{ data.breed }}</span>
-    </div>
-
-    <div class="line">
-      <span class="label">Date of Birth:</span>
-      <span class="underline">{{ data.dob }}</span>
-    </div>
-
-    <div class="line">
-      <span class="label">Color/Markings:</span>
-      <span class="underline">{{ data.color_markings }}</span>
-    </div>
-
-    <div class="line">
-      <span class="label">Sex:</span>
-      <span class="underline small">{{ data.get_sex_display }}</span>
-
-      <span class="status-group">
-        <span class="status-option">
-          Castrated ( {% if data.status == "Castrated" %}&#10003;{% endif %} )
-        </span>
-        <span class="status-option">
-          Spayed ( {% if data.status == "Spayed" %}&#10003;{% endif %} )
-        </span>
-        <span class="status-option">
-          Intact ( {% if data.status == "Intact" %}&#10003;{% endif %} )
-        </span>
-      </span>
-    </div>
-
-    <div class="owner-details">
-      <div class="line">
-        <span class="label">Name of Owner:</span>
-        <span class="underline">{{ data.owner_name }}</span>
-      </div>
-
-      <div class="line">
-        <span class="label">Address:</span>
-        <span class="underline">{{ data.address }}</span>
-      </div>
-
-      <div class="line">
-        <span class="label">Contact No:</span>
-        <span class="underline">{{ data.contact_no }}</span>
-      </div>
-    </div>
-
-    <div class="footer">
-      Republic Act No. 9482 - Anti Rabies Act of 2007
-    </div>
-
-  </div>
-
-  <!-- ================= MEDICAL RECORD TABLES ================= -->
-  {% if vaccinations or dewormings %}
-  <div class="medical-section">
-
-    <h2 class="med-header">MEDICAL RECORDS</h2>
-
-    {% if vaccinations %}
-    <h3>Vaccination Records</h3>
-    <table class="med-table">
-        <tr>
-            <th>Date</th>
-            <th>Kind of Vaccine</th>
-            <th>Manufacturer &amp; Lot No.</th>
-            <th>Vaccine Expiry</th>
-            <th>Dog Vaccination Expiry</th>
-        </tr>
-        {% for v in vaccinations %}
-        <tr>
-            <td>{{ v.date }}</td>
-            <td>{{ v.vaccine_name }}</td>
-            <td>{{ v.manufacturer_lot_no|default:"-" }}</td>
-            <td>{{ v.vaccine_expiry_date }}</td>
-            <td>{{ v.vaccination_expiry_date }}</td>
-        </tr>
-        {% endfor %}
-    </table>
-    {% endif %}
-
-    {% if dewormings %}
-    <h3>Deworming & Treatment Records</h3>
-    <table class="med-table">
-        <tr>
-            <th>Date</th>
-            <th>Medicine</th>
-            <th>Route</th>
-            <th>Frequency</th>
-            <th>Veterinarian</th>
-        </tr>
-        {% for d in dewormings %}
-        <tr>
-            <td>{{ d.date }}</td>
-            <td>{{ d.medicine_given }}</td>
-            <td>{{ d.route }}</td>
-            <td>{{ d.frequency }}</td>
-            <td>{{ d.veterinarian }}</td>
-        </tr>
-        {% endfor %}
-    </table>
-    {% endif %}
-
-  </div>
-  {% endif %}
-
-  <div class="signature-block">
-    <div class="signature-line"></div>
-    <div class="signature-label">Veterinarian / Staff Signature</div>
-  </div>
-
- <button onclick="printCertificate()" class="print-btn">Print</button>
-
-<script>
-function printCertificate() {
-  const content = document.querySelector('.certificate').outerHTML;
-  const printWindow = window.open('', '', 'width=900,height=1200');
-
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Dog Vaccination Certificate</title>
-        <link rel="stylesheet" href="{% static 'css/register/certificate_print.css' %}">
-      </head>
-      <body>${content}</body>
-    </html>
-  `);
-
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
-  printWindow.close();
-}
-</script>
-</div>
-{% endblock %}
+    <main class="small-certificate-stack">
+        {% with cert=certificate %}
+            {% include 'admin_registration/partials/small_certificate_sheet.html' %}
+        {% endwith %}
+    </main>
+</body>
+</html>

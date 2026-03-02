@@ -34,6 +34,7 @@ from io import BytesIO
 
 from django.template.loader import render_to_string
 from django.views.decorators.csrf import csrf_exempt
+from django.templatetags.static import static
 
 from reportlab.platypus import Paragraph, Spacer
 from openpyxl import Workbook
@@ -119,6 +120,76 @@ def _build_owner_full_name(first_name, last_name, fallback=""):
     if first or last:
         return f"{first} {last}".strip()
     return fallback_clean
+
+
+def _format_cert_date(value):
+    if not value:
+        return ""
+    if hasattr(value, "strftime"):
+        return value.strftime("%m-%d-%Y")
+    return str(value)
+
+
+def _pad_rows(rows, min_rows):
+    padded = list(rows)
+    while len(padded) < min_rows:
+        padded.append({})
+    return padded
+
+
+def _build_certificate_payload(registration, vaccinations=None, dewormings=None):
+    vac_records = list(vaccinations) if vaccinations is not None else list(
+        VaccinationRecord.objects.filter(registration=registration).order_by("-date")
+    )
+    dew_records = list(dewormings) if dewormings is not None else list(
+        DewormingTreatmentRecord.objects.filter(registration=registration).order_by("-date")
+    )
+
+    vac_rows = []
+    for record in vac_records[:10]:
+        vac_rows.append({
+            "date": _format_cert_date(record.date),
+            "vaccine_name": record.vaccine_name or "",
+            "manufacturer_lot_no": record.manufacturer_lot_no or "",
+            "vaccine_expiry_date": _format_cert_date(record.vaccine_expiry_date),
+            "vaccination_expiry_date": _format_cert_date(record.vaccination_expiry_date),
+            "veterinarian": record.veterinarian or "",
+        })
+
+    dew_rows = []
+    for record in dew_records[:8]:
+        route = (record.route or "").strip()
+        frequency = (record.frequency or "").strip()
+        route_frequency = f"{route} / {frequency}".strip(" /") if (route or frequency) else ""
+        dew_rows.append({
+            "date": _format_cert_date(record.date),
+            "medicine_given": record.medicine_given or "",
+            "route_frequency": route_frequency,
+            "veterinarian": record.veterinarian or "",
+        })
+
+    return {
+        "id": registration.id,
+        "reg_no": registration.reg_no or "",
+        "name_of_pet": registration.name_of_pet or "",
+        "breed": registration.breed or "",
+        "dob": _format_cert_date(registration.dob),
+        "color_markings": registration.color_markings or "",
+        "sex": registration.sex or "",
+        "is_male": registration.sex == "M",
+        "is_female": registration.sex == "F",
+        "status": registration.status or "",
+        "is_castrated": registration.status == "Castrated",
+        "is_spayed": registration.status == "Spayed",
+        "is_intact": registration.status == "Intact",
+        "owner_name": registration.owner_name or "",
+        "address": registration.address or "",
+        "contact_no": registration.contact_no or "",
+        "vaccination_rows": _pad_rows(vac_rows, 10),
+        "deworming_rows": _pad_rows(dew_rows, 8),
+        "has_vaccinations": bool(vac_records),
+        "has_dewormings": bool(dew_records),
+    }
 
 
 
@@ -1474,6 +1545,9 @@ def dog_certificate(request):
 
     if request.method == "POST":
         reg_no = (request.POST.get("reg_no") or "").strip()
+        breed = (request.POST.get("breed") or "").strip()
+        dob_input = (request.POST.get("dob") or "").strip()
+        dob_value = parse_date(dob_input) if dob_input else None
         barangay_input = request.POST.get("barangay", "")
         barangay = _resolve_barangay_name(barangay_input)
         address_line = (request.POST.get("address") or "").strip()
@@ -1488,6 +1562,14 @@ def dog_certificate(request):
 
         if not re.match(r"^[A-Za-z0-9][A-Za-z0-9\-/]*$", reg_no):
             messages.error(request, "Registration Number can contain only letters, numbers, dash (-), or slash (/).")
+            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+
+        if not breed:
+            messages.error(request, "Breed is required.")
+            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+
+        if dob_input and not dob_value:
+            messages.error(request, "Please enter a valid Date of Birth.")
             return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
 
         if status not in {"Castrated", "Spayed", "Intact"}:
@@ -1535,8 +1617,8 @@ def dog_certificate(request):
             # Keep address format standardized: "<Barangay>, Bayawan City, Negros Oriental"
             reg_no=settings.reg_no,
             name_of_pet=request.POST.get('name_of_pet'),
-            breed=request.POST.get('breed'),
-            dob=request.POST.get('dob'),
+            breed=breed,
+            dob=dob_value,
             color_markings=request.POST.get('color_markings'),
             sex=request.POST.get('sex'),
             status=status,
@@ -1563,9 +1645,11 @@ def certificate_print(request, pk):
     ).order_by('-date')
 
     context = {
-        'data': registration,
-        'vaccinations': vaccinations,
-        'dewormings': dewormings,
+        'certificate': _build_certificate_payload(
+            registration,
+            vaccinations=vaccinations,
+            dewormings=dewormings,
+        ),
     }
 
     return render(request, 'admin_registration/certificate_print.html', context)
@@ -1725,12 +1809,37 @@ def export_certificates_excel(request):
 @admin_required
 def export_selected_certificates(request):
     if request.method == "POST":
-        selected_ids = request.POST.getlist('selected_ids')
+        selected_ids = [int(pk) for pk in request.POST.getlist('selected_ids') if str(pk).isdigit()]
         file_format = request.POST.get('format')
 
-        registrations = DogRegistration.objects.filter(
-            id__in=selected_ids
-        ).order_by('-date_registered')
+        if not selected_ids:
+            return HttpResponse("No certificates selected.", status=400)
+
+        registrations = (
+            DogRegistration.objects.filter(id__in=selected_ids)
+            .prefetch_related(
+                Prefetch(
+                    "vaccinations",
+                    queryset=VaccinationRecord.objects.order_by("-date"),
+                    to_attr="vaccination_records_sorted",
+                ),
+                Prefetch(
+                    "dewormings",
+                    queryset=DewormingTreatmentRecord.objects.order_by("-date"),
+                    to_attr="deworming_records_sorted",
+                ),
+            )
+            .order_by('-date_registered')
+        )
+
+        certificates = [
+            _build_certificate_payload(
+                reg,
+                vaccinations=getattr(reg, "vaccination_records_sorted", []),
+                dewormings=getattr(reg, "deworming_records_sorted", []),
+            )
+            for reg in registrations
+        ]
 
         # ================= PDF =================
         if file_format == "pdf":
@@ -1738,62 +1847,143 @@ def export_selected_certificates(request):
             response = HttpResponse(content_type='application/pdf')
             response['Content-Disposition'] = 'attachment; filename="selected_certificates.pdf"'
 
-            html_content = ""
+            html_content = render_to_string(
+                "admin_registration/certificate_pdf.html",
+                {
+                    "certificates": certificates,
+                    "logo_left_url": request.build_absolute_uri(static("images/officialseal.webp")),
+                    "logo_right_url": request.build_absolute_uri(static("images/Logo-Bagong-Pilipinas.png")),
+                },
+            )
 
-            for reg in registrations:
-                vaccinations = VaccinationRecord.objects.filter(registration=reg)
-                dewormings = DewormingTreatmentRecord.objects.filter(registration=reg)
-
-                rendered = render_to_string(
-                    "admin_registration/certificate_pdf.html",
-                    {
-                        "data": reg,
-                        "vaccinations": vaccinations,
-                        "dewormings": dewormings,
-                        "request": request
-                    }
-                )
-
-                html_content += rendered
-                html_content += '<div style="page-break-after: always;"></div>'
-
-            pisa.CreatePDF(html_content, dest=response)
+            pdf_result = pisa.CreatePDF(html_content, dest=response)
+            if pdf_result.err:
+                return HttpResponse("Failed to generate PDF.", status=500)
             return response
 
         # ================= WORD =================
         elif file_format == "word":
-            ...
+            document = Document()
+            document.add_heading('Selected Dog Vaccination Certificates', level=1)
+
+            table = document.add_table(rows=1, cols=7)
+            table.style = 'Table Grid'
+            headers = [
+                "Reg No",
+                "Pet Name",
+                "Owner",
+                "Address",
+                "Contact",
+                "Latest Vaccine Date",
+                "Latest Deworming Date",
+            ]
+            for idx, label in enumerate(headers):
+                table.rows[0].cells[idx].text = label
+
+            for cert in certificates:
+                latest_vac = next(
+                    (row.get("date", "") for row in cert["vaccination_rows"] if row.get("date")),
+                    "",
+                )
+                latest_dew = next(
+                    (row.get("date", "") for row in cert["deworming_rows"] if row.get("date")),
+                    "",
+                )
+                row_cells = table.add_row().cells
+                row_cells[0].text = cert["reg_no"]
+                row_cells[1].text = cert["name_of_pet"]
+                row_cells[2].text = cert["owner_name"]
+                row_cells[3].text = cert["address"]
+                row_cells[4].text = cert["contact_no"]
+                row_cells[5].text = latest_vac
+                row_cells[6].text = latest_dew
+
+            response = HttpResponse(
+                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            )
+            response['Content-Disposition'] = 'attachment; filename="selected_certificates.docx"'
+            document.save(response)
+            return response
         
         # ================= EXCEL =================
         elif file_format == "excel":
-            ...
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Selected Certificates"
+
+            headers = [
+                "Reg No",
+                "Pet Name",
+                "Owner",
+                "Address",
+                "Contact",
+                "Latest Vaccine Date",
+                "Latest Deworming Date",
+            ]
+            ws.append(headers)
+
+            for cert in certificates:
+                latest_vac = next(
+                    (row.get("date", "") for row in cert["vaccination_rows"] if row.get("date")),
+                    "",
+                )
+                latest_dew = next(
+                    (row.get("date", "") for row in cert["deworming_rows"] if row.get("date")),
+                    "",
+                )
+                ws.append([
+                    cert["reg_no"],
+                    cert["name_of_pet"],
+                    cert["owner_name"],
+                    cert["address"],
+                    cert["contact_no"],
+                    latest_vac,
+                    latest_dew,
+                ])
+
+            response = HttpResponse(
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = 'attachment; filename="selected_certificates.xlsx"'
+            wb.save(response)
+            return response
 
     return HttpResponse("Invalid request", status=400)
 
 @admin_required
 def bulk_certificate_print(request):
     if request.method == "POST":
-        selected_ids = request.POST.getlist("selected_ids")
+        selected_ids = [int(pk) for pk in request.POST.getlist("selected_ids") if str(pk).isdigit()]
+
+        if not selected_ids:
+            return redirect("dogadoption_admin:certificate_list")
 
         # ONLY fetch the selected certificates
-        registrations = DogRegistration.objects.filter(id__in=selected_ids).order_by('id')
+        registrations = (
+            DogRegistration.objects.filter(id__in=selected_ids)
+            .prefetch_related(
+                Prefetch(
+                    "vaccinations",
+                    queryset=VaccinationRecord.objects.order_by("-date"),
+                    to_attr="vaccination_records_sorted",
+                ),
+                Prefetch(
+                    "dewormings",
+                    queryset=DewormingTreatmentRecord.objects.order_by("-date"),
+                    to_attr="deworming_records_sorted",
+                ),
+            )
+            .order_by('id')
+        )
 
-        certificates = []
-
-        for registration in registrations:
-            vaccinations = VaccinationRecord.objects.filter(
-                registration=registration
-            ).order_by('-date')
-
-            dewormings = DewormingTreatmentRecord.objects.filter(
-                registration=registration
-            ).order_by('-date')
-
-            certificates.append({
-                "data": registration,
-                "vaccinations": vaccinations,
-                "dewormings": dewormings,
-            })
+        certificates = [
+            _build_certificate_payload(
+                registration,
+                vaccinations=getattr(registration, "vaccination_records_sorted", []),
+                dewormings=getattr(registration, "deworming_records_sorted", []),
+            )
+            for registration in registrations
+        ]
 
         return render(
             request,

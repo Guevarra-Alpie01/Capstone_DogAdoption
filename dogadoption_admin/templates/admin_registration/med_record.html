@@ -49,11 +49,29 @@
     <!-- ================= VACCINATION SECTION ================= -->
     <div id="vaccinationForm" class="hidden">
         <h3>Vaccination</h3>
-        <input type="date" name="vac_date">
-        <input type="text" name="vaccine_name" placeholder="Vaccine Name (e.g Rabisin)">
-        <input type="date" name="vaccine_expiry_date">
-        <input type="date" name="vaccination_expiry_date">
-        <input type="text" name="vac_veterinarian" placeholder="Veterinarian / Livestock Technician">
+        <label for="vac_date">Date</label>
+        <input type="date" id="vac_date" name="vac_date" value="{{ vaccination_defaults.vac_date|default:'' }}" required>
+
+        <label for="vaccine_name">Kind of Vaccine</label>
+        <input type="text" id="vaccine_name" name="vaccine_name" value="{{ vaccination_defaults.vaccine_name|default:'' }}" placeholder="e.g., Rabisin" required>
+
+        <label for="manufacturer_lot_no">Manufacturer &amp; Lot No.</label>
+        <input
+            type="text"
+            id="manufacturer_lot_no"
+            name="manufacturer_lot_no"
+            value="{{ vaccination_defaults.manufacturer_lot_no|default:'' }}"
+            placeholder="e.g., Boehringer AB12C9"
+            pattern="[A-Za-z0-9][A-Za-z0-9\\-\\s/.,#()]*"
+            title="Use letters and numbers. Symbols like -, /, ., #, ( ) are allowed."
+            required
+        >
+
+        <label for="vaccine_expiry_date">Vaccine Expiry Date</label>
+        <input type="date" id="vaccine_expiry_date" name="vaccine_expiry_date" value="{{ vaccination_defaults.vaccine_expiry_date|default:'' }}" required>
+
+        <label for="vaccination_expiry_date">Dog Vaccination Expiry Date</label>
+        <input type="date" id="vaccination_expiry_date" name="vaccination_expiry_date" required>
     </div>
 
     <!-- ================= DEWORMING SECTION ================= -->
@@ -79,18 +97,18 @@
 <table>
     <tr>
         <th>Date</th>
-        <th>Vaccine</th>
+        <th>Kind of Vaccine</th>
+        <th>Manufacturer &amp; Lot No.</th>
         <th>Vaccine Expiry</th>
-        <th>Vaccination Expiry</th>
-        <th>Veterinarian</th>
+        <th>Dog Vaccination Expiry</th>
     </tr>
     {% for v in vaccinations %}
     <tr>
         <td>{{ v.date }}</td>
         <td>{{ v.vaccine_name }}</td>
+        <td>{{ v.manufacturer_lot_no|default:"-" }}</td>
         <td>{{ v.vaccine_expiry_date }}</td>
         <td>{{ v.vaccination_expiry_date }}</td>
-        <td>{{ v.veterinarian }}</td>
     </tr>
     {% empty %}
     <tr>
@@ -126,6 +144,13 @@
 
 <!-- ================= SCRIPT ================= -->
 <script>
+function setSectionState(sectionElement, enabled) {
+    const fields = sectionElement.querySelectorAll("input, select, textarea");
+    fields.forEach((field) => {
+        field.disabled = !enabled;
+    });
+}
+
 function toggleForm() {
     let value = document.getElementById("recordSelector").value;
 
@@ -142,17 +167,23 @@ function toggleForm() {
         vaccinationForm.classList.remove("hidden");
         submitBtn.classList.remove("hidden");
         recordTypeInput.value = "vaccination";
+        setSectionState(vaccinationForm, true);
+        setSectionState(dewormingForm, false);
     } 
     else if (value === "deworming") {
         dewormingForm.classList.remove("hidden");
         submitBtn.classList.remove("hidden");
         recordTypeInput.value = "deworming";
+        setSectionState(vaccinationForm, false);
+        setSectionState(dewormingForm, true);
     } 
     else if (value === "all") {
         vaccinationForm.classList.remove("hidden");
         dewormingForm.classList.remove("hidden");
         submitBtn.classList.remove("hidden");
         recordTypeInput.value = "all";
+        setSectionState(vaccinationForm, true);
+        setSectionState(dewormingForm, true);
     }
 }
 

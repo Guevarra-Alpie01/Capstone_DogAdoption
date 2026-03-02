@@ -306,6 +306,10 @@ class Dog(models.Model):
 class CertificateSettings(models.Model):
     reg_no = models.CharField(max_length=50, default="REG-001")
     print_immediately = models.BooleanField(default=True)
+    default_vac_date = models.DateField(null=True, blank=True)
+    default_vaccine_name = models.CharField(max_length=255, blank=True, default="")
+    default_manufacturer_lot_no = models.CharField(max_length=255, blank=True, default="")
+    default_vaccine_expiry_date = models.DateField(null=True, blank=True)
 
     def __str__(self):
         return f"Certificate Settings ({self.reg_no})"
@@ -367,6 +371,7 @@ class VaccinationRecord(models.Model):
     )
     date = models.DateField()
     vaccine_name = models.CharField(max_length=255)
+    manufacturer_lot_no = models.CharField(max_length=255, blank=True, default="")
     vaccine_expiry_date = models.DateField()
     vaccination_expiry_date = models.DateField()
     veterinarian = models.CharField(max_length=255)

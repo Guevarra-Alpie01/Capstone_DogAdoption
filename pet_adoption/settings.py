@@ -132,12 +132,6 @@ STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# SMS settings (default console backend for development)
-SMS_BACKEND = os.getenv('SMS_BACKEND', 'console')  # 'console' or 'twilio'
-TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', '')
-TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN', '')
-TWILIO_FROM_NUMBER = os.getenv('TWILIO_FROM_NUMBER', '')
-
 LOGOUT_REDIRECT_URL = 'user:user_home'
 LOGIN_REDIRECT_URL = 'user:user_home'
 LOGIN_URL = 'user:login'

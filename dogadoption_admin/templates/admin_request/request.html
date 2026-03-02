@@ -11,59 +11,7 @@
         <p>Review user reports and monitor exact GPS requests on the general map.</p>
     </div>
 
-    <div class="contacts-card">
-        <div class="contacts-header">
-            <div>
-                <h2>Dog Catcher Contacts</h2>
-                <p>SMS alerts go to active contacts 8 hours before the scheduled capture time.</p>
-                <p class="trial-note">Twilio trial accounts can only send to verified numbers.</p>
-            </div>
-            <form method="POST" class="contact-form">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="add_contact">
-                <input type="text" name="contact_name" placeholder="Name (optional)">
-                <input type="text" name="contact_phone" placeholder="Phone number" required>
-                <button type="submit" class="btn-primary">Add Contact</button>
-            </form>
-        </div>
-
-        {% if contacts %}
-            <div class="contact-list">
-                {% for contact in contacts %}
-                    <div class="contact-row">
-                        <div>
-                            <strong>{{ contact.name|default:"Dog Catcher" }}</strong>
-                            <span class="contact-phone">{{ contact.phone_number }}</span>
-                            {% if contact.active %}
-                                <span class="status-pill active">Active</span>
-                            {% else %}
-                                <span class="status-pill inactive">Inactive</span>
-                            {% endif %}
-                        </div>
-                        <div class="contact-actions">
-                            <form method="POST">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="toggle_contact">
-                                <input type="hidden" name="contact_id" value="{{ contact.id }}">
-                                <button type="submit" class="btn-ghost">
-                                    {% if contact.active %}Deactivate{% else %}Activate{% endif %}
-                                </button>
-                            </form>
-                            <form method="POST">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="delete_contact">
-                                <input type="hidden" name="contact_id" value="{{ contact.id }}">
-                                <button type="submit" class="btn-danger">Remove</button>
-                            </form>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p class="empty-map">No contacts yet. Add at least one number to receive SMS alerts.</p>
-        {% endif %}
-    </div>
-
+ 
     {% if requests %}
         <div class="requests-board">
             <div class="tab-bar" role="tablist" aria-label="Request Status Tabs">

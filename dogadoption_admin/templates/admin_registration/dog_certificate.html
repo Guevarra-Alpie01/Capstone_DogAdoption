@@ -10,8 +10,7 @@
 
 <div class="registration-wrapper">
     <div class="header-section">
-        <h2>National Rabies Prevention and Control Program</h2>
-        <p class="sub-header">Dog Vaccination Record</p>
+        <h2>Dog Vaccination Certificate</h2>
     </div>
 
     <div class="form-card">
@@ -20,13 +19,21 @@
 
             <div class="field-group">
                 <label for="reg_no">Registration Number</label>
-                <input type="text" id="reg_no" name="reg_no" value="{{ settings.reg_no|default:'' }}" required placeholder="e.g., 2026-001">
+                <input
+                    type="text"
+                    id="reg_no"
+                    name="reg_no"
+                    value="{{ settings.reg_no|default:'' }}"
+                    required
+                    maxlength="50"
+                    pattern="[A-Za-z0-9][-A-Za-z0-9/]*"
+                    title="Use letters, numbers, dash (-), or slash (/)."
+                    placeholder="e.g., BRGY-2026-001A"
+                >
                 <small style="color: #666; margin-top: 5px;">Once submitted, this is the permanent record ID.</small>
             </div>
 
             <div class="dog-info-section">
-                <h4 class="section-title"><i class="fas fa-certificate"></i> Pet Certificate Details</h4>
-
                 <div class="grid-row">
                     <div class="field-group">
                         <label for="name_of_pet">Pet Name</label>
@@ -53,13 +60,11 @@
                     </div>
                     <div class="field-group">
                         <label for="status">Status</label>
-                        <select name="status" id="status">
-                            <option value="None">None</option>
+                        <select name="status" id="status" required>
+                            <option value="" selected disabled>Select status</option>
                             <option value="Castrated">Castrated</option>
                             <option value="Intact">Intact</option>
                             <option value="Spayed">Spayed</option>
-                            
-                           
                         </select>
                     </div>
                 </div>
@@ -68,11 +73,17 @@
                     <label for="color_markings">Color/Markings</label>
                     <input type="text" name="color_markings" id="color_markings" placeholder="Unique features">
                 </div>
-
-                <h4 class="section-title"><i class="fas fa-user-shield"></i> Owner Details</h4>
                 <div class="field-group">
                     <label for="owner_name">Owner Full Name</label>
-                    <input type="text" name="owner_name" id="owner_name" required>
+                    <input
+                        type="text"
+                        name="owner_name"
+                        id="owner_name"
+                        required
+                        placeholder="e.g., Juan Dela Cruz"
+                        title="Enter the owner's complete name."
+                    >
+                    <small style="color: #666; margin-top: 5px;">Format: First Name Middle Name Last Name</small>
                 </div>
                 <div class="field-group">
                     <label for="barangay">Barangay</label>

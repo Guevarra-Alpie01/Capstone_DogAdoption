@@ -1,0 +1,179 @@
+{% extends "admin_base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/admin_analytics/dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="analytics-page">
+    <div class="analytics-head">
+        <h1>Analytics Dashboard</h1>
+        <p>Live metrics from rescue posts, user requests, capture reports, and registration records.</p>
+    </div>
+
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <span>Total Users</span>
+            <h3>{{ total_users }}</h3>
+        </div>
+        <div class="kpi-card">
+            <span>Rescue Posts</span>
+            <h3>{{ total_posts }}</h3>
+        </div>
+        <div class="kpi-card">
+            <span>Capture Requests</span>
+            <h3>{{ total_capture_requests }}</h3>
+        </div>
+        <div class="kpi-card">
+            <span>Dog Registrations</span>
+            <h3>{{ total_registrations }}</h3>
+        </div>
+    </div>
+
+    <div class="chart-grid">
+        <div class="chart-card">
+            <h4>Rescue Post Status</h4>
+            <canvas id="postStatusChart"></canvas>
+        </div>
+
+        <div class="chart-card">
+            <h4>Claim/Adopt Request Status</h4>
+            <canvas id="requestStatusChart"></canvas>
+        </div>
+
+        <div class="chart-card">
+            <h4>Capture Request Status</h4>
+            <canvas id="captureStatusChart"></canvas>
+        </div>
+
+        <div class="chart-card chart-span-2">
+            <h4>Last 14 Days Activity</h4>
+            <canvas id="activityTrendChart"></canvas>
+        </div>
+
+        <div class="chart-card chart-span-2">
+            <h4>Top Registered Barangays</h4>
+            <canvas id="barangayChart"></canvas>
+        </div>
+    </div>
+</div>
+
+{{ post_status_chart|json_script:"post-status-data" }}
+{{ request_status_chart|json_script:"request-status-data" }}
+{{ capture_status_chart|json_script:"capture-status-data" }}
+{{ activity_trend_chart|json_script:"activity-trend-data" }}
+{{ barangay_chart|json_script:"barangay-data" }}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const postStatusData = JSON.parse(document.getElementById('post-status-data').textContent);
+    const requestStatusData = JSON.parse(document.getElementById('request-status-data').textContent);
+    const captureStatusData = JSON.parse(document.getElementById('capture-status-data').textContent);
+    const activityTrendData = JSON.parse(document.getElementById('activity-trend-data').textContent);
+    const barangayData = JSON.parse(document.getElementById('barangay-data').textContent);
+
+    const pieColors = ['#0d6efd', '#20c997', '#ffc107', '#dc3545', '#6f42c1'];
+
+    new Chart(document.getElementById('postStatusChart'), {
+        type: 'doughnut',
+        data: {
+            labels: postStatusData.labels,
+            datasets: [{
+                data: postStatusData.data,
+                backgroundColor: pieColors,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    const statusColors = {
+        Pending: '#ffc107',
+        Accepted: '#198754',
+        Rejected: '#dc3545'
+    };
+
+    new Chart(document.getElementById('requestStatusChart'), {
+        type: 'bar',
+        data: {
+            labels: requestStatusData.labels,
+            datasets: requestStatusData.datasets.map((set) => ({
+                ...set,
+                backgroundColor: statusColors[set.label] || '#0d6efd'
+            }))
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } },
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('captureStatusChart'), {
+        type: 'pie',
+        data: {
+            labels: captureStatusData.labels,
+            datasets: [{
+                data: captureStatusData.data,
+                backgroundColor: ['#f59e0b', '#16a34a', '#ef4444'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    const trendColors = ['#0d6efd', '#20c997', '#fd7e14'];
+    new Chart(document.getElementById('activityTrendChart'), {
+        type: 'line',
+        data: {
+            labels: activityTrendData.labels,
+            datasets: activityTrendData.datasets.map((set, idx) => ({
+                ...set,
+                borderColor: trendColors[idx % trendColors.length],
+                backgroundColor: trendColors[idx % trendColors.length],
+                tension: 0.3,
+                fill: false
+            }))
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } },
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('barangayChart'), {
+        type: 'bar',
+        data: {
+            labels: barangayData.labels,
+            datasets: [{
+                label: 'Registered Dogs',
+                data: barangayData.data,
+                backgroundColor: '#2563eb'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+        }
+    });
+</script>
+{% endblock %}

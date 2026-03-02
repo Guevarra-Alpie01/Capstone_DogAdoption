@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.views.decorators.http import require_POST
 from django.db.models import Count, Q
+from django.db.models.functions import TruncDate
 from django.db import transaction
 from datetime import timedelta
 from django.utils import timezone
@@ -70,9 +71,6 @@ from .models import Pet, VaccinationRecord, DewormingTreatmentRecord
 #models from users
 from user.models import Profile,FaceImage 
 from user.models import DogCaptureRequest, AdoptionRequest,FaceImage, Profile,OwnerClaim, ClaimImage
-
-from .sms import build_capture_message, send_sms
-
 
 def _clean_barangay(value):
     return " ".join((value or "").split()).strip()
@@ -494,23 +492,9 @@ def update_dog_capture_request(request, pk):
                 )
             req.scheduled_date = scheduled_dt
             req.admin_message = request.POST.get('admin_message')
-
-            if scheduled_dt:
-                notify_at = scheduled_dt - timedelta(hours=8)
-                req.notification_scheduled_for = notify_at
-                req.notification_sent_at = None
+            req.notification_scheduled_for = None
+            req.notification_sent_at = None
             req.save()
-
-            # Send immediately if the schedule is within the 8-hour window
-            if scheduled_dt and notify_at <= timezone.now():
-                contacts = list(
-                    DogCatcherContact.objects.filter(active=True).values_list("phone_number", flat=True)
-                )
-                if contacts:
-                    message = build_capture_message(req)
-                    if send_sms(contacts, message):
-                        req.notification_sent_at = timezone.now()
-                        req.save(update_fields=['notification_sent_at'])
 
             messages.success(request, "Request accepted and scheduled.")
 
@@ -518,6 +502,8 @@ def update_dog_capture_request(request, pk):
             req.status = 'declined'
             req.admin_message = request.POST.get('admin_message')
             req.assigned_admin = request.user
+            req.notification_scheduled_for = None
+            req.notification_sent_at = None
             req.save()
 
             messages.warning(request, "Request declined.")
@@ -736,6 +722,119 @@ def mark_notification_read(request, pk):
     target = notif.url or "dogadoption_admin:admin_notifications"
     return redirect(target)
 
+# ++++++++++++++++++++++++++++ Analytics Dashboard ++++++++++++++++++++++++++++++++++++++++++++++++ 
+@admin_required
+def analytics_dashboard(request):
+    total_users = User.objects.filter(is_staff=False).count()
+    total_posts = Post.objects.count()
+    total_capture_requests = DogCaptureRequest.objects.count()
+    total_registrations = DogRegistration.objects.count()
+
+    post_status_totals = {
+        row["status"]: row["total"]
+        for row in Post.objects.values("status").annotate(total=Count("id"))
+    }
+    post_status_labels = [label for _, label in Post.STATUS_CHOICES]
+    post_status_data = [post_status_totals.get(key, 0) for key, _ in Post.STATUS_CHOICES]
+
+    request_matrix = {}
+    for row in PostRequest.objects.values("request_type", "status").annotate(total=Count("id")):
+        request_matrix.setdefault(row["request_type"], {})[row["status"]] = row["total"]
+
+    request_type_labels = [label for _, label in PostRequest.REQUEST_TYPE_CHOICES]
+    request_types = [key for key, _ in PostRequest.REQUEST_TYPE_CHOICES]
+    request_statuses = [key for key, _ in PostRequest.STATUS_CHOICES]
+    request_status_display = {
+        "pending": "Pending",
+        "accepted": "Accepted",
+        "rejected": "Rejected",
+    }
+    request_status_chart = {
+        "labels": request_type_labels,
+        "datasets": [
+            {
+                "label": request_status_display.get(status, status.title()),
+                "data": [request_matrix.get(rtype, {}).get(status, 0) for rtype in request_types],
+            }
+            for status in request_statuses
+        ],
+    }
+
+    capture_status_totals = {
+        row["status"]: row["total"]
+        for row in DogCaptureRequest.objects.values("status").annotate(total=Count("id"))
+    }
+    capture_status_labels = [label for _, label in DogCaptureRequest.STATUS_CHOICES]
+    capture_status_data = [
+        capture_status_totals.get(key, 0) for key, _ in DogCaptureRequest.STATUS_CHOICES
+    ]
+
+    start_day = timezone.localdate() - timedelta(days=13)
+    trend_days = [start_day + timedelta(days=i) for i in range(14)]
+    trend_labels = [day.strftime("%b %d") for day in trend_days]
+
+    posts_per_day = {
+        row["day"]: row["total"]
+        for row in Post.objects.filter(created_at__date__gte=start_day)
+        .annotate(day=TruncDate("created_at"))
+        .values("day")
+        .annotate(total=Count("id"))
+    }
+    requests_per_day = {
+        row["day"]: row["total"]
+        for row in PostRequest.objects.filter(created_at__date__gte=start_day)
+        .annotate(day=TruncDate("created_at"))
+        .values("day")
+        .annotate(total=Count("id"))
+    }
+    captures_per_day = {
+        row["day"]: row["total"]
+        for row in DogCaptureRequest.objects.filter(created_at__date__gte=start_day)
+        .annotate(day=TruncDate("created_at"))
+        .values("day")
+        .annotate(total=Count("id"))
+    }
+
+    activity_trend_chart = {
+        "labels": trend_labels,
+        "datasets": [
+            {"label": "Rescue Posts", "data": [posts_per_day.get(day, 0) for day in trend_days]},
+            {"label": "Claim/Adopt Requests", "data": [requests_per_day.get(day, 0) for day in trend_days]},
+            {"label": "Capture Requests", "data": [captures_per_day.get(day, 0) for day in trend_days]},
+        ],
+    }
+
+    top_barangays = (
+        Dog.objects.exclude(barangay__isnull=True)
+        .exclude(barangay__exact="")
+        .values("barangay")
+        .annotate(total=Count("id"))
+        .order_by("-total")[:6]
+    )
+    barangay_chart = {
+        "labels": [row["barangay"] for row in top_barangays],
+        "data": [row["total"] for row in top_barangays],
+    }
+
+    context = {
+        "total_users": total_users,
+        "total_posts": total_posts,
+        "total_capture_requests": total_capture_requests,
+        "total_registrations": total_registrations,
+        "post_status_chart": {
+            "labels": post_status_labels,
+            "data": post_status_data,
+        },
+        "request_status_chart": request_status_chart,
+        "capture_status_chart": {
+            "labels": capture_status_labels,
+            "data": capture_status_data,
+        },
+        "activity_trend_chart": activity_trend_chart,
+        "barangay_chart": barangay_chart,
+    }
+    return render(request, "admin_analytics/dashboard.html", context)
+
 #+++++++++++++++++++++++++++++  ADMIN REGISTRATION  +++++++++++++++++++++++++++++++++++++++++
 
 
@@ -945,6 +1044,14 @@ def med_record(request, registration_id):
             if matched_barangay:
                 current_street = current_address.replace(matched_barangay, "").strip(" ,")
 
+    cert_settings = CertificateSettings.objects.first()
+    vaccination_defaults = {
+        "vac_date": cert_settings.default_vac_date.isoformat() if cert_settings and cert_settings.default_vac_date else "",
+        "vaccine_name": cert_settings.default_vaccine_name if cert_settings else "",
+        "manufacturer_lot_no": cert_settings.default_manufacturer_lot_no if cert_settings else "",
+        "vaccine_expiry_date": cert_settings.default_vaccine_expiry_date.isoformat() if cert_settings and cert_settings.default_vaccine_expiry_date else "",
+    }
+
     if request.method == "POST":
         record_type = request.POST.get("record_type")
 
@@ -967,14 +1074,40 @@ def med_record(request, registration_id):
             return redirect('dogadoption_admin:med_records', registration_id=registration.id)
 
         if record_type == "vaccination":
+            vac_date = (request.POST.get("vac_date") or "").strip()
+            vaccine_name = (request.POST.get("vaccine_name") or "").strip()
+            manufacturer_lot_no = (request.POST.get("manufacturer_lot_no") or "").strip()
+            vaccine_expiry_date = (request.POST.get("vaccine_expiry_date") or "").strip()
+            vaccination_expiry_date = (request.POST.get("vaccination_expiry_date") or "").strip()
+
             VaccinationRecord.objects.create(
                 registration=registration,
-                date=request.POST.get("vac_date"),
-                vaccine_name=request.POST.get("vaccine_name"),
-                vaccine_expiry_date=request.POST.get("vaccine_expiry_date"),
-                vaccination_expiry_date=request.POST.get("vaccination_expiry_date"),
-                veterinarian=request.POST.get("vac_veterinarian"),
+                date=vac_date,
+                vaccine_name=vaccine_name,
+                manufacturer_lot_no=manufacturer_lot_no,
+                vaccine_expiry_date=vaccine_expiry_date,
+                vaccination_expiry_date=vaccination_expiry_date,
+                veterinarian="",
             )
+            settings_obj = cert_settings or CertificateSettings.objects.create()
+            if vac_date:
+                parsed_vac_date = parse_date(vac_date)
+                if parsed_vac_date:
+                    settings_obj.default_vac_date = parsed_vac_date
+            if vaccine_name:
+                settings_obj.default_vaccine_name = vaccine_name
+            if manufacturer_lot_no:
+                settings_obj.default_manufacturer_lot_no = manufacturer_lot_no
+            if vaccine_expiry_date:
+                parsed_vac_expiry = parse_date(vaccine_expiry_date)
+                if parsed_vac_expiry:
+                    settings_obj.default_vaccine_expiry_date = parsed_vac_expiry
+            settings_obj.save(update_fields=[
+                "default_vac_date",
+                "default_vaccine_name",
+                "default_manufacturer_lot_no",
+                "default_vaccine_expiry_date",
+            ])
 
         elif record_type == "deworming":
             DewormingTreatmentRecord.objects.create(
@@ -987,14 +1120,40 @@ def med_record(request, registration_id):
             )
 
         elif record_type == "all":
+            vac_date = (request.POST.get("vac_date") or "").strip()
+            vaccine_name = (request.POST.get("vaccine_name") or "").strip()
+            manufacturer_lot_no = (request.POST.get("manufacturer_lot_no") or "").strip()
+            vaccine_expiry_date = (request.POST.get("vaccine_expiry_date") or "").strip()
+            vaccination_expiry_date = (request.POST.get("vaccination_expiry_date") or "").strip()
+
             VaccinationRecord.objects.create(
                 registration=registration,
-                date=request.POST.get("vac_date"),
-                vaccine_name=request.POST.get("vaccine_name"),
-                vaccine_expiry_date=request.POST.get("vaccine_expiry_date"),
-                vaccination_expiry_date=request.POST.get("vaccination_expiry_date"),
-                veterinarian=request.POST.get("vac_veterinarian"),
+                date=vac_date,
+                vaccine_name=vaccine_name,
+                manufacturer_lot_no=manufacturer_lot_no,
+                vaccine_expiry_date=vaccine_expiry_date,
+                vaccination_expiry_date=vaccination_expiry_date,
+                veterinarian="",
             )
+            settings_obj = cert_settings or CertificateSettings.objects.create()
+            if vac_date:
+                parsed_vac_date = parse_date(vac_date)
+                if parsed_vac_date:
+                    settings_obj.default_vac_date = parsed_vac_date
+            if vaccine_name:
+                settings_obj.default_vaccine_name = vaccine_name
+            if manufacturer_lot_no:
+                settings_obj.default_manufacturer_lot_no = manufacturer_lot_no
+            if vaccine_expiry_date:
+                parsed_vac_expiry = parse_date(vaccine_expiry_date)
+                if parsed_vac_expiry:
+                    settings_obj.default_vaccine_expiry_date = parsed_vac_expiry
+            settings_obj.save(update_fields=[
+                "default_vac_date",
+                "default_vaccine_name",
+                "default_manufacturer_lot_no",
+                "default_vaccine_expiry_date",
+            ])
 
             DewormingTreatmentRecord.objects.create(
                 registration=registration,
@@ -1013,6 +1172,7 @@ def med_record(request, registration_id):
         "dewormings": dewormings,
         "current_street": current_street,
         "current_barangay": current_barangay,
+        "vaccination_defaults": vaccination_defaults,
     }
 
     return render(request, "admin_registration/med_record.html", context)
@@ -1022,10 +1182,24 @@ def dog_certificate(request):
     settings = CertificateSettings.objects.first()
 
     if request.method == "POST":
-        reg_no = request.POST.get("reg_no")
+        reg_no = (request.POST.get("reg_no") or "").strip()
         barangay_input = request.POST.get("barangay", "")
         barangay = _resolve_barangay_name(barangay_input)
         address_line = (request.POST.get("address") or "").strip()
+        owner_name = (request.POST.get("owner_name") or "").strip()
+        status = (request.POST.get("status") or "").strip()
+
+        if not re.match(r"^[A-Za-z0-9][A-Za-z0-9\-/]*$", reg_no):
+            messages.error(request, "Registration Number can contain only letters, numbers, dash (-), or slash (/).")
+            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+
+        if status not in {"Castrated", "Spayed", "Intact"}:
+            messages.error(request, "Please select a valid status.")
+            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+
+        if not owner_name:
+            messages.error(request, "Owner Full Name is required.")
+            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
 
         if not barangay:
             messages.error(request, "Please select a valid barangay from the suggestions.")
@@ -1052,8 +1226,8 @@ def dog_certificate(request):
             dob=request.POST.get('dob'),
             color_markings=request.POST.get('color_markings'),
             sex=request.POST.get('sex'),
-            status=request.POST.get('status'),
-            owner_name=request.POST.get('owner_name'),
+            status=status,
+            owner_name=owner_name,
             address=f"{address_line}, {barangay}, Bayawan City, Negros Oriental" if address_line else f"{barangay}, Bayawan City, Negros Oriental",
             contact_no=contact_no,
         )

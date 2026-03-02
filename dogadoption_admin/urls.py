@@ -45,6 +45,7 @@ urlpatterns = [
     path('profile/edit/', views.admin_edit_profile, name='admin_edit_profile'),
     path('notifications/', views.admin_notifications, name='admin_notifications'),
     path('notifications/<int:pk>/read/', views.mark_notification_read, name='notification_read'),
+    path('analytics/dashboard/', views.analytics_dashboard, name='analytics_dashboard'),
 
     #REGISTRATION
     

@@ -21,6 +21,7 @@ from django.urls import reverse
 from functools import wraps
 import json
 import re
+from urllib.parse import urlencode
 
 
 
@@ -38,12 +39,13 @@ from reportlab.platypus import Paragraph, Spacer
 from openpyxl import Workbook
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, letter, landscape
 from reportlab.lib.styles import getSampleStyleSheet
 import pandas as pd
 from reportlab.platypus import SimpleDocTemplate, Table
 from docx import Document
 from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from xhtml2pdf import pisa
 from docx import Document
 
@@ -107,6 +109,16 @@ def _extract_barangay_from_address(address):
             return resolved
 
     return _resolve_barangay_name(cleaned)
+
+
+def _build_owner_full_name(first_name, last_name, fallback=""):
+    first = " ".join((first_name or "").split()).strip()
+    last = " ".join((last_name or "").split()).strip()
+    fallback_clean = " ".join((fallback or "").split()).strip()
+
+    if first or last:
+        return f"{first} {last}".strip()
+    return fallback_clean
 
 
 
@@ -877,14 +889,24 @@ def register_dogs(request):
         age_unit = (request.POST.get('age_unit') or 'years').strip()
         neutering = request.POST.get('neutering', 'No')
         color = request.POST.get('color', '').strip()
-        owner_name = request.POST.get('owner_name', '').strip()
+        owner_first_name = request.POST.get('owner_first_name', '').strip()
+        owner_last_name = request.POST.get('owner_last_name', '').strip()
+        owner_name = _build_owner_full_name(
+            owner_first_name,
+            owner_last_name,
+            request.POST.get('owner_name', '').strip(),
+        )
 
         if not barangay:
             messages.error(request, "Please select a valid barangay from the suggestions.")
             return redirect('dogadoption_admin:register_dogs')
 
         if not name or not owner_name:
-            messages.error(request, "Dog Name and Owner Name are required.")
+            messages.error(request, "Dog Name and Owner First/Last Name are required.")
+            return redirect('dogadoption_admin:register_dogs')
+
+        if (owner_first_name or owner_last_name) and (not owner_first_name or not owner_last_name):
+            messages.error(request, "Please provide both owner first name and last name.")
             return redirect('dogadoption_admin:register_dogs')
 
         if species not in {"Canine", "Feline"}:
@@ -941,21 +963,102 @@ def register_dogs(request):
 def registration_record(request):
     selected_barangay_raw = request.GET.get('barangay', '').strip()
     selected_barangay = _resolve_barangay_name(selected_barangay_raw) if selected_barangay_raw else ''
+    date_filter_type = (request.GET.get('date_filter_type') or 'all').strip().lower()
+    filter_date = (request.GET.get('filter_date') or '').strip()
+    filter_month = (request.GET.get('filter_month') or '').strip()
+    filter_year = (request.GET.get('filter_year') or '').strip()
+
+    if date_filter_type not in {'all', 'day', 'month', 'year'}:
+        date_filter_type = 'all'
+
     barangay_list_parsed = list(
         Barangay.objects.filter(is_active=True).values_list('name', flat=True)
     )
 
+    dogs = Dog.objects.all()
     if selected_barangay:
-        dogs = Dog.objects.filter(
+        dogs = dogs.filter(
             barangay__iexact=selected_barangay
-        ).order_by('-date_registered')
+        )
+
+    date_filter_label = ""
+    if date_filter_type == 'day' and filter_date:
+        selected_date = parse_date(filter_date)
+        if selected_date:
+            dogs = dogs.filter(date_registered=selected_date)
+            date_filter_label = selected_date.strftime("%b %d, %Y")
+        else:
+            date_filter_type = 'all'
+    elif date_filter_type == 'month' and filter_month:
+        month_match = re.match(r"^(\d{4})-(\d{2})$", filter_month)
+        if month_match:
+            month_year = int(month_match.group(1))
+            month_value = int(month_match.group(2))
+            if 1 <= month_value <= 12:
+                dogs = dogs.filter(
+                    date_registered__year=month_year,
+                    date_registered__month=month_value,
+                )
+                date_filter_label = datetime(month_year, month_value, 1).strftime("%B %Y")
+            else:
+                date_filter_type = 'all'
+        else:
+            date_filter_type = 'all'
+    elif date_filter_type == 'year' and filter_year:
+        if filter_year.isdigit():
+            year_value = int(filter_year)
+            if 1900 <= year_value <= 9999:
+                dogs = dogs.filter(date_registered__year=year_value)
+                date_filter_label = str(year_value)
+            else:
+                date_filter_type = 'all'
+        else:
+            date_filter_type = 'all'
     else:
-        dogs = Dog.objects.all().order_by('-date_registered')
+        date_filter_type = 'all'
+
+    dogs = dogs.order_by('-date_registered')
+    available_years = [
+        d.year for d in Dog.objects.exclude(date_registered__isnull=True)
+        .dates('date_registered', 'year', order='DESC')
+    ]
+
+    date_filter_params = {}
+    if date_filter_type == 'day' and filter_date:
+        date_filter_params = {
+            'date_filter_type': 'day',
+            'filter_date': filter_date,
+        }
+    elif date_filter_type == 'month' and filter_month:
+        date_filter_params = {
+            'date_filter_type': 'month',
+            'filter_month': filter_month,
+        }
+    elif date_filter_type == 'year' and filter_year:
+        date_filter_params = {
+            'date_filter_type': 'year',
+            'filter_year': filter_year,
+        }
+
+    date_filter_query = urlencode(date_filter_params)
+    download_params = {}
+    if selected_barangay:
+        download_params['barangay'] = selected_barangay
+    download_params.update(date_filter_params)
+    download_query = urlencode(download_params)
 
     context = {
         'selected_barangay': selected_barangay,
         'dogs': dogs,
         'barangay_list_parsed': barangay_list_parsed,
+        'date_filter_type': date_filter_type,
+        'filter_date': filter_date,
+        'filter_month': filter_month,
+        'filter_year': filter_year,
+        'date_filter_label': date_filter_label,
+        'available_years': available_years,
+        'date_filter_query': date_filter_query,
+        'download_query': download_query,
     }
 
     return render(request, 'admin_registration/registration_record.html', context)
@@ -969,26 +1072,98 @@ def barangay_list_api(request):
 def download_registration(request, file_type):
     selected_barangay_raw = request.GET.get('barangay', None)
     selected_barangay = _resolve_barangay_name(selected_barangay_raw) if selected_barangay_raw else None
+    date_filter_type = (request.GET.get('date_filter_type') or 'all').strip().lower()
+    filter_date = (request.GET.get('filter_date') or '').strip()
+    filter_month = (request.GET.get('filter_month') or '').strip()
+    filter_year = (request.GET.get('filter_year') or '').strip()
 
     dogs = Dog.objects.all()
 
     if selected_barangay:
         dogs = dogs.filter(barangay__iexact=selected_barangay)
 
+    if date_filter_type == 'day' and filter_date:
+        selected_date = parse_date(filter_date)
+        if selected_date:
+            dogs = dogs.filter(date_registered=selected_date)
+    elif date_filter_type == 'month' and filter_month:
+        month_match = re.match(r"^(\d{4})-(\d{2})$", filter_month)
+        if month_match:
+            month_year = int(month_match.group(1))
+            month_value = int(month_match.group(2))
+            if 1 <= month_value <= 12:
+                dogs = dogs.filter(
+                    date_registered__year=month_year,
+                    date_registered__month=month_value,
+                )
+    elif date_filter_type == 'year' and filter_year and filter_year.isdigit():
+        year_value = int(filter_year)
+        if 1900 <= year_value <= 9999:
+            dogs = dogs.filter(date_registered__year=year_value)
+    dogs = dogs.order_by('-date_registered')
+    selected_barangay_label = selected_barangay or "All Barangays"
+
     # ================= EXCEL =================
     if file_type == 'excel':
         wb = Workbook()
         ws = wb.active
         ws.title = "Dog Registrations"
+        ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+        ws.page_setup.paperSize = ws.PAPERSIZE_LETTER
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 0
 
-        headers = [
-            'No.', 'Date', 'Dog Name', 'Species', 'Sex',
-            'Age', 'Neutering', 'Owner Name', 'Owner Address'
+        thin = Side(style='thin', color='000000')
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+        header_fill = PatternFill(fill_type='solid', fgColor='D9D9D9')
+        group_fill = PatternFill(fill_type='solid', fgColor='CFCFCF')
+
+        ws.merge_cells('A1:J1')
+        ws['A1'] = 'National Rabies Prevention and Control Program'
+        ws.merge_cells('A2:J2')
+        ws['A2'] = 'Rabies Free Visayas Project'
+        ws.merge_cells('A3:J3')
+        ws['A3'] = 'Dog Registry and Vaccination Record'
+        ws.merge_cells('A5:J5')
+        ws['A5'] = f'Name of Barangay: {selected_barangay_label}'
+
+        for cell_ref, size, bold in [('A1', 11, False), ('A2', 12, True), ('A3', 14, True), ('A5', 11, False)]:
+            cell = ws[cell_ref]
+            cell.font = Font(size=size, bold=bold)
+            cell.alignment = Alignment(horizontal='center' if cell_ref != 'A5' else 'left')
+
+        ws.merge_cells('A7:B7')
+        ws['A7'] = 'Registration'
+        ws.merge_cells('C7:H7')
+        ws['C7'] = 'Dog Profile'
+        ws.merge_cells('I7:J7')
+        ws['I7'] = 'Pet Owner'
+
+        header_labels = [
+            'No.', 'Date', 'Name', 'Species', 'Sex (M/F)',
+            'Age (yrs)', 'Neutering (No./C/S)', 'Color',
+            'Name', 'Complete Address'
         ]
-        ws.append(headers)
+        for col, label in enumerate(header_labels, start=1):
+            ws.cell(row=8, column=col, value=label)
 
+        for col in range(1, 11):
+            group_cell = ws.cell(row=7, column=col)
+            group_cell.fill = group_fill
+            group_cell.font = Font(size=9, bold=True)
+            group_cell.alignment = Alignment(horizontal='center', vertical='center')
+            group_cell.border = border
+
+            header_cell = ws.cell(row=8, column=col)
+            header_cell.fill = header_fill
+            header_cell.font = Font(size=8, bold=True)
+            header_cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            header_cell.border = border
+
+        start_data_row = 9
         for idx, dog in enumerate(dogs, start=1):
-            ws.append([
+            row_idx = start_data_row + idx - 1
+            row_values = [
                 idx,
                 dog.date_registered.strftime("%m-%d-%Y") if dog.date_registered else "",
                 dog.name,
@@ -996,9 +1171,31 @@ def download_registration(request, file_type):
                 dog.sex,
                 dog.age,
                 dog.neutering_status,
+                dog.color or "-",
                 dog.owner_name,
-                dog.owner_address
-            ])
+                dog.owner_address,
+            ]
+            for col, value in enumerate(row_values, start=1):
+                cell = ws.cell(row=row_idx, column=col, value=value)
+                cell.font = Font(size=8)
+                cell.border = border
+                if col in (1, 2, 4, 5, 6, 7):
+                    cell.alignment = Alignment(horizontal='center', vertical='top', wrap_text=True)
+                else:
+                    cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+
+        last_data_row = start_data_row + max(len(dogs), 1) - 1
+        legend_start_row = last_data_row + 2
+        ws.cell(row=legend_start_row, column=7, value='Legend:').font = Font(size=8, bold=True)
+        ws.cell(row=legend_start_row + 1, column=7, value='C - Castrated').font = Font(size=8)
+        ws.cell(row=legend_start_row + 2, column=7, value='S - Spaying').font = Font(size=8)
+        ws.cell(row=legend_start_row + 3, column=7, value='No - Not castrated nor spayed').font = Font(size=8)
+
+        widths = [5, 11, 18, 10, 10, 11, 16, 13, 20, 36]
+        for idx, width in enumerate(widths, start=1):
+            ws.column_dimensions[chr(64 + idx)].width = width
+
+        ws.print_title_rows = '1:8'
 
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -1013,11 +1210,47 @@ def download_registration(request, file_type):
     # ================= PDF =================
     elif file_type == 'pdf':
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=landscape(letter),
+            leftMargin=18,
+            rightMargin=18,
+            topMargin=18,
+            bottomMargin=20
+        )
+        styles = getSampleStyleSheet()
+        title_style = styles['Heading4']
+        title_style.alignment = 1
+        title_style.fontSize = 11
+        title_style.leading = 12
+
+        small_center = styles['Normal'].clone('small_center')
+        small_center.alignment = 1
+        small_center.fontSize = 10
+
+        small_left = styles['Normal'].clone('small_left')
+        small_left.alignment = 0
+        small_left.fontSize = 9
+
+        elements = [
+            Paragraph("National Rabies Prevention and Control Program", small_center),
+            Paragraph("<b>Rabies Free Visayas Project</b>", small_center),
+            Paragraph("<b>Dog Registry and Vaccination Record</b>", title_style),
+            Spacer(1, 8),
+            Paragraph(f"Name of Barangay: {selected_barangay_label}", small_left),
+            Spacer(1, 6),
+        ]
+
+        pdf_cell = styles['Normal'].clone('pdf_cell')
+        pdf_cell.fontSize = 7
+        pdf_cell.leading = 8
+        pdf_cell.wordWrap = 'CJK'
 
         data = [[
-            'No.', 'Date', 'Dog Name', 'Species', 'Sex',
-            'Age', 'Neutering', 'Owner Name', 'Owner Address'
+            'Registration', '', 'Dog Profile', '', '', '', '', '', 'Pet Owner', ''
+        ], [
+            'No.', 'Date', 'Name', 'Species', 'Sex (M/F)', 'Age (yrs)',
+            'Neutering (No./C/S)', 'Color', 'Name', 'Complete Address'
         ]]
 
         for idx, dog in enumerate(dogs, start=1):
@@ -1029,21 +1262,41 @@ def download_registration(request, file_type):
                 dog.sex,
                 dog.age,
                 dog.neutering_status,
-                dog.owner_name,
-                dog.owner_address
+                dog.color or "-",
+                Paragraph(dog.owner_name or "", pdf_cell),
+                Paragraph(dog.owner_address or "", pdf_cell),
             ])
 
-        table = Table(data)
+        col_widths = [28, 48, 76, 46, 42, 44, 74, 50, 80, 242]
+        table = Table(data, colWidths=col_widths, repeatRows=0)
         table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.grey),
-            ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
-            ('ALIGN',(0,0),(-1,-1),'CENTER'),
-            ('FONTNAME', (0,0),(-1,0), 'Helvetica-Bold'),
-            ('BOTTOMPADDING',(0,0),(-1,0),12),
-            ('GRID', (0,0), (-1,-1), 1, colors.black),
+            ('SPAN', (0, 0), (1, 0)),
+            ('SPAN', (2, 0), (7, 0)),
+            ('SPAN', (8, 0), (9, 0)),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d0d0d0')),
+            ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#e6e6e6')),
+            ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 7.5),
+            ('ALIGN', (0, 0), (-1, 1), 'CENTER'),
+            ('ALIGN', (0, 2), (1, -1), 'CENTER'),
+            ('ALIGN', (3, 2), (7, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('WORDWRAP', (8, 2), (9, -1), 'CJK'),
+            ('GRID', (0, 0), (-1, -1), 0.7, colors.black),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('LEFTPADDING', (0, 0), (-1, -1), 3),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
         ]))
 
-        doc.build([table])
+        elements.append(table)
+        elements.append(Spacer(1, 8))
+        elements.append(Paragraph("Legend:", small_left))
+        elements.append(Paragraph("C - Castrated", small_left))
+        elements.append(Paragraph("S - Spaying", small_left))
+        elements.append(Paragraph("No - Not castrated nor spayed", small_left))
+
+        doc.build(elements)
         buffer.seek(0)
 
         response = HttpResponse(buffer, content_type='application/pdf')
@@ -1224,7 +1477,13 @@ def dog_certificate(request):
         barangay_input = request.POST.get("barangay", "")
         barangay = _resolve_barangay_name(barangay_input)
         address_line = (request.POST.get("address") or "").strip()
-        owner_name = (request.POST.get("owner_name") or "").strip()
+        owner_first_name = (request.POST.get("owner_first_name") or "").strip()
+        owner_last_name = (request.POST.get("owner_last_name") or "").strip()
+        owner_name = _build_owner_full_name(
+            owner_first_name,
+            owner_last_name,
+            (request.POST.get("owner_name") or "").strip(),
+        )
         status = (request.POST.get("status") or "").strip()
 
         if not re.match(r"^[A-Za-z0-9][A-Za-z0-9\-/]*$", reg_no):
@@ -1236,7 +1495,11 @@ def dog_certificate(request):
             return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
 
         if not owner_name:
-            messages.error(request, "Owner Full Name is required.")
+            messages.error(request, "Owner First and Last Name are required.")
+            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+
+        if (owner_first_name or owner_last_name) and (not owner_first_name or not owner_last_name):
+            messages.error(request, "Please provide both owner first name and last name.")
             return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
 
         if not barangay:

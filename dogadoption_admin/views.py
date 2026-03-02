@@ -871,9 +871,10 @@ def register_dogs(request):
         request.session['date'] = date
 
         name = request.POST.get('name', '').strip()
-        species = request.POST.get('species', 'Canine')
+        species = request.POST.get('species', 'Canine').strip()
         sex = request.POST.get('sex', 'M')
-        age = request.POST.get('age', '').strip()
+        age_value_raw = (request.POST.get('age_value') or '').strip()
+        age_unit = (request.POST.get('age_unit') or 'years').strip()
         neutering = request.POST.get('neutering', 'No')
         color = request.POST.get('color', '').strip()
         owner_name = request.POST.get('owner_name', '').strip()
@@ -885,6 +886,24 @@ def register_dogs(request):
         if not name or not owner_name:
             messages.error(request, "Dog Name and Owner Name are required.")
             return redirect('dogadoption_admin:register_dogs')
+
+        if species not in {"Canine", "Feline"}:
+            messages.error(request, "Please select a valid species (Canine or Feline).")
+            return redirect('dogadoption_admin:register_dogs')
+
+        try:
+            age_value = int(age_value_raw)
+            if age_value <= 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            messages.error(request, "Age must be a valid positive number.")
+            return redirect('dogadoption_admin:register_dogs')
+
+        if age_unit not in {"months", "years"}:
+            messages.error(request, "Please select a valid age unit.")
+            return redirect('dogadoption_admin:register_dogs')
+
+        age = f"{age_value} {'mos' if age_unit == 'months' else 'yrs'}"
 
         try:
             date_registered = datetime.strptime(date, '%Y-%m-%d').date()

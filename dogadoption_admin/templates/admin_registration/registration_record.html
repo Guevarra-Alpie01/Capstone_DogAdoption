@@ -3,145 +3,294 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/register/registration.css' %}">
+<link rel="stylesheet" href="{% static 'css/register/registration_record.css' %}">
 {% endblock extra_css %}
 
 {% block content %}
 {% include 'admin_registration/registration_navigation.html' %}
 
-<div class="content-body">
+<div class="registration-wrapper registration-record-page">
+    <div class="record-head">
+        <h1 class="record-title">
+            <i class="bi bi-clipboard2-heart-fill" aria-hidden="true"></i>
+            Pet Registration Records
+        </h1>
 
-    <!-- Mini search form -->
-    <form method="get" action="{% url 'dogadoption_admin:registration_record' %}" class="mini-search-form" id="registration-record-search-form">
-        <input
-            type="text"
-            name="barangay"
-            id="registration-record-barangay"
-            placeholder="Search other..."
-            value="{{ selected_barangay|default:'' }}"
-            autocomplete="off"
-            data-barangay-autocomplete="true"
-            data-barangay-source-url="{% url 'dogadoption_admin:barangay_list_api' %}"
-            data-barangay-suggestions-id="registration-record-suggestions"
-        >
-        <button type="submit" class="search-btn" data-barangay-search-target="registration-record-barangay"> Search </button>
-        <div id="registration-record-suggestions" class="suggestions-box" style="display:none;"></div>
-    </form>
-
-    <!-- Barangay filter pills -->
-    <div class="barangay-nav-container">
-        <label class="nav-label">Filter by Barangay:</label>
-        <div class="barangay-scroll-wrapper">
-            <a href="{% url 'dogadoption_admin:registration_record' %}" 
-               class="barangay-pill {% if not selected_barangay %}active{% endif %}">
-               All Records
-            </a>
-            {% for b_name in barangay_list_parsed %}
-            <a href="?barangay={{ b_name }}" 
-               class="barangay-pill {% if selected_barangay == b_name %}active{% endif %}">
-               {{ b_name }}
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-
-    <!-- Header info -->
-    <div class="table-header-info">
-        <h3>
-            {% if selected_barangay %}
-                Showing Records for: <span class="highlight">{{ selected_barangay }}</span>
-            {% else %}
-                Recent Registrations <span class="highlight">(All Barangays)</span>
+        <form method="get" action="{% url 'dogadoption_admin:registration_record' %}" class="record-search-form" id="registration-record-search-form">
+            <input
+                type="text"
+                name="barangay"
+                id="registration-record-barangay"
+                placeholder="Search other..."
+                value="{{ selected_barangay|default:'' }}"
+                autocomplete="off"
+                data-barangay-autocomplete="true"
+                data-barangay-source-url="{% url 'dogadoption_admin:barangay_list_api' %}"
+                data-barangay-suggestions-id="registration-record-suggestions"
+            >
+            {% if date_filter_type == 'day' and filter_date %}
+                <input type="hidden" name="date_filter_type" value="day">
+                <input type="hidden" name="filter_date" value="{{ filter_date }}">
+            {% elif date_filter_type == 'month' and filter_month %}
+                <input type="hidden" name="date_filter_type" value="month">
+                <input type="hidden" name="filter_month" value="{{ filter_month }}">
+            {% elif date_filter_type == 'year' and filter_year %}
+                <input type="hidden" name="date_filter_type" value="year">
+                <input type="hidden" name="filter_year" value="{{ filter_year }}">
             {% endif %}
-        </h3>
+            <button type="submit" data-barangay-search-target="registration-record-barangay">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                Search
+            </button>
+            <div id="registration-record-suggestions" class="suggestions-box" style="display:none;"></div>
+        </form>
     </div>
 
-    <!-- Print / Convert Buttons -->
-    <div class="table-actions" style="margin-bottom: 15px;">
-        <button onclick="printTable()" class="action-btn">Print Table</button>
-        <a href="{% url 'dogadoption_admin:download_registration' 'pdf' %}?barangay={{ selected_barangay }}" class="action-btn">Download PDF</a>
-        <a href="{% url 'dogadoption_admin:download_registration' 'excel' %}?barangay={{ selected_barangay }}" class="action-btn">Download Excel</a>
-    </div>
-    <!-- Table -->
-    <div class="table-container" id="table-container">
-        <table class="records-table" id="records-table">
-            <thead>
-                <tr>
-                    <th rowspan="2">No.</th>
-                    <th rowspan="2">Date</th>
-                    <th rowspan="2">Dog Name</th>
-                    <th rowspan="2">Species</th>
-                    <th rowspan="2">Sex</th>
-                    <th rowspan="2">Age</th>
-                    <th rowspan="2">Neutering</th>
-                    <th colspan="2">Pet Owner</th>
-                </tr>
-                <tr>
-                    <th>Name</th>
-                    <th>Address</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for dog in dogs %}
-                <tr>
-                    <td>{{ forloop.counter }}</td>
-                    <td>{{ dog.date_registered|date:"m-d-Y" }}</td>
-                    <td>{{ dog.name }}</td>
-                    <td>{{ dog.species }}</td>
-                    <td>{{ dog.sex }}</td>
-                    <td>{{ dog.age }}</td>
-                    <td>{{ dog.neutering_status }}</td>
-                    <td>{{ dog.owner_name }}</td>
-                    <td>{{ dog.owner_address }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="9" style="text-align:center; padding: 30px;">No dogs registered in this barangay yet.</td>
-                </tr>
+    <div class="record-panel">
+        <div class="barangay-nav-container record-pill-wrap">
+            <div class="barangay-scroll-wrapper">
+                <a href="{% url 'dogadoption_admin:registration_record' %}{% if date_filter_query %}?{{ date_filter_query }}{% endif %}"
+                   class="barangay-pill {% if not selected_barangay %}active{% endif %}">
+                   <i class="bi bi-grid-fill" aria-hidden="true"></i>
+                   All Records
+                </a>
+                {% for b_name in barangay_list_parsed %}
+                <a href="?barangay={{ b_name|urlencode }}{% if date_filter_query %}&{{ date_filter_query }}{% endif %}"
+                   class="barangay-pill {% if selected_barangay == b_name %}active{% endif %}">
+                   {{ b_name }}
+                </a>
                 {% endfor %}
-            </tbody>
-        </table>
-   
+            </div>
+        </div>
 
+        <form method="get" action="{% url 'dogadoption_admin:registration_record' %}" class="record-date-filter" id="registration-date-filter-form">
+            <span class="date-filter-label">
+                <i class="bi bi-funnel-fill" aria-hidden="true"></i>
+                Date Filter
+            </span>
+            {% if selected_barangay %}
+                <input type="hidden" name="barangay" value="{{ selected_barangay }}">
+            {% endif %}
+
+            <select name="date_filter_type" id="date-filter-type">
+                <option value="all" {% if date_filter_type == 'all' %}selected{% endif %}>All Dates</option>
+                <option value="day" {% if date_filter_type == 'day' %}selected{% endif %}>Specific Day</option>
+                <option value="month" {% if date_filter_type == 'month' %}selected{% endif %}>Specific Month</option>
+                <option value="year" {% if date_filter_type == 'year' %}selected{% endif %}>Specific Year</option>
+            </select>
+
+            <input
+                type="date"
+                name="filter_date"
+                id="filter-date"
+                value="{{ filter_date|default:'' }}"
+            >
+
+            <input
+                type="month"
+                name="filter_month"
+                id="filter-month"
+                value="{{ filter_month|default:'' }}"
+            >
+
+            <select name="filter_year" id="filter-year">
+                <option value="">Select Year</option>
+                {% for year in available_years %}
+                    <option value="{{ year }}" {% if filter_year == year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" class="btn-primary">
+                <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                Apply Date Filter
+            </button>
+            <a
+                class="btn-secondary"
+                href="{% url 'dogadoption_admin:registration_record' %}{% if selected_barangay %}?barangay={{ selected_barangay|urlencode }}{% endif %}"
+            >
+                <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+                Clear Date Filter
+            </a>
+        </form>
+
+        <div class="record-summary-row">
+            <div class="summary-text">
+                <h3>
+                    <i class="bi bi-list-task" aria-hidden="true"></i>
+                    {% if selected_barangay %}
+                        Showing Records for {{ selected_barangay }}
+                    {% else %}
+                        Recent Registrations (All Barangays)
+                    {% endif %}
+                </h3>
+                {% if date_filter_label %}
+                    <p>Date Filter: <strong>{{ date_filter_label }}</strong></p>
+                {% endif %}
+            </div>
+
+            <div class="table-actions">
+                <button onclick="printTable()" class="action-btn">
+                    <i class="bi bi-printer-fill" aria-hidden="true"></i>
+                    Print Table
+                </button>
+                <a href="{% url 'dogadoption_admin:download_registration' 'pdf' %}{% if download_query %}?{{ download_query }}{% endif %}" class="action-btn">
+                    <i class="bi bi-file-earmark-pdf-fill" aria-hidden="true"></i>
+                    Download PDF
+                </a>
+                <a href="{% url 'dogadoption_admin:download_registration' 'excel' %}{% if download_query %}?{{ download_query }}{% endif %}" class="action-btn">
+                    <i class="bi bi-file-earmark-excel-fill" aria-hidden="true"></i>
+                    Download Excel
+                </a>
+            </div>
+        </div>
+
+        <div class="table-container" id="table-container">
+            <table class="records-table" id="records-table">
+                <thead>
+                    <tr>
+                        <th colspan="2">Registration</th>
+                        <th colspan="6">Dog Profile</th>
+                        <th colspan="2">Pet Owner</th>
+                    </tr>
+                    <tr>
+                        <th>No.</th>
+                        <th>Date</th>
+                        <th>Name</th>
+                        <th>Species</th>
+                        <th>Sex (M/F)</th>
+                        <th>Age (yrs)</th>
+                        <th>Neutering (No./C/S)</th>
+                        <th>Color</th>
+                        <th>Name</th>
+                        <th>Complete Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dog in dogs %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ dog.date_registered|date:"m-d-Y" }}</td>
+                        <td>{{ dog.name }}</td>
+                        <td>{{ dog.species }}</td>
+                        <td>{{ dog.sex }}</td>
+                        <td>{{ dog.age }}</td>
+                        <td>{{ dog.neutering_status }}</td>
+                        <td>{{ dog.color|default:"-" }}</td>
+                        <td>{{ dog.owner_name }}</td>
+                        <td>{{ dog.owner_address }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="empty-state-row">No registration records found for the selected filters.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="record-legend">
+            <div><strong>Legend:</strong></div>
+            <div>C - Castrated</div>
+            <div>S - Spaying</div>
+            <div>No - Not castrated nor spayed</div>
+        </div>
     </div>
 </div>
 
-<!-- JS Libraries for PDF/Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 
 <script>
-    // Print table
     function printTable() {
-        let printContents = document.getElementById('table-container').innerHTML;
-        let originalContents = document.body.innerHTML;
-        document.body.innerHTML = printContents;
-        window.print();
-        document.body.innerHTML = originalContents;
-        location.reload(); // reload to restore JS functionality
-    }
-
-    // Export table
-    function exportTable(type) {
         const table = document.getElementById('records-table');
+        if (!table) return;
 
-        if(type === 'excel') {
-            // Convert table to workbook
-            let wb = XLSX.utils.table_to_book(table, {sheet: "Registrations"});
-            XLSX.writeFile(wb, 'Dog_Registrations.xlsx');
-        } else if(type === 'pdf') {
-            const { jsPDF } = window.jspdf;
-            let doc = new jsPDF('l', 'pt', 'a4'); // landscape, points
-            doc.html(table, {
-                callback: function (doc) {
-                    doc.save('Dog_Registrations.pdf');
-                },
-                x: 10,
-                y: 10,
-                html2canvas: { scale: 0.57 } // optional scaling for better fit
-            });
+        const barangayName = "{{ selected_barangay|default:'All Barangays'|escapejs }}";
+        const tableForPrint = table.cloneNode(true);
+        const thead = tableForPrint.querySelector('thead');
+        if (thead) {
+            const staticHeadBody = document.createElement('tbody');
+            staticHeadBody.className = 'print-static-head';
+            staticHeadBody.innerHTML = thead.innerHTML;
+            tableForPrint.insertBefore(staticHeadBody, tableForPrint.firstChild);
+            thead.remove();
         }
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        const html = `
+            <html>
+            <head>
+                <title>Dog Registry and Vaccination Record</title>
+                <style>
+                    @page { size: letter landscape; margin: 10mm; }
+                    body { font-family: Arial, sans-serif; margin: 0; color: #111; font-size: 10px; }
+                    .head { text-align: center; line-height: 1.25; margin-bottom: 8px; }
+                    .head .line1 { font-size: 13px; font-weight: 600; }
+                    .head .line2 { font-size: 13px; font-weight: 700; }
+                    .head .line3 { font-size: 16px; font-weight: 700; }
+                    .barangay { margin: 8px 0 6px; font-size: 11px; }
+                    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9px; }
+                    th, td { border: 1px solid #222; padding: 3px 4px; word-wrap: break-word; }
+                    th { background: #eaeaea; text-align: center; font-weight: 700; }
+                    td { vertical-align: top; }
+                    tr, td, th { page-break-inside: avoid; }
+                    .legend { margin-top: 8px; font-size: 10px; line-height: 1.35; }
+                </style>
+            </head>
+            <body>
+                <div class="head">
+                    <div class="line1">National Rabies Prevention and Control Program</div>
+                    <div class="line2">Rabies Free Visayas Project</div>
+                    <div class="line3">Dog Registry and Vaccination Record</div>
+                </div>
+                <div class="barangay"><strong>Name of Barangay:</strong> ${barangayName}</div>
+                ${tableForPrint.outerHTML}
+                <div class="legend">
+                    <div><strong>Legend:</strong></div>
+                    <div>C - Castrated</div>
+                    <div>S - Spaying</div>
+                    <div>No - Not castrated nor spayed</div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
     }
+
+    function toggleDateFilterInput() {
+        const typeEl = document.getElementById('date-filter-type');
+        const dayEl = document.getElementById('filter-date');
+        const monthEl = document.getElementById('filter-month');
+        const yearEl = document.getElementById('filter-year');
+
+        if (!typeEl || !dayEl || !monthEl || !yearEl) {
+            return;
+        }
+
+        const type = typeEl.value;
+
+        dayEl.style.display = type === 'day' ? '' : 'none';
+        monthEl.style.display = type === 'month' ? '' : 'none';
+        yearEl.style.display = type === 'year' ? '' : 'none';
+
+        dayEl.disabled = type !== 'day';
+        monthEl.disabled = type !== 'month';
+        yearEl.disabled = type !== 'year';
+    }
+
+    const dateFilterTypeEl = document.getElementById('date-filter-type');
+    if (dateFilterTypeEl) {
+        dateFilterTypeEl.addEventListener('change', toggleDateFilterInput);
+    }
+    toggleDateFilterInput();
 </script>
 
 {% endblock %}

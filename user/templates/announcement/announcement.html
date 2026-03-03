@@ -4,114 +4,153 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/admin_announcement/create_announcement.css' %}">
 
-<h2 class="page-title">📢 Announcements</h2>
+<h2 class="page-title">Announcements</h2>
 
 <div class="announcement-feed">
     {% for post in announcements %}
-    <div class="card">
-
-        <!-- HEADER -->
+    <article class="card">
         <div class="card-header">
-            <div class="avatar">🐾</div>
-            <div class="meta">
-                <span class="admin-name">Admin</span>
-                <span class="timestamp">{{ post.created_at|timesince }} ago</span>
+            <span class="post-category-badge">{{ post.get_category_display }}</span>
+            <span class="post-meta-line">Posted by Admin | {{ post.created_at|date:'M d, Y h:i A' }}</span>
+        </div>
+
+        <div class="feed-copy">
+            <h3 class="feed-post-title">{{ post.title }}</h3>
+            <p class="feed-post-summary">{{ post.content|striptags|truncatechars:180 }}</p>
+        </div>
+
+        {% if post.images.all %}
+        <div class="image-viewer feed-image-viewer" data-image-viewer>
+            <img src="" class="image-viewer-image feed-image-item" alt="Announcement photo">
+            <button type="button" class="image-nav image-nav-prev" aria-label="Previous photo">&lt;</button>
+            <button type="button" class="image-nav image-nav-next" aria-label="Next photo">&gt;</button>
+            <div class="image-sources" hidden>
+                {% for photo in post.images.all|slice:':4' %}
+                <span data-src="{{ photo.image.url }}" data-alt="Announcement photo {{ forloop.counter }}"></span>
+                {% endfor %}
             </div>
         </div>
-
-        <!-- COLOR OR IMAGE BACKGROUND -->
-        {% if post.post_type == 'IMAGE_BG' and post.background_image %}
-            <div class="hero-body has-bg"
-                 style="background-image: url('{{ post.background_image.url }}');">
-        {% else %}
-            <div class="hero-body"
-                 style="background-color: {{ post.background_color|default:'#4f46e5' }};">
         {% endif %}
 
-            <div class="hero-overlay">
-                <h2 class="hero-text">{{ post.content|linebreaksbr }}</h2>
-            </div>
-        </div>
-
-        <!-- PHOTO POST -->
-        {% if post.post_type == 'PHOTO' %}
-        <div class="photo-body">
-            <p class="caption">{{ post.content|linebreaksbr }}</p>
-            {% if post.background_image %}
-                <img src="{{ post.background_image.url }}" class="main-photo">
-            {% endif %}
-        </div>
-        {% endif %}
-
-        <!-- SCHEDULE -->
-        {% if post.schedule_data %}
-        <div class="schedule-section">
-            <h4 class="schedule-title">📅 Dog Activity Schedule</h4>
-            {% for item in post.schedule_data %}
-                <div class="schedule-row">
-                    <span class="time">{{ item.time }}</span>
-                    <span class="task">{{ item.task }}</span>
-                </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-
-        <!-- FOOTER ACTIONS -->
         <div class="card-footer">
+            <button
+                type="button"
+                class="details-link"
+                data-bs-toggle="modal"
+                data-bs-target="#announcementDetailsModal{{ post.id }}"
+            >
+                View Details
+            </button>
 
-            <!-- COMMENT FORM -->
-            <form method="POST" action="{% url 'user:announcement_comment' post.id %}">
-                {% csrf_token %}
-                <input type="text" name="comment" placeholder="Write a comment..." required>
-                <button class="footer-btn">??</button>
-            </form>
-
-            <button type="button" class="share-icon-btn" data-share-url="{{ request.build_absolute_uri }}" aria-label="Share">
+            <button type="button" class="share-icon-btn" data-share-url="{{ request.scheme }}://{{ request.get_host }}{% url 'user:announcement_detail' post.id %}" aria-label="Share">
                 <i class="fas fa-share"></i>
             </button>
 
-            <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri }}"
+            <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.scheme }}://{{ request.get_host }}{% url 'user:announcement_detail' post.id %}"
                target="_blank"
                class="fb-share-btn"
                aria-label="Share on Facebook">
                <i class="fab fa-facebook-f"></i>
             </a>
-
         </div>
 
-        <!-- COMMENTS -->
         <div class="comments-section">
-            {% for comment in post.comments.all %}
-                <div class="comment">
-                    <p>
-                        <strong>{{ comment.user.username }}</strong>: 
-                        {{ comment.comment }}
-                    </p>
-
-                    {% if comment.reply %}
-                        <div class="admin-reply">
-                            <p>
-                                <strong>Admin</strong>: {{ comment.reply }}
-                            </p>
-                        </div>
-                    {% endif %}
+            <h4>Comments ({{ post.comments.count }})</h4>
+            <div class="comment-list">
+            {% for comment in post.comments.all|slice:':3' %}
+            <div class="comment">
+                <p><strong>{{ comment.user.username }}</strong>: {{ comment.comment }}</p>
+                {% if comment.reply %}
+                <div class="admin-reply">
+                    <p><strong>Admin</strong>: {{ comment.reply }}</p>
                 </div>
+                {% endif %}
+            </div>
             {% empty %}
-                <p>No comments yet.</p>
+            <p class="empty-note">No comments yet.</p>
             {% endfor %}
+            </div>
+            <form method="POST" action="{% url 'user:announcement_comment' post.id %}" class="comment-form">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <input type="text" name="comment" placeholder="Write a comment..." required>
+                <button class="footer-btn" type="submit">Comment</button>
+            </form>
         </div>
+    </article>
 
+    <div class="modal fade announcement-details-modal" id="announcementDetailsModal{{ post.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">{{ post.title }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-meta">
+                        <span class="post-category-badge">{{ post.get_category_display }}</span>
+                        <span class="timestamp">Published {{ post.created_at|date:'M d, Y h:i A' }}</span>
+                    </div>
+
+                    {% if post.images.all %}
+                    <div class="image-viewer modal-image-viewer" data-image-viewer>
+                        <img src="" class="image-viewer-image modal-image-item" alt="Announcement photo">
+                        <button type="button" class="image-nav image-nav-prev" aria-label="Previous photo">&lt;</button>
+                        <button type="button" class="image-nav image-nav-next" aria-label="Next photo">&gt;</button>
+                        <div class="image-sources" hidden>
+                            {% for photo in post.images.all %}
+                            <span data-src="{{ photo.image.url }}" data-alt="Announcement photo {{ forloop.counter }}"></span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="modal-content-copy">
+                        {{ post.content|safe }}
+                    </div>
+
+                    {% if post.schedule_data %}
+                    <div class="schedule-section">
+                        <h4 class="schedule-title">Schedule</h4>
+                        {% for item in post.schedule_data %}
+                        <div class="schedule-row">
+                            <span class="time">{{ item.time }}</span>
+                            <span class="task">{{ item.task }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="comments-section modal-comments">
+                        <h4>Comments ({{ post.comments.count }})</h4>
+                        {% for comment in post.comments.all %}
+                        <div class="comment">
+                            <p><strong>{{ comment.user.username }}</strong>: {{ comment.comment }}</p>
+                            {% if comment.reply %}
+                            <div class="admin-reply">
+                                <p><strong>Admin</strong>: {{ comment.reply }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <p class="empty-note">No comments yet.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-feed">
+        No announcements yet. Please check back for updates.
     </div>
     {% endfor %}
 </div>
 
-
 <script>
 (function () {
     const buttons = document.querySelectorAll('.share-icon-btn');
-    if (!buttons.length) return;
-
-    buttons.forEach(btn => {
+    buttons.forEach((btn) => {
         btn.addEventListener('click', async () => {
             const url = btn.getAttribute('data-share-url') || window.location.href;
             if (navigator.share) {
@@ -119,7 +158,6 @@
                     await navigator.share({ url });
                     return;
                 } catch (err) {
-                    // fall through to clipboard
                 }
             }
             try {
@@ -131,7 +169,45 @@
             }
         });
     });
+
+    const imageViewers = document.querySelectorAll('[data-image-viewer]');
+    imageViewers.forEach((viewer) => {
+        const image = viewer.querySelector('.image-viewer-image');
+        const prevBtn = viewer.querySelector('.image-nav-prev');
+        const nextBtn = viewer.querySelector('.image-nav-next');
+        const slides = Array.from(viewer.querySelectorAll('.image-sources [data-src]')).map((slide) => ({
+            src: slide.getAttribute('data-src'),
+            alt: slide.getAttribute('data-alt') || 'Announcement photo'
+        }));
+
+        if (!image || !prevBtn || !nextBtn || !slides.length) return;
+
+        const hasMultiple = slides.length > 1;
+        let currentIndex = 0;
+
+        const render = () => {
+            const current = slides[currentIndex];
+            image.src = current.src;
+            image.alt = current.alt;
+            prevBtn.disabled = !hasMultiple;
+            nextBtn.disabled = !hasMultiple;
+        };
+
+        prevBtn.addEventListener('click', () => {
+            if (!hasMultiple) return;
+            currentIndex = (currentIndex - 1 + slides.length) % slides.length;
+            render();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (!hasMultiple) return;
+            currentIndex = (currentIndex + 1) % slides.length;
+            render();
+        });
+
+        render();
+    });
+
 })();
 </script>
-
 {% endblock %}

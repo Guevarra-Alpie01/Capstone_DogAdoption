@@ -180,6 +180,12 @@ class GlobalAppointmentDate(models.Model):
 
 # ✅ CLEAN ANNOUNCEMENT MODEL (NO REACTIONS)
 class DogAnnouncement(models.Model):
+    CATEGORY_DOG_ANNOUNCEMENT = "DOG_ANNOUNCEMENT"
+    CATEGORY_DOG_LAW = "DOG_LAW"
+    CATEGORY_CHOICES = [
+        (CATEGORY_DOG_ANNOUNCEMENT, "Dog Announcements"),
+        (CATEGORY_DOG_LAW, "Dog Laws"),
+    ]
 
     POST_TYPES = [
         ('COLOR', 'Plain Color with Text'),
@@ -189,6 +195,11 @@ class DogAnnouncement(models.Model):
 
     title = models.CharField(max_length=200)
     content = models.TextField()
+    category = models.CharField(
+        max_length=40,
+        choices=CATEGORY_CHOICES,
+        default=CATEGORY_DOG_ANNOUNCEMENT
+    )
 
     # Background options
     background_image = models.ImageField(
@@ -218,6 +229,22 @@ class DogAnnouncement(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class DogAnnouncementImage(models.Model):
+    announcement = models.ForeignKey(
+        DogAnnouncement,
+        on_delete=models.CASCADE,
+        related_name="images",
+    )
+    image = models.ImageField(upload_to="announcements/photos/")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+    def __str__(self):
+        return f"Announcement {self.announcement_id} image {self.id}"
 
 
 # Dog catcher contact numbers for SMS notifications

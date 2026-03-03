@@ -37,6 +37,7 @@ class DogCaptureRequest(models.Model):
     STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('accepted', 'Accepted'),
+        ('captured', 'Captured'),
         ('declined', 'Declined'),
     )
 
@@ -57,11 +58,18 @@ class DogCaptureRequest(models.Model):
     # Manual location
     barangay = models.CharField(max_length=100, null=True, blank=True)
     city = models.CharField(max_length=100, null=True, blank=True)
+    manual_full_address = models.TextField(null=True, blank=True)
+    location_landmark_image = models.ImageField(
+        upload_to='dog_request_landmarks/',
+        null=True,
+        blank=True
+    )
 
     image = models.ImageField(upload_to='dog_requests/', null=True, blank=True)
 
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     scheduled_date = models.DateTimeField(null=True, blank=True)
+    captured_at = models.DateTimeField(null=True, blank=True)
     admin_message = models.TextField(null=True, blank=True)
     notification_scheduled_for = models.DateTimeField(null=True, blank=True)
     notification_sent_at = models.DateTimeField(null=True, blank=True)
@@ -73,6 +81,32 @@ class DogCaptureRequest(models.Model):
 
     def __str__(self):
         return f"{self.requested_by} - {self.reason} ({self.status})"
+
+
+class DogCaptureRequestImage(models.Model):
+    request = models.ForeignKey(
+        DogCaptureRequest,
+        on_delete=models.CASCADE,
+        related_name='images'
+    )
+    image = models.ImageField(upload_to='dog_requests/')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Capture request {self.request_id} image"
+
+
+class DogCaptureRequestLandmarkImage(models.Model):
+    request = models.ForeignKey(
+        DogCaptureRequest,
+        on_delete=models.CASCADE,
+        related_name='landmark_images'
+    )
+    image = models.ImageField(upload_to='dog_request_landmarks/')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Capture request {self.request_id} landmark image"
 
 
 class AdoptionRequest(models.Model):

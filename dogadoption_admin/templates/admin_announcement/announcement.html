@@ -2,145 +2,1058 @@
 {% load static %}
 
 {% block content %}
-
 <link rel="stylesheet" href="{% static 'css/admin_announcement/announcement.css' %}">
 
 <div class="announcement-header">
     <h2>Announcements</h2>
 
     {% if request.user.is_staff %}
-        <a href="{% url 'dogadoption_admin:announcement_create' %}" 
-           class="create-post-btn">
+    <div class="dropdown">
+        <button class="create-post-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
             + Create Post
-        </a>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end create-post-menu">
+            <li>
+                <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#dogAnnouncementModal">
+                    <span class="menu-title">Dog Announcements</span>
+                    <small>For vaccination programs, educational campaigns, dog-related events, and general dog care information.</small>
+                </button>
+            </li>
+            <li>
+                <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#dogLawModal">
+                    <span class="menu-title">Dog Laws</span>
+                    <small>For rules and regulations about dogs, local ordinances, and legal responsibilities of dog owners.</small>
+                </button>
+            </li>
+        </ul>
+    </div>
     {% endif %}
 </div>
 
-<hr>
+<div class="modal fade wiki-modal" id="dogAnnouncementModal" tabindex="-1" aria-labelledby="dogAnnouncementModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content wiki-modal-content">
+            <form method="POST" enctype="multipart/form-data" action="{% url 'dogadoption_admin:announcement_create_form' 'dog-announcements' %}">
+                {% csrf_token %}
+                <div class="modal-header wiki-modal-header">
+                    <h5 class="modal-title" id="dogAnnouncementModalLabel">Create Dog Announcements Post</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body wiki-modal-body">
+                    <div class="wiki-focus-box">
+                        <strong>Post focus:</strong> Vaccination programs, educational campaigns, dog-related events, and general dog care information.
+                    </div>
 
+                    <div class="wiki-editor-shell">
+                        <div class="wiki-toolbar" aria-label="Formatting toolbar">
+                            <button type="button" class="wiki-tool-btn" data-action="bold" title="Bold"><strong>B</strong></button>
+                            <button type="button" class="wiki-tool-btn" data-action="italic" title="Italic"><em>I</em></button>
+                            <button type="button" class="wiki-tool-btn" data-action="link" title="Link"><i class="bi bi-link-45deg"></i></button>
+                            <button type="button" class="wiki-tool-btn" data-action="bullet" title="Bullet List"><i class="bi bi-list-ul"></i></button>
+                            <div class="wiki-font-color-wrap">
+                                <button type="button"
+                                        class="wiki-tool-btn wiki-font-color-btn"
+                                        data-action="font-color"
+                                        title="Font color"
+                                        aria-haspopup="true"
+                                        aria-expanded="false">
+                                    <span class="wiki-font-color-glyph" aria-hidden="true">A</span>
+                                    <i class="bi bi-caret-down-fill"></i>
+                                </button>
+                                <div class="wiki-color-menu" hidden>
+                                    <div class="wiki-color-menu-label">Theme Colors</div>
+                                    <div class="wiki-color-grid">
+                                        <button type="button" class="wiki-color-swatch" data-color="#000000" style="--swatch:#000000" aria-label="Black"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#1f4e79" style="--swatch:#1f4e79" aria-label="Dark blue"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#2f75b5" style="--swatch:#2f75b5" aria-label="Blue"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#548235" style="--swatch:#548235" aria-label="Green"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#00b050" style="--swatch:#00b050" aria-label="Bright green"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#c55a11" style="--swatch:#c55a11" aria-label="Brown"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#7030a0" style="--swatch:#7030a0" aria-label="Purple"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#bf9000" style="--swatch:#bf9000" aria-label="Gold"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#a61c00" style="--swatch:#a61c00" aria-label="Dark red"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#7f7f7f" style="--swatch:#7f7f7f" aria-label="Gray"></button>
+                                    </div>
+                                    <div class="wiki-color-menu-label">Standard Colors</div>
+                                    <div class="wiki-color-grid wiki-color-grid-standard">
+                                        <button type="button" class="wiki-color-swatch" data-color="#c00000" style="--swatch:#c00000" aria-label="Red"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#ff0000" style="--swatch:#ff0000" aria-label="Bright red"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#ffc000" style="--swatch:#ffc000" aria-label="Orange"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#ffff00" style="--swatch:#ffff00" aria-label="Yellow"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#92d050" style="--swatch:#92d050" aria-label="Light green"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#00b050" style="--swatch:#00b050" aria-label="Green"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#00b0f0" style="--swatch:#00b0f0" aria-label="Cyan"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#0070c0" style="--swatch:#0070c0" aria-label="Blue"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#002060" style="--swatch:#002060" aria-label="Navy"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#7030a0" style="--swatch:#7030a0" aria-label="Purple"></button>
+                                    </div>
+                                    <label class="wiki-color-more">
+                                        <span>More Colors</span>
+                                        <input type="color" class="wiki-font-color-input" value="#202122" aria-label="Custom font color">
+                                    </label>
+                                </div>
+                            </div>
+                            <select class="wiki-font-size-select" aria-label="Font size">
+                                <option value="12">12</option>
+                                <option value="14">14</option>
+                                <option value="16" selected>16</option>
+                                <option value="18">18</option>
+                                <option value="24">24</option>
+                                <option value="32">32</option>
+                            </select>
+                            <select class="wiki-paragraph-select" aria-label="Paragraph style">
+                                <option value="paragraph">Paragraph</option>
+                                <option value="heading">Heading</option>
+                            </select>
+                            <span class="wiki-toolbar-spacer" aria-hidden="true"></span>
+                            <div class="wiki-toolbar-media">
+                                <label class="wiki-toolbar-media-item" for="bgColorAnnouncement">
+                                    <span>Background Color</span>
+                                    <input id="bgColorAnnouncement" type="color" name="background_color" value="#ffffff">
+                                </label>
+                                <label class="wiki-toolbar-media-item wiki-toolbar-file" for="bgImageAnnouncement">
+                                    <span>Feature Images</span>
+                                    <input id="bgImageAnnouncement"
+                                           class="wiki-feature-image-input"
+                                           type="file"
+                                           name="background_images"
+                                           accept="image/*"
+                                           multiple>
+                                </label>
+                            </div>
+                        </div>
+                        <input type="text" name="title" class="wiki-title-field" placeholder="Article title" required>
+                        <div class="wiki-body-editor"
+                             contenteditable="true"
+                             data-placeholder="Write the announcement details..."
+                             aria-label="Post content editor"></div>
+                        <textarea name="content" class="wiki-body-field wiki-body-hidden"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer wiki-modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="wiki-publish-btn">Publish Dog Announcements</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade wiki-modal" id="dogLawModal" tabindex="-1" aria-labelledby="dogLawModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content wiki-modal-content">
+            <form method="POST" enctype="multipart/form-data" action="{% url 'dogadoption_admin:announcement_create_form' 'dog-laws' %}">
+                {% csrf_token %}
+                <div class="modal-header wiki-modal-header">
+                    <h5 class="modal-title" id="dogLawModalLabel">Create Dog Laws Post</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body wiki-modal-body">
+                    <div class="wiki-focus-box">
+                        <strong>Post focus:</strong> Rules and regulations about dogs, local ordinances, and legal responsibilities of dog owners.
+                    </div>
+
+                    <div class="wiki-editor-shell">
+                        <div class="wiki-toolbar" aria-label="Formatting toolbar">
+                            <button type="button" class="wiki-tool-btn" data-action="bold" title="Bold"><strong>B</strong></button>
+                            <button type="button" class="wiki-tool-btn" data-action="italic" title="Italic"><em>I</em></button>
+                            <button type="button" class="wiki-tool-btn" data-action="link" title="Link"><i class="bi bi-link-45deg"></i></button>
+                            <button type="button" class="wiki-tool-btn" data-action="bullet" title="Bullet List"><i class="bi bi-list-ul"></i></button>
+                            <div class="wiki-font-color-wrap">
+                                <button type="button"
+                                        class="wiki-tool-btn wiki-font-color-btn"
+                                        data-action="font-color"
+                                        title="Font color"
+                                        aria-haspopup="true"
+                                        aria-expanded="false">
+                                    <span class="wiki-font-color-glyph" aria-hidden="true">A</span>
+                                    <i class="bi bi-caret-down-fill"></i>
+                                </button>
+                                <div class="wiki-color-menu" hidden>
+                                    <div class="wiki-color-menu-label">Theme Colors</div>
+                                    <div class="wiki-color-grid">
+                                        <button type="button" class="wiki-color-swatch" data-color="#000000" style="--swatch:#000000" aria-label="Black"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#1f4e79" style="--swatch:#1f4e79" aria-label="Dark blue"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#2f75b5" style="--swatch:#2f75b5" aria-label="Blue"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#548235" style="--swatch:#548235" aria-label="Green"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#00b050" style="--swatch:#00b050" aria-label="Bright green"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#c55a11" style="--swatch:#c55a11" aria-label="Brown"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#7030a0" style="--swatch:#7030a0" aria-label="Purple"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#bf9000" style="--swatch:#bf9000" aria-label="Gold"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#a61c00" style="--swatch:#a61c00" aria-label="Dark red"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#7f7f7f" style="--swatch:#7f7f7f" aria-label="Gray"></button>
+                                    </div>
+                                    <div class="wiki-color-menu-label">Standard Colors</div>
+                                    <div class="wiki-color-grid wiki-color-grid-standard">
+                                        <button type="button" class="wiki-color-swatch" data-color="#c00000" style="--swatch:#c00000" aria-label="Red"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#ff0000" style="--swatch:#ff0000" aria-label="Bright red"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#ffc000" style="--swatch:#ffc000" aria-label="Orange"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#ffff00" style="--swatch:#ffff00" aria-label="Yellow"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#92d050" style="--swatch:#92d050" aria-label="Light green"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#00b050" style="--swatch:#00b050" aria-label="Green"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#00b0f0" style="--swatch:#00b0f0" aria-label="Cyan"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#0070c0" style="--swatch:#0070c0" aria-label="Blue"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#002060" style="--swatch:#002060" aria-label="Navy"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#7030a0" style="--swatch:#7030a0" aria-label="Purple"></button>
+                                    </div>
+                                    <label class="wiki-color-more">
+                                        <span>More Colors</span>
+                                        <input type="color" class="wiki-font-color-input" value="#202122" aria-label="Custom font color">
+                                    </label>
+                                </div>
+                            </div>
+                            <select class="wiki-font-size-select" aria-label="Font size">
+                                <option value="12">12</option>
+                                <option value="14">14</option>
+                                <option value="16" selected>16</option>
+                                <option value="18">18</option>
+                                <option value="24">24</option>
+                                <option value="32">32</option>
+                            </select>
+                            <select class="wiki-paragraph-select" aria-label="Paragraph style">
+                                <option value="paragraph">Paragraph</option>
+                                <option value="heading">Heading</option>
+                            </select>
+                            <span class="wiki-toolbar-spacer" aria-hidden="true"></span>
+                            <div class="wiki-toolbar-media">
+                                <label class="wiki-toolbar-media-item" for="bgColorLaw">
+                                    <span>Background Color</span>
+                                    <input id="bgColorLaw" type="color" name="background_color" value="#ffffff">
+                                </label>
+                                <label class="wiki-toolbar-media-item wiki-toolbar-file" for="bgImageLaw">
+                                    <span>Feature Images</span>
+                                    <input id="bgImageLaw"
+                                           class="wiki-feature-image-input"
+                                           type="file"
+                                           name="background_images"
+                                           accept="image/*"
+                                           multiple>
+                                </label>
+                            </div>
+                        </div>
+                        <input type="text" name="title" class="wiki-title-field" placeholder="Article title" required>
+                        <div class="wiki-body-editor"
+                             contenteditable="true"
+                             data-placeholder="Write the post details..."
+                             aria-label="Post content editor"></div>
+                        <textarea name="content" class="wiki-body-field wiki-body-hidden"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer wiki-modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="wiki-publish-btn">Publish Dog Laws</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="admin-announcement-grid">
 {% for post in announcements %}
-
-<div class="post-card 
-    {% if post.post_type == 'COLOR' %}
-        color-post
-    {% endif %}
-">
-
-    <!-- COLOR BACKGROUND STYLE -->
-    {% if post.post_type == 'COLOR' %}
-        <style>
-            .post-card.color-post:nth-of-type({{ forloop.counter }}) {
-                background: {{ post.background_color }};
-            }
-        </style>
-    {% endif %}
-
-    <h3 class="post-title">{{ post.title }}</h3>
-
-    <p class="post-content">{{ post.content }}</p>
-
-    {% if post.background_image %}
-        <img src="{{ post.background_image.url }}" 
-             class="post-image">
-    {% endif %}
-
-    <div class="post-meta">
-        Posted by {{ post.created_by.username }} |
-        {{ post.created_at|date:"M d, Y H:i" }}
+<article class="post-card" id="post-{{ post.id }}">
+    <div class="post-top-row">
+        <span class="post-category">{{ post.get_category_display }}</span>
+        <div class="post-top-right">
+            <div class="post-meta">
+                Posted by {{ post.created_by.username }} | {{ post.created_at|date:"M d, Y h:i A" }}
+            </div>
+            <div class="post-manage-actions">
+                <button type="button"
+                        class="post-action-btn edit"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editPostModal-{{ post.id }}">
+                    Edit
+                </button>
+                <form method="POST"
+                      action="{% url 'dogadoption_admin:announcement_delete' post.id %}"
+                      class="delete-post-form"
+                      onsubmit="return confirm('Delete this post? This cannot be undone.');">
+                    {% csrf_token %}
+                    <button type="submit" class="post-action-btn delete">Delete</button>
+                </form>
+            </div>
+        </div>
     </div>
 
-    <hr>
+    <h3 class="post-title">{{ post.title }}</h3>
+    <div class="post-content">{{ post.content|safe }}</div>
 
-    <!-- COMMENTS -->
+    {% if post.background_image or post.images.all %}
+    <div class="post-media" data-admin-image-viewer>
+        <img src=""
+             class="post-image js-ann-image-open"
+             alt="Announcement image"
+             role="button"
+             tabindex="0"
+             aria-label="Open full image">
+        <button type="button" class="post-image-nav post-image-nav-prev" aria-label="Previous image">&lt;</button>
+        <button type="button" class="post-image-nav post-image-nav-next" aria-label="Next image">&gt;</button>
+        <div class="post-image-sources" hidden>
+            {% if post.background_image %}
+            <span data-src="{{ post.background_image.url }}" data-alt="Announcement image"></span>
+            {% endif %}
+            {% for photo in post.images.all %}
+            <span data-src="{{ photo.image.url }}" data-alt="Announcement photo {{ forloop.counter }}"></span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <div class="comments-section">
         <h4>Comments ({{ post.comments.count }})</h4>
-
+        <div class="comment-list">
         {% for comment in post.comments.all %}
-            <div class="comment">
-                <strong>{{ comment.user.username }}</strong>: 
-                {{ comment.comment }}
+        <div class="comment">
+            <strong>{{ comment.user.username }}</strong>: {{ comment.comment }}
 
-                {% if comment.reply %}
-                    <div class="admin-reply">
-                        <strong>Admin:</strong> {{ comment.reply }}
-                    </div>
-                {% else %}
-                    <form method="POST"
-                          action="{% url 'dogadoption_admin:comment_reply' comment.id %}"
-                          class="reply-form">
-                        {% csrf_token %}
-                        <input type="text"
-                               name="reply"
-                               placeholder="Write a reply..."
-                               required>
-                        <button type="submit" class="reply-btn">Reply</button>
-                    </form>
-                {% endif %}
+            {% if comment.reply %}
+            <div class="admin-reply">
+                <strong>Admin:</strong> {{ comment.reply }}
             </div>
+            {% else %}
+            <form method="POST" action="{% url 'dogadoption_admin:comment_reply' comment.id %}" class="reply-form">
+                {% csrf_token %}
+                <input type="text" name="reply" placeholder="Write a reply..." required>
+                <button type="submit" class="reply-btn">Reply</button>
+            </form>
+            {% endif %}
+        </div>
         {% empty %}
-            <p>No comments yet.</p>
+        <p class="empty-note">No comments yet.</p>
         {% endfor %}
+        </div>
 
-        <form method="POST" 
-              action="{% url 'dogadoption_admin:announcement_comment' post.id %}" 
-              class="comment-form">
+        <form method="POST" action="{% url 'dogadoption_admin:announcement_comment' post.id %}" class="comment-form">
             {% csrf_token %}
-            <input type="text" 
-                   name="comment" 
-                   placeholder="Write a comment..." 
-                   required>
+            <input type="text" name="comment" placeholder="Write a comment..." required>
             <button type="submit">Comment</button>
         </form>
     </div>
+</article>
 
-    <hr>
+<div class="modal fade wiki-modal" id="editPostModal-{{ post.id }}" tabindex="-1" aria-labelledby="editPostModalLabel-{{ post.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content wiki-modal-content">
+            <form method="POST" enctype="multipart/form-data" action="{% url 'dogadoption_admin:announcement_edit' post.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="category" value="{{ post.category }}">
+                <div class="modal-header wiki-modal-header">
+                    <h5 class="modal-title" id="editPostModalLabel-{{ post.id }}">Edit {{ post.get_category_display }} Post</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body wiki-modal-body">
+                    <div class="wiki-focus-box">
+                        <strong>Post focus:</strong>
+                        {% if post.category == 'DOG_LAW' %}
+                        Rules and regulations about dogs, local ordinances, and legal responsibilities of dog owners.
+                        {% else %}
+                        Vaccination programs, educational campaigns, dog-related events, and general dog care information.
+                        {% endif %}
+                    </div>
 
-    <!-- SHARE BUTTON -->
-    <div class="post-actions">
-        <button type="button"
-                class="share-icon-btn"
-                data-share-url="{{ request.build_absolute_uri }}"
-                aria-label="Share">
-            <i class="fas fa-share"></i>
-        </button>
-        <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri }}"
-           target="_blank"
-           class="fb-share-btn"
-           aria-label="Share on Facebook">
-           <i class="fab fa-facebook-f"></i>
-        </a>
+                    <div class="wiki-editor-shell">
+                        <div class="wiki-toolbar" aria-label="Formatting toolbar">
+                            <button type="button" class="wiki-tool-btn" data-action="bold" title="Bold"><strong>B</strong></button>
+                            <button type="button" class="wiki-tool-btn" data-action="italic" title="Italic"><em>I</em></button>
+                            <button type="button" class="wiki-tool-btn" data-action="link" title="Link"><i class="bi bi-link-45deg"></i></button>
+                            <button type="button" class="wiki-tool-btn" data-action="bullet" title="Bullet List"><i class="bi bi-list-ul"></i></button>
+                            <div class="wiki-font-color-wrap">
+                                <button type="button"
+                                        class="wiki-tool-btn wiki-font-color-btn"
+                                        data-action="font-color"
+                                        title="Font color"
+                                        aria-haspopup="true"
+                                        aria-expanded="false">
+                                    <span class="wiki-font-color-glyph" aria-hidden="true">A</span>
+                                    <i class="bi bi-caret-down-fill"></i>
+                                </button>
+                                <div class="wiki-color-menu" hidden>
+                                    <div class="wiki-color-menu-label">Theme Colors</div>
+                                    <div class="wiki-color-grid">
+                                        <button type="button" class="wiki-color-swatch" data-color="#000000" style="--swatch:#000000" aria-label="Black"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#1f4e79" style="--swatch:#1f4e79" aria-label="Dark blue"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#2f75b5" style="--swatch:#2f75b5" aria-label="Blue"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#548235" style="--swatch:#548235" aria-label="Green"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#00b050" style="--swatch:#00b050" aria-label="Bright green"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#c55a11" style="--swatch:#c55a11" aria-label="Brown"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#7030a0" style="--swatch:#7030a0" aria-label="Purple"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#bf9000" style="--swatch:#bf9000" aria-label="Gold"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#a61c00" style="--swatch:#a61c00" aria-label="Dark red"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#7f7f7f" style="--swatch:#7f7f7f" aria-label="Gray"></button>
+                                    </div>
+                                    <div class="wiki-color-menu-label">Standard Colors</div>
+                                    <div class="wiki-color-grid wiki-color-grid-standard">
+                                        <button type="button" class="wiki-color-swatch" data-color="#c00000" style="--swatch:#c00000" aria-label="Red"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#ff0000" style="--swatch:#ff0000" aria-label="Bright red"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#ffc000" style="--swatch:#ffc000" aria-label="Orange"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#ffff00" style="--swatch:#ffff00" aria-label="Yellow"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#92d050" style="--swatch:#92d050" aria-label="Light green"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#00b050" style="--swatch:#00b050" aria-label="Green"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#00b0f0" style="--swatch:#00b0f0" aria-label="Cyan"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#0070c0" style="--swatch:#0070c0" aria-label="Blue"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#002060" style="--swatch:#002060" aria-label="Navy"></button>
+                                        <button type="button" class="wiki-color-swatch" data-color="#7030a0" style="--swatch:#7030a0" aria-label="Purple"></button>
+                                    </div>
+                                    <label class="wiki-color-more">
+                                        <span>More Colors</span>
+                                        <input type="color" class="wiki-font-color-input" value="#202122" aria-label="Custom font color">
+                                    </label>
+                                </div>
+                            </div>
+                            <select class="wiki-font-size-select" aria-label="Font size">
+                                <option value="12">12</option>
+                                <option value="14">14</option>
+                                <option value="16" selected>16</option>
+                                <option value="18">18</option>
+                                <option value="24">24</option>
+                                <option value="32">32</option>
+                            </select>
+                            <select class="wiki-paragraph-select" aria-label="Paragraph style">
+                                <option value="paragraph">Paragraph</option>
+                                <option value="heading">Heading</option>
+                            </select>
+                            <span class="wiki-toolbar-spacer" aria-hidden="true"></span>
+                            <div class="wiki-toolbar-media">
+                                <label class="wiki-toolbar-media-item" for="bgColorEdit{{ post.id }}">
+                                    <span>Background Color</span>
+                                    <input id="bgColorEdit{{ post.id }}" type="color" name="background_color" value="{{ post.background_color|default:'#ffffff' }}">
+                                </label>
+                                <label class="wiki-toolbar-media-item wiki-toolbar-file" for="bgImageEdit{{ post.id }}">
+                                    <span>Feature Images</span>
+                                    <input id="bgImageEdit{{ post.id }}"
+                                           class="wiki-feature-image-input"
+                                           type="file"
+                                           name="background_images"
+                                           accept="image/*"
+                                           multiple>
+                                </label>
+                            </div>
+                        </div>
+                        <input type="text" name="title" class="wiki-title-field" value="{{ post.title }}" placeholder="Article title" required>
+                        <div class="wiki-body-editor"
+                             contenteditable="true"
+                             data-placeholder="Write the announcement details..."
+                             aria-label="Post content editor">{{ post.content|safe }}</div>
+                        <textarea name="content" class="wiki-body-field wiki-body-hidden">{{ post.content }}</textarea>
+                    </div>
+
+                    {% if post.background_image or post.images.all %}
+                    <div class="wiki-existing-media">
+                        <span class="wiki-existing-label">Current images</span>
+                        <div class="post-image-grid">
+                            {% if post.background_image %}
+                            <img src="{{ post.background_image.url }}" class="post-image-thumb" alt="Current main image">
+                            {% endif %}
+                            {% for photo in post.images.all %}
+                            <img src="{{ photo.image.url }}" class="post-image-thumb" alt="Current image {{ forloop.counter }}">
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer wiki-modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="wiki-publish-btn">Save Changes</button>
+                </div>
+            </form>
+        </div>
     </div>
-
 </div>
-
+{% empty %}
+<div class="post-card empty-card">
+    <p>No announcements yet. Use the Create Post menu to publish your first update.</p>
+</div>
 {% endfor %}
-
+</div>
 <script>
 (function () {
-    const buttons = document.querySelectorAll('.share-icon-btn');
-    if (!buttons.length) return;
+    function normalizeUrl(url) {
+        if (!url) return '';
+        return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    }
 
-    buttons.forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const url = btn.getAttribute('data-share-url') || window.location.href;
-            if (navigator.share) {
+    function escapeAttribute(value) {
+        return (value || '').replace(/"/g, '&quot;');
+    }
+
+    function getEditorContentHtml(editor) {
+        if (!editor) return '';
+        const clone = editor.cloneNode(true);
+        clone.querySelectorAll('.wiki-image-preview-list').forEach((node) => node.remove());
+        return clone.innerHTML || '';
+    }
+
+    function isEditorEmpty(editor) {
+        const html = getEditorContentHtml(editor)
+            .replace(/<br\s*\/?>/gi, '')
+            .replace(/&nbsp;/gi, '')
+            .replace(/<div><\/div>/gi, '')
+            .replace(/<p><\/p>/gi, '')
+            .trim();
+        return html.length === 0;
+    }
+
+    function getSelectionRange() {
+        const selection = window.getSelection && window.getSelection();
+        if (!selection || selection.rangeCount === 0) return null;
+        return selection.getRangeAt(0);
+    }
+
+    function isRangeInsideEditor(range, editor) {
+        if (!range || !editor) return false;
+        const container = range.commonAncestorContainer;
+        return container === editor || editor.contains(container);
+    }
+
+    function toHexColor(value) {
+        if (!value) return '';
+        const normalized = String(value).trim();
+        if (!normalized) return '';
+        if (/^#[0-9a-f]{6}$/i.test(normalized)) return normalized.toLowerCase();
+        const rgbMatch = normalized.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+        if (!rgbMatch) return '';
+        const toHex = (num) => Number(num).toString(16).padStart(2, '0');
+        return `#${toHex(rgbMatch[1])}${toHex(rgbMatch[2])}${toHex(rgbMatch[3])}`;
+    }
+
+    const FONT_SIZE_TO_COMMAND = {
+        '12': '2',
+        '14': '3',
+        '16': '4',
+        '18': '5',
+        '24': '6',
+        '32': '7'
+    };
+
+    const COMMAND_TO_FONT_SIZE = {
+        '1': '12',
+        '2': '12',
+        '3': '14',
+        '4': '16',
+        '5': '18',
+        '6': '24',
+        '7': '32'
+    };
+
+    document.querySelectorAll('.wiki-editor-shell').forEach(editor => {
+        const bodyEditor = editor.querySelector('.wiki-body-editor');
+        const hiddenField = editor.querySelector('.wiki-body-field');
+        const toolbarButtons = editor.querySelectorAll('.wiki-tool-btn[data-action]');
+        const boldButton = editor.querySelector('.wiki-tool-btn[data-action="bold"]');
+        const italicButton = editor.querySelector('.wiki-tool-btn[data-action="italic"]');
+        const bulletButton = editor.querySelector('.wiki-tool-btn[data-action="bullet"]');
+        const linkButton = editor.querySelector('.wiki-tool-btn[data-action="link"]');
+        const fontColorButton = editor.querySelector('.wiki-font-color-btn');
+        const fontColorGlyph = editor.querySelector('.wiki-font-color-glyph');
+        const colorMenu = editor.querySelector('.wiki-color-menu');
+        const colorSwatches = editor.querySelectorAll('.wiki-color-swatch');
+        const fontColorInput = editor.querySelector('.wiki-font-color-input');
+        const fontSizeSelect = editor.querySelector('.wiki-font-size-select');
+        const paragraphSelect = editor.querySelector('.wiki-paragraph-select');
+        const featureImageInput = editor.querySelector('.wiki-feature-image-input');
+        const form = editor.closest('form');
+        let savedRange = null;
+        let selectedImageFiles = [];
+        let previewObjectUrls = [];
+        let imagePreviewList = null;
+
+        if (!bodyEditor || !hiddenField || !form) return;
+
+        function syncEditorToField() {
+            const contentHtml = getEditorContentHtml(bodyEditor).trim();
+            hiddenField.value = isEditorEmpty(bodyEditor) ? '' : contentHtml;
+        }
+
+        function fileSignature(file) {
+            return `${file.name}-${file.size}-${file.lastModified}`;
+        }
+
+        function syncFeatureImageInput() {
+            if (!featureImageInput) return;
+            if (typeof DataTransfer === 'undefined') return;
+            const transfer = new DataTransfer();
+            selectedImageFiles.forEach((file) => transfer.items.add(file));
+            featureImageInput.files = transfer.files;
+        }
+
+        function clearPreviewUrls() {
+            previewObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+            previewObjectUrls = [];
+        }
+
+        function ensureImagePreviewList() {
+            if (imagePreviewList && bodyEditor.contains(imagePreviewList)) {
+                return imagePreviewList;
+            }
+            imagePreviewList = bodyEditor.querySelector('.wiki-image-preview-list');
+            if (!imagePreviewList) {
+                imagePreviewList = document.createElement('div');
+                imagePreviewList.className = 'wiki-image-preview-list';
+                imagePreviewList.setAttribute('contenteditable', 'false');
+                imagePreviewList.setAttribute('aria-live', 'polite');
+                bodyEditor.prepend(imagePreviewList);
+            }
+            return imagePreviewList;
+        }
+
+        function renderFeatureImagePreview() {
+            clearPreviewUrls();
+
+            if (!selectedImageFiles.length) {
+                if (imagePreviewList && bodyEditor.contains(imagePreviewList)) {
+                    imagePreviewList.remove();
+                }
+                imagePreviewList = null;
+                return;
+            }
+
+            const previewList = ensureImagePreviewList();
+            previewList.innerHTML = '';
+
+            selectedImageFiles.forEach((file, index) => {
+                const previewItem = document.createElement('div');
+                previewItem.className = 'wiki-image-preview-item';
+                previewItem.setAttribute('data-index', String(index));
+
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.className = 'wiki-image-remove-btn';
+                removeButton.setAttribute('data-index', String(index));
+                removeButton.setAttribute('aria-label', `Remove ${file.name}`);
+                removeButton.textContent = 'X';
+
+                const image = document.createElement('img');
+                image.className = 'wiki-image-preview-thumb';
+                image.alt = file.name;
+                const imageUrl = URL.createObjectURL(file);
+                previewObjectUrls.push(imageUrl);
+                image.src = imageUrl;
+
+                previewItem.appendChild(removeButton);
+                previewItem.appendChild(image);
+                previewList.appendChild(previewItem);
+            });
+        }
+
+        function addFeatureImageFiles(files) {
+            const incomingFiles = Array.from(files || []);
+            if (!incomingFiles.length) return;
+
+            const existingKeys = new Set(selectedImageFiles.map(fileSignature));
+            incomingFiles.forEach((file) => {
+                if (!file.type || !file.type.startsWith('image/')) return;
+                const key = fileSignature(file);
+                if (existingKeys.has(key)) return;
+                existingKeys.add(key);
+                selectedImageFiles.push(file);
+            });
+
+            syncFeatureImageInput();
+            renderFeatureImagePreview();
+        }
+
+        function setCurrentColor(color) {
+            const hex = toHexColor(color) || (color || '').trim();
+            if (!hex) return;
+            if (fontColorInput) {
+                fontColorInput.value = hex;
+            }
+            if (fontColorGlyph) {
+                fontColorGlyph.style.borderBottomColor = hex;
+            }
+            colorSwatches.forEach((swatch) => {
+                const swatchColor = (swatch.getAttribute('data-color') || '').toLowerCase();
+                swatch.classList.toggle('is-selected', swatchColor === hex.toLowerCase());
+            });
+        }
+
+        function closeColorMenu() {
+            if (!colorMenu) return;
+            colorMenu.setAttribute('hidden', '');
+            fontColorButton?.setAttribute('aria-expanded', 'false');
+            fontColorButton?.classList.remove('is-open');
+        }
+
+        function openColorMenu() {
+            if (!colorMenu) return;
+            document.querySelectorAll('.wiki-color-menu').forEach((menu) => {
+                menu.setAttribute('hidden', '');
+            });
+            document.querySelectorAll('.wiki-font-color-btn').forEach((btn) => {
+                btn.setAttribute('aria-expanded', 'false');
+                btn.classList.remove('is-open');
+            });
+            colorMenu.removeAttribute('hidden');
+            fontColorButton?.setAttribute('aria-expanded', 'true');
+            fontColorButton?.classList.add('is-open');
+        }
+
+        function toggleColorMenu() {
+            if (!colorMenu) return;
+            if (colorMenu.hasAttribute('hidden')) {
+                openColorMenu();
+            } else {
+                closeColorMenu();
+            }
+        }
+
+        function applyFontSize(sizeValue) {
+            const commandValue = FONT_SIZE_TO_COMMAND[String(sizeValue)] || '4';
+            runCommand('fontSize', commandValue);
+        }
+
+        function saveSelection() {
+            const range = getSelectionRange();
+            if (isRangeInsideEditor(range, bodyEditor)) {
+                savedRange = range.cloneRange();
+            }
+        }
+
+        function restoreSelection() {
+            bodyEditor.focus();
+            const selection = window.getSelection && window.getSelection();
+            if (!selection) return;
+
+            selection.removeAllRanges();
+
+            if (savedRange) {
                 try {
-                    await navigator.share({ url });
+                    selection.addRange(savedRange);
                     return;
                 } catch (err) {
-                    // fall through to clipboard
+                    savedRange = null;
                 }
             }
+
+            const fallback = document.createRange();
+            fallback.selectNodeContents(bodyEditor);
+            fallback.collapse(false);
+            selection.addRange(fallback);
+            savedRange = fallback.cloneRange();
+        }
+
+        function commandState(command) {
             try {
-                await navigator.clipboard.writeText(url);
-                btn.classList.add('copied');
-                setTimeout(() => btn.classList.remove('copied'), 1200);
+                return !!document.queryCommandState(command);
             } catch (err) {
-                window.open(url, '_blank');
+                return false;
+            }
+        }
+
+        function selectionIsInLink() {
+            const range = getSelectionRange();
+            if (!isRangeInsideEditor(range, bodyEditor)) return false;
+
+            const node = range.commonAncestorContainer;
+            const element = node.nodeType === 1 ? node : node.parentElement;
+            return !!(element && element.closest('a'));
+        }
+
+        function refreshToolbarState() {
+            const selectionInEditor = isRangeInsideEditor(getSelectionRange(), bodyEditor) || document.activeElement === bodyEditor;
+            const setActive = (btn, active) => {
+                if (!btn) return;
+                btn.classList.toggle('is-active', active);
+                btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+            };
+
+            if (!selectionInEditor) {
+                [boldButton, italicButton, bulletButton, linkButton].forEach(btn => setActive(btn, false));
+                return;
+            }
+
+            setActive(boldButton, commandState('bold'));
+            setActive(italicButton, commandState('italic'));
+            setActive(bulletButton, commandState('insertUnorderedList'));
+            setActive(linkButton, selectionIsInLink());
+
+            if (paragraphSelect) {
+                let blockValue = '';
+                try {
+                    blockValue = String(document.queryCommandValue('formatBlock') || '').toLowerCase().replace(/[<>]/g, '');
+                } catch (err) {
+                    blockValue = '';
+                }
+                paragraphSelect.value = blockValue.startsWith('h') ? 'heading' : 'paragraph';
+            }
+
+            if (fontSizeSelect) {
+                try {
+                    const commandSize = String(document.queryCommandValue('fontSize') || '').trim();
+                    if (COMMAND_TO_FONT_SIZE[commandSize]) {
+                        fontSizeSelect.value = COMMAND_TO_FONT_SIZE[commandSize];
+                    }
+                } catch (err) {
+                    // Ignore unsupported queryCommandValue responses.
+                }
+            }
+
+            try {
+                const commandColor = toHexColor(document.queryCommandValue('foreColor'));
+                if (commandColor) {
+                    setCurrentColor(commandColor);
+                }
+            } catch (err) {
+                // Ignore unsupported queryCommandValue responses.
+            }
+        }
+
+        function runCommand(command, value = null) {
+            restoreSelection();
+            if (command === 'foreColor' || command === 'fontSize') {
+                try {
+                    document.execCommand('styleWithCSS', false, true);
+                } catch (err) {
+                    // Ignore browser support differences.
+                }
+            }
+            document.execCommand(command, false, value);
+            saveSelection();
+            syncEditorToField();
+            refreshToolbarState();
+        }
+
+        toolbarButtons.forEach(btn => {
+            btn.addEventListener('mousedown', (evt) => {
+                // Keep text selection inside contenteditable when clicking toolbar buttons.
+                evt.preventDefault();
+            });
+        });
+
+        toolbarButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const action = btn.getAttribute('data-action');
+
+                if (action === 'bold') {
+                    runCommand('bold');
+                    return;
+                }
+
+                if (action === 'italic') {
+                    runCommand('italic');
+                    return;
+                }
+
+                if (action === 'link') {
+                    const url = window.prompt('Enter URL');
+                    if (!url) return;
+                    const safeUrl = normalizeUrl(url);
+                    restoreSelection();
+                    const selectedText = window.getSelection ? window.getSelection().toString().trim() : '';
+                    if (selectedText) {
+                        runCommand('createLink', safeUrl);
+                    } else {
+                        const safeHref = escapeAttribute(safeUrl);
+                        runCommand('insertHTML', `<a href="${safeHref}" target="_blank" rel="noopener">Link</a>`);
+                    }
+                    return;
+                }
+
+                if (action === 'bullet') {
+                    runCommand('insertUnorderedList');
+                    return;
+                }
+
+                if (action === 'font-color') {
+                    toggleColorMenu();
+                    return;
+                }
+            });
+        });
+
+        colorSwatches.forEach((swatch) => {
+            swatch.addEventListener('mousedown', (evt) => {
+                evt.preventDefault();
+            });
+            swatch.addEventListener('click', () => {
+                const color = swatch.getAttribute('data-color') || '#202122';
+                setCurrentColor(color);
+                runCommand('foreColor', color);
+                closeColorMenu();
+            });
+        });
+
+        fontSizeSelect?.addEventListener('change', () => {
+            applyFontSize(fontSizeSelect.value);
+        });
+
+        paragraphSelect?.addEventListener('change', () => {
+            const mode = paragraphSelect.value;
+            runCommand('formatBlock', mode === 'heading' ? 'H3' : 'P');
+        });
+
+        fontColorInput?.addEventListener('change', () => {
+            const selectedColor = fontColorInput.value || '#202122';
+            setCurrentColor(selectedColor);
+            runCommand('foreColor', selectedColor);
+            closeColorMenu();
+        });
+
+        bodyEditor.addEventListener('input', syncEditorToField);
+        bodyEditor.addEventListener('blur', syncEditorToField);
+        bodyEditor.addEventListener('input', () => {
+            bodyEditor.classList.remove('is-invalid');
+        });
+        bodyEditor.addEventListener('mouseup', () => {
+            saveSelection();
+            refreshToolbarState();
+        });
+        bodyEditor.addEventListener('keyup', () => {
+            saveSelection();
+            refreshToolbarState();
+        });
+        bodyEditor.addEventListener('focus', () => {
+            saveSelection();
+            refreshToolbarState();
+        });
+
+        document.addEventListener('selectionchange', () => {
+            const range = getSelectionRange();
+            if (isRangeInsideEditor(range, bodyEditor)) {
+                saveSelection();
+                refreshToolbarState();
+            } else if (document.activeElement !== bodyEditor) {
+                refreshToolbarState();
             }
         });
+
+        document.addEventListener('mousedown', (evt) => {
+            if (!colorMenu || colorMenu.hasAttribute('hidden')) return;
+            if (colorMenu.contains(evt.target) || fontColorButton?.contains(evt.target)) return;
+            closeColorMenu();
+        });
+
+        featureImageInput?.addEventListener('change', () => {
+            addFeatureImageFiles(featureImageInput.files);
+        });
+
+        bodyEditor.addEventListener('mousedown', (evt) => {
+            if (evt.target.closest('.wiki-image-remove-btn')) {
+                evt.preventDefault();
+            }
+        });
+
+        bodyEditor.addEventListener('click', (evt) => {
+            const removeButton = evt.target.closest('.wiki-image-remove-btn');
+            if (!removeButton) return;
+            const index = Number(removeButton.getAttribute('data-index'));
+            if (Number.isNaN(index)) return;
+            selectedImageFiles = selectedImageFiles.filter((_, fileIndex) => fileIndex !== index);
+            syncFeatureImageInput();
+            renderFeatureImagePreview();
+        });
+
+        form.addEventListener('submit', (evt) => {
+            syncEditorToField();
+            if (!hiddenField.value) {
+                evt.preventDefault();
+                bodyEditor.classList.add('is-invalid');
+                bodyEditor.focus();
+                return;
+            }
+            bodyEditor.classList.remove('is-invalid');
+        });
+
+        window.addEventListener('beforeunload', clearPreviewUrls);
+
+        setCurrentColor(fontColorInput?.value || '#202122');
+        refreshToolbarState();
     });
 })();
 </script>
+<div id="announcementImageLightbox" class="announcement-image-lightbox" hidden>
+    <div class="announcement-image-lightbox-dialog">
+        <button type="button" class="announcement-image-lightbox-close" aria-label="Close image">X</button>
+        <img id="announcementImageLightboxImg" class="announcement-image-lightbox-img" alt="Full announcement image">
+    </div>
+</div>
+<script>
+(function () {
+    document.querySelectorAll('[data-admin-image-viewer]').forEach((viewer) => {
+        const image = viewer.querySelector('.post-image');
+        const prevBtn = viewer.querySelector('.post-image-nav-prev');
+        const nextBtn = viewer.querySelector('.post-image-nav-next');
+        const slides = Array.from(viewer.querySelectorAll('.post-image-sources [data-src]')).map((slide) => ({
+            src: slide.getAttribute('data-src'),
+            alt: slide.getAttribute('data-alt') || 'Announcement image'
+        }));
 
+        if (!image || !prevBtn || !nextBtn || !slides.length) return;
+
+        let index = 0;
+        const hasMultiple = slides.length > 1;
+
+        const render = () => {
+            const current = slides[index];
+            image.src = current.src;
+            image.alt = current.alt;
+            image.setAttribute('data-full-src', current.src);
+            image.setAttribute('data-full-alt', current.alt);
+            prevBtn.disabled = !hasMultiple;
+            nextBtn.disabled = !hasMultiple;
+        };
+
+        prevBtn.addEventListener('click', () => {
+            if (!hasMultiple) return;
+            index = (index - 1 + slides.length) % slides.length;
+            render();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (!hasMultiple) return;
+            index = (index + 1) % slides.length;
+            render();
+        });
+
+        render();
+    });
+
+    const triggers = document.querySelectorAll('.js-ann-image-open');
+    const lightbox = document.getElementById('announcementImageLightbox');
+    const lightboxImg = document.getElementById('announcementImageLightboxImg');
+    const closeBtn = lightbox?.querySelector('.announcement-image-lightbox-close');
+
+    if (!triggers.length || !lightbox || !lightboxImg || !closeBtn) {
+        return;
+    }
+
+    function openLightbox(src, altText) {
+        if (!src) return;
+        lightboxImg.src = src;
+        lightboxImg.alt = altText || 'Full announcement image';
+        lightbox.hidden = false;
+        document.body.classList.add('ann-lightbox-open');
+    }
+
+    function closeLightbox() {
+        lightbox.hidden = true;
+        lightboxImg.removeAttribute('src');
+        document.body.classList.remove('ann-lightbox-open');
+    }
+
+    triggers.forEach((el) => {
+        const open = () => {
+            const src = el.getAttribute('data-full-src') || el.getAttribute('src') || '';
+            const altText = el.getAttribute('data-full-alt') || el.getAttribute('alt') || '';
+            openLightbox(src, altText);
+        };
+
+        el.addEventListener('click', open);
+        el.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Enter' || evt.key === ' ') {
+                evt.preventDefault();
+                open();
+            }
+        });
+    });
+
+    closeBtn.addEventListener('click', closeLightbox);
+    lightbox.addEventListener('click', (evt) => {
+        if (evt.target === lightbox) closeLightbox();
+    });
+    document.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Escape' && !lightbox.hidden) closeLightbox();
+    });
+})();
+</script>
 {% endblock %}

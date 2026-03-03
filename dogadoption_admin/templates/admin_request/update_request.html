@@ -15,7 +15,7 @@
     <div class="page-head">
         <div>
             <h1>Review Capture Request</h1>
-            <p>Validate request details and decide whether to accept with schedule or decline.</p>
+            <p>Validate request details, schedule the team, and mark done once capture is completed.</p>
         </div>
     </div>
 
@@ -24,7 +24,8 @@
             <div class="meta-grid">
                 <div class="meta-item">
                     <span class="label">Requested By</span>
-                    <strong>{{ req.requested_by.username }}</strong>
+                    <strong>{{ req.requester_full_name }}</strong>
+                    <div class="meta-sub">@{{ req.requested_by.username }}</div>
                 </div>
                 <div class="meta-item">
                     <span class="label">Date Submitted</span>
@@ -35,10 +36,36 @@
                     <strong>{{ req.get_reason_display }}</strong>
                 </div>
                 <div class="meta-item">
+                    <span class="label">Phone</span>
+                    <strong>{{ req.requester_phone }}</strong>
+                </div>
+                <div class="meta-item">
                     <span class="label">Current Status</span>
-                    <strong>{{ req.get_status_display }}</strong>
+                    <strong>
+                        {% if req.status == 'accepted' %}
+                            Scheduled
+                        {% elif req.status == 'captured' %}
+                            Captured (Done)
+                        {% else %}
+                            {{ req.get_status_display }}
+                        {% endif %}
+                    </strong>
                 </div>
             </div>
+
+            <div class="info-block">
+                <span class="label">Requester Address</span>
+                <p>{{ req.requester_address }}</p>
+            </div>
+
+            {% if req.requester_facebook %}
+                <div class="info-block">
+                    <span class="label">Facebook</span>
+                    <a href="{{ req.requester_facebook }}" target="_blank" rel="noopener noreferrer" class="meta-link">
+                        {{ req.requester_facebook }}
+                    </a>
+                </div>
+            {% endif %}
 
             {% if req.description %}
                 <div class="info-block">
@@ -47,14 +74,36 @@
                 </div>
             {% endif %}
 
-            {% if req.image %}
-                <div class="info-block">
-                    <span class="label">Attached Photo</span>
-                    <div class="request-image">
-                        <img src="{{ req.image.url }}" alt="Request image">
+            {% with req_images=req.images.all %}
+                {% if req_images %}
+                    <div class="info-block">
+                        <span class="label">Attached Photos</span>
+                        <div class="request-image-viewer" data-image-viewer>
+                            {% for req_image in req_images %}
+                                <img src="{{ req_image.image.url }}"
+                                     alt="Request image {{ forloop.counter }}"
+                                     class="viewer-image {% if forloop.first %}is-active{% endif %}"
+                                     data-viewer-image>
+                            {% endfor %}
+
+                            {% if req_images|length > 1 %}
+                                <button type="button" class="viewer-nav prev" data-viewer-prev aria-label="Previous image">&lt;</button>
+                                <button type="button" class="viewer-nav next" data-viewer-next aria-label="Next image">&gt;</button>
+                                <div class="viewer-counter">
+                                    <span data-viewer-index>1</span> / {{ req_images|length }}
+                                </div>
+                            {% endif %}
+                        </div>
                     </div>
-                </div>
-            {% endif %}
+                {% elif req.image %}
+                    <div class="info-block">
+                        <span class="label">Attached Photo</span>
+                        <div class="request-image">
+                            <img src="{{ req.image.url }}" alt="Request image">
+                        </div>
+                    </div>
+                {% endif %}
+            {% endwith %}
 
             <div class="info-block">
                 <span class="label">Location</span>
@@ -63,12 +112,73 @@
                         View in Google Maps
                     </a>
                     <small class="coords">{{ req.latitude }}, {{ req.longitude }}</small>
-                {% elif req.barangay or req.city %}
-                    <p>{{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}</p>
+                {% elif req.manual_full_address or req.barangay or req.city %}
+                    {% if req.manual_full_address %}
+                        <p><strong>Full Address:</strong> {{ req.manual_full_address }}</p>
+                    {% endif %}
+                    {% if req.barangay or req.city %}
+                        <p><strong>Area:</strong> {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}</p>
+                    {% endif %}
                 {% else %}
                     <p><em>No location provided.</em></p>
                 {% endif %}
+                {% with extra_landmarks=req.landmark_images.all %}
+                    {% if req.location_landmark_image or extra_landmarks %}
+                        <div class="request-landmark-image">
+                            {% with extras_count=extra_landmarks|length %}
+                            <span class="label">Landmark / Highway / Crossing Photo{% if req.location_landmark_image and extras_count or extras_count > 1 %}s{% endif %}</span>
+                            <div class="request-image-viewer request-landmark-viewer" data-image-viewer>
+                                {% if req.location_landmark_image %}
+                                    <img
+                                        src="{{ req.location_landmark_image.url }}"
+                                        alt="Manual location landmark image 1"
+                                        class="viewer-image is-active"
+                                        data-viewer-image
+                                    >
+                                {% endif %}
+                                {% for landmark in extra_landmarks %}
+                                    <img
+                                        src="{{ landmark.image.url }}"
+                                        alt="Manual location landmark image {{ forloop.counter }}"
+                                        class="viewer-image {% if not req.location_landmark_image and forloop.first %}is-active{% endif %}"
+                                        data-viewer-image
+                                    >
+                                {% endfor %}
+                                {% if req.location_landmark_image and extras_count or extras_count > 1 %}
+                                    <button type="button" class="viewer-nav prev" data-viewer-prev aria-label="Previous image">&lt;</button>
+                                    <button type="button" class="viewer-nav next" data-viewer-next aria-label="Next image">&gt;</button>
+                                    <div class="viewer-counter">
+                                        <span data-viewer-index>1</span> /
+                                        {% if req.location_landmark_image %}
+                                            {{ extras_count|add:"1" }}
+                                        {% else %}
+                                            {{ extras_count }}
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            {% endwith %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
             </div>
+
+            {% if req.status == 'captured' %}
+                <div class="info-block">
+                    <span class="label">Capture Record</span>
+                    <p>
+                        <strong>Captured On:</strong>
+                        {% if req.captured_at %}
+                            {{ req.captured_at|date:"M d, Y h:i A" }}
+                        {% else %}
+                            Done
+                        {% endif %}
+                    </p>
+                    {% if req.assigned_admin %}
+                        <p><strong>Marked By:</strong> {{ req.assigned_admin.get_full_name|default:req.assigned_admin.username }}</p>
+                    {% endif %}
+                </div>
+            {% endif %}
         </div>
 
         <div class="card action-card">
@@ -78,20 +188,62 @@
 
                 <div class="input-group">
                     <label for="admin_message">Admin Message (Optional)</label>
-                    <textarea id="admin_message" name="admin_message" placeholder="Provide notes for the user..."></textarea>
+                    <textarea id="admin_message" name="admin_message" placeholder="Provide notes for the user...">{{ req.admin_message|default_if_none:'' }}</textarea>
                 </div>
 
                 <div class="input-group">
                     <label for="scheduled_date">Schedule Capture Date (Required for Accept)</label>
-                    <input id="scheduled_date" type="datetime-local" name="scheduled_date">
+                    <input id="scheduled_date" type="datetime-local" name="scheduled_date" value="{{ req.scheduled_date|date:'Y-m-d\\TH:i' }}">
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" name="action" value="accept" class="btn-accept">Accept and Schedule</button>
-                    <button type="submit" name="action" value="decline" class="btn-decline">Decline Request</button>
+                    {% if req.status != 'captured' %}
+                        <button type="submit" name="action" value="accept" class="btn-accept">
+                            {% if req.status == 'accepted' %}Update Schedule{% else %}Accept and Schedule{% endif %}
+                        </button>
+                        {% if req.status == 'accepted' %}
+                            <button type="submit" name="action" value="mark_captured" class="btn-done">Mark as Captured (Done)</button>
+                        {% endif %}
+                        <button type="submit" name="action" value="decline" class="btn-decline">Decline Request</button>
+                    {% else %}
+                        <p class="captured-note">This request is already marked as captured. It is now a closed record.</p>
+                    {% endif %}
                 </div>
             </form>
         </div>
     </div>
 </div>
+<script>
+(function () {
+    const viewers = document.querySelectorAll('[data-image-viewer]');
+    viewers.forEach((viewer) => {
+        const images = Array.from(viewer.querySelectorAll('[data-viewer-image]'));
+        if (images.length <= 1) return;
+
+        let currentIndex = 0;
+        const prevBtn = viewer.querySelector('[data-viewer-prev]');
+        const nextBtn = viewer.querySelector('[data-viewer-next]');
+        const counter = viewer.querySelector('[data-viewer-index]');
+
+        function render() {
+            images.forEach((img, index) => {
+                img.classList.toggle('is-active', index === currentIndex);
+            });
+            if (counter) {
+                counter.textContent = String(currentIndex + 1);
+            }
+        }
+
+        prevBtn?.addEventListener('click', () => {
+            currentIndex = (currentIndex - 1 + images.length) % images.length;
+            render();
+        });
+
+        nextBtn?.addEventListener('click', () => {
+            currentIndex = (currentIndex + 1) % images.length;
+            render();
+        });
+    });
+})();
+</script>
 {% endblock %}

@@ -13,7 +13,7 @@ from django.utils.dateparse import parse_date
 from datetime import datetime
 from django.contrib import messages
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
 
 from django.contrib.auth.models import User
 from django.views.decorators.http import require_http_methods
@@ -62,7 +62,7 @@ from .forms import PenaltyForm, SectionForm,CitationForm
 
 
 #models in admin 
-from .models import Post, PostImage , DogAnnouncement, AnnouncementComment, PostRequest
+from .models import Post, PostImage , DogAnnouncement, DogAnnouncementImage, AnnouncementComment, PostRequest
 from .models import DogCatcherContact, AdminNotification
 from .models import Citation
 from .models import Post, PostImage, PostRequest
@@ -113,6 +113,68 @@ def _extract_barangay_from_address(address):
 
     return _resolve_barangay_name(cleaned)
 
+
+BAYAWAN_ALLOWED_BARANGAYS = (
+    "Ali-is",
+    "Banaybanay",
+    "Banga",
+    "Boyco",
+    "Bugay",
+    "Cansumalig",
+    "Dawis",
+    "Kalamtukan",
+    "Kalumboyan",
+    "Malabugas",
+    "Mandu-ao",
+    "Maninihon",
+    "Minaba",
+    "Nangka",
+    "Narra",
+    "Pagatban",
+    "Poblacion",
+    "San Isidro",
+    "San Jose",
+    "San Miguel",
+    "San Roque",
+    "Suba",
+    "Tabuan",
+    "Tayawan",
+    "Tinago",
+    "Ubos",
+    "Villareal",
+    "Villasol",
+)
+
+BAYAWAN_ALLOWED_BARANGAY_KEYS = {
+    _normalize_barangay(name) for name in BAYAWAN_ALLOWED_BARANGAYS
+}
+
+
+def _normalize_city(value):
+    return "".join(ch.lower() for ch in _clean_barangay(value) if ch.isalnum())
+
+
+def _is_bayawan_city(value):
+    return _normalize_city(value) in {"bayawan", "bayawancity"}
+
+
+def _extract_city_from_address(address):
+    cleaned = _clean_barangay(address)
+    if not cleaned:
+        return ""
+
+    parts = [p.strip() for p in cleaned.split(",") if p.strip()]
+    for part in reversed(parts):
+        if _is_bayawan_city(part):
+            return "Bayawan City"
+    return ""
+
+
+def _is_allowed_bayawan_map_point(barangay, city):
+    return (
+        _normalize_barangay(barangay) in BAYAWAN_ALLOWED_BARANGAY_KEYS
+        and _is_bayawan_city(city)
+    )
 
 def _build_owner_full_name(first_name, last_name, fallback=""):
     first = " ".join((first_name or "").split()).strip()
@@ -193,6 +255,73 @@ def _build_certificate_payload(registration, vaccinations=None, dewormings=None)
         "has_dewormings": bool(dew_records),
     }
 
+def _enrich_capture_request_user(req):
+    user = req.requested_by
+    try:
+        profile = user.profile
+    except Profile.DoesNotExist:
+        profile = None
+
+    name_parts = [user.first_name, user.last_name]
+    full_name = " ".join(part for part in name_parts if part).strip() or user.username
+
+    req.requester_full_name = full_name
+    req.requester_phone = (
+        profile.phone_number.strip()
+        if profile and profile.phone_number
+        else "No phone number"
+    )
+    req.requester_address = (
+        profile.address.strip()
+        if profile and profile.address
+        else "No address provided"
+    )
+    req.requester_facebook = (
+        profile.facebook_url.strip()
+        if profile and profile.facebook_url
+        else ""
+    )
+
+
+ANNOUNCEMENT_CATEGORY_OPTIONS = [
+    {
+        "slug": "dog-announcements",
+        "value": DogAnnouncement.CATEGORY_DOG_ANNOUNCEMENT,
+        "label": "Dog Announcements",
+        "description": (
+            "For vaccination programs, educational campaigns, dog-related events, "
+            "and general dog care information."
+        ),
+        "topics": [
+            "Vaccination programs",
+            "Educational campaigns",
+            "Dog-related events",
+            "General dog care information",
+        ],
+    },
+    {
+        "slug": "dog-laws",
+        "value": DogAnnouncement.CATEGORY_DOG_LAW,
+        "label": "Dog Laws",
+        "description": (
+            "For rules and regulations about dogs, local ordinances, and legal "
+            "responsibilities of dog owners."
+        ),
+        "topics": [
+            "Rules and regulations about dogs",
+            "Local ordinances",
+            "Legal responsibilities of dog owners",
+        ],
+    },
+]
+
+ANNOUNCEMENT_CATEGORY_BY_SLUG = {
+    option["slug"]: option for option in ANNOUNCEMENT_CATEGORY_OPTIONS
+}
+
+ANNOUNCEMENT_CATEGORY_BY_VALUE = {
+    option["value"]: option for option in ANNOUNCEMENT_CATEGORY_OPTIONS
+}
 
 
 # views.py
@@ -422,6 +551,48 @@ def post_list(request):
         'adopted_posts': adopted_posts,
     })
 
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def appointment_calendar(request):
+    if request.method == 'POST':
+        dates_raw = (request.POST.get('appointment_dates') or '').strip()
+
+        parsed_dates = []
+        for value in [v.strip() for v in dates_raw.split(',') if v.strip()]:
+            parsed_date = parse_date(value)
+            if parsed_date:
+                parsed_dates.append(parsed_date)
+        parsed_dates = sorted(set(parsed_dates))
+
+        today = timezone.localdate()
+        if any(d < today for d in parsed_dates):
+            messages.error(request, "Past dates are not allowed.")
+        else:
+            with transaction.atomic():
+                GlobalAppointmentDate.objects.exclude(
+                    appointment_date__in=parsed_dates
+                ).delete()
+                for day in parsed_dates:
+                    GlobalAppointmentDate.objects.update_or_create(
+                        appointment_date=day,
+                        defaults={
+                            'created_by': request.user,
+                            'is_active': True,
+                        },
+                    )
+            messages.success(request, "Appointment dates saved.")
+
+    global_dates = list(
+        GlobalAppointmentDate.objects.filter(
+            is_active=True
+        ).order_by('appointment_date').values_list('appointment_date', flat=True)
+    )
+
+    return render(request, 'admin_home/appointment_calendar.html', {
+        'appointment_dates': [d.strftime('%Y-%m-%d') for d in global_dates],
+    })
+
 #   CLAIM REQUESTS
 @admin_required
 def claim_requests(request, post_id):
@@ -597,9 +768,85 @@ def admin_dog_capture_requests(request):
 
         return redirect('dogadoption_admin:requests')
 
-    requests = DogCaptureRequest.objects.select_related(
-        'requested_by', 'assigned_admin'
-    ).order_by('-created_at')
+    requests = list(
+        DogCaptureRequest.objects.select_related(
+            'requested_by', 'requested_by__profile', 'assigned_admin'
+        )
+        .prefetch_related('images')
+        .order_by('-created_at')
+    )
+
+    map_points = []
+    for req in requests:
+        _enrich_capture_request_user(req)
+
+        barangay = _clean_barangay(req.barangay)
+        city = _clean_barangay(req.city)
+        manual_full_address = _clean_barangay(req.manual_full_address)
+        try:
+            profile_address = _clean_barangay(req.requested_by.profile.address)
+        except Profile.DoesNotExist:
+            profile_address = ""
+
+        if not barangay:
+            profile_barangay = profile_address
+            barangay = _resolve_barangay_name(profile_barangay) or profile_barangay
+
+        if not city:
+            city = _extract_city_from_address(profile_address)
+
+        if manual_full_address:
+            req.location_label = manual_full_address
+        elif barangay and city:
+            req.location_label = f"{barangay}, {city}"
+        elif barangay:
+            req.location_label = barangay
+        elif city:
+            req.location_label = city
+        elif req.latitude is not None and req.longitude is not None:
+            req.location_label = "Pinned location"
+        else:
+            req.location_label = "No location"
+        req.has_location = req.location_label != "No location"
+
+        request_images = list(req.images.all())
+        if request_images:
+            image_url = request_images[0].image.url
+        elif req.image:
+            image_url = req.image.url
+        else:
+            image_url = ''
+
+        is_allowed_map_point = _is_allowed_bayawan_map_point(barangay, city)
+        if (
+            req.status == 'accepted'
+            and req.latitude is not None
+            and req.longitude is not None
+            and is_allowed_map_point
+        ):
+            scheduled_iso = req.scheduled_date.date().isoformat() if req.scheduled_date else ''
+            scheduled_display = req.scheduled_date.strftime('%b %d, %Y %I:%M %p') if req.scheduled_date else ''
+            map_points.append({
+                'id': req.id,
+                'user': req.requested_by.username,
+                'reason': req.get_reason_display(),
+                'status': req.get_status_display(),
+                'status_key': req.status,
+                'lat': float(req.latitude),
+                'lng': float(req.longitude),
+                'barangay': barangay,
+                'city': city,
+                'location_label': req.location_label,
+                'created_at': req.created_at.strftime('%b %d, %Y %I:%M %p'),
+                'scheduled_date_iso': scheduled_iso,
+                'scheduled_date_display': scheduled_display,
+                'image_url': image_url,
+            })
+
+    pending_requests = [req for req in requests if req.status == 'pending']
+    accepted_requests = [req for req in requests if req.status == 'accepted']
+    captured_requests = [req for req in requests if req.status == 'captured']
+    declined_requests = [req for req in requests if req.status == 'declined']
 
     map_points = []
     for req in requests:
@@ -621,38 +868,73 @@ def admin_dog_capture_requests(request):
 
     return render(request, 'admin_request/request.html', {
         'requests': requests,
+        'pending_requests': pending_requests,
+        'accepted_requests': accepted_requests,
+        'captured_requests': captured_requests,
+        'declined_requests': declined_requests,
         'map_points': map_points,
         'contacts': DogCatcherContact.objects.all(),
     })
 
 @admin_required
 def update_dog_capture_request(request, pk):
-    req = get_object_or_404(DogCaptureRequest, pk=pk)
+    req = get_object_or_404(
+        DogCaptureRequest.objects.select_related('requested_by', 'requested_by__profile').prefetch_related('images', 'landmark_images'),
+        pk=pk
+    )
+    _enrich_capture_request_user(req)
 
     if request.method == 'POST':
         action = request.POST.get('action')
 
+        if req.status == 'captured' and action in {'accept', 'decline'}:
+            messages.warning(request, "Captured records are closed and cannot be re-opened.")
+            return redirect('dogadoption_admin:update_dog_capture_request', pk=req.id)
+
         if action == 'accept':
-            req.status = 'accepted'
-            req.assigned_admin = request.user
             scheduled_raw = request.POST.get('scheduled_date')
             scheduled_dt = parse_datetime(scheduled_raw) if scheduled_raw else None
+            if not scheduled_dt:
+                messages.error(request, "Scheduled capture date is required when accepting.")
+                return redirect('dogadoption_admin:update_dog_capture_request', pk=req.id)
             if scheduled_dt and timezone.is_naive(scheduled_dt):
                 scheduled_dt = timezone.make_aware(
                     scheduled_dt, timezone.get_current_timezone()
                 )
+            req.status = 'accepted'
+            req.assigned_admin = request.user
             req.scheduled_date = scheduled_dt
             req.admin_message = request.POST.get('admin_message')
+            req.captured_at = None
             req.notification_scheduled_for = None
             req.notification_sent_at = None
             req.save()
 
             messages.success(request, "Request accepted and scheduled.")
 
+        elif action == 'mark_captured':
+            if req.status != 'accepted':
+                messages.error(request, "Only scheduled requests can be marked as captured.")
+                return redirect('dogadoption_admin:update_dog_capture_request', pk=req.id)
+
+            admin_message = (request.POST.get('admin_message') or '').strip()
+            req.status = 'captured'
+            req.assigned_admin = request.user
+            req.captured_at = timezone.now()
+            if admin_message:
+                req.admin_message = admin_message
+            req.notification_scheduled_for = None
+            req.notification_sent_at = None
+            req.save()
+
+            messages.success(request, "Request marked as captured.")
+
         elif action == 'decline':
             req.status = 'declined'
             req.admin_message = request.POST.get('admin_message')
             req.assigned_admin = request.user
+            req.scheduled_date = None
+            req.captured_at = None
             req.notification_scheduled_for = None
             req.notification_sent_at = None
             req.save()
@@ -669,20 +951,40 @@ def update_dog_capture_request(request, pk):
 #  ++++++++++++++++++++++  ANNOUNCEMENTS PAGE   ++++++++++++++++++++++++++++++++++++++
 @admin_required
 def announcement_list(request):
-
-    announcements = DogAnnouncement.objects.all().prefetch_related('comments').order_by('-created_at')
+    announcements = (
+        DogAnnouncement.objects.all()
+        .prefetch_related('comments', 'images')
+        .order_by('-created_at')
+    )
 
     return render(request, 'admin_announcement/announcement.html', {
-        'announcements': announcements
+        'announcements': announcements,
+        'category_options': ANNOUNCEMENT_CATEGORY_OPTIONS,
     })
 
-#   -CREATING ANNOUNCEMENTS 
+#   -CREATING ANNOUNCEMENTS (CATEGORY PICKER)
+@admin_required
+def announcement_create(request):
+    return redirect("dogadoption_admin:admin_announcements")
+
+
 @admin_required
 @require_http_methods(["GET", "POST"])
-def announcement_create(request):
+def announcement_create_form(request, category_slug):
+    category_option = ANNOUNCEMENT_CATEGORY_BY_SLUG.get(category_slug)
+    if not category_option:
+        raise Http404("Announcement category not found.")
+
+    if request.method == "GET":
+        return redirect("dogadoption_admin:admin_announcements")
 
     if request.method == "POST":
-
+        title = (request.POST.get("title") or "").strip()
+        content = (request.POST.get("content") or "").strip()
+        background_color = (request.POST.get("background_color") or "#eeedf3").strip()
+        uploaded_images = request.FILES.getlist("background_images")
+        if not uploaded_images and request.FILES.get("background_image"):
+            uploaded_images = [request.FILES.get("background_image")]
         schedule_raw = request.POST.get("schedule_data")
         schedule = None
 
@@ -692,18 +994,26 @@ def announcement_create(request):
             except json.JSONDecodeError:
                 schedule = None
 
-        DogAnnouncement.objects.create(
-            title=request.POST.get("title"),
-            content=request.POST.get("content"),
-            background_color=request.POST.get("background_color"),
-            background_image=request.FILES.get("background_image"),
+        if not content:
+            messages.error(request, "Post content is required.")
+            return redirect("dogadoption_admin:admin_announcements")
+
+        primary_image = uploaded_images[0] if uploaded_images else None
+        post = DogAnnouncement.objects.create(
+            title=title or category_option["label"],
+            content=content,
+            category=category_option["value"],
+            background_color=background_color,
+            background_image=primary_image,
             schedule_data=schedule,
-            created_by=request.user
+            created_by=request.user,
         )
+        for image in uploaded_images[1:]:
+            DogAnnouncementImage.objects.create(announcement=post, image=image)
+        messages.success(request, f"{category_option['label']} post published.")
 
         return redirect("dogadoption_admin:admin_announcements")
-
-    return render(request, "admin_announcement/create_announcement.html")
+    return redirect("dogadoption_admin:admin_announcements")
 
 
 @admin_required
@@ -723,22 +1033,38 @@ def announcement_edit(request, post_id):
     post = DogAnnouncement.objects.get(id=post_id)
 
     if request.method == "POST":
-        post.content = request.POST.get("content")
-        post.post_type = request.POST.get("post_type", post.post_type)
-        post.background_color = request.POST.get("background_color", post.background_color)
-        if request.FILES.get("background_image"):
-            post.background_image = request.FILES.get("background_image")
+        post.title = (request.POST.get("title") or post.title).strip()
+        post.content = (request.POST.get("content") or post.content).strip()
+        category = request.POST.get("category", post.category)
+        uploaded_images = request.FILES.getlist("background_images")
+        if not uploaded_images and request.FILES.get("background_image"):
+            uploaded_images = [request.FILES.get("background_image")]
+        if category in ANNOUNCEMENT_CATEGORY_BY_VALUE:
+            post.category = category
+        post.background_color = (
+            request.POST.get("background_color") or post.background_color
+        )
+        if uploaded_images:
+            post.background_image = uploaded_images[0]
         post.save()
+        if uploaded_images:
+            post.images.all().delete()
+            for image in uploaded_images[1:]:
+                DogAnnouncementImage.objects.create(announcement=post, image=image)
+        messages.success(request, "Announcement updated.")
         return redirect("dogadoption_admin:admin_announcements")
 
     return render(request, "admin_announcement/edit_announcement.html", {
-        "post": post
+        "post": post,
+        "category_options": ANNOUNCEMENT_CATEGORY_OPTIONS,
     })
 
 @admin_required
+@require_POST
 def announcement_delete(request, post_id):
     post = get_object_or_404(DogAnnouncement, id=post_id)
     post.delete()
+    messages.success(request, "Announcement deleted.")
 
     return redirect("dogadoption_admin:admin_announcements")
 
@@ -908,7 +1234,6 @@ def analytics_dashboard(request):
         .distinct()
         .count()
     )
-
     post_status_totals = {
         row["status"]: row["total"]
         for row in Post.objects.values("status").annotate(total=Count("id"))
@@ -1007,7 +1332,6 @@ def analytics_dashboard(request):
         "events": rescue_events,
         "years": sorted(rescue_years),
     }
-
     top_barangays = (
         Dog.objects.exclude(barangay__isnull=True)
         .exclude(barangay__exact="")

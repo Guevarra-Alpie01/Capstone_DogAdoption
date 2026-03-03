@@ -1,15 +1,15 @@
 from django.contrib import admin
 from django.urls import path
 from . import views
-from django.contrib.auth import views as auth_views
 
 app_name="user"
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('user-login/', views.login_view, name="login"),
-    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('logout/', views.logout_view, name='logout'),
     path('sign-up/', views.signup_view, name="signup"),
+    path('barangays/', views.barangay_list_api, name="barangay_list_api"),
     path('signup/face-auth/', views.face_auth, name="face_auth"),
     path('signup/complete/', views.signup_complete, name="signup_complete"),
     path('signup/save-face/', views.save_face, name="save_face"),
@@ -17,12 +17,15 @@ urlpatterns = [
     
     #navigation links/ home  urls
     path('',views.user_home, name="user_home"),
-    path('user-adopt/create/', views.create_user_adoption_post, name='create_user_adoption_post'),
+    path('post/create/', views.create_post, name='create_post'),
     path('user-adopt/<int:post_id>/', views.adopt_user_post, name='adopt_user_post'),
-    path("post-missing/", views.create_missing_post, name="create_missing_post"),
+    path('user-adopt/requests/', views.user_adoption_requests, name='user_adoption_requests'),
+    path('user-adopt/requests/<int:req_id>/<str:action>/', views.user_adoption_request_action, name='user_adoption_request_action'),
 
     #navigation links/ request  urls
     path('request/', views.request_dog_capture, name='dog_capture_request'),
+    path('request/<int:req_id>/edit/', views.edit_dog_capture_request, name='edit_dog_capture_request'),
+    path('request/<int:req_id>/delete/', views.delete_dog_capture_request, name='delete_dog_capture_request'),
 
     #navigation links/ claim  urls
     path('my-claims/', views.my_claims, name='my_claims'),
@@ -36,6 +39,7 @@ urlpatterns = [
 
     #navigation links/ announcement  urls
     path('announcements/', views.announcement_list, name='announcement_list'),
+    path('announcements/<int:post_id>/', views.announcement_detail, name='announcement_detail'),
     path('announcements/<int:post_id>/comment/', views.announcement_comment, name='announcement_comment'),
 
     #share button to facebook

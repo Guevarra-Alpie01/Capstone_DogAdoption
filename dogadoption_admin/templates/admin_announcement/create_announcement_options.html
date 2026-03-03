@@ -1,0 +1,27 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/admin_announcement/announcement.css' %}">
+
+<div class="announcement-header">
+    <h2>Create Post</h2>
+</div>
+
+<div class="post-type-grid">
+    {% for option in category_options %}
+    <article class="post-type-card">
+        <h3>{{ option.label }}</h3>
+        <p>{{ option.description }}</p>
+        <ul>
+            {% for topic in option.topics %}
+            <li>{{ topic }}</li>
+            {% endfor %}
+        </ul>
+        <a href="{% url 'dogadoption_admin:announcement_create_form' option.slug %}" class="create-post-btn">
+            Use This Form
+        </a>
+    </article>
+    {% endfor %}
+</div>
+{% endblock %}

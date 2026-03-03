@@ -3,85 +3,348 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/admin_req/admin_request.css' %}">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <div class="container">
-    <h1>🐕 Dog Capture Requests</h1>
-
-    {% if requests %}
-        {% for req in requests %}
-    <div class="request-card">
-
-        <div class="request-header">
-            <strong>Requested by:</strong> {{ req.requested_by.username }}
-            <span class="date">
-                {{ req.created_at|date:"M d, Y • h:i A" }}
-            </span>
-        </div>
-
-        <p>
-            <strong>Reason:</strong>
-            {{ req.get_reason_display }}
-        </p>
-
-        {% if req.description %}
-            <p><strong>Details:</strong><br>{{ req.description }}</p>
-        {% endif %}
-
-        {% if req.image %}
-            <div class="request-image">
-                <img src="{{ req.image.url }}" alt="Dog image">
-            </div>
-        {% endif %}
-
-        {% if req.latitude and req.longitude %}
-            <p>
-                <strong>Location:</strong>
-                <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}"
-                   target="_blank">
-                    View on Map 📍
-                </a>
-            </p>
-        {% else %}
-            <p><em>No location provided</em></p>
-        {% endif %}
-
-        {% if req.assigned_admin %}
-            <p>
-                <strong>Assigned to:</strong>
-                {{ req.assigned_admin.username }}
-            </p>
-        {% else %}
-            <p class="unassigned">⚠️ Not assigned yet</p>
-        {% endif %}
-
-        <hr>
-
-        {% if req.status == 'pending' %}
-            <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}"
-               class="btn btn-primary">
-                Review Request
-            </a>
-        {% else %}
-           <p>
-                <strong>Status:</strong>
-                    <span class="status-badge">{{ req.get_status_display }}</span>
-            </p>
-
-            {% if req.scheduled_date %}
-                <p>
-                    <strong>Scheduled:</strong>
-                    {{ req.scheduled_date|date:"M d, Y • h:i A" }}
-                </p>
-            {% endif %}
-        {% endif %}
-
+    <div class="page-head">
+        <h1>Dog Capture Requests</h1>
     </div>
-{% endfor %}
 
+ 
+    {% if requests %}
+        <div class="requests-board">
+            <div class="tab-bar" role="tablist" aria-label="Request Status Tabs">
+                <button class="tab-btn is-active" data-tab="pending" role="tab" aria-selected="true">Pending Requests</button>
+                <button class="tab-btn" data-tab="accepted" role="tab" aria-selected="false">Scheduled Requests</button>
+                <button class="tab-btn" data-tab="declined" role="tab" aria-selected="false">Rejected Requests</button>
+            </div>
+
+            <div class="tab-panel is-active" data-panel="pending" role="tabpanel">
+                <div class="table-card">
+                    <table class="request-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Location</th>
+                                <th>Submitted</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in requests %}
+                                {% if req.status == 'pending' %}
+                                    <tr>
+                                        <td class="cell-user" data-label="User">
+                                            <div class="user-main">{{ req.requested_by.username }}</div>
+                                            <div class="user-sub">{{ req.requester_full_name }}</div>
+                                            <div class="user-sub">{{ req.requester_phone }}</div>
+                                        </td>
+                                        <td data-label="Location">
+                                            {% if req.latitude and req.longitude %}
+                                                <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
+                                            {% elif req.has_location %}
+                                                {{ req.location_label }}
+                                            {% else %}
+                                                <span class="muted">No location</span>
+                                            {% endif %}
+                                        </td>
+                                        <td data-label="Submitted">{{ req.created_at|date:"M d, Y h:i A" }}</td>
+                                        <td data-label="Status"><span class="status-pill pending">Pending</span></td>
+                                        <td data-label="Action">
+                                            <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-primary btn-sm">Review</a>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-panel" data-panel="accepted" role="tabpanel">
+                <div class="table-card">
+                    <table class="request-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Location</th>
+                                <th>Scheduled</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in requests %}
+                                {% if req.status == 'accepted' %}
+                                    <tr>
+                                        <td class="cell-user" data-label="User">
+                                            <div class="user-main">{{ req.requested_by.username }}</div>
+                                            <div class="user-sub">{{ req.requester_full_name }}</div>
+                                            <div class="user-sub">{{ req.requester_phone }}</div>
+                                        </td>
+                                        <td data-label="Location">
+                                            {% if req.latitude and req.longitude %}
+                                                <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
+                                            {% elif req.has_location %}
+                                                {{ req.location_label }}
+                                            {% else %}
+                                                <span class="muted">No location</span>
+                                            {% endif %}
+                                        </td>
+                                        <td data-label="Scheduled">
+                                            {% if req.scheduled_date %}
+                                                {{ req.scheduled_date|date:"M d, Y h:i A" }}
+                                            {% else %}
+                                                <span class="muted">Not set</span>
+                                            {% endif %}
+                                        </td>
+                                        <td data-label="Status"><span class="status-pill accepted">Scheduled</span></td>
+                                        <td data-label="Action">
+                                            <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-ghost btn-sm">Edit Schedule</a>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-panel" data-panel="declined" role="tabpanel">
+                <div class="table-card">
+                    <table class="request-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Location</th>
+                                <th>Submitted</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in requests %}
+                                {% if req.status == 'declined' %}
+                                    <tr>
+                                        <td class="cell-user" data-label="User">
+                                            <div class="user-main">{{ req.requested_by.username }}</div>
+                                            <div class="user-sub">{{ req.requester_full_name }}</div>
+                                            <div class="user-sub">{{ req.requester_phone }}</div>
+                                        </td>
+                                        <td data-label="Location">
+                                            {% if req.latitude and req.longitude %}
+                                                <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
+                                            {% elif req.has_location %}
+                                                {{ req.location_label }}
+                                            {% else %}
+                                                <span class="muted">No location</span>
+                                            {% endif %}
+                                        </td>
+                                        <td data-label="Submitted">{{ req.created_at|date:"M d, Y h:i A" }}</td>
+                                        <td data-label="Status"><span class="status-pill declined">Rejected</span></td>
+                                        <td data-label="Action">
+                                            <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-ghost btn-sm">View</a>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     {% else %}
         <p>No capture requests yet.</p>
     {% endif %}
 
+    <div class="map-card">
+        <h2>General Request Map</h2>
+
+        <div class="map-toolbar">
+            <label for="mapDateFilter">Filter by scheduled date</label>
+            <input type="date" id="mapDateFilter">
+            <button type="button" id="clearDateFilter" class="clear-filter-btn">Clear</button>
+        </div>
+        <div class="map-legend">
+            <span><i class="legend-dot accepted"></i> Accepted Requests</span>
+        </div>
+        <div id="requests-map"></div>
+        <p id="mapEmptyState" class="empty-map" style="display:none;">No accepted barangay requests match this date filter.</p>
+        {{ map_points|json_script:"map-points-data" }}
+    </div>
 </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+    const dataEl = document.getElementById('map-points-data');
+    if (!dataEl) return;
+
+    const points = JSON.parse(dataEl.textContent || '[]');
+    const acceptedPoints = points.filter(p => p.status_key === 'accepted');
+    const dateFilter = document.getElementById('mapDateFilter');
+    const clearDateFilter = document.getElementById('clearDateFilter');
+    const emptyState = document.getElementById('mapEmptyState');
+    const markersLayer = L.layerGroup();
+    const DEFAULT_CENTER = [9.2, 122.85];
+    const DEFAULT_ZOOM = 12;
+
+    const map = L.map('requests-map');
+    const mapEl = document.getElementById('requests-map');
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(map);
+
+    markersLayer.addTo(map);
+
+    function mapToDefaultView() {
+        map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+    }
+
+    // Keep marker size readable per zoom level (smaller on zoom-out).
+    function markerScaleForZoom(zoom) {
+        if (zoom <= 10) return 0.62;
+        if (zoom <= 11) return 0.72;
+        if (zoom <= 12) return 0.82;
+        if (zoom <= 13) return 0.92;
+        if (zoom <= 14) return 1;
+        return 1.06;
+    }
+
+    function applyMarkerScale() {
+        if (!mapEl) return;
+        const scale = markerScaleForZoom(map.getZoom());
+        mapEl.style.setProperty('--request-marker-scale', String(scale));
+    }
+
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function filteredPoints() {
+        const selectedDate = dateFilter?.value || '';
+        if (!selectedDate) return acceptedPoints;
+        return acceptedPoints.filter(
+            p => p.scheduled_date_iso && p.scheduled_date_iso === selectedDate
+        );
+    }
+
+    function groupByBarangay(pointsList) {
+        const grouped = new Map();
+        pointsList.forEach(point => {
+            const barangay = (point.barangay || '').trim();
+            const key = barangay ? barangay.toLowerCase() : `request-${point.id}`;
+            if (!grouped.has(key)) {
+                // One marker per barangay with request count shown in popup.
+                grouped.set(key, {
+                    barangay_label: point.location_label || 'Pinned location',
+                    lat: point.lat,
+                    lng: point.lng,
+                    requests: [],
+                });
+            }
+            grouped.get(key).requests.push(point);
+        });
+        return Array.from(grouped.values());
+    }
+
+    function renderMarkers() {
+        markersLayer.clearLayers();
+        const visible = groupByBarangay(filteredPoints());
+
+        if (!visible.length) {
+            emptyState.style.display = 'block';
+            mapToDefaultView();
+            return;
+        }
+        emptyState.style.display = 'none';
+
+        const bounds = [];
+        visible.forEach(group => {
+            const sample = group.requests[0];
+            const markerImage = sample.image_url || '';
+            const scheduleLabel = sample.scheduled_date_display || 'Not set';
+            const popupRows = group.requests
+                .slice(0, 5)
+                .map(item => `#${item.id} - ${item.user}`)
+                .join('<br>');
+            const remaining = group.requests.length - 5;
+
+            const popup = [
+                `<strong>${group.barangay_label}</strong>`,
+                `Accepted requests: ${group.requests.length}`,
+                `Scheduled date: ${scheduleLabel}`,
+                popupRows,
+                remaining > 0 ? `+${remaining} more request(s)` : '',
+            ].join('<br>');
+
+            const markerIconHtml = markerImage
+                ? `<div class="request-map-marker has-image"><img src="${escapeHtml(markerImage)}" alt="Request image"></div>`
+                : '<div class="request-map-marker"></div>';
+
+            // Use image-based marker design with green fallback marker.
+            const marker = L.marker([group.lat, group.lng], {
+                icon: L.divIcon({
+                    className: 'request-map-marker-wrap',
+                    html: markerIconHtml,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15],
+                    popupAnchor: [0, -14],
+                }),
+            }).bindPopup(popup, { className: 'map-popup' });
+
+            marker.addTo(markersLayer);
+            bounds.push([group.lat, group.lng]);
+        });
+
+        if (bounds.length === 1) {
+            map.setView(bounds[0], 13);
+        } else {
+            map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 });
+        }
+        
+    }
+
+    dateFilter?.addEventListener('change', renderMarkers);
+    clearDateFilter?.addEventListener('click', () => {
+        if (dateFilter) dateFilter.value = '';
+        renderMarkers();
+    });
+
+    map.on('zoomend', applyMarkerScale);
+    mapToDefaultView();
+    applyMarkerScale();
+    renderMarkers();
+})();
+</script>
+<script>
+(function () {
+    const tabs = document.querySelectorAll('.tab-btn');
+    const panels = document.querySelectorAll('.tab-panel');
+
+    function activate(tabName) {
+        tabs.forEach(btn => {
+            const active = btn.dataset.tab === tabName;
+            btn.classList.toggle('is-active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        panels.forEach(panel => {
+            panel.classList.toggle('is-active', panel.dataset.panel === tabName);
+        });
+    }
+
+    tabs.forEach(btn => {
+        btn.addEventListener('click', () => activate(btn.dataset.tab));
+    });
+})();
+</script>
 
 {% endblock %}

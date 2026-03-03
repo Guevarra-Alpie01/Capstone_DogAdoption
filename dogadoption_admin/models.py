@@ -4,6 +4,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 class Post(models.Model):
+    ADOPTION_DAYS = 3
 
     STATUS_CHOICES = [
         ('rescued', 'Rescued'),
@@ -22,7 +23,7 @@ class Post(models.Model):
         default='rescued'
     )
 
-    rescued_date = models.DateField(default=timezone.now)
+    rescued_date = models.DateField(blank=True, null=True)
 
     claim_days = models.PositiveIntegerField(
         default=3,
@@ -38,36 +39,65 @@ class Post(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def claim_deadline(self):
-        """Deadline for claim/adopt (created_at + claim_days)."""
+        """Deadline for owner claim window."""
         if self.created_at and self.claim_days:
             return self.created_at + timedelta(days=self.claim_days)
         return None
 
+    def adoption_deadline(self):
+        """Deadline for adoption window (claim deadline + fixed 3 days)."""
+        claim_end = self.claim_deadline()
+        if claim_end:
+            return claim_end + timedelta(days=self.ADOPTION_DAYS)
+        return None
+
+    def current_phase(self):
+        """
+        Returns one of:
+        - claim
+        - adopt
+        - closed
+        """
+        if self.status in ['reunited', 'adopted']:
+            return 'closed'
+
+        now = timezone.now()
+        claim_end = self.claim_deadline()
+        adopt_end = self.adoption_deadline()
+
+        if claim_end and now <= claim_end:
+            return 'claim'
+        if adopt_end and now <= adopt_end:
+            return 'adopt'
+        return 'closed'
+
     def time_left(self):
-        """
-        Return remaining time until deadline.
-        If no deadline, returns zero timedelta.
-        """
-        deadline = self.claim_deadline()
-        if deadline:
-            return deadline - timezone.now()
+        """Return remaining time in the active phase."""
+        phase = self.current_phase()
+        now = timezone.now()
+
+        if phase == 'claim':
+            return self.claim_deadline() - now
+        if phase == 'adopt':
+            return self.adoption_deadline() - now
         return timedelta(seconds=0)
 
     def is_expired(self):
-        """Return True if the current time is past the deadline."""
-        deadline = self.claim_deadline()
+        """Return True if both claim and adoption windows are finished."""
+        deadline = self.adoption_deadline()
         return deadline and timezone.now() > deadline
 
     def is_open_for_adoption(self):
-        """
-        True if still within the allowed claim/adopt window
-        and not reunited or adopted.
-        """
-        return not self.is_expired() and self.status not in ['reunited', 'adopted']
+        """True only during adoption phase."""
+        return self.current_phase() == 'adopt'
+
+    def is_open_for_claim(self):
+        """True only during claim phase."""
+        return self.current_phase() == 'claim'
 
     # Optional alias
     def is_open_for_claim_adopt(self):
-        return self.is_open_for_adoption()
+        return self.current_phase() in ['claim', 'adopt']
 
 
 
@@ -112,6 +142,16 @@ class PostRequest(models.Model):
         choices=STATUS_CHOICES,
         default='pending'
     )
+    appointment_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Preferred date selected by the user."
+    )
+    scheduled_appointment_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Final appointment date assigned by admin."
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -119,8 +159,33 @@ class PostRequest(models.Model):
         return f"{self.user.username} - {self.request_type} ({self.status})"
 
 
+class GlobalAppointmentDate(models.Model):
+    appointment_date = models.DateField(unique=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='created_global_appointment_dates'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['appointment_date']
+
+    def __str__(self):
+        return f"Global appointment - {self.appointment_date}"
+
+
 # ✅ CLEAN ANNOUNCEMENT MODEL (NO REACTIONS)
 class DogAnnouncement(models.Model):
+    CATEGORY_DOG_ANNOUNCEMENT = "DOG_ANNOUNCEMENT"
+    CATEGORY_DOG_LAW = "DOG_LAW"
+    CATEGORY_CHOICES = [
+        (CATEGORY_DOG_ANNOUNCEMENT, "Dog Announcements"),
+        (CATEGORY_DOG_LAW, "Dog Laws"),
+    ]
 
     POST_TYPES = [
         ('COLOR', 'Plain Color with Text'),
@@ -130,6 +195,11 @@ class DogAnnouncement(models.Model):
 
     title = models.CharField(max_length=200)
     content = models.TextField()
+    category = models.CharField(
+        max_length=40,
+        choices=CATEGORY_CHOICES,
+        default=CATEGORY_DOG_ANNOUNCEMENT
+    )
 
     # Background options
     background_image = models.ImageField(
@@ -161,6 +231,37 @@ class DogAnnouncement(models.Model):
         return self.title
 
 
+class DogAnnouncementImage(models.Model):
+    announcement = models.ForeignKey(
+        DogAnnouncement,
+        on_delete=models.CASCADE,
+        related_name="images",
+    )
+    image = models.ImageField(upload_to="announcements/photos/")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+    def __str__(self):
+        return f"Announcement {self.announcement_id} image {self.id}"
+
+
+# Dog catcher contact numbers for SMS notifications
+class DogCatcherContact(models.Model):
+    name = models.CharField(max_length=120, blank=True)
+    phone_number = models.CharField(max_length=32)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        label = self.name.strip() if self.name else "Dog Catcher"
+        return f"{label} ({self.phone_number})"
+
+
 #  COMMENTS ONLY (NO REACTIONS)
 class AnnouncementComment(models.Model):
 
@@ -184,6 +285,33 @@ class AnnouncementComment(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.comment[:20]}"
 
+
+class AdminNotification(models.Model):
+    title = models.CharField(max_length=160)
+    message = models.TextField(blank=True)
+    url = models.CharField(max_length=255, blank=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
+
+
+class Barangay(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+
+    def __str__(self):
+        return self.name
+
+
 # models.py
 class Dog(models.Model):
     date_registered = models.DateField()
@@ -205,6 +333,10 @@ class Dog(models.Model):
 class CertificateSettings(models.Model):
     reg_no = models.CharField(max_length=50, default="REG-001")
     print_immediately = models.BooleanField(default=True)
+    default_vac_date = models.DateField(null=True, blank=True)
+    default_vaccine_name = models.CharField(max_length=255, blank=True, default="")
+    default_manufacturer_lot_no = models.CharField(max_length=255, blank=True, default="")
+    default_vaccine_expiry_date = models.DateField(null=True, blank=True)
 
     def __str__(self):
         return f"Certificate Settings ({self.reg_no})"
@@ -217,6 +349,7 @@ class DogRegistration(models.Model):
     )
 
     STATUS_CHOICES = (
+        ('None', 'None'),
         ('Castrated', 'Castrated'),
         ('Spayed', 'Spayed'),
         ('Intact', 'Intact'),
@@ -225,7 +358,7 @@ class DogRegistration(models.Model):
     reg_no = models.CharField(max_length=50)
     name_of_pet = models.CharField(max_length=100)
     breed = models.CharField(max_length=100)
-    dob = models.DateField()
+    dob = models.DateField(null=True, blank=True)
     color_markings = models.CharField(max_length=100)
     sex = models.CharField(max_length=1, choices=SEX_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
@@ -265,6 +398,7 @@ class VaccinationRecord(models.Model):
     )
     date = models.DateField()
     vaccine_name = models.CharField(max_length=255)
+    manufacturer_lot_no = models.CharField(max_length=255, blank=True, default="")
     vaccine_expiry_date = models.DateField()
     vaccination_expiry_date = models.DateField()
     veterinarian = models.CharField(max_length=255)
@@ -321,6 +455,7 @@ class Citation(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
 
     penalty = models.ForeignKey(Penalty, on_delete=models.CASCADE)
+    penalties = models.ManyToManyField(Penalty, related_name='citations', blank=True)
     date_issued = models.DateTimeField(auto_now_add=True)
     remarks = models.TextField(blank=True)
 

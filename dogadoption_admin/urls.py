@@ -16,6 +16,7 @@ urlpatterns = [
     #ADMIN HOME
     path('post-list/', views.post_list, name='post_list'),
     path('create/', views.create_post, name='create_post'),
+    path('appointments/', views.appointment_calendar, name='appointment_calendar'),
 
     # DOG CAPTURE REQUESTS
     path('dog-capture/requests/',views.admin_dog_capture_requests,name='requests'),
@@ -32,6 +33,11 @@ urlpatterns = [
     #ADMIN ANNOUNCEMENTS
     path('admin/announcements/', views.announcement_list, name='admin_announcements'),
     path('announcements/create/', views.announcement_create, name='announcement_create'),
+    path(
+        'announcements/create/<slug:category_slug>/',
+        views.announcement_create_form,
+        name='announcement_create_form'
+    ),
     path('announcements/<int:post_id>/edit/', views.announcement_edit, name='announcement_edit'),
     path('announcements/<int:post_id>/delete/', views.announcement_delete, name='announcement_delete'),
     path('announcements/<int:post_id>/comment/', views.announcement_comment, name='announcement_comment'),
@@ -41,10 +47,15 @@ urlpatterns = [
     path('users/', views.admin_users, name='admin_users'),
     path('admin/user/<int:id>/', views.admin_user_detail, name='admin_user_detail'),
     path('users/search/', views.admin_user_search_results, name='admin_user_search'),
+    path('profile/edit/', views.admin_edit_profile, name='admin_edit_profile'),
+    path('notifications/', views.admin_notifications, name='admin_notifications'),
+    path('notifications/<int:pk>/read/', views.mark_notification_read, name='notification_read'),
+    path('analytics/dashboard/', views.analytics_dashboard, name='analytics_dashboard'),
 
     #REGISTRATION
     
     path('register/', views.register_dogs, name='register_dogs'),
+    path('barangays/', views.barangay_list_api, name='barangay_list_api'),
     path('registration-record/', views.registration_record, name='registration_record'),
      path('registration_record/download/<str:file_type>/', views.download_registration, name='download_registration'),
     path("med-records/<int:registration_id>/",views.med_record,name="med_records"),

@@ -5,185 +5,115 @@
 <link rel="stylesheet" href="{% static 'css/user_request.css' %}">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-<div class="request-shell container">
-    <div class="request-grid">
-        <section class="wizard-card">
-            <header class="wizard-header">
-                <p class="wizard-kicker">Community Service Portal</p>
-                <h2>Request Dog Capture</h2>
-                <p class="wizard-subtitle">Complete the form step by step for faster processing.</p>
-            </header>
+<div class="container">
 
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="wizard-alert">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
+    <div class="card">
+        <h2>Request Dog Capture</h2>
 
-            <div class="wizard-steps" aria-label="Form progress">
-                <div class="step-indicator active" data-step-indicator="1">
-                    <span class="step-dot">1</span>
-                    <span class="step-label">Photo</span>
+        <div class="step-indicator">
+            <div class="step-dot active" data-step-dot="1">1</div>
+            <div class="step-dot" data-step-dot="2">2</div>
+            <div class="step-dot" data-step-dot="3">3</div>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" class="capture-form" id="captureForm">
+            {% csrf_token %}
+
+            <div class="step-panel" data-step="1">
+                <h3>Step 1: Photo</h3>
+                <div class="capture-choice">
+                    <button type="button" class="btn-secondary" id="uploadModeBtn">Upload Photo</button>
+                    <button type="button" class="btn-secondary" id="cameraModeBtn">Take Picture</button>
                 </div>
-                <div class="step-indicator" data-step-indicator="2">
-                    <span class="step-dot">2</span>
-                    <span class="step-label">Incident</span>
+
+                <div id="uploadSection" class="media-section">
+                    <label>Upload Photo</label>
+                    <input type="file" name="images" id="imageInput" accept="image/*" multiple>
+                    <small class="upload-hint">You can select multiple photos.</small>
                 </div>
-                <div class="step-indicator" data-step-indicator="3">
-                    <span class="step-dot">3</span>
-                    <span class="step-label">Location</span>
-                </div>
-                <div class="step-indicator" data-step-indicator="4">
-                    <span class="step-dot">4</span>
-                    <span class="step-label">Review</span>
+
+                <div id="cameraSection" class="media-section" style="display:none;">
+                    <video id="video" autoplay playsinline></video>
+                    <div class="form-actions mt-2">
+                        <button type="button" class="btn-primary" id="startCameraBtn">Open Camera</button>
+                        <button type="button" class="btn-primary" id="captureBtn">Capture</button>
+                    </div>
+                    <canvas id="canvas" style="display:none;"></canvas>
+                    <input type="hidden" name="captured_image" id="capturedImage">
+                    <img id="capturedPreview" class="captured-preview" alt="Captured preview" style="display:none;">
                 </div>
             </div>
 
-            <form id="captureForm" method="POST" enctype="multipart/form-data" class="capture-form">
-                {% csrf_token %}
+            <div class="step-panel" data-step="2" style="display:none;">
+                <h3>Step 2: Reason</h3>
+                <div class="form-group">
+                    <label>Reason for Capture</label>
+                    <select name="reason" id="reasonField" required>
+                        <option value="">-- Select --</option>
+                        <option value="biting">Dog is biting people</option>
+                        <option value="aggressive">Dog is aggressive</option>
+                        <option value="injured">Dog is injured</option>
+                        <option value="sick">Dog looks sick</option>
+                        <option value="stray">Stray dog</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
 
-                <section class="wizard-step active" data-step="1">
-                    <h3>Step 1: Add a Photo (Optional)</h3>
-                    <p class="step-hint">Choose upload or live camera capture.</p>
+                <div class="form-group">
+                    <label>Additional Details</label>
+                    <textarea name="description" placeholder="Describe the dog, behavior, landmarks, and situation."></textarea>
+                </div>
+            </div>
 
-                    <div class="capture-choice">
-                        <button type="button" class="mode-btn active" id="uploadModeBtn" onclick="showUpload()">
-                            <i class="bi bi-folder2-open"></i>
-                            <span>Upload Photo</span>
-                        </button>
-                        <button type="button" class="mode-btn" id="cameraModeBtn" onclick="showCamera()">
-                            <i class="bi bi-camera"></i>
-                            <span>Live Capture</span>
-                        </button>
+            <div class="step-panel" data-step="3" style="display:none;">
+                <h3>Step 3: Location</h3>
+
+                <div class="location-mode">
+                    <label><input type="radio" name="location_mode" value="exact" checked> Use Exact Location</label>
+                    <label><input type="radio" name="location_mode" value="manual"> Enter Barangay Manually</label>
+                </div>
+
+                <div id="exactLocationBox">
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="getLocationBtn">Use Exact GPS Location</button>
                     </div>
-
-                    <div id="uploadSection" class="capture-panel">
-                        <label class="field-label" for="uploadPhoto">Upload image file</label>
-                        <input id="uploadPhoto" type="file" name="image" accept="image/*">
-                    </div>
-
-                    <div id="cameraSection" class="capture-panel" style="display:none;">
-                        <video id="video" autoplay playsinline></video>
-                        <div class="camera-actions">
-                            <button type="button" class="btn-secondary" onclick="capturePhoto()">
-                                Capture Photo
-                            </button>
-                        </div>
-                        <canvas id="canvas" style="display:none;"></canvas>
-                        <input type="hidden" name="captured_image" id="capturedImage">
-                    </div>
-
-                    <div id="photoPreviewWrap" class="photo-preview-wrap" style="display:none;">
-                        <label class="field-label">Captured preview</label>
-                        <img id="photoPreview" src="" alt="Captured preview">
-                    </div>
-                </section>
-
-                <section class="wizard-step" data-step="2">
-                    <h3>Step 2: Incident Details</h3>
-                    <p class="step-hint">Tell us why capture is needed.</p>
-
-                    <div class="form-group">
-                        <label class="field-label" for="reasonSelect">Reason for capture</label>
-                        <select id="reasonSelect" name="reason" required>
-                            <option value="">-- Select --</option>
-                            <option value="biting">Dog is biting people</option>
-                            <option value="aggressive">Dog is aggressive</option>
-                            <option value="injured">Dog is injured</option>
-                            <option value="sick">Dog looks sick</option>
-                            <option value="stray">Stray dog</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="field-label" for="descriptionInput">Additional details</label>
-                        <textarea id="descriptionInput"
-                                  name="description"
-                                  placeholder="Describe behavior, landmarks, or urgency."></textarea>
-                    </div>
-                </section>
-
-                <section class="wizard-step" data-step="3">
-                    <h3>Step 3: Location</h3>
-                    <p class="step-hint">Use GPS or enter location manually.</p>
-
-                    <div class="gps-box">
-                        <button type="button" class="btn-secondary" onclick="getLocation()">
-                            Use Exact GPS Location
-                        </button>
-                        <div id="gpsStatus" class="gps-status">GPS not yet captured.</div>
-                    </div>
-
-                    <div class="map-panel">
-                        <div class="map-panel-head">
-                            <strong>Map Preview</strong>
-                            <small>Tip: click on the map to place a pin manually.</small>
-                        </div>
-                        <div id="locationMap" class="location-map" aria-label="Location map preview"></div>
-                    </div>
-
+                    <p id="gpsStatus" class="helper-text">Waiting for location...</p>
+                    <div id="requestMap"></div>
                     <input type="hidden" name="latitude" id="latitude">
                     <input type="hidden" name="longitude" id="longitude">
-
-                    <div class="divider-text">OR enter manually</div>
-
-                    <div class="form-group">
-                        <label class="field-label" for="barangayInput">Barangay</label>
-                        <input id="barangayInput" type="text" name="barangay" placeholder="Barangay">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="field-label" for="cityInput">City / Municipality</label>
-                        <input id="cityInput" type="text" name="city" placeholder="City / Municipality">
-                    </div>
-
-                    <div class="manual-map-actions">
-                        <button type="button" class="btn-secondary" onclick="findManualLocation()">
-                            Find Manual Location on Map
-                        </button>
-                    </div>
-                </section>
-
-                <section class="wizard-step" data-step="4">
-                    <h3>Step 4: Review and Submit</h3>
-                    <p class="step-hint">Please check your details before sending.</p>
-
-                    <div class="review-box">
-                        <div class="review-row">
-                            <span class="review-label">Photo mode</span>
-                            <span id="reviewPhotoMode" class="review-value">Upload</span>
-                        </div>
-                        <div class="review-row">
-                            <span class="review-label">Reason</span>
-                            <span id="reviewReason" class="review-value">-</span>
-                        </div>
-                        <div class="review-row">
-                            <span class="review-label">Details</span>
-                            <span id="reviewDescription" class="review-value">-</span>
-                        </div>
-                        <div class="review-row">
-                            <span class="review-label">Location</span>
-                            <span id="reviewLocation" class="review-value">-</span>
-                        </div>
-                    </div>
-                </section>
-
-                <div class="wizard-nav">
-                    <button type="button" id="prevStepBtn" class="btn-nav">Back</button>
-                    <button type="button" id="nextStepBtn" class="btn-nav primary">Next</button>
-                    <button type="submit" id="submitStepBtn" class="btn-nav success" style="display:none;">
-                        Submit Request
-                    </button>
                 </div>
-            </form>
-        </section>
 
-        <aside class="requests-card">
-            <h2>My Requests</h2>
+                <div id="manualLocationBox" style="display:none;">
+                    <div class="form-group">
+                        <label>Barangay</label>
+                        <input type="text" name="barangay" id="barangayField" placeholder="Barangay">
+                    </div>
+                    <div class="form-group">
+                        <label>City / Municipality</label>
+                        <input type="text" name="city" id="cityField" placeholder="City / Municipality">
+                    </div>
+                </div>
+            </div>
 
+            <div class="wizard-actions">
+                <button type="button" class="btn-secondary" id="prevBtn" style="display:none;">Back</button>
+                <button type="button" class="btn-primary" id="nextBtn">Next</button>
+                <button type="submit" class="btn-primary" id="submitBtn" style="display:none;">Submit Request</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card my-requests-card">
+        <h2>My Requests</h2>
+
+        <div class="requests-scroll">
             {% for req in requests %}
-                <div class="request-item {{ req.status }}">
+                <div class="request-card {{ req.status }} request-clickable"
+                     data-bs-toggle="modal"
+                     data-bs-target="#requestViewModal{{ req.id }}"
+                     role="button"
+                     tabindex="0"
+                     aria-label="View request details">
                     <div class="request-header">
                         <strong>{{ req.get_reason_display }}</strong>
                         <span class="status-badge {{ req.status }}">
@@ -194,298 +124,535 @@
                     {% if req.status == 'accepted' %}
                         <p>
                             Scheduled:
-                            <strong>{{ req.scheduled_date|date:"M d, Y - h:i A" }}</strong>
+                            <strong>{{ req.scheduled_date|date:"M d, Y h:i A" }}</strong>
                         </p>
                     {% elif req.status == 'declined' %}
-                        <p>Request declined</p>
+                        <p>Request Declined</p>
                     {% else %}
-                        <p>Waiting for admin review</p>
+                        <p>Waiting for admin verification</p>
                     {% endif %}
+
+                    {% with total_images=req.images.all|length %}
+                        {% if total_images %}
+                            <p class="request-meta"><strong>Photos:</strong> {{ total_images }}</p>
+                        {% elif req.image %}
+                            <p class="request-meta"><strong>Photos:</strong> 1</p>
+                        {% endif %}
+                    {% endwith %}
 
                     {% if req.admin_message %}
                         <p class="admin-note">
                             <strong>Admin:</strong> {{ req.admin_message }}
                         </p>
                     {% endif %}
+
+                    <p class="request-view-hint">Click to view details</p>
+                </div>
+
+                <div class="modal fade request-view-modal" id="requestViewModal{{ req.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">{{ req.get_reason_display }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                {% with req_images=req.images.all %}
+                                    {% if req_images %}
+                                        <div id="requestImagesCarousel{{ req.id }}" class="carousel slide request-modal-carousel" data-bs-ride="false">
+                                            <div class="carousel-inner">
+                                                {% for item in req_images %}
+                                                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                                        <img src="{{ item.image.url }}" class="d-block w-100 request-modal-img" alt="Request photo {{ forloop.counter }}">
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                            {% if req_images|length > 1 %}
+                                                <button class="carousel-control-prev" type="button" data-bs-target="#requestImagesCarousel{{ req.id }}" data-bs-slide="prev">
+                                                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                                    <span class="visually-hidden">Previous</span>
+                                                </button>
+                                                <button class="carousel-control-next" type="button" data-bs-target="#requestImagesCarousel{{ req.id }}" data-bs-slide="next">
+                                                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                                    <span class="visually-hidden">Next</span>
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    {% elif req.image %}
+                                        <img src="{{ req.image.url }}" class="request-modal-img" alt="Request photo">
+                                    {% else %}
+                                        <p class="text-muted mb-2">No photo attached.</p>
+                                    {% endif %}
+                                {% endwith %}
+
+                                <div class="request-modal-details">
+                                    <p><strong>Status:</strong> <span class="status-badge {{ req.status }}">{{ req.get_status_display }}</span></p>
+                                    <p><strong>Submitted:</strong> {{ req.created_at|date:"M d, Y h:i A" }}</p>
+                                    {% if req.status == 'accepted' and req.scheduled_date %}
+                                        <p><strong>Scheduled:</strong> {{ req.scheduled_date|date:"M d, Y h:i A" }}</p>
+                                    {% endif %}
+                                    {% if req.description %}
+                                        <p><strong>Details:</strong> {{ req.description }}</p>
+                                    {% endif %}
+                                    {% if req.barangay or req.city %}
+                                        <p><strong>Location:</strong> {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}</p>
+                                    {% elif req.latitude and req.longitude %}
+                                        <p><strong>Coordinates:</strong> {{ req.latitude }}, {{ req.longitude }}</p>
+                                    {% endif %}
+                                    {% if req.admin_message %}
+                                        <p><strong>Admin Message:</strong> {{ req.admin_message }}</p>
+                                    {% endif %}
+                                </div>
+
+                                {% if req.status == 'pending' %}
+                                    <div class="request-modal-actions">
+                                        <button
+                                            type="button"
+                                            class="btn-secondary request-edit-toggle"
+                                            data-target="#requestEditForm{{ req.id }}"
+                                        >
+                                            Edit Request
+                                        </button>
+                                        <form method="post" action="{% url 'user:delete_dog_capture_request' req.id %}" onsubmit="return confirm('Delete this request?');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn-danger-inline">Delete Request</button>
+                                        </form>
+                                    </div>
+
+                                    <form
+                                        method="post"
+                                        action="{% url 'user:edit_dog_capture_request' req.id %}"
+                                        class="request-edit-form"
+                                        id="requestEditForm{{ req.id }}"
+                                        style="display:none;"
+                                    >
+                                        {% csrf_token %}
+                                        <div class="request-edit-grid">
+                                            <div class="form-group">
+                                                <label for="editReason{{ req.id }}">Reason</label>
+                                                <select name="reason" id="editReason{{ req.id }}" required>
+                                                    <option value="biting" {% if req.reason == 'biting' %}selected{% endif %}>Dog is biting people</option>
+                                                    <option value="aggressive" {% if req.reason == 'aggressive' %}selected{% endif %}>Dog is aggressive</option>
+                                                    <option value="injured" {% if req.reason == 'injured' %}selected{% endif %}>Dog is injured</option>
+                                                    <option value="sick" {% if req.reason == 'sick' %}selected{% endif %}>Dog looks sick</option>
+                                                    <option value="stray" {% if req.reason == 'stray' %}selected{% endif %}>Stray dog</option>
+                                                    <option value="other" {% if req.reason == 'other' %}selected{% endif %}>Other</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="editDescription{{ req.id }}">Details</label>
+                                                <textarea name="description" id="editDescription{{ req.id }}" rows="3">{{ req.description|default_if_none:'' }}</textarea>
+                                            </div>
+                                        </div>
+
+                                        <div class="location-mode request-edit-mode">
+                                            <label>
+                                                <input
+                                                    type="radio"
+                                                    name="edit_location_mode"
+                                                    value="exact"
+                                                    {% if req.latitude and req.longitude %}checked{% endif %}
+                                                >
+                                                Use Exact Location
+                                            </label>
+                                            <label>
+                                                <input
+                                                    type="radio"
+                                                    name="edit_location_mode"
+                                                    value="manual"
+                                                    {% if not req.latitude or not req.longitude %}checked{% endif %}
+                                                >
+                                                Enter Manual Address
+                                            </label>
+                                        </div>
+
+                                        <div class="request-edit-location-box" data-edit-manual-box>
+                                            <div class="form-group">
+                                                <label for="editBarangay{{ req.id }}">Barangay</label>
+                                                <input type="text" name="barangay" id="editBarangay{{ req.id }}" value="{{ req.barangay|default_if_none:'' }}">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="editCity{{ req.id }}">City / Municipality</label>
+                                                <input type="text" name="city" id="editCity{{ req.id }}" value="{{ req.city|default_if_none:'' }}">
+                                            </div>
+                                        </div>
+
+                                        <div class="request-edit-location-box" data-edit-exact-box>
+                                            <div class="form-group">
+                                                <label for="editLatitude{{ req.id }}">Latitude</label>
+                                                <input type="text" name="latitude" id="editLatitude{{ req.id }}" value="{{ req.latitude|default_if_none:'' }}" placeholder="e.g. 9.200000">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="editLongitude{{ req.id }}">Longitude</label>
+                                                <input type="text" name="longitude" id="editLongitude{{ req.id }}" value="{{ req.longitude|default_if_none:'' }}" placeholder="e.g. 122.850000">
+                                            </div>
+                                        </div>
+
+                                        <div class="request-edit-actions">
+                                            <button type="submit" class="btn-primary">Save Changes</button>
+                                            <button type="button" class="btn-secondary request-edit-cancel" data-target="#requestEditForm{{ req.id }}">Cancel</button>
+                                        </div>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             {% empty %}
-                <p class="empty-note">No requests yet.</p>
+                <p>No requests yet.</p>
             {% endfor %}
-        </aside>
+        </div>
     </div>
+
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-let stream = null;
 let currentStep = 1;
-const totalSteps = 4;
-let captureMode = "upload";
-let locationMap = null;
-let mapMarker = null;
-const defaultMapCenter = [9.3647, 122.8014];
+let stream;
+let map;
+let marker;
 
-function showStep(step) {
+function addRealisticLayers(mapInstance) {
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri'
+    }).addTo(mapInstance);
+    L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Labels &copy; Esri'
+    }).addTo(mapInstance);
+}
+
+const stepPanels = document.querySelectorAll('.step-panel');
+const stepDots = document.querySelectorAll('.step-dot');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const submitBtn = document.getElementById('submitBtn');
+
+function setStep(step) {
     currentStep = step;
-
-    document.querySelectorAll(".wizard-step").forEach((el) => {
-        const thisStep = Number(el.getAttribute("data-step"));
-        el.classList.toggle("active", thisStep === step);
+    stepPanels.forEach(panel => {
+        panel.style.display = Number(panel.dataset.step) === step ? 'block' : 'none';
     });
 
-    document.querySelectorAll(".step-indicator").forEach((el) => {
-        const thisStep = Number(el.getAttribute("data-step-indicator"));
-        el.classList.toggle("active", thisStep === step);
-        el.classList.toggle("completed", thisStep < step);
+    stepDots.forEach(dot => {
+        dot.classList.toggle('active', Number(dot.dataset.stepDot) === step);
     });
 
-    document.getElementById("prevStepBtn").disabled = step === 1;
-    document.getElementById("nextStepBtn").style.display = step < totalSteps ? "inline-flex" : "none";
-    document.getElementById("submitStepBtn").style.display = step === totalSteps ? "inline-flex" : "none";
-
-    if (step === 4) {
-        fillReview();
-    }
+    prevBtn.style.display = step > 1 ? 'inline-block' : 'none';
+    nextBtn.style.display = step < 3 ? 'inline-block' : 'none';
+    submitBtn.style.display = step === 3 ? 'inline-block' : 'none';
 
     if (step === 3) {
-        ensureMap();
         setTimeout(() => {
-            if (locationMap) {
-                locationMap.invalidateSize();
+            if (!map) {
+                map = L.map('requestMap').setView([9.2000, 122.8500], 13);
+                addRealisticLayers(map);
             }
-        }, 0);
+            map.invalidateSize();
+        }, 120);
     }
 }
 
 function validateStep(step) {
-    if (step === 2) {
-        const reason = document.getElementById("reasonSelect");
-        if (!reason.value) {
-            reason.focus();
-            alert("Please select a reason for capture.");
+    if (step === 1) {
+        const hasUpload = document.getElementById('imageInput').files.length > 0;
+        const hasCapture = document.getElementById('capturedImage').value.trim() !== '';
+        if (!hasUpload && !hasCapture) {
+            alert('Please upload a photo or capture one using camera.');
             return false;
         }
     }
+
+    if (step === 2) {
+        const reason = document.getElementById('reasonField').value;
+        if (!reason) {
+            alert('Please select a reason.');
+            return false;
+        }
+    }
+
     return true;
 }
 
-document.getElementById("nextStepBtn").addEventListener("click", function () {
+nextBtn.addEventListener('click', () => {
     if (!validateStep(currentStep)) return;
-    if (currentStep < totalSteps) showStep(currentStep + 1);
+    if (currentStep < 3) setStep(currentStep + 1);
 });
 
-document.getElementById("prevStepBtn").addEventListener("click", function () {
-    if (currentStep > 1) showStep(currentStep - 1);
+prevBtn.addEventListener('click', () => {
+    if (currentStep > 1) setStep(currentStep - 1);
 });
 
-function setMode(mode) {
-    captureMode = mode;
-    document.getElementById("uploadModeBtn").classList.toggle("active", mode === "upload");
-    document.getElementById("cameraModeBtn").classList.toggle("active", mode === "camera");
+const uploadSection = document.getElementById('uploadSection');
+const cameraSection = document.getElementById('cameraSection');
+const uploadModeBtn = document.getElementById('uploadModeBtn');
+const cameraModeBtn = document.getElementById('cameraModeBtn');
+const imageInput = document.getElementById('imageInput');
+const capturedPreview = document.getElementById('capturedPreview');
+const capturedImageInput = document.getElementById('capturedImage');
+
+function openImagePicker() {
+    if (typeof imageInput.showPicker === 'function') {
+        imageInput.showPicker();
+    } else {
+        imageInput.click();
+    }
 }
 
-function stopStream() {
+uploadModeBtn.addEventListener('click', () => {
+    uploadSection.style.display = 'block';
+    cameraSection.style.display = 'none';
+    stopCamera();
+    openImagePicker();
+});
+
+cameraModeBtn.addEventListener('click', () => {
+    uploadSection.style.display = 'none';
+    cameraSection.style.display = 'block';
+});
+
+imageInput.addEventListener('change', () => {
+    if (imageInput.files.length > 0) {
+        capturedImageInput.value = '';
+        capturedPreview.style.display = 'none';
+    }
+});
+
+function stopCamera() {
     if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+        stream.getTracks().forEach(track => track.stop());
         stream = null;
     }
 }
 
-function showUpload() {
-    setMode("upload");
-    document.getElementById("uploadSection").style.display = "block";
-    document.getElementById("cameraSection").style.display = "none";
-    stopStream();
-    document.getElementById("capturedImage").value = "";
+function hasCameraApi() {
+    return !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
 }
 
-function showCamera() {
-    setMode("camera");
-    document.getElementById("cameraSection").style.display = "block";
-    document.getElementById("uploadSection").style.display = "none";
+function cameraHelpMessage() {
+    if (!window.isSecureContext) {
+        return 'Camera requires a secure connection (HTTPS). You are on HTTP/LAN. Use HTTPS, or use Upload Photo to open phone camera.';
+    }
+    if (!hasCameraApi()) {
+        return 'Camera API is not available in this browser. Use Upload Photo instead.';
+    }
+    return 'Unable to open camera. Check browser camera permission and try again.';
+}
 
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert("Camera is not supported on this device.");
+document.getElementById('startCameraBtn').addEventListener('click', async () => {
+    if (!hasCameraApi() || !window.isSecureContext) {
+        alert(cameraHelpMessage());
         return;
     }
 
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then((s) => {
-            stream = s;
-            document.getElementById("video").srcObject = stream;
-        })
-        .catch(() => {
-            alert("Camera access denied or not supported.");
-        });
-}
+    try {
+        const constraints = {
+            video: {
+                facingMode: { ideal: 'environment' },
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: false
+        };
 
-function capturePhoto() {
-    const video = document.getElementById("video");
-    const canvas = document.getElementById("canvas");
-    const context = canvas.getContext("2d");
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        document.getElementById('video').srcObject = stream;
+    } catch (e) {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            document.getElementById('video').srcObject = stream;
+        } catch (fallbackError) {
+            alert(cameraHelpMessage());
+        }
+    }
+});
 
-    if (!video.videoWidth || !video.videoHeight) {
-        alert("Camera is not ready yet.");
+document.getElementById('captureBtn').addEventListener('click', () => {
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    if (!video.videoWidth) {
+        alert('Open camera first before capturing.');
         return;
     }
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
     context.drawImage(video, 0, 0);
 
-    const imageData = canvas.toDataURL("image/png");
-    document.getElementById("capturedImage").value = imageData;
+    const imageData = canvas.toDataURL('image/png');
+    capturedImageInput.value = imageData;
+    imageInput.value = '';
 
-    const preview = document.getElementById("photoPreview");
-    preview.src = imageData;
-    document.getElementById("photoPreviewWrap").style.display = "block";
+    capturedPreview.src = imageData;
+    capturedPreview.style.display = 'block';
+});
+
+const locationModeInputs = document.querySelectorAll('input[name="location_mode"]');
+const exactLocationBox = document.getElementById('exactLocationBox');
+const manualLocationBox = document.getElementById('manualLocationBox');
+const barangayField = document.getElementById('barangayField');
+const cityField = document.getElementById('cityField');
+
+locationModeInputs.forEach(input => {
+    input.addEventListener('change', () => {
+        const mode = document.querySelector('input[name="location_mode"]:checked').value;
+        const isExact = mode === 'exact';
+
+        exactLocationBox.style.display = isExact ? 'block' : 'none';
+        manualLocationBox.style.display = isExact ? 'none' : 'block';
+
+        document.getElementById('barangayField').required = !isExact;
+        document.getElementById('cityField').required = !isExact;
+    });
+});
+
+async function resolveAddressFromCoords(lat, lng) {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`;
+    const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!response.ok) throw new Error('Reverse geocoding failed');
+
+    const data = await response.json();
+    const address = data.address || {};
+
+    const barangay =
+        address.suburb ||
+        address.village ||
+        address.hamlet ||
+        address.neighbourhood ||
+        address.quarter ||
+        '';
+    const city =
+        address.city ||
+        address.town ||
+        address.municipality ||
+        address.county ||
+        '';
+
+    return { barangay, city };
 }
 
-function getLocation() {
+document.getElementById('getLocationBtn').addEventListener('click', async () => {
+    const status = document.getElementById('gpsStatus');
+
     if (!navigator.geolocation) {
-        setGpsStatus("Geolocation is not supported on this browser.", "error");
+        alert('Geolocation is not supported on this device/browser.');
         return;
     }
 
-    setGpsStatus("Capturing location...", "loading");
+    status.textContent = 'Getting exact location...';
+    navigator.geolocation.getCurrentPosition(async position => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
 
-    navigator.geolocation.getCurrentPosition(function (position) {
-        const lat = position.coords.latitude.toFixed(6);
-        const lng = position.coords.longitude.toFixed(6);
-        document.getElementById("latitude").value = lat;
-        document.getElementById("longitude").value = lng;
-        setGpsStatus("GPS captured: " + lat + ", " + lng, "ok");
-        ensureMap();
-        updateMapMarker(Number(lat), Number(lng), 16);
-    }, function () {
-        setGpsStatus("Unable to retrieve location.", "error");
-    });
-}
+        document.getElementById('latitude').value = lat.toFixed(6);
+        document.getElementById('longitude').value = lng.toFixed(6);
+        status.textContent = `Location captured: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 
-function ensureMap() {
-    if (locationMap || typeof L === "undefined") {
-        return;
-    }
+        try {
+            const resolved = await resolveAddressFromCoords(lat, lng);
+            if (resolved.barangay) barangayField.value = resolved.barangay;
+            if (resolved.city) cityField.value = resolved.city;
 
-    locationMap = L.map("locationMap", { zoomControl: true }).setView(defaultMapCenter, 13);
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: "&copy; OpenStreetMap contributors"
-    }).addTo(locationMap);
-
-    locationMap.on("click", function (event) {
-        const lat = event.latlng.lat.toFixed(6);
-        const lng = event.latlng.lng.toFixed(6);
-        document.getElementById("latitude").value = lat;
-        document.getElementById("longitude").value = lng;
-        setGpsStatus("Pinned from map: " + lat + ", " + lng, "ok");
-        updateMapMarker(Number(lat), Number(lng), locationMap.getZoom());
-    });
-
-    const latInput = document.getElementById("latitude").value;
-    const lngInput = document.getElementById("longitude").value;
-    if (latInput && lngInput) {
-        updateMapMarker(Number(latInput), Number(lngInput), 16);
-    }
-}
-
-function updateMapMarker(lat, lng, zoom = 16) {
-    if (!locationMap) return;
-
-    if (!mapMarker) {
-        mapMarker = L.marker([lat, lng]).addTo(locationMap);
-    } else {
-        mapMarker.setLatLng([lat, lng]);
-    }
-    locationMap.setView([lat, lng], zoom);
-}
-
-function setGpsStatus(message, state = "") {
-    const status = document.getElementById("gpsStatus");
-    status.textContent = message;
-    status.classList.remove("ok", "error", "loading");
-    if (state) {
-        status.classList.add(state);
-    }
-}
-
-function findManualLocation() {
-    const barangay = document.getElementById("barangayInput").value.trim();
-    const city = document.getElementById("cityInput").value.trim();
-    const query = [barangay, city].filter(Boolean).join(", ");
-
-    if (!query) {
-        setGpsStatus("Enter barangay or city first to search on map.", "error");
-        return;
-    }
-
-    setGpsStatus("Finding location on map...", "loading");
-
-    fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(query))
-        .then((response) => response.json())
-        .then((results) => {
-            if (!results.length) {
-                setGpsStatus("Location not found. Try a more specific place.", "error");
-                return;
+            const label = [resolved.barangay, resolved.city].filter(Boolean).join(', ');
+            if (label) {
+                status.textContent = `Location captured: ${label}`;
             }
+        } catch (e) {
+            // Keep coordinate capture even when reverse geocoding is unavailable.
+        }
 
-            const lat = Number(results[0].lat).toFixed(6);
-            const lng = Number(results[0].lon).toFixed(6);
-            document.getElementById("latitude").value = lat;
-            document.getElementById("longitude").value = lng;
+        if (!map) {
+            map = L.map('requestMap').setView([lat, lng], 16);
+            addRealisticLayers(map);
+        } else {
+            map.setView([lat, lng], 16);
+        }
 
-            ensureMap();
-            updateMapMarker(Number(lat), Number(lng), 16);
-            setGpsStatus("Manual location found: " + lat + ", " + lng, "ok");
-        })
-        .catch(() => {
-            setGpsStatus("Could not search location right now.", "error");
-        });
-}
+        if (marker) marker.remove();
+        marker = L.marker([lat, lng]).addTo(map).bindPopup('Exact location').openPopup();
+    }, () => {
+        status.textContent = 'Unable to retrieve location. Please try again.';
+        alert('Unable to retrieve location.');
+    }, {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 0
+    });
+});
 
-function fillReview() {
-    const reasonSelect = document.getElementById("reasonSelect");
-    const reasonText = reasonSelect.options[reasonSelect.selectedIndex] ? reasonSelect.options[reasonSelect.selectedIndex].text : "-";
-    const description = document.getElementById("descriptionInput").value.trim() || "-";
-    const lat = document.getElementById("latitude").value.trim();
-    const lng = document.getElementById("longitude").value.trim();
-    const barangay = document.getElementById("barangayInput").value.trim();
-    const city = document.getElementById("cityInput").value.trim();
-
-    let locationText = "-";
-    if (lat && lng) {
-        locationText = "GPS: " + lat + ", " + lng;
-    } else if (barangay || city) {
-        locationText = [barangay, city].filter(Boolean).join(", ");
-    }
-
-    document.getElementById("reviewPhotoMode").textContent = captureMode === "camera" ? "Live Capture" : "Upload";
-    document.getElementById("reviewReason").textContent = reasonText || "-";
-    document.getElementById("reviewDescription").textContent = description;
-    document.getElementById("reviewLocation").textContent = locationText;
-}
-
-document.getElementById("captureForm").addEventListener("submit", function (event) {
-    if (!validateStep(2)) {
-        event.preventDefault();
-        showStep(2);
+document.getElementById('captureForm').addEventListener('submit', (e) => {
+    const mode = document.querySelector('input[name="location_mode"]:checked').value;
+    if (mode === 'exact') {
+        const lat = document.getElementById('latitude').value;
+        const lng = document.getElementById('longitude').value;
+        if (!lat || !lng) {
+            e.preventDefault();
+            alert('Please capture exact location first.');
+        }
     }
 });
 
-document.getElementById("uploadPhoto").addEventListener("change", function (event) {
-    const file = event.target.files && event.target.files[0];
-    if (!file) {
-        return;
-    }
-    const preview = document.getElementById("photoPreview");
-    preview.src = URL.createObjectURL(file);
-    document.getElementById("photoPreviewWrap").style.display = "block";
+document.querySelectorAll('.request-clickable').forEach((card) => {
+    card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            card.click();
+        }
+    });
 });
 
-window.addEventListener("beforeunload", stopStream);
-showUpload();
-showStep(1);
+document.querySelectorAll('.request-edit-toggle').forEach((button) => {
+    button.addEventListener('click', () => {
+        const target = document.querySelector(button.dataset.target);
+        if (target) {
+            target.style.display = 'block';
+            // Sync visible fields and required flags when edit panel is opened.
+            applyRequestEditLocationMode(target);
+        }
+    });
+});
+
+document.querySelectorAll('.request-edit-cancel').forEach((button) => {
+    button.addEventListener('click', () => {
+        const target = document.querySelector(button.dataset.target);
+        if (target) target.style.display = 'none';
+    });
+});
+
+function applyRequestEditLocationMode(form) {
+    if (!form) return;
+    // Toggle which location section is editable inside the request edit modal.
+    const exactRadio = form.querySelector('input[name="edit_location_mode"][value="exact"]');
+    const manualBox = form.querySelector('[data-edit-manual-box]');
+    const exactBox = form.querySelector('[data-edit-exact-box]');
+    const barangayInput = form.querySelector('input[name="barangay"]');
+    const cityInput = form.querySelector('input[name="city"]');
+    const latitudeInput = form.querySelector('input[name="latitude"]');
+    const longitudeInput = form.querySelector('input[name="longitude"]');
+    const isExact = !!(exactRadio && exactRadio.checked);
+
+    if (manualBox) manualBox.style.display = isExact ? 'none' : 'grid';
+    if (exactBox) exactBox.style.display = isExact ? 'grid' : 'none';
+
+    if (latitudeInput) latitudeInput.required = isExact;
+    if (longitudeInput) longitudeInput.required = isExact;
+    if (barangayInput) barangayInput.required = !isExact;
+    if (cityInput) cityInput.required = !isExact;
+}
+
+document.querySelectorAll('.request-edit-form').forEach((form) => {
+    const modeRadios = form.querySelectorAll('input[name="edit_location_mode"]');
+    modeRadios.forEach((radio) => {
+        // Live switch between Manual Address and Exact GPS inputs.
+        radio.addEventListener('change', () => applyRequestEditLocationMode(form));
+    });
+    applyRequestEditLocationMode(form);
+});
+
+setStep(1);
 </script>
 
 {% endblock %}

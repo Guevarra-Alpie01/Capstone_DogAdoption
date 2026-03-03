@@ -1,7 +1,9 @@
-from django.shortcuts import render, redirect , get_object_or_404
+﻿from django.shortcuts import render, redirect , get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
@@ -10,23 +12,27 @@ from django.db.models import Q
 import os
 import json
 import base64
-from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
 from django.conf import settings
+from datetime import timedelta
+from django.core.paginator import Paginator
+from django.utils.dateparse import parse_date
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 
 #MODELS FROM ADMIN APP 
 from dogadoption_admin.models import DogAnnouncement, AnnouncementComment
-from dogadoption_admin.models import Post, PostRequest
+from dogadoption_admin.models import Post, PostRequest, GlobalAppointmentDate
+from dogadoption_admin.models import Barangay
 
 #MODELS FROM USER APP
-from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
+from .models import Profile, DogCaptureRequest, DogCaptureRequestImage, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
 from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, MissingDogPost
 
 #FORMS.PY 
 from .forms import UserAdoptionPostForm,MissingDogPostForm
 # Decorator to allow only users
-from collections import Counter
 
 
 # USER-ONLY DECORATOR
@@ -41,6 +47,11 @@ def user_only(view_func):
 
 # User Authentication through log in 
 def login_view(request):
+    if request.user.is_authenticated:
+        if request.user.is_staff:
+            return redirect("dogadoption_admin:post_list")
+        return redirect("user:user_home")
+
     if request.method == "POST":
         username = request.POST.get("username")
         password = request.POST.get("password")
@@ -48,18 +59,16 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
-            # Prevent admins from logging in here
             if user.is_staff:
-                return render(request, "login.html", {
-                    "error": "Please login through the admin portal."
-                })
-
-            # Force logout any existing admin session before logging in as a user
-            if request.user.is_authenticated and request.user.is_staff:
-                logout(request)
+                login(request, user)
+                response = redirect("dogadoption_admin:post_list")
+                response.set_cookie("admin_sessionid", request.session.session_key)
+                return response
 
             login(request, user)
-            return redirect("user:user_home")
+            response = redirect("user:user_home")
+            response.delete_cookie("admin_sessionid")
+            return response
 
         return render(request, "login.html", {
             "error": "Invalid username or password"
@@ -68,26 +77,96 @@ def login_view(request):
     return render(request, "login.html")
 
 
+def logout_view(request):
+    logout(request)
+    response = redirect("user:login")
+    response.delete_cookie("admin_sessionid")
+    return response
+
+
 
 # Sign up for users
+def _clean_barangay(value):
+    return " ".join((value or "").split()).strip()
+
+
+def _normalize_barangay(value):
+    return "".join(ch.lower() for ch in _clean_barangay(value) if ch.isalnum())
+
+
+def _resolve_barangay_name(value):
+    normalized = _normalize_barangay(value)
+    if not normalized:
+        return ""
+    for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True):
+        if _normalize_barangay(name) == normalized:
+            return name
+    return ""
+
+
+def barangay_list_api(request):
+    barangays = list(Barangay.objects.filter(is_active=True).values_list("name", flat=True))
+    return JsonResponse({"barangays": barangays})
+
+
 def signup_view(request):
     if request.method == "POST":
-        username = request.POST.get("username")
+        username = (request.POST.get("username") or "").strip()
+        password = request.POST.get("password") or ""
+        confirm_password = request.POST.get("confirm_password") or ""
+        first_name = (request.POST.get("first_name") or "").strip()
+        last_name = (request.POST.get("last_name") or "").strip()
+        raw_barangay = request.POST.get("address")
+        barangay = _resolve_barangay_name(request.POST.get("address"))
+        signup_form_data = {
+            "username": username,
+            "first_name": first_name,
+            "last_name": last_name,
+            "address": _clean_barangay(raw_barangay),
+        }
 
-        if User.objects.filter(username=username).exists():
+        if not username:
             return render(request, "signup.html", {
-                "error": "Username already exists"
+                "error": "Username is required.",
+                "signup_form_data": signup_form_data,
+            })
+
+        if User.objects.filter(username__iexact=username).exists():
+            return render(request, "signup.html", {
+                "error": "Username already exists",
+                "signup_form_data": signup_form_data,
+            })
+
+        if password != confirm_password:
+            return render(request, "signup.html", {
+                "error": "Passwords do not match.",
+                "signup_form_data": signup_form_data,
+            })
+
+        try:
+            temp_user = User(username=username, first_name=request.POST.get("first_name"), last_name=request.POST.get("last_name"))
+            validate_password(password, user=temp_user)
+        except ValidationError as exc:
+            return render(request, "signup.html", {
+                "error": " ".join(exc.messages),
+                "signup_form_data": signup_form_data,
+            })
+
+        if not barangay:
+            return render(request, "signup.html", {
+                "error": "Please select a valid barangay from the suggestions.",
+                "signup_form_data": signup_form_data,
             })
 
         # SAVE DATA TEMPORARILY (SESSION)
         request.session["signup_data"] = {
             "username": username,
-            "password": request.POST.get("password"),
-            "first_name": request.POST.get("first_name"),
-            "last_name": request.POST.get("last_name"),
-            "middle_initial": request.POST.get("middle_initial"),
-            "address": request.POST.get("address"),
-            "age": request.POST.get("age"),
+            "password": password,
+            "first_name": first_name,
+            "last_name": last_name,
+            "middle_initial": "",
+            "address": barangay,
+            "age": 18,
         }
 
         # GO TO FACE AUTH STEP
@@ -117,6 +196,8 @@ def edit_profile(request):
         profile.middle_initial = request.POST.get("middle_initial", "").strip()
         profile.address = request.POST.get("address", "").strip()
         profile.age = request.POST.get("age") or profile.age
+        profile.phone_number = request.POST.get("phone_number", "").strip()
+        profile.facebook_url = request.POST.get("facebook_url", "").strip()
 
         if request.FILES.get("profile_image"):
             profile.profile_image = request.FILES["profile_image"]
@@ -192,9 +273,9 @@ def signup_complete(request):
     # Create profile
     profile = Profile.objects.create(
         user=user,
-        middle_initial=data["middle_initial"],
-        address=data["address"],
-        age=data["age"],
+        middle_initial=data.get("middle_initial", ""),
+        address=data.get("address", ""),
+        age=data.get("age", 18),
         consent_given=True
     )
 
@@ -221,7 +302,9 @@ def user_home(request):
     if request.user.is_authenticated and request.user.is_staff:
         return redirect('dogadoption_admin:post_list')
 
-    query = request.GET.get('q')
+    query = (request.GET.get('q') or '').strip()
+    page_number = request.GET.get('page', 1)
+    posts_per_page = 12
 
     # Admin posts
     admin_posts = Post.objects.all().prefetch_related('images').order_by('-created_at')
@@ -254,13 +337,31 @@ def user_home(request):
 
     combined_posts = []
 
+    def format_posted_label(dt):
+        if not dt:
+            return ""
+        now = timezone.now()
+        delta = now - dt
+        if delta < timedelta(minutes=1):
+            return "Just now"
+        if delta < timedelta(hours=1):
+            minutes = max(int(delta.total_seconds() // 60), 1)
+            return f"{minutes}m"
+        if delta < timedelta(days=1):
+            hours = max(int(delta.total_seconds() // 3600), 1)
+            return f"{hours}h"
+        if delta < timedelta(days=7):
+            days = max(int(delta.total_seconds() // 86400), 1)
+            return f"{days}d"
+        return dt.strftime("%b %d, %Y")
+
     # ADMIN POSTS
     for p in admin_posts:
         days = hours = minutes = 0
-        is_open_for_adoption = False
+        phase = p.current_phase() if hasattr(p, "current_phase") else "closed"
+        is_open_for_adoption = phase in ["claim", "adopt"]
 
-        if hasattr(p, 'is_open_for_adoption') and p.is_open_for_adoption():
-            is_open_for_adoption = True
+        if is_open_for_adoption:
             diff = p.time_left()
             total_seconds = max(int(diff.total_seconds()), 0)
 
@@ -270,13 +371,22 @@ def user_home(request):
             remainder = remainder % 3600
             minutes = remainder // 60
 
+        deadline = None
+        if phase == 'claim':
+            deadline = p.claim_deadline()
+        elif phase == 'adopt':
+            deadline = p.adoption_deadline()
+
         combined_posts.append({
             'post': p,
             'post_type': 'admin',
             'days_left': days,
             'hours_left': hours,
             'minutes_left': minutes,
-            'is_open_for_adoption': is_open_for_adoption
+            'is_open_for_adoption': is_open_for_adoption,
+            'phase': phase,
+            'posted_label': format_posted_label(p.created_at),
+            'deadline_iso': deadline.isoformat() if deadline else "",
         })
 
     # USER ADOPTION POSTS
@@ -287,7 +397,9 @@ def user_home(request):
             'days_left': 0,
             'hours_left': 0,
             'minutes_left': 0,
-            'is_open_for_adoption': False
+            'is_open_for_adoption': False,
+            'phase': 'closed',
+            'posted_label': format_posted_label(p.created_at),
         })
 
     # MISSING POSTS
@@ -298,7 +410,9 @@ def user_home(request):
             'days_left': 0,
             'hours_left': 0,
             'minutes_left': 0,
-            'is_open_for_adoption': False
+            'is_open_for_adoption': False,
+            'phase': 'closed',
+            'posted_label': format_posted_label(p.created_at),
         })
 
     # SORT ALL POSTS
@@ -308,34 +422,55 @@ def user_home(request):
         reverse=True
     )
 
+    paginator = Paginator(combined_posts, posts_per_page)
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'home/user_home.html', {
-        'posts': combined_posts,
+        'posts': page_obj.object_list,
+        'page_obj': page_obj,
         'query': query,
     })
 
 @user_only
-def create_user_adoption_post(request):
-    if request.method == 'POST':
-        form = UserAdoptionPostForm(request.POST, request.FILES)
-        if form.is_valid():
-            post = form.save(commit=False)
-            post.owner = request.user
-            post.save()
+def create_post(request):
+    selected_type = request.GET.get("type", "adoption")
+    if request.method == "POST":
+        selected_type = request.POST.get("post_type", "adoption")
 
-            # Save main image
-            main_image = request.FILES.get('main_image')
-            if main_image:
-                UserAdoptionImage.objects.create(post=post, image=main_image)
+    adoption_form = UserAdoptionPostForm()
+    missing_form = MissingDogPostForm()
 
-            # Save extra images
-            for img in request.FILES.getlist('extra_images'):
-                UserAdoptionImage.objects.create(post=post, image=img)
+    if request.method == "POST":
+        if selected_type == "missing":
+            missing_form = MissingDogPostForm(request.POST, request.FILES)
+            if missing_form.is_valid():
+                post = missing_form.save(commit=False)
+                post.owner = request.user
+                post.save()
+                messages.success(request, "Missing dog post created successfully.")
+                return redirect("user:user_home")
+        else:
+            adoption_form = UserAdoptionPostForm(request.POST, request.FILES)
+            if adoption_form.is_valid():
+                post = adoption_form.save(commit=False)
+                post.owner = request.user
+                post.save()
 
-            return redirect('user:user_home')
-    else:
-        form = UserAdoptionPostForm()
+                main_image = request.FILES.get("main_image")
+                if main_image:
+                    UserAdoptionImage.objects.create(post=post, image=main_image)
 
-    return render(request, 'home/post_adopt.html', {'form': form})
+                for img in request.FILES.getlist("extra_images"):
+                    UserAdoptionImage.objects.create(post=post, image=img)
+
+                messages.success(request, "Adoption post created successfully.")
+                return redirect("user:user_home")
+
+    return render(request, "home/post_create.html", {
+        "selected_type": selected_type,
+        "adoption_form": adoption_form,
+        "missing_form": missing_form,
+    })
 
 
 @user_only
@@ -345,6 +480,15 @@ def adopt_user_post(request, post_id):
     if post.owner == request.user:
         return redirect('user:user_home')
 
+    if post.status != "available":
+        messages.warning(request, "This dog is no longer available.")
+        return redirect("user:user_home")
+
+    profile = Profile.objects.filter(user=request.user).first()
+    if not profile or not profile.phone_number or not profile.facebook_url:
+        messages.warning(request, "Please add your phone number and Facebook profile before requesting adoption.")
+        return redirect("user:edit_profile")
+
     UserAdoptionRequest.objects.get_or_create(
         post=post,
         requester=request.user
@@ -353,26 +497,42 @@ def adopt_user_post(request, post_id):
     return redirect('user:user_home')
 
 
-from .models import MissingDogPost
-from .forms import MissingDogPostForm
+@user_only
+def user_adoption_requests(request):
+    requests = UserAdoptionRequest.objects.filter(
+        post__owner=request.user
+    ).select_related("post", "requester", "requester__profile").order_by("-created_at")
+
+    return render(request, "adopt/user_post_requests.html", {
+        "requests": requests,
+    })
 
 
 @user_only
-def create_missing_post(request):
-    if request.method == 'POST':
-        form = MissingDogPostForm(request.POST, request.FILES)
-        if form.is_valid():
-            post = form.save(commit=False)
-            post.owner = request.user
-            post.save()
-            messages.success(request, "Missing dog post created successfully 🐶")
-            return redirect('user:user_home')
-    else:
-        form = MissingDogPostForm()
+def user_adoption_request_action(request, req_id, action):
+    req = get_object_or_404(
+        UserAdoptionRequest,
+        id=req_id,
+        post__owner=request.user
+    )
 
-    return render(request, 'home/post_missing.html', {
-        'form': form
-    })
+    if action == "accept":
+        req.status = "approved"
+        req.save(update_fields=["status"])
+        UserAdoptionRequest.objects.filter(
+            post=req.post
+        ).exclude(id=req.id).update(status="rejected")
+        req.post.status = "adopted"
+        req.post.save(update_fields=["status"])
+        messages.success(request, "Adoption request accepted.")
+    elif action == "decline":
+        req.status = "rejected"
+        req.save(update_fields=["status"])
+        messages.info(request, "Adoption request declined.")
+
+    return redirect("user:user_adoption_requests")
+
+
 
 # VIEW FOR FACEBOOK SHARED LINK PREVIEW
 @user_only
@@ -385,44 +545,160 @@ def post_detail(request, post_id):
 @user_only
 def request_dog_capture(request):
     if request.method == 'POST':
-        image_file = request.FILES.get('image')
-        captured_image_data = request.POST.get('captured_image')
+        uploaded_images = list(request.FILES.getlist('images'))
+        legacy_image = request.FILES.get('image')
+        if legacy_image:
+            uploaded_images.append(legacy_image)
+        captured_image = request.POST.get('captured_image')
+        barangay = _clean_barangay(request.POST.get('barangay'))
+        city = _clean_barangay(request.POST.get('city'))
 
-        # Support live camera capture by converting base64 image data into a file.
-        if not image_file and captured_image_data and ';base64,' in captured_image_data:
+        if not uploaded_images and captured_image and ';base64,' in captured_image:
+            _, imgstr = captured_image.split(';base64,', 1)
+            filename = f"capture_{request.user.id}_{int(timezone.now().timestamp())}.png"
+            uploaded_images = [ContentFile(base64.b64decode(imgstr), name=filename)]
+
+        if not barangay:
             try:
-                header, encoded = captured_image_data.split(';base64,', 1)
-                extension = 'png'
-                if '/' in header:
-                    extension = header.split('/')[-1]
-                image_file = ContentFile(
-                    base64.b64decode(encoded),
-                    name=f"capture_{request.user.id}.{extension}"
-                )
-            except Exception:
-                image_file = None
+                profile_barangay = _clean_barangay(request.user.profile.address)
+            except Profile.DoesNotExist:
+                profile_barangay = ""
+            barangay = _resolve_barangay_name(profile_barangay) or profile_barangay
 
-        DogCaptureRequest.objects.create(
+        new_req = DogCaptureRequest.objects.create(
             requested_by=request.user,
             reason=request.POST.get('reason'),
             description=request.POST.get('description'),
             latitude=request.POST.get('latitude') or None,
             longitude=request.POST.get('longitude') or None,
-            barangay=request.POST.get('barangay'),
-            city=request.POST.get('city'),
-            image=image_file
+            barangay=barangay or None,
+            city=city or None,
+            image=None
+        )
+
+        first_saved_image = None
+        for image_file in uploaded_images:
+            saved_image = DogCaptureRequestImage.objects.create(
+                request=new_req,
+                image=image_file,
+            )
+            if first_saved_image is None:
+                first_saved_image = saved_image.image
+
+        if first_saved_image:
+            new_req.image = first_saved_image
+            new_req.save(update_fields=['image'])
+
+        from dogadoption_admin.models import AdminNotification
+        AdminNotification.objects.create(
+            title="New dog capture request",
+            message=f"{request.user.username} submitted a request.",
+            url="/vetadmin/dog-capture/requests/",
         )
         messages.success(request, "Request submitted successfully.")
 
     requests = DogCaptureRequest.objects.filter(
         requested_by=request.user
+    ).prefetch_related(
+        'images'
     ).order_by('-created_at')
 
     return render(request, 'user_request/request.html', {
-        'requests': requests,
+        'requests': requests
     })
 
 
+
+
+@user_only
+@require_POST
+def edit_dog_capture_request(request, req_id):
+    req = get_object_or_404(
+        DogCaptureRequest,
+        id=req_id,
+        requested_by=request.user,
+    )
+
+    # User can only update requests that are still waiting for admin action.
+    if req.status != 'pending':
+        messages.warning(request, "Only pending requests can be edited.")
+        return redirect('user:dog_capture_request')
+
+    reason = (request.POST.get('reason') or '').strip()
+    if reason not in DogCaptureRequest.REASON_LABELS:
+        messages.error(request, "Please select a valid reason.")
+        return redirect('user:dog_capture_request')
+
+    description = (request.POST.get('description') or '').strip()
+    barangay = _clean_barangay(request.POST.get('barangay'))
+    city = _clean_barangay(request.POST.get('city'))
+    latitude_raw = (request.POST.get('latitude') or '').strip()
+    longitude_raw = (request.POST.get('longitude') or '').strip()
+    # Support both the main request form field name and the edit-modal field name.
+    location_mode = (
+        request.POST.get('location_mode')
+        or request.POST.get('edit_location_mode')
+        or ''
+    ).strip().lower()
+
+    # Fallback keeps old submissions compatible when mode is not sent.
+    if location_mode not in {'exact', 'manual'}:
+        location_mode = 'exact' if (latitude_raw or longitude_raw) else 'manual'
+
+    if location_mode == 'manual' and not barangay and not city:
+        messages.error(request, "Please provide a manual address.")
+        return redirect('user:dog_capture_request')
+
+    if location_mode == 'exact' and (not latitude_raw or not longitude_raw):
+        messages.error(request, "Please provide both latitude and longitude.")
+        return redirect('user:dog_capture_request')
+
+    # Exact mode stores GPS coordinates; manual mode clears coordinates.
+    if location_mode == 'exact':
+        try:
+            latitude_val = float(latitude_raw)
+            longitude_val = float(longitude_raw)
+        except ValueError:
+            messages.error(request, "Latitude and longitude must be valid numbers.")
+            return redirect('user:dog_capture_request')
+
+        if not (-90 <= latitude_val <= 90 and -180 <= longitude_val <= 180):
+            messages.error(request, "Coordinates are out of valid range.")
+            return redirect('user:dog_capture_request')
+
+        req.latitude = f"{latitude_val:.6f}"
+        req.longitude = f"{longitude_val:.6f}"
+    else:
+        req.latitude = None
+        req.longitude = None
+
+    req.reason = reason
+    req.description = description or None
+    req.barangay = (_resolve_barangay_name(barangay) or barangay) if barangay else None
+    req.city = city or None
+    req.save(update_fields=['reason', 'description', 'barangay', 'city', 'latitude', 'longitude'])
+
+    messages.success(request, "Request updated successfully.")
+    return redirect('user:dog_capture_request')
+
+
+@user_only
+@require_POST
+def delete_dog_capture_request(request, req_id):
+    req = get_object_or_404(
+        DogCaptureRequest,
+        id=req_id,
+        requested_by=request.user,
+    )
+
+    # Prevent deleting requests that are already scheduled/processed by admin.
+    if req.status != 'pending':
+        messages.warning(request, "Only pending requests can be deleted.")
+        return redirect('user:dog_capture_request')
+
+    req.delete()
+    messages.success(request, "Request deleted successfully.")
+    return redirect('user:dog_capture_request')
 
 
 #CLAIM PAGE 
@@ -438,47 +714,79 @@ def claim(request):
 def adopt_list(request):
     filter_type = request.GET.get("filter", "all")
 
-    posts = Post.objects.all().prefetch_related("images").order_by("-created_at")
+    posts_qs = Post.objects.all().prefetch_related("images").order_by("-created_at")
+    posts = []
 
-    # Filtering logic based on YOUR model
+    # Filtering logic based on active timeline phase
     if filter_type == "ready_claim":
         posts = [
-            p for p in posts
-            if p.status == "rescued" and p.is_open_for_adoption()
+            p for p in posts_qs
+            if p.is_open_for_claim()
         ]
 
     elif filter_type == "ready_adopt":
         posts = [
-            p for p in posts
-            if p.status == "under_care" and p.is_open_for_adoption()
+            p for p in posts_qs
+            if p.is_open_for_adoption()
         ]
 
     elif filter_type == "adopted":
-        posts = posts.filter(status="adopted")
+        posts = list(posts_qs.filter(status="adopted"))
 
     elif filter_type == "claimed":
-        posts = posts.filter(status="reunited")
+        posts = list(posts_qs.filter(status="reunited"))
 
     elif filter_type == "all":
-        posts = posts
+        posts = list(posts_qs)
+
+    post_items = []
+    for p in posts:
+        phase = p.current_phase()
+        days = hours = minutes = 0
+        if phase in ["claim", "adopt"]:
+            diff = p.time_left()
+            total_seconds = max(int(diff.total_seconds()), 0)
+            days = total_seconds // 86400
+            remainder = total_seconds % 86400
+            hours = remainder // 3600
+            remainder = remainder % 3600
+            minutes = remainder // 60
+        post_items.append({
+            "post": p,
+            "phase": phase,
+            "days_left": days,
+            "hours_left": hours,
+            "minutes_left": minutes,
+        })
 
     return render(request, "adopt/adopt_list.html", {
-        "posts": posts,
+        "posts": post_items,
         "current_filter": filter_type
     })
 
 @user_only
 def adopt_status(request):
-    requests = AdoptionRequest.objects.filter(user=request.user).select_related('post')
+    requests = PostRequest.objects.filter(
+        user=request.user,
+        request_type='adopt'
+    ).select_related('post').order_by('-created_at')
     return render(request, 'adopt/adopt.html', {'requests': requests})
 
 @user_only
 def adopt_confirm(request, post_id):
     post = get_object_or_404(Post, id=post_id)
+    available_dates = GlobalAppointmentDate.objects.filter(
+        is_active=True,
+        appointment_date__gte=timezone.localdate(),
+    ).order_by('appointment_date')
 
     # Block if already claimed or adopted
     if post.status in ['reunited', 'adopted']:
         messages.warning(request, "This dog is no longer available.")
+        return redirect('user:user_home')
+
+    if not post.is_open_for_adoption():
+        messages.warning(request, "Adoption is not open yet or has already closed.")
         return redirect('user:user_home')
 
     # Prevent duplicate adoption requests
@@ -491,11 +799,29 @@ def adopt_confirm(request, post_id):
         return redirect('user:user_home')
 
     if request.method == 'POST':
+        appointment_date_raw = request.POST.get('appointment_date')
+        appointment_date = parse_date(appointment_date_raw) if appointment_date_raw else None
+
+        if not appointment_date:
+            messages.error(request, "Please select an appointment date.")
+            return render(request, 'adopt/adopt_confirm.html', {
+                'post': post,
+                'available_dates': available_dates,
+            })
+
+        if not available_dates.filter(appointment_date=appointment_date).exists():
+            messages.error(request, "Selected appointment date is not available.")
+            return render(request, 'adopt/adopt_confirm.html', {
+                'post': post,
+                'available_dates': available_dates,
+            })
+
         req = PostRequest.objects.create(
             user=request.user,
             post=post,
             request_type='adopt',
-            status='pending'
+            status='pending',
+            appointment_date=appointment_date,
         )
 
         for img in request.FILES.getlist('images'):
@@ -503,22 +829,38 @@ def adopt_confirm(request, post_id):
 
         messages.success(
             request,
-            "Adoption request submitted successfully! 🐾"
+            "Adoption request submitted successfully! ðŸ¾"
         )
         return redirect('user:user_home')
 
-    return render(request, 'adopt/adopt_confirm.html', {'post': post})
+    return render(request, 'adopt/adopt_confirm.html', {
+        'post': post,
+        'available_dates': available_dates,
+    })
 
 
 
 @user_only
 def announcement_list(request):
-    posts = DogAnnouncement.objects.all() \
-        .prefetch_related('comments') \
+    posts = (
+        DogAnnouncement.objects.all()
+        .prefetch_related('comments', 'images')
         .order_by('-created_at')
+    )
 
     return render(request, 'announcement/announcement.html', {
         'announcements': posts
+    })
+
+
+@user_only
+def announcement_detail(request, post_id):
+    post = get_object_or_404(
+        DogAnnouncement.objects.prefetch_related('comments', 'comments__user', 'images'),
+        id=post_id,
+    )
+    return render(request, 'announcement/announcement_detail.html', {
+        'post': post,
     })
 
 
@@ -530,7 +872,12 @@ def announcement_comment(request, post_id):
             user=request.user,
             comment=request.POST.get("comment")
         )
-    return redirect('user:announcement_list')
+    next_url = (request.POST.get("next") or "").strip()
+    if not next_url or not url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        next_url = reverse('user:announcement_list')
+    return redirect(next_url)
 
 #CLAIM PAGE
 
@@ -549,10 +896,18 @@ def my_claims(request):
 @user_only
 def claim_confirm(request, post_id):
     post = get_object_or_404(Post, id=post_id)
+    available_dates = GlobalAppointmentDate.objects.filter(
+        is_active=True,
+        appointment_date__gte=timezone.localdate(),
+    ).order_by('appointment_date')
 
     #  Block if already claimed or adopted
     if post.status in ['reunited', 'adopted']:
         messages.warning(request, "This dog is no longer available.")
+        return redirect('user:user_home')
+
+    if not post.is_open_for_claim():
+        messages.warning(request, "Claim period has ended for this post.")
         return redirect('user:user_home')
 
     # Prevent duplicate claim requests
@@ -565,11 +920,29 @@ def claim_confirm(request, post_id):
         return redirect('user:user_home')
 
     if request.method == 'POST':
+        appointment_date_raw = request.POST.get('appointment_date')
+        appointment_date = parse_date(appointment_date_raw) if appointment_date_raw else None
+
+        if not appointment_date:
+            messages.error(request, "Please select an appointment date.")
+            return render(request, 'claim/claim_confirm.html', {
+                'post': post,
+                'available_dates': available_dates,
+            })
+
+        if not available_dates.filter(appointment_date=appointment_date).exists():
+            messages.error(request, "Selected appointment date is not available.")
+            return render(request, 'claim/claim_confirm.html', {
+                'post': post,
+                'available_dates': available_dates,
+            })
+
         req = PostRequest.objects.create(
             user=request.user,
             post=post,
             request_type='claim',
-            status='pending'
+            status='pending',
+            appointment_date=appointment_date,
         )
 
         for img in request.FILES.getlist('images'):
@@ -577,8 +950,11 @@ def claim_confirm(request, post_id):
 
         messages.success(
             request,
-            "Claim submitted successfully! Admin will review it carefully 🐾"
+            "Claim submitted successfully! Admin will review it carefully ðŸ¾"
         )
         return redirect('user:user_home')
 
-    return render(request, 'claim/claim_confirm.html', {'post': post})
+    return render(request, 'claim/claim_confirm.html', {
+        'post': post,
+        'available_dates': available_dates,
+    })

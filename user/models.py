@@ -16,6 +16,8 @@ class Profile(models.Model):
     address = models.TextField()
     age = models.IntegerField()
     consent_given = models.BooleanField(default=False)
+    phone_number = models.CharField(max_length=20, blank=True)
+    facebook_url = models.URLField(blank=True)
     profile_image = models.ImageField(
     upload_to ="profile_images/",
     default="profile_images/default-user-image.jpg")
@@ -23,6 +25,15 @@ class Profile(models.Model):
     
 #request dog capture
 class DogCaptureRequest(models.Model):
+    REASON_LABELS = {
+        'biting': 'Dog is biting people',
+        'aggressive': 'Dog is aggressive',
+        'injured': 'Dog is injured',
+        'sick': 'Dog looks sick',
+        'stray': 'Stray dog',
+        'other': 'Other',
+    }
+
     STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('accepted', 'Accepted'),
@@ -52,11 +63,29 @@ class DogCaptureRequest(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     scheduled_date = models.DateTimeField(null=True, blank=True)
     admin_message = models.TextField(null=True, blank=True)
+    notification_scheduled_for = models.DateTimeField(null=True, blank=True)
+    notification_sent_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def get_reason_display(self):
+        return self.REASON_LABELS.get(self.reason, self.reason.replace('_', ' ').title() if self.reason else 'Unknown')
+
     def __str__(self):
         return f"{self.requested_by} - {self.reason} ({self.status})"
+
+
+class DogCaptureRequestImage(models.Model):
+    request = models.ForeignKey(
+        DogCaptureRequest,
+        on_delete=models.CASCADE,
+        related_name='images'
+    )
+    image = models.ImageField(upload_to='dog_requests/')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Capture request {self.request_id} image"
 
 
 class AdoptionRequest(models.Model):

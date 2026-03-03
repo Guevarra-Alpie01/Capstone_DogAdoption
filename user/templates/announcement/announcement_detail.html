@@ -31,18 +31,8 @@
             {% endif %}
         </div>
 
-        {% if post.background_image or post.images.all %}
+        {% if post.images.all %}
         <div class="media-viewer">
-            {% if post.background_image %}
-            <img src="{{ post.background_image.url }}"
-                 class="detail-main-image js-zoom-image"
-                 data-full-src="{{ post.background_image.url }}"
-                 data-full-alt="{{ post.title }}"
-                 alt="{{ post.title }}"
-                 role="button"
-                 tabindex="0"
-                 aria-label="Open full image">
-            {% else %}
             {% for photo in post.images.all|slice:':1' %}
             <img src="{{ photo.image.url }}"
                  class="detail-main-image js-zoom-image"
@@ -53,19 +43,11 @@
                  tabindex="0"
                  aria-label="Open full image">
             {% endfor %}
-            {% endif %}
 
             <div class="detail-thumb-row">
-                {% if post.background_image %}
-                <img src="{{ post.background_image.url }}"
-                     class="detail-thumb is-active"
-                     data-image-src="{{ post.background_image.url }}"
-                     data-image-alt="{{ post.title }}"
-                     alt="Main image thumbnail">
-                {% endif %}
                 {% for photo in post.images.all %}
                 <img src="{{ photo.image.url }}"
-                     class="detail-thumb {% if not post.background_image and forloop.first %}is-active{% endif %}"
+                     class="detail-thumb {% if forloop.first %}is-active{% endif %}"
                      data-image-src="{{ photo.image.url }}"
                      data-image-alt="Announcement photo {{ forloop.counter }}"
                      alt="Announcement photo {{ forloop.counter }}">

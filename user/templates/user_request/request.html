@@ -139,8 +139,27 @@
     <div class="card my-requests-card">
         <h2>My Requests</h2>
 
+        <div class="requests-breadcrumb" aria-label="My request statuses">
+            <button type="button" class="status-crumb scheduled is-active" data-status-tab="scheduled" aria-pressed="true">
+                Scheduled
+                <span class="status-crumb-count">{{ accepted_requests|length }}</span>
+            </button>
+            <button type="button" class="status-crumb pending" data-status-tab="pending" aria-pressed="false">
+                Pending
+                <span class="status-crumb-count">{{ pending_requests|length }}</span>
+            </button>
+            <button type="button" class="status-crumb declined" data-status-tab="declined" aria-pressed="false">
+                Declined
+                <span class="status-crumb-count">{{ declined_requests|length }}</span>
+            </button>
+            <button type="button" class="status-crumb captured" data-status-tab="captured" aria-pressed="false">
+                Captured (Done)
+                <span class="status-crumb-count">{{ captured_requests|length }}</span>
+            </button>
+        </div>
+
         <div class="requests-scroll">
-            <div class="request-group">
+            <div class="request-group status-panel is-active" id="requests-scheduled" data-status-panel="scheduled">
                 <h3 class="request-group-title">Scheduled</h3>
                 {% for req in accepted_requests %}
                     {% include 'user_request/_request_item.html' with req=req %}
@@ -149,16 +168,7 @@
                 {% endfor %}
             </div>
 
-            <div class="request-group">
-                <h3 class="request-group-title">Captured (Done)</h3>
-                {% for req in captured_requests %}
-                    {% include 'user_request/_request_item.html' with req=req %}
-                {% empty %}
-                    <p class="request-group-empty">No captured requests yet.</p>
-                {% endfor %}
-            </div>
-
-            <div class="request-group">
+            <div class="request-group status-panel" id="requests-pending" data-status-panel="pending">
                 <h3 class="request-group-title">Pending</h3>
                 {% for req in pending_requests %}
                     {% include 'user_request/_request_item.html' with req=req %}
@@ -167,12 +177,21 @@
                 {% endfor %}
             </div>
 
-            <div class="request-group">
+            <div class="request-group status-panel" id="requests-declined" data-status-panel="declined">
                 <h3 class="request-group-title">Declined</h3>
                 {% for req in declined_requests %}
                     {% include 'user_request/_request_item.html' with req=req %}
                 {% empty %}
                     <p class="request-group-empty">No declined requests.</p>
+                {% endfor %}
+            </div>
+
+            <div class="request-group status-panel" id="requests-captured" data-status-panel="captured">
+                <h3 class="request-group-title">Captured (Done)</h3>
+                {% for req in captured_requests %}
+                    {% include 'user_request/_request_item.html' with req=req %}
+                {% empty %}
+                    <p class="request-group-empty">No captured requests yet.</p>
                 {% endfor %}
             </div>
         </div>
@@ -598,6 +617,36 @@ document.querySelectorAll('[data-landmark-viewer]').forEach((viewer) => {
     renderLandmark();
 });
 
+function initRequestStatusFilter() {
+    const statusTabs = Array.from(document.querySelectorAll('[data-status-tab]'));
+    const statusPanels = Array.from(document.querySelectorAll('[data-status-panel]'));
+    if (!statusTabs.length || !statusPanels.length) return;
+
+    function activateStatusPanel(statusKey) {
+        statusTabs.forEach((tab) => {
+            const isActive = tab.dataset.statusTab === statusKey;
+            tab.classList.toggle('is-active', isActive);
+            tab.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        statusPanels.forEach((panel) => {
+            const isActive = panel.dataset.statusPanel === statusKey;
+            panel.classList.toggle('is-active', isActive);
+            panel.hidden = !isActive;
+        });
+    }
+
+    statusTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            activateStatusPanel(tab.dataset.statusTab);
+        });
+    });
+
+    const initialStatus = statusTabs.find((tab) => tab.classList.contains('is-active'))?.dataset.statusTab || statusTabs[0].dataset.statusTab;
+    activateStatusPanel(initialStatus);
+}
+
+initRequestStatusFilter();
 applyCreateLocationMode();
 setStep(1);
 </script>

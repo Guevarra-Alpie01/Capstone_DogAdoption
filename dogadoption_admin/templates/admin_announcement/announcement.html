@@ -248,6 +248,7 @@
     </div>
 </div>
 
+<div class="admin-announcement-grid">
 {% for post in announcements %}
 <article class="post-card" id="post-{{ post.id }}">
     <div class="post-top-row">
@@ -278,41 +279,29 @@
     <div class="post-content">{{ post.content|safe }}</div>
 
     {% if post.background_image or post.images.all %}
-    <div class="post-media">
-        {% if post.background_image %}
-        <img src="{{ post.background_image.url }}"
+    <div class="post-media" data-admin-image-viewer>
+        <img src=""
              class="post-image js-ann-image-open"
-             data-full-src="{{ post.background_image.url }}"
-             data-full-alt="Announcement image"
              alt="Announcement image"
              role="button"
              tabindex="0"
              aria-label="Open full image">
-        {% endif %}
-        {% if post.images.all %}
-        <div class="post-image-grid">
+        <button type="button" class="post-image-nav post-image-nav-prev" aria-label="Previous image">&lt;</button>
+        <button type="button" class="post-image-nav post-image-nav-next" aria-label="Next image">&gt;</button>
+        <div class="post-image-sources" hidden>
             {% if post.background_image %}
-            <img src="{{ post.background_image.url }}"
-                 class="post-image-thumb is-active"
-                 data-image-src="{{ post.background_image.url }}"
-                 data-image-alt="Announcement image"
-                 alt="Announcement image thumbnail">
+            <span data-src="{{ post.background_image.url }}" data-alt="Announcement image"></span>
             {% endif %}
             {% for photo in post.images.all %}
-            <img src="{{ photo.image.url }}"
-                 class="post-image-thumb"
-                 data-image-src="{{ photo.image.url }}"
-                 data-image-alt="Announcement photo {{ forloop.counter }}"
-                 alt="Announcement photo {{ forloop.counter }}">
+            <span data-src="{{ photo.image.url }}" data-alt="Announcement photo {{ forloop.counter }}"></span>
             {% endfor %}
         </div>
-        {% endif %}
     </div>
     {% endif %}
 
     <div class="comments-section">
         <h4>Comments ({{ post.comments.count }})</h4>
-
+        <div class="comment-list">
         {% for comment in post.comments.all %}
         <div class="comment">
             <strong>{{ comment.user.username }}</strong>: {{ comment.comment }}
@@ -332,6 +321,7 @@
         {% empty %}
         <p class="empty-note">No comments yet.</p>
         {% endfor %}
+        </div>
 
         <form method="POST" action="{% url 'dogadoption_admin:announcement_comment' post.id %}" class="comment-form">
             {% csrf_token %}
@@ -474,6 +464,7 @@
     <p>No announcements yet. Use the Create Post menu to publish your first update.</p>
 </div>
 {% endfor %}
+</div>
 <script>
 (function () {
     function normalizeUrl(url) {
@@ -978,75 +969,43 @@
 </div>
 <script>
 (function () {
-    function normalizeImageSrc(value) {
-        try {
-            return new URL(value || '', window.location.href).href;
-        } catch (err) {
-            return value || '';
-        }
-    }
+    document.querySelectorAll('[data-admin-image-viewer]').forEach((viewer) => {
+        const image = viewer.querySelector('.post-image');
+        const prevBtn = viewer.querySelector('.post-image-nav-prev');
+        const nextBtn = viewer.querySelector('.post-image-nav-next');
+        const slides = Array.from(viewer.querySelectorAll('.post-image-sources [data-src]')).map((slide) => ({
+            src: slide.getAttribute('data-src'),
+            alt: slide.getAttribute('data-alt') || 'Announcement image'
+        }));
 
-    document.querySelectorAll('.post-media').forEach((media) => {
-        const thumbs = Array.from(media.querySelectorAll('.post-image-thumb'));
-        if (!thumbs.length) return;
+        if (!image || !prevBtn || !nextBtn || !slides.length) return;
 
-        let mainImage = media.querySelector('.post-image');
-        if (!mainImage) {
-            const firstThumb = thumbs[0];
-            const firstSrc = firstThumb.getAttribute('data-image-src') || firstThumb.getAttribute('src');
-            if (!firstSrc) return;
-            mainImage = document.createElement('img');
-            mainImage.className = 'post-image js-ann-image-open';
-            mainImage.src = firstSrc;
-            mainImage.alt = firstThumb.getAttribute('data-image-alt') || firstThumb.getAttribute('alt') || 'Announcement image';
-            media.insertBefore(mainImage, media.firstChild);
-        }
+        let index = 0;
+        const hasMultiple = slides.length > 1;
 
-        function syncMainImageMeta(src, altText) {
-            mainImage.classList.add('js-ann-image-open');
-            mainImage.setAttribute('role', 'button');
-            mainImage.setAttribute('tabindex', '0');
-            mainImage.setAttribute('aria-label', 'Open full image');
-            mainImage.setAttribute('data-full-src', src || '');
-            mainImage.setAttribute('data-full-alt', altText || 'Announcement image');
-        }
+        const render = () => {
+            const current = slides[index];
+            image.src = current.src;
+            image.alt = current.alt;
+            image.setAttribute('data-full-src', current.src);
+            image.setAttribute('data-full-alt', current.alt);
+            prevBtn.disabled = !hasMultiple;
+            nextBtn.disabled = !hasMultiple;
+        };
 
-        syncMainImageMeta(mainImage.getAttribute('src') || '', mainImage.getAttribute('alt') || 'Announcement image');
-
-        function setActiveThumb(thumb) {
-            const nextSrc = thumb.getAttribute('data-image-src') || thumb.getAttribute('src');
-            if (!nextSrc || !mainImage) return;
-            const altText = thumb.getAttribute('data-image-alt') || thumb.getAttribute('alt') || 'Announcement image';
-            mainImage.src = nextSrc;
-            mainImage.alt = altText;
-            syncMainImageMeta(nextSrc, altText);
-            thumbs.forEach((item) => item.classList.remove('is-active'));
-            thumb.classList.add('is-active');
-        }
-
-        const mainSrc = normalizeImageSrc(mainImage.getAttribute('src'));
-        const matchedThumb = thumbs.find((thumb) => {
-            const thumbSrc = normalizeImageSrc(thumb.getAttribute('data-image-src') || thumb.getAttribute('src'));
-            return thumbSrc === mainSrc;
+        prevBtn.addEventListener('click', () => {
+            if (!hasMultiple) return;
+            index = (index - 1 + slides.length) % slides.length;
+            render();
         });
-        if (matchedThumb) {
-            thumbs.forEach((item) => item.classList.remove('is-active'));
-            matchedThumb.classList.add('is-active');
-        } else if (!thumbs.some((thumb) => thumb.classList.contains('is-active'))) {
-            thumbs[0].classList.add('is-active');
-        }
 
-        thumbs.forEach((thumb) => {
-            thumb.setAttribute('tabindex', '0');
-            thumb.setAttribute('role', 'button');
-            thumb.addEventListener('click', () => setActiveThumb(thumb));
-            thumb.addEventListener('keydown', (evt) => {
-                if (evt.key === 'Enter' || evt.key === ' ') {
-                    evt.preventDefault();
-                    setActiveThumb(thumb);
-                }
-            });
+        nextBtn.addEventListener('click', () => {
+            if (!hasMultiple) return;
+            index = (index + 1) % slides.length;
+            render();
         });
+
+        render();
     });
 
     const triggers = document.querySelectorAll('.js-ann-image-open');

@@ -21,7 +21,9 @@ from django.urls import reverse
 from functools import wraps
 import json
 import re
+import hashlib
 from urllib.parse import urlencode
+from decimal import Decimal
 
 
 
@@ -2039,23 +2041,40 @@ def citation_create(request):
 
 def citation_print(request, pk):
     citation = get_object_or_404(Citation, pk=pk)
-    penalties = Penalty.objects.filter(active=True).select_related('section').order_by('section__number', 'number')
     selected_penalties = list(citation.penalties.all().select_related('section').order_by('section__number', 'number'))
     if not selected_penalties and citation.penalty_id:
         selected_penalties = [citation.penalty]
+
+    owner_name = "Unknown Owner"
     owner_address = "-"
+    owner_barangay = "-"
     if citation.owner_id:
         try:
+            owner_name = citation.owner.get_full_name().strip() or citation.owner.username
             owner_address = citation.owner.profile.address or "-"
         except Exception:
             owner_address = "-"
+            owner_name = citation.owner.username
+
+    extracted_barangay = _extract_barangay_from_address(owner_address)
+    if extracted_barangay:
+        owner_barangay = extracted_barangay
+    elif owner_address and owner_address != "-":
+        owner_barangay = owner_address.split(",")[0].strip() or "-"
+
+    total_amount = sum((p.amount for p in selected_penalties), Decimal("0.00"))
+    receipt_seed = f"{citation.id}|{citation.owner_id or 0}|{citation.date_issued.isoformat()}"
+    receipt_hash = hashlib.sha256(receipt_seed.encode("utf-8")).hexdigest()[:10].upper()
+    receipt_no = f"CIT-{citation.id:06d}-{receipt_hash}"
 
     return render(request, 'admin_registration/citation_print.html', {
         'citation': citation,
-        'penalties': penalties,
         'selected_penalties': selected_penalties,
-        'selected_penalty_ids': {p.id for p in selected_penalties},
+        'owner_name': owner_name,
         'owner_address': owner_address,
+        'owner_barangay': owner_barangay,
+        'total_amount': total_amount,
+        'receipt_no': receipt_no,
     })
 
 

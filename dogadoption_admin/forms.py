@@ -64,7 +64,7 @@ from user.models import User
 
 class CitationForm(forms.ModelForm):
     owner = forms.ModelChoiceField(
-        queryset=User.objects.all(),
+        queryset=User.objects.filter(is_staff=False).order_by('username'),
         label="Search Owner",
         widget=forms.Select(attrs={
             "class": "user-search",

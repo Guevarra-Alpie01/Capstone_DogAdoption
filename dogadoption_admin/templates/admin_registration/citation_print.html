@@ -1,300 +1,260 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Citation Ticket</title>
+    <meta charset="UTF-8">
+    <title>Citation Ticket #{{ citation.id }}</title>
     <style>
         @page {
-            size: 8.5in 11in;
-            margin: 0.28in 0.32in;
+            size: 80mm auto;
+            margin: 4mm;
         }
 
         body {
-            font-family: Arial, sans-serif;
-            color: #111;
             margin: 0;
-            padding: 0;
-            background: #fff;
+            padding: 8px;
+            background: #f3f4f6;
+            font-family: "Arial", sans-serif;
+            color: #101418;
             font-size: 11px;
-            line-height: 1.18;
+            line-height: 1.35;
         }
 
         .ticket {
-            width: 100%;
+            width: 72mm;
             margin: 0 auto;
-            border: 1px solid #111;
-            padding: 8px 10px;
+            background: #fff;
+            border: 1px solid #1f2937;
+            padding: 4mm;
             box-sizing: border-box;
         }
 
-        .top-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 8px;
-            border-bottom: 1px solid #333;
-            padding-bottom: 6px;
-            margin-bottom: 6px;
-        }
-
-        .brand-block {
-            width: 24%;
-            font-size: 10px;
-            line-height: 1.1;
-        }
-
-        .brand-name {
-            font-size: 34px;
-            font-weight: 700;
-            line-height: 0.9;
-            letter-spacing: 0.3px;
-        }
-
-        .brand-tagline {
-            margin-top: 2px;
-            font-size: 10px;
-        }
-
-        .title-block {
+        .center {
             text-align: center;
-            width: 46%;
         }
 
-        .title-block h2,
-        .title-block h3,
-        .title-block p {
-            margin: 0;
-        }
-
-        .title-block h2 {
-            font-size: 13px;
-            letter-spacing: 0.3px;
-        }
-
-        .title-block h3 {
-            font-size: 35px;
-            letter-spacing: 0.5px;
-            line-height: 0.9;
-            margin: 2px 0;
-        }
-
-        .title-block .subtitle {
-            font-size: 10px;
-            margin-top: 2px;
-            line-height: 1.2;
-        }
-
-        .office-block {
-            width: 30%;
-            text-align: right;
-            font-size: 10px;
-            line-height: 1.2;
-        }
-
-        .office-name {
+        .brand {
+            font-size: 14px;
             font-weight: 700;
-            letter-spacing: 0.3px;
-            margin-bottom: 2px;
+            margin: 0;
+            letter-spacing: 0.2px;
+        }
+
+        .title {
+            margin: 2px 0 0;
+            font-size: 19px;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+        }
+
+        .subline {
+            margin: 2px 0 0;
+            font-size: 10px;
+        }
+
+        .divider {
+            border-top: 1px dashed #5b6470;
+            margin: 8px 0;
         }
 
         .meta {
-            margin-bottom: 6px;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2px 10px;
+            gap: 3px;
         }
 
-        .label { font-weight: 700; }
-
-        .ordinance-note {
-            margin: 4px 0 6px;
-            font-weight: 600;
-        }
-
-        .list-columns {
-            column-count: 2;
-            column-gap: 14px;
-            column-fill: auto;
-        }
-
-        .section-block {
-            break-inside: avoid-column;
-            margin-bottom: 6px;
-            border-top: 1px dashed #bbb;
-            padding-top: 3px;
-        }
-
-        .section-title {
+        .label {
             font-weight: 700;
-            margin-bottom: 2px;
         }
 
-        .item-row {
+        .receipt-box {
+            border: 1px dashed #5b6470;
+            border-radius: 4px;
+            padding: 6px;
+            margin-top: 6px;
+        }
+
+        .receipt-code {
+            font-family: "Courier New", monospace;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            margin-top: 2px;
+            word-break: break-word;
+        }
+
+        .section-heading {
+            margin: 0 0 4px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .penalty-list {
             display: grid;
-            grid-template-columns: 26px 1fr 70px 16px;
             gap: 4px;
-            margin: 1px 0;
+        }
+
+        .penalty-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+            border: 1px solid #d2d8e0;
+            border-radius: 6px;
+            padding: 5px;
+            align-items: start;
+        }
+
+        .penalty-label {
+            min-width: 0;
+        }
+
+        .penalty-amount {
+            text-align: right;
+            white-space: nowrap;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: #0f7b3e;
+        }
+
+        .empty-note {
+            margin: 0;
+            font-style: italic;
+            color: #5b6470;
+        }
+
+        .total-box {
+            border-top: 1px solid #1f2937;
+            margin-top: 8px;
+            padding-top: 6px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
             align-items: baseline;
         }
 
-        .num { font-weight: 700; }
-        .amt { text-align: right; white-space: nowrap; }
-        .mark { text-align: center; font-weight: 700; }
-        .selected {
-            font-weight: 700;
-            text-decoration: underline;
+        .total-label {
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.2px;
+        }
+
+        .total-amount {
+            font-size: 14px;
+            font-weight: 800;
+            color: #0b6c36;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
         }
 
         .footer {
             margin-top: 12px;
-            display: flex;
-            justify-content: flex-end;
-        }
-
-        .authority-block {
-            width: 42%;
             text-align: center;
             font-size: 10px;
         }
 
-        .authority-title {
-            margin-bottom: 8px;
-        }
-
         .signature-line {
-            border-top: 1px solid #333;
-            width: 86%;
-            margin: 0 auto 4px;
+            margin: 8px auto 4px;
+            width: 80%;
+            border-top: 1px solid #1f2937;
         }
 
-        .authority-name {
+        .leader-name {
+            font-size: 12px;
             font-weight: 700;
-            letter-spacing: 0.2px;
-            line-height: 1.1;
         }
 
-        .authority-role {
-            line-height: 1.1;
-            margin-bottom: 3px;
-        }
-
-        .authority-date {
-            text-align: left;
-            width: 86%;
-            margin: 0 auto;
-        }
-
-        .date-line {
-            display: inline-block;
-            min-width: 90px;
-            border-bottom: 1px solid #333;
-            padding: 0 4px 1px;
-            text-align: center;
+        .print-date {
+            margin-top: 6px;
         }
 
         @media print {
-            html, body {
-                width: 8.5in;
-                height: 11in;
+            body {
+                background: #fff;
+                padding: 0;
             }
+
             .ticket {
-                border: 1px solid #111;
+                width: 100%;
+                margin: 0;
+                border: 1px solid #1f2937;
+                box-shadow: none;
             }
         }
     </style>
 </head>
-<body onload="setPrintDate(); window.print();">
-<div class="ticket">
-    <div class="top-head">
-        <div class="brand-block">
-            <div class="brand-name">Bayawan</div>
-            <div class="brand-tagline">Celebrate Life's Harvest</div>
+<body onload="preparePrintTicket();">
+    <div class="ticket">
+        <div class="center">
+            <p class="brand">Bayawan City Veterinary Office</p>
+            <p class="subline">City Ordinance No. 8</p>
+            <p class="title">CITATION TICKET</p>
+            <p class="subline">National Highway, Brgy. Villareal, Bayawan City</p>
         </div>
-        <div class="title-block">
-            <h2>CITY ORDINANCE NO. 8</h2>
-            <h3>CITATION TICKET</h3>
-            <p class="subtitle">
-                City Ordinance No. 8 entitled, "Bayawan City Dog Domestication Ordinance of 2022,"
-                hereby charges you the following fines and penalties.
-            </p>
-        </div>
-        <div class="office-block">
-            <div class="office-name">CITY VETERINARY OFFICE</div>
-            <div>National Highway, Barangay Villareal, Bayawan City</div>
-            <div>Negros Oriental, 6221 Philippines</div>
-            <div style="margin-top:4px;"><strong>Date:</strong> {{ citation.date_issued|date:"M d, Y" }}</div>
-            <div><strong>Citation No:</strong> {{ citation.id }}</div>
-        </div>
-    </div>
 
-    <div class="meta">
-        <div><span class="label">Owner:</span> {{ citation.owner.get_full_name|default:citation.owner.username }}</div>
-        <div><span class="label">Address:</span> {{ owner_address }}</div>
-        <div>
-            <span class="label">Selected Sections:</span>
+        <div class="divider"></div>
+
+        <div class="meta">
+            <div><span class="label">Citation No:</span> {{ citation.id }}</div>
+            <div><span class="label">Owner:</span> {{ owner_name }}</div>
+            <div><span class="label">Barangay:</span> {{ owner_barangay }}</div>
+            <div><span class="label">Address:</span> {{ owner_address }}</div>
+            <div><span class="label">Date Issued:</span> {{ citation.date_issued|date:"M d, Y h:i A" }}</div>
+            <div><span class="label">Selected Violations:</span> {{ selected_penalties|length }}</div>
+        </div>
+
+        <div class="receipt-box">
+            <div class="label">Receipt Reference (Unique)</div>
+            <div class="receipt-code">{{ receipt_no }}</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <h4 class="section-heading">Violation Summary</h4>
+        <div class="penalty-list">
             {% for p in selected_penalties %}
-                {% if p.section.number %}Sec. {{ p.section.number }}{% else %}Unset{% endif %}{% if not forloop.last %}, {% endif %}
-            {% empty %}
-                None
-            {% endfor %}
-        </div>
-        <div>
-            <span class="label">Selected Violations:</span>
-            {% for p in selected_penalties %}
-                #{{ p.number }}{% if not forloop.last %}, {% endif %}
-            {% empty %}
-                None
-            {% endfor %}
-        </div>
-    </div>
-
-    <div class="ordinance-note">Penalties:</div>
-
-    <div class="list-columns">
-        {% regroup penalties by section as grouped_penalties %}
-        {% for group in grouped_penalties %}
-            <div class="section-block">
-                <div class="section-title">
-                    {% if group.grouper.number %}
-                        Sec. {{ group.grouper.number }}
-                    {% else %}
-                        Section Unset
-                    {% endif %}
-                </div>
-
-                {% for p in group.list %}
-                    <div class="item-row {% if p.id in selected_penalty_ids %}selected{% endif %}">
-                        <div class="num">{{ p.number }})</div>
-                        <div>{{ p.title }}</div>
-                        <div class="amt">PHP {{ p.amount }}</div>
-                        <div class="mark">{% if p.id in selected_penalty_ids %}&#9673;{% else %}&#9711;{% endif %}</div>
+                <div class="penalty-row">
+                    <div class="penalty-label">
+                        Sec. {{ p.section.number|default:"-" }} | #{{ p.number }}<br>
+                        {{ p.title }}
                     </div>
-                {% endfor %}
-            </div>
-        {% endfor %}
-    </div>
+                    <div class="penalty-amount">PHP {{ p.amount }}</div>
+                </div>
+            {% empty %}
+                <p class="empty-note">No selected penalties for this citation.</p>
+            {% endfor %}
+        </div>
 
-    <div class="footer">
-        <div class="authority-block">
-            <div class="authority-title">By authority of the Office of the Veterinarian</div>
+        <div class="total-box">
+            <div class="total-label">TOTAL AMOUNT TO BE PAID</div>
+            <div class="total-amount">PHP {{ total_amount }}</div>
+        </div>
+
+        <div class="footer">
+            <div>By authority of the Office of the Veterinarian</div>
             <div class="signature-line"></div>
-            <div class="authority-name">REYNALDO L. SOLAMILLO</div>
-            <div class="authority-role">Team Leader, Rabies/Dog Control</div>
-            <div class="authority-date">
-                Date: <span class="date-line" id="printed-date"></span>
-            </div>
+            <div class="leader-name">REYNALDO L. SOLAMILLO</div>
+            <div>Team Leader, Rabies/Dog Control</div>
+            <div class="print-date">Printed On: <span id="printed-on">-</span></div>
         </div>
     </div>
-</div>
-<script>
-function setPrintDate() {
-    const el = document.getElementById('printed-date');
-    if (!el) return;
-    const now = new Date();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const yyyy = now.getFullYear();
-    el.textContent = `${mm}/${dd}/${yyyy}`;
-}
-</script>
+
+    <script>
+        function preparePrintTicket() {
+            const printEl = document.getElementById('printed-on');
+            if (printEl) {
+                const now = new Date();
+                const datePart = now.toLocaleDateString('en-PH', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: '2-digit'
+                });
+                const timePart = now.toLocaleTimeString('en-PH', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+                printEl.textContent = `${datePart} ${timePart}`;
+            }
+            window.print();
+        }
+    </script>
 </body>
 </html>

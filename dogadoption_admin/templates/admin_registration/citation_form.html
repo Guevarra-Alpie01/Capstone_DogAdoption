@@ -32,7 +32,32 @@
 
         <div class="form-group">
             <label>Select Owner</label>
-            {{ form.owner }}
+            <div class="owner-search-row">
+                <input
+                    type="text"
+                    id="owner-search-input"
+                    class="owner-search-input"
+                    placeholder="Search by username, first name, or last name"
+                >
+                <button type="button" class="toolbar-btn owner-search-btn" id="owner-search-btn">Search</button>
+                <button type="button" class="toolbar-btn secondary owner-search-btn" id="owner-search-clear">Clear</button>
+            </div>
+
+            <select name="{{ form.owner.name }}" id="{{ form.owner.id_for_label }}" class="user-search">
+                <option value="">---------</option>
+                {% for user in form.owner.field.queryset %}
+                    <option
+                        value="{{ user.pk }}"
+                        data-username="{{ user.username|lower }}"
+                        data-firstname="{{ user.first_name|lower }}"
+                        data-lastname="{{ user.last_name|lower }}"
+                        {% if form.owner.value|stringformat:"s" == user.pk|stringformat:"s" %}selected{% endif %}
+                    >
+                        {{ user.username }}{% if user.first_name or user.last_name %} - {{ user.first_name }} {{ user.last_name }}{% endif %}
+                    </option>
+                {% endfor %}
+            </select>
+            <small class="helper-text owner-search-result" id="owner-search-result"></small>
             {% if form.owner.errors %}<small class="error-text">{{ form.owner.errors|striptags }}</small>{% endif %}
         </div>
 
@@ -154,36 +179,39 @@
     <div class="citation-list">
         <h3>Recent Citations</h3>
         {% if citation_rows %}
-            <table class="citation-table">
-                <thead>
-                    <tr>
-                        <th>Citation</th>
-                        <th>Name</th>
-                        <th>Violations</th>
-                        <th>Fees</th>
-                        <th>Print</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in citation_rows %}
+            <p class="table-swipe-hint">Swipe left/right to view full table.</p>
+            <div class="citation-table-wrap">
+                <table class="citation-table">
+                    <thead>
                         <tr>
-                            <td>{{ row.citation.id }}</td>
-                            <td>
-                                {% if row.citation.owner %}
-                                    {{ row.citation.owner.get_full_name|default:row.citation.owner.username }}
-                                {% else %}
-                                    Unknown Owner
-                                {% endif %}
-                            </td>
-                            <td>{{ row.violations }}</td>
-                            <td>PHP {{ row.total_fees }}</td>
-                            <td>
-                                <a class="print-link" href="{% url 'dogadoption_admin:citation_print' row.citation.pk %}" target="_blank" rel="noopener">Print</a>
-                            </td>
+                            <th>Citation</th>
+                            <th>Name</th>
+                            <th>Violations</th>
+                            <th>Fees</th>
+                            <th>Print</th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for row in citation_rows %}
+                            <tr>
+                                <td>{{ row.citation.id }}</td>
+                                <td>
+                                    {% if row.citation.owner %}
+                                        {{ row.citation.owner.get_full_name|default:row.citation.owner.username }}
+                                    {% else %}
+                                        Unknown Owner
+                                    {% endif %}
+                                </td>
+                                <td>{{ row.violations }}</td>
+                                <td>PHP {{ row.total_fees }}</td>
+                                <td>
+                                    <a class="print-link" href="{% url 'dogadoption_admin:citation_print' row.citation.pk %}" target="_blank" rel="noopener">Print</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         {% else %}
             <p class="helper-text">No citations created yet.</p>
         {% endif %}
@@ -210,12 +238,75 @@ function syncViolationSelectionUI() {
     });
 }
 
+function wireOwnerSearch() {
+    const input = document.getElementById('owner-search-input');
+    const searchBtn = document.getElementById('owner-search-btn');
+    const clearBtn = document.getElementById('owner-search-clear');
+    const result = document.getElementById('owner-search-result');
+    const select = document.getElementById('{{ form.owner.id_for_label }}');
+    if (!input || !searchBtn || !clearBtn || !result || !select) return;
+
+    const ownerOptions = Array.from(select.options).filter((opt) => opt.value);
+
+    const applySearch = () => {
+        const term = (input.value || '').trim().toLowerCase();
+        let firstMatch = null;
+        let matchCount = 0;
+
+        ownerOptions.forEach((opt) => {
+            const haystack = [
+                opt.dataset.username || '',
+                opt.dataset.firstname || '',
+                opt.dataset.lastname || '',
+                opt.textContent || '',
+            ].join(' ').toLowerCase();
+
+            const matched = !term || haystack.includes(term);
+            opt.hidden = !matched;
+            if (matched) {
+                matchCount += 1;
+                if (!firstMatch) firstMatch = opt;
+            }
+        });
+
+        if (term && firstMatch) {
+            select.value = firstMatch.value;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        if (!term) {
+            result.textContent = '';
+        } else if (matchCount === 0) {
+            result.textContent = 'No matching owner found.';
+        } else {
+            result.textContent = `${matchCount} owner${matchCount === 1 ? '' : 's'} found.`;
+        }
+    };
+
+    searchBtn.addEventListener('click', applySearch);
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            applySearch();
+        }
+    });
+
+    clearBtn.addEventListener('click', () => {
+        input.value = '';
+        ownerOptions.forEach((opt) => {
+            opt.hidden = false;
+        });
+        result.textContent = '';
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     syncViolationSelectionUI();
     const checks = document.querySelectorAll('.violation-check');
     checks.forEach((check) => {
         check.addEventListener('change', syncViolationSelectionUI);
     });
+    wireOwnerSearch();
 });
 </script>
 {% endblock %}

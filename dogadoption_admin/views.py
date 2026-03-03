@@ -1,81 +1,70 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.decorators import user_passes_test
-from django.views.decorators.http import require_POST
-from django.db.models import Count, Q, Prefetch
-from django.db.models.functions import Lower, Trim, TruncDate
-from django.db import transaction
-from datetime import timedelta
-from django.utils import timezone
-from django.utils.dateparse import parse_datetime
-from django.utils.dateparse import parse_date
-from datetime import datetime
-from django.contrib import messages
-from django.conf import settings
-from django.http import JsonResponse, Http404
-
-from django.contrib.auth.models import User
-from django.views.decorators.http import require_http_methods
-from django.urls import reverse
+from datetime import datetime, timedelta
+from decimal import Decimal
 from functools import wraps
+import hashlib
+import io
 import json
 import re
-import hashlib
-from urllib.parse import urlencode
-from decimal import Decimal
-
-
-
-from django.http import HttpResponse
-
-
-import io
 from io import BytesIO
+from urllib.parse import urlencode
 
-
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.models import User
+from django.db import transaction
+from django.db.models import Count, Prefetch, Q
+from django.db.models.functions import Lower, Trim, TruncDate
+from django.http import Http404, HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
-from django.views.decorators.csrf import csrf_exempt
 from django.templatetags.static import static
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods, require_POST
 
-from reportlab.platypus import Paragraph, Spacer
+from docx import Document
 from openpyxl import Workbook
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4, letter, landscape
+from reportlab.lib.pagesizes import A4, landscape, letter
 from reportlab.lib.styles import getSampleStyleSheet
-import pandas as pd
-from reportlab.platypus import SimpleDocTemplate, Table
-from docx import Document
-from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from xhtml2pdf import pisa
-from docx import Document
 
-
-
-
-
-#forms.py
-from .forms import PostForm
-from .forms import PenaltyForm, SectionForm,CitationForm
-
-
-#models in admin 
-from .models import Post, PostImage , DogAnnouncement, DogAnnouncementImage, AnnouncementComment, PostRequest
-from .models import DogCatcherContact, AdminNotification
-from .models import Citation
-from .models import Post, PostImage, PostRequest
-from .models import GlobalAppointmentDate
-from .models import Penalty, PenaltySection
-from .models import Dog
-from .models import DogRegistration, CertificateSettings, Barangay
-from .models import Pet, VaccinationRecord, DewormingTreatmentRecord
-
-
-#models from users
-from user.models import Profile,FaceImage 
-from user.models import DogCaptureRequest, AdoptionRequest,FaceImage, Profile,OwnerClaim, ClaimImage
+from .forms import CitationForm, PenaltyForm, PostForm, SectionForm
+from .models import (
+    AdminNotification,
+    AnnouncementComment,
+    Barangay,
+    CertificateSettings,
+    Citation,
+    DewormingTreatmentRecord,
+    Dog,
+    DogAnnouncement,
+    DogAnnouncementImage,
+    DogCatcherContact,
+    DogRegistration,
+    GlobalAppointmentDate,
+    Penalty,
+    PenaltySection,
+    Pet,
+    Post,
+    PostImage,
+    PostRequest,
+    VaccinationRecord,
+)
+from user.models import (
+    AdoptionRequest,
+    ClaimImage,
+    DogCaptureRequest,
+    FaceImage,
+    OwnerClaim,
+    Profile,
+)
 
 def _clean_barangay(value):
     return " ".join((value or "").split()).strip()
@@ -175,6 +164,7 @@ def _is_allowed_bayawan_map_point(barangay, city):
         _normalize_barangay(barangay) in BAYAWAN_ALLOWED_BARANGAY_KEYS
         and _is_bayawan_city(city)
     )
+
 
 def _build_owner_full_name(first_name, last_name, fallback=""):
     first = " ".join((first_name or "").split()).strip()
@@ -323,6 +313,370 @@ ANNOUNCEMENT_CATEGORY_BY_VALUE = {
     option["value"]: option for option in ANNOUNCEMENT_CATEGORY_OPTIONS
 }
 
+def _clean_barangay(value):
+    return " ".join((value or "").split()).strip()
+
+
+def _normalize_barangay(value):
+    return "".join(ch.lower() for ch in _clean_barangay(value) if ch.isalnum())
+
+
+def _resolve_barangay_name(value):
+    normalized = _normalize_barangay(value)
+    if not normalized:
+        return ""
+    for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True):
+        if _normalize_barangay(name) == normalized:
+            return name
+    return ""
+
+
+def _extract_barangay_from_address(address):
+    cleaned = _clean_barangay(address)
+    if not cleaned:
+        return ""
+
+    parts = [p.strip() for p in cleaned.split(",") if p.strip()]
+    if len(parts) >= 3 and parts[-2].lower() == "bayawan city" and parts[-1].lower() == "negros oriental":
+        candidate = parts[-3]
+        resolved = _resolve_barangay_name(candidate)
+        return resolved or candidate
+
+    for part in reversed(parts):
+        resolved = _resolve_barangay_name(part)
+        if resolved:
+            return resolved
+
+    return _resolve_barangay_name(cleaned)
+
+
+BAYAWAN_ALLOWED_BARANGAYS = (
+    "Ali-is",
+    "Banaybanay",
+    "Banga",
+    "Boyco",
+    "Bugay",
+    "Cansumalig",
+    "Dawis",
+    "Kalamtukan",
+    "Kalumboyan",
+    "Malabugas",
+    "Mandu-ao",
+    "Maninihon",
+    "Minaba",
+    "Nangka",
+    "Narra",
+    "Pagatban",
+    "Poblacion",
+    "San Isidro",
+    "San Jose",
+    "San Miguel",
+    "San Roque",
+    "Suba",
+    "Tabuan",
+    "Tayawan",
+    "Tinago",
+    "Ubos",
+    "Villareal",
+    "Villasol",
+)
+
+BAYAWAN_ALLOWED_BARANGAY_KEYS = {
+    _normalize_barangay(name) for name in BAYAWAN_ALLOWED_BARANGAYS
+}
+
+
+def _normalize_city(value):
+    return "".join(ch.lower() for ch in _clean_barangay(value) if ch.isalnum())
+
+
+def _is_bayawan_city(value):
+    return _normalize_city(value) in {"bayawan", "bayawancity"}
+
+
+def _extract_city_from_address(address):
+    cleaned = _clean_barangay(address)
+    if not cleaned:
+        return ""
+
+    parts = [p.strip() for p in cleaned.split(",") if p.strip()]
+    for part in reversed(parts):
+        if _is_bayawan_city(part):
+            return "Bayawan City"
+    return ""
+
+
+def _is_allowed_bayawan_map_point(barangay, city):
+    return (
+        _normalize_barangay(barangay) in BAYAWAN_ALLOWED_BARANGAY_KEYS
+        and _is_bayawan_city(city)
+    )
+
+
+def _build_owner_full_name(first_name, last_name, fallback=""):
+    first = " ".join((first_name or "").split()).strip()
+    last = " ".join((last_name or "").split()).strip()
+    fallback_clean = " ".join((fallback or "").split()).strip()
+
+    if first or last:
+        return f"{first} {last}".strip()
+    return fallback_clean
+
+
+def _format_cert_date(value):
+    if not value:
+        return ""
+    if hasattr(value, "strftime"):
+        return value.strftime("%m-%d-%Y")
+    return str(value)
+
+
+def _pad_rows(rows, min_rows):
+    padded = list(rows)
+    while len(padded) < min_rows:
+        padded.append({})
+    return padded
+
+
+def _build_certificate_payload(registration, vaccinations=None, dewormings=None):
+    vac_records = list(vaccinations) if vaccinations is not None else list(
+        VaccinationRecord.objects.filter(registration=registration).order_by("-date")
+    )
+    dew_records = list(dewormings) if dewormings is not None else list(
+        DewormingTreatmentRecord.objects.filter(registration=registration).order_by("-date")
+    )
+
+    vac_rows = []
+    for record in vac_records[:10]:
+        vac_rows.append({
+            "date": _format_cert_date(record.date),
+            "vaccine_name": record.vaccine_name or "",
+            "manufacturer_lot_no": record.manufacturer_lot_no or "",
+            "vaccine_expiry_date": _format_cert_date(record.vaccine_expiry_date),
+            "vaccination_expiry_date": _format_cert_date(record.vaccination_expiry_date),
+            "veterinarian": record.veterinarian or "",
+        })
+
+    dew_rows = []
+    for record in dew_records[:8]:
+        route = (record.route or "").strip()
+        frequency = (record.frequency or "").strip()
+        route_frequency = f"{route} / {frequency}".strip(" /") if (route or frequency) else ""
+        dew_rows.append({
+            "date": _format_cert_date(record.date),
+            "medicine_given": record.medicine_given or "",
+            "route_frequency": route_frequency,
+            "veterinarian": record.veterinarian or "",
+        })
+
+    return {
+        "id": registration.id,
+        "reg_no": registration.reg_no or "",
+        "name_of_pet": registration.name_of_pet or "",
+        "breed": registration.breed or "",
+        "dob": _format_cert_date(registration.dob),
+        "color_markings": registration.color_markings or "",
+        "sex": registration.sex or "",
+        "is_male": registration.sex == "M",
+        "is_female": registration.sex == "F",
+        "status": registration.status or "",
+        "is_castrated": registration.status == "Castrated",
+        "is_spayed": registration.status == "Spayed",
+        "is_intact": registration.status == "Intact",
+        "owner_name": registration.owner_name or "",
+        "address": registration.address or "",
+        "contact_no": registration.contact_no or "",
+        "vaccination_rows": _pad_rows(vac_rows, 10),
+        "deworming_rows": _pad_rows(dew_rows, 8),
+        "has_vaccinations": bool(vac_records),
+        "has_dewormings": bool(dew_records),
+    }
+
+def _enrich_capture_request_user(req):
+    user = req.requested_by
+    try:
+        profile = user.profile
+    except Profile.DoesNotExist:
+        profile = None
+
+    name_parts = [user.first_name, user.last_name]
+    full_name = " ".join(part for part in name_parts if part).strip() or user.username
+
+    req.requester_full_name = full_name
+    req.requester_phone = (
+        profile.phone_number.strip()
+        if profile and profile.phone_number
+        else "No phone number"
+    )
+    req.requester_address = (
+        profile.address.strip()
+        if profile and profile.address
+        else "No address provided"
+    )
+    req.requester_facebook = (
+        profile.facebook_url.strip()
+        if profile and profile.facebook_url
+        else ""
+    )
+
+
+ANNOUNCEMENT_CATEGORY_OPTIONS = [
+    {
+        "slug": "dog-announcements",
+        "value": DogAnnouncement.CATEGORY_DOG_ANNOUNCEMENT,
+        "label": "Dog Announcements",
+        "description": (
+            "For vaccination programs, educational campaigns, dog-related events, "
+            "and general dog care information."
+        ),
+        "topics": [
+            "Vaccination programs",
+            "Educational campaigns",
+            "Dog-related events",
+            "General dog care information",
+        ],
+    },
+    {
+        "slug": "dog-laws",
+        "value": DogAnnouncement.CATEGORY_DOG_LAW,
+        "label": "Dog Laws",
+        "description": (
+            "For rules and regulations about dogs, local ordinances, and legal "
+            "responsibilities of dog owners."
+        ),
+        "topics": [
+            "Rules and regulations about dogs",
+            "Local ordinances",
+            "Legal responsibilities of dog owners",
+        ],
+    },
+]
+
+ANNOUNCEMENT_CATEGORY_BY_SLUG = {
+    option["slug"]: option for option in ANNOUNCEMENT_CATEGORY_OPTIONS
+}
+
+ANNOUNCEMENT_CATEGORY_BY_VALUE = {
+    option["value"]: option for option in ANNOUNCEMENT_CATEGORY_OPTIONS
+}
+
+def _clean_barangay(value):
+    return " ".join((value or "").split()).strip()
+
+
+def _normalize_barangay(value):
+    return "".join(ch.lower() for ch in _clean_barangay(value) if ch.isalnum())
+
+
+def _resolve_barangay_name(value):
+    normalized = _normalize_barangay(value)
+    if not normalized:
+        return ""
+    for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True):
+        if _normalize_barangay(name) == normalized:
+            return name
+    return ""
+
+
+def _extract_barangay_from_address(address):
+    cleaned = _clean_barangay(address)
+    if not cleaned:
+        return ""
+
+    parts = [p.strip() for p in cleaned.split(",") if p.strip()]
+    if len(parts) >= 3 and parts[-2].lower() == "bayawan city" and parts[-1].lower() == "negros oriental":
+        candidate = parts[-3]
+        resolved = _resolve_barangay_name(candidate)
+        return resolved or candidate
+
+    for part in reversed(parts):
+        resolved = _resolve_barangay_name(part)
+        if resolved:
+            return resolved
+
+    return _resolve_barangay_name(cleaned)
+
+
+def _build_owner_full_name(first_name, last_name, fallback=""):
+    first = " ".join((first_name or "").split()).strip()
+    last = " ".join((last_name or "").split()).strip()
+    fallback_clean = " ".join((fallback or "").split()).strip()
+
+    if first or last:
+        return f"{first} {last}".strip()
+    return fallback_clean
+
+
+def _format_cert_date(value):
+    if not value:
+        return ""
+    if hasattr(value, "strftime"):
+        return value.strftime("%m-%d-%Y")
+    return str(value)
+
+
+def _pad_rows(rows, min_rows):
+    padded = list(rows)
+    while len(padded) < min_rows:
+        padded.append({})
+    return padded
+
+
+def _build_certificate_payload(registration, vaccinations=None, dewormings=None):
+    vac_records = list(vaccinations) if vaccinations is not None else list(
+        VaccinationRecord.objects.filter(registration=registration).order_by("-date")
+    )
+    dew_records = list(dewormings) if dewormings is not None else list(
+        DewormingTreatmentRecord.objects.filter(registration=registration).order_by("-date")
+    )
+
+    vac_rows = []
+    for record in vac_records[:10]:
+        vac_rows.append({
+            "date": _format_cert_date(record.date),
+            "vaccine_name": record.vaccine_name or "",
+            "manufacturer_lot_no": record.manufacturer_lot_no or "",
+            "vaccine_expiry_date": _format_cert_date(record.vaccine_expiry_date),
+            "vaccination_expiry_date": _format_cert_date(record.vaccination_expiry_date),
+            "veterinarian": record.veterinarian or "",
+        })
+
+    dew_rows = []
+    for record in dew_records[:8]:
+        route = (record.route or "").strip()
+        frequency = (record.frequency or "").strip()
+        route_frequency = f"{route} / {frequency}".strip(" /") if (route or frequency) else ""
+        dew_rows.append({
+            "date": _format_cert_date(record.date),
+            "medicine_given": record.medicine_given or "",
+            "route_frequency": route_frequency,
+            "veterinarian": record.veterinarian or "",
+        })
+
+    return {
+        "id": registration.id,
+        "reg_no": registration.reg_no or "",
+        "name_of_pet": registration.name_of_pet or "",
+        "breed": registration.breed or "",
+        "dob": _format_cert_date(registration.dob),
+        "color_markings": registration.color_markings or "",
+        "sex": registration.sex or "",
+        "is_male": registration.sex == "M",
+        "is_female": registration.sex == "F",
+        "status": registration.status or "",
+        "is_castrated": registration.status == "Castrated",
+        "is_spayed": registration.status == "Spayed",
+        "is_intact": registration.status == "Intact",
+        "owner_name": registration.owner_name or "",
+        "address": registration.address or "",
+        "contact_no": registration.contact_no or "",
+        "vaccination_rows": _pad_rows(vac_rows, 10),
+        "deworming_rows": _pad_rows(dew_rows, 8),
+        "has_vaccinations": bool(vac_records),
+        "has_dewormings": bool(dew_records),
+    }
+
+
 
 # views.py
 
@@ -339,11 +693,15 @@ def admin_required(view_func):
 
 def admin_login(request):
     return redirect('user:login')
+    return redirect('user:login')
 
 
 @login_required
 def admin_logout(request):
     logout(request)
+    response = redirect('user:login')
+    response.delete_cookie('admin_sessionid')
+    return response
     response = redirect('user:login')
     response.delete_cookie('admin_sessionid')
     return response
@@ -370,6 +728,10 @@ def create_post(request):
             return redirect('dogadoption_admin:post_list')
     else:
         post_form = PostForm()
+
+    post_form.fields["location"].widget.attrs["data-barangay-source-url"] = reverse(
+        "dogadoption_admin:barangay_list_api"
+    )
 
     post_form.fields["location"].widget.attrs["data-barangay-source-url"] = reverse(
         "dogadoption_admin:barangay_list_api"
@@ -475,7 +837,10 @@ def post_list(request):
     for p in base_qs:
         days = hours = minutes = 0
         phase = p.current_phase()
+        phase = p.current_phase()
 
+        if phase in ['claim', 'adopt']:
+            diff = p.time_left()
         if phase in ['claim', 'adopt']:
             diff = p.time_left()
             total_seconds = max(int(diff.total_seconds()), 0)
@@ -601,11 +966,16 @@ def claim_requests(request, post_id):
     claims = post.requests.filter(request_type='claim') \
                           .select_related('user') \
                           .prefetch_related('images') \
+                          .order_by('-created_at') \
                           .order_by('-created_at')
 
     user_ids = [req.user.id for req in claims]
     profiles = Profile.objects.filter(user_id__in=user_ids)
     faceauth = FaceImage.objects.filter(user_id__in=user_ids)
+    available_dates = GlobalAppointmentDate.objects.filter(
+        is_active=True,
+        appointment_date__gte=timezone.localdate(),
+    ).order_by('appointment_date')
     available_dates = GlobalAppointmentDate.objects.filter(
         is_active=True,
         appointment_date__gte=timezone.localdate(),
@@ -636,11 +1006,16 @@ def adoption_requests(request, post_id):
     adoptions = post.requests.filter(request_type='adopt') \
                              .select_related('user') \
                              .prefetch_related('images') \
+                             .order_by('-created_at') \
                              .order_by('-created_at')
 
     user_ids = [req.user.id for req in adoptions]
     profiles = Profile.objects.filter(user_id__in=user_ids)
     faceauth = FaceImage.objects.filter(user_id__in=user_ids)
+    available_dates = GlobalAppointmentDate.objects.filter(
+        is_active=True,
+        appointment_date__gte=timezone.localdate(),
+    ).order_by('appointment_date')
     available_dates = GlobalAppointmentDate.objects.filter(
         is_active=True,
         appointment_date__gte=timezone.localdate(),
@@ -660,11 +1035,13 @@ def adoption_requests(request, post_id):
         'post': post,
         'requests_meta': requests_with_meta,
         'available_dates': available_dates,
+      
     })
 
 
 # ACCEPT / REJECT REQUEST
 @admin_required
+@require_POST
 @require_POST
 def update_request(request, req_id, action):
     req = get_object_or_404(PostRequest, id=req_id)
@@ -685,7 +1062,22 @@ def update_request(request, req_id, action):
                     return redirect('dogadoption_admin:claim_requests', post.id)
                 return redirect('dogadoption_admin:adoption_requests', post.id)
 
+        scheduled_date_raw = request.POST.get('scheduled_appointment_date') if request.method == 'POST' else None
+        scheduled_date = parse_date(scheduled_date_raw) if scheduled_date_raw else req.appointment_date
+
+        if scheduled_date:
+            is_available = GlobalAppointmentDate.objects.filter(
+                appointment_date=scheduled_date,
+                is_active=True,
+            ).exists()
+            if not is_available:
+                messages.error(request, "Selected appointment date is not in the available schedule.")
+                if req.request_type == 'claim':
+                    return redirect('dogadoption_admin:claim_requests', post.id)
+                return redirect('dogadoption_admin:adoption_requests', post.id)
+
         req.status = 'accepted'
+        req.scheduled_appointment_date = scheduled_date
         req.scheduled_appointment_date = scheduled_date
 
         #  Move post automatically
@@ -698,12 +1090,14 @@ def update_request(request, req_id, action):
 
         # Auto reject others
         post.requests.exclude(id=req.id).update(
+            
             status='rejected',
             scheduled_appointment_date=None,
         )
 
     elif action == 'reject':
         req.status = 'rejected'
+        req.scheduled_appointment_date = None
         req.scheduled_appointment_date = None
 
     req.save(update_fields=['status', 'scheduled_appointment_date'])
@@ -713,6 +1107,7 @@ def update_request(request, req_id, action):
         return redirect('dogadoption_admin:claim_requests', post.id)
     else:
         return redirect('dogadoption_admin:adoption_requests', post.id)
+
 
 
 # Authenticating users using face auth dashboard
@@ -736,6 +1131,38 @@ def view_faceauth(request, user_id):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_dog_capture_requests(request):
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'add_contact':
+            name = (request.POST.get('contact_name') or '').strip()
+            phone = (request.POST.get('contact_phone') or '').strip()
+            if phone:
+                DogCatcherContact.objects.create(
+                    name=name,
+                    phone_number=phone,
+                    active=True
+                )
+                messages.success(request, "Dog catcher contact added.")
+            else:
+                messages.error(request, "Phone number is required.")
+
+        elif action == 'toggle_contact':
+            contact_id = request.POST.get('contact_id')
+            contact = DogCatcherContact.objects.filter(id=contact_id).first()
+            if contact:
+                contact.active = not contact.active
+                contact.save(update_fields=['active'])
+                state = "activated" if contact.active else "deactivated"
+                messages.success(request, f"Contact {state}.")
+
+        elif action == 'delete_contact':
+            contact_id = request.POST.get('contact_id')
+            DogCatcherContact.objects.filter(id=contact_id).delete()
+            messages.success(request, "Contact removed.")
+
+        return redirect('dogadoption_admin:requests')
+
     if request.method == 'POST':
         action = request.POST.get('action')
 
@@ -1142,7 +1569,6 @@ def admin_user_search_results(request):
 
     return render(request, 'admin_user/user_search_results.html', context)
 
-
 @admin_required
 def admin_edit_profile(request):
     user = request.user
@@ -1199,7 +1625,8 @@ def mark_notification_read(request, pk):
     target = notif.url or "dogadoption_admin:admin_notifications"
     return redirect(target)
 
-# ++++++++++++++++++++++++++++ Analytics Dashboard ++++++++++++++++++++++++++++++++++++++++++++++++ 
+
+# ++++++++++++++++++++++++++++ Analytics Dashboard ++++++++++++++++++++++++++++++++++++++++++++++++
 @admin_required
 def analytics_dashboard(request):
     total_users = User.objects.filter(is_staff=False).count()
@@ -1234,6 +1661,7 @@ def analytics_dashboard(request):
         .distinct()
         .count()
     )
+
     post_status_totals = {
         row["status"]: row["total"]
         for row in Post.objects.values("status").annotate(total=Count("id"))
@@ -1332,6 +1760,49 @@ def analytics_dashboard(request):
         "events": rescue_events,
         "years": sorted(rescue_years),
     }
+
+    vaccination_barangay_events = []
+    vaccination_years = set()
+    vaccination_records = (
+        VaccinationRecord.objects.select_related("registration")
+        .exclude(registration__isnull=True)
+    )
+    for record in vaccination_records:
+        registration = record.registration
+        if not registration:
+            continue
+
+        barangay_name = _extract_barangay_from_address(registration.address) or "Unknown"
+        vaccination_date = record.date.isoformat() if record.date else ""
+        vaccine_expiry_date = (
+            record.vaccine_expiry_date.isoformat() if record.vaccine_expiry_date else ""
+        )
+        dog_vaccination_expiry_date = (
+            record.vaccination_expiry_date.isoformat()
+            if record.vaccination_expiry_date else ""
+        )
+
+        if record.date:
+            vaccination_years.add(record.date.year)
+        if record.vaccine_expiry_date:
+            vaccination_years.add(record.vaccine_expiry_date.year)
+        if record.vaccination_expiry_date:
+            vaccination_years.add(record.vaccination_expiry_date.year)
+
+        vaccination_barangay_events.append({
+            "registration_id": record.registration_id,
+            "barangay": barangay_name,
+            "vaccination_date": vaccination_date,
+            "vaccine_expiry_date": vaccine_expiry_date,
+            "dog_vaccination_expiry_date": dog_vaccination_expiry_date,
+        })
+
+    vaccination_barangay_chart = {
+        "events": vaccination_barangay_events,
+        "years": sorted(vaccination_years),
+        "today": today.isoformat(),
+    }
+
     top_barangays = (
         Dog.objects.exclude(barangay__isnull=True)
         .exclude(barangay__exact="")
@@ -1365,6 +1836,7 @@ def analytics_dashboard(request):
         },
         "activity_trend_chart": activity_trend_chart,
         "rescue_barangay_trend_chart": rescue_barangay_trend_chart,
+        "vaccination_barangay_chart": vaccination_barangay_chart,
         "barangay_chart": barangay_chart,
     }
     return render(request, "admin_analytics/dashboard.html", context)

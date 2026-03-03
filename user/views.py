@@ -27,7 +27,7 @@ from dogadoption_admin.models import Post, PostRequest, GlobalAppointmentDate
 from dogadoption_admin.models import Barangay
 
 #MODELS FROM USER APP
-from .models import Profile, DogCaptureRequest, DogCaptureRequestImage, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
+from .models import Profile, DogCaptureRequest, DogCaptureRequestImage, DogCaptureRequestLandmarkImage, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
 from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, MissingDogPost
 
 #FORMS.PY 
@@ -550,31 +550,88 @@ def request_dog_capture(request):
         if legacy_image:
             uploaded_images.append(legacy_image)
         captured_image = request.POST.get('captured_image')
+        reason = (request.POST.get('reason') or '').strip()
+        description = (request.POST.get('description') or '').strip()
+        location_mode = (request.POST.get('location_mode') or 'exact').strip().lower()
+        if location_mode not in {'exact', 'manual'}:
+            location_mode = 'exact'
+
         barangay = _clean_barangay(request.POST.get('barangay'))
         city = _clean_barangay(request.POST.get('city'))
+        manual_full_address = " ".join(
+            (request.POST.get('manual_full_address') or '').split()
+        ).strip()
+        location_landmark_images = list(request.FILES.getlist('location_landmark_image'))
+        latitude_raw = (request.POST.get('latitude') or '').strip()
+        longitude_raw = (request.POST.get('longitude') or '').strip()
 
         if not uploaded_images and captured_image and ';base64,' in captured_image:
             _, imgstr = captured_image.split(';base64,', 1)
             filename = f"capture_{request.user.id}_{int(timezone.now().timestamp())}.png"
             uploaded_images = [ContentFile(base64.b64decode(imgstr), name=filename)]
 
-        if not barangay:
+        if reason not in DogCaptureRequest.REASON_LABELS:
+            messages.error(request, "Please select a valid reason.")
+            return redirect('user:dog_capture_request')
+
+        if location_mode == 'manual':
+            if not manual_full_address:
+                messages.error(request, "Please provide your full manual address.")
+                return redirect('user:dog_capture_request')
+            if not location_landmark_images:
+                messages.error(
+                    request,
+                    "Please upload at least one landmark/highway/crossing image for manual address.",
+                )
+                return redirect('user:dog_capture_request')
+            latitude_value = None
+            longitude_value = None
+        else:
+            if not latitude_raw or not longitude_raw:
+                messages.error(request, "Please capture your exact GPS location first.")
+                return redirect('user:dog_capture_request')
             try:
-                profile_barangay = _clean_barangay(request.user.profile.address)
-            except Profile.DoesNotExist:
-                profile_barangay = ""
-            barangay = _resolve_barangay_name(profile_barangay) or profile_barangay
+                latitude_val = float(latitude_raw)
+                longitude_val = float(longitude_raw)
+            except ValueError:
+                messages.error(request, "Latitude and longitude must be valid numbers.")
+                return redirect('user:dog_capture_request')
+
+            if not (-90 <= latitude_val <= 90 and -180 <= longitude_val <= 180):
+                messages.error(request, "Coordinates are out of valid range.")
+                return redirect('user:dog_capture_request')
+
+            latitude_value = f"{latitude_val:.6f}"
+            longitude_value = f"{longitude_val:.6f}"
+            manual_full_address = ""
+            location_landmark_images = []
+
+            if not barangay:
+                try:
+                    profile_barangay = _clean_barangay(request.user.profile.address)
+                except Profile.DoesNotExist:
+                    profile_barangay = ""
+                barangay = _resolve_barangay_name(profile_barangay) or profile_barangay
 
         new_req = DogCaptureRequest.objects.create(
             requested_by=request.user,
-            reason=request.POST.get('reason'),
-            description=request.POST.get('description'),
-            latitude=request.POST.get('latitude') or None,
-            longitude=request.POST.get('longitude') or None,
-            barangay=barangay or None,
+            reason=reason,
+            description=description or None,
+            latitude=latitude_value,
+            longitude=longitude_value,
+            barangay=(_resolve_barangay_name(barangay) or barangay) if barangay else None,
             city=city or None,
+            manual_full_address=manual_full_address or None,
+            location_landmark_image=location_landmark_images[0] if location_landmark_images else None,
             image=None
         )
+
+        if location_mode == 'manual':
+            for landmark_file in location_landmark_images[1:]:
+                DogCaptureRequestLandmarkImage.objects.create(
+                    request=new_req,
+                    image=landmark_file,
+                )
 
         first_saved_image = None
         for image_file in uploaded_images:
@@ -597,14 +654,24 @@ def request_dog_capture(request):
         )
         messages.success(request, "Request submitted successfully.")
 
-    requests = DogCaptureRequest.objects.filter(
+    requests = list(DogCaptureRequest.objects.filter(
         requested_by=request.user
     ).prefetch_related(
-        'images'
-    ).order_by('-created_at')
+        'images',
+        'landmark_images',
+    ).order_by('-created_at'))
+
+    accepted_requests = [req for req in requests if req.status == 'accepted']
+    pending_requests = [req for req in requests if req.status == 'pending']
+    captured_requests = [req for req in requests if req.status == 'captured']
+    declined_requests = [req for req in requests if req.status == 'declined']
 
     return render(request, 'user_request/request.html', {
-        'requests': requests
+        'requests': requests,
+        'accepted_requests': accepted_requests,
+        'pending_requests': pending_requests,
+        'captured_requests': captured_requests,
+        'declined_requests': declined_requests,
     })
 
 
@@ -632,8 +699,20 @@ def edit_dog_capture_request(request, req_id):
     description = (request.POST.get('description') or '').strip()
     barangay = _clean_barangay(request.POST.get('barangay'))
     city = _clean_barangay(request.POST.get('city'))
+    manual_full_address = " ".join(
+        (request.POST.get('manual_full_address') or '').split()
+    ).strip()
+    location_landmark_images = list(request.FILES.getlist('location_landmark_image'))
+    remove_primary_landmark = (request.POST.get('remove_primary_landmark') or '').strip() == '1'
+    raw_remove_landmark_ids = request.POST.getlist('remove_landmark_image_ids')
     latitude_raw = (request.POST.get('latitude') or '').strip()
     longitude_raw = (request.POST.get('longitude') or '').strip()
+    remove_landmark_ids = set()
+    for raw_id in raw_remove_landmark_ids:
+        try:
+            remove_landmark_ids.add(int(raw_id))
+        except (TypeError, ValueError):
+            continue
     # Support both the main request form field name and the edit-modal field name.
     location_mode = (
         request.POST.get('location_mode')
@@ -645,16 +724,12 @@ def edit_dog_capture_request(request, req_id):
     if location_mode not in {'exact', 'manual'}:
         location_mode = 'exact' if (latitude_raw or longitude_raw) else 'manual'
 
-    if location_mode == 'manual' and not barangay and not city:
-        messages.error(request, "Please provide a manual address.")
-        return redirect('user:dog_capture_request')
-
-    if location_mode == 'exact' and (not latitude_raw or not longitude_raw):
-        messages.error(request, "Please provide both latitude and longitude.")
-        return redirect('user:dog_capture_request')
-
-    # Exact mode stores GPS coordinates; manual mode clears coordinates.
+    # Exact mode stores GPS coordinates; manual mode stores full manual address.
     if location_mode == 'exact':
+        if not latitude_raw or not longitude_raw:
+            messages.error(request, "Please provide both latitude and longitude.")
+            return redirect('user:dog_capture_request')
+
         try:
             latitude_val = float(latitude_raw)
             longitude_val = float(longitude_raw)
@@ -668,15 +743,70 @@ def edit_dog_capture_request(request, req_id):
 
         req.latitude = f"{latitude_val:.6f}"
         req.longitude = f"{longitude_val:.6f}"
+        req.manual_full_address = None
+        if req.location_landmark_image:
+            req.location_landmark_image.delete(save=False)
+        req.location_landmark_image = None
+        for landmark in req.landmark_images.all():
+            landmark.image.delete(save=False)
+        req.landmark_images.all().delete()
     else:
+        if not manual_full_address:
+            messages.error(request, "Please provide your full manual address.")
+            return redirect('user:dog_capture_request')
+        remaining_extra_landmarks = req.landmark_images.exclude(id__in=remove_landmark_ids)
+        primary_count = 1 if (req.location_landmark_image and not remove_primary_landmark) else 0
+        has_existing_landmarks = bool(primary_count or remaining_extra_landmarks.exists())
+        if not has_existing_landmarks and not location_landmark_images:
+            messages.error(
+                request,
+                "Please upload at least one landmark/highway/crossing image for manual address.",
+            )
+            return redirect('user:dog_capture_request')
+
         req.latitude = None
         req.longitude = None
+        req.manual_full_address = manual_full_address
+
+        if remove_primary_landmark and req.location_landmark_image:
+            req.location_landmark_image.delete(save=False)
+            req.location_landmark_image = None
+
+        if remove_landmark_ids:
+            landmarks_to_remove = req.landmark_images.filter(id__in=remove_landmark_ids)
+            for landmark in landmarks_to_remove:
+                landmark.image.delete(save=False)
+            landmarks_to_remove.delete()
+
+        if location_landmark_images:
+            for landmark in req.landmark_images.all():
+                landmark.image.delete(save=False)
+            req.landmark_images.all().delete()
+            if req.location_landmark_image:
+                req.location_landmark_image.delete(save=False)
+            req.location_landmark_image = location_landmark_images[0]
+            for landmark_file in location_landmark_images[1:]:
+                DogCaptureRequestLandmarkImage.objects.create(
+                    request=req,
+                    image=landmark_file,
+                )
 
     req.reason = reason
     req.description = description or None
     req.barangay = (_resolve_barangay_name(barangay) or barangay) if barangay else None
     req.city = city or None
-    req.save(update_fields=['reason', 'description', 'barangay', 'city', 'latitude', 'longitude'])
+    req.save(
+        update_fields=[
+            'reason',
+            'description',
+            'barangay',
+            'city',
+            'latitude',
+            'longitude',
+            'manual_full_address',
+            'location_landmark_image',
+        ]
+    )
 
     messages.success(request, "Request updated successfully.")
     return redirect('user:dog_capture_request')

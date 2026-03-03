@@ -70,7 +70,7 @@
 
                 <div class="location-mode">
                     <label><input type="radio" name="location_mode" value="exact" checked> Use Exact Location</label>
-                    <label><input type="radio" name="location_mode" value="manual"> Enter Barangay Manually</label>
+                    <label><input type="radio" name="location_mode" value="manual"> Enter Full Address Manually</label>
                 </div>
 
                 <div id="exactLocationBox">
@@ -84,13 +84,46 @@
                 </div>
 
                 <div id="manualLocationBox" style="display:none;">
-                    <div class="form-group">
+                    <div class="form-group barangay-autocomplete-wrap">
                         <label>Barangay</label>
-                        <input type="text" name="barangay" id="barangayField" placeholder="Barangay">
+                        <input
+                            type="text"
+                            id="barangayField"
+                            name="barangay"
+                            value=""
+                            placeholder="Enter Barangay"
+                            autocomplete="off"
+                            required
+                            data-barangay-autocomplete="true"
+                            data-barangay-source-url="/user/barangays/"
+                            data-barangay-suggestions-id="request-barangay-suggestions"
+                            data-barangay-strict="true"
+                        >
+                        <div id="request-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
                     </div>
                     <div class="form-group">
                         <label>City / Municipality</label>
                         <input type="text" name="city" id="cityField" placeholder="City / Municipality">
+                    </div>
+                    <div class="form-group manual-full-address-group">
+                        <label>Full Address</label>
+                        <textarea
+                            name="manual_full_address"
+                            id="manualFullAddressField"
+                            rows="3"
+                            placeholder="House No., Street, Purok/Sitio, Barangay, City/Municipality, Province"
+                        ></textarea>
+                    </div>
+                    <div class="form-group manual-landmark-upload-group">
+                        <label>Nearest Highway / Crossing / Landmark Photo(s)</label>
+                        <input
+                            type="file"
+                            name="location_landmark_image"
+                            id="locationLandmarkImageField"
+                            accept="image/*"
+                            multiple
+                        >
+                        <small class="upload-hint">Upload one or more clear photos so the rabies control team can locate your exact area faster.</small>
                     </div>
                 </div>
             </div>
@@ -107,206 +140,48 @@
         <h2>My Requests</h2>
 
         <div class="requests-scroll">
-            {% for req in requests %}
-                <div class="request-card {{ req.status }} request-clickable"
-                     data-bs-toggle="modal"
-                     data-bs-target="#requestViewModal{{ req.id }}"
-                     role="button"
-                     tabindex="0"
-                     aria-label="View request details">
-                    <div class="request-header">
-                        <strong>{{ req.get_reason_display }}</strong>
-                        <span class="status-badge {{ req.status }}">
-                            {{ req.get_status_display }}
-                        </span>
-                    </div>
+            <div class="request-group">
+                <h3 class="request-group-title">Scheduled</h3>
+                {% for req in accepted_requests %}
+                    {% include 'user_request/_request_item.html' with req=req %}
+                {% empty %}
+                    <p class="request-group-empty">No scheduled requests.</p>
+                {% endfor %}
+            </div>
 
-                    {% if req.status == 'accepted' %}
-                        <p>
-                            Scheduled:
-                            <strong>{{ req.scheduled_date|date:"M d, Y h:i A" }}</strong>
-                        </p>
-                    {% elif req.status == 'declined' %}
-                        <p>Request Declined</p>
-                    {% else %}
-                        <p>Waiting for admin verification</p>
-                    {% endif %}
+            <div class="request-group">
+                <h3 class="request-group-title">Captured (Done)</h3>
+                {% for req in captured_requests %}
+                    {% include 'user_request/_request_item.html' with req=req %}
+                {% empty %}
+                    <p class="request-group-empty">No captured requests yet.</p>
+                {% endfor %}
+            </div>
 
-                    {% with total_images=req.images.all|length %}
-                        {% if total_images %}
-                            <p class="request-meta"><strong>Photos:</strong> {{ total_images }}</p>
-                        {% elif req.image %}
-                            <p class="request-meta"><strong>Photos:</strong> 1</p>
-                        {% endif %}
-                    {% endwith %}
+            <div class="request-group">
+                <h3 class="request-group-title">Pending</h3>
+                {% for req in pending_requests %}
+                    {% include 'user_request/_request_item.html' with req=req %}
+                {% empty %}
+                    <p class="request-group-empty">No pending requests.</p>
+                {% endfor %}
+            </div>
 
-                    {% if req.admin_message %}
-                        <p class="admin-note">
-                            <strong>Admin:</strong> {{ req.admin_message }}
-                        </p>
-                    {% endif %}
-
-                    <p class="request-view-hint">Click to view details</p>
-                </div>
-
-                <div class="modal fade request-view-modal" id="requestViewModal{{ req.id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-lg modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">{{ req.get_reason_display }}</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                {% with req_images=req.images.all %}
-                                    {% if req_images %}
-                                        <div id="requestImagesCarousel{{ req.id }}" class="carousel slide request-modal-carousel" data-bs-ride="false">
-                                            <div class="carousel-inner">
-                                                {% for item in req_images %}
-                                                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                                        <img src="{{ item.image.url }}" class="d-block w-100 request-modal-img" alt="Request photo {{ forloop.counter }}">
-                                                    </div>
-                                                {% endfor %}
-                                            </div>
-                                            {% if req_images|length > 1 %}
-                                                <button class="carousel-control-prev" type="button" data-bs-target="#requestImagesCarousel{{ req.id }}" data-bs-slide="prev">
-                                                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                                    <span class="visually-hidden">Previous</span>
-                                                </button>
-                                                <button class="carousel-control-next" type="button" data-bs-target="#requestImagesCarousel{{ req.id }}" data-bs-slide="next">
-                                                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                                    <span class="visually-hidden">Next</span>
-                                                </button>
-                                            {% endif %}
-                                        </div>
-                                    {% elif req.image %}
-                                        <img src="{{ req.image.url }}" class="request-modal-img" alt="Request photo">
-                                    {% else %}
-                                        <p class="text-muted mb-2">No photo attached.</p>
-                                    {% endif %}
-                                {% endwith %}
-
-                                <div class="request-modal-details">
-                                    <p><strong>Status:</strong> <span class="status-badge {{ req.status }}">{{ req.get_status_display }}</span></p>
-                                    <p><strong>Submitted:</strong> {{ req.created_at|date:"M d, Y h:i A" }}</p>
-                                    {% if req.status == 'accepted' and req.scheduled_date %}
-                                        <p><strong>Scheduled:</strong> {{ req.scheduled_date|date:"M d, Y h:i A" }}</p>
-                                    {% endif %}
-                                    {% if req.description %}
-                                        <p><strong>Details:</strong> {{ req.description }}</p>
-                                    {% endif %}
-                                    {% if req.barangay or req.city %}
-                                        <p><strong>Location:</strong> {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}</p>
-                                    {% elif req.latitude and req.longitude %}
-                                        <p><strong>Coordinates:</strong> {{ req.latitude }}, {{ req.longitude }}</p>
-                                    {% endif %}
-                                    {% if req.admin_message %}
-                                        <p><strong>Admin Message:</strong> {{ req.admin_message }}</p>
-                                    {% endif %}
-                                </div>
-
-                                {% if req.status == 'pending' %}
-                                    <div class="request-modal-actions">
-                                        <button
-                                            type="button"
-                                            class="btn-secondary request-edit-toggle"
-                                            data-target="#requestEditForm{{ req.id }}"
-                                        >
-                                            Edit Request
-                                        </button>
-                                        <form method="post" action="{% url 'user:delete_dog_capture_request' req.id %}" onsubmit="return confirm('Delete this request?');">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn-danger-inline">Delete Request</button>
-                                        </form>
-                                    </div>
-
-                                    <form
-                                        method="post"
-                                        action="{% url 'user:edit_dog_capture_request' req.id %}"
-                                        class="request-edit-form"
-                                        id="requestEditForm{{ req.id }}"
-                                        style="display:none;"
-                                    >
-                                        {% csrf_token %}
-                                        <div class="request-edit-grid">
-                                            <div class="form-group">
-                                                <label for="editReason{{ req.id }}">Reason</label>
-                                                <select name="reason" id="editReason{{ req.id }}" required>
-                                                    <option value="biting" {% if req.reason == 'biting' %}selected{% endif %}>Dog is biting people</option>
-                                                    <option value="aggressive" {% if req.reason == 'aggressive' %}selected{% endif %}>Dog is aggressive</option>
-                                                    <option value="injured" {% if req.reason == 'injured' %}selected{% endif %}>Dog is injured</option>
-                                                    <option value="sick" {% if req.reason == 'sick' %}selected{% endif %}>Dog looks sick</option>
-                                                    <option value="stray" {% if req.reason == 'stray' %}selected{% endif %}>Stray dog</option>
-                                                    <option value="other" {% if req.reason == 'other' %}selected{% endif %}>Other</option>
-                                                </select>
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="editDescription{{ req.id }}">Details</label>
-                                                <textarea name="description" id="editDescription{{ req.id }}" rows="3">{{ req.description|default_if_none:'' }}</textarea>
-                                            </div>
-                                        </div>
-
-                                        <div class="location-mode request-edit-mode">
-                                            <label>
-                                                <input
-                                                    type="radio"
-                                                    name="edit_location_mode"
-                                                    value="exact"
-                                                    {% if req.latitude and req.longitude %}checked{% endif %}
-                                                >
-                                                Use Exact Location
-                                            </label>
-                                            <label>
-                                                <input
-                                                    type="radio"
-                                                    name="edit_location_mode"
-                                                    value="manual"
-                                                    {% if not req.latitude or not req.longitude %}checked{% endif %}
-                                                >
-                                                Enter Manual Address
-                                            </label>
-                                        </div>
-
-                                        <div class="request-edit-location-box" data-edit-manual-box>
-                                            <div class="form-group">
-                                                <label for="editBarangay{{ req.id }}">Barangay</label>
-                                                <input type="text" name="barangay" id="editBarangay{{ req.id }}" value="{{ req.barangay|default_if_none:'' }}">
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="editCity{{ req.id }}">City / Municipality</label>
-                                                <input type="text" name="city" id="editCity{{ req.id }}" value="{{ req.city|default_if_none:'' }}">
-                                            </div>
-                                        </div>
-
-                                        <div class="request-edit-location-box" data-edit-exact-box>
-                                            <div class="form-group">
-                                                <label for="editLatitude{{ req.id }}">Latitude</label>
-                                                <input type="text" name="latitude" id="editLatitude{{ req.id }}" value="{{ req.latitude|default_if_none:'' }}" placeholder="e.g. 9.200000">
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="editLongitude{{ req.id }}">Longitude</label>
-                                                <input type="text" name="longitude" id="editLongitude{{ req.id }}" value="{{ req.longitude|default_if_none:'' }}" placeholder="e.g. 122.850000">
-                                            </div>
-                                        </div>
-
-                                        <div class="request-edit-actions">
-                                            <button type="submit" class="btn-primary">Save Changes</button>
-                                            <button type="button" class="btn-secondary request-edit-cancel" data-target="#requestEditForm{{ req.id }}">Cancel</button>
-                                        </div>
-                                    </form>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            {% empty %}
-                <p>No requests yet.</p>
-            {% endfor %}
+            <div class="request-group">
+                <h3 class="request-group-title">Declined</h3>
+                {% for req in declined_requests %}
+                    {% include 'user_request/_request_item.html' with req=req %}
+                {% empty %}
+                    <p class="request-group-empty">No declined requests.</p>
+                {% endfor %}
+            </div>
         </div>
     </div>
 
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 <script>
 let currentStep = 1;
 let stream;
@@ -314,13 +189,9 @@ let map;
 let marker;
 
 function addRealisticLayers(mapInstance) {
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution: 'Tiles &copy; Esri'
-    }).addTo(mapInstance);
-    L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 19,
-        attribution: 'Labels &copy; Esri'
+        attribution: '&copy; OpenStreetMap contributors'
     }).addTo(mapInstance);
 }
 
@@ -495,18 +366,24 @@ const exactLocationBox = document.getElementById('exactLocationBox');
 const manualLocationBox = document.getElementById('manualLocationBox');
 const barangayField = document.getElementById('barangayField');
 const cityField = document.getElementById('cityField');
+const manualFullAddressField = document.getElementById('manualFullAddressField');
+const locationLandmarkImageField = document.getElementById('locationLandmarkImageField');
+
+function applyCreateLocationMode() {
+    const mode = document.querySelector('input[name="location_mode"]:checked').value;
+    const isExact = mode === 'exact';
+
+    exactLocationBox.style.display = isExact ? 'block' : 'none';
+    manualLocationBox.style.display = isExact ? 'none' : 'block';
+
+    if (barangayField) barangayField.required = !isExact;
+    if (cityField) cityField.required = false;
+    if (manualFullAddressField) manualFullAddressField.required = !isExact;
+    if (locationLandmarkImageField) locationLandmarkImageField.required = !isExact;
+}
 
 locationModeInputs.forEach(input => {
-    input.addEventListener('change', () => {
-        const mode = document.querySelector('input[name="location_mode"]:checked').value;
-        const isExact = mode === 'exact';
-
-        exactLocationBox.style.display = isExact ? 'block' : 'none';
-        manualLocationBox.style.display = isExact ? 'none' : 'block';
-
-        document.getElementById('barangayField').required = !isExact;
-        document.getElementById('cityField').required = !isExact;
-    });
+    input.addEventListener('change', applyCreateLocationMode);
 });
 
 async function resolveAddressFromCoords(lat, lng) {
@@ -592,6 +469,16 @@ document.getElementById('captureForm').addEventListener('submit', (e) => {
             e.preventDefault();
             alert('Please capture exact location first.');
         }
+    } else {
+        if (!manualFullAddressField.value.trim()) {
+            e.preventDefault();
+            alert('Please enter your full manual address.');
+            return;
+        }
+        if (!locationLandmarkImageField.files.length) {
+            e.preventDefault();
+            alert('Please upload a landmark/highway/crossing image.');
+        }
     }
 });
 
@@ -602,6 +489,12 @@ document.querySelectorAll('.request-clickable').forEach((card) => {
             card.click();
         }
     });
+});
+
+document.querySelectorAll('.request-inline-stop').forEach((element) => {
+    const stopEvent = (e) => e.stopPropagation();
+    element.addEventListener('click', stopEvent);
+    element.addEventListener('keydown', stopEvent);
 });
 
 document.querySelectorAll('.request-edit-toggle').forEach((button) => {
@@ -630,17 +523,23 @@ function applyRequestEditLocationMode(form) {
     const exactBox = form.querySelector('[data-edit-exact-box]');
     const barangayInput = form.querySelector('input[name="barangay"]');
     const cityInput = form.querySelector('input[name="city"]');
+    const manualFullAddressInput = form.querySelector('textarea[name="manual_full_address"]');
+    const landmarkInput = form.querySelector('input[name="location_landmark_image"]');
     const latitudeInput = form.querySelector('input[name="latitude"]');
     const longitudeInput = form.querySelector('input[name="longitude"]');
     const isExact = !!(exactRadio && exactRadio.checked);
+    const hasExistingLandmark = landmarkInput?.dataset.hasExistingLandmark === 'true';
+    const hasUploadedLandmark = !!(landmarkInput && landmarkInput.files && landmarkInput.files.length);
 
     if (manualBox) manualBox.style.display = isExact ? 'none' : 'grid';
     if (exactBox) exactBox.style.display = isExact ? 'grid' : 'none';
 
     if (latitudeInput) latitudeInput.required = isExact;
     if (longitudeInput) longitudeInput.required = isExact;
-    if (barangayInput) barangayInput.required = !isExact;
-    if (cityInput) cityInput.required = !isExact;
+    if (barangayInput) barangayInput.required = false;
+    if (cityInput) cityInput.required = false;
+    if (manualFullAddressInput) manualFullAddressInput.required = !isExact;
+    if (landmarkInput) landmarkInput.required = !isExact && !hasExistingLandmark && !hasUploadedLandmark;
 }
 
 document.querySelectorAll('.request-edit-form').forEach((form) => {
@@ -649,9 +548,57 @@ document.querySelectorAll('.request-edit-form').forEach((form) => {
         // Live switch between Manual Address and Exact GPS inputs.
         radio.addEventListener('change', () => applyRequestEditLocationMode(form));
     });
+    const landmarkInput = form.querySelector('input[name="location_landmark_image"]');
+    landmarkInput?.addEventListener('change', () => applyRequestEditLocationMode(form));
     applyRequestEditLocationMode(form);
 });
 
+document.querySelectorAll('.landmark-remove-check').forEach((checkbox) => {
+    const card = checkbox.closest('[data-edit-landmark-card]');
+    if (!card) return;
+
+    const syncState = () => {
+        card.classList.toggle('is-removed', checkbox.checked);
+    };
+    checkbox.addEventListener('change', syncState);
+    syncState();
+});
+
+document.querySelectorAll('[data-landmark-viewer]').forEach((viewer) => {
+    const images = Array.from(viewer.querySelectorAll('[data-landmark-image]'));
+    if (!images.length) return;
+
+    let currentIndex = Math.max(
+        0,
+        images.findIndex((img) => img.classList.contains('is-active'))
+    );
+    if (currentIndex < 0) currentIndex = 0;
+
+    const prevBtn = viewer.querySelector('[data-landmark-prev]');
+    const nextBtn = viewer.querySelector('[data-landmark-next]');
+    const counter = viewer.querySelector('[data-landmark-index]');
+
+    function renderLandmark() {
+        images.forEach((img, index) => {
+            img.classList.toggle('is-active', index === currentIndex);
+        });
+        if (counter) counter.textContent = String(currentIndex + 1);
+    }
+
+    prevBtn?.addEventListener('click', () => {
+        currentIndex = (currentIndex - 1 + images.length) % images.length;
+        renderLandmark();
+    });
+
+    nextBtn?.addEventListener('click', () => {
+        currentIndex = (currentIndex + 1) % images.length;
+        renderLandmark();
+    });
+
+    renderLandmark();
+});
+
+applyCreateLocationMode();
 setStep(1);
 </script>
 

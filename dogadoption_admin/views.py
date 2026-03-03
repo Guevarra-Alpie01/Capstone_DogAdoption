@@ -114,6 +114,69 @@ def _extract_barangay_from_address(address):
     return _resolve_barangay_name(cleaned)
 
 
+BAYAWAN_ALLOWED_BARANGAYS = (
+    "Ali-is",
+    "Banaybanay",
+    "Banga",
+    "Boyco",
+    "Bugay",
+    "Cansumalig",
+    "Dawis",
+    "Kalamtukan",
+    "Kalumboyan",
+    "Malabugas",
+    "Mandu-ao",
+    "Maninihon",
+    "Minaba",
+    "Nangka",
+    "Narra",
+    "Pagatban",
+    "Poblacion",
+    "San Isidro",
+    "San Jose",
+    "San Miguel",
+    "San Roque",
+    "Suba",
+    "Tabuan",
+    "Tayawan",
+    "Tinago",
+    "Ubos",
+    "Villareal",
+    "Villasol",
+)
+
+BAYAWAN_ALLOWED_BARANGAY_KEYS = {
+    _normalize_barangay(name) for name in BAYAWAN_ALLOWED_BARANGAYS
+}
+
+
+def _normalize_city(value):
+    return "".join(ch.lower() for ch in _clean_barangay(value) if ch.isalnum())
+
+
+def _is_bayawan_city(value):
+    return _normalize_city(value) in {"bayawan", "bayawancity"}
+
+
+def _extract_city_from_address(address):
+    cleaned = _clean_barangay(address)
+    if not cleaned:
+        return ""
+
+    parts = [p.strip() for p in cleaned.split(",") if p.strip()]
+    for part in reversed(parts):
+        if _is_bayawan_city(part):
+            return "Bayawan City"
+    return ""
+
+
+def _is_allowed_bayawan_map_point(barangay, city):
+    return (
+        _normalize_barangay(barangay) in BAYAWAN_ALLOWED_BARANGAY_KEYS
+        and _is_bayawan_city(city)
+    )
+
+
 def _build_owner_full_name(first_name, last_name, fallback=""):
     first = " ".join((first_name or "").split()).strip()
     last = " ".join((last_name or "").split()).strip()
@@ -618,7 +681,7 @@ def admin_dog_capture_requests(request):
 
         return redirect('dogadoption_admin:requests')
 
-    requests = (
+    requests = list(
         DogCaptureRequest.objects.select_related(
             'requested_by', 'requested_by__profile', 'assigned_admin'
         )
@@ -632,15 +695,22 @@ def admin_dog_capture_requests(request):
 
         barangay = _clean_barangay(req.barangay)
         city = _clean_barangay(req.city)
+        manual_full_address = _clean_barangay(req.manual_full_address)
+        try:
+            profile_address = _clean_barangay(req.requested_by.profile.address)
+        except Profile.DoesNotExist:
+            profile_address = ""
 
         if not barangay:
-            try:
-                profile_barangay = _clean_barangay(req.requested_by.profile.address)
-            except Profile.DoesNotExist:
-                profile_barangay = ""
+            profile_barangay = profile_address
             barangay = _resolve_barangay_name(profile_barangay) or profile_barangay
 
-        if barangay and city:
+        if not city:
+            city = _extract_city_from_address(profile_address)
+
+        if manual_full_address:
+            req.location_label = manual_full_address
+        elif barangay and city:
             req.location_label = f"{barangay}, {city}"
         elif barangay:
             req.location_label = barangay
@@ -660,7 +730,13 @@ def admin_dog_capture_requests(request):
         else:
             image_url = ''
 
-        if req.status == 'accepted' and req.latitude is not None and req.longitude is not None:
+        is_allowed_map_point = _is_allowed_bayawan_map_point(barangay, city)
+        if (
+            req.status == 'accepted'
+            and req.latitude is not None
+            and req.longitude is not None
+            and is_allowed_map_point
+        ):
             scheduled_iso = req.scheduled_date.date().isoformat() if req.scheduled_date else ''
             scheduled_display = req.scheduled_date.strftime('%b %d, %Y %I:%M %p') if req.scheduled_date else ''
             map_points.append({
@@ -680,8 +756,17 @@ def admin_dog_capture_requests(request):
                 'image_url': image_url,
             })
 
+    pending_requests = [req for req in requests if req.status == 'pending']
+    accepted_requests = [req for req in requests if req.status == 'accepted']
+    captured_requests = [req for req in requests if req.status == 'captured']
+    declined_requests = [req for req in requests if req.status == 'declined']
+
     return render(request, 'admin_request/request.html', {
         'requests': requests,
+        'pending_requests': pending_requests,
+        'accepted_requests': accepted_requests,
+        'captured_requests': captured_requests,
+        'declined_requests': declined_requests,
         'map_points': map_points,
         'contacts': DogCatcherContact.objects.all(),
     })
@@ -689,7 +774,7 @@ def admin_dog_capture_requests(request):
 @admin_required
 def update_dog_capture_request(request, pk):
     req = get_object_or_404(
-        DogCaptureRequest.objects.select_related('requested_by', 'requested_by__profile').prefetch_related('images'),
+        DogCaptureRequest.objects.select_related('requested_by', 'requested_by__profile').prefetch_related('images', 'landmark_images'),
         pk=pk
     )
     _enrich_capture_request_user(req)
@@ -697,27 +782,54 @@ def update_dog_capture_request(request, pk):
     if request.method == 'POST':
         action = request.POST.get('action')
 
+        if req.status == 'captured' and action in {'accept', 'decline'}:
+            messages.warning(request, "Captured records are closed and cannot be re-opened.")
+            return redirect('dogadoption_admin:update_dog_capture_request', pk=req.id)
+
         if action == 'accept':
-            req.status = 'accepted'
-            req.assigned_admin = request.user
             scheduled_raw = request.POST.get('scheduled_date')
             scheduled_dt = parse_datetime(scheduled_raw) if scheduled_raw else None
+            if not scheduled_dt:
+                messages.error(request, "Scheduled capture date is required when accepting.")
+                return redirect('dogadoption_admin:update_dog_capture_request', pk=req.id)
             if scheduled_dt and timezone.is_naive(scheduled_dt):
                 scheduled_dt = timezone.make_aware(
                     scheduled_dt, timezone.get_current_timezone()
                 )
+            req.status = 'accepted'
+            req.assigned_admin = request.user
             req.scheduled_date = scheduled_dt
             req.admin_message = request.POST.get('admin_message')
+            req.captured_at = None
             req.notification_scheduled_for = None
             req.notification_sent_at = None
             req.save()
 
             messages.success(request, "Request accepted and scheduled.")
 
+        elif action == 'mark_captured':
+            if req.status != 'accepted':
+                messages.error(request, "Only scheduled requests can be marked as captured.")
+                return redirect('dogadoption_admin:update_dog_capture_request', pk=req.id)
+
+            admin_message = (request.POST.get('admin_message') or '').strip()
+            req.status = 'captured'
+            req.assigned_admin = request.user
+            req.captured_at = timezone.now()
+            if admin_message:
+                req.admin_message = admin_message
+            req.notification_scheduled_for = None
+            req.notification_sent_at = None
+            req.save()
+
+            messages.success(request, "Request marked as captured.")
+
         elif action == 'decline':
             req.status = 'declined'
             req.admin_message = request.POST.get('admin_message')
             req.assigned_admin = request.user
+            req.scheduled_date = None
+            req.captured_at = None
             req.notification_scheduled_for = None
             req.notification_sent_at = None
             req.save()

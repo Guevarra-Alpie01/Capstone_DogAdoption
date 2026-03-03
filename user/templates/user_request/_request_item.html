@@ -1,0 +1,343 @@
+<div class="request-card {{ req.status }} request-clickable"
+     data-bs-toggle="modal"
+     data-bs-target="#requestViewModal{{ req.id }}"
+     role="button"
+     tabindex="0"
+     aria-label="View request details">
+    <div class="request-header">
+        <strong>{{ req.get_reason_display }}</strong>
+        <span class="status-badge {{ req.status }}">
+            {% if req.status == 'accepted' %}
+                Scheduled
+            {% elif req.status == 'captured' %}
+                Captured
+            {% else %}
+                {{ req.get_status_display }}
+            {% endif %}
+        </span>
+    </div>
+
+    {% if req.status == 'accepted' %}
+        <p>
+            Scheduled:
+            <strong>{{ req.scheduled_date|date:"M d, Y h:i A" }}</strong>
+        </p>
+    {% elif req.status == 'captured' %}
+        <p>
+            Captured:
+            <strong>
+                {% if req.captured_at %}
+                    {{ req.captured_at|date:"M d, Y h:i A" }}
+                {% else %}
+                    Done
+                {% endif %}
+            </strong>
+        </p>
+    {% elif req.status == 'declined' %}
+        <p>Request Declined</p>
+    {% else %}
+        <p>Waiting for admin verification</p>
+    {% endif %}
+
+    {% with total_images=req.images.all|length %}
+        {% if total_images %}
+            <p class="request-meta"><strong>Photos:</strong> {{ total_images }}</p>
+        {% elif req.image %}
+            <p class="request-meta"><strong>Photos:</strong> 1</p>
+        {% endif %}
+    {% endwith %}
+
+    {% if req.admin_message %}
+        <p class="admin-note">
+            <strong>Admin:</strong> {{ req.admin_message }}
+        </p>
+    {% endif %}
+
+    {% if req.status == 'pending' %}
+        <div class="request-card-actions">
+            <button
+                type="button"
+                class="btn-secondary request-card-action request-edit-toggle"
+                data-bs-toggle="modal"
+                data-bs-target="#requestViewModal{{ req.id }}"
+                data-target="#requestEditForm{{ req.id }}"
+            >
+                Edit
+            </button>
+            <form
+                method="post"
+                action="{% url 'user:delete_dog_capture_request' req.id %}"
+                class="request-card-delete-form request-inline-stop"
+                onsubmit="return confirm('Delete this request?');"
+            >
+                {% csrf_token %}
+                <button type="submit" class="btn-danger-inline request-card-action request-inline-stop">Delete</button>
+            </form>
+        </div>
+    {% endif %}
+
+    <p class="request-view-hint">Click to view details</p>
+</div>
+
+<div class="modal fade request-view-modal" id="requestViewModal{{ req.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ req.get_reason_display }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {% with req_images=req.images.all %}
+                    {% if req_images %}
+                        <div id="requestImagesCarousel{{ req.id }}" class="carousel slide request-modal-carousel" data-bs-ride="false">
+                            <div class="carousel-inner">
+                                {% for item in req_images %}
+                                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                        <img src="{{ item.image.url }}" class="d-block w-100 request-modal-img" alt="Request photo {{ forloop.counter }}">
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            {% if req_images|length > 1 %}
+                                <button class="carousel-control-prev" type="button" data-bs-target="#requestImagesCarousel{{ req.id }}" data-bs-slide="prev">
+                                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                    <span class="visually-hidden">Previous</span>
+                                </button>
+                                <button class="carousel-control-next" type="button" data-bs-target="#requestImagesCarousel{{ req.id }}" data-bs-slide="next">
+                                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                    <span class="visually-hidden">Next</span>
+                                </button>
+                            {% endif %}
+                        </div>
+                    {% elif req.image %}
+                        <img src="{{ req.image.url }}" class="request-modal-img" alt="Request photo">
+                    {% else %}
+                        <p class="text-muted mb-2">No photo attached.</p>
+                    {% endif %}
+                {% endwith %}
+
+                <div class="request-modal-details">
+                    <p>
+                        <strong>Status:</strong>
+                        <span class="status-badge {{ req.status }}">
+                            {% if req.status == 'accepted' %}
+                                Scheduled
+                            {% elif req.status == 'captured' %}
+                                Captured
+                            {% else %}
+                                {{ req.get_status_display }}
+                            {% endif %}
+                        </span>
+                    </p>
+                    <p><strong>Submitted:</strong> {{ req.created_at|date:"M d, Y h:i A" }}</p>
+                    {% if req.status == 'accepted' and req.scheduled_date %}
+                        <p><strong>Scheduled:</strong> {{ req.scheduled_date|date:"M d, Y h:i A" }}</p>
+                    {% endif %}
+                    {% if req.status == 'captured' %}
+                        {% if req.scheduled_date %}
+                            <p><strong>Scheduled:</strong> {{ req.scheduled_date|date:"M d, Y h:i A" }}</p>
+                        {% endif %}
+                        <p>
+                            <strong>Captured:</strong>
+                            {% if req.captured_at %}
+                                {{ req.captured_at|date:"M d, Y h:i A" }}
+                            {% else %}
+                                Done
+                            {% endif %}
+                        </p>
+                    {% endif %}
+                    {% if req.description %}
+                        <p><strong>Details:</strong> {{ req.description }}</p>
+                    {% endif %}
+                    {% if req.manual_full_address %}
+                        <p><strong>Manual Address:</strong> {{ req.manual_full_address }}</p>
+                        {% if req.barangay or req.city %}
+                            <p><strong>Area:</strong> {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}</p>
+                        {% endif %}
+                    {% elif req.barangay or req.city %}
+                        <p><strong>Location:</strong> {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}</p>
+                    {% elif req.latitude and req.longitude %}
+                        <p><strong>Coordinates:</strong> {{ req.latitude }}, {{ req.longitude }}</p>
+                    {% endif %}
+                    {% with extra_landmarks=req.landmark_images.all %}
+                        {% if req.location_landmark_image or extra_landmarks %}
+                            <div class="request-manual-landmark">
+                                {% with extras_count=extra_landmarks|length %}
+                                <p><strong>Landmark Photo{% if req.location_landmark_image and extras_count or extras_count > 1 %}s{% endif %}:</strong></p>
+                                <div class="request-manual-landmark-viewer" data-landmark-viewer>
+                                    {% if req.location_landmark_image %}
+                                        <img
+                                            src="{{ req.location_landmark_image.url }}"
+                                            class="landmark-viewer-image is-active"
+                                            data-landmark-image
+                                            alt="Manual location landmark 1"
+                                        >
+                                    {% endif %}
+                                    {% for landmark in extra_landmarks %}
+                                        <img
+                                            src="{{ landmark.image.url }}"
+                                            class="landmark-viewer-image {% if not req.location_landmark_image and forloop.first %}is-active{% endif %}"
+                                            data-landmark-image
+                                            alt="Manual location landmark {{ forloop.counter }}"
+                                        >
+                                    {% endfor %}
+                                    {% if req.location_landmark_image and extras_count or extras_count > 1 %}
+                                        <button type="button" class="landmark-viewer-nav prev" data-landmark-prev aria-label="Previous image">&lt;</button>
+                                        <button type="button" class="landmark-viewer-nav next" data-landmark-next aria-label="Next image">&gt;</button>
+                                        <div class="landmark-viewer-counter">
+                                            <span data-landmark-index>1</span> /
+                                            {% if req.location_landmark_image %}
+                                                {{ extras_count|add:"1" }}
+                                            {% else %}
+                                                {{ extras_count }}
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                {% endwith %}
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+                    {% if req.admin_message %}
+                        <p><strong>Admin Message:</strong> {{ req.admin_message }}</p>
+                    {% endif %}
+                </div>
+
+                {% if req.status == 'pending' %}
+                    <form
+                        method="post"
+                        action="{% url 'user:edit_dog_capture_request' req.id %}"
+                        enctype="multipart/form-data"
+                        class="request-edit-form"
+                        id="requestEditForm{{ req.id }}"
+                        style="display:none;"
+                    >
+                        {% csrf_token %}
+                        <div class="request-edit-grid">
+                            <div class="form-group">
+                                <label for="editReason{{ req.id }}">Reason</label>
+                                <select name="reason" id="editReason{{ req.id }}" required>
+                                    <option value="biting" {% if req.reason == 'biting' %}selected{% endif %}>Dog is biting people</option>
+                                    <option value="aggressive" {% if req.reason == 'aggressive' %}selected{% endif %}>Dog is aggressive</option>
+                                    <option value="injured" {% if req.reason == 'injured' %}selected{% endif %}>Dog is injured</option>
+                                    <option value="sick" {% if req.reason == 'sick' %}selected{% endif %}>Dog looks sick</option>
+                                    <option value="stray" {% if req.reason == 'stray' %}selected{% endif %}>Stray dog</option>
+                                    <option value="other" {% if req.reason == 'other' %}selected{% endif %}>Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="editDescription{{ req.id }}">Details</label>
+                                <textarea name="description" id="editDescription{{ req.id }}" rows="3">{{ req.description|default_if_none:'' }}</textarea>
+                            </div>
+                        </div>
+
+                        <div class="location-mode request-edit-mode">
+                            <label>
+                                <input
+                                    type="radio"
+                                    name="edit_location_mode"
+                                    value="exact"
+                                    {% if req.latitude and req.longitude %}checked{% endif %}
+                                >
+                                Use Exact Location
+                            </label>
+                            <label>
+                                <input
+                                    type="radio"
+                                    name="edit_location_mode"
+                                    value="manual"
+                                    {% if not req.latitude or not req.longitude %}checked{% endif %}
+                                >
+                                Enter Full Address Manually
+                            </label>
+                        </div>
+
+                        <div class="request-edit-location-box" data-edit-manual-box>
+                            <div class="form-group">
+                                <label for="editBarangay{{ req.id }}">Barangay</label>
+                                <input type="text" name="barangay" id="editBarangay{{ req.id }}" value="{{ req.barangay|default_if_none:'' }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="editCity{{ req.id }}">City / Municipality</label>
+                                <input type="text" name="city" id="editCity{{ req.id }}" value="{{ req.city|default_if_none:'' }}">
+                            </div>
+                            <div class="form-group request-edit-full-address">
+                                <label for="editManualAddress{{ req.id }}">Full Address</label>
+                                <textarea
+                                    name="manual_full_address"
+                                    id="editManualAddress{{ req.id }}"
+                                    rows="3"
+                                >{{ req.manual_full_address|default_if_none:'' }}</textarea>
+                            </div>
+                            <div class="form-group request-edit-landmark-group">
+                                <label for="editLandmarkImage{{ req.id }}">Nearest Highway / Crossing / Landmark Photo(s)</label>
+                                <input
+                                    type="file"
+                                    name="location_landmark_image"
+                                    id="editLandmarkImage{{ req.id }}"
+                                    accept="image/*"
+                                    multiple
+                                    data-has-existing-landmark="{% if req.location_landmark_image or req.landmark_images.all %}true{% else %}false{% endif %}"
+                                >
+                                {% with extra_landmarks=req.landmark_images.all %}
+                                    {% if req.location_landmark_image or extra_landmarks %}
+                                        <small class="upload-hint">Leave empty to keep current landmark images. Uploading new files will replace them.</small>
+                                        <div class="request-manual-landmark-preview request-manual-landmark-preview-grid">
+                                            {% if req.location_landmark_image %}
+                                                <div class="editable-landmark-card" data-edit-landmark-card>
+                                                    <input
+                                                        type="checkbox"
+                                                        class="landmark-remove-check"
+                                                        id="removePrimaryLandmark{{ req.id }}"
+                                                        name="remove_primary_landmark"
+                                                        value="1"
+                                                    >
+                                                    <label class="landmark-remove-btn" for="removePrimaryLandmark{{ req.id }}" title="Remove this image">&times;</label>
+                                                    <img
+                                                        src="{{ req.location_landmark_image.url }}"
+                                                        alt="Current landmark image 1"
+                                                    >
+                                                </div>
+                                            {% endif %}
+                                            {% for landmark in extra_landmarks %}
+                                                <div class="editable-landmark-card" data-edit-landmark-card>
+                                                    <input
+                                                        type="checkbox"
+                                                        class="landmark-remove-check"
+                                                        id="removeLandmark{{ req.id }}_{{ landmark.id }}"
+                                                        name="remove_landmark_image_ids"
+                                                        value="{{ landmark.id }}"
+                                                    >
+                                                    <label class="landmark-remove-btn" for="removeLandmark{{ req.id }}_{{ landmark.id }}" title="Remove this image">&times;</label>
+                                                    <img
+                                                        src="{{ landmark.image.url }}"
+                                                        alt="Current landmark image {{ forloop.counter }}"
+                                                    >
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                {% endwith %}
+                            </div>
+                        </div>
+
+                        <div class="request-edit-location-box" data-edit-exact-box>
+                            <div class="form-group">
+                                <label for="editLatitude{{ req.id }}">Latitude</label>
+                                <input type="text" name="latitude" id="editLatitude{{ req.id }}" value="{{ req.latitude|default_if_none:'' }}" placeholder="e.g. 9.200000">
+                            </div>
+                            <div class="form-group">
+                                <label for="editLongitude{{ req.id }}">Longitude</label>
+                                <input type="text" name="longitude" id="editLongitude{{ req.id }}" value="{{ req.longitude|default_if_none:'' }}" placeholder="e.g. 122.850000">
+                            </div>
+                        </div>
+
+                        <div class="request-edit-actions">
+                            <button type="submit" class="btn-primary">Save Changes</button>
+                            <button type="button" class="btn-secondary request-edit-cancel" data-target="#requestEditForm{{ req.id }}">Cancel</button>
+                        </div>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

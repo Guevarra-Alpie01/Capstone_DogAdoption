@@ -4,11 +4,32 @@ from .models import UserAdoptionPost,MissingDogPost
 
 
 class UserAdoptionPostForm(forms.ModelForm):
-    main_image = forms.ImageField(required=True)  # single main image
+    main_image = forms.ImageField(
+        required=True,
+        widget=forms.ClearableFileInput(attrs={
+            "class": "form-control",
+            "accept": "image/*",
+        }),
+    )  # single main image
 
     class Meta:
         model = UserAdoptionPost
         fields = ['dog_name', 'description', 'location']
+        widgets = {
+            "dog_name": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "e.g., Brownie",
+            }),
+            "description": forms.Textarea(attrs={
+                "class": "form-control",
+                "rows": 4,
+                "placeholder": "Describe the dog, temperament, and any special notes.",
+            }),
+            "location": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "Barangay, street, or landmark",
+            }),
+        }
 
 class MissingDogPostForm(forms.ModelForm):
     class Meta:
@@ -22,6 +43,29 @@ class MissingDogPostForm(forms.ModelForm):
             'location',
         ]
         widgets = {
-            'date_lost': forms.DateInput(attrs={'type': 'date'}),
-            'time_lost': forms.TimeInput(attrs={'type': 'time'}),
+            "dog_name": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "e.g., Max",
+            }),
+            "description": forms.Textarea(attrs={
+                "class": "form-control",
+                "rows": 4,
+                "placeholder": "Include markings, collar color, and where last seen.",
+            }),
+            "image": forms.ClearableFileInput(attrs={
+                "class": "form-control",
+                "accept": "image/*",
+            }),
+            "date_lost": forms.DateInput(attrs={
+                "class": "form-control",
+                "type": "date",
+            }),
+            "time_lost": forms.TimeInput(attrs={
+                "class": "form-control",
+                "type": "time",
+            }),
+            "location": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "Exact location where the dog was last seen",
+            }),
         }

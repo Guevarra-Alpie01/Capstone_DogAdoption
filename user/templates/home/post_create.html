@@ -13,20 +13,36 @@
             <h4 class="mb-0">Create Dog Post</h4>
         </div>
 
-        <div class="mb-3">
-            <label class="form-label fw-semibold">Post Type</label>
-            <select id="postTypeSelect" class="form-select post-type-select">
-                <option value="adoption" {% if selected_type != 'missing' %}selected{% endif %}>For Adoption</option>
-                <option value="missing" {% if selected_type == 'missing' %}selected{% endif %}>Missing Dog</option>
-            </select>
+        <div class="post-create-intro">
+            <span class="post-create-intro-icon" aria-hidden="true">
+                <i class="bi bi-megaphone"></i>
+            </span>
+            <div>
+                <h6>Help The Community Fast</h6>
+                <p>Choose the post type and provide clear details so nearby users can respond quickly.</p>
+            </div>
+        </div>
+
+        <div class="post-type-toggle" id="postTypeToggle" data-active-type="{% if selected_type == 'missing' %}missing{% else %}adoption{% endif %}">
+            <button type="button" class="post-type-btn js-post-type-btn" data-type="adoption">
+                <i class="bi bi-house-heart"></i>
+                <span>For Adoption</span>
+            </button>
+            <button type="button" class="post-type-btn js-post-type-btn" data-type="missing">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>Missing Dog</span>
+            </button>
         </div>
 
         <form method="POST" enctype="multipart/form-data" novalidate class="post-create-form">
             {% csrf_token %}
             <input type="hidden" name="post_type" id="postTypeInput" value="{% if selected_type == 'missing' %}missing{% else %}adoption{% endif %}">
 
-            <div id="adoptionFields" class="post-type-panel" {% if selected_type == "missing" %}style="display:none;"{% endif %}>
-                <p class="post-section-title">Adoption Details</p>
+            <div id="adoptionFields" class="post-type-panel adoption-panel" {% if selected_type == "missing" %}style="display:none;"{% endif %}>
+                <p class="post-section-title">
+                    <i class="bi bi-heart-fill"></i>
+                    <span>Adoption Details</span>
+                </p>
                 <div class="mb-3">
                     <label class="form-label">Dog Name</label>
                     {{ adoption_form.dog_name }}
@@ -52,12 +68,18 @@
                     <input type="file" name="extra_images" multiple class="form-control">
                 </div>
                 <div class="post-submit-row">
-                    <button type="submit" class="btn btn-success w-100">Publish Adoption Post</button>
+                    <button type="submit" class="btn btn-success post-submit-btn w-100">
+                        <i class="bi bi-send-check"></i>
+                        <span>Publish Adoption Post</span>
+                    </button>
                 </div>
             </div>
 
-            <div id="missingFields" class="post-type-panel" {% if selected_type != "missing" %}style="display:none;"{% endif %}>
-                <p class="post-section-title">Missing Dog Details</p>
+            <div id="missingFields" class="post-type-panel missing-panel" {% if selected_type != "missing" %}style="display:none;"{% endif %}>
+                <p class="post-section-title">
+                    <i class="bi bi-geo-alt-fill"></i>
+                    <span>Missing Dog Details</span>
+                </p>
                 <div class="mb-3">
                     <label class="form-label">Dog Name</label>
                     {{ missing_form.dog_name }}
@@ -89,7 +111,10 @@
                     {% if missing_form.location.errors %}<div class="text-danger small">{{ missing_form.location.errors|striptags }}</div>{% endif %}
                 </div>
                 <div class="post-submit-row">
-                    <button type="submit" class="btn btn-danger w-100">Submit Missing Report</button>
+                    <button type="submit" class="btn btn-danger post-submit-btn w-100">
+                        <i class="bi bi-broadcast-pin"></i>
+                        <span>Submit Missing Report</span>
+                    </button>
                 </div>
             </div>
         </form>
@@ -98,7 +123,8 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        const postTypeSelect = document.getElementById("postTypeSelect");
+        const typeButtons = document.querySelectorAll("#postTypeToggle .js-post-type-btn");
+        const postTypeToggle = document.getElementById("postTypeToggle");
         const adoptionFields = document.getElementById("adoptionFields");
         const missingFields = document.getElementById("missingFields");
         const postTypeInput = document.getElementById("postTypeInput");
@@ -108,11 +134,18 @@
             postTypeInput.value = isMissing ? "missing" : "adoption";
             adoptionFields.style.display = isMissing ? "none" : "";
             missingFields.style.display = isMissing ? "" : "none";
-            postTypeSelect.value = postTypeInput.value;
+            if (postTypeToggle) {
+                postTypeToggle.dataset.activeType = postTypeInput.value;
+            }
         }
 
-        postTypeSelect.addEventListener("change", function () { setType(postTypeSelect.value); });
-        setType(postTypeSelect.value);
+        typeButtons.forEach((button) => {
+            button.addEventListener("click", () => {
+                setType(button.dataset.type || "adoption");
+            });
+        });
+
+        setType(postTypeInput.value);
     });
 </script>
 {% endblock %}

@@ -302,6 +302,44 @@ def user_home(request):
     if request.user.is_authenticated and request.user.is_staff:
         return redirect('dogadoption_admin:post_list')
 
+    selected_type = request.GET.get("type", "adoption")
+    adoption_form = UserAdoptionPostForm()
+    missing_form = MissingDogPostForm()
+    open_create_modal = False
+
+    if request.method == "POST" and request.POST.get("home_create_post") == "1":
+        if not request.user.is_authenticated:
+            messages.error(request, "Please log in to create a post.")
+            return redirect("user:login")
+
+        selected_type = request.POST.get("post_type", "adoption")
+        open_create_modal = True
+
+        if selected_type == "missing":
+            missing_form = MissingDogPostForm(request.POST, request.FILES)
+            if missing_form.is_valid():
+                post = missing_form.save(commit=False)
+                post.owner = request.user
+                post.save()
+                messages.success(request, "Missing dog post created successfully.")
+                return redirect("user:user_home")
+        else:
+            adoption_form = UserAdoptionPostForm(request.POST, request.FILES)
+            if adoption_form.is_valid():
+                post = adoption_form.save(commit=False)
+                post.owner = request.user
+                post.save()
+
+                main_image = request.FILES.get("main_image")
+                if main_image:
+                    UserAdoptionImage.objects.create(post=post, image=main_image)
+
+                for img in request.FILES.getlist("extra_images"):
+                    UserAdoptionImage.objects.create(post=post, image=img)
+
+                messages.success(request, "Adoption post created successfully.")
+                return redirect("user:user_home")
+
     query = (request.GET.get('q') or '').strip()
     page_number = request.GET.get('page', 1)
     posts_per_page = 12
@@ -429,6 +467,10 @@ def user_home(request):
         'posts': page_obj.object_list,
         'page_obj': page_obj,
         'query': query,
+        'selected_type': selected_type,
+        'adoption_form': adoption_form,
+        'missing_form': missing_form,
+        'open_create_modal': open_create_modal,
     })
 
 @user_only

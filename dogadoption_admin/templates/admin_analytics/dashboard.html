@@ -9,7 +9,6 @@
 <div class="analytics-page">
     <div class="analytics-head">
         <h1>Analytics Dashboard</h1>
-        <p>Live metrics from rescue posts, user requests, capture reports, and registration records.</p>
     </div>
 
     <div class="kpi-grid">
@@ -77,6 +76,18 @@
     </div>
 
     <div class="chart-grid">
+        <div class="chart-card chart-span-2">
+            <h4 class="chart-title">
+                <span class="chart-icon icon-barangay" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M3 21h18M6 18V9m6 9V5m6 13v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                    </svg>
+                </span>
+                <span>Top Registered Barangays</span>
+            </h4>
+            <canvas id="barangayChart"></canvas>
+        </div>
+
         <div class="chart-card chart-span-2">
             <h4 class="chart-title">
                 <span class="chart-icon icon-activity" aria-hidden="true">
@@ -163,17 +174,6 @@
             <p id="vaccinationBarangayEmptyState" class="chart-empty" hidden>No vaccination data for the selected filter.</p>
         </div>
 
-        <div class="chart-card chart-span-2">
-            <h4 class="chart-title">
-                <span class="chart-icon icon-barangay" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none">
-                        <path d="M3 21h18M6 18V9m6 9V5m6 13v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-                    </svg>
-                </span>
-                <span>Top Registered Barangays</span>
-            </h4>
-            <canvas id="barangayChart"></canvas>
-        </div>
     </div>
 </div>
 
@@ -513,22 +513,27 @@
     renderVaccinationBarangayChart();
 
     new Chart(document.getElementById('barangayChart'), {
-        type: 'bar',
+        type: 'pie',
         data: {
             labels: barangayData.labels,
             datasets: [{
                 label: 'Registered Dogs',
                 data: barangayData.data,
-                backgroundColor: '#2563eb'
+                backgroundColor: [
+                    '#2563eb', '#22c55e', '#f97316', '#e11d48', '#8b5cf6',
+                    '#06b6d4', '#f59e0b', '#14b8a6', '#ef4444', '#84cc16'
+                ],
+                borderColor: '#ffffff',
+                borderWidth: 2
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            indexAxis: 'y',
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { beginAtZero: true, ticks: { precision: 0 } }
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
             }
         }
     });

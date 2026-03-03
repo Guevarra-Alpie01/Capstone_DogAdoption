@@ -134,11 +134,33 @@
                 </div>
             </div>
             <div class="form-actions">
-                <button type="submit" class="submit-btn registration-submit-btn">Next</button>
+                <button type="submit" class="submit-btn registration-submit-btn">Next: Medical Records</button>
             </div>
         </form>
     </div>
 </div>
+
+<div class="certificate-next-modal" id="certificate-next-modal" aria-hidden="true">
+    <div class="certificate-next-modal__backdrop" data-modal-close></div>
+    <div class="certificate-next-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="certificate-next-modal-title">
+        <button type="button" class="certificate-next-modal__close" data-modal-close aria-label="Close">
+            &times;
+        </button>
+        <div class="certificate-next-modal__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"></circle>
+                <path d="M8 12l2.6 2.6L16 9.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        </div>
+        <h3 id="certificate-next-modal-title">Proceed to Medical Records?</h3>
+        <p>The dog certificate will be saved, then you will continue to the medical record form.</p>
+        <div class="certificate-next-modal__actions">
+            <button type="button" class="certificate-next-modal__btn secondary" data-modal-close>Review</button>
+            <button type="button" class="certificate-next-modal__btn primary" id="certificate-confirm-next">Save &amp; Continue</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const breedList = [
         "Aspin (Asong Pinoy)",
@@ -185,6 +207,10 @@
     const breedSuggestionsBox = document.getElementById('breed_suggestions');
     const contactInput = document.getElementById('contact_no');
     const certificateForm = document.getElementById('dog-certificate-form');
+    const nextStepModal = document.getElementById('certificate-next-modal');
+    const confirmNextBtn = document.getElementById('certificate-confirm-next');
+    const modalCloseTriggers = document.querySelectorAll('[data-modal-close]');
+    let proceedAfterModal = false;
 
     function cleanInput(value) {
         return value.replace(/\s+/g, ' ').trim();
@@ -331,7 +357,24 @@
     }
 
     if (certificateForm) {
-        certificateForm.addEventListener('submit', () => {
+        certificateForm.addEventListener('submit', (event) => {
+            if (!proceedAfterModal) {
+                if (!certificateForm.checkValidity()) {
+                    return;
+                }
+                event.preventDefault();
+                if (nextStepModal) {
+                    nextStepModal.classList.add('is-open');
+                    nextStepModal.setAttribute('aria-hidden', 'false');
+                    document.body.classList.add('modal-open');
+                    if (confirmNextBtn) {
+                        confirmNextBtn.focus();
+                    }
+                }
+                return;
+            }
+
+            proceedAfterModal = false;
             normalizeBreedField();
             breedSuggestionsBox.style.display = 'none';
 
@@ -340,6 +383,45 @@
             }
         });
     }
+
+    function closeNextStepModal() {
+        if (!nextStepModal) {
+            return;
+        }
+        nextStepModal.classList.remove('is-open');
+        nextStepModal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+    }
+
+    if (confirmNextBtn && certificateForm) {
+        confirmNextBtn.addEventListener('click', () => {
+            proceedAfterModal = true;
+            closeNextStepModal();
+
+            if (typeof certificateForm.requestSubmit === 'function') {
+                certificateForm.requestSubmit();
+            } else {
+                normalizeBreedField();
+                if (breedSuggestionsBox) {
+                    breedSuggestionsBox.style.display = 'none';
+                }
+                if (contactInput) {
+                    contactInput.value = toCanonicalContactNumber(contactInput.value);
+                }
+                certificateForm.submit();
+            }
+        });
+    }
+
+    modalCloseTriggers.forEach((trigger) => {
+        trigger.addEventListener('click', closeNextStepModal);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && nextStepModal && nextStepModal.classList.contains('is-open')) {
+            closeNextStepModal();
+        }
+    });
 
     document.addEventListener('click', (e) => {
         if (breedSuggestionsBox && !breedSuggestionsBox.contains(e.target) && e.target !== breedInput) {

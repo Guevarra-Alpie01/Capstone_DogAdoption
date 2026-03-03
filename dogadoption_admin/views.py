@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.views.decorators.http import require_POST
 from django.db.models import Count, Q, Prefetch
-from django.db.models.functions import TruncDate
+from django.db.models.functions import Lower, Trim, TruncDate
 from django.db import transaction
 from datetime import timedelta
 from django.utils import timezone
@@ -881,6 +881,34 @@ def analytics_dashboard(request):
     total_capture_requests = DogCaptureRequest.objects.count()
     total_registrations = DogRegistration.objects.count()
 
+    registered_owners = (
+        DogRegistration.objects.exclude(owner_name__isnull=True)
+        .exclude(owner_name__exact="")
+        .annotate(owner_name_normalized=Lower(Trim("owner_name")))
+        .values("owner_name_normalized")
+        .distinct()
+        .count()
+    )
+    adopted_dogs = Post.objects.filter(status="adopted").count()
+    claimed_dogs = Post.objects.filter(status="reunited").count()
+    vaccinated_dogs = (
+        VaccinationRecord.objects.exclude(registration__isnull=True)
+        .values("registration_id")
+        .distinct()
+        .count()
+    )
+    today = timezone.localdate()
+    expired_vaccinations = (
+        VaccinationRecord.objects.exclude(registration__isnull=True)
+        .filter(
+            Q(vaccine_expiry_date__lt=today) |
+            Q(vaccination_expiry_date__lt=today)
+        )
+        .values("registration_id")
+        .distinct()
+        .count()
+    )
+
     post_status_totals = {
         row["status"]: row["total"]
         for row in Post.objects.values("status").annotate(total=Count("id"))
@@ -955,6 +983,31 @@ def analytics_dashboard(request):
         ],
     }
 
+    rescue_events = []
+    rescue_years = set()
+    for row in (
+        Post.objects.exclude(location__isnull=True)
+        .exclude(location__exact="")
+        .values("location", "rescued_date", "created_at")
+    ):
+        post_date = row["rescued_date"] or timezone.localtime(row["created_at"]).date()
+        if not post_date:
+            continue
+        location = (row["location"] or "").strip()
+        if not location:
+            continue
+        barangay_name = _resolve_barangay_name(location) or location
+        rescue_events.append({
+            "barangay": barangay_name,
+            "date": post_date.isoformat(),
+        })
+        rescue_years.add(post_date.year)
+
+    rescue_barangay_trend_chart = {
+        "events": rescue_events,
+        "years": sorted(rescue_years),
+    }
+
     top_barangays = (
         Dog.objects.exclude(barangay__isnull=True)
         .exclude(barangay__exact="")
@@ -968,6 +1021,11 @@ def analytics_dashboard(request):
     }
 
     context = {
+        "registered_owners": registered_owners,
+        "adopted_dogs": adopted_dogs,
+        "claimed_dogs": claimed_dogs,
+        "vaccinated_dogs": vaccinated_dogs,
+        "expired_vaccinations": expired_vaccinations,
         "total_users": total_users,
         "total_posts": total_posts,
         "total_capture_requests": total_capture_requests,
@@ -982,6 +1040,7 @@ def analytics_dashboard(request):
             "data": capture_status_data,
         },
         "activity_trend_chart": activity_trend_chart,
+        "rescue_barangay_trend_chart": rescue_barangay_trend_chart,
         "barangay_chart": barangay_chart,
     }
     return render(request, "admin_analytics/dashboard.html", context)

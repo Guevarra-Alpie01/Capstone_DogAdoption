@@ -14,20 +14,24 @@
 
     <div class="kpi-grid">
         <div class="kpi-card">
-            <span>Total Users</span>
-            <h3>{{ total_users }}</h3>
+            <span>Total Registered Owners</span>
+            <h3>{{ registered_owners }}</h3>
         </div>
         <div class="kpi-card">
-            <span>Rescue Posts</span>
-            <h3>{{ total_posts }}</h3>
+            <span>Adopted Dogs</span>
+            <h3>{{ adopted_dogs }}</h3>
         </div>
         <div class="kpi-card">
-            <span>Capture Requests</span>
-            <h3>{{ total_capture_requests }}</h3>
+            <span>Claimed Dogs</span>
+            <h3>{{ claimed_dogs }}</h3>
         </div>
         <div class="kpi-card">
-            <span>Dog Registrations</span>
-            <h3>{{ total_registrations }}</h3>
+            <span>Vaccinated Dogs</span>
+            <h3>{{ vaccinated_dogs }}</h3>
+        </div>
+        <div class="kpi-card">
+            <span>Expired Vaccination</span>
+            <h3>{{ expired_vaccinations }}</h3>
         </div>
     </div>
 
@@ -53,6 +57,35 @@
         </div>
 
         <div class="chart-card chart-span-2">
+            <div class="chart-head">
+                <h4>Rescued Dogs by Barangay (Grouped Line)</h4>
+                <div class="chart-filters">
+                    <select id="rescueTrendYearFilter" class="chart-filter-select"></select>
+                    <select id="rescueTrendViewFilter" class="chart-filter-select">
+                        <option value="year">Whole Year</option>
+                        <option value="month">By Month</option>
+                    </select>
+                    <select id="rescueTrendMonthFilter" class="chart-filter-select">
+                        <option value="1">January</option>
+                        <option value="2">February</option>
+                        <option value="3">March</option>
+                        <option value="4">April</option>
+                        <option value="5">May</option>
+                        <option value="6">June</option>
+                        <option value="7">July</option>
+                        <option value="8">August</option>
+                        <option value="9">September</option>
+                        <option value="10">October</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                    </select>
+                </div>
+            </div>
+            <canvas id="rescueBarangayTrendChart"></canvas>
+            <p id="rescueTrendEmptyState" class="chart-empty" hidden>No rescue data for the selected filter.</p>
+        </div>
+
+        <div class="chart-card chart-span-2">
             <h4>Top Registered Barangays</h4>
             <canvas id="barangayChart"></canvas>
         </div>
@@ -63,6 +96,7 @@
 {{ request_status_chart|json_script:"request-status-data" }}
 {{ capture_status_chart|json_script:"capture-status-data" }}
 {{ activity_trend_chart|json_script:"activity-trend-data" }}
+{{ rescue_barangay_trend_chart|json_script:"rescue-barangay-trend-data" }}
 {{ barangay_chart|json_script:"barangay-data" }}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -71,6 +105,7 @@
     const requestStatusData = JSON.parse(document.getElementById('request-status-data').textContent);
     const captureStatusData = JSON.parse(document.getElementById('capture-status-data').textContent);
     const activityTrendData = JSON.parse(document.getElementById('activity-trend-data').textContent);
+    const rescueBarangayTrendData = JSON.parse(document.getElementById('rescue-barangay-trend-data').textContent);
     const barangayData = JSON.parse(document.getElementById('barangay-data').textContent);
 
     const pieColors = ['#0d6efd', '#20c997', '#ffc107', '#dc3545', '#6f42c1'];
@@ -154,6 +189,123 @@
             }
         }
     });
+
+    const rescueTrendYearFilter = document.getElementById('rescueTrendYearFilter');
+    const rescueTrendViewFilter = document.getElementById('rescueTrendViewFilter');
+    const rescueTrendMonthFilter = document.getElementById('rescueTrendMonthFilter');
+    const rescueTrendEmptyState = document.getElementById('rescueTrendEmptyState');
+    const rescueTrendCanvas = document.getElementById('rescueBarangayTrendChart');
+
+    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const linePalette = ['#2563eb', '#dc2626', '#16a34a', '#7c3aed', '#ea580c', '#0891b2', '#be123c', '#4f46e5', '#0f766e', '#9333ea'];
+    const rescueEvents = rescueBarangayTrendData.events || [];
+    const currentMonth = new Date().getMonth() + 1;
+    const years = (rescueBarangayTrendData.years || []).slice().sort((a, b) => a - b);
+    let rescueTrendChart = null;
+
+    const resolveDefaultYear = () => {
+        const nowYear = new Date().getFullYear();
+        if (years.includes(nowYear)) return nowYear;
+        return years.length ? years[years.length - 1] : nowYear;
+    };
+
+    const selectedYearDefault = resolveDefaultYear();
+    if (!years.length) {
+        years.push(selectedYearDefault);
+    }
+
+    years.forEach((year) => {
+        const option = document.createElement('option');
+        option.value = String(year);
+        option.textContent = String(year);
+        rescueTrendYearFilter.appendChild(option);
+    });
+    rescueTrendYearFilter.value = String(selectedYearDefault);
+    rescueTrendMonthFilter.value = String(currentMonth);
+
+    const buildRescueTrendSeries = (mode, year, month) => {
+        const labels = mode === 'year'
+            ? monthLabels
+            : Array.from(
+                { length: new Date(year, month, 0).getDate() },
+                (_, idx) => String(idx + 1),
+            );
+
+        const bucketCount = labels.length;
+        const byBarangay = {};
+
+        rescueEvents.forEach((event) => {
+            const eventDate = new Date(`${event.date}T00:00:00`);
+            if (Number.isNaN(eventDate.getTime())) return;
+            if (eventDate.getFullYear() !== year) return;
+            if (mode === 'month' && (eventDate.getMonth() + 1) !== month) return;
+
+            const bucketIdx = mode === 'year' ? eventDate.getMonth() : eventDate.getDate() - 1;
+            const barangay = event.barangay || 'Unknown';
+            if (!byBarangay[barangay]) {
+                byBarangay[barangay] = Array(bucketCount).fill(0);
+            }
+            byBarangay[barangay][bucketIdx] += 1;
+        });
+
+        const topBarangays = Object.entries(byBarangay)
+            .map(([name, data]) => ({
+                name,
+                total: data.reduce((sum, n) => sum + n, 0),
+                data,
+            }))
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 8);
+
+        const datasets = topBarangays.map((entry, idx) => ({
+            label: entry.name,
+            data: entry.data,
+            borderColor: linePalette[idx % linePalette.length],
+            backgroundColor: linePalette[idx % linePalette.length],
+            tension: 0.25,
+            fill: false,
+        }));
+
+        return { labels, datasets };
+    };
+
+    const renderRescueTrendChart = () => {
+        const mode = rescueTrendViewFilter.value;
+        const selectedYear = Number(rescueTrendYearFilter.value);
+        const selectedMonth = Number(rescueTrendMonthFilter.value);
+
+        rescueTrendMonthFilter.style.display = mode === 'month' ? 'inline-flex' : 'none';
+
+        const data = buildRescueTrendSeries(mode, selectedYear, selectedMonth);
+        const hasData = data.datasets.length > 0;
+        rescueTrendEmptyState.hidden = hasData;
+
+        if (rescueTrendChart) {
+            rescueTrendChart.destroy();
+        }
+
+        rescueTrendChart = new Chart(rescueTrendCanvas, {
+            type: 'line',
+            data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: { mode: 'index', intersect: false },
+                },
+                interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                }
+            }
+        });
+    };
+
+    rescueTrendYearFilter.addEventListener('change', renderRescueTrendChart);
+    rescueTrendViewFilter.addEventListener('change', renderRescueTrendChart);
+    rescueTrendMonthFilter.addEventListener('change', renderRescueTrendChart);
+    renderRescueTrendChart();
 
     new Chart(document.getElementById('barangayChart'), {
         type: 'bar',

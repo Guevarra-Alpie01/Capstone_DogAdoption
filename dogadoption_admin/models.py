@@ -331,7 +331,7 @@ class DogRegistration(models.Model):
     reg_no = models.CharField(max_length=50)
     name_of_pet = models.CharField(max_length=100)
     breed = models.CharField(max_length=100)
-    dob = models.DateField()
+    dob = models.DateField(null=True, blank=True)
     color_markings = models.CharField(max_length=100)
     sex = models.CharField(max_length=1, choices=SEX_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)

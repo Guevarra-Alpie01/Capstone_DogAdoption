@@ -1,134 +1,26 @@
 {% load static %}
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bulk Dog Vaccination Certificates</title>
-    <link rel="stylesheet" href="{% static 'css/register/bulk_certificate_print.css' %}">
+    <link rel="stylesheet" href="{% static 'css/register/small_certificate.css' %}">
 </head>
 <body>
+    <main class="small-certificate-stack">
+        {% for cert in certificates %}
+        <div class="bulk-meta">Certificate {{ forloop.counter }} of {{ certificates|length }}</div>
+        {% include 'admin_registration/partials/small_certificate_sheet.html' %}
+        {% endfor %}
+    </main>
 
-{% for cert in certificates %}
-<div class="certificate-page">
-
-    <!-- Optional sequence number -->
-    <div style="text-align:right; font-size:12px; margin-bottom:5px;">
-        Certificate {{ forloop.counter }} of {{ certificates|length }}
-    </div>
-
-    <div class="certificate">
-
-        <!-- Header -->
-        <div class="header">
-            <img src="{% static 'images/officialseal.webp' %}" class="logo-left">
-            <div class="title"><h1>DOG VACCINATION CERTIFICATE</h1></div>
-            <img src="{% static 'images/Logo-Bagong-Pilipinas.png' %}" class="logo-right">
-        </div>
-
-        <!-- Body -->
-        <div class="body-content">
-
-            <div class="line">
-                <span class="label">Reg No:</span>
-                <span class="underline">{{ cert.data.reg_no }}</span>
-            </div>
-
-            <div class="line">
-                <span class="label">Name of Pet:</span>
-                <span class="underline">{{ cert.data.name_of_pet }}</span>
-            </div>
-
-            <div class="line">
-                <span class="label">Breed:</span>
-                <span class="underline">{{ cert.data.breed }}</span>
-            </div>
-
-            <div class="line">
-                <span class="label">Date of Birth:</span>
-                <span class="underline">{{ cert.data.dob }}</span>
-            </div>
-
-            <div class="line">
-                <span class="label">Color/Markings:</span>
-                <span class="underline">{{ cert.data.color_markings }}</span>
-            </div>
-
-            <div class="line">
-                <span class="label">Sex:</span>
-                <span class="underline small">{{ cert.data.get_sex_display }}</span>
-            </div>
-
-            <div class="owner-details">
-                <div class="line">
-                    <span class="label">Name of Owner:</span>
-                    <span class="underline">{{ cert.data.owner_name }}</span>
-                </div>
-
-                <div class="line">
-                    <span class="label">Address:</span>
-                    <span class="underline">{{ cert.data.address }}</span>
-                </div>
-
-                <div class="line">
-                    <span class="label">Contact No:</span>
-                    <span class="underline">{{ cert.data.contact_no }}</span>
-                </div>
-            </div>
-
-            {% if cert.vaccinations %}
-            <h3>Vaccination Records</h3>
-            <table class="med-table">
-                <tr>
-                    <th>Date</th>
-                    <th>Vaccine</th>
-                    <th>Veterinarian</th>
-                </tr>
-                {% for v in cert.vaccinations %}
-                <tr>
-                    <td>{{ v.date }}</td>
-                    <td>{{ v.vaccine_name }}</td>
-                    <td>{{ v.veterinarian }}</td>
-                </tr>
-                {% endfor %}
-            </table>
-            {% endif %}
-
-            {% if cert.dewormings %}
-            <h3>Deworming & Treatment Records</h3>
-            <table class="med-table">
-                <tr>
-                    <th>Date</th>
-                    <th>Medicine</th>
-                    <th>Route</th>
-                    <th>Frequency</th>
-                    <th>Veterinarian</th>
-                </tr>
-                {% for d in cert.dewormings %}
-                <tr>
-                    <td>{{ d.date }}</td>
-                    <td>{{ d.medicine_given }}</td>
-                    <td>{{ d.route }}</td>
-                    <td>{{ d.frequency }}</td>
-                    <td>{{ d.veterinarian }}</td>
-                </tr>
-                {% endfor %}
-            </table>
-            {% endif %}
-
-        </div> <!-- body-content -->
-
-    </div> <!-- certificate -->
-
-</div> <!-- certificate-page -->
-{% endfor %}
-
-<script>
-window.onload = function() {
-    // Small delay ensures images and CSS fully load
-    setTimeout(function() {
-        window.print();
-    }, 500);
-}
-</script>
-
+    <script>
+    window.onload = function() {
+        setTimeout(function() {
+            window.print();
+        }, 350);
+    };
+    </script>
 </body>
 </html>

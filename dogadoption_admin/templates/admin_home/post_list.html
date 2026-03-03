@@ -466,6 +466,26 @@
         }
     }
 
+    function safeStorageGet(key) {
+        try {
+            return window.localStorage.getItem(key);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function safeStorageSet(key, value) {
+        try {
+            window.localStorage.setItem(key, value);
+        } catch (e) {}
+    }
+
+    function safeStorageRemove(key) {
+        try {
+            window.localStorage.removeItem(key);
+        } catch (e) {}
+    }
+
     function formatDate(dateObj) {
         const y = dateObj.getFullYear();
         const m = String(dateObj.getMonth() + 1).padStart(2, "0");
@@ -646,8 +666,16 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-        initAppointmentCalendar();
-        initStatusCardPagination();
+        try {
+            initAppointmentCalendar();
+        } catch (e) {
+            console.error("Appointment calendar script error:", e);
+        }
+        try {
+            initStatusCardPagination();
+        } catch (e) {
+            console.error("Card pagination script error:", e);
+        }
 
         const createPostModalEl = document.getElementById("createPostModal");
         const appointmentModalEl = document.getElementById("appointmentDateModal");
@@ -658,7 +686,7 @@
         const shouldOpenAppointmentModal = {{ show_appointment_modal|yesno:"true,false" }};
 
         if (claimDaysInput) {
-            const savedClaimDays = window.localStorage.getItem(claimDaysStorageKey);
+            const savedClaimDays = safeStorageGet(claimDaysStorageKey);
             if (savedClaimDays && !claimDaysInput.value) {
                 claimDaysInput.value = savedClaimDays;
             }
@@ -666,9 +694,9 @@
             claimDaysInput.addEventListener("input", (e) => {
                 const value = e.target.value;
                 if (value) {
-                    window.localStorage.setItem(claimDaysStorageKey, value);
+                    safeStorageSet(claimDaysStorageKey, value);
                 } else {
-                    window.localStorage.removeItem(claimDaysStorageKey);
+                    safeStorageRemove(claimDaysStorageKey);
                 }
             });
         }
@@ -677,7 +705,7 @@
             form.addEventListener("submit", () => {
                 const value = claimDaysInput.value;
                 if (value) {
-                    window.localStorage.setItem(claimDaysStorageKey, value);
+                    safeStorageSet(claimDaysStorageKey, value);
                 }
             });
         }

@@ -16,7 +16,6 @@ urlpatterns = [
     #ADMIN HOME
     path('post-list/', views.post_list, name='post_list'),
     path('create/', views.create_post, name='create_post'),
-    path('appointments/', views.appointment_calendar, name='appointment_calendar'),
 
     # DOG CAPTURE REQUESTS
     path('dog-capture/requests/',views.admin_dog_capture_requests,name='requests'),

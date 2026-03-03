@@ -251,31 +251,79 @@ def create_post(request):
     })
 
 
-# POST LIST WITH DROPDOWN FILTER
+# POST LIST
 @admin_required
 def post_list(request):
-    status_filter = request.GET.get('status', 'all')
+    show_create_modal = False
+    show_appointment_modal = request.method == "GET" and (
+        request.GET.get("open_appointment", "").lower() in {"1", "true", "yes"}
+    )
+    post_form = PostForm()
+    if request.method == 'POST':
+        form_type = (request.POST.get("form_type") or "").strip()
+
+        if form_type == "appointment_dates":
+            show_appointment_modal = True
+            dates_raw = (request.POST.get('appointment_dates') or '').strip()
+
+            parsed_dates = []
+            for value in [v.strip() for v in dates_raw.split(',') if v.strip()]:
+                parsed_date = parse_date(value)
+                if parsed_date:
+                    parsed_dates.append(parsed_date)
+            parsed_dates = sorted(set(parsed_dates))
+
+            today = timezone.localdate()
+            if any(d < today for d in parsed_dates):
+                messages.error(request, "Past dates are not allowed.")
+            else:
+                with transaction.atomic():
+                    GlobalAppointmentDate.objects.exclude(
+                        appointment_date__in=parsed_dates
+                    ).delete()
+                    for day in parsed_dates:
+                        GlobalAppointmentDate.objects.update_or_create(
+                            appointment_date=day,
+                            defaults={
+                                'created_by': request.user,
+                                'is_active': True,
+                            },
+                        )
+                messages.success(request, "Appointment dates saved.")
+                return redirect(reverse('dogadoption_admin:post_list'))
+        else:
+            post_form = PostForm(request.POST)
+            show_create_modal = True
+
+            if post_form.is_valid():
+                post = post_form.save(commit=False)
+                post.user = request.user
+                post.save()
+
+                for image in request.FILES.getlist('images'):
+                    PostImage.objects.create(post=post, image=image)
+
+                messages.success(request, "Post created successfully.")
+                return redirect(reverse('dogadoption_admin:post_list'))
+
+    post_form.fields["location"].widget.attrs["data-barangay-source-url"] = reverse(
+        "dogadoption_admin:barangay_list_api"
+    )
 
     # Base queryset with annotation
     base_qs = Post.objects.annotate(
         claim_count=Count('requests', filter=Q(requests__request_type='claim', requests__status='pending')),
         adopt_count=Count('requests', filter=Q(requests__request_type='adopt', requests__status='pending'))
+    ).prefetch_related(
+        'images',
+        Prefetch(
+            'requests',
+            queryset=PostRequest.objects.select_related('user').order_by('-created_at'),
+        ),
     )
 
-    # FILTER
-    if status_filter == 'ready':
-        # Only posts still within time window & not reunited/adopted
-        posts = [p for p in base_qs if p.is_open_for_claim_adopt()]
-    elif status_filter == 'reunited':
-        posts = base_qs.filter(status='reunited')
-    elif status_filter == 'adopted':
-        posts = base_qs.filter(status='adopted')
-    else:
-        posts = base_qs  # All
-
     # Calculate days/hours/minutes left
-    enriched = []
-    now = timezone.now()
+    all_enriched = []
 
     def format_posted_label(dt):
         if not dt:
@@ -295,7 +343,7 @@ def post_list(request):
             return f"{days}d"
         return dt.strftime("%b %d, %Y")
 
-    for p in posts:
+    for p in base_qs:
         days = hours = minutes = 0
         phase = p.current_phase()
 
@@ -314,8 +362,11 @@ def post_list(request):
             deadline = p.claim_deadline()
         elif phase == 'adopt':
             deadline = p.adoption_deadline()
+        requests = list(p.requests.all())
+        claim_requests = [req for req in requests if req.request_type == 'claim']
+        adopt_requests = [req for req in requests if req.request_type == 'adopt']
 
-        enriched.append({
+        all_enriched.append({
             'post': p,
             'days_left': days,
             'hours_left': hours,
@@ -323,47 +374,35 @@ def post_list(request):
             'phase': phase,
             'posted_label': format_posted_label(p.created_at),
             'deadline_iso': deadline.isoformat() if deadline else "",
+            'time_left_label': (
+                f"{days:02d}d {hours:02d}h {minutes:02d}m"
+                if phase in ['claim', 'adopt']
+                else "No active time window"
+            ),
+            'claim_requests': claim_requests,
+            'adopt_requests': adopt_requests,
         })
 
     # Sort by newest
-    enriched.sort(key=lambda x: x['post'].created_at, reverse=True)
+    all_enriched.sort(key=lambda x: x['post'].created_at, reverse=True)
 
-    return render(request, 'admin_home/post_list.html', {
-        'posts': enriched,
-        'current_filter': status_filter,
-    })
+    claim_posts = [item for item in all_enriched if item['phase'] == 'claim']
+    adoption_posts = [item for item in all_enriched if item['phase'] == 'adopt']
+    reunited_posts = [item for item in all_enriched if item['post'].status == 'reunited']
+    adopted_posts = [item for item in all_enriched if item['post'].status == 'adopted']
 
-
-@admin_required
-@require_http_methods(["GET", "POST"])
-def appointment_calendar(request):
-    if request.method == 'POST':
-        dates_raw = (request.POST.get('appointment_dates') or '').strip()
-
-        parsed_dates = []
-        for value in [v.strip() for v in dates_raw.split(',') if v.strip()]:
-            parsed_date = parse_date(value)
-            if parsed_date:
-                parsed_dates.append(parsed_date)
-        parsed_dates = sorted(set(parsed_dates))
-
-        today = timezone.localdate()
-        if any(d < today for d in parsed_dates):
-            messages.error(request, "Past dates are not allowed.")
-        else:
-            with transaction.atomic():
-                GlobalAppointmentDate.objects.exclude(
-                    appointment_date__in=parsed_dates
-                ).delete()
-                for day in parsed_dates:
-                    GlobalAppointmentDate.objects.update_or_create(
-                        appointment_date=day,
-                        defaults={
-                            'created_by': request.user,
-                            'is_active': True,
-                        },
-                    )
-            messages.success(request, "Appointment dates saved.")
+    # Rank active cards by request volume (highest first). Stable sort keeps original
+    # order for ties, so if equal request counts the earlier post stays first.
+    claim_posts = sorted(
+        claim_posts,
+        key=lambda item: len(item['claim_requests']),
+        reverse=True,
+    )
+    adoption_posts = sorted(
+        adoption_posts,
+        key=lambda item: len(item['adopt_requests']),
+        reverse=True,
+    )
 
     global_dates = list(
         GlobalAppointmentDate.objects.filter(
@@ -371,8 +410,16 @@ def appointment_calendar(request):
         ).order_by('appointment_date').values_list('appointment_date', flat=True)
     )
 
-    return render(request, 'admin_home/appointment_calendar.html', {
+    return render(request, 'admin_home/post_list.html', {
+        'all_posts': all_enriched,
+        'post_form': post_form,
+        'show_create_modal': show_create_modal,
         'appointment_dates': [d.strftime('%Y-%m-%d') for d in global_dates],
+        'show_appointment_modal': show_appointment_modal,
+        'claim_posts': claim_posts,
+        'adoption_posts': adoption_posts,
+        'reunited_posts': reunited_posts,
+        'adopted_posts': adopted_posts,
     })
 
 #   CLAIM REQUESTS

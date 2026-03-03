@@ -5,192 +5,692 @@
 <link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}">
 
 <div class="post-toolbar">
-    <a href="{% url 'dogadoption_admin:create_post' %}" class="btn btn-primary btn-lg create-post-btn">
+    <button type="button" class="btn btn-primary btn-lg create-post-btn" data-bs-toggle="modal" data-bs-target="#createPostModal">
         <i class="fas fa-plus-circle me-2"></i> Create Post
-    </a>
-    <a href="{% url 'dogadoption_admin:appointment_calendar' %}" class="btn btn-primary btn-lg create-post-btn">
+    </button>
+    <button type="button" class="btn btn-primary btn-lg create-post-btn" data-bs-toggle="modal" data-bs-target="#appointmentDateModal">
         <i class="fas fa-calendar-alt me-2"></i> Set Appointment Date
-    </a>
-    <div class="dropdown post-filter">
-        <button class="btn btn-dark dropdown-toggle" type="button" data-bs-toggle="dropdown">
-            {% if current_filter == "ready" %}
-                Ready Window
-            {% elif current_filter == "reunited" %}
-                Reunited
-            {% elif current_filter == "adopted" %}
-                Adopted
-            {% else %}
-                All Posts
-            {% endif %}
-        </button>
-        <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="?status=all">All Posts</a></li>
-            <li><a class="dropdown-item" href="?status=ready">Ready Window</a></li>
-            <li><a class="dropdown-item" href="?status=reunited">Reunited</a></li>
-            <li><a class="dropdown-item" href="?status=adopted">Adopted</a></li>
-        </ul>
+    </button>
+</div>
+
+<div class="modal fade create-post-modal" id="createPostModal" tabindex="-1" aria-labelledby="createPostModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createPostModalLabel">Create Dog Adoption Post</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-shell">
+                    {% if post_form.non_field_errors %}
+                        <div class="alert alert-danger py-2">
+                            {{ post_form.non_field_errors|join:", " }}
+                        </div>
+                    {% endif %}
+
+                    <form
+                        method="POST"
+                        enctype="multipart/form-data"
+                        class="post-form"
+                        id="create-post-form"
+                        action="{% url 'dogadoption_admin:post_list' %}"
+                    >
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="create_post">
+                        <div class="form-grid">
+                            <div class="form-group full">
+                                <label for="{{ post_form.caption.id_for_label }}">Dog Name</label>
+                                {{ post_form.caption }}
+                                {% if post_form.caption.errors %}
+                                    <div class="text-danger small mt-1">{{ post_form.caption.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="form-group location-group">
+                                <label for="{{ post_form.location.id_for_label }}">Barangay</label>
+                                {{ post_form.location }}
+                                <div id="location-suggestions" class="suggestions-box" style="display:none;"></div>
+                                <small>Enter barangay only.</small>
+                                {% if post_form.location.errors %}
+                                    <div class="text-danger small mt-1">{{ post_form.location.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="form-group">
+                                <label for="{{ post_form.rescued_date.id_for_label }}">Rescued Date</label>
+                                {{ post_form.rescued_date }}
+                                {% if post_form.rescued_date.errors %}
+                                    <div class="text-danger small mt-1">{{ post_form.rescued_date.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="form-group">
+                                <label for="{{ post_form.claim_days.id_for_label }}">Claim Days</label>
+                                {{ post_form.claim_days }}
+                                <small>After claim ends, adoption opens for 3 days.</small>
+                                {% if post_form.claim_days.errors %}
+                                    <div class="text-danger small mt-1">{{ post_form.claim_days.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="upload-card">
+                            <div class="upload-title">Upload Dog Images</div>
+                            <p>The first image will be used as the main display photo.</p>
+                            <input
+                                type="file"
+                                name="images"
+                                multiple
+                                accept="image/*"
+                                class="form-control"
+                                required
+                            >
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn-submit">Publish Post</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="post-grid">
-{% for item in posts %}
-    {% with post=item.post %}
-<div class="post-card">
+<div class="modal fade appointment-modal" id="appointmentDateModal" tabindex="-1" aria-labelledby="appointmentDateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="appointmentDateModalLabel">Set Appointment Date</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="appointment-shell">
+                    <div class="appointment-header">
+                        <h2>Set Appointment Date</h2>
+                        <p>Click multiple days to set available appointment dates for both claim and adoption.</p>
+                    </div>
 
-    {% if item.phase == 'claim' or item.phase == 'adopt' %}
-        <div class="countdown-bar" data-deadline="{{ item.deadline_iso }}">
-            <div class="countdown-label">
-                {% if item.phase == 'claim' %}
-                    Claim time left
+                    <form
+                        method="POST"
+                        id="appointmentForm"
+                        action="{% url 'dogadoption_admin:post_list' %}"
+                    >
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="appointment_dates">
+                        <input type="hidden" name="appointment_dates" id="appointment_dates_input">
+
+                        <section class="calendar-panel single-calendar">
+                            <div class="calendar-panel-head">
+                                <h4>Available Appointments</h4>
+                                <small>Toggle days to add or remove.</small>
+                            </div>
+                            <div class="calendar-toolbar">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="calendar_prev">&lt;</button>
+                                <strong id="month_label"></strong>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="calendar_next">&gt;</button>
+                            </div>
+                            <div class="calendar-weekdays" id="weekdays"></div>
+                            <div class="calendar-days" id="days"></div>
+                        </section>
+
+                        <div class="save-wrap">
+                            <button type="submit" class="btn-save-dates">Save Available Dates</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="status-dashboard">
+    <h4 class="status-dashboard-title">Status Cards</h4>
+    <div class="status-cards-grid">
+        <div class="status-card status-claim">
+            <div class="status-card-head">
+                <span>Claim</span>
+                <span class="status-count">{{ claim_posts|length }}</span>
+            </div>
+            <div class="status-card-body">
+                {% if claim_posts %}
+                    <div class="table-responsive">
+                        <table class="table table-sm status-mini-table mb-0 paginated-status-table" data-card-key="claim">
+                            <thead>
+                                <tr>
+                                    <th>Dog</th>
+                                    <th>Barangay</th>
+                                    <th>Time Left</th>
+                                    <th>Requests</th>
+                                    <th>View</th>
+                                </tr>
+                            </thead>
+                            <tbody class="paginated-status-body">
+                                {% for item in claim_posts %}
+                                    {% with post=item.post %}
+                                    <tr>
+                                        <td>{{ post.caption|default:"Unnamed Dog" }}</td>
+                                        <td>{{ post.location|default:"-" }}</td>
+                                        <td>{{ item.time_left_label }}</td>
+                                        <td>
+                                            <button type="button" class="btn btn-outline-warning btn-sm request-cta" data-bs-toggle="modal" data-bs-target="#claimRequestUsers{{ post.id }}">
+                                                Requests ({{ item.claim_requests|length }})
+                                            </button>
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-dark btn-sm view-cta" data-bs-toggle="modal" data-bs-target="#postDetails{{ post.id }}">
+                                                View
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endwith %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-pagination" data-card-key="claim" hidden>
+                        <button type="button" class="card-page-btn" data-action="prev">Prev</button>
+                        <span class="card-page-info">Page 1 of 1</span>
+                        <button type="button" class="card-page-btn" data-action="next">Next</button>
+                    </div>
                 {% else %}
-                    Adoption time left
+                    <p class="text-muted mb-0">No posts in claim window.</p>
                 {% endif %}
             </div>
-            <div class="countdown-values">
-                <div class="countdown-unit">
-                    <div class="countdown-number" data-unit="days">{{ item.days_left|default:0|stringformat:"02d" }}</div>
-                    <div class="countdown-text">Days</div>
-                </div>
-                <div class="countdown-unit">
-                    <div class="countdown-number" data-unit="hours">{{ item.hours_left|default:0|stringformat:"02d" }}</div>
-                    <div class="countdown-text">Hours</div>
-                </div>
-                <div class="countdown-unit">
-                    <div class="countdown-number" data-unit="minutes">{{ item.minutes_left|default:0|stringformat:"02d" }}</div>
-                    <div class="countdown-text">Minutes</div>
-                </div>
+        </div>
+
+        <div class="status-card status-adopt">
+            <div class="status-card-head">
+                <span>Adoption</span>
+                <span class="status-count">{{ adoption_posts|length }}</span>
             </div>
-        </div>
-    {% endif %}
-
-    <div class="post-user-row">
-        <div class="post-user">{{ post.user.username }}</div>
-        <div class="post-user-time">{{ item.posted_label }}</div>
-    </div>
-    <p class="post-caption">{{ post.caption }}</p>
-
-    <div class="post-meta">
-        {% if post.location %}
-            {{ post.location }} <br>
-        {% endif %}
-        
-    </div>
-
-    {% if post.images.exists %}
-        {% with images=post.images.all %}
-        <div class="post-media">
-            {% with first_image=images|first %}
-                <img src="{{ first_image.image.url }}" alt="Dog image" class="post-main-img">
-            {% endwith %}
-            {% if images|length > 1 %}
-                <button type="button"
-                        class="view-all-btn"
-                        data-bs-toggle="modal"
-                        data-bs-target="#postImages{{ post.id }}">
-                    View all ({{ images|length }})
-                </button>
-            {% endif %}
-        </div>
-
-        <div class="modal fade" id="postImages{{ post.id }}" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Post Images</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div id="carousel{{ post.id }}" class="carousel slide" data-bs-ride="carousel">
-                            <div class="carousel-inner">
-                                {% for image in images %}
-                                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                        <img src="{{ image.image.url }}" class="d-block w-100 modal-img" alt="Dog image">
-                                    </div>
+            <div class="status-card-body">
+                {% if adoption_posts %}
+                    <div class="table-responsive">
+                        <table class="table table-sm status-mini-table mb-0 paginated-status-table" data-card-key="adoption">
+                            <thead>
+                                <tr>
+                                    <th>Dog</th>
+                                    <th>Barangay</th>
+                                    <th>Time Left</th>
+                                    <th>Requests</th>
+                                    <th>View</th>
+                                </tr>
+                            </thead>
+                            <tbody class="paginated-status-body">
+                                {% for item in adoption_posts %}
+                                    {% with post=item.post %}
+                                    <tr>
+                                        <td>{{ post.caption|default:"Unnamed Dog" }}</td>
+                                        <td>{{ post.location|default:"-" }}</td>
+                                        <td>{{ item.time_left_label }}</td>
+                                        <td>
+                                            <button type="button" class="btn btn-outline-success btn-sm request-cta" data-bs-toggle="modal" data-bs-target="#adoptRequestUsers{{ post.id }}">
+                                                Requests ({{ item.adopt_requests|length }})
+                                            </button>
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-dark btn-sm view-cta" data-bs-toggle="modal" data-bs-target="#postDetails{{ post.id }}">
+                                                View
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endwith %}
                                 {% endfor %}
-                            </div>
-                            {% if images|length > 1 %}
-                                <button class="carousel-control-prev" type="button" data-bs-target="#carousel{{ post.id }}" data-bs-slide="prev">
-                                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                    <span class="visually-hidden">Previous</span>
-                                </button>
-                                <button class="carousel-control-next" type="button" data-bs-target="#carousel{{ post.id }}" data-bs-slide="next">
-                                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                    <span class="visually-hidden">Next</span>
-                                </button>
-                            {% endif %}
-                        </div>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-pagination" data-card-key="adoption" hidden>
+                        <button type="button" class="card-page-btn" data-action="prev">Prev</button>
+                        <span class="card-page-info">Page 1 of 1</span>
+                        <button type="button" class="card-page-btn" data-action="next">Next</button>
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0">No posts in adoption window.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="status-card status-reunited">
+            <div class="status-card-head">
+                <span>Reunited</span>
+                <span class="status-count">{{ reunited_posts|length }}</span>
+            </div>
+            <div class="status-card-body">
+                {% if reunited_posts %}
+                    <div class="table-responsive">
+                        <table class="table table-sm status-mini-table mb-0 paginated-status-table" data-card-key="reunited">
+                            <thead>
+                                <tr>
+                                    <th>Dog</th>
+                                    <th>Rescued Date</th>
+                                    <th>Barangay</th>
+                                    <th>View</th>
+                                </tr>
+                            </thead>
+                            <tbody class="paginated-status-body">
+                                {% for item in reunited_posts %}
+                                    {% with post=item.post %}
+                                    <tr>
+                                        <td>{{ post.caption|default:"Unnamed Dog" }}</td>
+                                        <td>{{ post.rescued_date|date:"M d, Y"|default:"-" }}</td>
+                                        <td>{{ post.location|default:"-" }}</td>
+                                        <td>
+                                            <button type="button" class="btn btn-dark btn-sm view-cta" data-bs-toggle="modal" data-bs-target="#postDetails{{ post.id }}">
+                                                View
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endwith %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-pagination" data-card-key="reunited" hidden>
+                        <button type="button" class="card-page-btn" data-action="prev">Prev</button>
+                        <span class="card-page-info">Page 1 of 1</span>
+                        <button type="button" class="card-page-btn" data-action="next">Next</button>
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0">No reunited posts yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="status-card status-adopted">
+            <div class="status-card-head">
+                <span>Adopted</span>
+                <span class="status-count">{{ adopted_posts|length }}</span>
+            </div>
+            <div class="status-card-body">
+                {% if adopted_posts %}
+                    <div class="table-responsive">
+                        <table class="table table-sm status-mini-table mb-0 paginated-status-table" data-card-key="adopted">
+                            <thead>
+                                <tr>
+                                    <th>Dog</th>
+                                    <th>Rescued Date</th>
+                                    <th>Barangay</th>
+                                    <th>View</th>
+                                </tr>
+                            </thead>
+                            <tbody class="paginated-status-body">
+                                {% for item in adopted_posts %}
+                                    {% with post=item.post %}
+                                    <tr>
+                                        <td>{{ post.caption|default:"Unnamed Dog" }}</td>
+                                        <td>{{ post.rescued_date|date:"M d, Y"|default:"-" }}</td>
+                                        <td>{{ post.location|default:"-" }}</td>
+                                        <td>
+                                            <button type="button" class="btn btn-dark btn-sm view-cta" data-bs-toggle="modal" data-bs-target="#postDetails{{ post.id }}">
+                                                View
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endwith %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-pagination" data-card-key="adopted" hidden>
+                        <button type="button" class="card-page-btn" data-action="prev">Prev</button>
+                        <span class="card-page-info">Page 1 of 1</span>
+                        <button type="button" class="card-page-btn" data-action="next">Next</button>
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0">No adopted posts yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+{% for item in all_posts %}
+    {% with post=item.post %}
+    <div class="modal fade" id="postDetails{{ post.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">{{ post.caption|default:"Dog Details" }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {% if post.images.exists %}
+                        {% with first_image=post.images.all|first %}
+                            <img src="{{ first_image.image.url }}" class="detail-preview-img mb-3" alt="Dog image">
+                        {% endwith %}
+                    {% else %}
+                        <div class="detail-no-image mb-3">No image uploaded</div>
+                    {% endif %}
+                    <div class="detail-grid">
+                        <div><strong>Rescued Date:</strong> {{ post.rescued_date|date:"M d, Y"|default:"-" }}</div>
+                        <div><strong>Barangay:</strong> {{ post.location|default:"-" }}</div>
+                        <div><strong>Status:</strong> {{ post.get_status_display }}</div>
+                        <div><strong>Time Left:</strong> {{ item.time_left_label }}</div>
                     </div>
                 </div>
             </div>
         </div>
-        {% endwith %}
-    {% endif %}
-
-    <div class="post-actions mt-3">
-        <a href="{% url 'dogadoption_admin:claim_requests' post.id %}" class="btn btn-warning btn-sm">
-            Claim
-            {% if post.claim_count > 0 %}
-                <span class="badge bg-danger">{{ post.claim_count }}</span>
-            {% endif %}
-        </a>
-
-        <a href="{% url 'dogadoption_admin:adoption_requests' post.id %}" class="btn btn-success btn-sm">
-            Adopt
-            {% if post.adopt_count > 0 %}
-                <span class="badge bg-danger">{{ post.adopt_count }}</span>
-            {% endif %}
-        </a>
     </div>
 
-</div>
+    <div class="modal fade" id="claimRequestUsers{{ post.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Claim Requests - {{ post.caption|default:"Post" }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {% if item.claim_requests %}
+                        <div class="table-responsive">
+                            <table class="table table-sm request-user-table">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Name</th>
+                                        <th>Status</th>
+                                        <th>Requested</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for req in item.claim_requests %}
+                                        <tr>
+                                            <td>{{ req.user.username }}</td>
+                                            <td>{{ req.user.first_name }} {{ req.user.last_name }}</td>
+                                            <td>{{ req.get_status_display }}</td>
+                                            <td>{{ req.created_at|date:"M d, Y H:i" }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">No claim requests for this post.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="adoptRequestUsers{{ post.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Adoption Requests - {{ post.caption|default:"Post" }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {% if item.adopt_requests %}
+                        <div class="table-responsive">
+                            <table class="table table-sm request-user-table">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Name</th>
+                                        <th>Status</th>
+                                        <th>Requested</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for req in item.adopt_requests %}
+                                        <tr>
+                                            <td>{{ req.user.username }}</td>
+                                            <td>{{ req.user.first_name }} {{ req.user.last_name }}</td>
+                                            <td>{{ req.get_status_display }}</td>
+                                            <td>{{ req.created_at|date:"M d, Y H:i" }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">No adoption requests for this post.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
     {% endwith %}
-{% empty %}
-<p class="text-muted">No dog adoption posts found</p>
 {% endfor %}
-</div>
 
+{{ appointment_dates|json_script:"appointment_dates_data" }}
+<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 <script>
-    function pad2(value) {
-        return String(value).padStart(2, "0");
+    function parseJsonScript(id) {
+        const node = document.getElementById(id);
+        if (!node) return [];
+        try {
+            return JSON.parse(node.textContent || "[]");
+        } catch (e) {
+            return [];
+        }
     }
 
-    function updateCountdown(card) {
-        const deadline = card.getAttribute("data-deadline");
-        if (!deadline) {
+    function formatDate(dateObj) {
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+        const d = String(dateObj.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+    }
+
+    function initAppointmentCalendar() {
+        const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const monthLabel = document.getElementById("month_label");
+        const daysContainer = document.getElementById("days");
+        const weekdaysContainer = document.getElementById("weekdays");
+        const prevBtn = document.getElementById("calendar_prev");
+        const nextBtn = document.getElementById("calendar_next");
+        const hiddenInput = document.getElementById("appointment_dates_input");
+        if (!monthLabel || !daysContainer || !weekdaysContainer || !prevBtn || !nextBtn || !hiddenInput) {
             return;
         }
-        const end = new Date(deadline);
-        const now = new Date();
-        let diff = end - now;
-        if (isNaN(end.getTime())) {
-            return;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const selected = new Set(parseJsonScript("appointment_dates_data"));
+        const state = {
+            currentMonth: new Date(today.getFullYear(), today.getMonth(), 1),
+        };
+
+        weekdaysContainer.innerHTML = weekdays
+            .map((day) => `<div class="weekday">${day}</div>`)
+            .join("");
+
+        function refreshHiddenInput() {
+            hiddenInput.value = Array.from(selected).sort().join(",");
         }
-        if (diff < 0) {
-            diff = 0;
+
+        function renderMonth() {
+            const year = state.currentMonth.getFullYear();
+            const month = state.currentMonth.getMonth();
+
+            monthLabel.textContent = state.currentMonth.toLocaleDateString(undefined, {
+                month: "long",
+                year: "numeric",
+            });
+
+            const firstDay = new Date(year, month, 1);
+            const startWeekday = firstDay.getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            let html = "";
+            for (let i = 0; i < startWeekday; i++) {
+                html += '<button type="button" class="day-cell empty" disabled></button>';
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateObj = new Date(year, month, day);
+                dateObj.setHours(0, 0, 0, 0);
+                const iso = formatDate(dateObj);
+                const isPast = dateObj < today;
+                const isSelected = selected.has(iso);
+                const classes = [
+                    "day-cell",
+                    isSelected ? "selected" : "",
+                    isPast ? "disabled" : "",
+                ].join(" ").trim();
+
+                html += `<button type="button" class="${classes}" data-date="${iso}" ${isPast ? "disabled" : ""}>${day}</button>`;
+            }
+
+            daysContainer.innerHTML = html;
+
+            daysContainer.querySelectorAll(".day-cell[data-date]").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const iso = btn.getAttribute("data-date");
+                    if (selected.has(iso)) {
+                        selected.delete(iso);
+                    } else {
+                        selected.add(iso);
+                    }
+                    renderMonth();
+                    refreshHiddenInput();
+                });
+            });
         }
 
-        const totalSeconds = Math.floor(diff / 1000);
-        const days = Math.floor(totalSeconds / 86400);
-        const hours = Math.floor((totalSeconds % 86400) / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        prevBtn.addEventListener("click", () => {
+            state.currentMonth = new Date(
+                state.currentMonth.getFullYear(),
+                state.currentMonth.getMonth() - 1,
+                1
+            );
+            renderMonth();
+        });
 
-        const dayEl = card.querySelector('[data-unit="days"]');
-        const hourEl = card.querySelector('[data-unit="hours"]');
-        const minEl = card.querySelector('[data-unit="minutes"]');
+        nextBtn.addEventListener("click", () => {
+            state.currentMonth = new Date(
+                state.currentMonth.getFullYear(),
+                state.currentMonth.getMonth() + 1,
+                1
+            );
+            renderMonth();
+        });
 
-        if (dayEl) dayEl.textContent = pad2(days);
-        if (hourEl) hourEl.textContent = pad2(hours);
-        if (minEl) minEl.textContent = pad2(minutes);
+        refreshHiddenInput();
+        renderMonth();
     }
 
-    function initCountdowns() {
-        const cards = document.querySelectorAll(".countdown-bar[data-deadline]");
-        cards.forEach(updateCountdown);
-        setInterval(() => {
-            cards.forEach(updateCountdown);
-        }, 1000 * 30);
+    function getStatusCardPageSize() {
+        return window.matchMedia("(max-width: 700px)").matches ? 3 : 5;
     }
 
-    document.addEventListener("DOMContentLoaded", initCountdowns);
+    function initStatusCardPagination() {
+        const tables = document.querySelectorAll(".paginated-status-table");
+        const pageSize = getStatusCardPageSize();
+
+        tables.forEach((table) => {
+            const cardKey = table.getAttribute("data-card-key");
+            const controls = document.querySelector(`.card-pagination[data-card-key="${cardKey}"]`);
+            if (!controls) {
+                return;
+            }
+
+            const tbody = table.querySelector(".paginated-status-body") || table.querySelector("tbody");
+            if (!tbody) {
+                controls.hidden = true;
+                return;
+            }
+
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+            if (rows.length <= pageSize) {
+                rows.forEach((row) => row.classList.remove("d-none"));
+                controls.hidden = true;
+                return;
+            }
+
+            controls.hidden = false;
+            const prevBtn = controls.querySelector('[data-action="prev"]');
+            const nextBtn = controls.querySelector('[data-action="next"]');
+            const info = controls.querySelector(".card-page-info");
+            const totalPages = Math.ceil(rows.length / pageSize);
+            let currentPage = 1;
+
+            function renderPage() {
+                rows.forEach((row, index) => {
+                    const rowPage = Math.floor(index / pageSize) + 1;
+                    row.classList.toggle("d-none", rowPage !== currentPage);
+                });
+
+                if (info) {
+                    info.textContent = `Page ${currentPage} of ${totalPages}`;
+                }
+                if (prevBtn) {
+                    prevBtn.disabled = currentPage === 1;
+                }
+                if (nextBtn) {
+                    nextBtn.disabled = currentPage === totalPages;
+                }
+            }
+
+            if (prevBtn) {
+                prevBtn.addEventListener("click", () => {
+                    if (currentPage > 1) {
+                        currentPage -= 1;
+                        renderPage();
+                    }
+                });
+            }
+
+            if (nextBtn) {
+                nextBtn.addEventListener("click", () => {
+                    if (currentPage < totalPages) {
+                        currentPage += 1;
+                        renderPage();
+                    }
+                });
+            }
+
+            renderPage();
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        initAppointmentCalendar();
+        initStatusCardPagination();
+
+        const createPostModalEl = document.getElementById("createPostModal");
+        const appointmentModalEl = document.getElementById("appointmentDateModal");
+        const claimDaysInput = document.getElementById("{{ post_form.claim_days.id_for_label }}");
+        const form = document.getElementById("create-post-form");
+        const claimDaysStorageKey = "admin_create_post_claim_days";
+        const shouldOpenCreateModal = {{ show_create_modal|yesno:"true,false" }};
+        const shouldOpenAppointmentModal = {{ show_appointment_modal|yesno:"true,false" }};
+
+        if (claimDaysInput) {
+            const savedClaimDays = window.localStorage.getItem(claimDaysStorageKey);
+            if (savedClaimDays && !claimDaysInput.value) {
+                claimDaysInput.value = savedClaimDays;
+            }
+
+            claimDaysInput.addEventListener("input", (e) => {
+                const value = e.target.value;
+                if (value) {
+                    window.localStorage.setItem(claimDaysStorageKey, value);
+                } else {
+                    window.localStorage.removeItem(claimDaysStorageKey);
+                }
+            });
+        }
+
+        if (form && claimDaysInput) {
+            form.addEventListener("submit", () => {
+                const value = claimDaysInput.value;
+                if (value) {
+                    window.localStorage.setItem(claimDaysStorageKey, value);
+                }
+            });
+        }
+
+        if (createPostModalEl && shouldOpenCreateModal && window.bootstrap) {
+            const modal = bootstrap.Modal.getOrCreateInstance(createPostModalEl);
+            modal.show();
+        }
+
+        if (appointmentModalEl && shouldOpenAppointmentModal && window.bootstrap) {
+            const modal = bootstrap.Modal.getOrCreateInstance(appointmentModalEl);
+            modal.show();
+        }
+    });
 </script>
 {% endblock %}

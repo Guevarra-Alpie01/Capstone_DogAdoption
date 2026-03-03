@@ -41,34 +41,110 @@
 
         <div class="penalty-options">
             {% regroup penalties by section as grouped_penalties %}
-
-            {% for group in grouped_penalties %}
-                <div class="penalty-section">
-                    <div class="section-title">
-                        {% if group.grouper.number %}
-                            Section {{ group.grouper.number }}
-                        {% else %}
-                            Section Unset
+            <div class="penalty-top-split">
+                <div class="penalty-column">
+                    {% for group in grouped_penalties %}
+                        {% if group.grouper.number == 28 %}
+                            <div class="penalty-section">
+                                <div class="section-title">Section 28</div>
+                                {% for penalty in group.list %}
+                                    <label class="radio-item">
+                                        <input
+                                            type="checkbox"
+                                            name="penalties"
+                                            value="{{ penalty.id }}"
+                                            class="violation-check"
+                                            {% if penalty.id in selected_penalty_ids %}checked{% endif %}
+                                        >
+                                        <span class="number">{{ penalty.number }}.</span>
+                                        <span class="title">{{ penalty.title }}</span>
+                                        <span class="amount">PHP {{ penalty.amount }}</span>
+                                    </label>
+                                {% endfor %}
+                            </div>
                         {% endif %}
+                    {% endfor %}
+
+                    <div class="penalty-section">
+                        <div class="section-title">Section 29</div>
+                        {% for group in grouped_penalties %}
+                            {% if group.grouper.number == 29 %}
+                                {% for penalty in group.list %}
+                                    {% if penalty.number >= 1 and penalty.number <= 16 %}
+                                        <label class="radio-item">
+                                            <input
+                                                type="checkbox"
+                                                name="penalties"
+                                                value="{{ penalty.id }}"
+                                                class="violation-check"
+                                                {% if penalty.id in selected_penalty_ids %}checked{% endif %}
+                                            >
+                                            <span class="number">{{ penalty.number }}.</span>
+                                            <span class="title">{{ penalty.title }}</span>
+                                            <span class="amount">PHP {{ penalty.amount }}</span>
+                                        </label>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                        {% endfor %}
                     </div>
+                </div>
 
-                    {% for penalty in group.list %}
-                        <label class="radio-item">
-                            <input
-                                type="checkbox"
-                                name="penalties"
-                                value="{{ penalty.id }}"
-                                class="violation-check"
-                                {% if penalty.id in selected_penalty_ids %}checked{% endif %}
-                            >
-
-                            <span class="number">{{ penalty.number }}.</span>
-                            <span class="title">{{ penalty.title }}</span>
-                            <span class="amount">PHP {{ penalty.amount }}</span>
-                        </label>
+                <div class="penalty-section featured-section">
+                    <div class="section-title">Section 29</div>
+                    {% for group in grouped_penalties %}
+                        {% if group.grouper.number == 29 %}
+                            {% for penalty in group.list %}
+                                {% if penalty.number >= 17 and penalty.number <= 28 %}
+                                    <label class="radio-item">
+                                        <input
+                                            type="checkbox"
+                                            name="penalties"
+                                            value="{{ penalty.id }}"
+                                            class="violation-check"
+                                            {% if penalty.id in selected_penalty_ids %}checked{% endif %}
+                                        >
+                                        <span class="number">{{ penalty.number }}.</span>
+                                        <span class="title">{{ penalty.title }}</span>
+                                        <span class="amount">PHP {{ penalty.amount }}</span>
+                                    </label>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
                     {% endfor %}
                 </div>
-            {% endfor %}
+            </div>
+
+            <div class="penalty-stack">
+                {% for group in grouped_penalties %}
+                    {% if group.grouper.number != 28 and group.grouper.number != 29 %}
+                        <div class="penalty-section">
+                            <div class="section-title">
+                                {% if group.grouper.number %}
+                                    Section {{ group.grouper.number }}
+                                {% else %}
+                                    Section Unset
+                                {% endif %}
+                            </div>
+
+                            {% for penalty in group.list %}
+                                <label class="radio-item">
+                                    <input
+                                        type="checkbox"
+                                        name="penalties"
+                                        value="{{ penalty.id }}"
+                                        class="violation-check"
+                                        {% if penalty.id in selected_penalty_ids %}checked{% endif %}
+                                    >
+                                    <span class="number">{{ penalty.number }}.</span>
+                                    <span class="title">{{ penalty.title }}</span>
+                                    <span class="amount">PHP {{ penalty.amount }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
 
         </div>
 
@@ -124,5 +200,22 @@ function quickPrintCitation() {
     const base = "{% url 'dogadoption_admin:citation_print' 0 %}";
     window.open(base.replace('/0/', '/' + citationId + '/'), '_blank');
 }
+
+function syncViolationSelectionUI() {
+    const checks = document.querySelectorAll('.violation-check');
+    checks.forEach((check) => {
+        const row = check.closest('.radio-item');
+        if (!row) return;
+        row.classList.toggle('is-selected', check.checked);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    syncViolationSelectionUI();
+    const checks = document.querySelectorAll('.violation-check');
+    checks.forEach((check) => {
+        check.addEventListener('change', syncViolationSelectionUI);
+    });
+});
 </script>
 {% endblock %}

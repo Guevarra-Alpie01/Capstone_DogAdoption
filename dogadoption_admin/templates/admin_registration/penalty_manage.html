@@ -18,22 +18,26 @@
     </div>
 
     <div class="penalty-forms-grid">
-        <div class="form-card">
-            <h4>Add Section</h4>
-            <form method="post" class="penalty-form">
-                {% csrf_token %}
-                {{ s_form.as_p }}
-                <button type="submit" name="add_section" class="save-btn">Add Section</button>
-            </form>
-        </div>
+        <div class="form-card combined-form-card">
+            <div class="form-block">
+                <h4>Add Section</h4>
+                <form method="post" class="penalty-form">
+                    {% csrf_token %}
+                    {{ s_form.as_p }}
+                    <button type="submit" name="add_section" class="save-btn">Add Section</button>
+                </form>
+            </div>
 
-        <div class="form-card">
-            <h4>Add Penalty</h4>
-            <form method="post" class="penalty-form">
-                {% csrf_token %}
-                {{ p_form.as_p }}
-                <button type="submit" name="add_penalty" class="save-btn">Add Penalty</button>
-            </form>
+            <hr class="form-divider">
+
+            <div class="form-block">
+                <h4>Add Penalty</h4>
+                <form method="post" class="penalty-form">
+                    {% csrf_token %}
+                    {{ p_form.as_p }}
+                    <button type="submit" name="add_penalty" class="save-btn">Add Penalty</button>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -41,58 +45,44 @@
         <h3>Existing Sections and Penalties</h3>
     </div>
 
-    <div class="table-container">
-        <table class="records-table">
-            <thead>
-                <tr>
-                    <th>Section</th>
-                    <th>Penalty No.</th>
-                    <th>Title</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for section in sections %}
-                    {% for penalty in section.penalties.all %}
-                        <tr>
-                            <td data-label="Section">
-                                {% if section.number %}
-                                    Section {{ section.number }}
-                                {% else %}
-                                    Section Unset
-                                {% endif %}
-                            </td>
-                            <td data-label="Penalty No.">{{ penalty.number }}</td>
-                            <td data-label="Title">{{ penalty.title }}</td>
-                            <td data-label="Amount">PHP {{ penalty.amount }}</td>
-                            <td data-label="Status">
-                                {% if penalty.active %}
-                                    <span class="status-pill active">Active</span>
-                                {% else %}
-                                    <span class="status-pill inactive">Inactive</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% empty %}
-                        <tr>
-                            <td data-label="Section">
-                                {% if section.number %}
-                                    Section {{ section.number }}
-                                {% else %}
-                                    Section Unset
-                                {% endif %}
-                            </td>
-                            <td colspan="4" class="empty-row">No penalties in this section yet.</td>
-                        </tr>
-                    {% endfor %}
-                {% empty %}
-                    <tr>
-                        <td colspan="5" class="empty-row">No sections found.</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="penalty-sections-card">
+        <div class="penalty-sections-grid">
+            {% for section in sections %}
+                <article class="section-group">
+                    <div class="section-card-header">
+                        <h4>
+                            {% if section.number %}
+                                Section {{ section.number }}
+                            {% else %}
+                                Section Unset
+                            {% endif %}
+                        </h4>
+                        <span class="penalty-count">{{ section.penalties.count }} Penalt{{ section.penalties.count|pluralize:"y,ies" }}</span>
+                    </div>
+
+                    <div class="penalty-items">
+                        {% for penalty in section.penalties.all %}
+                            <div class="penalty-item">
+                                <div class="penalty-item-top">
+                                    <span class="penalty-number">{{ penalty.number }}.</span>
+                                    {% if penalty.active %}
+                                        <span class="status-pill active">Active</span>
+                                    {% else %}
+                                        <span class="status-pill inactive">Inactive</span>
+                                    {% endif %}
+                                </div>
+                                <p class="penalty-title">{{ penalty.title }}</p>
+                                <p class="penalty-amount">PHP {{ penalty.amount }}</p>
+                            </div>
+                        {% empty %}
+                            <p class="empty-row">No penalties in this section yet.</p>
+                        {% endfor %}
+                    </div>
+                </article>
+            {% empty %}
+                <div class="empty-section-state">No sections found.</div>
+            {% endfor %}
+        </div>
     </div>
 </div>
 {% endblock %}

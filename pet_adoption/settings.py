@@ -11,12 +11,14 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 import os
 from pathlib import Path
-from .compat import patch_django_template_context_copy
-
-patch_django_template_context_copy()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+try:
+    from dotenv import load_dotenv
+    load_dotenv(BASE_DIR / ".env")
+except Exception:
+    pass
 
 
 # Quick-start development settings - unsuitable for production
@@ -28,7 +30,7 @@ SECRET_KEY = 'django-insecure-5^8jk0^*8k*l@06(f_oojxbfw2y97b^#0eboq!0h7e!@924fu(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [ '10.193.171.254','localhost', '127.0.0.1' ]
+ALLOWED_HOSTS = [ '192.168.43.168','localhost', '127.0.0.1' ]
 
 
 # Application definition
@@ -68,6 +70,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'dogadoption_admin.context_processors.admin_notifications',
             ],
         },
     },

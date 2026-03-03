@@ -13,6 +13,13 @@
         <!-- MAIN INSTRUCTION -->
         <h2 id="instructionTitle">Face Verification</h2>
         <p id="instructionDesc">Position your face inside the circle</p>
+        <div id="liveHint" class="live-hint" role="status" aria-live="polite">
+            <span class="live-hint-icon" aria-hidden="true"><i class="bi bi-lightbulb-fill"></i></span>
+            <span class="live-hint-text-wrap">
+                <span class="live-hint-label">Camera Guidance</span>
+                <span id="liveHintText">Keep your face centered and hold still for auto-capture.</span>
+            </span>
+        </div>
 
         <!-- CAMERA CIRCLE -->
         <div class="camera-circle">
@@ -23,6 +30,7 @@
         <p id="status"></p>
 
         <canvas id="canvas" style="display:none;"></canvas>
+        <canvas id="analysisCanvas" style="display:none;"></canvas>
 
         <form id="csrf-form" style="display:none;">
             {% csrf_token %}
@@ -33,15 +41,15 @@
                 <h4>Terms and Conditions</h4>
 
                 <p>
-                    By proceeding with this facial verification process, you acknowledge and consent that the facial images captured will be used solely for identity verification and account security purposes within the system.
+                    By continuing with facial verification, you consent to the collection and use of your face images strictly for account security and identity verification in this platform.
                 </p>
 
                 <p>
-                    You understand that access to these facial images is strictly limited to authorized system administrators and will be handled in accordance with applicable data protection and privacy standards.
+                    Access to your face images is limited to authorized administrators and will be handled in accordance with applicable data protection and privacy standards.
                 </p>
 
                 <p>
-                    You further agree that the captured facial images will not be publicly displayed, shared, or used for any purpose outside of secure authentication and verification within the platform.
+                    Your face images will not be publicly displayed, shared, or used for purposes outside secure authentication and verification.
                 </p>
 
                 <label class="consent-check">
@@ -69,6 +77,10 @@ const stepLabel = document.getElementById("stepLabel");
 const instructionTitle = document.getElementById("instructionTitle");
 const instructionDesc = document.getElementById("instructionDesc");
 const statusText = document.getElementById("status");
+const liveHint = document.getElementById("liveHint");
+const liveHintText = document.getElementById("liveHintText");
+const cameraCircle = document.querySelector(".camera-circle");
+const analysisCanvas = document.getElementById("analysisCanvas");
 
 const consentSection = document.getElementById("consentSection");
 const agreeCheckbox = document.getElementById("agreeCheckbox");
@@ -82,15 +94,26 @@ let images = [];
 let step = 0;
 let lastCaptureTime = 0;
 let uploadDone = false;
+let canProceed = false;
+let lastHintUpdateTime = 0;
+let stableFrames = 0;
+let holdStartTime = 0;
+let previousSample = null;
+let lowLightStreak = 0;
+
+// Low-end-device safe capture thresholds
+const REQUIRED_STABLE_FRAMES = 9;
+const STABLE_HOLD_MS = 380;
+const MOTION_THRESHOLD = 0.006;
 
 /* ======================
    STEP CONFIG (GCASH STYLE)
 ====================== */
 const STEPS = [
-    { key: "LOOK_FORWARD", title: "Look Straight", desc: "Align your face inside the circle" },
-    { key: "TURN_LEFT", title: "Turn Left", desc: "Slowly turn your head to the LEFT" },
-    { key: "TURN_RIGHT", title: "Turn Right", desc: "Slowly turn your head to the RIGHT" },
-    { key: "BLINK", title: "Blink", desc: "Blink your eyes naturally" }
+    { key: "LOOK_FORWARD", title: "Look Straight", desc: "Center your face inside the circle." },
+    { key: "TURN_LEFT", title: "Turn Left", desc: "Slowly turn your head to the left." },
+    { key: "TURN_RIGHT", title: "Turn Right", desc: "Slowly turn your head to the right." },
+    { key: "BLINK", title: "Blink", desc: "Blink naturally once." }
 ];
 
 updateStepUI();
@@ -115,8 +138,8 @@ const faceMesh = new FaceMesh({
 faceMesh.setOptions({
     maxNumFaces: 1,
     refineLandmarks: true,
-    minDetectionConfidence: 0.6,
-    minTrackingConfidence: 0.6
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
 });
 
 faceMesh.onResults(onResults);
@@ -124,30 +147,123 @@ faceMesh.onResults(onResults);
 /* ======================
    CAMERA INIT
 ====================== */
-const camera = new Camera(video, {
-    onFrame: async () => {
-        await faceMesh.send({ image: video });
-    },
-    width: 640,
-    height: 480
-});
-camera.start();
+function hasCameraApi() {
+    return !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === "function");
+}
+
+if (!window.isSecureContext) {
+    statusText.innerText = "Camera requires HTTPS on mobile browsers. Open this page via HTTPS.";
+    alert("Face auth needs HTTPS on phones. Current page is not secure.");
+} else if (!hasCameraApi()) {
+    statusText.innerText = "Camera API is not available in this browser.";
+    alert("No navigator.mediaDevices.getUserMedia support in this browser.");
+} else {
+    const camera = new Camera(video, {
+        onFrame: async () => {
+            await faceMesh.send({ image: video });
+        },
+        width: 640,
+        height: 480
+    });
+    camera.start().catch(() => {
+        statusText.innerText = "Unable to open camera. Check browser permission.";
+        alert("Unable to open camera. Allow camera permission and try again.");
+    });
+}
 
 /* ======================
    MAIN DETECTION
 ====================== */
 function onResults(results) {
-    if (!results.multiFaceLandmarks || uploadDone) return;
+    if (uploadDone) return;
+
+    if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) {
+        canProceed = false;
+        resetStability();
+        setCaptureState("idle");
+        if (Date.now() - lastHintUpdateTime > 250) {
+            setLiveHint("No face detected. Move closer and center your face.", "warning");
+            lastHintUpdateTime = Date.now();
+        }
+        return;
+    }
 
     const landmarks = results.multiFaceLandmarks[0];
+    const readiness = evaluateReadiness(landmarks);
+    canProceed = readiness.ready;
+    const stepPassed = checkStep(landmarks);
 
-    if (checkStep(landmarks) && canCapture()) {
+    if (Date.now() - lastHintUpdateTime > 250) {
+        setLiveHint(readiness.hint, readiness.type || "info");
+        lastHintUpdateTime = Date.now();
+    }
+
+    if (!canProceed || !stepPassed) {
+        resetStability();
+        setCaptureState("idle");
+        return;
+    }
+
+    // Blink step should proceed immediately once detected.
+    if (STEPS[step].key === "BLINK" && canCapture()) {
         captureImage();
+        setCaptureState("done");
+        resetStability();
         step++;
+        statusText.innerText = `Capture ${step}/${STEPS.length} complete.`;
 
         if (step >= STEPS.length) {
-            statusText.innerText = "Face verification complete!";
-            uploadImages(); // upload first
+            statusText.innerText = "Face verification complete.";
+            uploadImages();
+        } else {
+            updateStepUI();
+        }
+        return;
+    }
+
+    if (!isFaceStable(landmarks)) {
+        resetHoldTimerOnly();
+        setCaptureState("idle");
+        if (Date.now() - lastHintUpdateTime > 250) {
+            setLiveHint("Hold still to capture a clear image.", "warning");
+            lastHintUpdateTime = Date.now();
+        }
+        return;
+    }
+
+    setCaptureState("capturing");
+    stableFrames += 1;
+    if (stableFrames < REQUIRED_STABLE_FRAMES) {
+        if (Date.now() - lastHintUpdateTime > 250) {
+            setLiveHint("Almost ready. Keep still.", "info");
+            lastHintUpdateTime = Date.now();
+        }
+        return;
+    }
+
+    if (!holdStartTime) {
+        holdStartTime = Date.now();
+    }
+
+    const holdRemaining = STABLE_HOLD_MS - (Date.now() - holdStartTime);
+    if (holdRemaining > 0) {
+        if (Date.now() - lastHintUpdateTime > 250) {
+            setLiveHint(`Hold steady... ${Math.max(0.1, holdRemaining / 1000).toFixed(1)}s`, "info");
+            lastHintUpdateTime = Date.now();
+        }
+        return;
+    }
+
+    if (canCapture()) {
+        captureImage();
+        setCaptureState("done");
+        resetStability();
+        step++;
+        statusText.innerText = `Capture ${step}/${STEPS.length} complete.`;
+
+        if (step >= STEPS.length) {
+            statusText.innerText = "Face verification complete.";
+            uploadImages();
         } else {
             updateStepUI();
         }
@@ -192,6 +308,119 @@ function isBlinking(landmarks) {
     return (bottom - top) < 0.01;
 }
 
+function landmarkSample(landmarks) {
+    const ids = [1, 33, 263, 61, 291, 152];
+    return ids.map((idx) => ({ x: landmarks[idx].x, y: landmarks[idx].y }));
+}
+
+function isFaceStable(landmarks) {
+    const current = landmarkSample(landmarks);
+    if (!previousSample) {
+        previousSample = current;
+        return false;
+    }
+
+    let total = 0;
+    for (let i = 0; i < current.length; i++) {
+        total += Math.abs(current[i].x - previousSample[i].x) + Math.abs(current[i].y - previousSample[i].y);
+    }
+    const motion = total / current.length;
+    previousSample = current;
+    return motion < MOTION_THRESHOLD;
+}
+
+function resetHoldTimerOnly() {
+    holdStartTime = 0;
+}
+
+function resetStability() {
+    stableFrames = 0;
+    holdStartTime = 0;
+    previousSample = null;
+}
+
+function setLiveHint(message, type = "info") {
+    if (liveHintText) {
+        liveHintText.innerText = message;
+    }
+    if (liveHint) {
+        liveHint.classList.remove("live-hint--info", "live-hint--warning", "live-hint--success");
+        liveHint.classList.add(`live-hint--${type}`);
+    }
+}
+
+function setCaptureState(state) {
+    if (!cameraCircle) return;
+    cameraCircle.classList.remove("capture-prep", "capture-done");
+    if (state === "capturing") {
+        cameraCircle.classList.add("capture-prep");
+        return;
+    }
+    if (state === "done") {
+        cameraCircle.classList.add("capture-done");
+        setTimeout(() => {
+            cameraCircle.classList.remove("capture-done");
+        }, 750);
+    }
+}
+
+function getBrightnessScore() {
+    if (!video.videoWidth || !video.videoHeight) return 120;
+
+    analysisCanvas.width = 64;
+    analysisCanvas.height = 48;
+    const ctx = analysisCanvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(video, 0, 0, 64, 48);
+    const data = ctx.getImageData(0, 0, 64, 48).data;
+    let total = 0;
+    for (let i = 0; i < data.length; i += 4) {
+        total += (data[i] * 0.299) + (data[i + 1] * 0.587) + (data[i + 2] * 0.114);
+    }
+    return total / (64 * 48);
+}
+
+function evaluateReadiness(landmarks) {
+    const nose = landmarks[1];
+    const yaw = headYaw(landmarks);
+    const brightness = getBrightnessScore();
+
+    if (brightness < 55) {
+        lowLightStreak += 1;
+        // Grace mode for weak cameras: allow after sustained low-light frames.
+        if (lowLightStreak < 30) {
+            return { ready: false, hint: "Too dark. Move to a brighter area or face the light.", type: "warning" };
+        }
+        return { ready: true, hint: "Low light detected. Keep still for capture.", type: "warning" };
+    }
+    lowLightStreak = 0;
+    if (nose.y < 0.35) {
+        return { ready: false, hint: "Move your face a little downward.", type: "warning" };
+    }
+    if (nose.y > 0.7) {
+        return { ready: false, hint: "Move your face a little upward.", type: "warning" };
+    }
+    if (nose.x < 0.35) {
+        return { ready: false, hint: "Move your face slightly to the right.", type: "warning" };
+    }
+    if (nose.x > 0.65) {
+        return { ready: false, hint: "Move your face slightly to the left.", type: "warning" };
+    }
+
+    if (STEPS[step].key === "LOOK_FORWARD" && Math.abs(yaw) > 0.08) {
+        return { ready: false, hint: "Look straight at the camera.", type: "warning" };
+    }
+    if (STEPS[step].key === "TURN_LEFT" && yaw <= 0.12) {
+        return { ready: false, hint: "Turn your head more to the left.", type: "warning" };
+    }
+    if (STEPS[step].key === "TURN_RIGHT" && yaw >= -0.12) {
+        return { ready: false, hint: "Turn your head more to the right.", type: "warning" };
+    }
+    if (STEPS[step].key === "BLINK") {
+        return { ready: true, hint: "Blink once to continue.", type: "info" };
+    }
+    return { ready: true, hint: "Ready. Hold still while we capture automatically.", type: "success" };
+}
+
 /* ======================
    CAPTURE CONTROL
 ====================== */
@@ -217,7 +446,7 @@ function captureImage() {
     ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
     ctx.restore();
 
-    const img = canvas.toDataURL("image/jpeg", 0.6);
+    const img = canvas.toDataURL("image/jpeg", 0.75);
     images.push(img);
 }
 
@@ -239,9 +468,13 @@ function uploadImages() {
     .then(data => {
         if (data.status === "ok") {
             consentSection.style.display = "block";
-            statusText.innerText = "Please review and accept the consent to continue.";
+            statusText.innerText = "Review and accept the terms to complete signup.";
+            instructionTitle.innerText = "Verification Completed";
+            instructionDesc.innerText = "Your face images were captured successfully.";
+            setLiveHint("All required captures are complete.", "success");
+            liveHint.style.display = "none";
         } else {
-            alert("Face verification failed");
+            statusText.innerText = "Face verification failed. Please try again.";
         }
     });
 }

@@ -10,7 +10,7 @@
 {% block content %}
 {% include 'admin_registration/registration_navigation.html' %}
 
-<div class="registration-wrapper">
+<div class="registration-wrapper registration-form-page">
     <div class="header-section">
         <h2>National Rabies Prevention and Control Program</h2>
         <h3>Rabies Free Visayas Project</h3>
@@ -24,9 +24,23 @@
             <div class="admin-fields">
                 <div class="field-group">
                   <label for="barangay">Name of Barangay</label>
-                    <input type="text" id="barangay" name="barangay" value="{{ barangay }}" placeholder="Enter Barangay" oninput="showSuggestions(this.value)" autocomplete="off" required>
-                <div id="suggestions" class="suggestions-box" style="display:none;"></div>
-            </div>
+                    <div class="barangay-input-row">
+                      <input
+                          type="text"
+                          id="barangay"
+                          name="barangay"
+                          value="{{ barangay }}"
+                          placeholder="Enter Barangay"
+                          autocomplete="off"
+                          required
+                          data-barangay-autocomplete="true"
+                          data-barangay-source-url="{% url 'dogadoption_admin:barangay_list_api' %}"
+                          data-barangay-suggestions-id="suggestions"
+                          data-barangay-strict="true"
+                      >
+                    </div>
+                    <div id="suggestions" class="suggestions-box" style="display:none;"></div>
+                </div>
 
                 <div class="field-group">
                     <label for="date">Registration Date</label>
@@ -37,8 +51,7 @@
             <hr class="form-divider">
 
             <div class="dog-info-section">
-                <h4 class="section-title"><i class="fas fa-paw"></i> Pet Information</h4>
-
+      
                 <div class="grid-row">
                     <div class="field-group">
                         <label for="name">Dog Name</label>
@@ -49,7 +62,6 @@
                         <select name="species" id="species">
                             <option value="Canine" selected>Canine</option>
                             <option value="Feline">Feline</option>
-                            <option value="Other">Other</option>
                         </select>
                     </div>
                 </div>
@@ -63,8 +75,14 @@
                         </select>
                     </div>
                     <div class="field-group">
-                        <label for="age">Age</label>
-                        <input type="text" name="age" id="age" placeholder="e.g. 2 yrs">
+                        <label for="age_value">Age</label>
+                        <div class="age-field-row">
+                            <input type="number" name="age_value" id="age_value" min="1" step="1" placeholder="Age" required>
+                            <select name="age_unit" id="age_unit" required>
+                                <option value="years" selected>Year(s)</option>
+                                <option value="months">Month(s)</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="field-group">
                         <label for="neutering">Neutering</label>
@@ -80,61 +98,25 @@
                     <label for="color">Color / Markings</label>
                     <input type="text" name="color" id="color" placeholder="e.g. Black and White">
                 </div>
-
-                <h4 class="section-title"><i class="fas fa-user"></i> Owner Information</h4>
-                
-                <div class="field-group">
-                    <label for="owner_name">Pet Owner Full Name</label>
-                    <input type="text" name="owner_name" id="owner_name" placeholder="Full Name" required>
+              
+                <div class="grid-row">
+                    <div class="field-group">
+                        <label for="owner_first_name">Owner First Name</label>
+                        <input type="text" name="owner_first_name" id="owner_first_name" placeholder="First Name" required>
+                    </div>
+                    <div class="field-group">
+                        <label for="owner_last_name">Owner Last Name</label>
+                        <input type="text" name="owner_last_name" id="owner_last_name" placeholder="Last Name" required>
+                    </div>
                 </div>
                 
             </div>
 
-            <button type="submit" class="submit-btn">Save Registration Record</button>
+            <div class="form-actions">
+                <button type="submit" class="submit-btn registration-submit-btn">Save Registration Record</button>
+            </div>
         </form>
     </div>
 </div>
-<script>
-  const barangays = [
-    "Ali-is","Banaybanay","Banga","Boyco","Bugay","Cansumalig","Dawis","Kalamtukan",
-    "Kalumboyan","Malabugas","Mandu-ao","Maninihon","Minaba","Nangka","Narra",
-    "Pagatban","Poblacion","San Isidro","San Jose","San Miguel","San Roque","Suba",
-    "Tabuan","Tayawan","Tinago","Ubos","Villareal","Villasol"
-  ];
-
-  const input = document.getElementById('barangay'); // updated
-  const suggestionsBox = document.getElementById('suggestions'); // already added
-
-  function showSuggestions(value) {
-    const val = value.trim().toLowerCase();
-    if (!val) {
-      suggestionsBox.style.display = 'none';
-      return;
-    }
-
-    const matches = barangays.filter(b => b.toLowerCase().includes(val));
-
-    if (matches.length === 0) {
-      suggestionsBox.style.display = 'none';
-      return;
-    }
-
-    suggestionsBox.innerHTML = matches.map(b =>
-      `<div class="suggestion-item" onclick="selectBarangay('${b}')">${b}</div>`
-    ).join('');
-
-    suggestionsBox.style.display = 'block';
-  }
-
-  function selectBarangay(value) {
-    input.value = value;
-    suggestionsBox.style.display = 'none';
-  }
-
-  document.addEventListener('click', (e) => {
-    if (!suggestionsBox.contains(e.target) && e.target !== input) {
-      suggestionsBox.style.display = 'none';
-    }
-  });
-</script>
+<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 {% endblock %}

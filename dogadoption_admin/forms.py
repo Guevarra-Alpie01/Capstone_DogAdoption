@@ -1,23 +1,40 @@
 from django import forms
-from .models import Post
+from .models import Post, Barangay
 class PostForm(forms.ModelForm):
 
+    caption = forms.CharField(
+        label="Dog Name",
+        required=False,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Enter dog name'
+        })
+    )
+
     rescued_date = forms.DateField(
+        required=False,
         widget=forms.DateInput(attrs={'type': 'date'})
     )
 
-    VIOLATION_CHOICES = [
-        ('no_collar', 'No Collar'),
-        ('no_leash', 'No Leash'),
-        ('no_license', 'No License'),
-        ('abandoned', 'Abandoned'),
-        ('injured', 'Injured'),
-    ]
+    location = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Enter Barangay',
+            'autocomplete': 'off',
+            'data-barangay-autocomplete': 'true',
+            'data-barangay-suggestions-id': 'location-suggestions',
+            'data-barangay-strict': 'true',
+        })
+    )
 
-    violations = forms.MultipleChoiceField(
-        choices=VIOLATION_CHOICES,
-        widget=forms.CheckboxSelectMultiple,
-        required=False
+    claim_days = forms.IntegerField(
+        required=True,
+        min_value=1,
+        widget=forms.NumberInput(attrs={
+            'type': 'number',
+            'inputmode': 'numeric',
+            'min': '1',
+            'step': '1',
+        })
     )
 
     class Meta:
@@ -25,21 +42,21 @@ class PostForm(forms.ModelForm):
         fields = [
             'caption',
             'location',
-            'status',
             'rescued_date',
             'claim_days',
-            'violations',
         ]
 
-    def save(self, commit=True):
-        instance = super().save(commit=False)
+    def clean_location(self):
+        value = " ".join((self.cleaned_data.get("location") or "").split()).strip()
+        if not value:
+            return value
 
-        # 👇 explicitly store as list (JSON-safe)
-        instance.violations = self.cleaned_data.get('violations', [])
+        normalized = "".join(ch.lower() for ch in value if ch.isalnum())
+        for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True):
+            if "".join(ch.lower() for ch in name if ch.isalnum()) == normalized:
+                return name
 
-        if commit:
-            instance.save()
-        return instance
+        raise forms.ValidationError("Please select a valid barangay from the suggestions.")
     
 
 from .models import Citation, Penalty,PenaltySection
@@ -54,15 +71,9 @@ class CitationForm(forms.ModelForm):
         })
     )
 
-    penalty = forms.ModelChoiceField(
-        queryset=Penalty.objects.filter(active=True),
-        widget=forms.RadioSelect,
-        empty_label=None
-    )
-
     class Meta:
         model = Citation
-        fields = ['owner', 'penalty', 'remarks']
+        fields = ['owner']
 
 class SectionForm(forms.ModelForm):
     class Meta:

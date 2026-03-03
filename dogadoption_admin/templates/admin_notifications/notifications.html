@@ -1,0 +1,43 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/admin_notifications/notifications.css' %}">
+
+<div class="notification-page">
+    <div class="notification-header">
+        <div>
+            <h2>Notifications</h2>
+            <p>System alerts and new requests.</p>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="mark_all_read">
+            <button type="submit" class="mark-read-btn">Mark all as read</button>
+        </form>
+    </div>
+
+    <div class="notification-list">
+        {% for n in notifications %}
+            <div class="notification-card {% if not n.is_read %}unread{% endif %}">
+                <div class="notification-body">
+                    <div class="notification-title">{{ n.title }}</div>
+                    {% if n.message %}
+                        <div class="notification-message">{{ n.message }}</div>
+                    {% endif %}
+                    <div class="notification-time">{{ n.created_at|date:"M d, Y h:i A" }}</div>
+                </div>
+                <div class="notification-actions">
+                    <form method="POST" action="{% url 'dogadoption_admin:notification_read' n.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="open-btn">Open</button>
+                    </form>
+                </div>
+            </div>
+        {% empty %}
+            <p class="empty-state">No notifications yet.</p>
+        {% endfor %}
+    </div>
+</div>
+
+{% endblock %}

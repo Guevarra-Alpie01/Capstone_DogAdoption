@@ -4,184 +4,535 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/user_home.css' %}">
 
-<div class="home-shell container">
-    <section class="home-toolbar">
-        <div class="toolbar-left">
-            <p class="toolbar-kicker">Community Feed</p>
-            <h1 class="toolbar-title">Dog Adoption and Rescue</h1>
-        </div>
+<div class="home-content container">
 
-        {% if request.user.is_authenticated %}
-        <div class="toolbar-actions">
-            <a href="{% url 'user:create_user_adoption_post' %}" class="quick-action primary">
-                <i class="bi bi-plus-circle"></i>
-                <span>Post Dog for Adoption</span>
-            </a>
-            <a href="{% url 'user:create_missing_post' %}" class="quick-action warning">
-                <i class="bi bi-exclamation-triangle"></i>
-                <span>Post Missing Dog</span>
-            </a>
-        </div>
-        {% endif %}
-    </section>
+    <div class="create-post-row mb-3">
+    {% if request.user.is_authenticated %}
+    <a href="{% url 'user:create_post' %}"
+       class="create-post-fab"
+       aria-label="Create Post"
+       title="Create Post">
+        <i class="bi bi-plus-lg"></i>
+    </a>
+    {% endif %}
+    </div>
 
-    <form method="get" class="search-panel">
-        <div class="search-input-wrap">
-            <i class="bi bi-search"></i>
+    <form method="get" class="search-bar mb-4">
+        <div class="input-group">
             <input
                 type="text"
                 name="q"
                 class="form-control"
-                placeholder="Search by dog name, location, status, or keyword"
+                placeholder="Search by location, status, or keyword"
                 value="{{ query }}"
             >
+            <button class="btn search-submit-btn" type="submit" aria-label="Search">
+                <i class="bi bi-search"></i>
+            </button>
         </div>
-        <button class="search-submit" type="submit">Search</button>
     </form>
 
-    <section class="feed-list">
-        {% for item in posts %}
-        {% with post=item.post %}
-        <article class="post-card">
-            {% if item.post_type == 'missing' %}
-                <div class="post-media {% if not post.image %}no-media{% endif %}">
-                    {% if post.image %}
-                        <img src="{{ post.image.url }}"
-                             class="main-img"
-                             alt="Missing dog photo"
-                             onerror="this.onerror=null;this.src='{% static 'images/OIP.webp' %}';">
-                    {% endif %}
-                    <div class="no-media-placeholder">
-                        <i class="bi bi-image"></i>
-                        <span>No image available</span>
+    <div class="post-grid">
+    {% for item in posts %}
+    {% with post=item.post %}
+    <div class="card mb-4 shadow-sm post-card position-relative">
+        <div class="post-author">
+            {% if item.post_type == 'admin' %}
+                {% if post.user.profile.profile_image %}
+                    <img src="{{ post.user.profile.profile_image.url }}" class="author-avatar-img" alt="Author">
+                {% else %}
+                    <div class="author-avatar">A</div>
+                {% endif %}
+                <div class="author-meta">
+                    <div class="author-row">
+                        <span class="author-name">Admin</span>
+                        <span class="author-badge">Staff</span>
                     </div>
-                    <span class="status-badge missing">Missing</span>
+                    <span class="author-time">{{ item.posted_label }}</span>
                 </div>
-            {% else %}
-                {% with post.images.first as main_image %}
-                    <div class="post-media {% if not main_image %}no-media{% endif %}">
-                        {% if main_image %}
-                            <img src="{{ main_image.image.url }}"
-                                 class="main-img"
-                                 alt="Post photo"
-                                 onerror="this.onerror=null;this.src='{% static 'images/OIP.webp' %}';">
-                        {% endif %}
-                        <div class="no-media-placeholder">
-                            <i class="bi bi-image"></i>
-                            <span>No image available</span>
-                        </div>
-                        <span class="status-badge {{ post.status }}">
-                            {{ post.get_status_display }}
-                        </span>
+            {% elif item.post_type == 'user' %}
+                {% if post.owner.profile.profile_image %}
+                    <img src="{{ post.owner.profile.profile_image.url }}" class="author-avatar-img" alt="Author">
+                {% else %}
+                    <div class="author-avatar">U</div>
+                {% endif %}
+                <div class="author-meta">
+                    <div class="author-row">
+                        <span class="author-name">{{ post.owner.username }}</span>
                     </div>
-                {% endwith %}
+                    <span class="author-time">{{ item.posted_label }}</span>
+                </div>
+            {% elif item.post_type == 'missing' %}
+                {% if post.owner.profile.profile_image %}
+                    <img src="{{ post.owner.profile.profile_image.url }}" class="author-avatar-img" alt="Author">
+                {% else %}
+                    <div class="author-avatar">U</div>
+                {% endif %}
+                <div class="author-meta">
+                    <div class="author-row">
+                        <span class="author-name">{{ post.owner.username }}</span>
+                    </div>
+                    <span class="author-time">{{ item.posted_label }}</span>
+                </div>
+            {% endif %}
+        </div>
+
+        {% if item.post_type != 'missing' and post.images.count > 1 %}
+            <button class="btn btn-light view-all-badge"
+                    type="button"
+                    data-bs-toggle="modal"
+                    data-bs-target="#postImages{{ post.id }}">
+                View all ({{ post.images.count }})
+            </button>
+        {% endif %}
+
+        {% if item.post_type == 'missing' %}
+            {% if post.image %}
+                <div class="media-wrap">
+                    <img src="{{ post.image.url }}" class="card-img-top main-img">
+                </div>
+            {% endif %}
+        {% else %}
+            {% with post.images.first as main_image %}
+                {% if main_image %}
+                    <div class="media-wrap">
+                        <img src="{{ main_image.image.url }}" class="card-img-top main-img">
+                    </div>
+                {% endif %}
+            {% endwith %}
+        {% endif %}
+
+        <div class="card-body">
+            <div class="post-body-row {% if item.post_type == 'admin' and item.phase != 'closed' %}has-timer{% endif %}">
+                <div class="post-details">
+       
+            <p class="card-text">
+                {% if item.post_type == 'user' %}
+                    {{ post.description }}
+                {% elif item.post_type == 'missing' %}
+                    {{ post.description }}<br>
+                    <strong>Lost On:</strong> {{ post.date_lost }} at {{ post.time_lost }}
+                {% else %}
+                    {% if post.caption %}<strong>Name:</strong> {{ post.caption }}<br>{% endif %}
+                    {% if post.location %}<strong>Rescue Location:</strong> {{ post.location }}<br>{% endif %}
+                    <strong>Rescue Date:</strong>
+                    {% if post.rescued_date %}
+                        {{ post.rescued_date|date:"M d, Y" }}
+                    {% else %}
+                        {{ post.created_at|date:"M d, Y" }}
+                    {% endif %}
+                {% endif %}
+            </p>
+
+            {% if post.location and item.post_type != 'admin' %}
+                <small class="text-muted">{{ post.location }}</small><br>
             {% endif %}
 
-            <div class="post-body">
-                <h3 class="post-title">
-                    {% if item.post_type == 'user' %}
-                        {{ post.dog_name }}
-                    {% elif item.post_type == 'missing' %}
-                        Missing: {{ post.dog_name }}
-                    {% else %}
-                        Dog Rescue Update
-                    {% endif %}
-                </h3>
-
-                <p class="post-text">
-                    {% if item.post_type == 'user' %}
-                        {{ post.description }}
-                    {% elif item.post_type == 'missing' %}
-                        {{ post.description }}
-                        <br>
-                        <strong>Lost On:</strong> {{ post.date_lost }} at {{ post.time_lost }}
-                    {% else %}
-                        {{ post.caption }}
-                    {% endif %}
-                </p>
-
-                <div class="post-meta">
-                    {% if post.location %}
-                    <span><i class="bi bi-geo-alt"></i> {{ post.location }}</span>
-                    {% endif %}
-                    <span><i class="bi bi-calendar3"></i> Posted on {{ post.created_at|date:"M d, Y H:i" }}</span>
+            {% if item.post_type == 'admin' and item.phase != 'closed' %}
                 </div>
-
-                {% if item.post_type == 'admin' and item.is_open_for_adoption %}
-                <div class="countdown-chip">
-                    <i class="bi bi-clock-history"></i>
-                    <span>Time left: {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m</span>
+                <div class="post-timer">
+                    <div class="countdown-bar" data-deadline="{{ item.deadline_iso }}">
+                        <div class="countdown-label">
+                            {% if item.phase == 'claim' %}
+                                Claim time left
+                            {% elif item.phase == 'adopt' %}
+                                Adoption time left
+                            {% endif %}
+                        </div>
+                        <div class="countdown-values">
+                            <div class="countdown-unit">
+                            <div class="countdown-number" data-unit="days">{{ item.days_left|default:0|stringformat:"02d" }}</div>
+                            <div class="countdown-text">Days</div>
+                        </div>
+                        <div class="countdown-unit">
+                            <div class="countdown-number" data-unit="hours">{{ item.hours_left|default:0|stringformat:"02d" }}</div>
+                            <div class="countdown-text">Hours</div>
+                        </div>
+                        <div class="countdown-unit">
+                            <div class="countdown-number" data-unit="minutes">{{ item.minutes_left|default:0|stringformat:"02d" }}</div>
+                            <div class="countdown-text">Minutes</div>
+                        </div>
+                    </div>
                 </div>
-                {% endif %}
+                </div>
+            {% else %}
+                </div>
+            {% endif %}
+            </div>
 
-                {% if item.post_type != 'missing' and post.images.count > 1 %}
-                    <button class="gallery-toggle"
-                            type="button"
-                            data-bs-toggle="collapse"
-                            data-bs-target="#gallery-{{ post.id }}">
-                        <i class="bi bi-images"></i>
-                        <span>View more photos</span>
-                    </button>
-
-                    <div class="collapse gallery-grid" id="gallery-{{ post.id }}">
-                        {% for image in post.images.all|slice:"1:" %}
-                            <img src="{{ image.image.url }}"
-                                 class="gallery-img"
-                                 alt="Additional photo"
-                                 onerror="this.onerror=null;this.src='{% static 'images/OIP.webp' %}';">
-                        {% endfor %}
+            {% if item.post_type != 'missing' %}
+                {% if post.images.count > 1 %}
+                    <div class="modal fade" id="postImages{{ post.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-lg modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Post Images</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div id="carousel{{ post.id }}" class="carousel slide" data-bs-ride="carousel">
+                                        <div class="carousel-inner">
+                                            {% for image in post.images.all %}
+                                                <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                                    <img src="{{ image.image.url }}" class="d-block w-100 modal-img" alt="Dog image">
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                        <button class="carousel-control-prev" type="button" data-bs-target="#carousel{{ post.id }}" data-bs-slide="prev">
+                                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                            <span class="visually-hidden">Previous</span>
+                                        </button>
+                                        <button class="carousel-control-next" type="button" data-bs-target="#carousel{{ post.id }}" data-bs-slide="next">
+                                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                            <span class="visually-hidden">Next</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 {% endif %}
+            {% endif %}
 
-                <div class="post-actions">
-                    {% if item.post_type == 'missing' %}
-                        <span class="state-pill missing-pill">Missing Dog Report</span>
+            <div class="text-center mt-3">
+                {% if item.post_type == 'missing' %}
+                    <span class="badge bg-danger fs-6 px-3 py-2">Missing Dog</span>
 
-                    {% elif item.post_type == 'user' %}
-                        {% if post.status == 'available' and request.user != post.owner %}
-                            <a href="{% url 'user:adopt_user_post' post.id %}" class="action-btn success">
-                                <i class="bi bi-heart"></i>
-                                <span>Adopt</span>
-                            </a>
-                        {% elif post.status == 'adopted' %}
-                            <span class="state-pill muted-pill">Adopted</span>
-                        {% elif request.user == post.owner %}
-                            <span class="state-pill info-pill">Your post</span>
-                        {% endif %}
+                {% elif item.post_type == 'user' %}
+                    {% if post.status == 'available' and request.user != post.owner %}
+                        <a href="{% url 'user:adopt_user_post' post.id %}" class="btn btn-success btn-sm">Request Adoption</a>
+                    {% elif post.status == 'adopted' %}
+                        <span class="badge bg-secondary fs-6 px-3 py-2">Adopted</span>
+                    {% endif %}
+                    {% if request.user == post.owner %}
+                        <a href="{% url 'user:user_adoption_requests' %}" class="btn btn-outline-dark btn-sm ms-2">View Requests</a>
+                    {% endif %}
 
+                {% else %}
+                    {% if post.status == 'reunited' %}
+                        <span class="badge bg-success fs-6 px-3 py-2">Reunited with Owner</span>
+                    {% elif post.status == 'adopted' %}
+                        <span class="badge bg-secondary fs-6 px-3 py-2">Adopted - No longer available</span>
                     {% else %}
-                        {% if post.status == 'reunited' %}
-                            <span class="state-pill success-pill">Reunited with owner</span>
-                        {% elif post.status == 'adopted' %}
-                            <span class="state-pill muted-pill">Adopted - no longer available</span>
-                        {% elif item.is_open_for_adoption %}
-                            <a href="{% url 'user:adopt_confirm' post.id %}" class="action-btn success">
-                                <i class="bi bi-heart"></i>
-                                <span>Adopt</span>
-                            </a>
-                            <a href="{% url 'user:claim_confirm' post.id %}" class="action-btn outline">
-                                <i class="bi bi-shield-check"></i>
-                                <span>Claim</span>
-                            </a>
-                            <a target="_blank"
-                               href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}"
-                               class="action-btn share">
-                                <i class="bi bi-share"></i>
-                                <span>Share</span>
-                            </a>
+                        {% if item.phase == 'claim' %}
+                            <div class="d-flex justify-content-center gap-2 admin-actions">
+                                <a href="{% url 'user:claim_confirm' post.id %}" class="btn btn-success btn-sm action-btn action-claim">Claim</a>
+                                <button type="button"
+                                   class="btn btn-outline-secondary btn-sm action-btn action-share js-open-share"
+                                   data-share-url="{{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}">
+                                    <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path d="M18 8a3 3 0 1 0-2.82-4H15a3 3 0 0 0 .16.95l-6.7 3.35a3 3 0 0 0-2.46-1.3 3 3 0 1 0 0 6c.88 0 1.67-.38 2.22-.97l6.96 3.48A3 3 0 0 0 15 16a3 3 0 1 0 .18-1.02l-6.98-3.49A3 3 0 0 0 9 10c0-.36-.06-.7-.18-1.02l6.97-3.48c.55.62 1.35 1 2.21 1z"></path>
+                                    </svg>
+                                    <span>Share</span>
+                                   </button>
+                            </div>
+                        {% elif item.phase == 'adopt' %}
+                            <div class="d-flex justify-content-center gap-2 admin-actions">
+                                <a href="{% url 'user:adopt_confirm' post.id %}" class="btn btn-success btn-sm action-btn">Adopt</a>
+                                <button type="button"
+                                   class="btn btn-outline-secondary btn-sm action-btn action-share js-open-share"
+                                   data-share-url="{{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}">
+                                    <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path d="M18 8a3 3 0 1 0-2.82-4H15a3 3 0 0 0 .16.95l-6.7 3.35a3 3 0 0 0-2.46-1.3 3 3 0 1 0 0 6c.88 0 1.67-.38 2.22-.97l6.96 3.48A3 3 0 0 0 15 16a3 3 0 1 0 .18-1.02l-6.98-3.49A3 3 0 0 0 9 10c0-.36-.06-.7-.18-1.02l6.97-3.48c.55.62 1.35 1 2.21 1z"></path>
+                                    </svg>
+                                    <span>Share</span>
+                                   </button>
+                            </div>
+                        {% else %}
+                            <span class="badge bg-secondary fs-6 px-3 py-2">Window closed</span>
                         {% endif %}
                     {% endif %}
-                </div>
+                {% endif %}
             </div>
-        </article>
-        {% endwith %}
-        {% empty %}
-        <div class="empty-feed">
-            <i class="bi bi-inboxes"></i>
-            <h3>No posts found</h3>
-            <p>No dogs available right now. Try another keyword or check back soon.</p>
+
         </div>
-        {% endfor %}
-    </section>
+    </div>
+    {% endwith %}
+    {% empty %}
+        <p class="text-center">No dogs available yet</p>
+    {% endfor %}
+    </div>
+
+    {% if page_obj.has_next %}
+    <div class="text-center mt-3 mb-4">
+        <a class="btn btn-outline-secondary"
+           href="?{% if query %}q={{ query|urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">
+            Load more
+        </a>
+    </div>
+    {% endif %}
+
 </div>
+<div id="sharePanel" class="share-panel" hidden>
+    <div class="share-panel-header">Share Panel</div>
+    <div class="share-options">
+        <button type="button" class="share-option" data-network="facebook">
+            <span class="share-logo share-facebook">f</span>
+            <span>Facebook</span>
+        </button>
+        <button type="button" class="share-option" data-network="messenger">
+            <span class="share-logo share-messenger">m</span>
+            <span>Messenger</span>
+        </button>
+        <button type="button" class="share-option" data-network="x">
+            <span class="share-logo share-x">x</span>
+            <span>Twitter/X</span>
+        </button>
+        <button type="button" class="share-option" data-network="instagram">
+            <span class="share-logo share-instagram">i</span>
+            <span>Instagram</span>
+        </button>
+    </div>
+    <label for="shareLinkInput" class="share-url-label">URL</label>
+    <div class="share-link-row">
+        <input id="shareLinkInput" type="text" readonly>
+        <button type="button" id="copyShareLinkBtn" class="btn btn-sm btn-warning">Copy Link</button>
+    </div>
+    <div id="sharePanelStatus" class="share-panel-status" aria-live="polite"></div>
+</div>
+<script>
+    function openFacebookShareUrl(webShareUrl) {
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        if (!isMobile) {
+            window.open(webShareUrl, "_blank", "noopener");
+            return;
+        }
+
+        const appShareUrl = "fb://facewebmodal/f?href=" + encodeURIComponent(webShareUrl);
+        let fallbackTimer = null;
+
+        function cancelFallbackOnAppOpen() {
+            if (document.hidden && fallbackTimer) {
+                clearTimeout(fallbackTimer);
+                fallbackTimer = null;
+                document.removeEventListener("visibilitychange", cancelFallbackOnAppOpen);
+            }
+        }
+
+        document.addEventListener("visibilitychange", cancelFallbackOnAppOpen);
+
+        fallbackTimer = setTimeout(() => {
+            document.removeEventListener("visibilitychange", cancelFallbackOnAppOpen);
+            window.location.href = webShareUrl;
+        }, 900);
+
+        window.location.href = appShareUrl;
+    }
+
+    function openFacebookShare(event, webShareUrl) {
+        event.preventDefault();
+        openFacebookShareUrl(webShareUrl);
+    }
+
+    let activeShareUrl = "";
+    let activeShareTrigger = null;
+
+    function setShareStatus(message) {
+        const statusEl = document.getElementById("sharePanelStatus");
+        if (!statusEl) return;
+        statusEl.textContent = message || "";
+    }
+
+    function openSharePanel(triggerEl, shareUrl) {
+        const panel = document.getElementById("sharePanel");
+        const input = document.getElementById("shareLinkInput");
+        if (!panel || !input) return;
+
+        activeShareUrl = shareUrl;
+        activeShareTrigger = triggerEl;
+        input.value = shareUrl;
+        panel.hidden = false;
+        positionSharePanel();
+        setShareStatus("");
+    }
+
+    function closeSharePanel() {
+        const panel = document.getElementById("sharePanel");
+        if (!panel) return;
+        panel.hidden = true;
+        activeShareUrl = "";
+        activeShareTrigger = null;
+        setShareStatus("");
+    }
+
+    function positionSharePanel() {
+        const panel = document.getElementById("sharePanel");
+        if (!panel || panel.hidden || !activeShareTrigger) return;
+
+        const isMobile = window.matchMedia("(max-width: 768px)").matches;
+        if (isMobile) {
+            // Keep panel above bottom navigation on small screens
+            panel.style.left = "10px";
+            panel.style.right = "10px";
+            panel.style.top = "auto";
+            panel.style.bottom = "74px";
+            return;
+        }
+
+        panel.style.right = "";
+        panel.style.bottom = "";
+        const triggerRect = activeShareTrigger.getBoundingClientRect();
+        const panelWidth = 320;
+        const margin = 12;
+        let left = triggerRect.right - panelWidth;
+        left = Math.max(margin, left);
+        left = Math.min(left, window.innerWidth - panelWidth - margin);
+        const top = Math.min(
+            triggerRect.bottom + 10,
+            window.innerHeight - panel.offsetHeight - margin
+        );
+
+        panel.style.left = `${left}px`;
+        panel.style.top = `${Math.max(margin, top)}px`;
+    }
+
+    async function copyShareLink() {
+        if (!activeShareUrl) return;
+        try {
+            await navigator.clipboard.writeText(activeShareUrl);
+            setShareStatus("Link copied.");
+        } catch (error) {
+            const input = document.getElementById("shareLinkInput");
+            if (!input) return;
+            input.focus();
+            input.select();
+            document.execCommand("copy");
+            setShareStatus("Link copied.");
+        }
+    }
+
+    function shareViaMessenger(url) {
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        if (!isMobile) {
+            copyShareLink();
+            window.open("https://www.messenger.com/", "_blank", "noopener");
+            setShareStatus("Link copied. Paste it in Messenger.");
+            return;
+        }
+
+        const messengerAppUrl = "fb-messenger://share/?link=" + encodeURIComponent(url);
+        const fallback = setTimeout(() => {
+            window.open("https://www.messenger.com/", "_blank", "noopener");
+            setShareStatus("Open Messenger and paste the copied link.");
+        }, 900);
+
+        document.addEventListener("visibilitychange", function onHide() {
+            if (document.hidden) {
+                clearTimeout(fallback);
+                document.removeEventListener("visibilitychange", onHide);
+            }
+        });
+
+        window.location.href = messengerAppUrl;
+    }
+
+    function initSharePanel() {
+        const panel = document.getElementById("sharePanel");
+        const openBtns = document.querySelectorAll(".js-open-share");
+        const optionBtns = document.querySelectorAll(".share-option[data-network]");
+        const copyBtn = document.getElementById("copyShareLinkBtn");
+
+        openBtns.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const shareUrl = btn.getAttribute("data-share-url");
+                if (!shareUrl) return;
+                openSharePanel(btn, shareUrl);
+            });
+        });
+
+        optionBtns.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                if (!activeShareUrl) return;
+                const network = btn.getAttribute("data-network");
+                const encodedUrl = encodeURIComponent(activeShareUrl);
+
+                if (network === "facebook") {
+                    openFacebookShareUrl(`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`);
+                    return;
+                }
+                if (network === "messenger") {
+                    shareViaMessenger(activeShareUrl);
+                    return;
+                }
+                if (network === "x") {
+                    window.open(`https://twitter.com/intent/tweet?url=${encodedUrl}`, "_blank", "noopener");
+                    return;
+                }
+                if (network === "instagram") {
+                    copyShareLink();
+                    window.open("https://www.instagram.com/", "_blank", "noopener");
+                    setShareStatus("Link copied. Paste it in Instagram.");
+                }
+            });
+        });
+
+        if (copyBtn) {
+            copyBtn.addEventListener("click", copyShareLink);
+        }
+
+        document.addEventListener("click", (event) => {
+            if (!panel || panel.hidden) return;
+            const clickedShareBtn = event.target.closest(".js-open-share");
+            const clickedInsidePanel = event.target.closest("#sharePanel");
+            if (!clickedShareBtn && !clickedInsidePanel) {
+                closeSharePanel();
+            }
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                closeSharePanel();
+            }
+        });
+
+        window.addEventListener("resize", positionSharePanel);
+        window.addEventListener("scroll", positionSharePanel, true);
+    }
+
+    function pad2(value) {
+        return String(value).padStart(2, "0");
+    }
+
+    function updateCountdown(card) {
+        const deadline = card.getAttribute("data-deadline");
+        if (!deadline) {
+            return;
+        }
+        const end = new Date(deadline);
+        const now = new Date();
+        let diff = end - now;
+        if (isNaN(end.getTime())) {
+            return;
+        }
+        if (diff < 0) {
+            diff = 0;
+        }
+
+        const totalSeconds = Math.floor(diff / 1000);
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+        const dayEl = card.querySelector('[data-unit="days"]');
+        const hourEl = card.querySelector('[data-unit="hours"]');
+        const minEl = card.querySelector('[data-unit="minutes"]');
+
+        if (dayEl) dayEl.textContent = pad2(days);
+        if (hourEl) hourEl.textContent = pad2(hours);
+        if (minEl) minEl.textContent = pad2(minutes);
+    }
+
+    function initCountdowns() {
+        const cards = document.querySelectorAll(".countdown-bar[data-deadline]");
+        cards.forEach(updateCountdown);
+        setInterval(() => {
+            cards.forEach(updateCountdown);
+        }, 1000 * 30);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        initCountdowns();
+        initSharePanel();
+    });
+</script>
 {% endblock %}

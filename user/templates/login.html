@@ -3,77 +3,91 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/login.css' %}">
+<style>
+body {
+    background: url("{% static 'images/OIP.webp' %}") no-repeat center center fixed;
+    background-size: cover;
+    position: relative;
+}
+</style>
 
-<div class="auth-wrapper d-flex justify-content-center align-items-center">
-    <div id="authCard" class="login-split-card">
-        <section class="login-form-pane">
-            <h2 class="form-title">Login</h2>
 
-            {% if error %}
-            <div class="form-error">{{ error }}</div>
-            {% endif %}
+{% if error %}
+<div class="alert alert-danger text-center">
+    {{ error }}
+</div>
+{% endif %}
 
-            <form method="post" class="login-form">
-                {% csrf_token %}
+<div class="auth-wrapper d-flex justify-content-center align-items-center" data-home-url="{% url 'user:user_home' %}">
 
-                <div class="mb-3">
-                    <input type="text"
-                           name="username"
-                           class="form-control"
-                           placeholder="Username"
-                           required>
-                </div>
+    <div class="auth-card login-card">
 
-                <div class="mb-3">
-                    <input type="password"
-                           name="password"
-                           class="form-control"
-                           placeholder="Password"
-                           required>
-                </div>
+        <h2 class="text-center mb-4 brand-title">Login</h2>
 
-                <button type="submit" class="auth-action w-100 py-2">
-                    Log In
+        <form method="post" class="login-form">
+            {% csrf_token %}
+
+            <div class="mb-3 input-group">
+                <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                <input type="text"
+                       name="username"
+                       class="form-control"
+                       placeholder="Username"
+                       required>
+            </div>
+
+            <div class="mb-3 input-group">
+                <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+                <input type="password"
+                       id="loginPassword"
+                       name="password"
+                       class="form-control"
+                       placeholder="Password"
+                       required>
+                <button type="button" class="input-group-text password-toggle" data-password-toggle="loginPassword" aria-label="Show password">
+                    <i class="bi bi-eye"></i>
                 </button>
-            </form>
-
-            <div class="or-divider">or</div>
-
-            <a href="{% url 'user:signup' %}"
-               data-auth-transition="to-signup"
-               class="auth-action secondary-action w-100 d-block text-center py-2">
-                Create New Account
-            </a>
-        </section>
-
-        <aside class="login-brand-pane">
-            <div class="brand-logos">
-                <img src="{% static 'images/OIP.webp' %}"
-                     class="brand-logo"
-                     alt="Official Seal">
-
-                <img src="{% static 'images/bayawan_logo.webp' %}"
-                     class="brand-logo"
-                     alt="Bayawan Logo">
             </div>
 
-            <div class="brand-copy">
-                Bayawan City<br>Dog Adoption
-            </div>
-        </aside>
+            <button type="submit" class="w-100 login-btn py-2">
+                Log In
+            </button>
+        </form>
+
+        <div class="text-center my-3">
+            <span class="text-muted">or</span>
+        </div>
+
+      <a href="{% url 'user:signup' %}" class="w-100 login-btn d-block text-center py-2 create-account-link">
+    Create New Account
+      </a>
+
+
     </div>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const card = document.getElementById('authCard');
-    const transition = sessionStorage.getItem('authTransition');
-
-    if (card && transition === 'to-login') {
-        card.classList.add('pane-slide-to-login');
+document.addEventListener("DOMContentLoaded", function () {
+    if (!window.matchMedia("(min-width: 992px)").matches) {
+        return;
     }
-    sessionStorage.removeItem('authTransition');
+
+    var wrapper = document.querySelector(".auth-wrapper");
+    var card = document.querySelector(".auth-card");
+    if (!wrapper || !card) {
+        return;
+    }
+
+    wrapper.addEventListener("click", function (event) {
+        if (!card.contains(event.target)) {
+            var homeUrl = wrapper.getAttribute("data-home-url");
+            if (homeUrl) {
+                window.location.href = homeUrl;
+            }
+        }
+    });
 });
 </script>
+<script src="{% static 'js/password_reveal.js' %}"></script>
 
 {% endblock %}

@@ -3,44 +3,55 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/register/registration.css' %}">
+<link rel="stylesheet" href="{% static 'css/register/dog_certificate.css' %}">
 {% endblock extra_css %}
 
 {% block content %}
 {% include 'admin_registration/registration_navigation.html' %}
 
-<div class="registration-wrapper">
+<div class="registration-wrapper registration-form-page dog-certificate-page">
     <div class="header-section">
         <h2>National Rabies Prevention and Control Program</h2>
-        <p class="sub-header">Dog Vaccination Record</p>
+        <h3>Rabies Free Visayas Project</h3>
+        <p class="sub-header">Dog Vaccination Certificate</p>
     </div>
 
     <div class="form-card">
-        <form method="post" action="{% url 'dogadoption_admin:dog_certificate' %}">
+        <form method="post" action="{% url 'dogadoption_admin:dog_certificate' %}" id="dog-certificate-form">
             {% csrf_token %}
 
-            <div class="field-group">
+            <div class="field-group field-reg-no">
                 <label for="reg_no">Registration Number</label>
-                <input type="text" id="reg_no" name="reg_no" value="{{ settings.reg_no|default:'' }}" required placeholder="e.g., 2026-001">
-                <small style="color: #666; margin-top: 5px;">Once submitted, this is the permanent record ID.</small>
+                <input
+                    type="text"
+                    id="reg_no"
+                    name="reg_no"
+                    value="{{ settings.reg_no|default:'' }}"
+                    required
+                    maxlength="50"
+                    pattern="[A-Za-z0-9][-A-Za-z0-9/]*"
+                    title="Use letters, numbers, dash (-), or slash (/)."
+                    placeholder="e.g., BRGY-2026-001A"
+                >
+                <small class="certificate-field-hint">Once submitted, this is the permanent record ID.</small>
             </div>
 
             <div class="dog-info-section">
-                <h4 class="section-title"><i class="fas fa-certificate"></i> Pet Certificate Details</h4>
-
                 <div class="grid-row">
                     <div class="field-group">
-                        <label for="name_of_pet">Dog Name</label>
+                        <label for="name_of_pet">Pet Name</label>
                         <input type="text" name="name_of_pet" id="name_of_pet" required placeholder="Name">
                     </div>
                     <div class="field-group">
                         <label for="breed">Breed</label>
-                        <input type="text" name="breed" id="breed" placeholder="e.g., Aspin / Golden Retriever">
+                        <input type="text" name="breed" id="breed" placeholder="e.g., Aspin / Mongrel" oninput="showBreedSuggestions(this.value)" autocomplete="off" required>
+                        <div id="breed_suggestions" class="suggestions-box breed-suggestions-box" style="display:none;"></div>
                     </div>
                 </div>
 
                 <div class="grid-row three-cols">
                     <div class="field-group">
-                        <label for="dob">Date of Birth</label>
+                        <label for="dob">Date of Birth (Optional)</label>
                         <input type="date" name="dob" id="dob">
                     </div>
                     <div class="field-group">
@@ -52,10 +63,11 @@
                     </div>
                     <div class="field-group">
                         <label for="status">Status</label>
-                        <select name="status" id="status">
+                        <select name="status" id="status" required>
+                            <option value="" selected disabled>Select status</option>
                             <option value="Castrated">Castrated</option>
-                            <option value="Spayed">Spayed</option>
                             <option value="Intact">Intact</option>
+                            <option value="Spayed">Spayed</option>
                         </select>
                     </div>
                 </div>
@@ -64,31 +76,276 @@
                     <label for="color_markings">Color/Markings</label>
                     <input type="text" name="color_markings" id="color_markings" placeholder="Unique features">
                 </div>
-
-                <h4 class="section-title"><i class="fas fa-user-shield"></i> Owner Details</h4>
-                <div class="field-group">
-                    <label for="owner_name">Owner Full Name</label>
-                    <input type="text" name="owner_name" id="owner_name" required>
+                <div class="grid-row">
+                    <div class="field-group">
+                        <label for="owner_first_name">Owner First Name</label>
+                        <input
+                            type="text"
+                            name="owner_first_name"
+                            id="owner_first_name"
+                            required
+                            placeholder="e.g., Juan"
+                            title="Enter the owner's first name."
+                        >
+                    </div>
+                    <div class="field-group">
+                        <label for="owner_last_name">Owner Last Name</label>
+                        <input
+                            type="text"
+                            name="owner_last_name"
+                            id="owner_last_name"
+                            required
+                            placeholder="e.g., Dela Cruz"
+                            title="Enter the owner's last name."
+                        >
+                    </div>
                 </div>
                 <div class="field-group">
-                    <label for="address">Complete Address</label>
-                    <textarea name="address" id="address" rows="2"></textarea>
+                    <label for="barangay">Barangay</label>
+                    <input
+                        type="text"
+                        name="barangay"
+                        id="barangay"
+                        placeholder="Enter Barangay"
+                        autocomplete="off"
+                        required
+                        data-barangay-autocomplete="true"
+                        data-barangay-source-url="{% url 'dogadoption_admin:barangay_list_api' %}"
+                        data-barangay-suggestions-id="certificate-barangay-suggestions"
+                        data-barangay-strict="true"
+                    >
+                    <div id="certificate-barangay-suggestions" class="suggestions-box barangay-suggestions-box" style="display:none;"></div>
                 </div>
                 <div class="field-group">
                     <label for="contact_no">Contact Number</label>
-                    <input type="text" name="contact_no" id="contact_no">
+                    <input
+                        type="tel"
+                        name="contact_no"
+                        id="contact_no"
+                        value="09"
+                        placeholder="09XX XXX XXXX"
+                        inputmode="numeric"
+                        autocomplete="off"
+                        pattern="^09\d{2}\s?\d{3}\s?\d{4}$"
+                        maxlength="13"
+                        title="Use a valid PH mobile number: 09XXXXXXXXX"
+                        required
+                    >
                 </div>
             </div>
-
-            <div class="checkbox-group" style="margin: 20px 0;">
-                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                    <input type="checkbox" name="print_immediately" checked style="width: 18px; height: 18px;">
-                    Print Immediately After Submission
-                </label>
+            <div class="form-actions">
+                <button type="submit" class="submit-btn registration-submit-btn">Next</button>
             </div>
-
-            <button type="submit" class="submit-btn">Generate Certificate</button>
         </form>
     </div>
 </div>
+<script>
+    const breedList = [
+        "Aspin (Asong Pinoy)",
+        "Askal",
+        "Mongrel",
+        "Shih Tzu",
+        "Chihuahua",
+        "Pomeranian",
+        "Toy Poodle",
+        "Yorkshire Terrier",
+        "Miniature Pinscher",
+        "Dachshund",
+        "Maltese",
+        "Lhasa Apso",
+        "French Bulldog",
+        "Labrador Retriever",
+        "Golden Retriever",
+        "Siberian Husky",
+        "German Shepherd",
+        "Rottweiler",
+        "Doberman Pinscher",
+        "American Bully",
+        "Belgian Malinois",
+        "Border Collie",
+        "Shiba Inu",
+        "Chow Chow",
+        "Great Dane",
+        "Saint Bernard",
+        "Puspin (Pusang Pinoy)",
+        "Persian",
+        "Siamese",
+        "British Shorthair",
+        "Scottish Fold",
+        "Maine Coon",
+        "Ragdoll",
+        "Bengal",
+        "Russian Blue",
+        "American Shorthair",
+        "Exotic Shorthair",
+        "Sphynx"
+    ];
+
+    const breedInput = document.getElementById('breed');
+    const breedSuggestionsBox = document.getElementById('breed_suggestions');
+    const contactInput = document.getElementById('contact_no');
+    const certificateForm = document.getElementById('dog-certificate-form');
+
+    function cleanInput(value) {
+        return value.replace(/\s+/g, ' ').trim();
+    }
+
+    function normalizeText(value) {
+        return cleanInput(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+    }
+
+    function findExactBreed(value) {
+        const normalized = normalizeText(value);
+        if (!normalized) {
+            return '';
+        }
+        return breedList.find((b) => normalizeText(b) === normalized) || '';
+    }
+
+    function findBreedMatches(value) {
+        const normalized = normalizeText(value);
+        if (!normalized) {
+            return [];
+        }
+        return breedList.filter((b) => normalizeText(b).includes(normalized));
+    }
+
+    function showBreedSuggestions(value) {
+        const cleaned = cleanInput(value);
+        breedInput.value = cleaned;
+
+        if (!normalizeText(cleaned)) {
+            breedSuggestionsBox.style.display = 'none';
+            return;
+        }
+
+        const matches = findBreedMatches(breedInput.value);
+        if (matches.length === 0) {
+            breedSuggestionsBox.style.display = 'none';
+            return;
+        }
+
+        breedSuggestionsBox.innerHTML = matches.map((b) =>
+            `<div class="suggestion-item" onclick="selectBreed('${b.replace(/'/g, "\\'")}')">${b}</div>`
+        ).join('');
+        breedSuggestionsBox.style.display = 'block';
+    }
+
+    function selectBreed(value) {
+        breedInput.value = value;
+        breedSuggestionsBox.style.display = 'none';
+    }
+
+    function selectTopBreedSuggestion() {
+        if (!breedSuggestionsBox || breedSuggestionsBox.style.display === 'none') {
+            return false;
+        }
+
+        const firstSuggestion = breedSuggestionsBox.querySelector('.suggestion-item');
+        if (!firstSuggestion) {
+            return false;
+        }
+
+        const topValue = firstSuggestion.textContent.trim();
+        if (!topValue) {
+            return false;
+        }
+
+        selectBreed(topValue);
+        return true;
+    }
+
+    function normalizeBreedField() {
+        const cleaned = cleanInput(breedInput.value);
+        const exactMatch = findExactBreed(cleaned);
+        breedInput.value = exactMatch || cleaned;
+    }
+
+    function formatContactNumber(value) {
+        const digitsOnly = value.replace(/\D/g, '');
+        let normalized = digitsOnly;
+
+        if (normalized.startsWith('63')) {
+            normalized = `0${normalized.slice(2)}`;
+        } else if (normalized.startsWith('9')) {
+            normalized = `0${normalized}`;
+        }
+
+        if (normalized.length > 11) {
+            normalized = normalized.slice(0, 11);
+        }
+
+        if (normalized.length === 0) {
+            return '';
+        }
+
+        const g1 = normalized.slice(0, 4);
+        const g2 = normalized.slice(4, 7);
+        const g3 = normalized.slice(7, 11);
+        return [g1, g2, g3].filter(Boolean).join(' ');
+    }
+
+    function toCanonicalContactNumber(value) {
+        const digits = value.replace(/\D/g, '');
+        if (digits.startsWith('63') && digits.length === 12) {
+            return `0${digits.slice(2)}`;
+        }
+        if (digits.startsWith('9') && digits.length === 10) {
+            return `0${digits}`;
+        }
+        return digits;
+    }
+
+    if (breedInput) {
+        breedInput.addEventListener('blur', normalizeBreedField);
+        breedInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' || e.key === 'Delete') {
+                return;
+            }
+            if (e.key === 'Enter') {
+                if (selectTopBreedSuggestion()) {
+                    e.preventDefault();
+                    return;
+                }
+                normalizeBreedField();
+            }
+        });
+    }
+
+    if (contactInput) {
+        contactInput.addEventListener('focus', () => {
+            if (!contactInput.value.trim()) {
+                contactInput.value = '09';
+            }
+        });
+
+        contactInput.addEventListener('input', () => {
+            const formatted = formatContactNumber(contactInput.value);
+            contactInput.value = formatted || '09';
+        });
+
+        contactInput.addEventListener('blur', () => {
+            const canonical = toCanonicalContactNumber(contactInput.value);
+            contactInput.value = canonical ? formatContactNumber(canonical) : '09';
+        });
+    }
+
+    if (certificateForm) {
+        certificateForm.addEventListener('submit', () => {
+            normalizeBreedField();
+            breedSuggestionsBox.style.display = 'none';
+
+            if (contactInput) {
+                contactInput.value = toCanonicalContactNumber(contactInput.value);
+            }
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        if (breedSuggestionsBox && !breedSuggestionsBox.contains(e.target) && e.target !== breedInput) {
+            breedSuggestionsBox.style.display = 'none';
+        }
+    });
+</script>
+<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 {% endblock %}

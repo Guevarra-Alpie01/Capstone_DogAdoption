@@ -2,7 +2,7 @@
    GLOBAL OVERLAY BACKGROUND
 ========================= */
 body {
-    background: linear-gradient(135deg, #254E1E, #1b3a15);
+    background: linear-gradient(135deg, #0f1a13, #143b25);
     margin: 0;
     font-family: "Segoe UI", Tahoma, sans-serif;
 }
@@ -11,7 +11,10 @@ body::before {
     content: "";
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.45);
+    background:
+        radial-gradient(circle at 15% 12%, rgba(34, 197, 94, 0.2), transparent 34%),
+        radial-gradient(circle at 88% 88%, rgba(22, 163, 74, 0.15), transparent 32%),
+        rgba(0, 0, 0, 0.45);
     z-index: 0;
 }
 
@@ -32,7 +35,10 @@ body::before {
    FACE CARD (DESKTOP DEFAULT)
 ========================= */
 .face-card {
-    background: linear-gradient(135deg, #F7C600 50%, #254E1E 50%);
+    background:
+        linear-gradient(180deg, rgba(12, 20, 14, 0.65), rgba(12, 20, 14, 0.55)),
+        url("../images/Adobe Express - file.png") center/cover no-repeat;
+    border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 22px;
     padding: 40px 35px;
     width: 100%;
@@ -48,8 +54,8 @@ body::before {
 ========================= */
 .step-label {
     display: inline-block;
-    background: white;
-    color: #254E1E;
+    background: #ecfdf3;
+    color: #166534;
     font-weight: 700;
     padding: 6px 18px;
     border-radius: 30px;
@@ -68,8 +74,80 @@ body::before {
 
 #instructionDesc {
     font-size: 15px;
-    opacity: 0.9;
-    margin-bottom: 22px;
+    opacity: 0.95;
+    margin-bottom: 8px;
+}
+
+.live-hint {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    margin: 0 auto 16px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    max-width: 96%;
+    background: rgba(236, 253, 243, 0.17);
+    border: 1px solid rgba(187, 247, 208, 0.42);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.2);
+}
+
+.live-hint.live-hint--info {
+    background: rgba(236, 253, 243, 0.17);
+    border-color: rgba(187, 247, 208, 0.42);
+}
+
+.live-hint.live-hint--warning {
+    background: rgba(254, 243, 199, 0.2);
+    border-color: rgba(253, 230, 138, 0.55);
+}
+
+.live-hint.live-hint--warning .live-hint-icon {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.live-hint.live-hint--warning .live-hint-label {
+    color: #fde68a;
+}
+
+.live-hint.live-hint--success {
+    background: rgba(34, 197, 94, 0.22);
+    border-color: rgba(134, 239, 172, 0.6);
+}
+
+.live-hint-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 28px;
+    color: #14532d;
+    background: #dcfce7;
+}
+
+.live-hint-text-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.live-hint-label {
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    font-weight: 800;
+    color: #bbf7d0;
+}
+
+#liveHintText {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #f8fafc;
+    line-height: 1.25;
 }
 
 /* =========================
@@ -81,10 +159,11 @@ body::before {
     border-radius: 50%;
     overflow: hidden;
     margin: 0 auto 20px;
-    border: 7px solid white;
+    border: 7px solid #f8fafc;
     background: black;
     box-shadow: 0 0 30px rgba(0,0,0,0.45);
     position: relative;
+    isolation: isolate;
 }
 
 /* Glow pulse ring */
@@ -97,10 +176,42 @@ body::before {
     animation: pulse 2s infinite;
 }
 
+.camera-circle::before {
+    content: "";
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, rgba(34, 197, 94, 0.95), rgba(16, 185, 129, 0.18), rgba(34, 197, 94, 0.95));
+    z-index: -1;
+    opacity: 0;
+    transform: rotate(0deg);
+    transition: opacity 0.2s ease;
+}
+
+.camera-circle.capture-prep::before {
+    opacity: 0.95;
+    animation: spinRing 1s linear infinite;
+}
+
+.camera-circle.capture-done {
+    border-color: #86efac;
+    box-shadow: 0 0 0 6px rgba(134, 239, 172, 0.25), 0 0 30px rgba(0,0,0,0.45);
+}
+
+.camera-circle.capture-done::before {
+    opacity: 1;
+    animation: none;
+    background: conic-gradient(from 0deg, #22c55e, #bbf7d0, #22c55e);
+}
+
 @keyframes pulse {
     0%   { box-shadow: 0 0 10px rgba(255,255,255,0.3); }
     50%  { box-shadow: 0 0 30px rgba(255,255,255,0.9); }
     100% { box-shadow: 0 0 10px rgba(255,255,255,0.3); }
+}
+
+@keyframes spinRing {
+    to { transform: rotate(360deg); }
 }
 
 /* Mirror selfie camera */
@@ -116,8 +227,80 @@ body::before {
 ========================= */
 #status {
     font-size: 13px;
-    opacity: 0.85;
-    margin-top: 10px;
+    opacity: 0.95;
+    margin: 10px 0 12px;
+    color: #f1f5f9;
+}
+
+.next-step-btn {
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: #16a34a;
+    color: #ffffff;
+    border-radius: 999px;
+    padding: 10px 24px;
+    font-weight: 700;
+    min-width: 140px;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.25);
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.next-step-btn:hover {
+    background: #15803d;
+    transform: translateY(-1px);
+}
+
+.next-step-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.consent-box {
+    margin-top: 18px;
+    padding: 16px;
+    border-radius: 14px;
+    text-align: left;
+    background: rgba(7, 12, 9, 0.64);
+    border: 1px solid rgba(220, 252, 231, 0.24);
+    color: #f8fafc;
+}
+
+.consent-box h4 {
+    margin-bottom: 10px;
+    font-size: 1rem;
+    font-weight: 800;
+    color: #dcfce7;
+}
+
+.consent-box p {
+    font-size: 0.88rem;
+    line-height: 1.45;
+    margin-bottom: 10px;
+    color: #e2e8f0;
+}
+
+.consent-check {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 0.88rem;
+    color: #f8fafc;
+}
+
+.consent-check input[type="checkbox"] {
+    margin: 0;
+}
+
+#completeSignupBtn {
+    width: 100%;
+    border-radius: 999px;
+    background: #16a34a;
+    border-color: #16a34a;
+    font-weight: 700;
+}
+
+#completeSignupBtn:disabled {
+    background: #475569;
+    border-color: #475569;
 }
 
 /* =========================

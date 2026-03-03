@@ -3,12 +3,13 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/register/registration.css' %}">
+<link rel="stylesheet" href="{% static 'css/register/certificate_list_tracker.css' %}">
 {% endblock extra_css %}
 
 {% block content %}
 {% include 'admin_registration/registration_navigation.html' %}
 
-<div class="registration-wrapper">
+<div class="registration-wrapper certificate-list-page">
 
     <div class="header-section">
         <div class="export-buttons">
@@ -26,75 +27,153 @@
             <button id="print-selected" class="btn-export">
                 Print Selected
             </button>
-
-            <a href="{% url 'dogadoption_admin:dog_certificate' %}" class="btn-link">
-                + New Certificate
-            </a>
-
         </div>
 
         <h2>Saved Vaccination Certificates</h2>
     </div>
 
 
-    <div class="table-container">
-        <table class="records-table">
-            <thead>
-                <tr>
-                    <th>
-                        <input type="checkbox" id="select-all">
-                    </th>
-                    <th>Reg No</th>
-                    <th>Pet Name</th>
-                    <th>Owner</th>
-                    <th>Date Issued</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
+    <div class="certificate-list-layout">
+        <div class="certificate-list-main">
+            <div class="table-container">
+                <table class="records-table">
+                    <thead>
+                        <tr>
+                            <th>
+                                <input type="checkbox" id="select-all">
+                            </th>
+                            <th>Reg No</th>
+                            <th>Pet Name</th>
+                            <th>Owner</th>
+                            <th>Date Issued</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
 
-            <tbody>
-                {% for cert in certificates %}
-                <tr>
-                    <td>
-                        <input type="checkbox"
-                               class="select-cert"
-                               value="{{ cert.id }}">
-                    </td>
+                    <tbody>
+                        {% for cert in certificates %}
+                        <tr>
+                            <td>
+                                <input type="checkbox"
+                                       class="select-cert"
+                                       value="{{ cert.id }}">
+                            </td>
 
-                    <td data-label="Reg No">
-                        <strong>{{ cert.reg_no }}</strong>
-                    </td>
+                            <td data-label="Reg No">
+                                <strong>{{ cert.reg_no }}</strong>
+                            </td>
 
-                    <td data-label="Pet">
-                        {{ cert.name_of_pet }}
-                    </td>
+                            <td data-label="Pet">
+                                {{ cert.name_of_pet }}
+                            </td>
 
-                    <td data-label="Owner">
-                        {{ cert.owner_name }}
-                    </td>
+                            <td data-label="Owner">
+                                {{ cert.owner_name }}
+                            </td>
 
-                    <td data-label="Date">
-                        {{ cert.date_registered|date:"M d, Y" }}
-                    </td>
+                            <td data-label="Date">
+                                {{ cert.date_registered|date:"M d, Y" }}
+                            </td>
 
-                    <td data-label="Action">
-                        <a href="{% url 'dogadoption_admin:certificate_print' cert.id %}"
-                           class="action-btn-print">
-                            <i class="fas fa-print"></i> Print
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="6" class="empty-row">
-                        No certificates found.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
+                            <td data-label="Action">
+                                <a href="{% url 'dogadoption_admin:certificate_print' cert.id %}"
+                                   class="action-btn-print"
+                                   target="_blank"
+                                   rel="noopener">
+                                    <i class="fas fa-print"></i> Print
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="empty-row">
+                                No certificates found.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
 
-        </table>
+                </table>
+            </div>
+        </div>
     </div>
+
+    <aside class="certificate-side-panel certificate-bottom-panel">
+        <section class="side-card">
+            <h3>Vaccination Only</h3>
+            <p class="side-help">
+                Registrations with vaccination records and no deworming/treatment record.
+            </p>
+            <div class="side-table-wrap">
+                <table class="side-table">
+                    <thead>
+                        <tr>
+                            <th>Reg No</th>
+                            <th>Owner</th>
+                            <th>Address</th>
+                            <th>Vaccine Expiry</th>
+                            <th>Dog Vaccination Expiry</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in vaccination_only_rows %}
+                        <tr>
+                            <td>{{ row.reg_no }}</td>
+                            <td>{{ row.owner_name }}</td>
+                            <td>{{ row.address }}</td>
+                            <td>{{ row.vaccine_expiry_date|date:"M d, Y" }}</td>
+                            <td>{{ row.dog_vaccination_expiry_date|date:"M d, Y" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="empty-row">No vaccination-only records.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="side-card">
+            <h3>28 Barangay Expiry Tracker</h3>
+            <p class="side-help">
+                Expired vaccine medicine or dog vaccination expiry by barangay.
+            </p>
+            <div class="tracker-toolbar">
+                <label for="expired-only-toggle" class="tracker-toggle-label">
+                    <input type="checkbox" id="expired-only-toggle">
+                    Show only barangays with expired records
+                </label>
+                <span id="tracker-visible-count" class="tracker-visible-count"></span>
+            </div>
+
+            <div class="tracker-list">
+                {% for area in barangay_expiry_tracker %}
+                <details class="tracker-item" data-expired-count="{{ area.expired_count }}">
+                    <summary>
+                        <span>{{ area.barangay }}</span>
+                        <span class="count-badge">{{ area.expired_count }}</span>
+                    </summary>
+
+                    {% if area.expired_items %}
+                    <div class="tracker-records">
+                        {% for item in area.expired_items %}
+                        <div class="tracker-record">
+                            <strong>{{ item.reg_no }}</strong> - {{ item.owner_name }}<br>
+                            {{ item.vaccine_name }}<br>
+                            Vaccine Expiry: {{ item.vaccine_expiry_date|date:"M d, Y" }}<br>
+                            Dog Vaccination Expiry: {{ item.dog_vaccination_expiry_date|date:"M d, Y" }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="tracker-empty">No expired vaccination records.</p>
+                    {% endif %}
+                </details>
+                {% endfor %}
+            </div>
+        </section>
+    </aside>
 </div>
 
 <script>
@@ -192,6 +271,40 @@ document.getElementById('print-selected').addEventListener('click', function() {
     document.body.appendChild(form);
     form.submit();
 });
+
+/* ===========================
+   BARANGAY TRACKER FILTER
+=========================== */
+const expiredOnlyToggle = document.getElementById('expired-only-toggle');
+const trackerItems = document.querySelectorAll('.tracker-item');
+const trackerVisibleCount = document.getElementById('tracker-visible-count');
+
+function applyBarangayTrackerFilter() {
+    if (!trackerItems.length) {
+        return;
+    }
+
+    const expiredOnly = expiredOnlyToggle && expiredOnlyToggle.checked;
+    let visible = 0;
+
+    trackerItems.forEach((item) => {
+        const count = parseInt(item.dataset.expiredCount || '0', 10);
+        const show = !expiredOnly || count > 0;
+        item.style.display = show ? '' : 'none';
+        if (show) {
+            visible += 1;
+        }
+    });
+
+    if (trackerVisibleCount) {
+        trackerVisibleCount.textContent = `Showing ${visible} of ${trackerItems.length} barangays`;
+    }
+}
+
+if (expiredOnlyToggle) {
+    expiredOnlyToggle.addEventListener('change', applyBarangayTrackerFilter);
+}
+applyBarangayTrackerFilter();
 </script>
 
 {% endblock %}

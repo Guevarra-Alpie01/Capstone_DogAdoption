@@ -1,25 +1,279 @@
-<form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
+﻿{% extends 'base.html' %}
+{% block content %}
 
-    <h5>📝 Explanation (optional)</h5>
-    <textarea name="explanation" class="form-control"
-        placeholder="Where and when did you lose the dog? Any unique marks or behavior?"
-        rows="4"></textarea>
+<style>
+    .claim-theme-card {
+        border: 1px solid #e8e2c6;
+        border-radius: 16px;
+        box-shadow: 0 10px 24px rgba(37, 78, 30, 0.08);
+        background: #fffef9;
+    }
 
-    <h5 class="mt-3">📍 Last Known Location (optional)</h5>
-    <input type="text" name="last_known_location"
-           class="form-control"
-           placeholder="Example: Near Barangay Hall, Main Street">
+    .claim-theme-header {
+        background: linear-gradient(135deg, #f7c600 0%, #ffe170 100%);
+        border-bottom: 1px solid #e0c350;
+        border-radius: 16px 16px 0 0;
+    }
 
-    <h5 class="mt-3">📸 Upload Photos (optional)</h5>
-    <input type="file" name="images" multiple accept="image/*">
+    .claim-badge {
+        background: #254e1e;
+        color: #f7c600;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        padding: 4px 10px;
+    }
 
-    <p class="text-muted small mt-2">
-        You can submit this claim even without photos or explanation.
-        An admin will review all details carefully.
-    </p>
+    .claim-preview {
+        border: 1px solid #ececec;
+        border-radius: 12px;
+        background: #ffffff;
+    }
 
-    <button type="submit" class="btn btn-warning mt-3">
-        Submit Claim
-    </button>
-</form>
+    .claim-photo {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 10px;
+        border: 1px solid #ddd;
+    }
+
+    .btn-claim-submit {
+        background: #254e1e;
+        border-color: #254e1e;
+        color: #f7c600;
+        font-weight: 700;
+    }
+
+    .btn-claim-submit:hover {
+        background: #1b3a14;
+        border-color: #1b3a14;
+        color: #fff;
+    }
+
+    .appt-calendar {
+        border: 1px solid #dee2e6;
+        border-radius: 12px;
+        padding: 12px;
+        background: #fff;
+    }
+    .appt-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    .appt-weekdays, .appt-days {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 6px;
+    }
+    .appt-weekday {
+        text-align: center;
+        color: #6b7280;
+        font-size: 0.8rem;
+    }
+    .appt-day {
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        min-height: 38px;
+        background: #f8f9fa;
+        font-weight: 600;
+    }
+    .appt-day.empty {
+        border: none;
+        background: transparent;
+    }
+    .appt-day.unavailable {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+    .appt-day.available {
+        background: #e7f8ec;
+        border-color: #8fd19e;
+        cursor: pointer;
+    }
+    .appt-day.selected {
+        background: #facc15;
+        border-color: #ca8a04;
+    }
+</style>
+
+<div class="container py-2">
+    <div class="claim-theme-card">
+        <div class="claim-theme-header px-4 py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <h4 class="mb-1 fw-bold text-dark">Submit Ownership Claim</h4>
+                <p class="mb-0 text-dark small">Provide supporting details so the admin can validate your claim.</p>
+            </div>
+            <span class="claim-badge">Claim Window Open</span>
+        </div>
+
+        <div class="p-4">
+            <div class="claim-preview p-3 mb-4">
+                <h6 class="fw-bold mb-2">Post Summary</h6>
+                <p class="mb-1"><strong>Description:</strong> {{ post.caption }}</p>
+
+                {% if post.location %}
+                    <p class="mb-1"><strong>Location:</strong> {{ post.location }}</p>
+                {% endif %}
+
+                {% if post.rescued_date %}
+                    <p class="mb-2"><strong>Rescued on:</strong> {{ post.rescued_date|date:"M d, Y" }}</p>
+                {% endif %}
+
+                {% if post.images.exists %}
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        {% for image in post.images.all|slice:":4" %}
+                            <img src="{{ image.image.url }}" alt="Dog photo" class="claim-photo">
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <form method="post" enctype="multipart/form-data" id="claimForm">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label for="id_explanation" class="form-label fw-semibold">Explanation (optional)</label>
+                    <textarea
+                        id="id_explanation"
+                        name="explanation"
+                        class="form-control"
+                        rows="4"
+                        placeholder="Where and when did you lose the dog? Any unique marks or behavior?"
+                    ></textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label for="id_last_known_location" class="form-label fw-semibold">Last Known Location (optional)</label>
+                    <input
+                        id="id_last_known_location"
+                        type="text"
+                        name="last_known_location"
+                        class="form-control"
+                        placeholder="Example: Near Barangay Hall, Main Street"
+                    >
+                </div>
+
+                <div class="mb-2">
+                    <label for="id_images" class="form-label fw-semibold">Upload Photos (optional)</label>
+                    <input id="id_images" type="file" name="images" class="form-control" multiple accept="image/*">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Preferred Appointment Date</label>
+                    <input type="hidden" id="appointment_date" name="appointment_date" required>
+
+                    <div class="appt-calendar">
+                        <div class="appt-toolbar">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="prev_month">&lt;</button>
+                            <strong id="month_label"></strong>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="next_month">&gt;</button>
+                        </div>
+                        <div class="appt-weekdays" id="weekdays"></div>
+                        <div class="appt-days" id="calendar_days"></div>
+                    </div>
+
+                    {% if available_dates %}
+                        <p class="text-muted small mt-2 mb-0">Green dates are available. Pick one date.</p>
+                    {% else %}
+                        <p class="text-danger small mt-2 mb-0">No appointment dates are available yet. Please check again later.</p>
+                    {% endif %}
+                </div>
+
+                <p class="text-muted small mt-2 mb-3">
+                    You can submit this claim even without photos or explanation. Admin review is still required.
+                </p>
+
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="submit" id="claim_submit_btn" class="btn btn-claim-submit" {% if not available_dates %}disabled{% endif %}>Submit Claim</button>
+                    <a href="{% url 'user:user_home' %}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const availableDates = new Set([
+            {% for slot in available_dates %}"{{ slot.appointment_date|date:'Y-m-d' }}"{% if not forloop.last %}, {% endif %}{% endfor %}
+        ]);
+
+        const monthLabel = document.getElementById("month_label");
+        const weekdaysEl = document.getElementById("weekdays");
+        const daysEl = document.getElementById("calendar_days");
+        const prevBtn = document.getElementById("prev_month");
+        const nextBtn = document.getElementById("next_month");
+        const inputEl = document.getElementById("appointment_date");
+        const submitBtn = document.getElementById("claim_submit_btn");
+
+        const state = {
+            currentMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+            selectedDate: "",
+        };
+
+        weekdaysEl.innerHTML = weekdays.map(day => `<div class="appt-weekday">${day}</div>`).join("");
+
+        function toISO(y, m, d) {
+            return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        }
+
+        function syncForm() {
+            inputEl.value = state.selectedDate;
+            if (submitBtn && availableDates.size > 0) {
+                submitBtn.disabled = !state.selectedDate;
+            }
+        }
+
+        function render() {
+            const year = state.currentMonth.getFullYear();
+            const month = state.currentMonth.getMonth();
+            monthLabel.textContent = state.currentMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const monthDays = new Date(year, month + 1, 0).getDate();
+            let html = "";
+
+            for (let i = 0; i < firstDay; i++) {
+                html += '<button type="button" class="appt-day empty" disabled></button>';
+            }
+
+            for (let day = 1; day <= monthDays; day++) {
+                const iso = toISO(year, month, day);
+                const available = availableDates.has(iso);
+                const selected = state.selectedDate === iso;
+                const cls = ["appt-day", available ? "available" : "unavailable", selected ? "selected" : ""].join(" ");
+                html += `<button type="button" class="${cls}" data-date="${iso}" ${available ? "" : "disabled"}>${day}</button>`;
+            }
+
+            daysEl.innerHTML = html;
+            daysEl.querySelectorAll(".appt-day.available").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const picked = btn.getAttribute("data-date");
+                    state.selectedDate = state.selectedDate === picked ? "" : picked;
+                    syncForm();
+                    render();
+                });
+            });
+        }
+
+        prevBtn.addEventListener("click", () => {
+            state.currentMonth = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth() - 1, 1);
+            render();
+        });
+
+        nextBtn.addEventListener("click", () => {
+            state.currentMonth = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth() + 1, 1);
+            render();
+        });
+
+        syncForm();
+        render();
+    })();
+</script>
+
+{% endblock %}

@@ -19,11 +19,13 @@ from django.urls import path,include
 from django.conf import settings
 from django.conf.urls.static import static
 from .import views
+from dogadoption_admin import views as admin_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.root_redirect, name='root'),
     path('user/', include('user.urls')),
+    path('vetadmin/analytics/dashboard/', admin_views.analytics_dashboard, name='analytics_dashboard_direct'),
     path('vetadmin/', include('dogadoption_admin.urls')),
     
 

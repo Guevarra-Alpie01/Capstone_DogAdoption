@@ -15,72 +15,66 @@
 
 <body>
 
-<nav class="navbar navbar-expand-lg fixed-top top-navbar">
+<nav class="navbar navbar-expand-lg fixed-top">
     <div class="container-fluid">
-        <button class="btn btn-sm d-none d-lg-flex align-items-center justify-content-center sidebar-toggle-btn" id="sidebarToggle">
+        <button class="btn btn-sm text-white d-none d-lg-block" id="sidebarToggle">
             <span class="navbar-toggler-icon"></span>
         </button>
+        <a class="navbar-brand ms-3" href="#">
+            <img src="{% static 'images/dog_logo.jpg' %}" alt="Logo" height="24" class="d-inline-block align-text-top">
 
-        <a class="navbar-brand ms-2 d-flex align-items-center navbar-brand-wrap" href="{% url 'dogadoption_admin:post_list' %}">
-            <img src="{% static 'images/officialseal.webp' %}" alt="Bayawan Seal" class="navbar-logo">
         </a>
 
-        <div class="ms-auto d-flex align-items-center gap-2 top-nav-actions">
-            <div class="dropdown">
-                <a href="#"
-                   class="nav-icon-btn position-relative"
-                   data-bs-toggle="dropdown"
-                   aria-expanded="false">
-                    <i class="bi bi-bell-fill"></i>
-                    <span class="notification-badge">2</span>
-                </a>
-                <ul class="dropdown-menu dropdown-menu-end notification-dropdown">
-                    <li class="notification-head">
-                        <div>
-                            <span class="notification-title">Notifications</span>
-                            <small class="notification-subtitle">Admin updates</small>
+        <div class="d-flex ms-auto align-items-center gap-2">
+                            <div class="dropdown">
+                                <a class="btn p-0 nav-bell topbar-icon-btn" href="#" role="button" id="notifDropdown" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
+                                    <i class="bi bi-bell"></i>
+                                    {% if admin_unread_notifications %}
+                                        <span class="notification-badge">{{ admin_unread_notifications }}</span>
+                                    {% endif %}
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end notification-dropdown" aria-labelledby="notifDropdown">
+                                    <li><h6 class="dropdown-header">Notifications</h6></li>
+                                    {% if admin_latest_notifications %}
+                                        {% for n in admin_latest_notifications %}
+                                            <li>
+                                                <form method="POST" action="{% url 'dogadoption_admin:notification_read' n.id %}">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="dropdown-item notification-item {% if not n.is_read %}unread{% endif %}">
+                                                        <span class="notif-title">{{ n.title }}</span>
+                                                        <span class="notif-time">{{ n.created_at|timesince }} ago</span>
+                                                    </button>
+                                                </form>
+                                            </li>
+                                        {% endfor %}
+                                    {% else %}
+                                        <li><span class="dropdown-item-text">No notifications yet</span></li>
+                                    {% endif %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-center" href="{% url 'dogadoption_admin:admin_notifications' %}">View all</a></li>
+                                </ul>
+                            </div>
+                            <div class="dropdown profile-menu-shift">
+                                <a class="btn p-0 topbar-avatar-btn" href="#" role="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    {% if request.user.profile.profile_image %}
+                                        <img src="{{ request.user.profile.profile_image.url }}" alt="User Avatar" class="rounded-circle topbar-avatar-img">
+                                    {% else %}
+                                        <img src="{% static 'images/default-user-image.jpg' %}" alt="User Avatar" class="rounded-circle topbar-avatar-img">
+                                    {% endif %}
+                                </a>
+
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                    <li><h6 class="dropdown-header">User Options</h6></li> 
+                                    <li><a href="#" class="dropdown-item">Settings</a></li>
+                                    <li><a href="{% url 'dogadoption_admin:admin_users' %}" class="dropdown-item">Users</a></li>
+                                    <li><a href="{% url 'dogadoption_admin:admin_edit_profile' %}" class="dropdown-item">Profile</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a href="{% url 'dogadoption_admin:admin_logout' %}" class="dropdown-item">Log out</a></li>
+                                </ul> 
+                            </div> 
                         </div>
-                        <span class="notification-count-pill">2 new</span>
-                    </li>
-                    <li>
-                        <a class="dropdown-item notification-item" href="{% url 'dogadoption_admin:requests' %}">
-                            <span class="notification-item-icon"><i class="bi bi-clipboard2-check-fill"></i></span>
-                            <span class="notification-item-body">
-                                <span class="notification-item-text">Review pending capture requests</span>
-                                <span class="notification-item-meta">Recent</span>
-                            </span>
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item notification-item" href="{% url 'dogadoption_admin:post_list' %}">
-                            <span class="notification-item-icon warning"><i class="bi bi-heart-fill"></i></span>
-                            <span class="notification-item-body">
-                                <span class="notification-item-text">Check claim and adoption queue</span>
-                                <span class="notification-item-meta">Recent</span>
-                            </span>
-                        </a>
-                    </li>
-                    <li class="notification-footer-wrap">
-                        <a class="notification-footer-link" href="{% url 'dogadoption_admin:post_list' %}">Go to dashboard</a>
-                    </li>
-                </ul>
-            </div>
 
-            <div class="dropdown">
-                <a class="profile-trigger" href="#" role="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    <img src="{% static 'images/officialseal.webp' %}" alt="Admin Avatar" class="profile-avatar rounded-circle">
-                </a>
-
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                    <li><h6 class="dropdown-header">Admin Options</h6></li>
-                    <li><a href="{% url 'dogadoption_admin:admin_users' %}" class="dropdown-item">Users</a></li>
-                    <li><a href="{% url 'dogadoption_admin:requests' %}" class="dropdown-item">Requests</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a href="{% url 'dogadoption_admin:admin_logout' %}" class="dropdown-item text-danger">Log out</a></li>
-                </ul>
             </div>
-        </div>
-    </div>
 </nav>
 
 <div class="d-flex" id="wrapper">
@@ -100,6 +94,7 @@
 <!-- This is the navigation on the bottom -->
 <nav class="navbar fixed-bottom d-lg-none border-top">
     <div class="container-fluid justify-content-around">
+        {% url 'dogadoption_admin:analytics_dashboard' as analytics_dashboard_url %}
         <a href="{% url 'dogadoption_admin:post_list' %}" class="nav-link text-center text-dark p-0">
             <i class="bi bi-house-door-fill" style="font-size: 1.5rem;"></i><br>
             <small>Home</small>
@@ -116,10 +111,10 @@
             <i class="bi bi-megaphone-fill" style="font-size: 1.5rem;"></i><br>
             <small>Announcements</small>
         </a>
-           <a href="{% url 'dogadoption_admin:admin_users' %}" class="nav-link text-center text-dark p-0">
-                <i class="bi bi-people-fill" style="font-size: 1.5rem;"></i><br>
-                <small>Users</small>
-            </a>
+        <a href="{{ analytics_dashboard_url|default:'analytics/dashboard/' }}" class="nav-link text-center text-dark p-0">
+            <i class="bi bi-bar-chart-fill" style="font-size: 1.5rem;"></i><br>
+            <small>Analytics</small>
+        </a>
     </div>
 </nav>
 

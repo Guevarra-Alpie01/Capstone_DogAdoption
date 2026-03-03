@@ -2,89 +2,132 @@
 {% load static %}
 
 {% block content %}
+
+<!-- Signup Page CSS -->
 <link rel="stylesheet" href="{% static 'css/login.css' %}">
 
-<div class="auth-wrapper d-flex justify-content-center align-items-center">
-    <div id="authCard" class="login-split-card signup-card">
-        <section class="login-form-pane signup-form-pane">
-            <h2 class="form-title">Create Account</h2>
+<div class="auth-wrapper" data-home-url="{% url 'user:user_home' %}">
+    <div class="auth-card signup-card">
 
-            {% if error %}
-            <div class="form-error">{{ error }}</div>
-            {% endif %}
+        <h2>Create Account</h2>
 
-            <form method="post" class="login-form">
-                {% csrf_token %}
+        {% if error %}
+        <div class="alert alert-danger py-2 mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}
+        </div>
+        {% endif %}
 
-                <div class="mb-2">
-                    <input type="text" name="username" class="form-control" placeholder="Username" required>
-                </div>
+        <form method="post" class="signup-form">
+            {% csrf_token %}
 
-                <div class="mb-2">
-                    <input type="password" name="password" class="form-control" placeholder="Password" required>
-                </div>
+            <div class="mb-2 input-group">
+                <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                <input type="text" name="username" class="form-control" placeholder="Username" value="{{ signup_form_data.username|default:'' }}" required>
+            </div>
 
-                <div class="mb-2">
-                    <input type="text" name="first_name" class="form-control" placeholder="First Name" required>
-                </div>
-
-                <div class="mb-2">
-                    <input type="text" name="middle_initial" class="form-control" placeholder="Middle Initial">
-                </div>
-
-                <div class="mb-2">
-                    <input type="text" name="last_name" class="form-control" placeholder="Last Name" required>
-                </div>
-
-                <div class="mb-2">
-                    <input type="text" name="address" class="form-control" placeholder="Address" required>
-                </div>
-
-                <div class="mb-3">
-                    <input type="number" name="age" class="form-control" placeholder="Age" required>
-                </div>
-
-                <button type="submit" class="auth-action w-100 py-2">
-                    Next
+            <div class="mb-2 input-group">
+                <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+                <input
+                    type="password"
+                    id="signupPassword"
+                    name="password"
+                    class="form-control"
+                    placeholder="Password"
+                    minlength="8"
+                    autocomplete="new-password"
+                    required
+                >
+                <button type="button" class="input-group-text password-toggle" data-password-toggle="signupPassword" aria-label="Show password">
+                    <i class="bi bi-eye"></i>
                 </button>
-            </form>
+            </div>
 
-            <div class="or-divider">or</div>
-            <a href="{% url 'user:login' %}"
-               data-auth-transition="to-login"
-               class="auth-action secondary-action w-100 d-block text-center py-2">
-                Already have an account? Log In
+            <div class="mb-2 input-group">
+                <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
+                <input
+                    type="password"
+                    id="signupConfirmPassword"
+                    name="confirm_password"
+                    class="form-control"
+                    placeholder="Confirm Password"
+                    minlength="8"
+                    autocomplete="new-password"
+                    required
+                >
+                <button type="button" class="input-group-text password-toggle" data-password-toggle="signupConfirmPassword" aria-label="Show password">
+                    <i class="bi bi-eye"></i>
+                </button>
+            </div>
+
+            <div class="mb-2 input-group">
+                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                <input type="text" name="first_name" class="form-control" placeholder="First Name" value="{{ signup_form_data.first_name|default:'' }}" required>
+            </div>
+
+            <div class="mb-2 input-group">
+                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                <input type="text" name="last_name" class="form-control" placeholder="Last Name" value="{{ signup_form_data.last_name|default:'' }}" required>
+            </div>
+
+            <div class="mb-3 signup-barangay-wrap">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                    <input
+                        type="text"
+                        name="address"
+                        id="signupBarangay"
+                        class="form-control"
+                        placeholder="Barangay"
+                        value="{{ signup_form_data.address|default:'' }}"
+                        autocomplete="off"
+                        required
+                        data-barangay-autocomplete="true"
+                        data-barangay-source-url="{% url 'user:barangay_list_api' %}"
+                        data-barangay-suggestions-id="signup-barangay-suggestions"
+                        data-barangay-strict="true"
+                    >
+                </div>
+                <div id="signup-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
+            </div>
+
+            <button type="submit" class="login-btn w-100 py-2">
+                Next
+            </button>
+
+        </form>
+
+        <div class="mt-3 text-center">
+            <a href="{% url 'user:login' %}">
+                Already have an account? Log in
             </a>
-        </section>
+        </div>
 
-        <aside class="login-brand-pane">
-            <div class="brand-logos">
-                <img src="{% static 'images/OIP.webp' %}"
-                     class="brand-logo"
-                     alt="Official Seal">
-
-                <img src="{% static 'images/bayawan_logo.webp' %}"
-                     class="brand-logo"
-                     alt="Bayawan Logo">
-            </div>
-
-            <div class="brand-copy">
-                Registration<br>Portal
-            </div>
-        </aside>
     </div>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const card = document.getElementById('authCard');
-    const transition = sessionStorage.getItem('authTransition');
-
-    if (card && transition === 'to-signup') {
-        card.classList.add('pane-slide-to-signup');
+document.addEventListener("DOMContentLoaded", function () {
+    if (!window.matchMedia("(min-width: 992px)").matches) {
+        return;
     }
-    sessionStorage.removeItem('authTransition');
+
+    var wrapper = document.querySelector(".auth-wrapper");
+    var card = document.querySelector(".auth-card");
+    if (!wrapper || !card) {
+        return;
+    }
+
+    wrapper.addEventListener("click", function (event) {
+        if (!card.contains(event.target)) {
+            var homeUrl = wrapper.getAttribute("data-home-url");
+            if (homeUrl) {
+                window.location.href = homeUrl;
+            }
+        }
+    });
 });
 </script>
+<script src="{% static 'js/password_reveal.js' %}"></script>
+<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 
 {% endblock %}

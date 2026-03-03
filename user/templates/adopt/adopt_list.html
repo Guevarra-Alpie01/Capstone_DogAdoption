@@ -11,7 +11,8 @@
 </div>
 <h2>Dogs for Adoption</h2>
 {% if posts %}
-    {% for post in posts %}
+    {% for item in posts %}
+        {% with post=item.post %}
         <div class="post-card">
             {% if post.images.all %}
                 <img src="{{ post.images.first.image.url }}" width="250" height="180">
@@ -22,22 +23,27 @@
                 <p><strong>Location:</strong> {{ post.location }}</p>
                 <p><strong>Status:</strong> {{ post.get_status_display }}</p>
 
-                {% if post.is_open_for_adoption %}
-                    <span class="status-tag status-open">Open for Claim/Adoption</span>
+                {% if item.phase == 'claim' %}
+                    <span class="status-tag status-open">Ready to Claim</span>
+                    <p>Claim time left: {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m</p>
+                {% elif item.phase == 'adopt' %}
+                    <span class="status-tag status-open">Ready to Adopt</span>
+                    <p>Adoption time left: {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m</p>
                 {% else %}
                     <span class="status-tag status-closed">Closed</span>
                 {% endif %}
 
                 <br>
 
-                {% if post.status == "rescued" and post.is_open_for_adoption %}
+                {% if item.phase == 'claim' %}
                     <a href="{% url 'user:claim_confirm' post.id %}" class="btn-action">Claim Dog</a>
-                {% elif post.status == "under_care" and post.is_open_for_adoption %}
+                {% elif item.phase == 'adopt' %}
                     <a href="{% url 'user:adopt_confirm' post.id %}" class="btn-action">Adopt Dog</a>
                 {% endif %}
             </div>
         </div>
         <hr style="border: 0.5px solid #eee;">
+        {% endwith %}
     {% endfor %}
 {% else %}
     <p style="padding: 40px; color: #999; font-style: italic;">No dogs found in this category.</p>

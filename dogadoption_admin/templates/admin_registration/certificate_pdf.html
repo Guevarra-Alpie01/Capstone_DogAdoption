@@ -1,90 +1,307 @@
-{% load static %}
-<link rel="stylesheet" href="{{ request.scheme }}://{{ request.get_host }}{% static 'css/register/certificate_pdf.css' %}">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: 8.5in 5.5in;
+            margin: 0;
+        }
 
-<div class="certificate-container">
-    <div class="certificate-border">
-        
-        <table class="header-table">
-            <tr>
-                <td width="20%"><img src="{{ request.scheme }}://{{ request.get_host }}{% static 'images/officialseal.webp' %}" class="logo"></td>
-                <td width="60%" class="title-cell">
-                    <h1 class="main-title">DOG VACCINATION CERTIFICATE</h1>
-                </td>
-                <td width="20%" align="right"><img src="{{ request.scheme }}://{{ request.get_host }}{% static 'images/Logo-Bagong-Pilipinas.png' %}" class="logo"></td>
-            </tr>
-        </table>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Helvetica, Arial, sans-serif;
+            color: #173145;
+        }
 
-        <div class="content-body">
-            <div class="info-row"><span class="label">Reg No:</span> <span class="value">{{ data.reg_no }}</span></div>
-            <div class="info-row"><span class="label">Name of Pet:</span> <span class="value">{{ data.name_of_pet }}</span></div>
-            <div class="info-row"><span class="label">Breed:</span> <span class="value">{{ data.breed }}</span></div>
-            <div class="info-row"><span class="label">Date of Birth:</span> <span class="value">{{ data.dob }}</span></div>
-            <div class="info-row"><span class="label">Color/Markings:</span> <span class="value">{{ data.color_markings }}</span></div>
-            <div class="info-row">
-                <span class="label">Sex:</span> 
-                <span class="value">
-                    {{ data.get_sex_display }} &nbsp;&nbsp; 
-                    Castrated ( {% if data.is_castrated %}✓{% else %}&nbsp;{% endif %} ) &nbsp; 
-                    Spayed ( {% if data.is_spayed %}✓{% else %}&nbsp;{% endif %} ) &nbsp; 
-                    Intact ( {% if not data.is_castrated and not data.is_spayed %}✓{% else %}&nbsp;{% endif %} )
-                </span>
+        .small-cert-set {
+            margin: 0;
+            padding: 0;
+        }
+
+        .small-cert-face {
+            width: 8.5in;
+            min-height: 5.5in;
+            box-sizing: border-box;
+            border: 1px solid #7daec6;
+            background: #ccecff;
+            padding: 8mm 9mm;
+            page-break-after: always;
+        }
+
+        .cert-header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 3mm;
+        }
+
+        .logo-cell {
+            width: 16%;
+            vertical-align: middle;
+        }
+
+        .logo-cell.right {
+            text-align: right;
+        }
+
+        .top-logo {
+            width: 52px;
+        }
+
+        .office-cell {
+            width: 68%;
+            text-align: center;
+            font-size: 10pt;
+            line-height: 1.2;
+        }
+
+        .office-line.strong {
+            font-weight: 700;
+        }
+
+        .cert-main-title {
+            margin: 0 0 4mm;
+            text-align: center;
+            font-size: 18pt;
+            font-weight: 700;
+        }
+
+        .cert-info-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .cert-info-table td {
+            font-size: 10pt;
+            padding: 2px 3px;
+            vertical-align: top;
+        }
+
+        .label-col {
+            width: 30%;
+            font-weight: 700;
+        }
+
+        .value-col {
+            width: 70%;
+            border-bottom: 1px solid #2d4d63;
+            word-wrap: break-word;
+        }
+
+        .front-bottom-note {
+            margin-top: 4mm;
+            text-align: center;
+            font-size: 8.4pt;
+        }
+
+        .ra-line {
+            font-weight: 700;
+        }
+
+        .back-title {
+            margin: 0 0 3mm;
+            text-align: center;
+            font-size: 15pt;
+            font-weight: 700;
+        }
+
+        .record-section-label {
+            margin: 0 0 1mm;
+            font-size: 9.2pt;
+            font-weight: 700;
+        }
+
+        .record-section-label.deworming {
+            margin-top: 2.5mm;
+        }
+
+        .record-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 7pt;
+        }
+
+        .record-table th,
+        .record-table td {
+            border: 1px solid #2f5368;
+            padding: 2px;
+            vertical-align: top;
+            word-wrap: break-word;
+        }
+
+        .record-table th {
+            text-align: center;
+            font-weight: 700;
+            background: #d8f0ff;
+        }
+
+        .record-table td {
+            height: 13px;
+        }
+
+        .back-footer-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 2.5mm;
+            font-size: 7.2pt;
+            line-height: 1.25;
+        }
+
+        .back-footer-table td {
+            vertical-align: top;
+        }
+
+        .responsible-col {
+            width: 54%;
+            padding-right: 4mm;
+        }
+
+        .penalty-col {
+            width: 46%;
+        }
+
+        .strong {
+            font-weight: 700;
+        }
+
+        .back-footer-table ol {
+            margin: 1mm 0 0;
+            padding-left: 4mm;
+        }
+
+        .rabies-kills {
+            margin-top: 2mm;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+{% for cert in certificates %}
+    <div class="small-cert-set">
+        <div class="small-cert-face"{% if forloop.last %} style="page-break-after: auto;"{% endif %}>
+            <table class="cert-header-table">
+                <tr>
+                    <td class="logo-cell">
+                        <img src="{{ logo_left_url }}" class="top-logo" alt="Official Seal">
+                    </td>
+                    <td class="office-cell">
+                        <div class="office-line strong">CITY VETERINARY OFFICE</div>
+                        <div class="office-line">Bayawan City, Negros Oriental, Philippines</div>
+                    </td>
+                    <td class="logo-cell right">
+                        <img src="{{ logo_right_url }}" class="top-logo" alt="Bagong Pilipinas">
+                    </td>
+                </tr>
+            </table>
+
+            <h1 class="cert-main-title">DOG VACCINATION CERTIFICATE</h1>
+
+            <table class="cert-info-table">
+                <tr><td class="label-col">Reg No:</td><td class="value-col">{{ cert.reg_no }}</td></tr>
+                <tr><td class="label-col">Name of Pet:</td><td class="value-col">{{ cert.name_of_pet }}</td></tr>
+                <tr><td class="label-col">Breed:</td><td class="value-col">{{ cert.breed }}</td></tr>
+                <tr><td class="label-col">DOB:</td><td class="value-col">{{ cert.dob|default:"-" }}</td></tr>
+                <tr><td class="label-col">Color/Markings:</td><td class="value-col">{{ cert.color_markings|default:"-" }}</td></tr>
+                <tr>
+                    <td class="label-col">Sex:</td>
+                    <td class="value-col">( {% if cert.is_male %}X{% endif %} ) M &nbsp; ( {% if cert.is_female %}X{% endif %} ) F</td>
+                </tr>
+                <tr>
+                    <td class="label-col">Status:</td>
+                    <td class="value-col">
+                        Castrated ( {% if cert.is_castrated %}X{% endif %} ) &nbsp;
+                        Spayed ( {% if cert.is_spayed %}X{% endif %} ) &nbsp;
+                        Intact ( {% if cert.is_intact %}X{% endif %} )
+                    </td>
+                </tr>
+                <tr><td class="label-col">Name of Owner:</td><td class="value-col">{{ cert.owner_name }}</td></tr>
+                <tr><td class="label-col">Address:</td><td class="value-col">{{ cert.address }}</td></tr>
+                <tr><td class="label-col">Contact No:</td><td class="value-col">{{ cert.contact_no }}</td></tr>
+            </table>
+
+            <div class="front-bottom-note">
+                <div class="ra-line">Republic Act No. 9482, Anti-Rabies Act of 2007</div>
+                <div>An act providing for the control and elimination of human and animal rabies.</div>
             </div>
+        </div>
 
-            <div class="info-row"><span class="label">Name of Owner:</span> <span class="value">{{ data.owner_name }}</span></div>
-            <div class="info-row"><span class="label">Address:</span> <span class="value">{{ data.address }}</span></div>
-            <div class="info-row"><span class="label">Contact No:</span> <span class="value">{{ data.contact_no }}</span></div>
+        <div class="small-cert-face">
+            <h2 class="back-title">VACCINATION and MEDICAL RECORD</h2>
 
-            <p class="law-text">Republic Act No. 9482 – Anti Rabies Act of 2007</p>
-            
-            <h2 class="section-title">MEDICAL RECORDS</h2>
-
-            <h3 class="table-label">Vaccination Records</h3>
-            <table class="data-table">
+            <div class="record-section-label">A. VACCINATION</div>
+            <table class="record-table">
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Vaccine</th>
-                        <th>Vaccine Expiry</th>
-                        <th>Vaccination Expiry</th>
-                        <th>Veterinarian</th>
+                        <th>Kind of Vaccine</th>
+                        <th>Manufacturer &amp; Lot No.</th>
+                        <th>Vaccine Expiry Date</th>
+                        <th>Dog Vaccination Expiry Date</th>
+                        <th>Veterinarian / LVT Signature</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for record in vaccinations %}
+                    {% for row in cert.vaccination_rows %}
                     <tr>
-                        <td>{{ record.date }}</td>
-                        <td>{{ record.vaccine }}</td>
-                        <td>{{ record.expiry }}</td>
-                        <td>{{ record.vac_expiry }}</td>
-                        <td>{{ record.vet }}</td>
+                        <td>{{ row.date|default:"" }}</td>
+                        <td>{{ row.vaccine_name|default:"" }}</td>
+                        <td>{{ row.manufacturer_lot_no|default:"" }}</td>
+                        <td>{{ row.vaccine_expiry_date|default:"" }}</td>
+                        <td>{{ row.vaccination_expiry_date|default:"" }}</td>
+                        <td>{{ row.veterinarian|default:"" }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
 
-            <h3 class="table-label">Deworming & Treatment Records</h3>
-            <table class="data-table">
+            <div class="record-section-label deworming">B. DEWORMING AND TREATMENT</div>
+            <table class="record-table">
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Medicine</th>
-                        <th>Route</th>
-                        <th>Frequency</th>
+                        <th>Medicine Given</th>
+                        <th>Route and Frequency</th>
                         <th>Veterinarian</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for record in deworming %}
+                    {% for row in cert.deworming_rows %}
                     <tr>
-                        <td>{{ record.date }}</td>
-                        <td>{{ record.medicine }}</td>
-                        <td>{{ record.route }}</td>
-                        <td>{{ record.freq }}</td>
-                        <td>{{ record.vet }}</td>
+                        <td>{{ row.date|default:"" }}</td>
+                        <td>{{ row.medicine_given|default:"" }}</td>
+                        <td>{{ row.route_frequency|default:"" }}</td>
+                        <td>{{ row.veterinarian|default:"" }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
+            </table>
+
+            <table class="back-footer-table">
+                <tr>
+                    <td class="responsible-col">
+                        <div class="strong">BE A RESPONSIBLE OWNER</div>
+                        <ol>
+                            <li>Submit dogs for annual anti-rabies vaccination.</li>
+                            <li>Register and license dogs as required.</li>
+                            <li>Do not allow dogs to roam public places unleashed.</li>
+                            <li>Provide proper food, clean shelter, and care.</li>
+                            <li>Report biting incidents and cooperate with authorities.</li>
+                        </ol>
+                    </td>
+                    <td class="penalty-col">
+                        <div class="strong">MGA MULTA SA BALAOD SA RABIES</div>
+                        <div>P 2,000.00 - Dili magparehistro / magpabakuna sa iro.</div>
+                        <div>P 10,000.00 - Dili pag-obserbar sa iro nga nakapaak.</div>
+                        <div>P 25,000.00 - Dili pagtabang sa medical expenses sa biktima.</div>
+                        <div class="rabies-kills">RABIES KILLS! Be Responsible Pet Owner!</div>
+                    </td>
+                </tr>
             </table>
         </div>
     </div>
-</div>
+{% endfor %}
+</body>
+</html>

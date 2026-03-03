@@ -1,0 +1,161 @@
+{% load static %}
+<div class="small-cert-set">
+    <section class="small-cert-face small-cert-front">
+        <table class="cert-header-table">
+            <tr>
+                <td class="logo-cell">
+                    {% if logo_left_url %}
+                        <img src="{{ logo_left_url }}" alt="Official Seal" class="top-logo">
+                    {% else %}
+                        <img src="{% static 'images/officialseal.webp' %}" alt="Official Seal" class="top-logo">
+                    {% endif %}
+                </td>
+                <td class="office-cell">
+                    <div class="office-line strong">CITY VETERINARY OFFICE</div>
+                    <div class="office-line">Bayawan City, Negros Oriental, Philippines</div>
+                </td>
+                <td class="logo-cell right">
+                    {% if logo_right_url %}
+                        <img src="{{ logo_right_url }}" alt="Bagong Pilipinas" class="top-logo">
+                    {% else %}
+                        <img src="{% static 'images/Logo-Bagong-Pilipinas.png' %}" alt="Bagong Pilipinas" class="top-logo">
+                    {% endif %}
+                </td>
+            </tr>
+        </table>
+
+        <h1 class="cert-main-title">DOG VACCINATION CERTIFICATE</h1>
+
+        <table class="cert-info-table">
+            <tr>
+                <td class="label-col">Reg No:</td>
+                <td class="value-col">{{ cert.reg_no }}</td>
+            </tr>
+            <tr>
+                <td class="label-col">Name of Pet:</td>
+                <td class="value-col">{{ cert.name_of_pet }}</td>
+            </tr>
+            <tr>
+                <td class="label-col">Breed:</td>
+                <td class="value-col">{{ cert.breed }}</td>
+            </tr>
+            <tr>
+                <td class="label-col">DOB:</td>
+                <td class="value-col">{{ cert.dob|default:"-" }}</td>
+            </tr>
+            <tr>
+                <td class="label-col">Color/Markings:</td>
+                <td class="value-col">{{ cert.color_markings|default:"-" }}</td>
+            </tr>
+            <tr>
+                <td class="label-col">Sex:</td>
+                <td class="value-col">
+                    ( {% if cert.is_male %}X{% endif %} ) M
+                    &nbsp;&nbsp;&nbsp;
+                    ( {% if cert.is_female %}X{% endif %} ) F
+                </td>
+            </tr>
+            <tr>
+                <td class="label-col">Status:</td>
+                <td class="value-col">
+                    Castrated ( {% if cert.is_castrated %}X{% endif %} )
+                    &nbsp;&nbsp;
+                    Spayed ( {% if cert.is_spayed %}X{% endif %} )
+                    &nbsp;&nbsp;
+                    Intact ( {% if cert.is_intact %}X{% endif %} )
+                </td>
+            </tr>
+            <tr>
+                <td class="label-col">Name of Owner:</td>
+                <td class="value-col">{{ cert.owner_name }}</td>
+            </tr>
+            <tr>
+                <td class="label-col">Address:</td>
+                <td class="value-col">{{ cert.address }}</td>
+            </tr>
+            <tr>
+                <td class="label-col">Contact No:</td>
+                <td class="value-col">{{ cert.contact_no }}</td>
+            </tr>
+        </table>
+
+        <div class="front-bottom-note">
+            <div class="ra-line">Republic Act No. 9482, Anti-Rabies Act of 2007</div>
+            <div class="law-line">An act providing for the control and elimination of human and animal rabies.</div>
+        </div>
+    </section>
+
+    <section class="small-cert-face small-cert-back">
+        <h2 class="back-title">VACCINATION and MEDICAL RECORD</h2>
+
+        <div class="record-section-label">A. VACCINATION</div>
+        <table class="record-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Kind of Vaccine</th>
+                    <th>Manufacturer &amp; Lot No.</th>
+                    <th>Vaccine Expiry Date</th>
+                    <th>Dog Vaccination Expiry Date</th>
+                    <th>Veterinarian / LVT Signature</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in cert.vaccination_rows %}
+                <tr>
+                    <td>{{ row.date|default:"" }}</td>
+                    <td>{{ row.vaccine_name|default:"" }}</td>
+                    <td>{{ row.manufacturer_lot_no|default:"" }}</td>
+                    <td>{{ row.vaccine_expiry_date|default:"" }}</td>
+                    <td>{{ row.vaccination_expiry_date|default:"" }}</td>
+                    <td>{{ row.veterinarian|default:"" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="record-section-label deworming">B. DEWORMING AND TREATMENT</div>
+        <table class="record-table deworming-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Medicine Given</th>
+                    <th>Route and Frequency</th>
+                    <th>Veterinarian</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in cert.deworming_rows %}
+                <tr>
+                    <td>{{ row.date|default:"" }}</td>
+                    <td>{{ row.medicine_given|default:"" }}</td>
+                    <td>{{ row.route_frequency|default:"" }}</td>
+                    <td>{{ row.veterinarian|default:"" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <table class="back-footer-table">
+            <tr>
+                <td class="responsible-col">
+                    <div class="strong">BE A RESPONSIBLE OWNER</div>
+                    <ol>
+                        <li>Submit dogs for annual anti-rabies vaccination.</li>
+                        <li>Register and license dogs as required.</li>
+                        <li>Do not allow dogs to roam public places unleashed.</li>
+                        <li>Provide proper food, clean shelter, and care.</li>
+                        <li>Report biting incidents and cooperate with authorities.</li>
+                    </ol>
+                </td>
+                <td class="penalty-col">
+                    <div class="strong">MGA MULTA SA BALAOD SA RABIES</div>
+                    <div>P 2,000.00 - Dili magparehistro / magpabakuna sa iro.</div>
+                    <div>P 10,000.00 - Dili pag-obserbar sa iro nga nakapaak.</div>
+                    <div>P 25,000.00 - Dili pagtabang sa medical expenses sa biktima.</div>
+                    <div class="rabies-kills">RABIES KILLS! Be Responsible Pet Owner!</div>
+                </td>
+            </tr>
+        </table>
+    </section>
+</div>

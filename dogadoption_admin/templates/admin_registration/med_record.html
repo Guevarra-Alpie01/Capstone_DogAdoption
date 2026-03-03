@@ -2,115 +2,206 @@
 {% load static %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/register/registration.css' %}">
 <link rel="stylesheet" href="{% static 'css/register/med_record.css' %}">
 {% endblock extra_css %}
 
 {% block content %}
-{% include 'admin_registration/registration_navigation.html' %}
+{% include 'admin_registration/registration_navigation.html' with registration=registration %}
 
-<h2>Medical Records</h2>
+<div class="registration-wrapper registration-form-page med-record-page">
+    <section class="med-record-card med-record-header-card">
+        <div class="med-record-header-top">
+            <a href="{% url 'dogadoption_admin:dog_certificate' %}" class="med-record-back" aria-label="Back to dog certificate">
+                <svg class="med-record-back-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M14.7 6.3a1 1 0 0 1 0 1.4L11.41 11H20a1 1 0 1 1 0 2h-8.59l3.3 3.3a1 1 0 0 1-1.42 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.41 0z"/>
+                </svg>
+            </a>
+            <div>
+                <h2 class="med-record-title">Medical Records</h2>
+                <p class="med-record-subtitle">Update vaccination and deworming/treatment records for this registration.</p>
+            </div>
+        </div>
 
-<!--  SHOW CONNECTED DOG INFORMATION -->
-<div class="dog-info-header">
-    <h3>
-        Dog: {{ registration.name_of_pet }} |
-        Owner: {{ registration.owner_name }} |
-        Reg No: {{ registration.reg_no }}
-    </h3>
+        <div class="med-dog-meta-grid">
+            <div class="meta-item">
+                <span class="meta-label">Pet Name</span>
+                <strong>{{ registration.name_of_pet }}</strong>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Owner</span>
+                <strong>{{ registration.owner_name }}</strong>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Reg No.</span>
+                <strong>{{ registration.reg_no }}</strong>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Barangay</span>
+                <strong>{% if current_barangay %}{{ current_barangay }}{% else %}-{% endif %}</strong>
+            </div>
+        </div>
+    </section>
+
+    <section class="med-record-card">
+        <div class="selector-wrap">
+            <label for="recordSelector">Record Type</label>
+            <select id="recordSelector" onchange="toggleForm()">
+                <option value="all" selected>All</option>
+                <option value="vaccination">Vaccination</option>
+                <option value="deworming">Deworming &amp; Treatment</option>
+            </select>
+        </div>
+
+        <form method="POST" id="mainForm" class="med-record-form">
+            {% csrf_token %}
+            <input type="hidden" name="record_type" id="recordTypeInput">
+
+            <div id="vaccinationForm" class="med-section hidden">
+                <h3>Vaccination</h3>
+                <div class="med-grid med-grid-two">
+                    <div class="field-group">
+                        <label for="vac_date">Date</label>
+                        <input type="date" id="vac_date" name="vac_date" value="{{ vaccination_defaults.vac_date|default:'' }}" required>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="vaccine_name">Kind of Vaccine</label>
+                        <input type="text" id="vaccine_name" name="vaccine_name" value="{{ vaccination_defaults.vaccine_name|default:'' }}" placeholder="e.g., Rabisin" required>
+                    </div>
+
+                    <div class="field-group med-span-two">
+                        <label for="manufacturer_lot_no">Manufacturer &amp; Lot No.</label>
+                        <input
+                            type="text"
+                            id="manufacturer_lot_no"
+                            name="manufacturer_lot_no"
+                            value="{{ vaccination_defaults.manufacturer_lot_no|default:'' }}"
+                            placeholder="e.g., Boehringer AB12C9"
+                            pattern="[A-Za-z0-9][A-Za-z0-9\\-\\s/.,#()]*"
+                            title="Use letters and numbers. Symbols like -, /, ., #, ( ) are allowed."
+                            required
+                        >
+                    </div>
+
+                    <div class="field-group">
+                        <label for="vaccine_expiry_date">Vaccine Expiry Date</label>
+                        <input type="date" id="vaccine_expiry_date" name="vaccine_expiry_date" value="{{ vaccination_defaults.vaccine_expiry_date|default:'' }}" required>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="vaccination_expiry_date">Dog Vaccination Expiry Date</label>
+                        <input type="date" id="vaccination_expiry_date" name="vaccination_expiry_date" required>
+                    </div>
+                </div>
+            </div>
+
+            <div id="dewormingForm" class="med-section hidden">
+                <h3>Deworming &amp; Treatment</h3>
+                <div class="med-grid med-grid-two">
+                    <div class="field-group">
+                        <label for="dew_date">Date</label>
+                        <input type="date" id="dew_date" name="dew_date">
+                    </div>
+                    <div class="field-group">
+                        <label for="medicine_given">Medicine Given</label>
+                        <input type="text" id="medicine_given" name="medicine_given" placeholder="Medicine Given">
+                    </div>
+                    <div class="field-group">
+                        <label for="route">Route</label>
+                        <input type="text" id="route" name="route" placeholder="Route">
+                    </div>
+                    <div class="field-group">
+                        <label for="frequency">Frequency</label>
+                        <input type="text" id="frequency" name="frequency" placeholder="Frequency">
+                    </div>
+                    <div class="field-group med-span-two">
+                        <label for="dew_veterinarian">Veterinarian</label>
+                        <input type="text" id="dew_veterinarian" name="dew_veterinarian" placeholder="Veterinarian">
+                    </div>
+                </div>
+            </div>
+
+            <div class="med-record-actions">
+                <button type="submit" id="mainSubmitBtn" class="hidden">Save Record</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="med-record-card med-table-card">
+        <h3>Vaccination Records</h3>
+        <div class="table-scroll">
+            <table class="med-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Kind of Vaccine</th>
+                        <th>Manufacturer &amp; Lot No.</th>
+                        <th>Vaccine Expiry</th>
+                        <th>Dog Vaccination Expiry</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in vaccinations %}
+                    <tr>
+                        <td>{{ v.date }}</td>
+                        <td>{{ v.vaccine_name }}</td>
+                        <td>{{ v.manufacturer_lot_no|default:"-" }}</td>
+                        <td>{{ v.vaccine_expiry_date }}</td>
+                        <td>{{ v.vaccination_expiry_date }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5">No vaccination records yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="med-record-card med-table-card">
+        <h3>Deworming &amp; Treatment Records</h3>
+        <div class="table-scroll">
+            <table class="med-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Medicine</th>
+                        <th>Route</th>
+                        <th>Frequency</th>
+                        <th>Veterinarian</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in dewormings %}
+                    <tr>
+                        <td>{{ d.date }}</td>
+                        <td>{{ d.medicine_given }}</td>
+                        <td>{{ d.route }}</td>
+                        <td>{{ d.frequency }}</td>
+                        <td>{{ d.veterinarian }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5">No deworming records yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
 </div>
-
-<!-- ================= RECORD SELECTOR ================= -->
-<select id="recordSelector" onchange="toggleForm()">
-    <option value="all" selected>All</option>
-    <option value="vaccination">Vaccination</option>
-    <option value="deworming">Deworming & Treatment</option>
-</select>
-
-<!-- ================= MAIN FORM ================= -->
-<form method="POST" id="mainForm">
-    {% csrf_token %}
-    <input type="hidden" name="record_type" id="recordTypeInput">
-
-    <!-- ================= VACCINATION SECTION ================= -->
-    <div id="vaccinationForm" class="hidden">
-        <h3>Vaccination</h3>
-        <input type="date" name="vac_date">
-        <input type="text" name="vaccine_name" placeholder="Vaccine Name (e.g Rabisin)">
-        <input type="date" name="vaccine_expiry_date">
-        <input type="date" name="vaccination_expiry_date">
-        <input type="text" name="vac_veterinarian" placeholder="Veterinarian / Livestock Technician">
-    </div>
-
-    <!-- ================= DEWORMING SECTION ================= -->
-    <div id="dewormingForm" class="hidden">
-        <h3>Deworming & Treatment</h3>
-        <input type="date" name="dew_date">
-        <input type="text" name="medicine_given" placeholder="Medicine Given">
-        <input type="text" name="route" placeholder="Route">
-        <input type="text" name="frequency" placeholder="Frequency">
-        <input type="text" name="dew_veterinarian" placeholder="Veterinarian">
-    </div>
-
-    <!-- SINGLE SUBMIT BUTTON -->
-    <button type="submit" id="mainSubmitBtn" class="hidden">
-        Save Record
-    </button>
-</form>
-
-<hr>
-
-<!-- ================= VACCINATION TABLE ================= -->
-<h3>Vaccination Records</h3>
-<table>
-    <tr>
-        <th>Date</th>
-        <th>Vaccine</th>
-        <th>Vaccine Expiry</th>
-        <th>Vaccination Expiry</th>
-        <th>Veterinarian</th>
-    </tr>
-    {% for v in vaccinations %}
-    <tr>
-        <td>{{ v.date }}</td>
-        <td>{{ v.vaccine_name }}</td>
-        <td>{{ v.vaccine_expiry_date }}</td>
-        <td>{{ v.vaccination_expiry_date }}</td>
-        <td>{{ v.veterinarian }}</td>
-    </tr>
-    {% empty %}
-    <tr>
-        <td colspan="5">No vaccination records yet.</td>
-    </tr>
-    {% endfor %}
-</table>
-
-<!-- ================= DEWORMING TABLE ================= -->
-<h3>Deworming & Treatment Records</h3>
-<table>
-    <tr>
-        <th>Date</th>
-        <th>Medicine</th>
-        <th>Route</th>
-        <th>Frequency</th>
-        <th>Veterinarian</th>
-    </tr>
-    {% for d in dewormings %}
-    <tr>
-        <td>{{ d.date }}</td>
-        <td>{{ d.medicine_given }}</td>
-        <td>{{ d.route }}</td>
-        <td>{{ d.frequency }}</td>
-        <td>{{ d.veterinarian }}</td>
-    </tr>
-    {% empty %}
-    <tr>
-        <td colspan="5">No deworming records yet.</td>
-    </tr>
-    {% endfor %}
-</table>
 
 <!-- ================= SCRIPT ================= -->
 <script>
+function setSectionState(sectionElement, enabled) {
+    const fields = sectionElement.querySelectorAll("input, select, textarea");
+    fields.forEach((field) => {
+        field.disabled = !enabled;
+    });
+}
+
 function toggleForm() {
     let value = document.getElementById("recordSelector").value;
 
@@ -118,26 +209,46 @@ function toggleForm() {
     let dewormingForm = document.getElementById("dewormingForm");
     let submitBtn = document.getElementById("mainSubmitBtn");
     let recordTypeInput = document.getElementById("recordTypeInput");
+    let mainForm = document.getElementById("mainForm");
 
     vaccinationForm.classList.add("hidden");
     dewormingForm.classList.add("hidden");
     submitBtn.classList.add("hidden");
+    if (mainForm) {
+        mainForm.classList.remove("all-mode");
+        mainForm.classList.remove("single-mode");
+    }
 
     if (value === "vaccination") {
         vaccinationForm.classList.remove("hidden");
         submitBtn.classList.remove("hidden");
         recordTypeInput.value = "vaccination";
+        if (mainForm) {
+            mainForm.classList.add("single-mode");
+        }
+        setSectionState(vaccinationForm, true);
+        setSectionState(dewormingForm, false);
     } 
     else if (value === "deworming") {
         dewormingForm.classList.remove("hidden");
         submitBtn.classList.remove("hidden");
         recordTypeInput.value = "deworming";
+        if (mainForm) {
+            mainForm.classList.add("single-mode");
+        }
+        setSectionState(vaccinationForm, false);
+        setSectionState(dewormingForm, true);
     } 
     else if (value === "all") {
         vaccinationForm.classList.remove("hidden");
         dewormingForm.classList.remove("hidden");
         submitBtn.classList.remove("hidden");
         recordTypeInput.value = "all";
+        if (mainForm) {
+            mainForm.classList.add("all-mode");
+        }
+        setSectionState(vaccinationForm, true);
+        setSectionState(dewormingForm, true);
     }
 }
 
@@ -146,5 +257,4 @@ document.addEventListener("DOMContentLoaded", function() {
     toggleForm();
 });
 </script>
-
 {% endblock %}

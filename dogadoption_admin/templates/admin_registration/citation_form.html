@@ -1,82 +1,221 @@
 {% extends 'admin_base.html' %}
 {% load static %}
 
-
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/register/citation.css' %}">
-<h2>Dog Violation Citation</h2>
+{% include 'admin_registration/registration_navigation.html' %}
 
-{% if citation %}
-    <a class="print-btn"
-       href="{% url 'dogadoption_admin:citation_print' citation.pk %}">
-       🖨 Print Citation
-    </a>
-{% endif %}
-
-<a href="{% url 'dogadoption_admin:penalty_manage' %}">
-    Penalty Manager
-</a>
-
-<form method="post">
-    {% csrf_token %}
-
-    <!-- 🔍 OWNER SEARCH -->
-    <div class="form-group">
-        <label>Select Owner</label>
-        {{ form.owner }}
+<div class="citation-page">
+    <div class="citation-header">
+        <h2>Dog Violation Citation</h2>
+        <p>Create a citation and print it immediately.</p>
     </div>
 
-    <h3>Select Violation</h3>
+    <div class="citation-toolbar" id="print-options">
+        <a class="toolbar-btn secondary" href="{% url 'dogadoption_admin:penalty_manage' %}">Penalty Manager</a>
 
-    <div class="penalty-options">
+        {% if latest_citation %}
+            <a class="toolbar-btn" href="{% url 'dogadoption_admin:citation_print' latest_citation.pk %}">Print Latest Citation (#{{ latest_citation.pk }})</a>
+        {% else %}
+            <button class="toolbar-btn" type="button" disabled>No Citation Yet</button>
+        {% endif %}
 
-        {% regroup form.penalty.field.queryset by section as grouped_penalties %}
+        <form class="quick-print" onsubmit="event.preventDefault(); quickPrintCitation();">
+            <label for="citation-id">Quick Print by ID</label>
+            <input id="citation-id" type="number" min="1" placeholder="Citation ID" required>
+            <button type="submit" class="toolbar-btn">Open Print</button>
+        </form>
+    </div>
 
-        {% for group in grouped_penalties %}
-            <div class="penalty-section">
+    <form method="post" class="citation-form-card">
+        {% csrf_token %}
 
-                <div class="section-title">
-                    {{ group.grouper.title }}
+        <div class="form-group">
+            <label>Select Owner</label>
+            {{ form.owner }}
+            {% if form.owner.errors %}<small class="error-text">{{ form.owner.errors|striptags }}</small>{% endif %}
+        </div>
+
+        <h3>Select Violation</h3>
+        <p class="helper-text">You can select multiple violations. Click again to unselect.</p>
+
+        <div class="penalty-options">
+            {% regroup penalties by section as grouped_penalties %}
+            <div class="penalty-top-split">
+                <div class="penalty-column">
+                    {% for group in grouped_penalties %}
+                        {% if group.grouper.number == 28 %}
+                            <div class="penalty-section">
+                                <div class="section-title">Section 28</div>
+                                {% for penalty in group.list %}
+                                    <label class="radio-item">
+                                        <input
+                                            type="checkbox"
+                                            name="penalties"
+                                            value="{{ penalty.id }}"
+                                            class="violation-check"
+                                            {% if penalty.id in selected_penalty_ids %}checked{% endif %}
+                                        >
+                                        <span class="number">{{ penalty.number }}.</span>
+                                        <span class="title">{{ penalty.title }}</span>
+                                        <span class="amount">PHP {{ penalty.amount }}</span>
+                                    </label>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+
+                    <div class="penalty-section">
+                        <div class="section-title">Section 29</div>
+                        {% for group in grouped_penalties %}
+                            {% if group.grouper.number == 29 %}
+                                {% for penalty in group.list %}
+                                    {% if penalty.number >= 1 and penalty.number <= 16 %}
+                                        <label class="radio-item">
+                                            <input
+                                                type="checkbox"
+                                                name="penalties"
+                                                value="{{ penalty.id }}"
+                                                class="violation-check"
+                                                {% if penalty.id in selected_penalty_ids %}checked{% endif %}
+                                            >
+                                            <span class="number">{{ penalty.number }}.</span>
+                                            <span class="title">{{ penalty.title }}</span>
+                                            <span class="amount">PHP {{ penalty.amount }}</span>
+                                        </label>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                        {% endfor %}
+                    </div>
                 </div>
 
-                {% for penalty in group.list %}
-                    <label class="radio-item">
-                        <input type="radio"
-                               name="penalty"
-                               value="{{ penalty.id }}"
-                               required>
-
-                        <span class="number">
-                            {{ penalty.number }}.
-                        </span>
-
-                        <span class="title">
-                            {{ penalty.title }}
-                        </span>
-
-                        <span class="amount">
-                            ₱{{ penalty.amount }}
-                        </span>
-                    </label>
-                {% endfor %}
-
+                <div class="penalty-section featured-section">
+                    <div class="section-title">Section 29</div>
+                    {% for group in grouped_penalties %}
+                        {% if group.grouper.number == 29 %}
+                            {% for penalty in group.list %}
+                                {% if penalty.number >= 17 and penalty.number <= 28 %}
+                                    <label class="radio-item">
+                                        <input
+                                            type="checkbox"
+                                            name="penalties"
+                                            value="{{ penalty.id }}"
+                                            class="violation-check"
+                                            {% if penalty.id in selected_penalty_ids %}checked{% endif %}
+                                        >
+                                        <span class="number">{{ penalty.number }}.</span>
+                                        <span class="title">{{ penalty.title }}</span>
+                                        <span class="amount">PHP {{ penalty.amount }}</span>
+                                    </label>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
             </div>
-        {% endfor %}
 
+            <div class="penalty-stack">
+                {% for group in grouped_penalties %}
+                    {% if group.grouper.number != 28 and group.grouper.number != 29 %}
+                        <div class="penalty-section">
+                            <div class="section-title">
+                                {% if group.grouper.number %}
+                                    Section {{ group.grouper.number }}
+                                {% else %}
+                                    Section Unset
+                                {% endif %}
+                            </div>
+
+                            {% for penalty in group.list %}
+                                <label class="radio-item">
+                                    <input
+                                        type="checkbox"
+                                        name="penalties"
+                                        value="{{ penalty.id }}"
+                                        class="violation-check"
+                                        {% if penalty.id in selected_penalty_ids %}checked{% endif %}
+                                    >
+                                    <span class="number">{{ penalty.number }}.</span>
+                                    <span class="title">{{ penalty.title }}</span>
+                                    <span class="amount">PHP {{ penalty.amount }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+        </div>
+
+        <button type="submit" class="save-btn">Save Citation</button>
+    </form>
+
+    <div class="citation-list">
+        <h3>Recent Citations</h3>
+        {% if citation_rows %}
+            <table class="citation-table">
+                <thead>
+                    <tr>
+                        <th>Citation</th>
+                        <th>Name</th>
+                        <th>Violations</th>
+                        <th>Fees</th>
+                        <th>Print</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in citation_rows %}
+                        <tr>
+                            <td>{{ row.citation.id }}</td>
+                            <td>
+                                {% if row.citation.owner %}
+                                    {{ row.citation.owner.get_full_name|default:row.citation.owner.username }}
+                                {% else %}
+                                    Unknown Owner
+                                {% endif %}
+                            </td>
+                            <td>{{ row.violations }}</td>
+                            <td>PHP {{ row.total_fees }}</td>
+                            <td>
+                                <a class="print-link" href="{% url 'dogadoption_admin:citation_print' row.citation.pk %}" target="_blank" rel="noopener">Print</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="helper-text">No citations created yet.</p>
+        {% endif %}
     </div>
+</div>
 
-    <div class="form-group">
-        <label>Remarks</label>
-        {{ form.remarks }}
-    </div>
-
-    <button type="submit" class="save-btn">
-        Save Citation
-    </button>
-
-</form>
-
-<!-- Required if using django-select2 -->
 {{ form.media }}
 
+<script>
+function quickPrintCitation() {
+    const field = document.getElementById('citation-id');
+    const citationId = (field.value || '').trim();
+    if (!citationId) return;
+    const base = "{% url 'dogadoption_admin:citation_print' 0 %}";
+    window.open(base.replace('/0/', '/' + citationId + '/'), '_blank');
+}
+
+function syncViolationSelectionUI() {
+    const checks = document.querySelectorAll('.violation-check');
+    checks.forEach((check) => {
+        const row = check.closest('.radio-item');
+        if (!row) return;
+        row.classList.toggle('is-selected', check.checked);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    syncViolationSelectionUI();
+    const checks = document.querySelectorAll('.violation-check');
+    checks.forEach((check) => {
+        check.addEventListener('change', syncViolationSelectionUI);
+    });
+});
+</script>
 {% endblock %}

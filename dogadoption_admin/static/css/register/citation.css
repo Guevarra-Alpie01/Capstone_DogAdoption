@@ -100,22 +100,39 @@
     border: 1px solid #e5ebf2;
     border-radius: 10px;
     padding: 12px;
-    max-height: 420px;
-    overflow: auto;
     margin-bottom: 14px;
-    column-count: 2;
-    column-gap: 14px;
-    column-fill: auto;
+    display: grid;
+    gap: 12px;
+    align-items: start;
+}
+
+.penalty-top-split {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(320px, 1fr));
+    gap: 12px;
+    align-items: start;
+}
+
+.penalty-column {
+    display: grid;
+    gap: 12px;
+    align-items: start;
+}
+
+.penalty-stack {
+    display: grid;
+    gap: 12px;
 }
 
 .penalty-section {
-    break-inside: avoid-column;
-    display: inline-block;
-    width: 100%;
-    margin-bottom: 12px;
     border: 1px dashed #d7e0eb;
     border-radius: 8px;
     padding: 8px;
+    min-width: 0;
+}
+
+.featured-section {
+    align-self: start;
 }
 
 .section-title {
@@ -127,8 +144,9 @@
 
 .radio-item {
     display: grid;
-    grid-template-columns: 18px 24px 1fr auto;
-    gap: 6px;
+    grid-template-columns: 18px 28px minmax(0, 1fr) 118px;
+    column-gap: 8px;
+    row-gap: 4px;
     align-items: center;
     padding: 6px 8px;
     border: 1px solid #e8edf5;
@@ -167,14 +185,37 @@
     background: #f7faff;
 }
 
+.radio-item.is-selected {
+    border-color: #1e5bb8;
+    background: #eef5ff;
+    box-shadow: inset 0 0 0 1px rgba(30, 91, 184, 0.2);
+}
+
+.radio-item.is-selected .title {
+    font-weight: 600;
+}
+
+.radio-item.is-selected .amount {
+    color: #0f7b3e;
+}
+
 .number {
     font-weight: 700;
+    text-align: right;
+}
+
+.title {
+    min-width: 0;
+    line-height: 1.3;
 }
 
 .amount {
     font-weight: 700;
     color: #165f2f;
     white-space: nowrap;
+    width: 118px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
 .error-text {
@@ -233,15 +274,37 @@
         width: 100%;
     }
 
-    .penalty-options {
-        column-count: 1;
+    .penalty-top-split {
+        grid-template-columns: 1fr;
     }
 
     .radio-item {
-        grid-template-columns: auto 1fr;
+        grid-template-columns: 18px 24px minmax(0, 1fr) 104px;
+        grid-template-areas:
+            "check num amount amount"
+            "check title title title";
+        align-items: start;
+        row-gap: 2px;
+    }
+
+    .violation-check {
+        grid-area: check;
+        margin-top: 2px;
+    }
+
+    .number {
+        grid-area: num;
+        text-align: left;
+    }
+
+    .title {
+        grid-area: title;
     }
 
     .amount {
-        grid-column: 2;
+        grid-area: amount;
+        width: 104px;
+        text-align: right;
+        justify-self: end;
     }
 }

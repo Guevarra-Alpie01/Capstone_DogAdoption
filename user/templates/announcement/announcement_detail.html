@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/announcement_detail.css' %}">
+
+<div class="announcement-detail-page">
+    <div class="detail-card">
+        <div class="detail-header">
+            <a class="details-link" href="{% url 'user:announcement_list' %}">Back to Announcements</a>
+            <span class="post-category-badge">{{ post.get_category_display }}</span>
+        </div>
+
+        <div class="detail-content">
+            <h1 class="detail-title">{{ post.title }}</h1>
+
+            <div class="post-meta">Published {{ post.created_at|date:'M d, Y h:i A' }}</div>
+
+            <div class="detail-body">{{ post.content|safe }}</div>
+
+            {% if post.schedule_data %}
+            <div class="schedule-section">
+                <h4 class="schedule-title">Schedule</h4>
+                {% for item in post.schedule_data %}
+                <div class="schedule-row">
+                    <span class="time">{{ item.time }}</span>
+                    <span class="task">{{ item.task }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        {% if post.background_image or post.images.all %}
+        <div class="media-viewer">
+            {% if post.background_image %}
+            <img src="{{ post.background_image.url }}"
+                 class="detail-main-image js-zoom-image"
+                 data-full-src="{{ post.background_image.url }}"
+                 data-full-alt="{{ post.title }}"
+                 alt="{{ post.title }}"
+                 role="button"
+                 tabindex="0"
+                 aria-label="Open full image">
+            {% else %}
+            {% for photo in post.images.all|slice:':1' %}
+            <img src="{{ photo.image.url }}"
+                 class="detail-main-image js-zoom-image"
+                 data-full-src="{{ photo.image.url }}"
+                 data-full-alt="Announcement photo {{ forloop.counter }}"
+                 alt="Announcement photo {{ forloop.counter }}"
+                 role="button"
+                 tabindex="0"
+                 aria-label="Open full image">
+            {% endfor %}
+            {% endif %}
+
+            <div class="detail-thumb-row">
+                {% if post.background_image %}
+                <img src="{{ post.background_image.url }}"
+                     class="detail-thumb is-active"
+                     data-image-src="{{ post.background_image.url }}"
+                     data-image-alt="{{ post.title }}"
+                     alt="Main image thumbnail">
+                {% endif %}
+                {% for photo in post.images.all %}
+                <img src="{{ photo.image.url }}"
+                     class="detail-thumb {% if not post.background_image and forloop.first %}is-active{% endif %}"
+                     data-image-src="{{ photo.image.url }}"
+                     data-image-alt="Announcement photo {{ forloop.counter }}"
+                     alt="Announcement photo {{ forloop.counter }}">
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="comments-section">
+            <h4>Comments ({{ post.comments.count }})</h4>
+            {% for comment in post.comments.all %}
+            <div class="comment">
+                <p><strong>{{ comment.user.username }}</strong>: {{ comment.comment }}</p>
+                {% if comment.reply %}
+                <div class="admin-reply">
+                    <p><strong>Admin</strong>: {{ comment.reply }}</p>
+                </div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <p class="empty-note">No comments yet.</p>
+            {% endfor %}
+
+            <form method="POST" action="{% url 'user:announcement_comment' post.id %}" class="comment-form">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <input type="text" name="comment" placeholder="Write a comment..." required>
+                <button type="submit">Post</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="imageLightbox" class="image-lightbox" hidden>
+    <div class="image-lightbox-dialog">
+        <button type="button" class="image-lightbox-close" aria-label="Close image">X</button>
+        <img id="imageLightboxImg" class="image-lightbox-img" alt="Full image preview">
+    </div>
+</div>
+
+<script>
+(function () {
+    const mainImage = document.querySelector('.detail-main-image');
+    const thumbs = document.querySelectorAll('.detail-thumb');
+
+    if (mainImage && thumbs.length) {
+        const activate = (thumb) => {
+            const src = thumb.getAttribute('data-image-src') || '';
+            if (!src) return;
+            const altText = thumb.getAttribute('data-image-alt') || thumb.getAttribute('alt') || '';
+            mainImage.src = src;
+            mainImage.alt = altText;
+            mainImage.setAttribute('data-full-src', src);
+            mainImage.setAttribute('data-full-alt', altText);
+            thumbs.forEach((item) => item.classList.remove('is-active'));
+            thumb.classList.add('is-active');
+        };
+
+        thumbs.forEach((thumb) => {
+            thumb.setAttribute('role', 'button');
+            thumb.setAttribute('tabindex', '0');
+            thumb.addEventListener('click', () => activate(thumb));
+            thumb.addEventListener('keydown', (evt) => {
+                if (evt.key === 'Enter' || evt.key === ' ') {
+                    evt.preventDefault();
+                    activate(thumb);
+                }
+            });
+        });
+    }
+
+    const triggers = document.querySelectorAll('.js-zoom-image');
+    const lightbox = document.getElementById('imageLightbox');
+    const lightboxImg = document.getElementById('imageLightboxImg');
+    const closeBtn = lightbox?.querySelector('.image-lightbox-close');
+    if (!triggers.length || !lightbox || !lightboxImg || !closeBtn) return;
+
+    function openLightbox(src, altText) {
+        if (!src) return;
+        lightboxImg.src = src;
+        lightboxImg.alt = altText || 'Full image preview';
+        lightbox.hidden = false;
+        document.body.classList.add('lightbox-open');
+    }
+
+    function closeLightbox() {
+        lightbox.hidden = true;
+        lightboxImg.removeAttribute('src');
+        document.body.classList.remove('lightbox-open');
+    }
+
+    triggers.forEach((el) => {
+        const open = () => {
+            const src = el.getAttribute('data-full-src') || el.getAttribute('src') || '';
+            const altText = el.getAttribute('data-full-alt') || el.getAttribute('alt') || '';
+            openLightbox(src, altText);
+        };
+        el.addEventListener('click', open);
+        el.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Enter' || evt.key === ' ') {
+                evt.preventDefault();
+                open();
+            }
+        });
+    });
+
+    closeBtn.addEventListener('click', closeLightbox);
+    lightbox.addEventListener('click', (evt) => {
+        if (evt.target === lightbox) closeLightbox();
+    });
+    document.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Escape' && !lightbox.hidden) closeLightbox();
+    });
+})();
+</script>
+{% endblock %}

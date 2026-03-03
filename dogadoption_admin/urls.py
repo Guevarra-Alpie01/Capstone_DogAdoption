@@ -33,6 +33,11 @@ urlpatterns = [
     #ADMIN ANNOUNCEMENTS
     path('admin/announcements/', views.announcement_list, name='admin_announcements'),
     path('announcements/create/', views.announcement_create, name='announcement_create'),
+    path(
+        'announcements/create/<slug:category_slug>/',
+        views.announcement_create_form,
+        name='announcement_create_form'
+    ),
     path('announcements/<int:post_id>/edit/', views.announcement_edit, name='announcement_edit'),
     path('announcements/<int:post_id>/delete/', views.announcement_delete, name='announcement_delete'),
     path('announcements/<int:post_id>/comment/', views.announcement_comment, name='announcement_comment'),

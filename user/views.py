@@ -18,6 +18,8 @@ from django.conf import settings
 from datetime import timedelta
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 
 #MODELS FROM ADMIN APP 
 from dogadoption_admin.models import DogAnnouncement, AnnouncementComment
@@ -25,7 +27,7 @@ from dogadoption_admin.models import Post, PostRequest, GlobalAppointmentDate
 from dogadoption_admin.models import Barangay
 
 #MODELS FROM USER APP
-from .models import Profile, DogCaptureRequest, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
+from .models import Profile, DogCaptureRequest, DogCaptureRequestImage, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
 from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, MissingDogPost
 
 #FORMS.PY 
@@ -543,13 +545,25 @@ def post_detail(request, post_id):
 @user_only
 def request_dog_capture(request):
     if request.method == 'POST':
-        image_file = request.FILES.get('image')
+        uploaded_images = list(request.FILES.getlist('images'))
+        legacy_image = request.FILES.get('image')
+        if legacy_image:
+            uploaded_images.append(legacy_image)
         captured_image = request.POST.get('captured_image')
+        barangay = _clean_barangay(request.POST.get('barangay'))
+        city = _clean_barangay(request.POST.get('city'))
 
-        if not image_file and captured_image and ';base64,' in captured_image:
+        if not uploaded_images and captured_image and ';base64,' in captured_image:
             _, imgstr = captured_image.split(';base64,', 1)
             filename = f"capture_{request.user.id}_{int(timezone.now().timestamp())}.png"
-            image_file = ContentFile(base64.b64decode(imgstr), name=filename)
+            uploaded_images = [ContentFile(base64.b64decode(imgstr), name=filename)]
+
+        if not barangay:
+            try:
+                profile_barangay = _clean_barangay(request.user.profile.address)
+            except Profile.DoesNotExist:
+                profile_barangay = ""
+            barangay = _resolve_barangay_name(profile_barangay) or profile_barangay
 
         new_req = DogCaptureRequest.objects.create(
             requested_by=request.user,
@@ -557,10 +571,24 @@ def request_dog_capture(request):
             description=request.POST.get('description'),
             latitude=request.POST.get('latitude') or None,
             longitude=request.POST.get('longitude') or None,
-            barangay=request.POST.get('barangay'),
-            city=request.POST.get('city'),
-            image=image_file
+            barangay=barangay or None,
+            city=city or None,
+            image=None
         )
+
+        first_saved_image = None
+        for image_file in uploaded_images:
+            saved_image = DogCaptureRequestImage.objects.create(
+                request=new_req,
+                image=image_file,
+            )
+            if first_saved_image is None:
+                first_saved_image = saved_image.image
+
+        if first_saved_image:
+            new_req.image = first_saved_image
+            new_req.save(update_fields=['image'])
+
         from dogadoption_admin.models import AdminNotification
         AdminNotification.objects.create(
             title="New dog capture request",
@@ -571,6 +599,8 @@ def request_dog_capture(request):
 
     requests = DogCaptureRequest.objects.filter(
         requested_by=request.user
+    ).prefetch_related(
+        'images'
     ).order_by('-created_at')
 
     return render(request, 'user_request/request.html', {
@@ -578,6 +608,97 @@ def request_dog_capture(request):
     })
 
 
+
+
+@user_only
+@require_POST
+def edit_dog_capture_request(request, req_id):
+    req = get_object_or_404(
+        DogCaptureRequest,
+        id=req_id,
+        requested_by=request.user,
+    )
+
+    # User can only update requests that are still waiting for admin action.
+    if req.status != 'pending':
+        messages.warning(request, "Only pending requests can be edited.")
+        return redirect('user:dog_capture_request')
+
+    reason = (request.POST.get('reason') or '').strip()
+    if reason not in DogCaptureRequest.REASON_LABELS:
+        messages.error(request, "Please select a valid reason.")
+        return redirect('user:dog_capture_request')
+
+    description = (request.POST.get('description') or '').strip()
+    barangay = _clean_barangay(request.POST.get('barangay'))
+    city = _clean_barangay(request.POST.get('city'))
+    latitude_raw = (request.POST.get('latitude') or '').strip()
+    longitude_raw = (request.POST.get('longitude') or '').strip()
+    # Support both the main request form field name and the edit-modal field name.
+    location_mode = (
+        request.POST.get('location_mode')
+        or request.POST.get('edit_location_mode')
+        or ''
+    ).strip().lower()
+
+    # Fallback keeps old submissions compatible when mode is not sent.
+    if location_mode not in {'exact', 'manual'}:
+        location_mode = 'exact' if (latitude_raw or longitude_raw) else 'manual'
+
+    if location_mode == 'manual' and not barangay and not city:
+        messages.error(request, "Please provide a manual address.")
+        return redirect('user:dog_capture_request')
+
+    if location_mode == 'exact' and (not latitude_raw or not longitude_raw):
+        messages.error(request, "Please provide both latitude and longitude.")
+        return redirect('user:dog_capture_request')
+
+    # Exact mode stores GPS coordinates; manual mode clears coordinates.
+    if location_mode == 'exact':
+        try:
+            latitude_val = float(latitude_raw)
+            longitude_val = float(longitude_raw)
+        except ValueError:
+            messages.error(request, "Latitude and longitude must be valid numbers.")
+            return redirect('user:dog_capture_request')
+
+        if not (-90 <= latitude_val <= 90 and -180 <= longitude_val <= 180):
+            messages.error(request, "Coordinates are out of valid range.")
+            return redirect('user:dog_capture_request')
+
+        req.latitude = f"{latitude_val:.6f}"
+        req.longitude = f"{longitude_val:.6f}"
+    else:
+        req.latitude = None
+        req.longitude = None
+
+    req.reason = reason
+    req.description = description or None
+    req.barangay = (_resolve_barangay_name(barangay) or barangay) if barangay else None
+    req.city = city or None
+    req.save(update_fields=['reason', 'description', 'barangay', 'city', 'latitude', 'longitude'])
+
+    messages.success(request, "Request updated successfully.")
+    return redirect('user:dog_capture_request')
+
+
+@user_only
+@require_POST
+def delete_dog_capture_request(request, req_id):
+    req = get_object_or_404(
+        DogCaptureRequest,
+        id=req_id,
+        requested_by=request.user,
+    )
+
+    # Prevent deleting requests that are already scheduled/processed by admin.
+    if req.status != 'pending':
+        messages.warning(request, "Only pending requests can be deleted.")
+        return redirect('user:dog_capture_request')
+
+    req.delete()
+    messages.success(request, "Request deleted successfully.")
+    return redirect('user:dog_capture_request')
 
 
 #CLAIM PAGE 
@@ -721,12 +842,25 @@ def adopt_confirm(request, post_id):
 
 @user_only
 def announcement_list(request):
-    posts = DogAnnouncement.objects.all() \
-        .prefetch_related('comments') \
+    posts = (
+        DogAnnouncement.objects.all()
+        .prefetch_related('comments', 'images')
         .order_by('-created_at')
+    )
 
     return render(request, 'announcement/announcement.html', {
         'announcements': posts
+    })
+
+
+@user_only
+def announcement_detail(request, post_id):
+    post = get_object_or_404(
+        DogAnnouncement.objects.prefetch_related('comments', 'comments__user', 'images'),
+        id=post_id,
+    )
+    return render(request, 'announcement/announcement_detail.html', {
+        'post': post,
     })
 
 
@@ -738,7 +872,12 @@ def announcement_comment(request, post_id):
             user=request.user,
             comment=request.POST.get("comment")
         )
-    return redirect('user:announcement_list')
+    next_url = (request.POST.get("next") or "").strip()
+    if not next_url or not url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        next_url = reverse('user:announcement_list')
+    return redirect(next_url)
 
 #CLAIM PAGE
 

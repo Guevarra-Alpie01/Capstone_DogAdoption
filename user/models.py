@@ -75,19 +75,6 @@ class DogCaptureRequest(models.Model):
         return f"{self.requested_by} - {self.reason} ({self.status})"
 
 
-class DogCaptureRequestImage(models.Model):
-    request = models.ForeignKey(
-        DogCaptureRequest,
-        on_delete=models.CASCADE,
-        related_name='images'
-    )
-    image = models.ImageField(upload_to='dog_requests/')
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Capture request {self.request_id} image"
-
-
 class AdoptionRequest(models.Model):
     STATUS_CHOICES = (
         ('pending', 'Pending'),

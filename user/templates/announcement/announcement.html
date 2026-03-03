@@ -4,83 +4,107 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/admin_announcement/create_announcement.css' %}">
 
-<h2 class="page-title">Announcements</h2>
-<p class="page-subtitle">Stay updated with the latest dog announcements and dog law notices from the admin team.</p>
+<h2 class="page-title">📢 Announcements</h2>
 
 <div class="announcement-feed">
     {% for post in announcements %}
-    <article class="card">
+    <div class="card">
+
+        <!-- HEADER -->
         <div class="card-header">
-            <div class="avatar">A</div>
+            <div class="avatar">🐾</div>
             <div class="meta">
                 <span class="admin-name">Admin</span>
                 <span class="timestamp">{{ post.created_at|timesince }} ago</span>
             </div>
-            <span class="post-category-badge">{{ post.get_category_display }}</span>
         </div>
 
-        <div class="feed-copy">
-            <h3 class="feed-post-title">{{ post.title }}</h3>
-            <p class="feed-post-summary">{{ post.content|striptags|truncatechars:180 }}</p>
-        </div>
-
-        {% if post.background_image %}
-        <div class="hero-body has-bg" style="background-image: url('{{ post.background_image.url }}');"></div>
+        <!-- COLOR OR IMAGE BACKGROUND -->
+        {% if post.post_type == 'IMAGE_BG' and post.background_image %}
+            <div class="hero-body has-bg"
+                 style="background-image: url('{{ post.background_image.url }}');">
         {% else %}
-        <div class="hero-body" style="background-color: {{ post.background_color|default:'#eeedf3' }};"></div>
+            <div class="hero-body"
+                 style="background-color: {{ post.background_color|default:'#4f46e5' }};">
         {% endif %}
 
-        {% if post.images.all %}
-        <div class="extra-image-strip">
-            {% for photo in post.images.all|slice:':4' %}
-            <img src="{{ photo.image.url }}" class="extra-image-thumb" alt="Announcement photo {{ forloop.counter }}">
+            <div class="hero-overlay">
+                <h2 class="hero-text">{{ post.content|linebreaksbr }}</h2>
+            </div>
+        </div>
+
+        <!-- PHOTO POST -->
+        {% if post.post_type == 'PHOTO' %}
+        <div class="photo-body">
+            <p class="caption">{{ post.content|linebreaksbr }}</p>
+            {% if post.background_image %}
+                <img src="{{ post.background_image.url }}" class="main-photo">
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- SCHEDULE -->
+        {% if post.schedule_data %}
+        <div class="schedule-section">
+            <h4 class="schedule-title">📅 Dog Activity Schedule</h4>
+            {% for item in post.schedule_data %}
+                <div class="schedule-row">
+                    <span class="time">{{ item.time }}</span>
+                    <span class="task">{{ item.task }}</span>
+                </div>
             {% endfor %}
         </div>
         {% endif %}
 
+        <!-- FOOTER ACTIONS -->
         <div class="card-footer">
+
+            <!-- COMMENT FORM -->
             <form method="POST" action="{% url 'user:announcement_comment' post.id %}">
                 {% csrf_token %}
-                <input type="hidden" name="next" value="{{ request.path }}">
                 <input type="text" name="comment" placeholder="Write a comment..." required>
-                <button class="footer-btn" type="submit">Post</button>
+                <button class="footer-btn">??</button>
             </form>
 
-            <a class="details-link" href="{% url 'user:announcement_detail' post.id %}">View Details</a>
-
-            <button type="button" class="share-icon-btn" data-share-url="{{ request.scheme }}://{{ request.get_host }}{% url 'user:announcement_detail' post.id %}" aria-label="Share">
+            <button type="button" class="share-icon-btn" data-share-url="{{ request.build_absolute_uri }}" aria-label="Share">
                 <i class="fas fa-share"></i>
             </button>
 
-            <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.scheme }}://{{ request.get_host }}{% url 'user:announcement_detail' post.id %}"
+            <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri }}"
                target="_blank"
                class="fb-share-btn"
                aria-label="Share on Facebook">
                <i class="fab fa-facebook-f"></i>
             </a>
+
         </div>
 
+        <!-- COMMENTS -->
         <div class="comments-section">
-            {% for comment in post.comments.all|slice:':3' %}
-            <div class="comment">
-                <p><strong>{{ comment.user.username }}</strong>: {{ comment.comment }}</p>
-                {% if comment.reply %}
-                <div class="admin-reply">
-                    <p><strong>Admin</strong>: {{ comment.reply }}</p>
+            {% for comment in post.comments.all %}
+                <div class="comment">
+                    <p>
+                        <strong>{{ comment.user.username }}</strong>: 
+                        {{ comment.comment }}
+                    </p>
+
+                    {% if comment.reply %}
+                        <div class="admin-reply">
+                            <p>
+                                <strong>Admin</strong>: {{ comment.reply }}
+                            </p>
+                        </div>
+                    {% endif %}
                 </div>
-                {% endif %}
-            </div>
             {% empty %}
-            <p class="empty-note">No comments yet.</p>
+                <p>No comments yet.</p>
             {% endfor %}
         </div>
-    </article>
-    {% empty %}
-    <div class="empty-feed">
-        No announcements yet. Please check back for updates.
+
     </div>
     {% endfor %}
 </div>
+
 
 <script>
 (function () {
@@ -95,6 +119,7 @@
                     await navigator.share({ url });
                     return;
                 } catch (err) {
+                    // fall through to clipboard
                 }
             }
             try {
@@ -108,4 +133,5 @@
     });
 })();
 </script>
+
 {% endblock %}

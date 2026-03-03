@@ -6,98 +6,95 @@
 
 <div class="create-announcement-container">
     <div class="fb-card-header">
-        <h3>Create {{ category_option.label }} Post</h3>
-        <p class="form-subtitle">Only admins can publish this form. Users can view this post in their announcement feed.</p>
-    </div>
-
-    <div class="category-focus">
-        <h4>Post focus</h4>
-        <ul>
-            {% for topic in category_option.topics %}
-            <li>{{ topic }}</li>
-            {% endfor %}
-        </ul>
+        <h3>Create Post</h3>
     </div>
 
     <form method="POST" enctype="multipart/form-data" class="announcement-form">
         {% csrf_token %}
-
+        
         <div class="fb-post-user">
             <div class="avatar">A</div>
             <div class="user-meta">
                 <span class="admin-name">Administrator</span>
                 <span class="post-visibility"><i class="fas fa-globe-americas"></i> Public</span>
             </div>
-            <span class="category-chip">{{ category_option.label }}</span>
         </div>
 
         <div class="fb-editor-body" id="editorBody">
-            <input type="text" name="title" class="fb-title-input" placeholder="Title" required>
-            <textarea name="content" id="postContent" class="fb-textarea" placeholder="Write the announcement details..." required></textarea>
+            <input type="text" name="title" class="fb-title-input" placeholder="Title (Optional)...">
+            
+            <textarea name="content" id="postContent" class="fb-textarea" placeholder="What's on your mind, Admin?" required></textarea>
+            
             <div id="imagePreviewContainer" class="fb-preview-grid"></div>
         </div>
 
         <div class="fb-add-to-post">
             <span>Add to your post</span>
             <div class="fb-tools">
-                <label class="tool-icon" title="Upload Photo">
-                    <input type="file" name="background_image" id="imageInput" accept="image/*" onchange="handleImageSelect(event)" style="display:none;">
-                    <i class="fas fa-camera"></i>
+                <label class="tool-icon" title="Upload Photos">
+                    <input type="file" name="background_image" id="imageInput" accept="image/*" multiple onchange="handleImageSelect(event)" style="display:none;">
+                    📸
                 </label>
+                
                 <div class="tool-icon" title="Text Background" onclick="toggleColorPicker()">
-                    <i class="fas fa-palette"></i>
+                    🎨
                 </div>
             </div>
         </div>
 
-        <div id="colorPickerWrapper" style="display:none;">
-            <label for="bgColorInput">Background Color</label>
-            <input type="color" name="background_color" id="bgColorInput" value="#eeedf3" oninput="updateTextareaBg(this.value)">
+        <div id="colorPickerWrapper" style="display:none; padding: 10px 16px;">
+            <label style="font-size: 12px; font-weight: bold; color: #65676b;">Background Color:</label>
+            <input type="color" name="background_color" id="bgColorInput" value="#ffffff" oninput="updateTextareaBg(this.value)">
         </div>
 
-        <button type="submit" class="submit-btn">Publish {{ category_option.label }}</button>
+        <button type="submit" class="submit-btn" id="submitBtn">Post</button>
     </form>
 </div>
 
 <script>
-const postContent = document.getElementById('postContent');
-const editorBody = document.getElementById('editorBody');
-const previewContainer = document.getElementById('imagePreviewContainer');
+    const postContent = document.getElementById('postContent');
+    const editorBody = document.getElementById('editorBody');
+    const previewContainer = document.getElementById('imagePreviewContainer');
 
-function toggleColorPicker() {
-    const wrapper = document.getElementById('colorPickerWrapper');
-    wrapper.style.display = wrapper.style.display === 'none' ? 'flex' : 'none';
-}
+    // 1. Handle Background Color
+    function toggleColorPicker() {
+        const wrapper = document.getElementById('colorPickerWrapper');
+        wrapper.style.display = wrapper.style.display === 'none' ? 'block' : 'none';
+    }
 
-function updateTextareaBg(color) {
-    editorBody.style.backgroundColor = color;
-    const rgb = parseInt(color.substring(1), 16);
-    const r = (rgb >> 16) & 0xff;
-    const g = (rgb >> 8) & 0xff;
-    const b = rgb & 0xff;
-    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    postContent.style.color = luma < 128 ? '#ffffff' : '#0f172a';
-    document.querySelector('.fb-title-input').style.color = luma < 128 ? '#ffffff' : '#0f172a';
-}
+    function updateTextareaBg(color) {
+        editorBody.style.backgroundColor = color;
+        // Adjust text color for readability
+        const rgb = parseInt(color.substring(1), 16);
+        const r = (rgb >> 16) & 0xff;
+        const g = (rgb >>  8) & 0xff;
+        const b = (rgb >>  0) & 0xff;
+        const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        
+        postContent.style.color = luma < 128 ? 'white' : 'black';
+        document.querySelector('.fb-title-input').style.color = luma < 128 ? 'white' : 'black';
+    }
 
-function handleImageSelect(event) {
-    const files = event.target.files;
-    previewContainer.innerHTML = '';
-    if (!files || !files.length) return;
+    // 2. Handle Multiple Image Previews
+    function handleImageSelect(event) {
+        const files = event.target.files;
+        previewContainer.innerHTML = ''; // Clear previous
+        
+        if (files.length > 0) {
+            editorBody.style.backgroundColor = '#ffffff'; // Reset BG if images added
+            postContent.style.color = 'black';
+        }
 
-    editorBody.style.backgroundColor = '#ffffff';
-    postContent.style.color = '#0f172a';
-
-    Array.from(files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const item = document.createElement('div');
-            item.className = 'preview-item';
-            item.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
-            previewContainer.appendChild(item);
-        };
-        reader.readAsDataURL(file);
-    });
-}
+        Array.from(files).forEach(file => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imgDiv = document.createElement('div');
+                imgDiv.className = 'preview-item';
+                imgDiv.innerHTML = `<img src="${e.target.result}">`;
+                previewContainer.appendChild(imgDiv);
+            }
+            reader.readAsDataURL(file);
+        });
+    }
 </script>
 {% endblock %}

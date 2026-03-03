@@ -13,7 +13,7 @@ from django.utils.dateparse import parse_date
 from datetime import datetime
 from django.contrib import messages
 from django.conf import settings
-from django.http import JsonResponse, Http404
+from django.http import JsonResponse
 
 from django.contrib.auth.models import User
 from django.views.decorators.http import require_http_methods
@@ -60,7 +60,7 @@ from .forms import PenaltyForm, SectionForm,CitationForm
 
 
 #models in admin 
-from .models import Post, PostImage , DogAnnouncement, DogAnnouncementImage, AnnouncementComment, PostRequest
+from .models import Post, PostImage , DogAnnouncement, AnnouncementComment, PostRequest
 from .models import DogCatcherContact, AdminNotification
 from .models import Citation
 from .models import Post, PostImage, PostRequest
@@ -190,74 +190,6 @@ def _build_certificate_payload(registration, vaccinations=None, dewormings=None)
         "has_vaccinations": bool(vac_records),
         "has_dewormings": bool(dew_records),
     }
-
-def _enrich_capture_request_user(req):
-    user = req.requested_by
-    try:
-        profile = user.profile
-    except Profile.DoesNotExist:
-        profile = None
-
-    name_parts = [user.first_name, user.last_name]
-    full_name = " ".join(part for part in name_parts if part).strip() or user.username
-
-    req.requester_full_name = full_name
-    req.requester_phone = (
-        profile.phone_number.strip()
-        if profile and profile.phone_number
-        else "No phone number"
-    )
-    req.requester_address = (
-        profile.address.strip()
-        if profile and profile.address
-        else "No address provided"
-    )
-    req.requester_facebook = (
-        profile.facebook_url.strip()
-        if profile and profile.facebook_url
-        else ""
-    )
-
-
-ANNOUNCEMENT_CATEGORY_OPTIONS = [
-    {
-        "slug": "dog-announcements",
-        "value": DogAnnouncement.CATEGORY_DOG_ANNOUNCEMENT,
-        "label": "Dog Announcements",
-        "description": (
-            "For vaccination programs, educational campaigns, dog-related events, "
-            "and general dog care information."
-        ),
-        "topics": [
-            "Vaccination programs",
-            "Educational campaigns",
-            "Dog-related events",
-            "General dog care information",
-        ],
-    },
-    {
-        "slug": "dog-laws",
-        "value": DogAnnouncement.CATEGORY_DOG_LAW,
-        "label": "Dog Laws",
-        "description": (
-            "For rules and regulations about dogs, local ordinances, and legal "
-            "responsibilities of dog owners."
-        ),
-        "topics": [
-            "Rules and regulations about dogs",
-            "Local ordinances",
-            "Legal responsibilities of dog owners",
-        ],
-    },
-]
-
-ANNOUNCEMENT_CATEGORY_BY_SLUG = {
-    option["slug"]: option for option in ANNOUNCEMENT_CATEGORY_OPTIONS
-}
-
-ANNOUNCEMENT_CATEGORY_BY_VALUE = {
-    option["value"]: option for option in ANNOUNCEMENT_CATEGORY_OPTIONS
-}
 
 
 
@@ -616,49 +548,13 @@ def admin_dog_capture_requests(request):
 
         return redirect('dogadoption_admin:requests')
 
-    requests = (
-        DogCaptureRequest.objects.select_related(
-            'requested_by', 'requested_by__profile', 'assigned_admin'
-        )
-        .prefetch_related('images')
-        .order_by('-created_at')
-    )
+    requests = DogCaptureRequest.objects.select_related(
+        'requested_by', 'assigned_admin'
+    ).order_by('-created_at')
 
     map_points = []
     for req in requests:
-        _enrich_capture_request_user(req)
-
-        barangay = _clean_barangay(req.barangay)
-        city = _clean_barangay(req.city)
-
-        if not barangay:
-            try:
-                profile_barangay = _clean_barangay(req.requested_by.profile.address)
-            except Profile.DoesNotExist:
-                profile_barangay = ""
-            barangay = _resolve_barangay_name(profile_barangay) or profile_barangay
-
-        if barangay and city:
-            req.location_label = f"{barangay}, {city}"
-        elif barangay:
-            req.location_label = barangay
-        elif city:
-            req.location_label = city
-        elif req.latitude is not None and req.longitude is not None:
-            req.location_label = "Pinned location"
-        else:
-            req.location_label = "No location"
-        req.has_location = req.location_label != "No location"
-
-        request_images = list(req.images.all())
-        if request_images:
-            image_url = request_images[0].image.url
-        elif req.image:
-            image_url = req.image.url
-        else:
-            image_url = ''
-
-        if req.status == 'accepted' and req.latitude is not None and req.longitude is not None:
+        if req.latitude is not None and req.longitude is not None:
             scheduled_iso = req.scheduled_date.date().isoformat() if req.scheduled_date else ''
             scheduled_display = req.scheduled_date.strftime('%b %d, %Y %I:%M %p') if req.scheduled_date else ''
             map_points.append({
@@ -669,13 +565,9 @@ def admin_dog_capture_requests(request):
                 'status_key': req.status,
                 'lat': float(req.latitude),
                 'lng': float(req.longitude),
-                'barangay': barangay,
-                'city': city,
-                'location_label': req.location_label,
                 'created_at': req.created_at.strftime('%b %d, %Y %I:%M %p'),
                 'scheduled_date_iso': scheduled_iso,
                 'scheduled_date_display': scheduled_display,
-                'image_url': image_url,
             })
 
     return render(request, 'admin_request/request.html', {
@@ -686,11 +578,7 @@ def admin_dog_capture_requests(request):
 
 @admin_required
 def update_dog_capture_request(request, pk):
-    req = get_object_or_404(
-        DogCaptureRequest.objects.select_related('requested_by', 'requested_by__profile').prefetch_related('images'),
-        pk=pk
-    )
-    _enrich_capture_request_user(req)
+    req = get_object_or_404(DogCaptureRequest, pk=pk)
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -732,40 +620,20 @@ def update_dog_capture_request(request, pk):
 #  ++++++++++++++++++++++  ANNOUNCEMENTS PAGE   ++++++++++++++++++++++++++++++++++++++
 @admin_required
 def announcement_list(request):
-    announcements = (
-        DogAnnouncement.objects.all()
-        .prefetch_related('comments', 'images')
-        .order_by('-created_at')
-    )
+
+    announcements = DogAnnouncement.objects.all().prefetch_related('comments').order_by('-created_at')
 
     return render(request, 'admin_announcement/announcement.html', {
-        'announcements': announcements,
-        'category_options': ANNOUNCEMENT_CATEGORY_OPTIONS,
+        'announcements': announcements
     })
 
-#   -CREATING ANNOUNCEMENTS (CATEGORY PICKER)
-@admin_required
-def announcement_create(request):
-    return redirect("dogadoption_admin:admin_announcements")
-
-
+#   -CREATING ANNOUNCEMENTS 
 @admin_required
 @require_http_methods(["GET", "POST"])
-def announcement_create_form(request, category_slug):
-    category_option = ANNOUNCEMENT_CATEGORY_BY_SLUG.get(category_slug)
-    if not category_option:
-        raise Http404("Announcement category not found.")
-
-    if request.method == "GET":
-        return redirect("dogadoption_admin:admin_announcements")
+def announcement_create(request):
 
     if request.method == "POST":
-        title = (request.POST.get("title") or "").strip()
-        content = (request.POST.get("content") or "").strip()
-        background_color = (request.POST.get("background_color") or "#eeedf3").strip()
-        uploaded_images = request.FILES.getlist("background_images")
-        if not uploaded_images and request.FILES.get("background_image"):
-            uploaded_images = [request.FILES.get("background_image")]
+
         schedule_raw = request.POST.get("schedule_data")
         schedule = None
 
@@ -775,26 +643,18 @@ def announcement_create_form(request, category_slug):
             except json.JSONDecodeError:
                 schedule = None
 
-        if not content:
-            messages.error(request, "Post content is required.")
-            return redirect("dogadoption_admin:admin_announcements")
-
-        primary_image = uploaded_images[0] if uploaded_images else None
-        post = DogAnnouncement.objects.create(
-            title=title or category_option["label"],
-            content=content,
-            category=category_option["value"],
-            background_color=background_color,
-            background_image=primary_image,
+        DogAnnouncement.objects.create(
+            title=request.POST.get("title"),
+            content=request.POST.get("content"),
+            background_color=request.POST.get("background_color"),
+            background_image=request.FILES.get("background_image"),
             schedule_data=schedule,
-            created_by=request.user,
+            created_by=request.user
         )
-        for image in uploaded_images[1:]:
-            DogAnnouncementImage.objects.create(announcement=post, image=image)
-        messages.success(request, f"{category_option['label']} post published.")
 
         return redirect("dogadoption_admin:admin_announcements")
-    return redirect("dogadoption_admin:admin_announcements")
+
+    return render(request, "admin_announcement/create_announcement.html")
 
 
 @admin_required
@@ -814,38 +674,22 @@ def announcement_edit(request, post_id):
     post = DogAnnouncement.objects.get(id=post_id)
 
     if request.method == "POST":
-        post.title = (request.POST.get("title") or post.title).strip()
-        post.content = (request.POST.get("content") or post.content).strip()
-        category = request.POST.get("category", post.category)
-        uploaded_images = request.FILES.getlist("background_images")
-        if not uploaded_images and request.FILES.get("background_image"):
-            uploaded_images = [request.FILES.get("background_image")]
-        if category in ANNOUNCEMENT_CATEGORY_BY_VALUE:
-            post.category = category
-        post.background_color = (
-            request.POST.get("background_color") or post.background_color
-        )
-        if uploaded_images:
-            post.background_image = uploaded_images[0]
+        post.content = request.POST.get("content")
+        post.post_type = request.POST.get("post_type", post.post_type)
+        post.background_color = request.POST.get("background_color", post.background_color)
+        if request.FILES.get("background_image"):
+            post.background_image = request.FILES.get("background_image")
         post.save()
-        if uploaded_images:
-            post.images.all().delete()
-            for image in uploaded_images[1:]:
-                DogAnnouncementImage.objects.create(announcement=post, image=image)
-        messages.success(request, "Announcement updated.")
         return redirect("dogadoption_admin:admin_announcements")
 
     return render(request, "admin_announcement/edit_announcement.html", {
-        "post": post,
-        "category_options": ANNOUNCEMENT_CATEGORY_OPTIONS,
+        "post": post
     })
 
 @admin_required
-@require_POST
 def announcement_delete(request, post_id):
     post = get_object_or_404(DogAnnouncement, id=post_id)
     post.delete()
-    messages.success(request, "Announcement deleted.")
 
     return redirect("dogadoption_admin:admin_announcements")
 

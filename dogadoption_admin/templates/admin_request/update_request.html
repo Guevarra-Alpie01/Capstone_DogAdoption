@@ -24,8 +24,7 @@
             <div class="meta-grid">
                 <div class="meta-item">
                     <span class="label">Requested By</span>
-                    <strong>{{ req.requester_full_name }}</strong>
-                    <div class="meta-sub">@{{ req.requested_by.username }}</div>
+                    <strong>{{ req.requested_by.username }}</strong>
                 </div>
                 <div class="meta-item">
                     <span class="label">Date Submitted</span>
@@ -36,28 +35,10 @@
                     <strong>{{ req.get_reason_display }}</strong>
                 </div>
                 <div class="meta-item">
-                    <span class="label">Phone</span>
-                    <strong>{{ req.requester_phone }}</strong>
-                </div>
-                <div class="meta-item">
                     <span class="label">Current Status</span>
                     <strong>{{ req.get_status_display }}</strong>
                 </div>
             </div>
-
-            <div class="info-block">
-                <span class="label">Requester Address</span>
-                <p>{{ req.requester_address }}</p>
-            </div>
-
-            {% if req.requester_facebook %}
-                <div class="info-block">
-                    <span class="label">Facebook</span>
-                    <a href="{{ req.requester_facebook }}" target="_blank" rel="noopener noreferrer" class="meta-link">
-                        {{ req.requester_facebook }}
-                    </a>
-                </div>
-            {% endif %}
 
             {% if req.description %}
                 <div class="info-block">
@@ -66,36 +47,14 @@
                 </div>
             {% endif %}
 
-            {% with req_images=req.images.all %}
-                {% if req_images %}
-                    <div class="info-block">
-                        <span class="label">Attached Photos</span>
-                        <div class="request-image-viewer" data-image-viewer>
-                            {% for req_image in req_images %}
-                                <img src="{{ req_image.image.url }}"
-                                     alt="Request image {{ forloop.counter }}"
-                                     class="viewer-image {% if forloop.first %}is-active{% endif %}"
-                                     data-viewer-image>
-                            {% endfor %}
-
-                            {% if req_images|length > 1 %}
-                                <button type="button" class="viewer-nav prev" data-viewer-prev aria-label="Previous image">&lt;</button>
-                                <button type="button" class="viewer-nav next" data-viewer-next aria-label="Next image">&gt;</button>
-                                <div class="viewer-counter">
-                                    <span data-viewer-index>1</span> / {{ req_images|length }}
-                                </div>
-                            {% endif %}
-                        </div>
+            {% if req.image %}
+                <div class="info-block">
+                    <span class="label">Attached Photo</span>
+                    <div class="request-image">
+                        <img src="{{ req.image.url }}" alt="Request image">
                     </div>
-                {% elif req.image %}
-                    <div class="info-block">
-                        <span class="label">Attached Photo</span>
-                        <div class="request-image">
-                            <img src="{{ req.image.url }}" alt="Request image">
-                        </div>
-                    </div>
-                {% endif %}
-            {% endwith %}
+                </div>
+            {% endif %}
 
             <div class="info-block">
                 <span class="label">Location</span>
@@ -135,37 +94,4 @@
         </div>
     </div>
 </div>
-<script>
-(function () {
-    const viewers = document.querySelectorAll('[data-image-viewer]');
-    viewers.forEach((viewer) => {
-        const images = Array.from(viewer.querySelectorAll('[data-viewer-image]'));
-        if (images.length <= 1) return;
-
-        let currentIndex = 0;
-        const prevBtn = viewer.querySelector('[data-viewer-prev]');
-        const nextBtn = viewer.querySelector('[data-viewer-next]');
-        const counter = viewer.querySelector('[data-viewer-index]');
-
-        function render() {
-            images.forEach((img, index) => {
-                img.classList.toggle('is-active', index === currentIndex);
-            });
-            if (counter) {
-                counter.textContent = String(currentIndex + 1);
-            }
-        }
-
-        prevBtn?.addEventListener('click', () => {
-            currentIndex = (currentIndex - 1 + images.length) % images.length;
-            render();
-        });
-
-        nextBtn?.addEventListener('click', () => {
-            currentIndex = (currentIndex + 1) % images.length;
-            render();
-        });
-    });
-})();
-</script>
 {% endblock %}

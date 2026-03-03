@@ -28,8 +28,7 @@
 
                 <div id="uploadSection" class="media-section">
                     <label>Upload Photo</label>
-                    <input type="file" name="images" id="imageInput" accept="image/*" multiple>
-                    <small class="upload-hint">You can select multiple photos.</small>
+                    <input type="file" name="image" id="imageInput" accept="image/*" capture="environment">
                 </div>
 
                 <div id="cameraSection" class="media-section" style="display:none;">
@@ -103,205 +102,38 @@
         </form>
     </div>
 
-    <div class="card my-requests-card">
+    <div class="card">
         <h2>My Requests</h2>
 
-        <div class="requests-scroll">
-            {% for req in requests %}
-                <div class="request-card {{ req.status }} request-clickable"
-                     data-bs-toggle="modal"
-                     data-bs-target="#requestViewModal{{ req.id }}"
-                     role="button"
-                     tabindex="0"
-                     aria-label="View request details">
-                    <div class="request-header">
-                        <strong>{{ req.get_reason_display }}</strong>
-                        <span class="status-badge {{ req.status }}">
-                            {{ req.get_status_display }}
-                        </span>
-                    </div>
-
-                    {% if req.status == 'accepted' %}
-                        <p>
-                            Scheduled:
-                            <strong>{{ req.scheduled_date|date:"M d, Y h:i A" }}</strong>
-                        </p>
-                    {% elif req.status == 'declined' %}
-                        <p>Request Declined</p>
-                    {% else %}
-                        <p>Waiting for admin verification</p>
-                    {% endif %}
-
-                    {% with total_images=req.images.all|length %}
-                        {% if total_images %}
-                            <p class="request-meta"><strong>Photos:</strong> {{ total_images }}</p>
-                        {% elif req.image %}
-                            <p class="request-meta"><strong>Photos:</strong> 1</p>
-                        {% endif %}
-                    {% endwith %}
-
-                    {% if req.admin_message %}
-                        <p class="admin-note">
-                            <strong>Admin:</strong> {{ req.admin_message }}
-                        </p>
-                    {% endif %}
-
-                    <p class="request-view-hint">Click to view details</p>
+        {% for req in requests %}
+            <div class="request-card {{ req.status }}">
+                <div class="request-header">
+                    <strong>{{ req.get_reason_display }}</strong>
+                    <span class="status-badge {{ req.status }}">
+                        {{ req.get_status_display }}
+                    </span>
                 </div>
 
-                <div class="modal fade request-view-modal" id="requestViewModal{{ req.id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-lg modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">{{ req.get_reason_display }}</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                {% with req_images=req.images.all %}
-                                    {% if req_images %}
-                                        <div id="requestImagesCarousel{{ req.id }}" class="carousel slide request-modal-carousel" data-bs-ride="false">
-                                            <div class="carousel-inner">
-                                                {% for item in req_images %}
-                                                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                                        <img src="{{ item.image.url }}" class="d-block w-100 request-modal-img" alt="Request photo {{ forloop.counter }}">
-                                                    </div>
-                                                {% endfor %}
-                                            </div>
-                                            {% if req_images|length > 1 %}
-                                                <button class="carousel-control-prev" type="button" data-bs-target="#requestImagesCarousel{{ req.id }}" data-bs-slide="prev">
-                                                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                                    <span class="visually-hidden">Previous</span>
-                                                </button>
-                                                <button class="carousel-control-next" type="button" data-bs-target="#requestImagesCarousel{{ req.id }}" data-bs-slide="next">
-                                                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                                    <span class="visually-hidden">Next</span>
-                                                </button>
-                                            {% endif %}
-                                        </div>
-                                    {% elif req.image %}
-                                        <img src="{{ req.image.url }}" class="request-modal-img" alt="Request photo">
-                                    {% else %}
-                                        <p class="text-muted mb-2">No photo attached.</p>
-                                    {% endif %}
-                                {% endwith %}
+                {% if req.status == 'accepted' %}
+                    <p>
+                        Scheduled:
+                        <strong>{{ req.scheduled_date|date:"M d, Y h:i A" }}</strong>
+                    </p>
+                {% elif req.status == 'declined' %}
+                    <p>Request Declined</p>
+                {% else %}
+                    <p>Waiting for admin verification</p>
+                {% endif %}
 
-                                <div class="request-modal-details">
-                                    <p><strong>Status:</strong> <span class="status-badge {{ req.status }}">{{ req.get_status_display }}</span></p>
-                                    <p><strong>Submitted:</strong> {{ req.created_at|date:"M d, Y h:i A" }}</p>
-                                    {% if req.status == 'accepted' and req.scheduled_date %}
-                                        <p><strong>Scheduled:</strong> {{ req.scheduled_date|date:"M d, Y h:i A" }}</p>
-                                    {% endif %}
-                                    {% if req.description %}
-                                        <p><strong>Details:</strong> {{ req.description }}</p>
-                                    {% endif %}
-                                    {% if req.barangay or req.city %}
-                                        <p><strong>Location:</strong> {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}</p>
-                                    {% elif req.latitude and req.longitude %}
-                                        <p><strong>Coordinates:</strong> {{ req.latitude }}, {{ req.longitude }}</p>
-                                    {% endif %}
-                                    {% if req.admin_message %}
-                                        <p><strong>Admin Message:</strong> {{ req.admin_message }}</p>
-                                    {% endif %}
-                                </div>
-
-                                {% if req.status == 'pending' %}
-                                    <div class="request-modal-actions">
-                                        <button
-                                            type="button"
-                                            class="btn-secondary request-edit-toggle"
-                                            data-target="#requestEditForm{{ req.id }}"
-                                        >
-                                            Edit Request
-                                        </button>
-                                        <form method="post" action="{% url 'user:delete_dog_capture_request' req.id %}" onsubmit="return confirm('Delete this request?');">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn-danger-inline">Delete Request</button>
-                                        </form>
-                                    </div>
-
-                                    <form
-                                        method="post"
-                                        action="{% url 'user:edit_dog_capture_request' req.id %}"
-                                        class="request-edit-form"
-                                        id="requestEditForm{{ req.id }}"
-                                        style="display:none;"
-                                    >
-                                        {% csrf_token %}
-                                        <div class="request-edit-grid">
-                                            <div class="form-group">
-                                                <label for="editReason{{ req.id }}">Reason</label>
-                                                <select name="reason" id="editReason{{ req.id }}" required>
-                                                    <option value="biting" {% if req.reason == 'biting' %}selected{% endif %}>Dog is biting people</option>
-                                                    <option value="aggressive" {% if req.reason == 'aggressive' %}selected{% endif %}>Dog is aggressive</option>
-                                                    <option value="injured" {% if req.reason == 'injured' %}selected{% endif %}>Dog is injured</option>
-                                                    <option value="sick" {% if req.reason == 'sick' %}selected{% endif %}>Dog looks sick</option>
-                                                    <option value="stray" {% if req.reason == 'stray' %}selected{% endif %}>Stray dog</option>
-                                                    <option value="other" {% if req.reason == 'other' %}selected{% endif %}>Other</option>
-                                                </select>
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="editDescription{{ req.id }}">Details</label>
-                                                <textarea name="description" id="editDescription{{ req.id }}" rows="3">{{ req.description|default_if_none:'' }}</textarea>
-                                            </div>
-                                        </div>
-
-                                        <div class="location-mode request-edit-mode">
-                                            <label>
-                                                <input
-                                                    type="radio"
-                                                    name="edit_location_mode"
-                                                    value="exact"
-                                                    {% if req.latitude and req.longitude %}checked{% endif %}
-                                                >
-                                                Use Exact Location
-                                            </label>
-                                            <label>
-                                                <input
-                                                    type="radio"
-                                                    name="edit_location_mode"
-                                                    value="manual"
-                                                    {% if not req.latitude or not req.longitude %}checked{% endif %}
-                                                >
-                                                Enter Manual Address
-                                            </label>
-                                        </div>
-
-                                        <div class="request-edit-location-box" data-edit-manual-box>
-                                            <div class="form-group">
-                                                <label for="editBarangay{{ req.id }}">Barangay</label>
-                                                <input type="text" name="barangay" id="editBarangay{{ req.id }}" value="{{ req.barangay|default_if_none:'' }}">
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="editCity{{ req.id }}">City / Municipality</label>
-                                                <input type="text" name="city" id="editCity{{ req.id }}" value="{{ req.city|default_if_none:'' }}">
-                                            </div>
-                                        </div>
-
-                                        <div class="request-edit-location-box" data-edit-exact-box>
-                                            <div class="form-group">
-                                                <label for="editLatitude{{ req.id }}">Latitude</label>
-                                                <input type="text" name="latitude" id="editLatitude{{ req.id }}" value="{{ req.latitude|default_if_none:'' }}" placeholder="e.g. 9.200000">
-                                            </div>
-                                            <div class="form-group">
-                                                <label for="editLongitude{{ req.id }}">Longitude</label>
-                                                <input type="text" name="longitude" id="editLongitude{{ req.id }}" value="{{ req.longitude|default_if_none:'' }}" placeholder="e.g. 122.850000">
-                                            </div>
-                                        </div>
-
-                                        <div class="request-edit-actions">
-                                            <button type="submit" class="btn-primary">Save Changes</button>
-                                            <button type="button" class="btn-secondary request-edit-cancel" data-target="#requestEditForm{{ req.id }}">Cancel</button>
-                                        </div>
-                                    </form>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            {% empty %}
-                <p>No requests yet.</p>
-            {% endfor %}
-        </div>
+                {% if req.admin_message %}
+                    <p class="admin-note">
+                        <strong>Admin:</strong> {{ req.admin_message }}
+                    </p>
+                {% endif %}
+            </div>
+        {% empty %}
+            <p>No requests yet.</p>
+        {% endfor %}
     </div>
 
 </div>
@@ -389,35 +221,16 @@ const uploadSection = document.getElementById('uploadSection');
 const cameraSection = document.getElementById('cameraSection');
 const uploadModeBtn = document.getElementById('uploadModeBtn');
 const cameraModeBtn = document.getElementById('cameraModeBtn');
-const imageInput = document.getElementById('imageInput');
-const capturedPreview = document.getElementById('capturedPreview');
-const capturedImageInput = document.getElementById('capturedImage');
-
-function openImagePicker() {
-    if (typeof imageInput.showPicker === 'function') {
-        imageInput.showPicker();
-    } else {
-        imageInput.click();
-    }
-}
 
 uploadModeBtn.addEventListener('click', () => {
     uploadSection.style.display = 'block';
     cameraSection.style.display = 'none';
     stopCamera();
-    openImagePicker();
 });
 
 cameraModeBtn.addEventListener('click', () => {
     uploadSection.style.display = 'none';
     cameraSection.style.display = 'block';
-});
-
-imageInput.addEventListener('change', () => {
-    if (imageInput.files.length > 0) {
-        capturedImageInput.value = '';
-        capturedPreview.style.display = 'none';
-    }
 });
 
 function stopCamera() {
@@ -483,18 +296,16 @@ document.getElementById('captureBtn').addEventListener('click', () => {
     context.drawImage(video, 0, 0);
 
     const imageData = canvas.toDataURL('image/png');
-    capturedImageInput.value = imageData;
-    imageInput.value = '';
+    document.getElementById('capturedImage').value = imageData;
 
-    capturedPreview.src = imageData;
-    capturedPreview.style.display = 'block';
+    const preview = document.getElementById('capturedPreview');
+    preview.src = imageData;
+    preview.style.display = 'block';
 });
 
 const locationModeInputs = document.querySelectorAll('input[name="location_mode"]');
 const exactLocationBox = document.getElementById('exactLocationBox');
 const manualLocationBox = document.getElementById('manualLocationBox');
-const barangayField = document.getElementById('barangayField');
-const cityField = document.getElementById('cityField');
 
 locationModeInputs.forEach(input => {
     input.addEventListener('change', () => {
@@ -509,32 +320,7 @@ locationModeInputs.forEach(input => {
     });
 });
 
-async function resolveAddressFromCoords(lat, lng) {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`;
-    const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!response.ok) throw new Error('Reverse geocoding failed');
-
-    const data = await response.json();
-    const address = data.address || {};
-
-    const barangay =
-        address.suburb ||
-        address.village ||
-        address.hamlet ||
-        address.neighbourhood ||
-        address.quarter ||
-        '';
-    const city =
-        address.city ||
-        address.town ||
-        address.municipality ||
-        address.county ||
-        '';
-
-    return { barangay, city };
-}
-
-document.getElementById('getLocationBtn').addEventListener('click', async () => {
+document.getElementById('getLocationBtn').addEventListener('click', () => {
     const status = document.getElementById('gpsStatus');
 
     if (!navigator.geolocation) {
@@ -543,26 +329,13 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
     }
 
     status.textContent = 'Getting exact location...';
-    navigator.geolocation.getCurrentPosition(async position => {
+    navigator.geolocation.getCurrentPosition(position => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
 
         document.getElementById('latitude').value = lat.toFixed(6);
         document.getElementById('longitude').value = lng.toFixed(6);
         status.textContent = `Location captured: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-
-        try {
-            const resolved = await resolveAddressFromCoords(lat, lng);
-            if (resolved.barangay) barangayField.value = resolved.barangay;
-            if (resolved.city) cityField.value = resolved.city;
-
-            const label = [resolved.barangay, resolved.city].filter(Boolean).join(', ');
-            if (label) {
-                status.textContent = `Location captured: ${label}`;
-            }
-        } catch (e) {
-            // Keep coordinate capture even when reverse geocoding is unavailable.
-        }
 
         if (!map) {
             map = L.map('requestMap').setView([lat, lng], 16);
@@ -593,63 +366,6 @@ document.getElementById('captureForm').addEventListener('submit', (e) => {
             alert('Please capture exact location first.');
         }
     }
-});
-
-document.querySelectorAll('.request-clickable').forEach((card) => {
-    card.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            card.click();
-        }
-    });
-});
-
-document.querySelectorAll('.request-edit-toggle').forEach((button) => {
-    button.addEventListener('click', () => {
-        const target = document.querySelector(button.dataset.target);
-        if (target) {
-            target.style.display = 'block';
-            // Sync visible fields and required flags when edit panel is opened.
-            applyRequestEditLocationMode(target);
-        }
-    });
-});
-
-document.querySelectorAll('.request-edit-cancel').forEach((button) => {
-    button.addEventListener('click', () => {
-        const target = document.querySelector(button.dataset.target);
-        if (target) target.style.display = 'none';
-    });
-});
-
-function applyRequestEditLocationMode(form) {
-    if (!form) return;
-    // Toggle which location section is editable inside the request edit modal.
-    const exactRadio = form.querySelector('input[name="edit_location_mode"][value="exact"]');
-    const manualBox = form.querySelector('[data-edit-manual-box]');
-    const exactBox = form.querySelector('[data-edit-exact-box]');
-    const barangayInput = form.querySelector('input[name="barangay"]');
-    const cityInput = form.querySelector('input[name="city"]');
-    const latitudeInput = form.querySelector('input[name="latitude"]');
-    const longitudeInput = form.querySelector('input[name="longitude"]');
-    const isExact = !!(exactRadio && exactRadio.checked);
-
-    if (manualBox) manualBox.style.display = isExact ? 'none' : 'grid';
-    if (exactBox) exactBox.style.display = isExact ? 'grid' : 'none';
-
-    if (latitudeInput) latitudeInput.required = isExact;
-    if (longitudeInput) longitudeInput.required = isExact;
-    if (barangayInput) barangayInput.required = !isExact;
-    if (cityInput) cityInput.required = !isExact;
-}
-
-document.querySelectorAll('.request-edit-form').forEach((form) => {
-    const modeRadios = form.querySelectorAll('input[name="edit_location_mode"]');
-    modeRadios.forEach((radio) => {
-        // Live switch between Manual Address and Exact GPS inputs.
-        radio.addEventListener('change', () => applyRequestEditLocationMode(form));
-    });
-    applyRequestEditLocationMode(form);
 });
 
 setStep(1);

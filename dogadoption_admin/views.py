@@ -96,6 +96,42 @@ def _extract_barangay_from_address(address):
     return _resolve_barangay_name(cleaned)
 
 
+BAYAWAN_ALLOWED_BARANGAYS = (
+    "Ali-is",
+    "Banaybanay",
+    "Banga",
+    "Boyco",
+    "Bugay",
+    "Cansumalig",
+    "Dawis",
+    "Kalamtukan",
+    "Kalumboyan",
+    "Malabugas",
+    "Mandu-ao",
+    "Maninihon",
+    "Minaba",
+    "Nangka",
+    "Narra",
+    "Pagatban",
+    "Poblacion",
+    "San Isidro",
+    "San Jose",
+    "San Miguel",
+    "San Roque",
+    "Suba",
+    "Tabuan",
+    "Tayawan",
+    "Tinago",
+    "Ubos",
+    "Villareal",
+    "Villasol",
+)
+
+BAYAWAN_ALLOWED_BARANGAY_KEYS = {
+    _normalize_barangay(name) for name in BAYAWAN_ALLOWED_BARANGAYS
+}
+
+
 def _normalize_city(value):
     return "".join(ch.lower() for ch in _clean_barangay(value) if ch.isalnum())
 
@@ -114,6 +150,13 @@ def _extract_city_from_address(address):
         if _is_bayawan_city(part):
             return "Bayawan City"
     return ""
+
+
+def _is_allowed_bayawan_map_point(barangay, city):
+    return (
+        _normalize_barangay(barangay) in BAYAWAN_ALLOWED_BARANGAY_KEYS
+        and _is_bayawan_city(city)
+    )
 
 
 def _build_owner_full_name(first_name, last_name, fallback=""):
@@ -306,8 +349,7 @@ def _validate_and_save_global_appointment_dates(dates_raw, user):
 def _get_active_global_appointment_dates():
     return list(
         GlobalAppointmentDate.objects.filter(
-            is_active=True,
-            appointment_date__gte=timezone.localdate(),
+            is_active=True
         ).order_by("appointment_date").values_list("appointment_date", flat=True)
     )
 

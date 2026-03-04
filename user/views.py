@@ -1,7 +1,6 @@
-﻿from django.shortcuts import render, redirect , get_object_or_404
+﻿from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.views.decorators.csrf import csrf_exempt
@@ -22,16 +21,21 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 
 #MODELS FROM ADMIN APP 
-from dogadoption_admin.models import DogAnnouncement, AnnouncementComment
-from dogadoption_admin.models import Post, PostRequest, GlobalAppointmentDate
-from dogadoption_admin.models import Barangay
+from dogadoption_admin.models import (
+    AnnouncementComment,
+    Barangay,
+    DogAnnouncement,
+    GlobalAppointmentDate,
+    Post,
+    PostRequest,
+)
 
 #MODELS FROM USER APP
-from .models import Profile, DogCaptureRequest, DogCaptureRequestImage, DogCaptureRequestLandmarkImage, AdoptionRequest, FaceImage, OwnerClaim, ClaimImage
+from .models import Profile, DogCaptureRequest, DogCaptureRequestImage, DogCaptureRequestLandmarkImage, FaceImage, ClaimImage
 from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, MissingDogPost
 
 #FORMS.PY 
-from .forms import UserAdoptionPostForm,MissingDogPostForm
+from .forms import MissingDogPostForm, UserAdoptionPostForm
 # Decorator to allow only users
 
 
@@ -102,6 +106,172 @@ def _resolve_barangay_name(value):
         if _normalize_barangay(name) == normalized:
             return name
     return ""
+
+
+def _format_posted_label(dt):
+    if not dt:
+        return ""
+    now = timezone.now()
+    delta = now - dt
+    if delta < timedelta(minutes=1):
+        return "Just now"
+    if delta < timedelta(hours=1):
+        minutes = max(int(delta.total_seconds() // 60), 1)
+        return f"{minutes}m"
+    if delta < timedelta(days=1):
+        hours = max(int(delta.total_seconds() // 3600), 1)
+        return f"{hours}h"
+    if delta < timedelta(days=7):
+        days = max(int(delta.total_seconds() // 86400), 1)
+        return f"{days}d"
+    return dt.strftime("%b %d, %Y")
+
+
+def _split_time_left(diff):
+    total_seconds = max(int(diff.total_seconds()), 0)
+    days = total_seconds // 86400
+    remainder = total_seconds % 86400
+    hours = remainder // 3600
+    remainder = remainder % 3600
+    minutes = remainder // 60
+    return days, hours, minutes
+
+
+def _post_phase_payload(post):
+    phase = post.current_phase() if hasattr(post, "current_phase") else "closed"
+    days = hours = minutes = 0
+    if phase in {"claim", "adopt"}:
+        days, hours, minutes = _split_time_left(post.time_left())
+    return phase, days, hours, minutes
+
+
+def _create_user_adoption_images(request, post):
+    main_image = request.FILES.get("main_image")
+    if main_image:
+        UserAdoptionImage.objects.create(post=post, image=main_image)
+    for img in request.FILES.getlist("extra_images"):
+        UserAdoptionImage.objects.create(post=post, image=img)
+
+
+def _handle_user_post_creation_submission(request, selected_type):
+    adoption_form = UserAdoptionPostForm()
+    missing_form = MissingDogPostForm()
+
+    if selected_type == "missing":
+        missing_form = MissingDogPostForm(request.POST, request.FILES)
+        if missing_form.is_valid():
+            post = missing_form.save(commit=False)
+            post.owner = request.user
+            post.save()
+            messages.success(request, "Missing dog post created successfully.")
+            return True, adoption_form, missing_form
+        return False, adoption_form, missing_form
+
+    adoption_form = UserAdoptionPostForm(request.POST, request.FILES)
+    if adoption_form.is_valid():
+        post = adoption_form.save(commit=False)
+        post.owner = request.user
+        post.save()
+        _create_user_adoption_images(request, post)
+        messages.success(request, "Adoption post created successfully.")
+        return True, adoption_form, missing_form
+
+    return False, adoption_form, missing_form
+
+
+def _get_available_appointment_dates():
+    return GlobalAppointmentDate.objects.filter(
+        is_active=True,
+        appointment_date__gte=timezone.localdate(),
+    ).order_by("appointment_date")
+
+
+def _render_confirm_page(request, template_name, post, available_dates):
+    return render(request, template_name, {
+        "post": post,
+        "available_dates": available_dates,
+    })
+
+
+def _create_post_request_with_images(request, post, request_type, appointment_date):
+    req = PostRequest.objects.create(
+        user=request.user,
+        post=post,
+        request_type=request_type,
+        status="pending",
+        appointment_date=appointment_date,
+    )
+    for img in request.FILES.getlist("images"):
+        ClaimImage.objects.create(claim=req, image=img)
+    return req
+
+
+def _handle_confirm_request(
+    request,
+    post_id,
+    request_type,
+    template_name,
+    is_open_fn,
+    not_open_message,
+    duplicate_message,
+    success_message,
+):
+    post = get_object_or_404(Post, id=post_id)
+    available_dates = _get_available_appointment_dates()
+
+    if post.status in ["reunited", "adopted"]:
+        messages.warning(request, "This dog is no longer available.")
+        return redirect("user:user_home")
+
+    if not is_open_fn(post):
+        messages.warning(request, not_open_message)
+        return redirect("user:user_home")
+
+    if PostRequest.objects.filter(
+        user=request.user,
+        post=post,
+        request_type=request_type,
+    ).exists():
+        messages.info(request, duplicate_message)
+        return redirect("user:user_home")
+
+    if request.method == "POST":
+        appointment_date_raw = request.POST.get("appointment_date")
+        appointment_date = parse_date(appointment_date_raw) if appointment_date_raw else None
+
+        if not appointment_date:
+            messages.error(request, "Please select an appointment date.")
+            return _render_confirm_page(request, template_name, post, available_dates)
+
+        if not available_dates.filter(appointment_date=appointment_date).exists():
+            messages.error(request, "Selected appointment date is not available.")
+            return _render_confirm_page(request, template_name, post, available_dates)
+
+        _create_post_request_with_images(request, post, request_type, appointment_date)
+        messages.success(request, success_message)
+        return redirect("user:user_home")
+
+    return _render_confirm_page(request, template_name, post, available_dates)
+
+
+def _user_post_requests(user, request_type):
+    return PostRequest.objects.filter(
+        user=user,
+        request_type=request_type,
+    ).select_related("post").order_by("-created_at")
+
+
+def _is_valid_capture_reason(reason):
+    return reason in DogCaptureRequest.REASON_LABELS
+
+
+def _group_capture_requests_by_status(requests):
+    return {
+        "accepted_requests": [req for req in requests if req.status == "accepted"],
+        "pending_requests": [req for req in requests if req.status == "pending"],
+        "captured_requests": [req for req in requests if req.status == "captured"],
+        "declined_requests": [req for req in requests if req.status == "declined"],
+    }
 
 
 def barangay_list_api(request):
@@ -314,31 +484,12 @@ def user_home(request):
 
         selected_type = request.POST.get("post_type", "adoption")
         open_create_modal = True
-
-        if selected_type == "missing":
-            missing_form = MissingDogPostForm(request.POST, request.FILES)
-            if missing_form.is_valid():
-                post = missing_form.save(commit=False)
-                post.owner = request.user
-                post.save()
-                messages.success(request, "Missing dog post created successfully.")
-                return redirect("user:user_home")
-        else:
-            adoption_form = UserAdoptionPostForm(request.POST, request.FILES)
-            if adoption_form.is_valid():
-                post = adoption_form.save(commit=False)
-                post.owner = request.user
-                post.save()
-
-                main_image = request.FILES.get("main_image")
-                if main_image:
-                    UserAdoptionImage.objects.create(post=post, image=main_image)
-
-                for img in request.FILES.getlist("extra_images"):
-                    UserAdoptionImage.objects.create(post=post, image=img)
-
-                messages.success(request, "Adoption post created successfully.")
-                return redirect("user:user_home")
+        created, adoption_form, missing_form = _handle_user_post_creation_submission(
+            request,
+            selected_type,
+        )
+        if created:
+            return redirect("user:user_home")
 
     query = (request.GET.get('q') or '').strip()
     page_number = request.GET.get('page', 1)
@@ -375,39 +526,10 @@ def user_home(request):
 
     combined_posts = []
 
-    def format_posted_label(dt):
-        if not dt:
-            return ""
-        now = timezone.now()
-        delta = now - dt
-        if delta < timedelta(minutes=1):
-            return "Just now"
-        if delta < timedelta(hours=1):
-            minutes = max(int(delta.total_seconds() // 60), 1)
-            return f"{minutes}m"
-        if delta < timedelta(days=1):
-            hours = max(int(delta.total_seconds() // 3600), 1)
-            return f"{hours}h"
-        if delta < timedelta(days=7):
-            days = max(int(delta.total_seconds() // 86400), 1)
-            return f"{days}d"
-        return dt.strftime("%b %d, %Y")
-
     # ADMIN POSTS
     for p in admin_posts:
-        days = hours = minutes = 0
-        phase = p.current_phase() if hasattr(p, "current_phase") else "closed"
+        phase, days, hours, minutes = _post_phase_payload(p)
         is_open_for_adoption = phase in ["claim", "adopt"]
-
-        if is_open_for_adoption:
-            diff = p.time_left()
-            total_seconds = max(int(diff.total_seconds()), 0)
-
-            days = total_seconds // 86400
-            remainder = total_seconds % 86400
-            hours = remainder // 3600
-            remainder = remainder % 3600
-            minutes = remainder // 60
 
         deadline = None
         if phase == 'claim':
@@ -423,7 +545,7 @@ def user_home(request):
             'minutes_left': minutes,
             'is_open_for_adoption': is_open_for_adoption,
             'phase': phase,
-            'posted_label': format_posted_label(p.created_at),
+            'posted_label': _format_posted_label(p.created_at),
             'deadline_iso': deadline.isoformat() if deadline else "",
         })
 
@@ -437,7 +559,7 @@ def user_home(request):
             'minutes_left': 0,
             'is_open_for_adoption': False,
             'phase': 'closed',
-            'posted_label': format_posted_label(p.created_at),
+            'posted_label': _format_posted_label(p.created_at),
         })
 
     # MISSING POSTS
@@ -450,7 +572,7 @@ def user_home(request):
             'minutes_left': 0,
             'is_open_for_adoption': False,
             'phase': 'closed',
-            'posted_label': format_posted_label(p.created_at),
+            'posted_label': _format_posted_label(p.created_at),
         })
 
     # SORT ALL POSTS
@@ -483,30 +605,12 @@ def create_post(request):
     missing_form = MissingDogPostForm()
 
     if request.method == "POST":
-        if selected_type == "missing":
-            missing_form = MissingDogPostForm(request.POST, request.FILES)
-            if missing_form.is_valid():
-                post = missing_form.save(commit=False)
-                post.owner = request.user
-                post.save()
-                messages.success(request, "Missing dog post created successfully.")
-                return redirect("user:user_home")
-        else:
-            adoption_form = UserAdoptionPostForm(request.POST, request.FILES)
-            if adoption_form.is_valid():
-                post = adoption_form.save(commit=False)
-                post.owner = request.user
-                post.save()
-
-                main_image = request.FILES.get("main_image")
-                if main_image:
-                    UserAdoptionImage.objects.create(post=post, image=main_image)
-
-                for img in request.FILES.getlist("extra_images"):
-                    UserAdoptionImage.objects.create(post=post, image=img)
-
-                messages.success(request, "Adoption post created successfully.")
-                return redirect("user:user_home")
+        created, adoption_form, missing_form = _handle_user_post_creation_submission(
+            request,
+            selected_type,
+        )
+        if created:
+            return redirect("user:user_home")
 
     return render(request, "home/post_create.html", {
         "selected_type": selected_type,
@@ -612,7 +716,7 @@ def request_dog_capture(request):
             filename = f"capture_{request.user.id}_{int(timezone.now().timestamp())}.png"
             uploaded_images = [ContentFile(base64.b64decode(imgstr), name=filename)]
 
-        if reason not in DogCaptureRequest.REASON_LABELS:
+        if not _is_valid_capture_reason(reason):
             messages.error(request, "Please select a valid reason.")
             return redirect('user:dog_capture_request')
 
@@ -702,17 +806,11 @@ def request_dog_capture(request):
         'landmark_images',
     ).order_by('-created_at'))
 
-    accepted_requests = [req for req in requests if req.status == 'accepted']
-    pending_requests = [req for req in requests if req.status == 'pending']
-    captured_requests = [req for req in requests if req.status == 'captured']
-    declined_requests = [req for req in requests if req.status == 'declined']
+    grouped_requests = _group_capture_requests_by_status(requests)
 
     return render(request, 'user_request/request.html', {
         'requests': requests,
-        'accepted_requests': accepted_requests,
-        'pending_requests': pending_requests,
-        'captured_requests': captured_requests,
-        'declined_requests': declined_requests,
+        **grouped_requests,
     })
 
 
@@ -733,7 +831,7 @@ def edit_dog_capture_request(request, req_id):
         return redirect('user:dog_capture_request')
 
     reason = (request.POST.get('reason') or '').strip()
-    if reason not in DogCaptureRequest.REASON_LABELS:
+    if not _is_valid_capture_reason(reason):
         messages.error(request, "Please select a valid reason.")
         return redirect('user:dog_capture_request')
 
@@ -912,16 +1010,7 @@ def adopt_list(request):
 
     post_items = []
     for p in posts:
-        phase = p.current_phase()
-        days = hours = minutes = 0
-        if phase in ["claim", "adopt"]:
-            diff = p.time_left()
-            total_seconds = max(int(diff.total_seconds()), 0)
-            days = total_seconds // 86400
-            remainder = total_seconds % 86400
-            hours = remainder // 3600
-            remainder = remainder % 3600
-            minutes = remainder // 60
+        phase, days, hours, minutes = _post_phase_payload(p)
         post_items.append({
             "post": p,
             "phase": phase,
@@ -937,77 +1026,21 @@ def adopt_list(request):
 
 @user_only
 def adopt_status(request):
-    requests = PostRequest.objects.filter(
-        user=request.user,
-        request_type='adopt'
-    ).select_related('post').order_by('-created_at')
+    requests = _user_post_requests(request.user, "adopt")
     return render(request, 'adopt/adopt.html', {'requests': requests})
 
 @user_only
 def adopt_confirm(request, post_id):
-    post = get_object_or_404(Post, id=post_id)
-    available_dates = GlobalAppointmentDate.objects.filter(
-        is_active=True,
-        appointment_date__gte=timezone.localdate(),
-    ).order_by('appointment_date')
-
-    # Block if already claimed or adopted
-    if post.status in ['reunited', 'adopted']:
-        messages.warning(request, "This dog is no longer available.")
-        return redirect('user:user_home')
-
-    if not post.is_open_for_adoption():
-        messages.warning(request, "Adoption is not open yet or has already closed.")
-        return redirect('user:user_home')
-
-    # Prevent duplicate adoption requests
-    if PostRequest.objects.filter(
-        user=request.user,
-        post=post,
-        request_type='adopt'
-    ).exists():
-        messages.info(request, "You already submitted an adoption request.")
-        return redirect('user:user_home')
-
-    if request.method == 'POST':
-        appointment_date_raw = request.POST.get('appointment_date')
-        appointment_date = parse_date(appointment_date_raw) if appointment_date_raw else None
-
-        if not appointment_date:
-            messages.error(request, "Please select an appointment date.")
-            return render(request, 'adopt/adopt_confirm.html', {
-                'post': post,
-                'available_dates': available_dates,
-            })
-
-        if not available_dates.filter(appointment_date=appointment_date).exists():
-            messages.error(request, "Selected appointment date is not available.")
-            return render(request, 'adopt/adopt_confirm.html', {
-                'post': post,
-                'available_dates': available_dates,
-            })
-
-        req = PostRequest.objects.create(
-            user=request.user,
-            post=post,
-            request_type='adopt',
-            status='pending',
-            appointment_date=appointment_date,
-        )
-
-        for img in request.FILES.getlist('images'):
-            ClaimImage.objects.create(claim=req, image=img)
-
-        messages.success(
-            request,
-            "Adoption request submitted successfully! ðŸ¾"
-        )
-        return redirect('user:user_home')
-
-    return render(request, 'adopt/adopt_confirm.html', {
-        'post': post,
-        'available_dates': available_dates,
-    })
+    return _handle_confirm_request(
+        request=request,
+        post_id=post_id,
+        request_type="adopt",
+        template_name="adopt/adopt_confirm.html",
+        is_open_fn=lambda post: post.is_open_for_adoption(),
+        not_open_message="Adoption is not open yet or has already closed.",
+        duplicate_message="You already submitted an adoption request.",
+        success_message="Adoption request submitted successfully! ðŸ¾",
+    )
 
 
 
@@ -1054,10 +1087,7 @@ def announcement_comment(request, post_id):
 
 @user_only
 def my_claims(request):
-    claims = PostRequest.objects.filter(
-        user=request.user,
-        request_type='claim'
-    ).select_related('post').order_by('-created_at')
+    claims = _user_post_requests(request.user, "claim")
 
     return render(request, 'claim/claim.html', {
         'claims': claims
@@ -1066,66 +1096,14 @@ def my_claims(request):
 
 @user_only
 def claim_confirm(request, post_id):
-    post = get_object_or_404(Post, id=post_id)
-    available_dates = GlobalAppointmentDate.objects.filter(
-        is_active=True,
-        appointment_date__gte=timezone.localdate(),
-    ).order_by('appointment_date')
+    return _handle_confirm_request(
+        request=request,
+        post_id=post_id,
+        request_type="claim",
+        template_name="claim/claim_confirm.html",
+        is_open_fn=lambda post: post.is_open_for_claim(),
+        not_open_message="Claim period has ended for this post.",
+        duplicate_message="You already submitted a claim for this dog.",
+        success_message="Claim submitted successfully! Admin will review it carefully ðŸ¾",
+    )
 
-    #  Block if already claimed or adopted
-    if post.status in ['reunited', 'adopted']:
-        messages.warning(request, "This dog is no longer available.")
-        return redirect('user:user_home')
-
-    if not post.is_open_for_claim():
-        messages.warning(request, "Claim period has ended for this post.")
-        return redirect('user:user_home')
-
-    # Prevent duplicate claim requests
-    if PostRequest.objects.filter(
-        user=request.user,
-        post=post,
-        request_type='claim'
-    ).exists():
-        messages.info(request, "You already submitted a claim for this dog.")
-        return redirect('user:user_home')
-
-    if request.method == 'POST':
-        appointment_date_raw = request.POST.get('appointment_date')
-        appointment_date = parse_date(appointment_date_raw) if appointment_date_raw else None
-
-        if not appointment_date:
-            messages.error(request, "Please select an appointment date.")
-            return render(request, 'claim/claim_confirm.html', {
-                'post': post,
-                'available_dates': available_dates,
-            })
-
-        if not available_dates.filter(appointment_date=appointment_date).exists():
-            messages.error(request, "Selected appointment date is not available.")
-            return render(request, 'claim/claim_confirm.html', {
-                'post': post,
-                'available_dates': available_dates,
-            })
-
-        req = PostRequest.objects.create(
-            user=request.user,
-            post=post,
-            request_type='claim',
-            status='pending',
-            appointment_date=appointment_date,
-        )
-
-        for img in request.FILES.getlist('images'):
-            ClaimImage.objects.create(claim=req, image=img)
-
-        messages.success(
-            request,
-            "Claim submitted successfully! Admin will review it carefully ðŸ¾"
-        )
-        return redirect('user:user_home')
-
-    return render(request, 'claim/claim_confirm.html', {
-        'post': post,
-        'available_dates': available_dates,
-    })

@@ -99,6 +99,12 @@ class Post(models.Model):
     def is_open_for_claim_adopt(self):
         return self.current_phase() in ['claim', 'adopt']
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["created_at"], name="post_created_idx"),
+            models.Index(fields=["status", "created_at"], name="post_status_created_idx"),
+        ]
+
 
 
 class PostImage(models.Model):
@@ -155,6 +161,13 @@ class PostRequest(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["post", "request_type", "status"], name="postreq_post_type_status_idx"),
+            models.Index(fields=["request_type", "status", "created_at"], name="postreq_type_status_created_idx"),
+            models.Index(fields=["user", "request_type", "status"], name="postreq_user_type_status_idx"),
+        ]
+
     def __str__(self):
         return f"{self.user.username} - {self.request_type} ({self.status})"
 
@@ -173,6 +186,9 @@ class GlobalAppointmentDate(models.Model):
 
     class Meta:
         ordering = ['appointment_date']
+        indexes = [
+            models.Index(fields=["is_active", "appointment_date"], name="gappt_active_date_idx"),
+        ]
 
     def __str__(self):
         return f"Global appointment - {self.appointment_date}"
@@ -226,6 +242,12 @@ class DogAnnouncement(models.Model):
         on_delete=models.CASCADE,
         related_name="announcements"
     )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["created_at"], name="dogann_created_idx"),
+            models.Index(fields=["category", "created_at"], name="dogann_category_created_idx"),
+        ]
 
     def __str__(self):
         return self.title
@@ -282,6 +304,11 @@ class AnnouncementComment(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["announcement", "created_at"], name="anncomment_ann_created_idx"),
+        ]
+
     def __str__(self):
         return f"{self.user.username} - {self.comment[:20]}"
 
@@ -295,6 +322,9 @@ class AdminNotification(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=["is_read", "created_at"], name="adminnotif_read_created_idx"),
+        ]
 
     def __str__(self):
         return self.title
@@ -369,6 +399,11 @@ class DogRegistration(models.Model):
     contact_no = models.CharField(max_length=20)
 
     date_registered = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["date_registered"], name="dogreg_date_registered_idx"),
+        ]
 
     def __str__(self):
         return f"{self.name_of_pet} - {self.reg_no}"

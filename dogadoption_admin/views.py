@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
+from collections import defaultdict
 import hashlib
 import io
 import json
@@ -10,6 +11,8 @@ from django.contrib import messages
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.cache import cache
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.db.models.functions import Lower, Trim, TruncDate
@@ -32,6 +35,8 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from xhtml2pdf import pisa
 
 from .forms import CitationForm, PenaltyForm, PostForm, SectionForm
+from .cache_utils import ANALYTICS_DASHBOARD_CACHE_KEY
+from .context_processors import ADMIN_NOTIFICATIONS_CACHE_KEY
 from .models import (
     AdminNotification,
     AnnouncementComment,
@@ -266,6 +271,49 @@ def _enrich_capture_request_user(req):
     )
 
 
+def _enrich_capture_request_display(req):
+    _enrich_capture_request_user(req)
+
+    barangay = _clean_barangay(req.barangay)
+    city = _clean_barangay(req.city)
+    manual_full_address = _clean_barangay(req.manual_full_address)
+    try:
+        profile_address = _clean_barangay(req.requested_by.profile.address)
+    except Profile.DoesNotExist:
+        profile_address = ""
+
+    if not barangay:
+        profile_barangay = profile_address
+        barangay = _resolve_barangay_name(profile_barangay) or profile_barangay
+
+    if not city:
+        city = _extract_city_from_address(profile_address)
+
+    if manual_full_address:
+        req.location_label = manual_full_address
+    elif barangay and city:
+        req.location_label = f"{barangay}, {city}"
+    elif barangay:
+        req.location_label = barangay
+    elif city:
+        req.location_label = city
+    elif req.latitude is not None and req.longitude is not None:
+        req.location_label = "Pinned location"
+    else:
+        req.location_label = "No location"
+    req.has_location = req.location_label != "No location"
+    req.display_barangay = barangay
+
+    request_images = list(req.images.all())
+    if request_images:
+        image_url = request_images[0].image.url
+    elif req.image:
+        image_url = req.image.url
+    else:
+        image_url = ""
+    req.preview_image_url = image_url
+
+
 ANNOUNCEMENT_CATEGORY_OPTIONS = [
     {
         "slug": "dog-announcements",
@@ -305,6 +353,8 @@ ANNOUNCEMENT_CATEGORY_BY_SLUG = {
 ANNOUNCEMENT_CATEGORY_BY_VALUE = {
     option["value"]: option for option in ANNOUNCEMENT_CATEGORY_OPTIONS
 }
+
+ANALYTICS_DASHBOARD_CACHE_TTL_SECONDS = 60
 
 
 def _set_post_form_barangay_source(post_form):
@@ -368,16 +418,22 @@ def _build_requests_with_meta(post, request_type):
         .prefetch_related("images")
         .order_by("-created_at")
     )
-    user_ids = [req.user.id for req in requests_qs]
+    requests = list(requests_qs)
+    user_ids = [req.user_id for req in requests]
+
     profiles = Profile.objects.filter(user_id__in=user_ids)
     faceauth = FaceImage.objects.filter(user_id__in=user_ids)
+    profile_by_user_id = {profile.user_id: profile for profile in profiles}
+    faceauth_by_user_id = defaultdict(list)
+    for image in faceauth:
+        faceauth_by_user_id[image.user_id].append(image)
 
     requests_with_meta = []
-    for req in requests_qs:
+    for req in requests:
         requests_with_meta.append({
             "req": req,
-            "profile": profiles.filter(user_id=req.user.id).first(),
-            "face_images": faceauth.filter(user_id=req.user.id),
+            "profile": profile_by_user_id.get(req.user_id),
+            "face_images": faceauth_by_user_id.get(req.user_id, []),
         })
     return requests_with_meta
 
@@ -847,7 +903,13 @@ def admin_dog_capture_requests(request):
 
         return redirect('dogadoption_admin:requests')
 
-    requests = list(
+    rows_per_page = 10
+    valid_tabs = {"pending", "accepted", "captured", "declined"}
+    active_tab = (request.GET.get("tab") or "pending").strip().lower()
+    if active_tab not in valid_tabs:
+        active_tab = "pending"
+
+    base_qs = (
         DogCaptureRequest.objects.select_related(
             'requested_by', 'requested_by__profile', 'assigned_admin'
         )
@@ -855,76 +917,72 @@ def admin_dog_capture_requests(request):
         .order_by('-created_at')
     )
 
-    for req in requests:
-        _enrich_capture_request_user(req)
+    def _paginate_status(status_key, page_param):
+        filtered_qs = base_qs.filter(status=status_key)
+        page_obj = Paginator(filtered_qs, rows_per_page).get_page(
+            request.GET.get(page_param, 1)
+        )
+        items = list(page_obj.object_list)
+        for req in items:
+            _enrich_capture_request_display(req)
+        return page_obj, items, filtered_qs.count()
 
-        barangay = _clean_barangay(req.barangay)
-        city = _clean_barangay(req.city)
-        manual_full_address = _clean_barangay(req.manual_full_address)
-        try:
-            profile_address = _clean_barangay(req.requested_by.profile.address)
-        except Profile.DoesNotExist:
-            profile_address = ""
+    pending_page_obj, pending_requests, pending_total = _paginate_status(
+        "pending", "pending_page"
+    )
+    accepted_page_obj, accepted_requests, accepted_total = _paginate_status(
+        "accepted", "accepted_page"
+    )
+    captured_page_obj, captured_requests, captured_total = _paginate_status(
+        "captured", "captured_page"
+    )
+    declined_page_obj, declined_requests, declined_total = _paginate_status(
+        "declined", "declined_page"
+    )
 
-        if not barangay:
-            profile_barangay = profile_address
-            barangay = _resolve_barangay_name(profile_barangay) or profile_barangay
-
-        if not city:
-            city = _extract_city_from_address(profile_address)
-
-        if manual_full_address:
-            req.location_label = manual_full_address
-        elif barangay and city:
-            req.location_label = f"{barangay}, {city}"
-        elif barangay:
-            req.location_label = barangay
-        elif city:
-            req.location_label = city
-        elif req.latitude is not None and req.longitude is not None:
-            req.location_label = "Pinned location"
-        else:
-            req.location_label = "No location"
-        req.has_location = req.location_label != "No location"
-
-        request_images = list(req.images.all())
-        if request_images:
-            image_url = request_images[0].image.url
-        elif req.image:
-            image_url = req.image.url
-        else:
-            image_url = ''
-        req.preview_image_url = image_url
-
-    pending_requests = [req for req in requests if req.status == 'pending']
-    accepted_requests = [req for req in requests if req.status == 'accepted']
-    captured_requests = [req for req in requests if req.status == 'captured']
-    declined_requests = [req for req in requests if req.status == 'declined']
-
+    map_points_qs = list(
+        base_qs.filter(
+            status='accepted',
+            latitude__isnull=False,
+            longitude__isnull=False,
+        )[:400]
+    )
     map_points = []
-    for req in requests:
-        if req.latitude is not None and req.longitude is not None:
-            scheduled_iso = req.scheduled_date.date().isoformat() if req.scheduled_date else ''
-            scheduled_display = req.scheduled_date.strftime('%b %d, %Y %I:%M %p') if req.scheduled_date else ''
-            map_points.append({
-                'id': req.id,
-                'user': req.requested_by.username,
-                'reason': req.get_reason_display(),
-                'status': req.get_status_display(),
-                'status_key': req.status,
-                'lat': float(req.latitude),
-                'lng': float(req.longitude),
-                'created_at': req.created_at.strftime('%b %d, %Y %I:%M %p'),
-                'scheduled_date_iso': scheduled_iso,
-                'scheduled_date_display': scheduled_display,
-            })
+    for req in map_points_qs:
+        _enrich_capture_request_display(req)
+        scheduled_iso = req.scheduled_date.date().isoformat() if req.scheduled_date else ''
+        scheduled_display = req.scheduled_date.strftime('%b %d, %Y %I:%M %p') if req.scheduled_date else ''
+        map_points.append({
+            'id': req.id,
+            'user': req.requested_by.username,
+            'reason': req.get_reason_display(),
+            'status': req.get_status_display(),
+            'status_key': req.status,
+            'lat': float(req.latitude),
+            'lng': float(req.longitude),
+            'created_at': req.created_at.strftime('%b %d, %Y %I:%M %p'),
+            'scheduled_date_iso': scheduled_iso,
+            'scheduled_date_display': scheduled_display,
+            'barangay': req.display_barangay,
+            'location_label': req.location_label,
+            'image_url': req.preview_image_url,
+        })
 
     return render(request, 'admin_request/request.html', {
-        'requests': requests,
+        'requests': bool(pending_total or accepted_total or captured_total or declined_total),
         'pending_requests': pending_requests,
         'accepted_requests': accepted_requests,
         'captured_requests': captured_requests,
         'declined_requests': declined_requests,
+        'pending_page_obj': pending_page_obj,
+        'accepted_page_obj': accepted_page_obj,
+        'captured_page_obj': captured_page_obj,
+        'declined_page_obj': declined_page_obj,
+        'pending_total': pending_total,
+        'accepted_total': accepted_total,
+        'captured_total': captured_total,
+        'declined_total': declined_total,
+        'active_tab': active_tab,
         'map_points': map_points,
         'contacts': DogCatcherContact.objects.all(),
     })
@@ -1219,6 +1277,7 @@ def admin_notifications(request):
         action = request.POST.get("action")
         if action == "mark_all_read":
             AdminNotification.objects.filter(is_read=False).update(is_read=True)
+            cache.delete(ADMIN_NOTIFICATIONS_CACHE_KEY)
         return redirect("dogadoption_admin:admin_notifications")
 
     notifications = AdminNotification.objects.all()
@@ -1233,6 +1292,7 @@ def mark_notification_read(request, pk):
     notif = get_object_or_404(AdminNotification, pk=pk)
     notif.is_read = True
     notif.save(update_fields=["is_read"])
+    cache.delete(ADMIN_NOTIFICATIONS_CACHE_KEY)
     target = notif.url or "dogadoption_admin:admin_notifications"
     return redirect(target)
 
@@ -1240,6 +1300,10 @@ def mark_notification_read(request, pk):
 # ++++++++++++++++++++++++++++ Analytics Dashboard ++++++++++++++++++++++++++++++++++++++++++++++++
 @admin_required
 def analytics_dashboard(request):
+    cached_context = cache.get(ANALYTICS_DASHBOARD_CACHE_KEY)
+    if cached_context is not None:
+        return render(request, "admin_analytics/dashboard.html", cached_context)
+
     total_users = User.objects.filter(is_staff=False).count()
     total_posts = Post.objects.count()
     total_capture_requests = DogCaptureRequest.objects.count()
@@ -1450,6 +1514,11 @@ def analytics_dashboard(request):
         "vaccination_barangay_chart": vaccination_barangay_chart,
         "barangay_chart": barangay_chart,
     }
+    cache.set(
+        ANALYTICS_DASHBOARD_CACHE_KEY,
+        context,
+        ANALYTICS_DASHBOARD_CACHE_TTL_SECONDS,
+    )
     return render(request, "admin_analytics/dashboard.html", context)
 
 #+++++++++++++++++++++++++++++  ADMIN REGISTRATION  +++++++++++++++++++++++++++++++++++++++++

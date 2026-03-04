@@ -27,7 +27,8 @@ urlpatterns = [
     path('user/', include('user.urls')),
     path('vetadmin/analytics/dashboard/', admin_views.analytics_dashboard, name='analytics_dashboard_direct'),
     path('vetadmin/', include('dogadoption_admin.urls')),
-    
+]
 
-]+ static(settings.MEDIA_URL,document_root=settings.MEDIA_ROOT)
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

@@ -30,13 +30,13 @@
     {% if requests %}
         <div class="requests-board">
             <div class="tab-bar" role="tablist" aria-label="Request Status Tabs">
-                <button class="tab-btn is-active" data-tab="pending" role="tab" aria-selected="true">Pending Requests</button>
-                <button class="tab-btn" data-tab="accepted" role="tab" aria-selected="false">Scheduled Requests</button>
-                <button class="tab-btn" data-tab="captured" role="tab" aria-selected="false">Captured Records</button>
-                <button class="tab-btn" data-tab="declined" role="tab" aria-selected="false">Rejected Requests</button>
+                <button class="tab-btn {% if active_tab == 'pending' %}is-active{% endif %}" data-tab="pending" role="tab" aria-selected="{% if active_tab == 'pending' %}true{% else %}false{% endif %}">Pending Requests ({{ pending_total }})</button>
+                <button class="tab-btn {% if active_tab == 'accepted' %}is-active{% endif %}" data-tab="accepted" role="tab" aria-selected="{% if active_tab == 'accepted' %}true{% else %}false{% endif %}">Scheduled Requests ({{ accepted_total }})</button>
+                <button class="tab-btn {% if active_tab == 'captured' %}is-active{% endif %}" data-tab="captured" role="tab" aria-selected="{% if active_tab == 'captured' %}true{% else %}false{% endif %}">Captured Records ({{ captured_total }})</button>
+                <button class="tab-btn {% if active_tab == 'declined' %}is-active{% endif %}" data-tab="declined" role="tab" aria-selected="{% if active_tab == 'declined' %}true{% else %}false{% endif %}">Rejected Requests ({{ declined_total }})</button>
             </div>
 
-            <div class="tab-panel is-active" data-panel="pending" role="tabpanel">
+            <div class="tab-panel {% if active_tab == 'pending' %}is-active{% endif %}" data-panel="pending" role="tabpanel">
                 <div class="table-card">
                     <table class="request-table">
                         <thead>
@@ -79,9 +79,22 @@
                         </tbody>
                     </table>
                 </div>
+                {% if pending_page_obj.has_previous or pending_page_obj.has_next %}
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <a class="btn btn-sm btn-outline-secondary {% if not pending_page_obj.has_previous %}disabled{% endif %}"
+                       href="?tab=pending&pending_page={% if pending_page_obj.has_previous %}{{ pending_page_obj.previous_page_number }}{% else %}{{ pending_page_obj.number }}{% endif %}&accepted_page={{ accepted_page_obj.number }}&captured_page={{ captured_page_obj.number }}&declined_page={{ declined_page_obj.number }}">
+                        Previous
+                    </a>
+                    <small>Page {{ pending_page_obj.number }} of {{ pending_page_obj.paginator.num_pages }}</small>
+                    <a class="btn btn-sm btn-outline-secondary {% if not pending_page_obj.has_next %}disabled{% endif %}"
+                       href="?tab=pending&pending_page={% if pending_page_obj.has_next %}{{ pending_page_obj.next_page_number }}{% else %}{{ pending_page_obj.number }}{% endif %}&accepted_page={{ accepted_page_obj.number }}&captured_page={{ captured_page_obj.number }}&declined_page={{ declined_page_obj.number }}">
+                        Next
+                    </a>
+                </div>
+                {% endif %}
             </div>
 
-            <div class="tab-panel" data-panel="accepted" role="tabpanel">
+            <div class="tab-panel {% if active_tab == 'accepted' %}is-active{% endif %}" data-panel="accepted" role="tabpanel">
                 <div class="table-card">
                     <table class="request-table">
                         <thead>
@@ -130,9 +143,22 @@
                         </tbody>
                     </table>
                 </div>
+                {% if accepted_page_obj.has_previous or accepted_page_obj.has_next %}
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <a class="btn btn-sm btn-outline-secondary {% if not accepted_page_obj.has_previous %}disabled{% endif %}"
+                       href="?tab=accepted&pending_page={{ pending_page_obj.number }}&accepted_page={% if accepted_page_obj.has_previous %}{{ accepted_page_obj.previous_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}&declined_page={{ declined_page_obj.number }}">
+                        Previous
+                    </a>
+                    <small>Page {{ accepted_page_obj.number }} of {{ accepted_page_obj.paginator.num_pages }}</small>
+                    <a class="btn btn-sm btn-outline-secondary {% if not accepted_page_obj.has_next %}disabled{% endif %}"
+                       href="?tab=accepted&pending_page={{ pending_page_obj.number }}&accepted_page={% if accepted_page_obj.has_next %}{{ accepted_page_obj.next_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}&declined_page={{ declined_page_obj.number }}">
+                        Next
+                    </a>
+                </div>
+                {% endif %}
             </div>
 
-            <div class="tab-panel" data-panel="captured" role="tabpanel">
+            <div class="tab-panel {% if active_tab == 'captured' %}is-active{% endif %}" data-panel="captured" role="tabpanel">
                 <div class="table-card">
                     <table class="request-table">
                         <thead>
@@ -189,9 +215,22 @@
                         </tbody>
                     </table>
                 </div>
+                {% if captured_page_obj.has_previous or captured_page_obj.has_next %}
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_previous %}disabled{% endif %}"
+                       href="?tab=captured&pending_page={{ pending_page_obj.number }}&accepted_page={{ accepted_page_obj.number }}&captured_page={% if captured_page_obj.has_previous %}{{ captured_page_obj.previous_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}">
+                        Previous
+                    </a>
+                    <small>Page {{ captured_page_obj.number }} of {{ captured_page_obj.paginator.num_pages }}</small>
+                    <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_next %}disabled{% endif %}"
+                       href="?tab=captured&pending_page={{ pending_page_obj.number }}&accepted_page={{ accepted_page_obj.number }}&captured_page={% if captured_page_obj.has_next %}{{ captured_page_obj.next_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}">
+                        Next
+                    </a>
+                </div>
+                {% endif %}
             </div>
 
-            <div class="tab-panel" data-panel="declined" role="tabpanel">
+            <div class="tab-panel {% if active_tab == 'declined' %}is-active{% endif %}" data-panel="declined" role="tabpanel">
                 <div class="table-card">
                     <table class="request-table">
                         <thead>
@@ -234,6 +273,19 @@
                         </tbody>
                     </table>
                 </div>
+                {% if declined_page_obj.has_previous or declined_page_obj.has_next %}
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <a class="btn btn-sm btn-outline-secondary {% if not declined_page_obj.has_previous %}disabled{% endif %}"
+                       href="?tab=declined&pending_page={{ pending_page_obj.number }}&accepted_page={{ accepted_page_obj.number }}&captured_page={{ captured_page_obj.number }}&declined_page={% if declined_page_obj.has_previous %}{{ declined_page_obj.previous_page_number }}{% else %}{{ declined_page_obj.number }}{% endif %}">
+                        Previous
+                    </a>
+                    <small>Page {{ declined_page_obj.number }} of {{ declined_page_obj.paginator.num_pages }}</small>
+                    <a class="btn btn-sm btn-outline-secondary {% if not declined_page_obj.has_next %}disabled{% endif %}"
+                       href="?tab=declined&pending_page={{ pending_page_obj.number }}&accepted_page={{ accepted_page_obj.number }}&captured_page={{ captured_page_obj.number }}&declined_page={% if declined_page_obj.has_next %}{{ declined_page_obj.next_page_number }}{% else %}{{ declined_page_obj.number }}{% endif %}">
+                        Next
+                    </a>
+                </div>
+                {% endif %}
             </div>
         </div>
     {% else %}

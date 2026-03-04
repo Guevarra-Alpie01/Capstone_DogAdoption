@@ -21,16 +21,31 @@ except Exception:
     pass
 
 
+def env_bool(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_list(name, default=""):
+    value = os.getenv(name, default)
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-5^8jk0^*8k*l@06(f_oojxbfw2y97b^#0eboq!0h7e!@924fu('
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-dev-only-change-me")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env_bool("DJANGO_DEBUG", True)
 
-ALLOWED_HOSTS = [ '192.168.43.168','localhost', '127.0.0.1' ]
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", "")
 
 
 # Application definition
@@ -84,14 +99,44 @@ WSGI_APPLICATION = 'pet_adoption.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'dogadoption_database',
-        'USER': 'root',
-        'PASSWORD': '',
-        'PORT': '3306',
-        'HOST': 'localhost',
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.mysql'),
+        'NAME': os.getenv('DB_NAME', 'dogadoption_database'),
+        'USER': os.getenv('DB_USER', 'root'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'PORT': os.getenv('DB_PORT', '3306'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '60')),
     }
 }
+
+CACHE_BACKEND = os.getenv("CACHE_BACKEND", "locmem").strip().lower()
+REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1")
+REDIS_CACHE_TIMEOUT = int(os.getenv("REDIS_CACHE_TIMEOUT", "300"))
+REDIS_CACHE_KEY_PREFIX = os.getenv("REDIS_CACHE_KEY_PREFIX", "pet_adoption")
+
+if CACHE_BACKEND == "redis":
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+            "TIMEOUT": REDIS_CACHE_TIMEOUT,
+            "KEY_PREFIX": REDIS_CACHE_KEY_PREFIX,
+            "OPTIONS": {
+                "socket_connect_timeout": 5,
+                "socket_timeout": 5,
+                "retry_on_timeout": True,
+            },
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": os.getenv("LOCMEM_CACHE_LOCATION", "pet_adoption-local"),
+            "TIMEOUT": REDIS_CACHE_TIMEOUT,
+            "KEY_PREFIX": REDIS_CACHE_KEY_PREFIX,
+        }
+    }
 
 
 # Password validation
@@ -128,7 +173,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
@@ -142,6 +188,31 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024   # 20 MB
 
 # Default for user sessions
 SESSION_COOKIE_NAME = 'user_sessionid'
+
+# Optional automatic admin bootstrapping for non-production setup only.
+CREATE_DEFAULT_ADMIN = env_bool("CREATE_DEFAULT_ADMIN", False)
+DEFAULT_ADMIN_USERNAME = os.getenv("DEFAULT_ADMIN_USERNAME", "")
+DEFAULT_ADMIN_EMAIL = os.getenv("DEFAULT_ADMIN_EMAIL", "")
+DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD", "")
+
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = env_bool("DJANGO_USE_X_FORWARDED_HOST", True)
+    SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", False)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = os.getenv(
+        "DJANGO_SECURE_REFERRER_POLICY",
+        "strict-origin-when-cross-origin",
+    )
+    X_FRAME_OPTIONS = os.getenv("DJANGO_X_FRAME_OPTIONS", "DENY")
+    SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "0"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
+        "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS",
+        False,
+    )
+    SECURE_HSTS_PRELOAD = env_bool("DJANGO_SECURE_HSTS_PRELOAD", False)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field

@@ -19,7 +19,7 @@
             <p class="feed-post-summary">{{ post.content|striptags|truncatechars:180 }}</p>
         </div>
 
-        {% if post.images.all %}
+        {% if post.image_count %}
         <div class="image-viewer feed-image-viewer" data-image-viewer>
             <img src="" class="image-viewer-image feed-image-item" alt="Announcement photo">
             <button type="button" class="image-nav image-nav-prev" aria-label="Previous photo">&lt;</button>
@@ -55,7 +55,7 @@
         </div>
 
         <div class="comments-section">
-            <h4>Comments ({{ post.comments.count }})</h4>
+            <h4>Comments ({{ post.comment_count }})</h4>
             <div class="comment-list">
             {% for comment in post.comments.all|slice:':3' %}
             <div class="comment">
@@ -92,7 +92,7 @@
                         <span class="timestamp">Published {{ post.created_at|date:'M d, Y h:i A' }}</span>
                     </div>
 
-                    {% if post.images.all %}
+                    {% if post.image_count %}
                     <div class="image-viewer modal-image-viewer" data-image-viewer>
                         <img src="" class="image-viewer-image modal-image-item" alt="Announcement photo">
                         <button type="button" class="image-nav image-nav-prev" aria-label="Previous photo">&lt;</button>
@@ -122,7 +122,7 @@
                     {% endif %}
 
                     <div class="comments-section modal-comments">
-                        <h4>Comments ({{ post.comments.count }})</h4>
+                        <h4>Comments ({{ post.comment_count }})</h4>
                         {% for comment in post.comments.all %}
                         <div class="comment">
                             <p><strong>{{ comment.user.username }}</strong>: {{ comment.comment }}</p>

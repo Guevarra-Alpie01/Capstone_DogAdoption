@@ -79,12 +79,12 @@
             {% endif %}
         </div>
 
-        {% if item.post_type != 'missing' and post.images.count > 1 %}
+        {% if item.post_type != 'missing' and item.image_count > 1 %}
             <button class="btn btn-light view-all-badge"
                     type="button"
                     data-bs-toggle="modal"
                     data-bs-target="#postImages{{ post.id }}">
-                View all ({{ post.images.count }})
+                View all ({{ item.image_count }})
             </button>
         {% endif %}
 
@@ -95,7 +95,7 @@
                 </div>
             {% endif %}
         {% else %}
-            {% with post.images.first as main_image %}
+            {% with item.main_image as main_image %}
                 {% if main_image %}
                     <div class="media-wrap">
                         <img src="{{ main_image.image.url }}" class="card-img-top main-img">
@@ -163,7 +163,7 @@
             </div>
 
             {% if item.post_type != 'missing' %}
-                {% if post.images.count > 1 %}
+                {% if item.image_count > 1 %}
                     <div class="modal fade" id="postImages{{ post.id }}" tabindex="-1" aria-hidden="true">
                         <div class="modal-dialog modal-lg modal-dialog-centered">
                             <div class="modal-content">

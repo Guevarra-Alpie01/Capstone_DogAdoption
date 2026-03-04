@@ -7,13 +7,15 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.contrib.auth.models import User
-from django.db.models import Q
+from django.db.models import CharField, Count, DateTimeField, F, Prefetch, Q, Value
+from django.db.models.expressions import RawSQL
 import os
 import json
 import base64
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
 from django.conf import settings
+from django.core.cache import cache
 from datetime import timedelta
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
@@ -29,6 +31,7 @@ from dogadoption_admin.models import (
     Post,
     PostRequest,
 )
+from dogadoption_admin.context_processors import ADMIN_NOTIFICATIONS_CACHE_KEY
 
 #MODELS FROM USER APP
 from .models import Profile, DogCaptureRequest, DogCaptureRequestImage, DogCaptureRequestLandmarkImage, FaceImage, ClaimImage
@@ -495,98 +498,155 @@ def user_home(request):
     page_number = request.GET.get('page', 1)
     posts_per_page = 12
 
-    # Admin posts
-    admin_posts = Post.objects.all().prefetch_related('images').order_by('-created_at')
-
-    # User adoption posts
-    user_posts = UserAdoptionPost.objects.filter(status='available').prefetch_related('images')
-
-    # Missing dog posts
-    missing_posts = MissingDogPost.objects.filter(status='missing').order_by('-created_at')
+    admin_posts_qs = Post.objects.all()
+    user_posts_qs = UserAdoptionPost.objects.filter(status="available")
+    missing_posts_qs = MissingDogPost.objects.filter(status="missing")
 
     # SEARCH FILTER
     if query:
-        admin_posts = admin_posts.filter(
+        admin_posts_qs = admin_posts_qs.filter(
             Q(caption__icontains=query) |
             Q(location__icontains=query) |
             Q(status__icontains=query)
         )
 
-        user_posts = user_posts.filter(
+        user_posts_qs = user_posts_qs.filter(
             Q(dog_name__icontains=query) |
             Q(description__icontains=query) |
             Q(location__icontains=query)
         )
 
-        missing_posts = missing_posts.filter(
+        missing_posts_qs = missing_posts_qs.filter(
             Q(dog_name__icontains=query) |
             Q(description__icontains=query) |
             Q(location__icontains=query)
         )
+
+    feed_admin_qs = admin_posts_qs.annotate(
+        feed_type=Value("admin", output_field=CharField()),
+        feed_created=F("created_at"),
+    ).values("id", "feed_type", "feed_created")
+    feed_user_qs = user_posts_qs.annotate(
+        feed_type=Value("user", output_field=CharField()),
+        feed_created=F("created_at"),
+    ).values("id", "feed_type", "feed_created")
+    feed_missing_qs = missing_posts_qs.annotate(
+        feed_type=Value("missing", output_field=CharField()),
+        feed_created=F("created_at"),
+    ).values("id", "feed_type", "feed_created")
+
+    feed_qs = feed_admin_qs.union(
+        feed_user_qs,
+        feed_missing_qs,
+        all=True,
+    ).order_by("-feed_created", "-id")
+
+    paginator = Paginator(feed_qs, posts_per_page)
+    page_obj = paginator.get_page(page_number)
+    feed_rows = list(page_obj.object_list)
+
+    ids_by_type = {
+        "admin": [row["id"] for row in feed_rows if row["feed_type"] == "admin"],
+        "user": [row["id"] for row in feed_rows if row["feed_type"] == "user"],
+        "missing": [row["id"] for row in feed_rows if row["feed_type"] == "missing"],
+    }
+
+    admin_map = {
+        post.id: post
+        for post in Post.objects.select_related(
+            "user", "user__profile"
+        ).prefetch_related("images").filter(id__in=ids_by_type["admin"])
+    }
+    user_map = {
+        post.id: post
+        for post in UserAdoptionPost.objects.select_related(
+            "owner", "owner__profile"
+        ).prefetch_related("images").filter(id__in=ids_by_type["user"])
+    }
+    missing_map = {
+        post.id: post
+        for post in MissingDogPost.objects.select_related(
+            "owner", "owner__profile"
+        ).filter(id__in=ids_by_type["missing"])
+    }
 
     combined_posts = []
+    for row in feed_rows:
+        post_type = row["feed_type"]
+        post_id = row["id"]
 
-    # ADMIN POSTS
-    for p in admin_posts:
-        phase, days, hours, minutes = _post_phase_payload(p)
-        is_open_for_adoption = phase in ["claim", "adopt"]
+        if post_type == "admin":
+            p = admin_map.get(post_id)
+            if not p:
+                continue
+            post_images = list(p.images.all())
+            main_image = post_images[0] if post_images else None
+            image_count = len(post_images)
 
-        deadline = None
-        if phase == 'claim':
-            deadline = p.claim_deadline()
-        elif phase == 'adopt':
-            deadline = p.adoption_deadline()
+            phase, days, hours, minutes = _post_phase_payload(p)
+            is_open_for_adoption = phase in ["claim", "adopt"]
 
+            deadline = None
+            if phase == "claim":
+                deadline = p.claim_deadline()
+            elif phase == "adopt":
+                deadline = p.adoption_deadline()
+
+            combined_posts.append({
+                "post": p,
+                "post_type": "admin",
+                "days_left": days,
+                "hours_left": hours,
+                "minutes_left": minutes,
+                "is_open_for_adoption": is_open_for_adoption,
+                "phase": phase,
+                "posted_label": _format_posted_label(p.created_at),
+                "deadline_iso": deadline.isoformat() if deadline else "",
+                "image_count": image_count,
+                "main_image": main_image,
+            })
+            continue
+
+        if post_type == "user":
+            p = user_map.get(post_id)
+            if not p:
+                continue
+            post_images = list(p.images.all())
+            main_image = post_images[0] if post_images else None
+            image_count = len(post_images)
+
+            combined_posts.append({
+                "post": p,
+                "post_type": "user",
+                "days_left": 0,
+                "hours_left": 0,
+                "minutes_left": 0,
+                "is_open_for_adoption": False,
+                "phase": "closed",
+                "posted_label": _format_posted_label(p.created_at),
+                "image_count": image_count,
+                "main_image": main_image,
+            })
+            continue
+
+        p = missing_map.get(post_id)
+        if not p:
+            continue
         combined_posts.append({
-            'post': p,
-            'post_type': 'admin',
-            'days_left': days,
-            'hours_left': hours,
-            'minutes_left': minutes,
-            'is_open_for_adoption': is_open_for_adoption,
-            'phase': phase,
-            'posted_label': _format_posted_label(p.created_at),
-            'deadline_iso': deadline.isoformat() if deadline else "",
+            "post": p,
+            "post_type": "missing",
+            "days_left": 0,
+            "hours_left": 0,
+            "minutes_left": 0,
+            "is_open_for_adoption": False,
+            "phase": "closed",
+            "posted_label": _format_posted_label(p.created_at),
+            "image_count": 1 if p.image else 0,
+            "main_image": None,
         })
-
-    # USER ADOPTION POSTS
-    for p in user_posts:
-        combined_posts.append({
-            'post': p,
-            'post_type': 'user',
-            'days_left': 0,
-            'hours_left': 0,
-            'minutes_left': 0,
-            'is_open_for_adoption': False,
-            'phase': 'closed',
-            'posted_label': _format_posted_label(p.created_at),
-        })
-
-    # MISSING POSTS
-    for p in missing_posts:
-        combined_posts.append({
-            'post': p,
-            'post_type': 'missing',
-            'days_left': 0,
-            'hours_left': 0,
-            'minutes_left': 0,
-            'is_open_for_adoption': False,
-            'phase': 'closed',
-            'posted_label': _format_posted_label(p.created_at),
-        })
-
-    # SORT ALL POSTS
-    combined_posts = sorted(
-        combined_posts,
-        key=lambda x: x['post'].created_at,
-        reverse=True
-    )
-
-    paginator = Paginator(combined_posts, posts_per_page)
-    page_obj = paginator.get_page(page_number)
 
     return render(request, 'home/user_home.html', {
-        'posts': page_obj.object_list,
+        'posts': combined_posts,
         'page_obj': page_obj,
         'query': query,
         'selected_type': selected_type,
@@ -797,20 +857,52 @@ def request_dog_capture(request):
             message=f"{request.user.username} submitted a request.",
             url="/vetadmin/dog-capture/requests/",
         )
+        cache.delete(ADMIN_NOTIFICATIONS_CACHE_KEY)
         messages.success(request, "Request submitted successfully.")
 
-    requests = list(DogCaptureRequest.objects.filter(
-        requested_by=request.user
-    ).prefetch_related(
-        'images',
-        'landmark_images',
-    ).order_by('-created_at'))
+    rows_per_page = 5
+    valid_tabs = {"scheduled", "pending", "declined", "captured"}
+    active_status_tab = (request.GET.get("status_tab") or "scheduled").strip().lower()
+    if active_status_tab not in valid_tabs:
+        active_status_tab = "scheduled"
 
-    grouped_requests = _group_capture_requests_by_status(requests)
+    status_totals = {
+        row["status"]: row["total"]
+        for row in DogCaptureRequest.objects.filter(
+            requested_by=request.user
+        ).values("status").annotate(total=Count("id"))
+    }
+
+    def _paginate_status(status_key, page_param):
+        page_obj = Paginator(
+            DogCaptureRequest.objects.filter(
+                requested_by=request.user,
+                status=status_key,
+            ).prefetch_related("images", "landmark_images").order_by("-created_at"),
+            rows_per_page,
+        ).get_page(request.GET.get(page_param, 1))
+        return page_obj, list(page_obj.object_list)
+
+    accepted_page_obj, accepted_requests = _paginate_status("accepted", "scheduled_page")
+    pending_page_obj, pending_requests = _paginate_status("pending", "pending_page")
+    declined_page_obj, declined_requests = _paginate_status("declined", "declined_page")
+    captured_page_obj, captured_requests = _paginate_status("captured", "captured_page")
 
     return render(request, 'user_request/request.html', {
-        'requests': requests,
-        **grouped_requests,
+        'requests': bool(status_totals),
+        'accepted_requests': accepted_requests,
+        'pending_requests': pending_requests,
+        'declined_requests': declined_requests,
+        'captured_requests': captured_requests,
+        'accepted_page_obj': accepted_page_obj,
+        'pending_page_obj': pending_page_obj,
+        'declined_page_obj': declined_page_obj,
+        'captured_page_obj': captured_page_obj,
+        'accepted_total': status_totals.get("accepted", 0),
+        'pending_total': status_totals.get("pending", 0),
+        'declined_total': status_totals.get("declined", 0),
+        'captured_total': status_totals.get("captured", 0),
+        'active_status_tab': active_status_tab,
     })
 
 
@@ -982,34 +1074,51 @@ def claim(request):
 @user_only
 def adopt_list(request):
     filter_type = request.GET.get("filter", "all")
+    page_number = request.GET.get("page", 1)
+    posts_per_page = 12
+    now = timezone.now()
+    post_table = Post._meta.db_table
 
-    posts_qs = Post.objects.all().prefetch_related("images").order_by("-created_at")
-    posts = []
+    claim_deadline_expr = RawSQL(
+        f"DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY)",
+        [],
+        output_field=DateTimeField(),
+    )
+    adopt_deadline_expr = RawSQL(
+        f"DATE_ADD(DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY), INTERVAL %s DAY)",
+        [Post.ADOPTION_DAYS],
+        output_field=DateTimeField(),
+    )
+    active_statuses = ["rescued", "under_care"]
 
-    # Filtering logic based on active timeline phase
+    posts_qs = Post.objects.select_related(
+        "user", "user__profile"
+    ).prefetch_related("images").order_by("-created_at")
+
+    # Use database filters so large datasets can still paginate efficiently.
     if filter_type == "ready_claim":
-        posts = [
-            p for p in posts_qs
-            if p.is_open_for_claim()
-        ]
-
+        posts_qs = posts_qs.filter(status__in=active_statuses).annotate(
+            claim_deadline_db=claim_deadline_expr
+        ).filter(claim_deadline_db__gte=now)
     elif filter_type == "ready_adopt":
-        posts = [
-            p for p in posts_qs
-            if p.is_open_for_adoption()
-        ]
-
+        posts_qs = posts_qs.filter(status__in=active_statuses).annotate(
+            claim_deadline_db=claim_deadline_expr,
+            adopt_deadline_db=adopt_deadline_expr,
+        ).filter(
+            claim_deadline_db__lt=now,
+            adopt_deadline_db__gte=now,
+        )
     elif filter_type == "adopted":
-        posts = list(posts_qs.filter(status="adopted"))
-
+        posts_qs = posts_qs.filter(status="adopted")
     elif filter_type == "claimed":
-        posts = list(posts_qs.filter(status="reunited"))
+        posts_qs = posts_qs.filter(status="reunited")
 
-    elif filter_type == "all":
-        posts = list(posts_qs)
-
+    paginator = Paginator(posts_qs, posts_per_page)
+    page_obj = paginator.get_page(page_number)
     post_items = []
-    for p in posts:
+    for p in page_obj.object_list:
+        post_images = list(p.images.all())
+        main_image = post_images[0] if post_images else None
         phase, days, hours, minutes = _post_phase_payload(p)
         post_items.append({
             "post": p,
@@ -1017,11 +1126,13 @@ def adopt_list(request):
             "days_left": days,
             "hours_left": hours,
             "minutes_left": minutes,
+            "main_image_url": main_image.image.url if main_image else "",
         })
 
     return render(request, "adopt/adopt_list.html", {
         "posts": post_items,
-        "current_filter": filter_type
+        "current_filter": filter_type,
+        "page_obj": page_obj,
     })
 
 @user_only
@@ -1047,9 +1158,16 @@ def adopt_confirm(request, post_id):
 @user_only
 def announcement_list(request):
     posts = (
-        DogAnnouncement.objects.all()
-        .prefetch_related('comments', 'images')
-        .order_by('-created_at')
+        DogAnnouncement.objects.annotate(
+            comment_count=Count("comments", distinct=True),
+            image_count=Count("images", distinct=True),
+        ).prefetch_related(
+            Prefetch(
+                "comments",
+                queryset=AnnouncementComment.objects.select_related("user").order_by("-created_at"),
+            ),
+            "images",
+        ).order_by("-created_at")
     )
 
     return render(request, 'announcement/announcement.html', {

@@ -76,6 +76,13 @@ class DogCaptureRequest(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["status", "created_at"], name="dogcap_status_created_idx"),
+            models.Index(fields=["requested_by", "status", "created_at"], name="dogcap_user_status_created_idx"),
+            models.Index(fields=["assigned_admin", "status"], name="dogcap_admin_status_idx"),
+        ]
+
     def get_reason_display(self):
         return self.REASON_LABELS.get(self.reason, self.reason.replace('_', ' ').title() if self.reason else 'Unknown')
 
@@ -182,6 +189,12 @@ class UserAdoptionPost(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["status", "created_at"], name="uadoptpost_status_created_idx"),
+            models.Index(fields=["owner", "status"], name="uadoptpost_owner_status_idx"),
+        ]
+
     def __str__(self):
         return f"{self.dog_name} - {self.owner.username}"
 
@@ -224,6 +237,10 @@ class UserAdoptionRequest(models.Model):
 
     class Meta:
         unique_together = ('post', 'requester')
+        indexes = [
+            models.Index(fields=["post", "status"], name="uadoptreq_post_status_idx"),
+            models.Index(fields=["requester", "status"], name="uadoptreq_req_status_idx"),
+        ]
 
     def __str__(self):
         return f"{self.requester.username} → {self.post.dog_name}"
@@ -256,6 +273,12 @@ class MissingDogPost(models.Model):
         choices=STATUS_CHOICES,
         default='missing'
     )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status", "created_at"], name="missingdog_status_created_idx"),
+            models.Index(fields=["owner", "status"], name="missingdog_owner_status_idx"),
+        ]
 
     def __str__(self):
         return f"{self.dog_name} - {self.status}"

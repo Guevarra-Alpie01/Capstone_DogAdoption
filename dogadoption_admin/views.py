@@ -1,17 +1,14 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
-from functools import wraps
 import hashlib
 import io
 import json
 import re
-from io import BytesIO
 from urllib.parse import urlencode
 
-from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth import logout
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
@@ -23,14 +20,13 @@ from django.templatetags.static import static
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
 
 from docx import Document
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4, landscape, letter
+from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from xhtml2pdf import pisa
@@ -51,18 +47,14 @@ from .models import (
     GlobalAppointmentDate,
     Penalty,
     PenaltySection,
-    Pet,
     Post,
     PostImage,
     PostRequest,
     VaccinationRecord,
 )
 from user.models import (
-    AdoptionRequest,
-    ClaimImage,
     DogCaptureRequest,
     FaceImage,
-    OwnerClaim,
     Profile,
 )
 
@@ -84,6 +76,7 @@ def _resolve_barangay_name(value):
     return ""
 
 
+#extracting barangays
 def _extract_barangay_from_address(address):
     cleaned = _clean_barangay(address)
     if not cleaned:
@@ -101,42 +94,6 @@ def _extract_barangay_from_address(address):
             return resolved
 
     return _resolve_barangay_name(cleaned)
-
-
-BAYAWAN_ALLOWED_BARANGAYS = (
-    "Ali-is",
-    "Banaybanay",
-    "Banga",
-    "Boyco",
-    "Bugay",
-    "Cansumalig",
-    "Dawis",
-    "Kalamtukan",
-    "Kalumboyan",
-    "Malabugas",
-    "Mandu-ao",
-    "Maninihon",
-    "Minaba",
-    "Nangka",
-    "Narra",
-    "Pagatban",
-    "Poblacion",
-    "San Isidro",
-    "San Jose",
-    "San Miguel",
-    "San Roque",
-    "Suba",
-    "Tabuan",
-    "Tayawan",
-    "Tinago",
-    "Ubos",
-    "Villareal",
-    "Villasol",
-)
-
-BAYAWAN_ALLOWED_BARANGAY_KEYS = {
-    _normalize_barangay(name) for name in BAYAWAN_ALLOWED_BARANGAYS
-}
 
 
 def _normalize_city(value):
@@ -157,13 +114,6 @@ def _extract_city_from_address(address):
         if _is_bayawan_city(part):
             return "Bayawan City"
     return ""
-
-
-def _is_allowed_bayawan_map_point(barangay, city):
-    return (
-        _normalize_barangay(barangay) in BAYAWAN_ALLOWED_BARANGAY_KEYS
-        and _is_bayawan_city(city)
-    )
 
 
 def _build_owner_full_name(first_name, last_name, fallback=""):
@@ -313,369 +263,210 @@ ANNOUNCEMENT_CATEGORY_BY_VALUE = {
     option["value"]: option for option in ANNOUNCEMENT_CATEGORY_OPTIONS
 }
 
-def _clean_barangay(value):
-    return " ".join((value or "").split()).strip()
+
+def _set_post_form_barangay_source(post_form):
+    post_form.fields["location"].widget.attrs["data-barangay-source-url"] = reverse(
+        "dogadoption_admin:barangay_list_api"
+    )
 
 
-def _normalize_barangay(value):
-    return "".join(ch.lower() for ch in _clean_barangay(value) if ch.isalnum())
+def _parse_appointment_dates(dates_raw):
+    parsed_dates = []
+    for value in [v.strip() for v in (dates_raw or "").split(",") if v.strip()]:
+        parsed_date = parse_date(value)
+        if parsed_date:
+            parsed_dates.append(parsed_date)
+    return sorted(set(parsed_dates))
 
 
-def _resolve_barangay_name(value):
-    normalized = _normalize_barangay(value)
-    if not normalized:
-        return ""
-    for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True):
-        if _normalize_barangay(name) == normalized:
-            return name
-    return ""
+def _save_global_appointment_dates(parsed_dates, user):
+    with transaction.atomic():
+        GlobalAppointmentDate.objects.exclude(
+            appointment_date__in=parsed_dates
+        ).delete()
+        for day in parsed_dates:
+            GlobalAppointmentDate.objects.update_or_create(
+                appointment_date=day,
+                defaults={
+                    "created_by": user,
+                    "is_active": True,
+                },
+            )
 
 
-def _extract_barangay_from_address(address):
-    cleaned = _clean_barangay(address)
-    if not cleaned:
-        return ""
-
-    parts = [p.strip() for p in cleaned.split(",") if p.strip()]
-    if len(parts) >= 3 and parts[-2].lower() == "bayawan city" and parts[-1].lower() == "negros oriental":
-        candidate = parts[-3]
-        resolved = _resolve_barangay_name(candidate)
-        return resolved or candidate
-
-    for part in reversed(parts):
-        resolved = _resolve_barangay_name(part)
-        if resolved:
-            return resolved
-
-    return _resolve_barangay_name(cleaned)
+def _validate_and_save_global_appointment_dates(dates_raw, user):
+    parsed_dates = _parse_appointment_dates(dates_raw)
+    today = timezone.localdate()
+    if any(d < today for d in parsed_dates):
+        return False
+    _save_global_appointment_dates(parsed_dates, user)
+    return True
 
 
-BAYAWAN_ALLOWED_BARANGAYS = (
-    "Ali-is",
-    "Banaybanay",
-    "Banga",
-    "Boyco",
-    "Bugay",
-    "Cansumalig",
-    "Dawis",
-    "Kalamtukan",
-    "Kalumboyan",
-    "Malabugas",
-    "Mandu-ao",
-    "Maninihon",
-    "Minaba",
-    "Nangka",
-    "Narra",
-    "Pagatban",
-    "Poblacion",
-    "San Isidro",
-    "San Jose",
-    "San Miguel",
-    "San Roque",
-    "Suba",
-    "Tabuan",
-    "Tayawan",
-    "Tinago",
-    "Ubos",
-    "Villareal",
-    "Villasol",
-)
-
-BAYAWAN_ALLOWED_BARANGAY_KEYS = {
-    _normalize_barangay(name) for name in BAYAWAN_ALLOWED_BARANGAYS
-}
+def _get_active_global_appointment_dates():
+    return list(
+        GlobalAppointmentDate.objects.filter(
+            is_active=True,
+            appointment_date__gte=timezone.localdate(),
+        ).order_by("appointment_date").values_list("appointment_date", flat=True)
+    )
 
 
-def _normalize_city(value):
-    return "".join(ch.lower() for ch in _clean_barangay(value) if ch.isalnum())
+def _get_available_appointment_dates():
+    return GlobalAppointmentDate.objects.filter(
+        is_active=True,
+        appointment_date__gte=timezone.localdate(),
+    ).order_by("appointment_date")
 
 
-def _is_bayawan_city(value):
-    return _normalize_city(value) in {"bayawan", "bayawancity"}
+def _build_requests_with_meta(post, request_type):
+    requests_qs = (
+        post.requests.filter(request_type=request_type)
+        .select_related("user")
+        .prefetch_related("images")
+        .order_by("-created_at")
+    )
+    user_ids = [req.user.id for req in requests_qs]
+    profiles = Profile.objects.filter(user_id__in=user_ids)
+    faceauth = FaceImage.objects.filter(user_id__in=user_ids)
+
+    requests_with_meta = []
+    for req in requests_qs:
+        requests_with_meta.append({
+            "req": req,
+            "profile": profiles.filter(user_id=req.user.id).first(),
+            "face_images": faceauth.filter(user_id=req.user.id),
+        })
+    return requests_with_meta
 
 
-def _extract_city_from_address(address):
-    cleaned = _clean_barangay(address)
-    if not cleaned:
-        return ""
-
-    parts = [p.strip() for p in cleaned.split(",") if p.strip()]
-    for part in reversed(parts):
-        if _is_bayawan_city(part):
-            return "Bayawan City"
-    return ""
+def _build_request_redirect(req):
+    if req.request_type == "claim":
+        return redirect("dogadoption_admin:claim_requests", req.post.id)
+    return redirect("dogadoption_admin:adoption_requests", req.post.id)
 
 
-def _is_allowed_bayawan_map_point(barangay, city):
+def _render_post_request_list(request, post_id, request_type, template_name):
+    post = get_object_or_404(Post, id=post_id)
+    return render(request, template_name, {
+        "post": post,
+        "requests_meta": _build_requests_with_meta(post, request_type),
+        "available_dates": _get_available_appointment_dates(),
+    })
+
+
+def _apply_registration_date_filter(dogs, date_filter_type, filter_date, filter_month, filter_year):
+    date_filter_label = ""
+
+    if date_filter_type == "day" and filter_date:
+        selected_date = parse_date(filter_date)
+        if selected_date:
+            dogs = dogs.filter(date_registered=selected_date)
+            date_filter_label = selected_date.strftime("%b %d, %Y")
+        else:
+            date_filter_type = "all"
+    elif date_filter_type == "month" and filter_month:
+        month_match = re.match(r"^(\d{4})-(\d{2})$", filter_month)
+        if month_match:
+            month_year = int(month_match.group(1))
+            month_value = int(month_match.group(2))
+            if 1 <= month_value <= 12:
+                dogs = dogs.filter(
+                    date_registered__year=month_year,
+                    date_registered__month=month_value,
+                )
+                date_filter_label = datetime(month_year, month_value, 1).strftime("%B %Y")
+            else:
+                date_filter_type = "all"
+        else:
+            date_filter_type = "all"
+    elif date_filter_type == "year" and filter_year:
+        if filter_year.isdigit():
+            year_value = int(filter_year)
+            if 1900 <= year_value <= 9999:
+                dogs = dogs.filter(date_registered__year=year_value)
+                date_filter_label = str(year_value)
+            else:
+                date_filter_type = "all"
+        else:
+            date_filter_type = "all"
+    else:
+        date_filter_type = "all"
+
+    return dogs, date_filter_type, date_filter_label
+
+
+def _build_registration_filter_params(date_filter_type, filter_date, filter_month, filter_year):
+    if date_filter_type == "day" and filter_date:
+        return {
+            "date_filter_type": "day",
+            "filter_date": filter_date,
+        }
+    if date_filter_type == "month" and filter_month:
+        return {
+            "date_filter_type": "month",
+            "filter_month": filter_month,
+        }
+    if date_filter_type == "year" and filter_year:
+        return {
+            "date_filter_type": "year",
+            "filter_year": filter_year,
+        }
+    return {}
+
+
+def _create_vaccination_and_update_defaults(
+    registration,
+    cert_settings,
+    vac_date,
+    vaccine_name,
+    manufacturer_lot_no,
+    vaccine_expiry_date,
+    vaccination_expiry_date,
+):
+    VaccinationRecord.objects.create(
+        registration=registration,
+        date=vac_date,
+        vaccine_name=vaccine_name,
+        manufacturer_lot_no=manufacturer_lot_no,
+        vaccine_expiry_date=vaccine_expiry_date,
+        vaccination_expiry_date=vaccination_expiry_date,
+        veterinarian="",
+    )
+    settings_obj = cert_settings or CertificateSettings.objects.create()
+    if vac_date:
+        parsed_vac_date = parse_date(vac_date)
+        if parsed_vac_date:
+            settings_obj.default_vac_date = parsed_vac_date
+    if vaccine_name:
+        settings_obj.default_vaccine_name = vaccine_name
+    if manufacturer_lot_no:
+        settings_obj.default_manufacturer_lot_no = manufacturer_lot_no
+    if vaccine_expiry_date:
+        parsed_vac_expiry = parse_date(vaccine_expiry_date)
+        if parsed_vac_expiry:
+            settings_obj.default_vaccine_expiry_date = parsed_vac_expiry
+    settings_obj.save(update_fields=[
+        "default_vac_date",
+        "default_vaccine_name",
+        "default_manufacturer_lot_no",
+        "default_vaccine_expiry_date",
+    ])
+    return settings_obj
+
+
+def _get_vaccination_post_values(request):
     return (
-        _normalize_barangay(barangay) in BAYAWAN_ALLOWED_BARANGAY_KEYS
-        and _is_bayawan_city(city)
+        (request.POST.get("vac_date") or "").strip(),
+        (request.POST.get("vaccine_name") or "").strip(),
+        (request.POST.get("manufacturer_lot_no") or "").strip(),
+        (request.POST.get("vaccine_expiry_date") or "").strip(),
+        (request.POST.get("vaccination_expiry_date") or "").strip(),
     )
 
 
-def _build_owner_full_name(first_name, last_name, fallback=""):
-    first = " ".join((first_name or "").split()).strip()
-    last = " ".join((last_name or "").split()).strip()
-    fallback_clean = " ".join((fallback or "").split()).strip()
-
-    if first or last:
-        return f"{first} {last}".strip()
-    return fallback_clean
-
-
-def _format_cert_date(value):
-    if not value:
-        return ""
-    if hasattr(value, "strftime"):
-        return value.strftime("%m-%d-%Y")
-    return str(value)
-
-
-def _pad_rows(rows, min_rows):
-    padded = list(rows)
-    while len(padded) < min_rows:
-        padded.append({})
-    return padded
-
-
-def _build_certificate_payload(registration, vaccinations=None, dewormings=None):
-    vac_records = list(vaccinations) if vaccinations is not None else list(
-        VaccinationRecord.objects.filter(registration=registration).order_by("-date")
-    )
-    dew_records = list(dewormings) if dewormings is not None else list(
-        DewormingTreatmentRecord.objects.filter(registration=registration).order_by("-date")
-    )
-
-    vac_rows = []
-    for record in vac_records[:10]:
-        vac_rows.append({
-            "date": _format_cert_date(record.date),
-            "vaccine_name": record.vaccine_name or "",
-            "manufacturer_lot_no": record.manufacturer_lot_no or "",
-            "vaccine_expiry_date": _format_cert_date(record.vaccine_expiry_date),
-            "vaccination_expiry_date": _format_cert_date(record.vaccination_expiry_date),
-            "veterinarian": record.veterinarian or "",
-        })
-
-    dew_rows = []
-    for record in dew_records[:8]:
-        route = (record.route or "").strip()
-        frequency = (record.frequency or "").strip()
-        route_frequency = f"{route} / {frequency}".strip(" /") if (route or frequency) else ""
-        dew_rows.append({
-            "date": _format_cert_date(record.date),
-            "medicine_given": record.medicine_given or "",
-            "route_frequency": route_frequency,
-            "veterinarian": record.veterinarian or "",
-        })
-
-    return {
-        "id": registration.id,
-        "reg_no": registration.reg_no or "",
-        "name_of_pet": registration.name_of_pet or "",
-        "breed": registration.breed or "",
-        "dob": _format_cert_date(registration.dob),
-        "color_markings": registration.color_markings or "",
-        "sex": registration.sex or "",
-        "is_male": registration.sex == "M",
-        "is_female": registration.sex == "F",
-        "status": registration.status or "",
-        "is_castrated": registration.status == "Castrated",
-        "is_spayed": registration.status == "Spayed",
-        "is_intact": registration.status == "Intact",
-        "owner_name": registration.owner_name or "",
-        "address": registration.address or "",
-        "contact_no": registration.contact_no or "",
-        "vaccination_rows": _pad_rows(vac_rows, 10),
-        "deworming_rows": _pad_rows(dew_rows, 8),
-        "has_vaccinations": bool(vac_records),
-        "has_dewormings": bool(dew_records),
-    }
-
-def _enrich_capture_request_user(req):
-    user = req.requested_by
-    try:
-        profile = user.profile
-    except Profile.DoesNotExist:
-        profile = None
-
-    name_parts = [user.first_name, user.last_name]
-    full_name = " ".join(part for part in name_parts if part).strip() or user.username
-
-    req.requester_full_name = full_name
-    req.requester_phone = (
-        profile.phone_number.strip()
-        if profile and profile.phone_number
-        else "No phone number"
-    )
-    req.requester_address = (
-        profile.address.strip()
-        if profile and profile.address
-        else "No address provided"
-    )
-    req.requester_facebook = (
-        profile.facebook_url.strip()
-        if profile and profile.facebook_url
-        else ""
-    )
-
-
-ANNOUNCEMENT_CATEGORY_OPTIONS = [
-    {
-        "slug": "dog-announcements",
-        "value": DogAnnouncement.CATEGORY_DOG_ANNOUNCEMENT,
-        "label": "Dog Announcements",
-        "description": (
-            "For vaccination programs, educational campaigns, dog-related events, "
-            "and general dog care information."
-        ),
-        "topics": [
-            "Vaccination programs",
-            "Educational campaigns",
-            "Dog-related events",
-            "General dog care information",
-        ],
-    },
-    {
-        "slug": "dog-laws",
-        "value": DogAnnouncement.CATEGORY_DOG_LAW,
-        "label": "Dog Laws",
-        "description": (
-            "For rules and regulations about dogs, local ordinances, and legal "
-            "responsibilities of dog owners."
-        ),
-        "topics": [
-            "Rules and regulations about dogs",
-            "Local ordinances",
-            "Legal responsibilities of dog owners",
-        ],
-    },
-]
-
-ANNOUNCEMENT_CATEGORY_BY_SLUG = {
-    option["slug"]: option for option in ANNOUNCEMENT_CATEGORY_OPTIONS
-}
-
-ANNOUNCEMENT_CATEGORY_BY_VALUE = {
-    option["value"]: option for option in ANNOUNCEMENT_CATEGORY_OPTIONS
-}
-
-def _clean_barangay(value):
-    return " ".join((value or "").split()).strip()
-
-
-def _normalize_barangay(value):
-    return "".join(ch.lower() for ch in _clean_barangay(value) if ch.isalnum())
-
-
-def _resolve_barangay_name(value):
-    normalized = _normalize_barangay(value)
-    if not normalized:
-        return ""
-    for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True):
-        if _normalize_barangay(name) == normalized:
-            return name
-    return ""
-
-
-def _extract_barangay_from_address(address):
-    cleaned = _clean_barangay(address)
-    if not cleaned:
-        return ""
-
-    parts = [p.strip() for p in cleaned.split(",") if p.strip()]
-    if len(parts) >= 3 and parts[-2].lower() == "bayawan city" and parts[-1].lower() == "negros oriental":
-        candidate = parts[-3]
-        resolved = _resolve_barangay_name(candidate)
-        return resolved or candidate
-
-    for part in reversed(parts):
-        resolved = _resolve_barangay_name(part)
-        if resolved:
-            return resolved
-
-    return _resolve_barangay_name(cleaned)
-
-
-def _build_owner_full_name(first_name, last_name, fallback=""):
-    first = " ".join((first_name or "").split()).strip()
-    last = " ".join((last_name or "").split()).strip()
-    fallback_clean = " ".join((fallback or "").split()).strip()
-
-    if first or last:
-        return f"{first} {last}".strip()
-    return fallback_clean
-
-
-def _format_cert_date(value):
-    if not value:
-        return ""
-    if hasattr(value, "strftime"):
-        return value.strftime("%m-%d-%Y")
-    return str(value)
-
-
-def _pad_rows(rows, min_rows):
-    padded = list(rows)
-    while len(padded) < min_rows:
-        padded.append({})
-    return padded
-
-
-def _build_certificate_payload(registration, vaccinations=None, dewormings=None):
-    vac_records = list(vaccinations) if vaccinations is not None else list(
-        VaccinationRecord.objects.filter(registration=registration).order_by("-date")
-    )
-    dew_records = list(dewormings) if dewormings is not None else list(
-        DewormingTreatmentRecord.objects.filter(registration=registration).order_by("-date")
-    )
-
-    vac_rows = []
-    for record in vac_records[:10]:
-        vac_rows.append({
-            "date": _format_cert_date(record.date),
-            "vaccine_name": record.vaccine_name or "",
-            "manufacturer_lot_no": record.manufacturer_lot_no or "",
-            "vaccine_expiry_date": _format_cert_date(record.vaccine_expiry_date),
-            "vaccination_expiry_date": _format_cert_date(record.vaccination_expiry_date),
-            "veterinarian": record.veterinarian or "",
-        })
-
-    dew_rows = []
-    for record in dew_records[:8]:
-        route = (record.route or "").strip()
-        frequency = (record.frequency or "").strip()
-        route_frequency = f"{route} / {frequency}".strip(" /") if (route or frequency) else ""
-        dew_rows.append({
-            "date": _format_cert_date(record.date),
-            "medicine_given": record.medicine_given or "",
-            "route_frequency": route_frequency,
-            "veterinarian": record.veterinarian or "",
-        })
-
-    return {
-        "id": registration.id,
-        "reg_no": registration.reg_no or "",
-        "name_of_pet": registration.name_of_pet or "",
-        "breed": registration.breed or "",
-        "dob": _format_cert_date(registration.dob),
-        "color_markings": registration.color_markings or "",
-        "sex": registration.sex or "",
-        "is_male": registration.sex == "M",
-        "is_female": registration.sex == "F",
-        "status": registration.status or "",
-        "is_castrated": registration.status == "Castrated",
-        "is_spayed": registration.status == "Spayed",
-        "is_intact": registration.status == "Intact",
-        "owner_name": registration.owner_name or "",
-        "address": registration.address or "",
-        "contact_no": registration.contact_no or "",
-        "vaccination_rows": _pad_rows(vac_rows, 10),
-        "deworming_rows": _pad_rows(dew_rows, 8),
-        "has_vaccinations": bool(vac_records),
-        "has_dewormings": bool(dew_records),
-    }
-
+def _latest_certificate_record_date(rows):
+    return next((row.get("date", "") for row in rows if row.get("date")), "")
 
 
 # views.py
@@ -693,15 +484,11 @@ def admin_required(view_func):
 
 def admin_login(request):
     return redirect('user:login')
-    return redirect('user:login')
 
 
 @login_required
 def admin_logout(request):
     logout(request)
-    response = redirect('user:login')
-    response.delete_cookie('admin_sessionid')
-    return response
     response = redirect('user:login')
     response.delete_cookie('admin_sessionid')
     return response
@@ -729,13 +516,7 @@ def create_post(request):
     else:
         post_form = PostForm()
 
-    post_form.fields["location"].widget.attrs["data-barangay-source-url"] = reverse(
-        "dogadoption_admin:barangay_list_api"
-    )
-
-    post_form.fields["location"].widget.attrs["data-barangay-source-url"] = reverse(
-        "dogadoption_admin:barangay_list_api"
-    )
+    _set_post_form_barangay_source(post_form)
 
     return render(request, 'admin_home/create_post.html', {
         'post_form': post_form
@@ -756,30 +537,9 @@ def post_list(request):
         if form_type == "appointment_dates":
             show_appointment_modal = True
             dates_raw = (request.POST.get('appointment_dates') or '').strip()
-
-            parsed_dates = []
-            for value in [v.strip() for v in dates_raw.split(',') if v.strip()]:
-                parsed_date = parse_date(value)
-                if parsed_date:
-                    parsed_dates.append(parsed_date)
-            parsed_dates = sorted(set(parsed_dates))
-
-            today = timezone.localdate()
-            if any(d < today for d in parsed_dates):
+            if not _validate_and_save_global_appointment_dates(dates_raw, request.user):
                 messages.error(request, "Past dates are not allowed.")
             else:
-                with transaction.atomic():
-                    GlobalAppointmentDate.objects.exclude(
-                        appointment_date__in=parsed_dates
-                    ).delete()
-                    for day in parsed_dates:
-                        GlobalAppointmentDate.objects.update_or_create(
-                            appointment_date=day,
-                            defaults={
-                                'created_by': request.user,
-                                'is_active': True,
-                            },
-                        )
                 messages.success(request, "Appointment dates saved.")
                 return redirect(reverse('dogadoption_admin:post_list'))
         else:
@@ -797,9 +557,7 @@ def post_list(request):
                 messages.success(request, "Post created successfully.")
                 return redirect(reverse('dogadoption_admin:post_list'))
 
-    post_form.fields["location"].widget.attrs["data-barangay-source-url"] = reverse(
-        "dogadoption_admin:barangay_list_api"
-    )
+    _set_post_form_barangay_source(post_form)
 
     # Base queryset with annotation
     base_qs = Post.objects.annotate(
@@ -837,10 +595,6 @@ def post_list(request):
     for p in base_qs:
         days = hours = minutes = 0
         phase = p.current_phase()
-        phase = p.current_phase()
-
-        if phase in ['claim', 'adopt']:
-            diff = p.time_left()
         if phase in ['claim', 'adopt']:
             diff = p.time_left()
             total_seconds = max(int(diff.total_seconds()), 0)
@@ -898,11 +652,7 @@ def post_list(request):
         reverse=True,
     )
 
-    global_dates = list(
-        GlobalAppointmentDate.objects.filter(
-            is_active=True
-        ).order_by('appointment_date').values_list('appointment_date', flat=True)
-    )
+    global_dates = _get_active_global_appointment_dates()
 
     return render(request, 'admin_home/post_list.html', {
         'all_posts': all_enriched,
@@ -922,37 +672,11 @@ def post_list(request):
 def appointment_calendar(request):
     if request.method == 'POST':
         dates_raw = (request.POST.get('appointment_dates') or '').strip()
-
-        parsed_dates = []
-        for value in [v.strip() for v in dates_raw.split(',') if v.strip()]:
-            parsed_date = parse_date(value)
-            if parsed_date:
-                parsed_dates.append(parsed_date)
-        parsed_dates = sorted(set(parsed_dates))
-
-        today = timezone.localdate()
-        if any(d < today for d in parsed_dates):
+        if not _validate_and_save_global_appointment_dates(dates_raw, request.user):
             messages.error(request, "Past dates are not allowed.")
         else:
-            with transaction.atomic():
-                GlobalAppointmentDate.objects.exclude(
-                    appointment_date__in=parsed_dates
-                ).delete()
-                for day in parsed_dates:
-                    GlobalAppointmentDate.objects.update_or_create(
-                        appointment_date=day,
-                        defaults={
-                            'created_by': request.user,
-                            'is_active': True,
-                        },
-                    )
             messages.success(request, "Appointment dates saved.")
-
-    global_dates = list(
-        GlobalAppointmentDate.objects.filter(
-            is_active=True
-        ).order_by('appointment_date').values_list('appointment_date', flat=True)
-    )
+    global_dates = _get_active_global_appointment_dates()
 
     return render(request, 'admin_home/appointment_calendar.html', {
         'appointment_dates': [d.strftime('%Y-%m-%d') for d in global_dates],
@@ -961,94 +685,34 @@ def appointment_calendar(request):
 #   CLAIM REQUESTS
 @admin_required
 def claim_requests(request, post_id):
-    post = get_object_or_404(Post, id=post_id)
-
-    claims = post.requests.filter(request_type='claim') \
-                          .select_related('user') \
-                          .prefetch_related('images') \
-                          .order_by('-created_at') \
-                          .order_by('-created_at')
-
-    user_ids = [req.user.id for req in claims]
-    profiles = Profile.objects.filter(user_id__in=user_ids)
-    faceauth = FaceImage.objects.filter(user_id__in=user_ids)
-    available_dates = GlobalAppointmentDate.objects.filter(
-        is_active=True,
-        appointment_date__gte=timezone.localdate(),
-    ).order_by('appointment_date')
-    available_dates = GlobalAppointmentDate.objects.filter(
-        is_active=True,
-        appointment_date__gte=timezone.localdate(),
-    ).order_by('appointment_date')
-
-    requests_with_meta = []
-    for req in claims:
-        profile = profiles.filter(user_id=req.user.id).first()
-        face_images = faceauth.filter(user_id=req.user.id)
-        requests_with_meta.append({
-            'req': req,
-            'profile': profile,
-            'face_images': face_images
-        })
-
-    return render(request, 'admin_claim/claim_requests.html', {
-        'post': post,
-        'requests_meta': requests_with_meta,
-        'available_dates': available_dates,
-    })
+    return _render_post_request_list(
+        request,
+        post_id,
+        "claim",
+        "admin_claim/claim_requests.html",
+    )
 
 
 # ADOPTION REQUESTS
 @admin_required
 def adoption_requests(request, post_id):
-    post = get_object_or_404(Post, id=post_id)
-
-    adoptions = post.requests.filter(request_type='adopt') \
-                             .select_related('user') \
-                             .prefetch_related('images') \
-                             .order_by('-created_at') \
-                             .order_by('-created_at')
-
-    user_ids = [req.user.id for req in adoptions]
-    profiles = Profile.objects.filter(user_id__in=user_ids)
-    faceauth = FaceImage.objects.filter(user_id__in=user_ids)
-    available_dates = GlobalAppointmentDate.objects.filter(
-        is_active=True,
-        appointment_date__gte=timezone.localdate(),
-    ).order_by('appointment_date')
-    available_dates = GlobalAppointmentDate.objects.filter(
-        is_active=True,
-        appointment_date__gte=timezone.localdate(),
-    ).order_by('appointment_date')
-
-    requests_with_meta = []
-    for req in adoptions:
-        profile = profiles.filter(user_id=req.user.id).first()
-        face_images = faceauth.filter(user_id=req.user.id)
-        requests_with_meta.append({
-            'req': req,
-            'profile': profile,
-            'face_images': face_images
-        })
-
-    return render(request, 'admin_adoption/adoption_request.html', {
-        'post': post,
-        'requests_meta': requests_with_meta,
-        'available_dates': available_dates,
-      
-    })
+    return _render_post_request_list(
+        request,
+        post_id,
+        "adopt",
+        "admin_adoption/adoption_request.html",
+    )
 
 
 # ACCEPT / REJECT REQUEST
 @admin_required
-@require_POST
 @require_POST
 def update_request(request, req_id, action):
     req = get_object_or_404(PostRequest, id=req_id)
     post = req.post
 
     if action == 'accept':
-        scheduled_date_raw = request.POST.get('scheduled_appointment_date') if request.method == 'POST' else None
+        scheduled_date_raw = request.POST.get('scheduled_appointment_date')
         scheduled_date = parse_date(scheduled_date_raw) if scheduled_date_raw else req.appointment_date
 
         if scheduled_date:
@@ -1058,26 +722,9 @@ def update_request(request, req_id, action):
             ).exists()
             if not is_available:
                 messages.error(request, "Selected appointment date is not in the available schedule.")
-                if req.request_type == 'claim':
-                    return redirect('dogadoption_admin:claim_requests', post.id)
-                return redirect('dogadoption_admin:adoption_requests', post.id)
-
-        scheduled_date_raw = request.POST.get('scheduled_appointment_date') if request.method == 'POST' else None
-        scheduled_date = parse_date(scheduled_date_raw) if scheduled_date_raw else req.appointment_date
-
-        if scheduled_date:
-            is_available = GlobalAppointmentDate.objects.filter(
-                appointment_date=scheduled_date,
-                is_active=True,
-            ).exists()
-            if not is_available:
-                messages.error(request, "Selected appointment date is not in the available schedule.")
-                if req.request_type == 'claim':
-                    return redirect('dogadoption_admin:claim_requests', post.id)
-                return redirect('dogadoption_admin:adoption_requests', post.id)
+                return _build_request_redirect(req)
 
         req.status = 'accepted'
-        req.scheduled_appointment_date = scheduled_date
         req.scheduled_appointment_date = scheduled_date
 
         #  Move post automatically
@@ -1098,15 +745,10 @@ def update_request(request, req_id, action):
     elif action == 'reject':
         req.status = 'rejected'
         req.scheduled_appointment_date = None
-        req.scheduled_appointment_date = None
 
     req.save(update_fields=['status', 'scheduled_appointment_date'])
 
-    # Smart redirect
-    if req.request_type == 'claim':
-        return redirect('dogadoption_admin:claim_requests', post.id)
-    else:
-        return redirect('dogadoption_admin:adoption_requests', post.id)
+    return _build_request_redirect(req)
 
 
 
@@ -1163,38 +805,6 @@ def admin_dog_capture_requests(request):
 
         return redirect('dogadoption_admin:requests')
 
-    if request.method == 'POST':
-        action = request.POST.get('action')
-
-        if action == 'add_contact':
-            name = (request.POST.get('contact_name') or '').strip()
-            phone = (request.POST.get('contact_phone') or '').strip()
-            if phone:
-                DogCatcherContact.objects.create(
-                    name=name,
-                    phone_number=phone,
-                    active=True
-                )
-                messages.success(request, "Dog catcher contact added.")
-            else:
-                messages.error(request, "Phone number is required.")
-
-        elif action == 'toggle_contact':
-            contact_id = request.POST.get('contact_id')
-            contact = DogCatcherContact.objects.filter(id=contact_id).first()
-            if contact:
-                contact.active = not contact.active
-                contact.save(update_fields=['active'])
-                state = "activated" if contact.active else "deactivated"
-                messages.success(request, f"Contact {state}.")
-
-        elif action == 'delete_contact':
-            contact_id = request.POST.get('contact_id')
-            DogCatcherContact.objects.filter(id=contact_id).delete()
-            messages.success(request, "Contact removed.")
-
-        return redirect('dogadoption_admin:requests')
-
     requests = list(
         DogCaptureRequest.objects.select_related(
             'requested_by', 'requested_by__profile', 'assigned_admin'
@@ -1203,7 +813,6 @@ def admin_dog_capture_requests(request):
         .order_by('-created_at')
     )
 
-    map_points = []
     for req in requests:
         _enrich_capture_request_user(req)
 
@@ -1243,32 +852,7 @@ def admin_dog_capture_requests(request):
             image_url = req.image.url
         else:
             image_url = ''
-
-        is_allowed_map_point = _is_allowed_bayawan_map_point(barangay, city)
-        if (
-            req.status == 'accepted'
-            and req.latitude is not None
-            and req.longitude is not None
-            and is_allowed_map_point
-        ):
-            scheduled_iso = req.scheduled_date.date().isoformat() if req.scheduled_date else ''
-            scheduled_display = req.scheduled_date.strftime('%b %d, %Y %I:%M %p') if req.scheduled_date else ''
-            map_points.append({
-                'id': req.id,
-                'user': req.requested_by.username,
-                'reason': req.get_reason_display(),
-                'status': req.get_status_display(),
-                'status_key': req.status,
-                'lat': float(req.latitude),
-                'lng': float(req.longitude),
-                'barangay': barangay,
-                'city': city,
-                'location_label': req.location_label,
-                'created_at': req.created_at.strftime('%b %d, %Y %I:%M %p'),
-                'scheduled_date_iso': scheduled_iso,
-                'scheduled_date_display': scheduled_display,
-                'image_url': image_url,
-            })
+        req.preview_image_url = image_url
 
     pending_requests = [req for req in requests if req.status == 'pending']
     accepted_requests = [req for req in requests if req.status == 'accepted']
@@ -1530,21 +1114,6 @@ def admin_users(request):
         'users': users,
         'query': query
     })
-
-def admin_user_search_results(request):
-    query = request.GET.get('q', '')
-
-    results = User.objects.select_related('profile').filter(
-        Q(first_name__icontains=query) |
-        Q(last_name__icontains=query) |
-        Q(username__icontains=query)
-    ).order_by('first_name')
-
-    return render(request, 'admin_user/user_search_results.html', {
-        'results': results,
-        'query': query
-    })
-
 
 def admin_user_detail(request, id):
     user = get_object_or_404(User, id=id)
@@ -1956,41 +1525,13 @@ def registration_record(request):
             barangay__iexact=selected_barangay
         )
 
-    date_filter_label = ""
-    if date_filter_type == 'day' and filter_date:
-        selected_date = parse_date(filter_date)
-        if selected_date:
-            dogs = dogs.filter(date_registered=selected_date)
-            date_filter_label = selected_date.strftime("%b %d, %Y")
-        else:
-            date_filter_type = 'all'
-    elif date_filter_type == 'month' and filter_month:
-        month_match = re.match(r"^(\d{4})-(\d{2})$", filter_month)
-        if month_match:
-            month_year = int(month_match.group(1))
-            month_value = int(month_match.group(2))
-            if 1 <= month_value <= 12:
-                dogs = dogs.filter(
-                    date_registered__year=month_year,
-                    date_registered__month=month_value,
-                )
-                date_filter_label = datetime(month_year, month_value, 1).strftime("%B %Y")
-            else:
-                date_filter_type = 'all'
-        else:
-            date_filter_type = 'all'
-    elif date_filter_type == 'year' and filter_year:
-        if filter_year.isdigit():
-            year_value = int(filter_year)
-            if 1900 <= year_value <= 9999:
-                dogs = dogs.filter(date_registered__year=year_value)
-                date_filter_label = str(year_value)
-            else:
-                date_filter_type = 'all'
-        else:
-            date_filter_type = 'all'
-    else:
-        date_filter_type = 'all'
+    dogs, date_filter_type, date_filter_label = _apply_registration_date_filter(
+        dogs,
+        date_filter_type,
+        filter_date,
+        filter_month,
+        filter_year,
+    )
 
     dogs = dogs.order_by('-date_registered')
     available_years = [
@@ -1998,22 +1539,12 @@ def registration_record(request):
         .dates('date_registered', 'year', order='DESC')
     ]
 
-    date_filter_params = {}
-    if date_filter_type == 'day' and filter_date:
-        date_filter_params = {
-            'date_filter_type': 'day',
-            'filter_date': filter_date,
-        }
-    elif date_filter_type == 'month' and filter_month:
-        date_filter_params = {
-            'date_filter_type': 'month',
-            'filter_month': filter_month,
-        }
-    elif date_filter_type == 'year' and filter_year:
-        date_filter_params = {
-            'date_filter_type': 'year',
-            'filter_year': filter_year,
-        }
+    date_filter_params = _build_registration_filter_params(
+        date_filter_type,
+        filter_date,
+        filter_month,
+        filter_year,
+    )
 
     date_filter_query = urlencode(date_filter_params)
     download_params = {}
@@ -2057,24 +1588,13 @@ def download_registration(request, file_type):
     if selected_barangay:
         dogs = dogs.filter(barangay__iexact=selected_barangay)
 
-    if date_filter_type == 'day' and filter_date:
-        selected_date = parse_date(filter_date)
-        if selected_date:
-            dogs = dogs.filter(date_registered=selected_date)
-    elif date_filter_type == 'month' and filter_month:
-        month_match = re.match(r"^(\d{4})-(\d{2})$", filter_month)
-        if month_match:
-            month_year = int(month_match.group(1))
-            month_value = int(month_match.group(2))
-            if 1 <= month_value <= 12:
-                dogs = dogs.filter(
-                    date_registered__year=month_year,
-                    date_registered__month=month_value,
-                )
-    elif date_filter_type == 'year' and filter_year and filter_year.isdigit():
-        year_value = int(filter_year)
-        if 1900 <= year_value <= 9999:
-            dogs = dogs.filter(date_registered__year=year_value)
+    dogs, _, _ = _apply_registration_date_filter(
+        dogs,
+        date_filter_type,
+        filter_date,
+        filter_month,
+        filter_year,
+    )
     dogs = dogs.order_by('-date_registered')
     selected_barangay_label = selected_barangay or "All Barangays"
 
@@ -2340,40 +1860,22 @@ def med_record(request, registration_id):
             return redirect('dogadoption_admin:med_records', registration_id=registration.id)
 
         if record_type == "vaccination":
-            vac_date = (request.POST.get("vac_date") or "").strip()
-            vaccine_name = (request.POST.get("vaccine_name") or "").strip()
-            manufacturer_lot_no = (request.POST.get("manufacturer_lot_no") or "").strip()
-            vaccine_expiry_date = (request.POST.get("vaccine_expiry_date") or "").strip()
-            vaccination_expiry_date = (request.POST.get("vaccination_expiry_date") or "").strip()
-
-            VaccinationRecord.objects.create(
-                registration=registration,
-                date=vac_date,
-                vaccine_name=vaccine_name,
-                manufacturer_lot_no=manufacturer_lot_no,
-                vaccine_expiry_date=vaccine_expiry_date,
-                vaccination_expiry_date=vaccination_expiry_date,
-                veterinarian="",
+            (
+                vac_date,
+                vaccine_name,
+                manufacturer_lot_no,
+                vaccine_expiry_date,
+                vaccination_expiry_date,
+            ) = _get_vaccination_post_values(request)
+            cert_settings = _create_vaccination_and_update_defaults(
+                registration,
+                cert_settings,
+                vac_date,
+                vaccine_name,
+                manufacturer_lot_no,
+                vaccine_expiry_date,
+                vaccination_expiry_date,
             )
-            settings_obj = cert_settings or CertificateSettings.objects.create()
-            if vac_date:
-                parsed_vac_date = parse_date(vac_date)
-                if parsed_vac_date:
-                    settings_obj.default_vac_date = parsed_vac_date
-            if vaccine_name:
-                settings_obj.default_vaccine_name = vaccine_name
-            if manufacturer_lot_no:
-                settings_obj.default_manufacturer_lot_no = manufacturer_lot_no
-            if vaccine_expiry_date:
-                parsed_vac_expiry = parse_date(vaccine_expiry_date)
-                if parsed_vac_expiry:
-                    settings_obj.default_vaccine_expiry_date = parsed_vac_expiry
-            settings_obj.save(update_fields=[
-                "default_vac_date",
-                "default_vaccine_name",
-                "default_manufacturer_lot_no",
-                "default_vaccine_expiry_date",
-            ])
 
         elif record_type == "deworming":
             DewormingTreatmentRecord.objects.create(
@@ -2386,40 +1888,22 @@ def med_record(request, registration_id):
             )
 
         elif record_type == "all":
-            vac_date = (request.POST.get("vac_date") or "").strip()
-            vaccine_name = (request.POST.get("vaccine_name") or "").strip()
-            manufacturer_lot_no = (request.POST.get("manufacturer_lot_no") or "").strip()
-            vaccine_expiry_date = (request.POST.get("vaccine_expiry_date") or "").strip()
-            vaccination_expiry_date = (request.POST.get("vaccination_expiry_date") or "").strip()
-
-            VaccinationRecord.objects.create(
-                registration=registration,
-                date=vac_date,
-                vaccine_name=vaccine_name,
-                manufacturer_lot_no=manufacturer_lot_no,
-                vaccine_expiry_date=vaccine_expiry_date,
-                vaccination_expiry_date=vaccination_expiry_date,
-                veterinarian="",
+            (
+                vac_date,
+                vaccine_name,
+                manufacturer_lot_no,
+                vaccine_expiry_date,
+                vaccination_expiry_date,
+            ) = _get_vaccination_post_values(request)
+            cert_settings = _create_vaccination_and_update_defaults(
+                registration,
+                cert_settings,
+                vac_date,
+                vaccine_name,
+                manufacturer_lot_no,
+                vaccine_expiry_date,
+                vaccination_expiry_date,
             )
-            settings_obj = cert_settings or CertificateSettings.objects.create()
-            if vac_date:
-                parsed_vac_date = parse_date(vac_date)
-                if parsed_vac_date:
-                    settings_obj.default_vac_date = parsed_vac_date
-            if vaccine_name:
-                settings_obj.default_vaccine_name = vaccine_name
-            if manufacturer_lot_no:
-                settings_obj.default_manufacturer_lot_no = manufacturer_lot_no
-            if vaccine_expiry_date:
-                parsed_vac_expiry = parse_date(vaccine_expiry_date)
-                if parsed_vac_expiry:
-                    settings_obj.default_vaccine_expiry_date = parsed_vac_expiry
-            settings_obj.save(update_fields=[
-                "default_vac_date",
-                "default_vaccine_name",
-                "default_manufacturer_lot_no",
-                "default_vaccine_expiry_date",
-            ])
 
             DewormingTreatmentRecord.objects.create(
                 registration=registration,
@@ -2785,14 +2269,8 @@ def export_selected_certificates(request):
                 table.rows[0].cells[idx].text = label
 
             for cert in certificates:
-                latest_vac = next(
-                    (row.get("date", "") for row in cert["vaccination_rows"] if row.get("date")),
-                    "",
-                )
-                latest_dew = next(
-                    (row.get("date", "") for row in cert["deworming_rows"] if row.get("date")),
-                    "",
-                )
+                latest_vac = _latest_certificate_record_date(cert["vaccination_rows"])
+                latest_dew = _latest_certificate_record_date(cert["deworming_rows"])
                 row_cells = table.add_row().cells
                 row_cells[0].text = cert["reg_no"]
                 row_cells[1].text = cert["name_of_pet"]
@@ -2827,14 +2305,8 @@ def export_selected_certificates(request):
             ws.append(headers)
 
             for cert in certificates:
-                latest_vac = next(
-                    (row.get("date", "") for row in cert["vaccination_rows"] if row.get("date")),
-                    "",
-                )
-                latest_dew = next(
-                    (row.get("date", "") for row in cert["deworming_rows"] if row.get("date")),
-                    "",
-                )
+                latest_vac = _latest_certificate_record_date(cert["vaccination_rows"])
+                latest_dew = _latest_certificate_record_date(cert["deworming_rows"])
                 ws.append([
                     cert["reg_no"],
                     cert["name_of_pet"],

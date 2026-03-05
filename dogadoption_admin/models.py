@@ -317,6 +317,31 @@ class AnnouncementComment(models.Model):
         return f"{self.user.username} - {self.comment[:20]}"
 
 
+class AnnouncementReaction(models.Model):
+    announcement = models.ForeignKey(
+        DogAnnouncement,
+        on_delete=models.CASCADE,
+        related_name="reactions",
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["announcement", "user"],
+                name="annreaction_unique_user_per_announcement",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["announcement"], name="annreaction_announcement_idx"),
+            models.Index(fields=["user", "created_at"], name="annreaction_user_created_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} reacted to announcement {self.announcement_id}"
+
+
 class AdminNotification(models.Model):
     title = models.CharField(max_length=160)
     message = models.TextField(blank=True)

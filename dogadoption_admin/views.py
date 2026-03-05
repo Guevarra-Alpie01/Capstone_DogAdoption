@@ -40,7 +40,6 @@ from .cache_utils import ANALYTICS_DASHBOARD_CACHE_KEY
 from .context_processors import ADMIN_NOTIFICATIONS_CACHE_KEY
 from .models import (
     AdminNotification,
-    AnnouncementComment,
     Barangay,
     CertificateSettings,
     Citation,
@@ -1371,8 +1370,8 @@ def update_dog_capture_request(request, pk):
 @admin_required
 def announcement_list(request):
     announcements = (
-        DogAnnouncement.objects.all()
-        .prefetch_related('comments', 'images')
+        DogAnnouncement.objects.select_related('created_by')
+        .prefetch_related('images')
         .order_by('-created_at')
     )
 
@@ -1436,18 +1435,6 @@ def announcement_create_form(request, category_slug):
 
 
 @admin_required
-def announcement_comment(request, post_id):
-
-    if request.method == "POST":
-        AnnouncementComment.objects.create(
-            announcement_id=post_id,
-            user=request.user,
-            comment=request.POST.get("comment")
-        )
-
-    return redirect("dogadoption_admin:admin_announcements")
-
-@admin_required
 def announcement_edit(request, post_id):
     post = DogAnnouncement.objects.get(id=post_id)
 
@@ -1486,16 +1473,6 @@ def announcement_delete(request, post_id):
     messages.success(request, "Announcement deleted.")
 
     return redirect("dogadoption_admin:admin_announcements")
-
-@admin_required
-def comment_reply(request, comment_id):
-    comment = AnnouncementComment.objects.get(id=comment_id)
-
-    if request.method == "POST":
-        comment.reply = request.POST.get("reply")
-        comment.save()
-    return redirect("dogadoption_admin:admin_announcements")
-
 
 #++++++++++++++++++++++++++++ USER MANAGEMENT PAGE +++++++++++++++++++++++++++++++++++++
 @admin_required

@@ -39,8 +39,6 @@ urlpatterns = [
     ),
     path('announcements/<int:post_id>/edit/', views.announcement_edit, name='announcement_edit'),
     path('announcements/<int:post_id>/delete/', views.announcement_delete, name='announcement_delete'),
-    path('announcements/<int:post_id>/comment/', views.announcement_comment, name='announcement_comment'),
-    path('comments/<int:comment_id>/reply/', views.comment_reply, name='comment_reply'),
 
     #USER MANAGEMENT
     path('users/', views.admin_users, name='admin_users'),

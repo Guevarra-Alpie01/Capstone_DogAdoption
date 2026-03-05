@@ -14,9 +14,13 @@
         <div class="detail-content">
             <h1 class="detail-title">{{ post.title }}</h1>
 
-            <div class="post-meta">Published {{ post.created_at|date:'M d, Y h:i A' }}</div>
+            <div class="post-meta">Published {{ post.created_at|date:'M d, Y h:i A' }} by {{ post.created_by.username }}</div>
+            <div class="detail-author">
+                <img src="{{ post.admin_profile_image_url }}" alt="Admin profile" class="detail-author-avatar">
+                <span class="detail-author-name">{{ post.created_by.get_full_name|default:post.created_by.username }}</span>
+            </div>
 
-            <div class="detail-body">{{ post.content|safe }}</div>
+            <div class="detail-body">{{ post.content_display|linebreaksbr }}</div>
 
             {% if post.schedule_data %}
             <div class="schedule-section">
@@ -31,23 +35,41 @@
             {% endif %}
         </div>
 
-        {% if post.images.all %}
+        {% if post.background_image or post.prefetched_images %}
         <div class="media-viewer">
-            {% for photo in post.images.all|slice:':1' %}
-            <img src="{{ photo.image.url }}"
+            {% if post.background_image %}
+            <img src="{{ post.background_image.url }}"
                  class="detail-main-image js-zoom-image"
-                 data-full-src="{{ photo.image.url }}"
-                 data-full-alt="Announcement photo {{ forloop.counter }}"
-                 alt="Announcement photo {{ forloop.counter }}"
+                 data-full-src="{{ post.background_image.url }}"
+                 data-full-alt="{{ post.title }}"
+                 alt="{{ post.title }}"
                  role="button"
                  tabindex="0"
                  aria-label="Open full image">
-            {% endfor %}
+            {% elif post.prefetched_images %}
+            {% with first_photo=post.prefetched_images.0 %}
+            <img src="{{ first_photo.image.url }}"
+                 class="detail-main-image js-zoom-image"
+                 data-full-src="{{ first_photo.image.url }}"
+                 data-full-alt="Announcement photo 1"
+                 alt="Announcement photo 1"
+                 role="button"
+                 tabindex="0"
+                 aria-label="Open full image">
+            {% endwith %}
+            {% endif %}
 
             <div class="detail-thumb-row">
-                {% for photo in post.images.all %}
+                {% if post.background_image %}
+                <img src="{{ post.background_image.url }}"
+                     class="detail-thumb is-active"
+                     data-image-src="{{ post.background_image.url }}"
+                     data-image-alt="{{ post.title }}"
+                     alt="{{ post.title }}">
+                {% endif %}
+                {% for photo in post.prefetched_images %}
                 <img src="{{ photo.image.url }}"
-                     class="detail-thumb {% if forloop.first %}is-active{% endif %}"
+                     class="detail-thumb {% if not post.background_image and forloop.first %}is-active{% endif %}"
                      data-image-src="{{ photo.image.url }}"
                      data-image-alt="Announcement photo {{ forloop.counter }}"
                      alt="Announcement photo {{ forloop.counter }}">
@@ -57,26 +79,22 @@
         {% endif %}
 
         <div class="comments-section">
-            <h4>Comments ({{ post.comments.count }})</h4>
-            {% for comment in post.comments.all %}
-            <div class="comment">
-                <p><strong>{{ comment.user.username }}</strong>: {{ comment.comment }}</p>
-                {% if comment.reply %}
-                <div class="admin-reply">
-                    <p><strong>Admin</strong>: {{ comment.reply }}</p>
-                </div>
-                {% endif %}
-            </div>
-            {% empty %}
-            <p class="empty-note">No comments yet.</p>
-            {% endfor %}
-
-            <form method="POST" action="{% url 'user:announcement_comment' post.id %}" class="comment-form">
+            <h4>Reactions</h4>
+            <form method="POST" action="{% url 'user:announcement_react' post.id %}" class="comment-form">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.path }}">
-                <input type="text" name="comment" placeholder="Write a comment..." required>
-                <button type="submit">Post</button>
+                <button type="submit">
+                    {% if post.user_reacted %}Reacted{% else %}React{% endif %}
+                    ({{ post.reaction_count }})
+                </button>
             </form>
+            <a href="https://www.facebook.com/sharer/sharer.php?u={{ share_url|urlencode }}"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="details-link"
+               style="margin-top: 10px;">
+                Share on Facebook
+            </a>
         </div>
     </div>
 </div>

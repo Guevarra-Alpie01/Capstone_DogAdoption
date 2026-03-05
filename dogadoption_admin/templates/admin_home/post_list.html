@@ -112,6 +112,23 @@
     </div>
 </div>
 
+<div class="modal fade" id="createPostPublishConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Publish</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Publish this post now?
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-primary btn-sm" id="createPostPublishConfirmSubmit">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade appointment-modal" id="appointmentDateModal" tabindex="-1" aria-labelledby="appointmentDateModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -629,6 +646,23 @@
     </div>
 </div>
 
+<div class="modal fade" id="appointmentSaveConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Save</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Save appointment dates now?
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-primary btn-sm" id="appointmentSaveConfirmSubmit">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{ appointment_dates|json_script:"appointment_dates_data" }}
 <script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 <script>
@@ -778,9 +812,16 @@
         const appointmentModalEl = document.getElementById("appointmentDateModal");
         const claimDaysInput = document.getElementById("{{ post_form.claim_days.id_for_label }}");
         const form = document.getElementById("create-post-form");
+        const appointmentFormEl = document.getElementById("appointmentForm");
+        const publishConfirmModalEl = document.getElementById("createPostPublishConfirmModal");
+        const publishConfirmSubmitBtn = document.getElementById("createPostPublishConfirmSubmit");
+        const appointmentConfirmModalEl = document.getElementById("appointmentSaveConfirmModal");
+        const appointmentConfirmSubmitBtn = document.getElementById("appointmentSaveConfirmSubmit");
         const claimDaysStorageKey = "admin_create_post_claim_days";
         const shouldOpenCreateModal = {{ show_create_modal|yesno:"true,false" }};
         const shouldOpenAppointmentModal = {{ show_appointment_modal|yesno:"true,false" }};
+        let publishConfirmed = false;
+        let appointmentConfirmed = false;
 
         if (claimDaysInput) {
             const savedClaimDays = safeStorageGet(claimDaysStorageKey);
@@ -798,12 +839,75 @@
             });
         }
 
-        if (form && claimDaysInput) {
-            form.addEventListener("submit", () => {
-                const value = claimDaysInput.value;
+        if (form) {
+            form.addEventListener("submit", (e) => {
+                const value = claimDaysInput ? claimDaysInput.value : "";
                 if (value) {
                     safeStorageSet(claimDaysStorageKey, value);
                 }
+
+                if (publishConfirmed) {
+                    return;
+                }
+
+                if (publishConfirmModalEl && window.bootstrap) {
+                    e.preventDefault();
+                    const modal = bootstrap.Modal.getOrCreateInstance(publishConfirmModalEl);
+                    modal.show();
+                }
+            });
+        }
+
+        if (form && publishConfirmModalEl && publishConfirmSubmitBtn && window.bootstrap) {
+            publishConfirmSubmitBtn.addEventListener("click", () => {
+                publishConfirmed = true;
+                const modal = bootstrap.Modal.getOrCreateInstance(publishConfirmModalEl);
+                modal.hide();
+                if (typeof form.requestSubmit === "function") {
+                    form.requestSubmit();
+                } else {
+                    form.submit();
+                }
+            });
+
+            publishConfirmModalEl.addEventListener("hidden.bs.modal", () => {
+                if (!publishConfirmed) {
+                    return;
+                }
+                publishConfirmed = false;
+            });
+        }
+
+        if (appointmentFormEl) {
+            appointmentFormEl.addEventListener("submit", (e) => {
+                if (appointmentConfirmed) {
+                    return;
+                }
+                if (appointmentConfirmModalEl && window.bootstrap) {
+                    e.preventDefault();
+                    const modal = bootstrap.Modal.getOrCreateInstance(appointmentConfirmModalEl);
+                    modal.show();
+                }
+            });
+        }
+
+        if (appointmentFormEl && appointmentConfirmModalEl && appointmentConfirmSubmitBtn && window.bootstrap) {
+            appointmentConfirmSubmitBtn.addEventListener("click", () => {
+                appointmentConfirmed = true;
+                const modal = bootstrap.Modal.getOrCreateInstance(appointmentConfirmModalEl);
+                modal.hide();
+                if (typeof appointmentFormEl.requestSubmit === "function") {
+                    appointmentFormEl.requestSubmit();
+                } else {
+                    appointmentFormEl.submit();
+                }
+            });
+
+            appointmentConfirmModalEl.addEventListener("hidden.bs.modal", () => {
+                if (!appointmentConfirmed) {
+                    return;
+                }
+                appointmentConfirmed = false;
             });
         }
 

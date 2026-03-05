@@ -31,10 +31,13 @@
             <span class="category-chip">{{ category_option.label }}</span>
         </div>
 
-        <div class="fb-editor-body" id="editorBody">
-            <input type="text" name="title" class="fb-title-input" placeholder="Title" required>
-            <textarea name="content" id="postContent" class="fb-textarea" placeholder="Write the announcement details..." required></textarea>
-            <div id="imagePreviewContainer" class="fb-preview-grid"></div>
+        <div class="fb-editor-body" id="editorBody"
+             style="--announcement-default-bg:url('{% static 'images/announcement_background.jpg' %}');">
+            <div class="fb-text-board" id="textBoard">
+                <input type="text" name="title" class="fb-title-input" placeholder="Title" required>
+                <textarea name="content" id="postContent" class="fb-textarea" placeholder="Write the announcement details..." required></textarea>
+                <div id="imagePreviewContainer" class="fb-preview-grid"></div>
+            </div>
         </div>
 
         <div class="fb-add-to-post">
@@ -61,7 +64,7 @@
 
 <script>
 const postContent = document.getElementById('postContent');
-const editorBody = document.getElementById('editorBody');
+const textBoard = document.getElementById('textBoard');
 const previewContainer = document.getElementById('imagePreviewContainer');
 
 function toggleColorPicker() {
@@ -70,7 +73,7 @@ function toggleColorPicker() {
 }
 
 function updateTextareaBg(color) {
-    editorBody.style.backgroundColor = color;
+    textBoard.style.backgroundColor = color;
     const rgb = parseInt(color.substring(1), 16);
     const r = (rgb >> 16) & 0xff;
     const g = (rgb >> 8) & 0xff;
@@ -85,7 +88,7 @@ function handleImageSelect(event) {
     previewContainer.innerHTML = '';
     if (!files || !files.length) return;
 
-    editorBody.style.backgroundColor = '#ffffff';
+    textBoard.style.backgroundColor = '#ffffff';
     postContent.style.color = '#0f172a';
 
     Array.from(files).forEach(file => {
@@ -99,5 +102,13 @@ function handleImageSelect(event) {
         reader.readAsDataURL(file);
     });
 }
+
+function autoGrowTextarea() {
+    postContent.style.height = 'auto';
+    postContent.style.height = `${Math.max(postContent.scrollHeight, 180)}px`;
+}
+
+postContent.addEventListener('input', autoGrowTextarea);
+window.addEventListener('load', autoGrowTextarea);
 </script>
 {% endblock %}

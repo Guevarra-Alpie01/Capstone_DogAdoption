@@ -12,6 +12,12 @@ Copy `.env.example` to `.env`, then set at least:
 - `DJANGO_CSRF_TRUSTED_ORIGINS=https://<your-username>.pythonanywhere.com`
 - DB settings (`DB_*`) to your PythonAnywhere MySQL database
 
+You can also set:
+
+- `PYTHONANYWHERE_DOMAIN=<your-username>.pythonanywhere.com`
+
+If `DJANGO_CSRF_TRUSTED_ORIGINS` is left blank, it is auto-derived from `ALLOWED_HOSTS` (HTTPS origins only, excluding localhost).
+
 ## 2. Cache choice
 
 - Default is `CACHE_BACKEND=locmem` (works without Redis).
@@ -54,6 +60,24 @@ In the Web tab, add:
 
 - URL: `/static/` -> Directory: `<project-path>/staticfiles`
 - URL: `/media/` -> Directory: `<project-path>/media`
+
+Facebook preview images need `/media/` to be publicly reachable.
+
+## 8. Facebook Share Preview Checklist
+
+1. Share URL must be public:
+   - `/user/announcements/share/<id>/` should return `200` without login.
+2. Confirm OG tags exist:
+   - `og:title`
+   - `og:description`
+   - `og:image` (absolute HTTPS URL)
+   - `og:url`
+3. Ensure uploaded image URL opens in browser:
+   - `https://<your-domain>/media/...`
+4. Use Facebook Sharing Debugger:
+   - https://developers.facebook.com/tools/debug/
+   - Click `Scrape Again` after each content change.
+5. If preview is old, clear cache by scraping again.
 
 ## Notes
 

@@ -35,6 +35,31 @@ def env_list(name, default=""):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def unique_items(values):
+    seen = set()
+    result = []
+    for value in values:
+        if value and value not in seen:
+            seen.add(value)
+            result.append(value)
+    return result
+
+
+def host_to_https_origin(host):
+    value = (host or "").strip()
+    if not value:
+        return ""
+    if "*" in value:
+        return ""
+    if value.startswith("."):
+        value = value[1:]
+    if ":" in value and not value.startswith("["):
+        value = value.split(":", 1)[0]
+    if value in {"localhost", "127.0.0.1", "[::1]"}:
+        return ""
+    return f"https://{value}"
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
@@ -45,7 +70,17 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-dev-only-change-me"
 DEBUG = env_bool("DJANGO_DEBUG", True)
 
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+pythonanywhere_domain = os.getenv("PYTHONANYWHERE_DOMAIN", "").strip()
+if pythonanywhere_domain:
+    ALLOWED_HOSTS = unique_items(ALLOWED_HOSTS + [pythonanywhere_domain])
+else:
+    ALLOWED_HOSTS = unique_items(ALLOWED_HOSTS)
+
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", "")
+if not CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS = unique_items(
+        [host_to_https_origin(host) for host in ALLOWED_HOSTS]
+    )
 
 
 # Application definition

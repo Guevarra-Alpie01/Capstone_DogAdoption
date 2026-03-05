@@ -49,11 +49,7 @@
     <div class="card mb-4 shadow-sm post-card position-relative">
         <div class="post-author">
             {% if item.post_type == 'admin' %}
-                {% if post.user.profile.profile_image %}
-                    <img src="{{ post.user.profile.profile_image.url }}" class="author-avatar-img" alt="Author">
-                {% else %}
-                    <div class="author-avatar">A</div>
-                {% endif %}
+                <img src="{{ item.author_avatar_url }}" class="author-avatar-img" alt="Admin profile">
                 <div class="author-meta">
                     <div class="author-row">
                         <span class="author-name">Admin</span>
@@ -86,11 +82,7 @@
                     <span class="author-time">{{ item.posted_label }}</span>
                 </div>
             {% elif item.post_type == 'announcement' %}
-                {% if post.created_by.profile.profile_image %}
-                    <img src="{{ post.created_by.profile.profile_image.url }}" class="author-avatar-img" alt="Author">
-                {% else %}
-                    <div class="author-avatar">A</div>
-                {% endif %}
+                <img src="{{ item.author_avatar_url }}" class="author-avatar-img" alt="Admin profile">
                 <div class="author-meta">
                     <div class="author-row">
                         <span class="author-name">Admin Announcement</span>
@@ -136,10 +128,10 @@
             <div class="post-body-row {% if item.post_type == 'admin' and item.phase != 'closed' %}has-timer{% endif %}">
                 <div class="post-details">
        
-            <p class="card-text">
+            <p class="card-text {% if item.post_type == 'announcement' %}announcement-card-text{% endif %}">
                 {% if item.post_type == 'announcement' %}
                     <strong>{{ post.title }}</strong><br>
-                    {{ post.content|striptags|truncatechars:220 }}
+                    {{ item.content_display|linebreaksbr }}
                 {% elif item.post_type == 'user' %}
                     {{ post.description }}
                 {% elif item.post_type == 'missing' %}

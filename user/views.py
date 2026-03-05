@@ -7,7 +7,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.contrib.auth.models import User
-from django.db.models import Count, DateTimeField, Prefetch, Q
+from django.db.models import Count, DateTimeField, Exists, OuterRef, Prefetch, Q
+from django.db import IntegrityError
 from django.db.models.expressions import RawSQL
 import os
 import json
@@ -23,12 +24,16 @@ from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.templatetags.static import static
+from django.utils.html import strip_tags
 
 #MODELS FROM ADMIN APP 
 from dogadoption_admin.models import (
     AnnouncementComment,
+    AnnouncementReaction,
     Barangay,
     DogAnnouncement,
+    DogAnnouncementImage,
     GlobalAppointmentDate,
     Post,
     PostRequest,
@@ -111,6 +116,23 @@ def _resolve_barangay_name(value):
         if _normalize_barangay(name) == normalized:
             return name
     return ""
+
+
+def _profile_image_url_or_default(user, fallback_url):
+    profile = getattr(user, "profile", None)
+    image_field = getattr(profile, "profile_image", None)
+    try:
+        image_url = image_field.url if image_field else ""
+    except Exception:
+        image_url = ""
+    return image_url or fallback_url
+
+
+def _clean_announcement_text_for_display(raw_html):
+    text = strip_tags(raw_html or "").replace("\xa0", " ")
+    lines = text.splitlines()
+    cleaned_lines = [line.lstrip() for line in lines]
+    return "\n".join(cleaned_lines).strip()
 
 
 def _format_posted_label(dt):
@@ -682,6 +704,7 @@ def user_home(request):
     }
 
     combined_posts = []
+    default_admin_avatar_url = static("images/officialseal.webp")
     for row in feed_rows:
         post_type = row["feed_type"]
         post_id = row["id"]
@@ -706,6 +729,9 @@ def user_home(request):
             combined_posts.append({
                 "post": p,
                 "post_type": "admin",
+                "author_avatar_url": _profile_image_url_or_default(
+                    p.user, default_admin_avatar_url
+                ),
                 "days_left": days,
                 "hours_left": hours,
                 "minutes_left": minutes,
@@ -729,6 +755,10 @@ def user_home(request):
             combined_posts.append({
                 "post": p,
                 "post_type": "announcement",
+                "author_avatar_url": _profile_image_url_or_default(
+                    p.created_by, default_admin_avatar_url
+                ),
+                "content_display": _clean_announcement_text_for_display(p.content),
                 "posted_label": _format_posted_label(p.created_at),
                 "main_image_url": main_image_url,
                 "image_count": len(announcement_images),
@@ -1285,18 +1315,38 @@ def adopt_confirm(request, post_id):
 
 @user_only
 def announcement_list(request):
+    user_reaction_subquery = AnnouncementReaction.objects.filter(
+        announcement_id=OuterRef("pk"),
+        user_id=request.user.id,
+    )
     posts = (
-        DogAnnouncement.objects.annotate(
-            comment_count=Count("comments", distinct=True),
-            image_count=Count("images", distinct=True),
+        DogAnnouncement.objects.select_related("created_by", "created_by__profile").annotate(
+            reaction_count=Count("reactions", distinct=True),
+            user_reacted=Exists(user_reaction_subquery),
         ).prefetch_related(
             Prefetch(
-                "comments",
-                queryset=AnnouncementComment.objects.select_related("user").order_by("-created_at"),
+                "images",
+                queryset=DogAnnouncementImage.objects.only(
+                    "id",
+                    "announcement_id",
+                    "image",
+                    "created_at",
+                ).order_by("created_at", "id"),
+                to_attr="prefetched_images",
             ),
-            "images",
         ).order_by("-created_at")
     )
+
+    posts = list(posts)
+    default_admin_avatar_url = static("images/officialseal.webp")
+    for post in posts:
+        post.admin_profile_image_url = _profile_image_url_or_default(
+            post.created_by, default_admin_avatar_url
+        )
+        post.content_display = _clean_announcement_text_for_display(post.content)
+        post.share_url = request.build_absolute_uri(
+            reverse("user:announcement_share_preview", args=[post.id])
+        )
 
     return render(request, 'announcement/announcement.html', {
         'announcements': posts
@@ -1305,13 +1355,128 @@ def announcement_list(request):
 
 @user_only
 def announcement_detail(request, post_id):
+    user_reaction_subquery = AnnouncementReaction.objects.filter(
+        announcement_id=OuterRef("pk"),
+        user_id=request.user.id,
+    )
     post = get_object_or_404(
-        DogAnnouncement.objects.prefetch_related('comments', 'comments__user', 'images'),
+        DogAnnouncement.objects.select_related("created_by", "created_by__profile").annotate(
+            reaction_count=Count("reactions", distinct=True),
+            user_reacted=Exists(user_reaction_subquery),
+        ).prefetch_related(
+            Prefetch(
+                "images",
+                queryset=DogAnnouncementImage.objects.only(
+                    "id",
+                    "announcement_id",
+                    "image",
+                    "created_at",
+                ).order_by("created_at", "id"),
+                to_attr="prefetched_images",
+            ),
+        ),
         id=post_id,
     )
+    post.admin_profile_image_url = _profile_image_url_or_default(
+        post.created_by, static("images/officialseal.webp")
+    )
+    post.content_display = _clean_announcement_text_for_display(post.content)
     return render(request, 'announcement/announcement_detail.html', {
         'post': post,
+        'share_url': request.build_absolute_uri(
+            reverse("user:announcement_share_preview", args=[post.id])
+        ),
     })
+
+
+@user_only
+@require_POST
+def announcement_react(request, post_id):
+    post = get_object_or_404(DogAnnouncement.objects.only("id"), id=post_id)
+
+    existing_reaction = AnnouncementReaction.objects.filter(
+        announcement_id=post.id,
+        user_id=request.user.id,
+    ).only("id").first()
+
+    if existing_reaction:
+        existing_reaction.delete()
+        reacted = False
+    else:
+        try:
+            AnnouncementReaction.objects.create(
+                announcement_id=post.id,
+                user_id=request.user.id,
+            )
+            reacted = True
+        except IntegrityError:
+            # Another request created the same reaction concurrently.
+            reacted = True
+
+    reaction_count = AnnouncementReaction.objects.filter(announcement_id=post.id).count()
+
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return JsonResponse({
+            "ok": True,
+            "reacted": reacted,
+            "reaction_count": reaction_count,
+        })
+
+    next_url = (request.POST.get("next") or "").strip()
+    if not next_url or not url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        next_url = reverse("user:announcement_list")
+    return redirect(next_url)
+
+
+def announcement_share_preview(request, post_id):
+    post = get_object_or_404(
+        DogAnnouncement.objects.select_related("created_by").prefetch_related(
+            Prefetch(
+                "images",
+                queryset=DogAnnouncementImage.objects.only(
+                    "id",
+                    "announcement_id",
+                    "image",
+                    "created_at",
+                ).order_by("created_at", "id"),
+                to_attr="prefetched_images",
+            ),
+        ),
+        id=post_id,
+    )
+
+    primary_image_url = ""
+    if post.background_image:
+        primary_image_url = request.build_absolute_uri(post.background_image.url)
+    elif getattr(post, "prefetched_images", None):
+        primary_image_url = request.build_absolute_uri(post.prefetched_images[0].image.url)
+    else:
+        primary_image_url = request.build_absolute_uri(static("images/bayawan_logo.webp"))
+
+    plain_caption = strip_tags(post.content or "").strip()
+    if len(plain_caption) > 220:
+        plain_caption = f"{plain_caption[:217].rstrip()}..."
+    if not plain_caption:
+        plain_caption = "Announcement update from Bayawan Vet."
+
+    detail_url = request.build_absolute_uri(reverse("user:announcement_detail", args=[post.id]))
+    share_url = request.build_absolute_uri(reverse("user:announcement_share_preview", args=[post.id]))
+
+    return render(
+        request,
+        "announcement/announcement_share_preview.html",
+        {
+            "post": post,
+            "primary_image_url": primary_image_url,
+            "plain_caption": plain_caption,
+            "detail_url": detail_url,
+            "share_url": share_url,
+        },
+    )
 
 
 @user_only

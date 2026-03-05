@@ -40,7 +40,9 @@ urlpatterns = [
     #navigation links/ announcement  urls
     path('announcements/', views.announcement_list, name='announcement_list'),
     path('announcements/<int:post_id>/', views.announcement_detail, name='announcement_detail'),
+    path('announcements/<int:post_id>/react/', views.announcement_react, name='announcement_react'),
     path('announcements/<int:post_id>/comment/', views.announcement_comment, name='announcement_comment'),
+    path('announcements/share/<int:post_id>/', views.announcement_share_preview, name='announcement_share_preview'),
 
     #share button to facebook
     path('post/<int:post_id>/', views.post_detail, name='post_detail'),

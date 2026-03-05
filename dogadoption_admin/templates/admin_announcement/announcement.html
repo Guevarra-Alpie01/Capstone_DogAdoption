@@ -8,25 +8,10 @@
     <h2>Announcements</h2>
 
     {% if request.user.is_staff %}
-    <div class="dropdown">
-        <button class="create-post-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-            + Create Post
-        </button>
-        <ul class="dropdown-menu dropdown-menu-end create-post-menu">
-            <li>
-                <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#dogAnnouncementModal">
-                    <span class="menu-title">Dog Announcements</span>
-                    <small>For vaccination programs, educational campaigns, dog-related events, and general dog care information.</small>
-                </button>
-            </li>
-            <li>
-                <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#dogLawModal">
-                    <span class="menu-title">Dog Laws</span>
-                    <small>For rules and regulations about dogs, local ordinances, and legal responsibilities of dog owners.</small>
-                </button>
-            </li>
-        </ul>
-    </div>
+    <button class="create-post-btn" type="button" data-bs-toggle="modal" data-bs-target="#announcementCreateModal">
+        <i class="bi bi-plus-circle-fill"></i>
+        <span>Create Post</span>
+    </button>
     {% endif %}
 </div>
 
@@ -40,20 +25,16 @@
 </div>
 {% endif %}
 
-<div class="modal fade wiki-modal" id="dogAnnouncementModal" tabindex="-1" aria-labelledby="dogAnnouncementModalLabel" aria-hidden="true">
+<div class="modal fade wiki-modal" id="announcementCreateModal" tabindex="-1" aria-labelledby="announcementCreateModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content wiki-modal-content">
-            <form method="POST" enctype="multipart/form-data" action="{% url 'dogadoption_admin:announcement_create_form' 'dog-announcements' %}">
+            <form method="POST" enctype="multipart/form-data" action="{% url 'dogadoption_admin:announcement_create_form' 'dog-announcements' %}" class="js-ann-confirm-form">
                 {% csrf_token %}
                 <div class="modal-header wiki-modal-header">
-                    <h5 class="modal-title" id="dogAnnouncementModalLabel">Create Dog Announcements Post</h5>
+                    <h5 class="modal-title" id="announcementCreateModalLabel">Create Announcement Post</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body wiki-modal-body">
-                    <div class="wiki-focus-box">
-                        <strong>Post focus:</strong> Vaccination programs, educational campaigns, dog-related events, and general dog care information.
-                    </div>
-
                     <div class="simple-ann-create"
                          style="--announcement-default-bg:url('{% static 'images/announcement_background.jpg' %}');">
                         <div class="simple-ann-head">
@@ -72,8 +53,9 @@
                             <span class="simple-ann-upload-icon"><i class="bi bi-images"></i></span>
                             <span class="simple-ann-upload-copy">
                                 <strong>Add photos</strong>
-                                <small>Optional</small>
+                                <small data-upload-status>Optional</small>
                             </span>
+                            <span class="simple-ann-upload-cta">Choose Photos</span>
                             <input id="bgImageAnnouncementSimple"
                                    class="simple-ann-file-input"
                                    type="file"
@@ -84,62 +66,14 @@
                         <div class="simple-ann-preview" data-simple-preview></div>
                     </div>
                 </div>
-                <div class="modal-footer wiki-modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="wiki-publish-btn">Publish Dog Announcements</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade wiki-modal" id="dogLawModal" tabindex="-1" aria-labelledby="dogLawModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl">
-        <div class="modal-content wiki-modal-content">
-            <form method="POST" enctype="multipart/form-data" action="{% url 'dogadoption_admin:announcement_create_form' 'dog-laws' %}">
-                {% csrf_token %}
-                <div class="modal-header wiki-modal-header">
-                    <h5 class="modal-title" id="dogLawModalLabel">Create Dog Laws Post</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body wiki-modal-body">
-                    <div class="wiki-focus-box">
-                        <strong>Post focus:</strong> Rules and regulations about dogs, local ordinances, and legal responsibilities of dog owners.
-                    </div>
-
-                    <div class="simple-ann-create"
-                         style="--announcement-default-bg:url('{% static 'images/announcement_background.jpg' %}');">
-                        <div class="simple-ann-head">
-                            <img src="{% static 'images/officialseal.webp' %}" alt="Bayawan Vet" class="simple-ann-avatar">
-                            <div class="simple-ann-meta">
-                                <div class="simple-ann-name">Bayawan Vet</div>
-                                <div class="simple-ann-privacy">Public post</div>
-                            </div>
-                        </div>
-                        <input type="text" name="title" class="simple-ann-title" placeholder="Post title (optional)">
-                        <textarea name="content"
-                                  class="simple-ann-caption"
-                                  placeholder="Write caption..."
-                                  required></textarea>
-                        <label class="simple-ann-upload" for="bgImageLawSimple">
-                            <span class="simple-ann-upload-icon"><i class="bi bi-images"></i></span>
-                            <span class="simple-ann-upload-copy">
-                                <strong>Add photos</strong>
-                                <small>Optional</small>
-                            </span>
-                            <input id="bgImageLawSimple"
-                                   class="simple-ann-file-input"
-                                   type="file"
-                                   name="background_images"
-                                   accept="image/*"
-                                   multiple>
-                        </label>
-                        <div class="simple-ann-preview" data-simple-preview></div>
-                    </div>
-                </div>
-                <div class="modal-footer wiki-modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="wiki-publish-btn">Publish Dog Laws</button>
+                <div class="modal-footer wiki-modal-footer wiki-modal-footer-centered">
+                    <button type="button"
+                            class="wiki-publish-btn js-ann-open-confirm"
+                            data-confirm-title="Publish Post"
+                            data-confirm-message="Are you sure you want to publish this post?"
+                            data-confirm-submit-label="Publish Post">
+                        Publish Post
+                    </button>
                 </div>
             </form>
         </div>
@@ -159,8 +93,12 @@
     </button>
     <div class="post-top-row">
         <span class="post-category">{{ post.get_category_display }}</span>
-        <div class="post-meta">
-            Posted by {{ post.created_by.username }} | {{ post.created_at|date:"M d, Y h:i A" }}
+    </div>
+    <div class="post-author-block">
+        <img src="{{ post.admin_profile_image_url }}" alt="Admin profile" class="post-author-avatar">
+        <div class="post-author-meta">
+            <div class="post-author-name">{{ post.created_by.get_full_name|default:post.created_by.username }}</div>
+            <div class="post-meta">{{ post.created_at|date:"M d, Y h:i A" }}</div>
         </div>
     </div>
 
@@ -193,14 +131,18 @@
                 class="post-action-option js-open-edit-from-popover"
                 data-bs-toggle="modal"
                 data-bs-target="#editPostModal-{{ post.id }}">
-            Edit Post
+            <i class="bi bi-pencil-square" aria-hidden="true"></i>
+            <span>Edit Post</span>
         </button>
         <form method="POST"
               action="{% url 'dogadoption_admin:announcement_delete' post.id %}"
               class="post-action-option-form"
               onsubmit="return confirm('Delete this post? This cannot be undone.');">
             {% csrf_token %}
-            <button type="submit" class="post-action-option delete">Delete Post</button>
+            <button type="submit" class="post-action-option delete">
+                <i class="bi bi-trash3" aria-hidden="true"></i>
+                <span>Delete Post</span>
+            </button>
         </form>
     </div>
 </article>
@@ -208,7 +150,7 @@
 <div class="modal fade wiki-modal" id="editPostModal-{{ post.id }}" tabindex="-1" aria-labelledby="editPostModalLabel-{{ post.id }}" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content wiki-modal-content">
-            <form method="POST" enctype="multipart/form-data" action="{% url 'dogadoption_admin:announcement_edit' post.id %}">
+            <form method="POST" enctype="multipart/form-data" action="{% url 'dogadoption_admin:announcement_edit' post.id %}" class="js-ann-confirm-form">
                 {% csrf_token %}
                 <input type="hidden" name="category" value="{{ post.category }}">
                 <div class="modal-header wiki-modal-header">
@@ -216,15 +158,6 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body wiki-modal-body">
-                    <div class="wiki-focus-box">
-                        <strong>Post focus:</strong>
-                        {% if post.category == 'DOG_LAW' %}
-                        Rules and regulations about dogs, local ordinances, and legal responsibilities of dog owners.
-                        {% else %}
-                        Vaccination programs, educational campaigns, dog-related events, and general dog care information.
-                        {% endif %}
-                    </div>
-
                     <input type="hidden" name="background_color" value="{{ post.background_color|default:'#eeedf3' }}">
                     <div class="simple-ann-create simple-ann-edit"
                          style="--announcement-default-bg:url('{% static 'images/announcement_background.jpg' %}');">
@@ -248,8 +181,9 @@
                             <span class="simple-ann-upload-icon"><i class="bi bi-images"></i></span>
                             <span class="simple-ann-upload-copy">
                                 <strong>Replace / add photos</strong>
-                                <small>Optional</small>
+                                <small data-upload-status>Optional</small>
                             </span>
+                            <span class="simple-ann-upload-cta">Choose Photos</span>
                             <input id="bgImageEdit{{ post.id }}"
                                    class="simple-ann-file-input"
                                    type="file"
@@ -274,9 +208,14 @@
                     </div>
                     {% endif %}
                 </div>
-                <div class="modal-footer wiki-modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="wiki-publish-btn">Save Changes</button>
+                <div class="modal-footer wiki-modal-footer wiki-modal-footer-centered">
+                    <button type="button"
+                            class="wiki-publish-btn js-ann-open-confirm"
+                            data-confirm-title="Save Announcement Changes"
+                            data-confirm-message="Save changes to this announcement?"
+                            data-confirm-submit-label="Save Changes">
+                        Save Changes
+                    </button>
                 </div>
             </form>
         </div>
@@ -284,15 +223,36 @@
 </div>
 {% empty %}
 <div class="post-card empty-card">
-    <p>No announcements yet. Use the Create Post menu to publish your first update.</p>
+    <p>No announcements yet. Use the Create Post button to publish your first update.</p>
 </div>
 {% endfor %}
 </div>
+
+<div class="modal fade wiki-modal" id="announcementSubmitConfirmModal" tabindex="-1" aria-labelledby="announcementSubmitConfirmLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content wiki-modal-content announcement-confirm-content">
+            <button type="button" class="btn-close announcement-confirm-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="announcement-confirm-body">
+                <div class="announcement-confirm-icon" aria-hidden="true">
+                    <i class="bi bi-check2"></i>
+                </div>
+                <h5 class="announcement-confirm-title" id="announcementSubmitConfirmLabel">Confirm Action</h5>
+                <p id="announcementSubmitConfirmMessage" class="announcement-confirm-message">Please confirm to continue.</p>
+                <div class="announcement-confirm-actions">
+                    <button type="button" class="announcement-review-btn" data-bs-dismiss="modal">Review</button>
+                    <button type="button" class="announcement-primary-btn" id="announcementSubmitConfirmBtn">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 (function () {
     document.querySelectorAll('.simple-ann-create').forEach((container) => {
         const input = container.querySelector('.simple-ann-file-input');
         const preview = container.querySelector('[data-simple-preview]');
+        const uploadStatus = container.querySelector('[data-upload-status]');
         let objectUrls = [];
 
         if (!input || !preview) return;
@@ -302,6 +262,7 @@
             objectUrls = [];
             preview.innerHTML = '';
             preview.classList.remove('has-items');
+            if (uploadStatus) uploadStatus.textContent = 'Optional';
         }
 
         input.addEventListener('change', () => {
@@ -312,6 +273,9 @@
             if (!files.length) return;
 
             preview.classList.add('has-items');
+            if (uploadStatus) {
+                uploadStatus.textContent = files.length === 1 ? '1 photo selected' : `${files.length} photos selected`;
+            }
             files.slice(0, 12).forEach((file) => {
                 const item = document.createElement('div');
                 item.className = 'simple-ann-preview-item';
@@ -374,6 +338,75 @@
         if (evt.key === 'Escape') {
             closeAllPopovers();
         }
+    });
+
+    const confirmModalEl = document.getElementById('announcementSubmitConfirmModal');
+    const confirmTitleEl = document.getElementById('announcementSubmitConfirmLabel');
+    const confirmMessageEl = document.getElementById('announcementSubmitConfirmMessage');
+    const confirmSubmitBtn = document.getElementById('announcementSubmitConfirmBtn');
+    const confirmModal =
+        confirmModalEl && window.bootstrap && window.bootstrap.Modal
+            ? new window.bootstrap.Modal(confirmModalEl)
+            : null;
+
+    let pendingFormToSubmit = null;
+
+    document.querySelectorAll('.js-ann-confirm-form').forEach((form) => {
+        form.addEventListener('submit', (evt) => {
+            if (form.dataset.confirmedSubmit === '1') {
+                form.dataset.confirmedSubmit = '0';
+                return;
+            }
+
+            evt.preventDefault();
+            form.querySelector('.js-ann-open-confirm')?.click();
+        });
+    });
+
+    document.querySelectorAll('.js-ann-open-confirm').forEach((button) => {
+        button.addEventListener('click', () => {
+            const form = button.closest('form');
+            if (!form) return;
+
+            if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
+                return;
+            }
+
+            pendingFormToSubmit = form;
+
+            const title = button.getAttribute('data-confirm-title') || 'Confirm Action';
+            const message = button.getAttribute('data-confirm-message') || 'Please confirm to continue.';
+            const submitLabel = button.getAttribute('data-confirm-submit-label') || 'Confirm';
+
+            if (confirmTitleEl) confirmTitleEl.textContent = title;
+            if (confirmMessageEl) confirmMessageEl.textContent = message;
+            if (confirmSubmitBtn) confirmSubmitBtn.textContent = submitLabel;
+
+            if (confirmModal) {
+                confirmModal.show();
+                return;
+            }
+
+            if (window.confirm(message)) {
+                form.submit();
+            } else {
+                pendingFormToSubmit = null;
+            }
+        });
+    });
+
+    confirmSubmitBtn?.addEventListener('click', () => {
+        if (!pendingFormToSubmit) return;
+        pendingFormToSubmit.dataset.confirmedSubmit = '1';
+        if (typeof pendingFormToSubmit.requestSubmit === 'function') {
+            pendingFormToSubmit.requestSubmit();
+        } else {
+            pendingFormToSubmit.submit();
+        }
+    });
+
+    confirmModalEl?.addEventListener('hidden.bs.modal', () => {
+        pendingFormToSubmit = null;
     });
 })();
 </script>

@@ -1369,11 +1369,21 @@ def update_dog_capture_request(request, pk):
 #  ++++++++++++++++++++++  ANNOUNCEMENTS PAGE   ++++++++++++++++++++++++++++++++++++++
 @admin_required
 def announcement_list(request):
-    announcements = (
-        DogAnnouncement.objects.select_related('created_by')
+    announcements_qs = (
+        DogAnnouncement.objects.select_related('created_by', 'created_by__profile')
         .prefetch_related('images')
         .order_by('-created_at')
     )
+    announcements = list(announcements_qs)
+    default_admin_avatar_url = static("images/officialseal.webp")
+    for post in announcements:
+        profile = getattr(post.created_by, "profile", None)
+        image_field = getattr(profile, "profile_image", None)
+        try:
+            image_url = image_field.url if image_field else ""
+        except Exception:
+            image_url = ""
+        post.admin_profile_image_url = image_url or default_admin_avatar_url
 
     return render(request, 'admin_announcement/announcement.html', {
         'announcements': announcements,

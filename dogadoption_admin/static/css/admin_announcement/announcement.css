@@ -20,7 +20,7 @@
 
 .announcement-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     gap: 14px;
     flex-wrap: wrap;
@@ -41,6 +41,9 @@
 }
 
 .create-post-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     background: linear-gradient(135deg, #0f172a, #1e293b);
     color: #ffffff;
     padding: 10px 18px;
@@ -144,7 +147,28 @@
 }
 
 .wiki-modal .modal-dialog {
-    max-width: 1080px;
+    max-width: min(92vw, 920px);
+    margin-left: auto;
+    margin-right: auto;
+}
+
+@media (min-width: 992px) {
+    #wrapper:not(.toggled) .wiki-modal {
+        padding-left: 180px;
+        padding-right: 0;
+    }
+
+    .wiki-modal .modal-dialog.modal-dialog-centered {
+        min-height: calc(100vh - 2.5rem);
+        display: flex;
+        align-items: center;
+        margin-top: 1.25rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .wiki-modal .modal-dialog.modal-xl {
+        max-width: min(86vw, 900px);
+    }
 }
 
 .wiki-modal-content {
@@ -321,12 +345,14 @@
 }
 
 .simple-ann-upload {
+    position: relative;
     margin-top: 10px;
     border: 1px dashed #94a3b8;
     border-radius: 10px;
     background: rgba(248, 250, 252, 0.93);
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 10px;
     padding: 10px 12px;
     cursor: pointer;
@@ -352,6 +378,7 @@
 .simple-ann-upload-copy {
     display: grid;
     line-height: 1.2;
+    margin-right: auto;
 }
 
 .simple-ann-upload-copy strong {
@@ -363,10 +390,30 @@
     color: #64748b;
 }
 
+.simple-ann-upload-cta {
+    border: 1px solid #cfd8e3;
+    background: #ffffff;
+    color: #0f172a;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.simple-ann-upload:hover .simple-ann-upload-cta {
+    border-color: #94a3b8;
+    background: #f8fafc;
+}
+
 .simple-ann-file-input {
-    margin-left: auto;
-    width: min(100%, 270px);
-    font-size: 12px;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
 }
 
 .simple-ann-preview {
@@ -804,6 +851,107 @@
     padding: 10px 14px;
 }
 
+.wiki-modal-footer-centered {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.wiki-modal-footer-centered .wiki-publish-btn {
+    min-width: 240px;
+}
+
+.announcement-confirm-content {
+    position: relative;
+    max-width: 600px;
+    margin: 0 auto;
+    border-radius: 18px;
+    border: 1px solid #d9e2ea;
+    box-shadow: 0 20px 44px rgba(15, 23, 42, 0.24);
+    overflow: hidden;
+}
+
+.announcement-confirm-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 2;
+}
+
+.announcement-confirm-body {
+    padding: 28px 28px 22px;
+    text-align: center;
+}
+
+.announcement-confirm-icon {
+    width: 68px;
+    height: 68px;
+    margin: 0 auto 12px;
+    border-radius: 999px;
+    background: #e7f8f5;
+    color: #0f766e;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+}
+
+.announcement-confirm-title {
+    margin: 0 0 8px;
+    color: #0f172a;
+    font-size: clamp(28px, 2.3vw, 38px);
+    font-weight: 900;
+    line-height: 1.15;
+}
+
+.announcement-confirm-message {
+    margin: 0 auto 16px;
+    color: #475569;
+    font-size: 16px;
+    line-height: 1.5;
+    max-width: 500px;
+}
+
+.announcement-confirm-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+}
+
+.announcement-review-btn,
+.announcement-primary-btn {
+    min-width: 170px;
+    min-height: 48px;
+    border-radius: 14px;
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1;
+    padding: 10px 16px;
+    border: 1px solid transparent;
+}
+
+.announcement-review-btn {
+    border-color: #d7dee8;
+    background: #ffffff;
+    color: #0f172a;
+}
+
+.announcement-review-btn:hover {
+    background: #f8fafc;
+}
+
+.announcement-primary-btn {
+    border-color: #0b1736;
+    background: #0b1736;
+    color: #ffffff;
+}
+
+.announcement-primary-btn:hover {
+    background: #0f2048;
+    border-color: #0f2048;
+}
+
 .wiki-publish-btn {
     border: 1px solid #36c;
     background: #36c;
@@ -856,12 +1004,12 @@
 
 .post-top-row {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: flex-start;
     gap: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     padding-right: 34px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 
 .post-more-btn {
@@ -902,12 +1050,42 @@
 }
 
 .post-meta {
+    margin-top: 1px;
     font-size: 12px;
     color: #526581;
     text-transform: uppercase;
     letter-spacing: 0.4px;
     font-weight: 700;
-    text-align: right;
+    text-align: left;
+}
+
+.post-author-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.post-author-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+}
+
+.post-author-meta {
+    min-width: 0;
+    display: grid;
+    line-height: 1.2;
+}
+
+.post-author-name {
+    color: #0f172a;
+    font-size: 15px;
+    font-weight: 800;
+    word-break: break-word;
 }
 
 .post-actions-popover {
@@ -932,6 +1110,9 @@
 }
 
 .post-action-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     width: 100%;
     border: 1px solid #d1d9e4;
     border-radius: 10px;
@@ -944,6 +1125,11 @@
 
 .post-action-option:hover {
     background: #f8fafc;
+}
+
+.post-action-option i {
+    font-size: 15px;
+    line-height: 1;
 }
 
 .post-action-option.delete {
@@ -1240,8 +1426,8 @@ body.ann-lightbox-open {
     }
 
     .wiki-modal .modal-dialog {
-        max-width: calc(100% - 1rem);
-        margin: 0.5rem auto;
+        max-width: min(94vw, 760px);
+        margin: 0.75rem auto;
     }
 
     .wiki-title-field {
@@ -1297,6 +1483,28 @@ body.ann-lightbox-open {
 
     .wiki-modal-body {
         padding: 10px;
+    }
+
+    .wiki-modal .modal-dialog {
+        max-width: calc(100vw - 18px);
+        margin: 0.5rem auto;
+    }
+
+    .announcement-confirm-body {
+        padding: 22px 14px 16px;
+    }
+
+    .announcement-confirm-title {
+        font-size: 28px;
+    }
+
+    .announcement-confirm-actions {
+        flex-direction: column;
+    }
+
+    .announcement-review-btn,
+    .announcement-primary-btn {
+        width: min(100%, 290px);
     }
 
     .wiki-toolbar {

@@ -50,7 +50,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name='postrequest',
-            index=models.Index(fields=['request_type', 'status', 'created_at'], name='postreq_type_status_created_idx'),
+            index=models.Index(fields=['request_type', 'status', 'created_at'], name='postreq_type_status_cr_idx'),
         ),
         migrations.AddIndex(
             model_name='postrequest',

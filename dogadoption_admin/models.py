@@ -164,7 +164,7 @@ class PostRequest(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=["post", "request_type", "status"], name="postreq_post_type_status_idx"),
-            models.Index(fields=["request_type", "status", "created_at"], name="postreq_type_status_created_idx"),
+            models.Index(fields=["request_type", "status", "created_at"], name="postreq_type_status_cr_idx"),
             models.Index(fields=["user", "request_type", "status"], name="postreq_user_type_status_idx"),
         ]
 

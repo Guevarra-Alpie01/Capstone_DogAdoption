@@ -7,11 +7,13 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.contrib.auth.models import User
-from django.db.models import CharField, Count, DateTimeField, F, Prefetch, Q, Value
+from django.db.models import Count, DateTimeField, Prefetch, Q
 from django.db.models.expressions import RawSQL
 import os
 import json
 import base64
+import hashlib
+import random
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
 from django.conf import settings
@@ -264,6 +266,140 @@ def _user_post_requests(user, request_type):
     ).select_related("post").order_by("-created_at")
 
 
+FEED_CACHE_TTL_SECONDS = 90
+FEED_POSTS_PER_PAGE = 12
+FEED_ADMIN_CANDIDATE_LIMIT = 700
+FEED_ANNOUNCEMENT_CANDIDATE_LIMIT = 300
+FEED_USER_CANDIDATE_LIMIT = 400
+FEED_MISSING_CANDIDATE_LIMIT = 300
+FEED_ADMIN_SAMPLE_LIMIT = 240
+FEED_ANNOUNCEMENT_SAMPLE_LIMIT = 70
+FEED_USER_SAMPLE_LIMIT = 90
+FEED_MISSING_SAMPLE_LIMIT = 70
+
+
+def _normalized_feed_query(raw_query):
+    return " ".join((raw_query or "").strip().split())
+
+
+def _feed_cache_key(prefix, query, feed_token=""):
+    query_hash = hashlib.md5(query.encode("utf-8")).hexdigest() if query else "all"
+    token_hash = hashlib.md5(feed_token.encode("utf-8")).hexdigest() if feed_token else "default"
+    return f"user_home:{prefix}:v3:{query_hash}:{token_hash}"
+
+
+def _normalized_feed_token(raw_token):
+    return (raw_token or "").strip()[:64]
+
+
+def _sample_recent_ids_with_cache(cache_key, base_qs, candidate_limit, sample_limit):
+    cached_ids = cache.get(cache_key)
+    if cached_ids is not None:
+        return cached_ids
+
+    candidate_ids = list(
+        base_qs.order_by("-created_at").values_list("id", flat=True)[:candidate_limit]
+    )
+    if len(candidate_ids) > sample_limit:
+        sampled_ids = random.sample(candidate_ids, sample_limit)
+    else:
+        sampled_ids = candidate_ids
+
+    random.shuffle(sampled_ids)
+    cache.set(cache_key, sampled_ids, FEED_CACHE_TTL_SECONDS)
+    return sampled_ids
+
+
+def _sample_ids_with_cache(cache_key, candidate_ids, sample_limit):
+    cached_ids = cache.get(cache_key)
+    if cached_ids is not None:
+        return cached_ids
+
+    if len(candidate_ids) > sample_limit:
+        sampled_ids = random.sample(candidate_ids, sample_limit)
+    else:
+        sampled_ids = candidate_ids
+
+    random.shuffle(sampled_ids)
+    cache.set(cache_key, sampled_ids, FEED_CACHE_TTL_SECONDS)
+    return sampled_ids
+
+
+def _build_random_home_rows(query, feed_token=""):
+    mixed_cache_key = _feed_cache_key("mixed_rows", query, feed_token)
+    cached_rows = cache.get(mixed_cache_key)
+    if cached_rows is not None:
+        return cached_rows
+
+    accepted_post_ids = PostRequest.objects.filter(
+        status="accepted",
+        request_type__in=["claim", "adopt"],
+    ).values("post_id")
+
+    admin_qs = Post.objects.exclude(status__in=["reunited", "adopted"]).exclude(id__in=accepted_post_ids)
+    announcement_qs = DogAnnouncement.objects.all()
+    user_qs = UserAdoptionPost.objects.filter(status="available")
+    missing_qs = MissingDogPost.objects.filter(status="missing")
+
+    if query:
+        admin_qs = admin_qs.filter(
+            Q(caption__icontains=query)
+            | Q(location__icontains=query)
+            | Q(status__icontains=query)
+        )
+        announcement_qs = announcement_qs.filter(
+            Q(title__icontains=query)
+            | Q(content__icontains=query)
+            | Q(category__icontains=query)
+        )
+        user_qs = user_qs.filter(
+            Q(dog_name__icontains=query)
+            | Q(description__icontains=query)
+            | Q(location__icontains=query)
+        )
+        missing_qs = missing_qs.filter(
+            Q(dog_name__icontains=query)
+            | Q(description__icontains=query)
+            | Q(location__icontains=query)
+        )
+
+    admin_candidates = list(admin_qs.order_by("-created_at")[:FEED_ADMIN_CANDIDATE_LIMIT])
+    active_admin_candidate_ids = [
+        post.id for post in admin_candidates if post.current_phase() in {"claim", "adopt"}
+    ]
+    admin_ids = _sample_ids_with_cache(
+        _feed_cache_key("admin_ids", query, feed_token),
+        active_admin_candidate_ids,
+        sample_limit=FEED_ADMIN_SAMPLE_LIMIT,
+    )
+    announcement_ids = _sample_recent_ids_with_cache(
+        _feed_cache_key("announcement_ids", query, feed_token),
+        announcement_qs,
+        candidate_limit=FEED_ANNOUNCEMENT_CANDIDATE_LIMIT,
+        sample_limit=FEED_ANNOUNCEMENT_SAMPLE_LIMIT,
+    )
+    user_ids = _sample_recent_ids_with_cache(
+        _feed_cache_key("user_ids", query, feed_token),
+        user_qs,
+        candidate_limit=FEED_USER_CANDIDATE_LIMIT,
+        sample_limit=FEED_USER_SAMPLE_LIMIT,
+    )
+    missing_ids = _sample_recent_ids_with_cache(
+        _feed_cache_key("missing_ids", query, feed_token),
+        missing_qs,
+        candidate_limit=FEED_MISSING_CANDIDATE_LIMIT,
+        sample_limit=FEED_MISSING_SAMPLE_LIMIT,
+    )
+
+    mixed_rows = [{"id": post_id, "feed_type": "admin"} for post_id in admin_ids]
+    mixed_rows.extend({"id": ann_id, "feed_type": "announcement"} for ann_id in announcement_ids)
+    mixed_rows.extend({"id": user_id, "feed_type": "user"} for user_id in user_ids)
+    mixed_rows.extend({"id": missing_id, "feed_type": "missing"} for missing_id in missing_ids)
+    random.shuffle(mixed_rows)
+    cache.set(mixed_cache_key, mixed_rows, FEED_CACHE_TTL_SECONDS)
+    return mixed_rows
+
+
 def _is_valid_capture_reason(reason):
     return reason in DogCaptureRequest.REASON_LABELS
 
@@ -494,59 +630,28 @@ def user_home(request):
         if created:
             return redirect("user:user_home")
 
-    query = (request.GET.get('q') or '').strip()
-    page_number = request.GET.get('page', 1)
-    posts_per_page = 12
+    query = _normalized_feed_query(request.GET.get("q"))
+    if request.GET.get("refresh") == "1":
+        refresh_seed = f"{query}:{timezone.now().timestamp()}:{random.random()}"
+        refresh_token = hashlib.md5(refresh_seed.encode("utf-8")).hexdigest()[:16]
+        params = request.GET.copy()
+        params.pop("refresh", None)
+        params["feed_token"] = refresh_token
+        params["page"] = "1"
+        target = reverse("user:user_home")
+        return redirect(f"{target}?{params.urlencode()}")
 
-    admin_posts_qs = Post.objects.all()
-    user_posts_qs = UserAdoptionPost.objects.filter(status="available")
-    missing_posts_qs = MissingDogPost.objects.filter(status="missing")
+    feed_token = _normalized_feed_token(request.GET.get("feed_token"))
+    page_number = request.GET.get("page", 1)
+    mixed_rows = _build_random_home_rows(query, feed_token=feed_token)
 
-    # SEARCH FILTER
-    if query:
-        admin_posts_qs = admin_posts_qs.filter(
-            Q(caption__icontains=query) |
-            Q(location__icontains=query) |
-            Q(status__icontains=query)
-        )
-
-        user_posts_qs = user_posts_qs.filter(
-            Q(dog_name__icontains=query) |
-            Q(description__icontains=query) |
-            Q(location__icontains=query)
-        )
-
-        missing_posts_qs = missing_posts_qs.filter(
-            Q(dog_name__icontains=query) |
-            Q(description__icontains=query) |
-            Q(location__icontains=query)
-        )
-
-    feed_admin_qs = admin_posts_qs.annotate(
-        feed_type=Value("admin", output_field=CharField()),
-        feed_created=F("created_at"),
-    ).values("id", "feed_type", "feed_created")
-    feed_user_qs = user_posts_qs.annotate(
-        feed_type=Value("user", output_field=CharField()),
-        feed_created=F("created_at"),
-    ).values("id", "feed_type", "feed_created")
-    feed_missing_qs = missing_posts_qs.annotate(
-        feed_type=Value("missing", output_field=CharField()),
-        feed_created=F("created_at"),
-    ).values("id", "feed_type", "feed_created")
-
-    feed_qs = feed_admin_qs.union(
-        feed_user_qs,
-        feed_missing_qs,
-        all=True,
-    ).order_by("-feed_created", "-id")
-
-    paginator = Paginator(feed_qs, posts_per_page)
+    paginator = Paginator(mixed_rows, FEED_POSTS_PER_PAGE)
     page_obj = paginator.get_page(page_number)
     feed_rows = list(page_obj.object_list)
 
     ids_by_type = {
         "admin": [row["id"] for row in feed_rows if row["feed_type"] == "admin"],
+        "announcement": [row["id"] for row in feed_rows if row["feed_type"] == "announcement"],
         "user": [row["id"] for row in feed_rows if row["feed_type"] == "user"],
         "missing": [row["id"] for row in feed_rows if row["feed_type"] == "missing"],
     }
@@ -556,6 +661,12 @@ def user_home(request):
         for post in Post.objects.select_related(
             "user", "user__profile"
         ).prefetch_related("images").filter(id__in=ids_by_type["admin"])
+    }
+    announcement_map = {
+        post.id: post
+        for post in DogAnnouncement.objects.select_related(
+            "created_by", "created_by__profile"
+        ).prefetch_related("images").filter(id__in=ids_by_type["announcement"])
     }
     user_map = {
         post.id: post
@@ -607,13 +718,29 @@ def user_home(request):
             })
             continue
 
+        if post_type == "announcement":
+            p = announcement_map.get(post_id)
+            if not p:
+                continue
+            announcement_images = list(p.images.all())
+            first_image_url = announcement_images[0].image.url if announcement_images else ""
+            main_image_url = first_image_url or (p.background_image.url if p.background_image else "")
+
+            combined_posts.append({
+                "post": p,
+                "post_type": "announcement",
+                "posted_label": _format_posted_label(p.created_at),
+                "main_image_url": main_image_url,
+                "image_count": len(announcement_images),
+            })
+            continue
+
         if post_type == "user":
             p = user_map.get(post_id)
             if not p:
                 continue
             post_images = list(p.images.all())
             main_image = post_images[0] if post_images else None
-            image_count = len(post_images)
 
             combined_posts.append({
                 "post": p,
@@ -624,7 +751,7 @@ def user_home(request):
                 "is_open_for_adoption": False,
                 "phase": "closed",
                 "posted_label": _format_posted_label(p.created_at),
-                "image_count": image_count,
+                "image_count": len(post_images),
                 "main_image": main_image,
             })
             continue
@@ -649,6 +776,7 @@ def user_home(request):
         'posts': combined_posts,
         'page_obj': page_obj,
         'query': query,
+        'feed_token': feed_token,
         'selected_type': selected_type,
         'adoption_form': adoption_form,
         'missing_form': missing_form,

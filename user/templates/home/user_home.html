@@ -21,6 +21,9 @@
 
     <form method="get" class="search-bar mb-4">
         <div class="input-group">
+            {% if feed_token %}
+            <input type="hidden" name="feed_token" value="{{ feed_token }}">
+            {% endif %}
             <input
                 type="text"
                 name="q"
@@ -33,6 +36,12 @@
             </button>
         </div>
     </form>
+    <div class="text-end mb-3">
+        <a class="btn btn-outline-secondary btn-sm"
+           href="?{% if query %}q={{ query|urlencode }}&{% endif %}refresh=1">
+            Refresh Feed
+        </a>
+    </div>
 
     <div class="post-grid">
     {% for item in posts %}
@@ -76,6 +85,19 @@
                     </div>
                     <span class="author-time">{{ item.posted_label }}</span>
                 </div>
+            {% elif item.post_type == 'announcement' %}
+                {% if post.created_by.profile.profile_image %}
+                    <img src="{{ post.created_by.profile.profile_image.url }}" class="author-avatar-img" alt="Author">
+                {% else %}
+                    <div class="author-avatar">A</div>
+                {% endif %}
+                <div class="author-meta">
+                    <div class="author-row">
+                        <span class="author-name">Admin Announcement</span>
+                        <span class="author-badge">News</span>
+                    </div>
+                    <span class="author-time">{{ item.posted_label }}</span>
+                </div>
             {% endif %}
         </div>
 
@@ -83,12 +105,18 @@
             <button class="btn btn-light view-all-badge"
                     type="button"
                     data-bs-toggle="modal"
-                    data-bs-target="#postImages{{ post.id }}">
+                    data-bs-target="#postImages{{ item.post_type }}{{ post.id }}">
                 View all ({{ item.image_count }})
             </button>
         {% endif %}
 
-        {% if item.post_type == 'missing' %}
+        {% if item.post_type == 'announcement' %}
+            {% if item.main_image_url %}
+                <div class="media-wrap">
+                    <img src="{{ item.main_image_url }}" class="card-img-top main-img" alt="Announcement image">
+                </div>
+            {% endif %}
+        {% elif item.post_type == 'missing' %}
             {% if post.image %}
                 <div class="media-wrap">
                     <img src="{{ post.image.url }}" class="card-img-top main-img">
@@ -109,7 +137,10 @@
                 <div class="post-details">
        
             <p class="card-text">
-                {% if item.post_type == 'user' %}
+                {% if item.post_type == 'announcement' %}
+                    <strong>{{ post.title }}</strong><br>
+                    {{ post.content|striptags|truncatechars:220 }}
+                {% elif item.post_type == 'user' %}
                     {{ post.description }}
                 {% elif item.post_type == 'missing' %}
                     {{ post.description }}<br>
@@ -164,7 +195,7 @@
 
             {% if item.post_type != 'missing' %}
                 {% if item.image_count > 1 %}
-                    <div class="modal fade" id="postImages{{ post.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal fade" id="postImages{{ item.post_type }}{{ post.id }}" tabindex="-1" aria-hidden="true">
                         <div class="modal-dialog modal-lg modal-dialog-centered">
                             <div class="modal-content">
                                 <div class="modal-header">
@@ -172,7 +203,7 @@
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body">
-                                    <div id="carousel{{ post.id }}" class="carousel slide" data-bs-ride="carousel">
+                                    <div id="carousel{{ item.post_type }}{{ post.id }}" class="carousel slide" data-bs-ride="carousel">
                                         <div class="carousel-inner">
                                             {% for image in post.images.all %}
                                                 <div class="carousel-item {% if forloop.first %}active{% endif %}">
@@ -180,11 +211,11 @@
                                                 </div>
                                             {% endfor %}
                                         </div>
-                                        <button class="carousel-control-prev" type="button" data-bs-target="#carousel{{ post.id }}" data-bs-slide="prev">
+                                        <button class="carousel-control-prev" type="button" data-bs-target="#carousel{{ item.post_type }}{{ post.id }}" data-bs-slide="prev">
                                             <span class="carousel-control-prev-icon" aria-hidden="true"></span>
                                             <span class="visually-hidden">Previous</span>
                                         </button>
-                                        <button class="carousel-control-next" type="button" data-bs-target="#carousel{{ post.id }}" data-bs-slide="next">
+                                        <button class="carousel-control-next" type="button" data-bs-target="#carousel{{ item.post_type }}{{ post.id }}" data-bs-slide="next">
                                             <span class="carousel-control-next-icon" aria-hidden="true"></span>
                                             <span class="visually-hidden">Next</span>
                                         </button>
@@ -209,6 +240,16 @@
                     {% if request.user == post.owner %}
                         <a href="{% url 'user:user_adoption_requests' %}" class="btn btn-outline-dark btn-sm ms-2">View Requests</a>
                     {% endif %}
+                {% elif item.post_type == 'announcement' %}
+                    <a href="{% url 'user:announcement_detail' post.id %}" class="btn btn-outline-primary btn-sm">View Announcement</a>
+                    <button type="button"
+                       class="btn btn-outline-secondary btn-sm action-btn action-share js-open-share"
+                       data-share-url="{{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:announcement_detail' post.id %}">
+                        <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M18 8a3 3 0 1 0-2.82-4H15a3 3 0 0 0 .16.95l-6.7 3.35a3 3 0 0 0-2.46-1.3 3 3 0 1 0 0 6c.88 0 1.67-.38 2.22-.97l6.96 3.48A3 3 0 0 0 15 16a3 3 0 1 0 .18-1.02l-6.98-3.49A3 3 0 0 0 9 10c0-.36-.06-.7-.18-1.02l6.97-3.48c.55.62 1.35 1 2.21 1z"></path>
+                        </svg>
+                        <span>Share</span>
+                    </button>
 
                 {% else %}
                     {% if post.status == 'reunited' %}
@@ -251,14 +292,14 @@
     </div>
     {% endwith %}
     {% empty %}
-        <p class="text-center">No dogs available yet</p>
+        <p class="text-center">No feed items available yet.</p>
     {% endfor %}
     </div>
 
     {% if page_obj.has_next %}
     <div class="text-center mt-3 mb-4">
         <a class="btn btn-outline-secondary"
-           href="?{% if query %}q={{ query|urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">
+           href="?{% if query %}q={{ query|urlencode }}&{% endif %}{% if feed_token %}feed_token={{ feed_token|urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">
             Load more
         </a>
     </div>

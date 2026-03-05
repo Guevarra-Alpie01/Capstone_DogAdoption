@@ -28,11 +28,11 @@ class PostForm(forms.ModelForm):
 
     claim_days = forms.IntegerField(
         required=True,
-        min_value=1,
+        min_value=0,
         widget=forms.NumberInput(attrs={
             'type': 'number',
             'inputmode': 'numeric',
-            'min': '1',
+            'min': '0',
             'step': '1',
         })
     )

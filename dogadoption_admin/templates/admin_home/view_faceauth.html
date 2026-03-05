@@ -5,14 +5,16 @@
 <link rel="stylesheet" href="{% static 'css/admin_home/view_faceauth.css' %}">
 
 <div class="container-faceauth">
-
-    <h2 class="fa-title">Face Authentication — {{ user.first_name }} {{ user.last_name }}</h2>
+    <a href="javascript:history.back()" class="close-faceauth-btn" aria-label="Close">&times;</a>
+    <h2 class="fa-title">Face Authentication - {{ user.first_name }} {{ user.last_name }}</h2>
 
     {% if profile %}
+    {% if profile.profile_image %}
+    <img src="{{ profile.profile_image.url }}" class="profile-img mb-3" alt="Profile photo">
+    {% endif %}
     <p class="fa-meta">
         <strong>Address:</strong> {{ profile.address }}<br>
-        <strong>Age:</strong> {{ profile.age }}<br>
-        <strong>MI:</strong> {{ profile.middle_initial }}
+        <strong>Age:</strong> {{ profile.age }}
     </p>
     {% endif %}
 
@@ -20,7 +22,7 @@
     <div class="face-img-grid">
         {% for img in face_images %}
             <div class="face-img-card">
-                <img src="{{ img.image.url }}" alt="Face Image">
+                <img src="{{ img.image.url }}" alt="Face image">
                 <div class="img-date">
                     Uploaded: {{ img.created_at|date:"M d, Y H:i" }}
                 </div>
@@ -30,9 +32,6 @@
     {% else %}
         <p class="text-muted">No face authentication images available.</p>
     {% endif %}
-
-    <a href="javascript:history.back()" class="btn btn-secondary mt-3">⬅ Back</a>
-
 </div>
 
 {% endblock %}

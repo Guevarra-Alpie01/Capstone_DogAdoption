@@ -13,6 +13,21 @@
     </button>
 </div>
 
+{% if messages %}
+<div class="mb-3">
+    {% for message in messages %}
+    {% if 'post_list' in message.tags %}
+    <div
+        class="alert py-2 mb-2 {% if 'error' in message.tags %}alert-danger{% elif 'warning' in message.tags %}alert-warning{% elif 'success' in message.tags %}alert-success{% else %}alert-info{% endif %}"
+        role="alert"
+    >
+        {{ message }}
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+
 <div class="modal fade create-post-modal" id="createPostModal" tabindex="-1" aria-labelledby="createPostModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -67,7 +82,7 @@
                             <div class="form-group">
                                 <label for="{{ post_form.claim_days.id_for_label }}">Claim Days</label>
                                 {{ post_form.claim_days }}
-                                <small>After claim ends, adoption opens for 3 days.</small>
+                                <small>Set to 0 for immediate adoption. Greater than 0 opens claim first, then adoption for 3 days.</small>
                                 {% if post_form.claim_days.errors %}
                                     <div class="text-danger small mt-1">{{ post_form.claim_days.errors|join:", " }}</div>
                                 {% endif %}
@@ -150,12 +165,12 @@
         <div class="status-card status-claim">
             <div class="status-card-head">
                 <span>Claim</span>
-                <span class="status-count">{{ claim_posts|length }}</span>
+                <span class="status-count">{{ claim_total }}</span>
             </div>
             <div class="status-card-body">
                 {% if claim_posts %}
                     <div class="table-responsive">
-                        <table class="table table-sm status-mini-table mb-0 paginated-status-table" data-card-key="claim">
+                        <table class="table table-sm status-mini-table mb-0">
                             <thead>
                                 <tr>
                                     <th>Dog</th>
@@ -165,7 +180,7 @@
                                     <th>View</th>
                                 </tr>
                             </thead>
-                            <tbody class="paginated-status-body">
+                            <tbody>
                                 {% for item in claim_posts %}
                                     {% with post=item.post %}
                                     <tr>
@@ -188,11 +203,21 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="card-pagination" data-card-key="claim" hidden>
-                        <button type="button" class="card-page-btn" data-action="prev">Prev</button>
-                        <span class="card-page-info">Page 1 of 1</span>
-                        <button type="button" class="card-page-btn" data-action="next">Next</button>
+                    {% if claim_page_obj.paginator.num_pages > 1 %}
+                    <div class="card-pagination">
+                        {% if claim_page_obj.has_previous %}
+                            <a href="?{{ claim_prev_qs }}" class="card-page-btn">Prev</a>
+                        {% else %}
+                            <span class="card-page-btn disabled">Prev</span>
+                        {% endif %}
+                        <span class="card-page-info">Page {{ claim_page_obj.number }} of {{ claim_page_obj.paginator.num_pages }}</span>
+                        {% if claim_page_obj.has_next %}
+                            <a href="?{{ claim_next_qs }}" class="card-page-btn">Next</a>
+                        {% else %}
+                            <span class="card-page-btn disabled">Next</span>
+                        {% endif %}
                     </div>
+                    {% endif %}
                 {% else %}
                     <p class="text-muted mb-0">No posts in claim window.</p>
                 {% endif %}
@@ -202,12 +227,12 @@
         <div class="status-card status-adopt">
             <div class="status-card-head">
                 <span>Adoption</span>
-                <span class="status-count">{{ adoption_posts|length }}</span>
+                <span class="status-count">{{ adoption_total }}</span>
             </div>
             <div class="status-card-body">
                 {% if adoption_posts %}
                     <div class="table-responsive">
-                        <table class="table table-sm status-mini-table mb-0 paginated-status-table" data-card-key="adoption">
+                        <table class="table table-sm status-mini-table mb-0">
                             <thead>
                                 <tr>
                                     <th>Dog</th>
@@ -217,7 +242,7 @@
                                     <th>View</th>
                                 </tr>
                             </thead>
-                            <tbody class="paginated-status-body">
+                            <tbody>
                                 {% for item in adoption_posts %}
                                     {% with post=item.post %}
                                     <tr>
@@ -240,11 +265,21 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="card-pagination" data-card-key="adoption" hidden>
-                        <button type="button" class="card-page-btn" data-action="prev">Prev</button>
-                        <span class="card-page-info">Page 1 of 1</span>
-                        <button type="button" class="card-page-btn" data-action="next">Next</button>
+                    {% if adoption_page_obj.paginator.num_pages > 1 %}
+                    <div class="card-pagination">
+                        {% if adoption_page_obj.has_previous %}
+                            <a href="?{{ adoption_prev_qs }}" class="card-page-btn">Prev</a>
+                        {% else %}
+                            <span class="card-page-btn disabled">Prev</span>
+                        {% endif %}
+                        <span class="card-page-info">Page {{ adoption_page_obj.number }} of {{ adoption_page_obj.paginator.num_pages }}</span>
+                        {% if adoption_page_obj.has_next %}
+                            <a href="?{{ adoption_next_qs }}" class="card-page-btn">Next</a>
+                        {% else %}
+                            <span class="card-page-btn disabled">Next</span>
+                        {% endif %}
                     </div>
+                    {% endif %}
                 {% else %}
                     <p class="text-muted mb-0">No posts in adoption window.</p>
                 {% endif %}
@@ -254,27 +289,29 @@
         <div class="status-card status-reunited">
             <div class="status-card-head">
                 <span>Reunited</span>
-                <span class="status-count">{{ reunited_posts|length }}</span>
+                <span class="status-count">{{ reunited_total }}</span>
             </div>
             <div class="status-card-body">
                 {% if reunited_posts %}
                     <div class="table-responsive">
-                        <table class="table table-sm status-mini-table mb-0 paginated-status-table" data-card-key="reunited">
+                        <table class="table table-sm status-mini-table mb-0">
                             <thead>
                                 <tr>
                                     <th>Dog</th>
                                     <th>Rescued Date</th>
-                                    <th>Barangay</th>
+                                    <th>Claimed By</th>
+                                    <th>User Barangay</th>
                                     <th>View</th>
                                 </tr>
                             </thead>
-                            <tbody class="paginated-status-body">
+                            <tbody>
                                 {% for item in reunited_posts %}
                                     {% with post=item.post %}
                                     <tr>
                                         <td>{{ post.caption|default:"Unnamed Dog" }}</td>
                                         <td>{{ post.rescued_date|date:"M d, Y"|default:"-" }}</td>
-                                        <td>{{ post.location|default:"-" }}</td>
+                                        <td>{{ item.finalized_user_name|default:"-" }}</td>
+                                        <td>{{ item.finalized_user_barangay|default:"-" }}</td>
                                         <td>
                                             <button type="button" class="btn btn-dark btn-sm view-cta" data-bs-toggle="modal" data-bs-target="#postDetails{{ post.id }}">
                                                 View
@@ -286,11 +323,21 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="card-pagination" data-card-key="reunited" hidden>
-                        <button type="button" class="card-page-btn" data-action="prev">Prev</button>
-                        <span class="card-page-info">Page 1 of 1</span>
-                        <button type="button" class="card-page-btn" data-action="next">Next</button>
+                    {% if reunited_page_obj.paginator.num_pages > 1 %}
+                    <div class="card-pagination">
+                        {% if reunited_page_obj.has_previous %}
+                            <a href="?{{ reunited_prev_qs }}" class="card-page-btn">Prev</a>
+                        {% else %}
+                            <span class="card-page-btn disabled">Prev</span>
+                        {% endif %}
+                        <span class="card-page-info">Page {{ reunited_page_obj.number }} of {{ reunited_page_obj.paginator.num_pages }}</span>
+                        {% if reunited_page_obj.has_next %}
+                            <a href="?{{ reunited_next_qs }}" class="card-page-btn">Next</a>
+                        {% else %}
+                            <span class="card-page-btn disabled">Next</span>
+                        {% endif %}
                     </div>
+                    {% endif %}
                 {% else %}
                     <p class="text-muted mb-0">No reunited posts yet.</p>
                 {% endif %}
@@ -300,27 +347,29 @@
         <div class="status-card status-adopted">
             <div class="status-card-head">
                 <span>Adopted</span>
-                <span class="status-count">{{ adopted_posts|length }}</span>
+                <span class="status-count">{{ adopted_total }}</span>
             </div>
             <div class="status-card-body">
                 {% if adopted_posts %}
                     <div class="table-responsive">
-                        <table class="table table-sm status-mini-table mb-0 paginated-status-table" data-card-key="adopted">
+                        <table class="table table-sm status-mini-table mb-0">
                             <thead>
                                 <tr>
                                     <th>Dog</th>
                                     <th>Rescued Date</th>
-                                    <th>Barangay</th>
+                                    <th>Adopted By</th>
+                                    <th>User Barangay</th>
                                     <th>View</th>
                                 </tr>
                             </thead>
-                            <tbody class="paginated-status-body">
+                            <tbody>
                                 {% for item in adopted_posts %}
                                     {% with post=item.post %}
                                     <tr>
                                         <td>{{ post.caption|default:"Unnamed Dog" }}</td>
                                         <td>{{ post.rescued_date|date:"M d, Y"|default:"-" }}</td>
-                                        <td>{{ post.location|default:"-" }}</td>
+                                        <td>{{ item.finalized_user_name|default:"-" }}</td>
+                                        <td>{{ item.finalized_user_barangay|default:"-" }}</td>
                                         <td>
                                             <button type="button" class="btn btn-dark btn-sm view-cta" data-bs-toggle="modal" data-bs-target="#postDetails{{ post.id }}">
                                                 View
@@ -332,11 +381,21 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="card-pagination" data-card-key="adopted" hidden>
-                        <button type="button" class="card-page-btn" data-action="prev">Prev</button>
-                        <span class="card-page-info">Page 1 of 1</span>
-                        <button type="button" class="card-page-btn" data-action="next">Next</button>
+                    {% if adopted_page_obj.paginator.num_pages > 1 %}
+                    <div class="card-pagination">
+                        {% if adopted_page_obj.has_previous %}
+                            <a href="?{{ adopted_prev_qs }}" class="card-page-btn">Prev</a>
+                        {% else %}
+                            <span class="card-page-btn disabled">Prev</span>
+                        {% endif %}
+                        <span class="card-page-info">Page {{ adopted_page_obj.number }} of {{ adopted_page_obj.paginator.num_pages }}</span>
+                        {% if adopted_page_obj.has_next %}
+                            <a href="?{{ adopted_next_qs }}" class="card-page-btn">Next</a>
+                        {% else %}
+                            <span class="card-page-btn disabled">Next</span>
+                        {% endif %}
                     </div>
+                    {% endif %}
                 {% else %}
                     <p class="text-muted mb-0">No adopted posts yet.</p>
                 {% endif %}
@@ -355,10 +414,8 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    {% if post.images.exists %}
-                        {% with first_image=post.images.all|first %}
-                            <img src="{{ first_image.image.url }}" class="detail-preview-img mb-3" alt="Dog image">
-                        {% endwith %}
+                    {% if item.primary_image_url %}
+                        <img src="{{ item.primary_image_url }}" class="detail-preview-img mb-3" alt="Dog image">
                     {% else %}
                         <div class="detail-no-image mb-3">No image uploaded</div>
                     {% endif %}
@@ -386,19 +443,70 @@
                             <table class="table table-sm request-user-table">
                                 <thead>
                                     <tr>
+                                        <th>Profile</th>
                                         <th>User</th>
                                         <th>Name</th>
                                         <th>Status</th>
                                         <th>Requested</th>
+                                        <th>Face Auth</th>
+                                        <th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for req in item.claim_requests %}
                                         <tr>
-                                            <td>{{ req.user.username }}</td>
-                                            <td>{{ req.user.first_name }} {{ req.user.last_name }}</td>
+                                            <td>
+                                                <a href="{% url 'dogadoption_admin:view_faceauth' req.user.id %}" class="request-user-avatar-link" title="View face authentication">
+                                                    {% if req.user_profile_image_url %}
+                                                        <img src="{{ req.user_profile_image_url }}" class="request-user-avatar" alt="{{ req.user.username }}">
+                                                    {% else %}
+                                                        <span class="request-user-avatar-fallback">{{ req.user_initials }}</span>
+                                                    {% endif %}
+                                                </a>
+                                            </td>
+                                            <td>
+                                                <a href="{% url 'dogadoption_admin:view_faceauth' req.user.id %}" class="request-user-link">{{ req.user.username }}</a>
+                                            </td>
+                                            <td>{{ req.user_display_name }}</td>
                                             <td>{{ req.get_status_display }}</td>
                                             <td>{{ req.created_at|date:"M d, Y H:i" }}</td>
+                                            <td>
+                                                <a href="{% url 'dogadoption_admin:view_faceauth' req.user.id %}" class="btn btn-outline-dark btn-sm faceauth-btn">
+                                                    View ({{ req.face_auth_count }})
+                                                </a>
+                                            </td>
+                                            <td>
+                                                {% if req.status == 'pending' %}
+                                                    <div class="request-action-cell">
+                                                        <form method="post" action="{% url 'dogadoption_admin:update_request' req.id 'accept' %}" class="request-action-form">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="next" value="{{ return_to }}">
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-success btn-sm js-confirm-action"
+                                                                data-confirm-title="Confirm Accept"
+                                                                data-confirm-body="Accept this claim request?"
+                                                            >
+                                                                Accept
+                                                            </button>
+                                                        </form>
+                                                        <form method="post" action="{% url 'dogadoption_admin:update_request' req.id 'reject' %}">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="next" value="{{ return_to }}">
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-outline-danger btn-sm js-confirm-action"
+                                                                data-confirm-title="Confirm Decline"
+                                                                data-confirm-body="Decline this claim request?"
+                                                            >
+                                                                Decline
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                {% else %}
+                                                    <span class="text-muted small">Processed</span>
+                                                {% endif %}
+                                            </td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
@@ -425,19 +533,70 @@
                             <table class="table table-sm request-user-table">
                                 <thead>
                                     <tr>
+                                        <th>Profile</th>
                                         <th>User</th>
                                         <th>Name</th>
                                         <th>Status</th>
                                         <th>Requested</th>
+                                        <th>Face Auth</th>
+                                        <th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for req in item.adopt_requests %}
                                         <tr>
-                                            <td>{{ req.user.username }}</td>
-                                            <td>{{ req.user.first_name }} {{ req.user.last_name }}</td>
+                                            <td>
+                                                <a href="{% url 'dogadoption_admin:view_faceauth' req.user.id %}" class="request-user-avatar-link" title="View face authentication">
+                                                    {% if req.user_profile_image_url %}
+                                                        <img src="{{ req.user_profile_image_url }}" class="request-user-avatar" alt="{{ req.user.username }}">
+                                                    {% else %}
+                                                        <span class="request-user-avatar-fallback">{{ req.user_initials }}</span>
+                                                    {% endif %}
+                                                </a>
+                                            </td>
+                                            <td>
+                                                <a href="{% url 'dogadoption_admin:view_faceauth' req.user.id %}" class="request-user-link">{{ req.user.username }}</a>
+                                            </td>
+                                            <td>{{ req.user_display_name }}</td>
                                             <td>{{ req.get_status_display }}</td>
                                             <td>{{ req.created_at|date:"M d, Y H:i" }}</td>
+                                            <td>
+                                                <a href="{% url 'dogadoption_admin:view_faceauth' req.user.id %}" class="btn btn-outline-dark btn-sm faceauth-btn">
+                                                    View ({{ req.face_auth_count }})
+                                                </a>
+                                            </td>
+                                            <td>
+                                                {% if req.status == 'pending' %}
+                                                    <div class="request-action-cell">
+                                                        <form method="post" action="{% url 'dogadoption_admin:update_request' req.id 'accept' %}" class="request-action-form">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="next" value="{{ return_to }}">
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-success btn-sm js-confirm-action"
+                                                                data-confirm-title="Confirm Accept"
+                                                                data-confirm-body="Accept this adoption request?"
+                                                            >
+                                                                Accept
+                                                            </button>
+                                                        </form>
+                                                        <form method="post" action="{% url 'dogadoption_admin:update_request' req.id 'reject' %}">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="next" value="{{ return_to }}">
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-outline-danger btn-sm js-confirm-action"
+                                                                data-confirm-title="Confirm Decline"
+                                                                data-confirm-body="Decline this adoption request?"
+                                                            >
+                                                                Decline
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                {% else %}
+                                                    <span class="text-muted small">Processed</span>
+                                                {% endif %}
+                                            </td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
@@ -452,6 +611,23 @@
     </div>
     {% endwith %}
 {% endfor %}
+
+<div class="modal fade" id="requestConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="requestConfirmTitle">Confirm Action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="requestConfirmBody">
+                Are you sure?
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-primary btn-sm" id="requestConfirmSubmit">Continue</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {{ appointment_dates|json_script:"appointment_dates_data" }}
 <script src="{% static 'js/barangay_autocomplete.js' %}"></script>
@@ -591,90 +767,11 @@
         renderMonth();
     }
 
-    function getStatusCardPageSize() {
-        return window.matchMedia("(max-width: 700px)").matches ? 3 : 5;
-    }
-
-    function initStatusCardPagination() {
-        const tables = document.querySelectorAll(".paginated-status-table");
-        const pageSize = getStatusCardPageSize();
-
-        tables.forEach((table) => {
-            const cardKey = table.getAttribute("data-card-key");
-            const controls = document.querySelector(`.card-pagination[data-card-key="${cardKey}"]`);
-            if (!controls) {
-                return;
-            }
-
-            const tbody = table.querySelector(".paginated-status-body") || table.querySelector("tbody");
-            if (!tbody) {
-                controls.hidden = true;
-                return;
-            }
-
-            const rows = Array.from(tbody.querySelectorAll("tr"));
-            if (rows.length <= pageSize) {
-                rows.forEach((row) => row.classList.remove("d-none"));
-                controls.hidden = true;
-                return;
-            }
-
-            controls.hidden = false;
-            const prevBtn = controls.querySelector('[data-action="prev"]');
-            const nextBtn = controls.querySelector('[data-action="next"]');
-            const info = controls.querySelector(".card-page-info");
-            const totalPages = Math.ceil(rows.length / pageSize);
-            let currentPage = 1;
-
-            function renderPage() {
-                rows.forEach((row, index) => {
-                    const rowPage = Math.floor(index / pageSize) + 1;
-                    row.classList.toggle("d-none", rowPage !== currentPage);
-                });
-
-                if (info) {
-                    info.textContent = `Page ${currentPage} of ${totalPages}`;
-                }
-                if (prevBtn) {
-                    prevBtn.disabled = currentPage === 1;
-                }
-                if (nextBtn) {
-                    nextBtn.disabled = currentPage === totalPages;
-                }
-            }
-
-            if (prevBtn) {
-                prevBtn.addEventListener("click", () => {
-                    if (currentPage > 1) {
-                        currentPage -= 1;
-                        renderPage();
-                    }
-                });
-            }
-
-            if (nextBtn) {
-                nextBtn.addEventListener("click", () => {
-                    if (currentPage < totalPages) {
-                        currentPage += 1;
-                        renderPage();
-                    }
-                });
-            }
-
-            renderPage();
-        });
-    }
-
     document.addEventListener("DOMContentLoaded", () => {
         try {
             initAppointmentCalendar();
         } catch (e) {
             console.error("Appointment calendar script error:", e);
-        }
-        try {
-            initStatusCardPagination();
-        } catch (e) {
-            console.error("Card pagination script error:", e);
         }
 
         const createPostModalEl = document.getElementById("createPostModal");
@@ -718,6 +815,36 @@
         if (appointmentModalEl && shouldOpenAppointmentModal && window.bootstrap) {
             const modal = bootstrap.Modal.getOrCreateInstance(appointmentModalEl);
             modal.show();
+        }
+
+        const confirmModalEl = document.getElementById("requestConfirmModal");
+        const confirmTitleEl = document.getElementById("requestConfirmTitle");
+        const confirmBodyEl = document.getElementById("requestConfirmBody");
+        const confirmSubmitBtn = document.getElementById("requestConfirmSubmit");
+        let pendingActionForm = null;
+
+        if (confirmModalEl && confirmTitleEl && confirmBodyEl && confirmSubmitBtn && window.bootstrap) {
+            const confirmModal = bootstrap.Modal.getOrCreateInstance(confirmModalEl);
+
+            document.querySelectorAll(".js-confirm-action").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    pendingActionForm = btn.closest("form");
+                    if (!pendingActionForm) return;
+                    confirmTitleEl.textContent = btn.dataset.confirmTitle || "Confirm Action";
+                    confirmBodyEl.textContent = btn.dataset.confirmBody || "Are you sure?";
+                    confirmModal.show();
+                });
+            });
+
+            confirmSubmitBtn.addEventListener("click", () => {
+                if (pendingActionForm) {
+                    pendingActionForm.submit();
+                }
+            });
+
+            confirmModalEl.addEventListener("hidden.bs.modal", () => {
+                pendingActionForm = null;
+            });
         }
     });
 </script>

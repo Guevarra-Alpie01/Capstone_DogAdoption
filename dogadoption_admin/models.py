@@ -43,8 +43,9 @@ class Post(models.Model):
 
     def claim_deadline(self):
         """Deadline for owner claim window."""
-        if self.created_at and self.claim_days:
-            return self.created_at + timedelta(days=self.claim_days)
+        if self.created_at and self.claim_days is not None:
+            claim_days = max(int(self.claim_days), 0)
+            return self.created_at + timedelta(days=claim_days)
         return None
 
     def adoption_deadline(self):

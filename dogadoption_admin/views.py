@@ -21,6 +21,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from django.views.decorators.http import require_http_methods, require_POST
@@ -555,6 +556,17 @@ def _build_request_redirect(req):
     return redirect("dogadoption_admin:adoption_requests", req.post.id)
 
 
+def _build_request_redirect_or_next(request, req):
+    next_url = (request.POST.get("next") or "").strip()
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(next_url)
+    return _build_request_redirect(req)
+
+
 def _render_post_request_list(request, post_id, request_type, template_name):
     post = get_object_or_404(Post, id=post_id)
     return render(request, template_name, {
@@ -742,7 +754,7 @@ def create_post(request):
             for image in request.FILES.getlist('images'):
                 PostImage.objects.create(post=post, image=image)
 
-            messages.success(request, "Post created successfully.")
+            messages.success(request, "Post created successfully.", extra_tags="post_list")
             return redirect('dogadoption_admin:post_list')
     else:
         post_form = PostForm()
@@ -769,9 +781,9 @@ def post_list(request):
             show_appointment_modal = True
             dates_raw = (request.POST.get('appointment_dates') or '').strip()
             if not _validate_and_save_global_appointment_dates(dates_raw, request.user):
-                messages.error(request, "Past dates are not allowed.")
+                messages.error(request, "Past dates are not allowed.", extra_tags="post_list")
             else:
-                messages.success(request, "Appointment dates saved.")
+                messages.success(request, "Appointment dates saved.", extra_tags="post_list")
                 return redirect(reverse('dogadoption_admin:post_list'))
         else:
             post_form = PostForm(request.POST)
@@ -785,21 +797,22 @@ def post_list(request):
                 for image in request.FILES.getlist('images'):
                     PostImage.objects.create(post=post, image=image)
 
-                messages.success(request, "Post created successfully.")
+                messages.success(request, "Post created successfully.", extra_tags="post_list")
                 return redirect(reverse('dogadoption_admin:post_list'))
 
     _set_post_form_barangay_source(post_form)
 
-    # Base queryset with annotation
-    base_qs = Post.objects.annotate(
-        claim_count=Count('requests', filter=Q(requests__request_type='claim', requests__status='pending')),
-        adopt_count=Count('requests', filter=Q(requests__request_type='adopt', requests__status='pending'))
-    ).prefetch_related(
-        'images',
-        Prefetch(
-            'requests',
-            queryset=PostRequest.objects.select_related('user').order_by('-created_at'),
-        ),
+    base_qs = Post.objects.only(
+        'id',
+        'caption',
+        'location',
+        'status',
+        'rescued_date',
+        'claim_days',
+        'created_at',
+    ).annotate(
+        claim_count=Count('requests', filter=Q(requests__request_type='claim')),
+        adopt_count=Count('requests', filter=Q(requests__request_type='adopt')),
     )
 
     # Calculate days/hours/minutes left
@@ -841,9 +854,6 @@ def post_list(request):
             deadline = p.claim_deadline()
         elif phase == 'adopt':
             deadline = p.adoption_deadline()
-        requests = list(p.requests.all())
-        claim_requests = [req for req in requests if req.request_type == 'claim']
-        adopt_requests = [req for req in requests if req.request_type == 'adopt']
 
         all_enriched.append({
             'post': p,
@@ -858,8 +868,11 @@ def post_list(request):
                 if phase in ['claim', 'adopt']
                 else "No active time window"
             ),
-            'claim_requests': claim_requests,
-            'adopt_requests': adopt_requests,
+            'claim_request_count': int(getattr(p, "claim_count", 0) or 0),
+            'adopt_request_count': int(getattr(p, "adopt_count", 0) or 0),
+            'claim_requests': [],
+            'adopt_requests': [],
+            'primary_image_url': "",
         })
 
     # Sort by newest
@@ -874,27 +887,173 @@ def post_list(request):
     # order for ties, so if equal request counts the earlier post stays first.
     claim_posts = sorted(
         claim_posts,
-        key=lambda item: len(item['claim_requests']),
+        key=lambda item: item['claim_request_count'],
         reverse=True,
     )
     adoption_posts = sorted(
         adoption_posts,
-        key=lambda item: len(item['adopt_requests']),
+        key=lambda item: item['adopt_request_count'],
         reverse=True,
     )
+
+    claim_total = len(claim_posts)
+    adoption_total = len(adoption_posts)
+    reunited_total = len(reunited_posts)
+    adopted_total = len(adopted_posts)
+
+    rows_per_page = 10
+
+    def _paginate_status(items, page_param):
+        paginator = Paginator(items, rows_per_page)
+        page_obj = paginator.get_page(request.GET.get(page_param, 1))
+        return page_obj, list(page_obj.object_list)
+
+    def _build_page_qs(page_param, page_num):
+        params = request.GET.copy()
+        params[page_param] = str(page_num)
+        return params.urlencode()
+
+    claim_page_obj, claim_posts = _paginate_status(claim_posts, "claim_page")
+    adoption_page_obj, adoption_posts = _paginate_status(adoption_posts, "adoption_page")
+    reunited_page_obj, reunited_posts = _paginate_status(reunited_posts, "reunited_page")
+    adopted_page_obj, adopted_posts = _paginate_status(adopted_posts, "adopted_page")
+
+    modal_posts_by_id = {}
+    for item in claim_posts + adoption_posts + reunited_posts + adopted_posts:
+        post_id = item["post"].id
+        if post_id not in modal_posts_by_id:
+            modal_posts_by_id[post_id] = item
+    for item in modal_posts_by_id.values():
+        item["claim_requests"] = []
+        item["adopt_requests"] = []
+        item["primary_image_url"] = ""
+        item["finalized_user_name"] = "-"
+        item["finalized_user_barangay"] = "-"
+
+    paged_post_ids = list(modal_posts_by_id.keys())
+    if paged_post_ids:
+        paged_requests = list(
+            PostRequest.objects.filter(post_id__in=paged_post_ids)
+            .select_related("user")
+            .only(
+                "id",
+                "post_id",
+                "user_id",
+                "request_type",
+                "status",
+                "appointment_date",
+                "scheduled_appointment_date",
+                "created_at",
+                "user__id",
+                "user__username",
+                "user__first_name",
+                "user__last_name",
+            )
+            .order_by("-created_at")
+        )
+
+        requests_by_post_id = defaultdict(lambda: {"claim": [], "adopt": []})
+        request_user_ids = set()
+        for req in paged_requests:
+            request_user_ids.add(req.user_id)
+            if req.request_type in {"claim", "adopt"}:
+                requests_by_post_id[req.post_id][req.request_type].append(req)
+
+        profile_image_by_user_id = {}
+        profile_address_by_user_id = {}
+        face_auth_count_by_user_id = {}
+        if request_user_ids:
+            profiles = Profile.objects.filter(user_id__in=request_user_ids).only(
+                "user_id",
+                "profile_image",
+                "address",
+            )
+            for profile in profiles:
+                profile_address_by_user_id[profile.user_id] = (profile.address or "").strip()
+                image_field = getattr(profile, "profile_image", None)
+                if not image_field:
+                    continue
+                try:
+                    profile_image_by_user_id[profile.user_id] = image_field.url
+                except (AttributeError, ValueError):
+                    continue
+
+            face_auth_count_by_user_id = dict(
+                FaceImage.objects.filter(user_id__in=request_user_ids)
+                .values("user_id")
+                .annotate(total=Count("id"))
+                .values_list("user_id", "total")
+            )
+
+        for req in paged_requests:
+            display_name = f"{(req.user.first_name or '').strip()} {(req.user.last_name or '').strip()}".strip()
+            if not display_name:
+                display_name = req.user.username
+            req.user_display_name = display_name
+            req.user_initials = _owner_initials(display_name)
+            req.user_profile_image_url = profile_image_by_user_id.get(req.user_id, "")
+            req.face_auth_count = face_auth_count_by_user_id.get(req.user_id, 0)
+
+        primary_image_by_post_id = {}
+        for image in PostImage.objects.filter(post_id__in=paged_post_ids).only("post_id", "image").order_by("id"):
+            if image.post_id in primary_image_by_post_id:
+                continue
+            try:
+                primary_image_by_post_id[image.post_id] = image.image.url
+            except (AttributeError, ValueError):
+                continue
+
+        for post_id, item in modal_posts_by_id.items():
+            req_bucket = requests_by_post_id.get(post_id)
+            if req_bucket:
+                item["claim_requests"] = req_bucket["claim"]
+                item["adopt_requests"] = req_bucket["adopt"]
+                accepted_req = None
+                if item["post"].status == "reunited":
+                    accepted_req = next((r for r in req_bucket["claim"] if r.status == "accepted"), None)
+                elif item["post"].status == "adopted":
+                    accepted_req = next((r for r in req_bucket["adopt"] if r.status == "accepted"), None)
+
+                if accepted_req:
+                    item["finalized_user_name"] = accepted_req.user_display_name
+                    user_address = profile_address_by_user_id.get(accepted_req.user_id, "")
+                    user_barangay = _extract_barangay_from_address(user_address)
+                    if not user_barangay and user_address:
+                        user_barangay = user_address.split(",")[0].strip()
+                    item["finalized_user_barangay"] = user_barangay or "-"
+            item["primary_image_url"] = primary_image_by_post_id.get(post_id, "")
+
+    paged_all_posts = list(modal_posts_by_id.values())
 
     global_dates = _get_active_global_appointment_dates()
 
     return render(request, 'admin_home/post_list.html', {
-        'all_posts': all_enriched,
+        'all_posts': paged_all_posts,
         'post_form': post_form,
         'show_create_modal': show_create_modal,
         'appointment_dates': [d.strftime('%Y-%m-%d') for d in global_dates],
         'show_appointment_modal': show_appointment_modal,
+        'claim_total': claim_total,
+        'adoption_total': adoption_total,
+        'reunited_total': reunited_total,
+        'adopted_total': adopted_total,
         'claim_posts': claim_posts,
         'adoption_posts': adoption_posts,
         'reunited_posts': reunited_posts,
         'adopted_posts': adopted_posts,
+        'claim_page_obj': claim_page_obj,
+        'adoption_page_obj': adoption_page_obj,
+        'reunited_page_obj': reunited_page_obj,
+        'adopted_page_obj': adopted_page_obj,
+        'claim_prev_qs': _build_page_qs("claim_page", claim_page_obj.previous_page_number()) if claim_page_obj.has_previous() else "",
+        'claim_next_qs': _build_page_qs("claim_page", claim_page_obj.next_page_number()) if claim_page_obj.has_next() else "",
+        'adoption_prev_qs': _build_page_qs("adoption_page", adoption_page_obj.previous_page_number()) if adoption_page_obj.has_previous() else "",
+        'adoption_next_qs': _build_page_qs("adoption_page", adoption_page_obj.next_page_number()) if adoption_page_obj.has_next() else "",
+        'reunited_prev_qs': _build_page_qs("reunited_page", reunited_page_obj.previous_page_number()) if reunited_page_obj.has_previous() else "",
+        'reunited_next_qs': _build_page_qs("reunited_page", reunited_page_obj.next_page_number()) if reunited_page_obj.has_next() else "",
+        'adopted_prev_qs': _build_page_qs("adopted_page", adopted_page_obj.previous_page_number()) if adopted_page_obj.has_previous() else "",
+        'adopted_next_qs': _build_page_qs("adopted_page", adopted_page_obj.next_page_number()) if adopted_page_obj.has_next() else "",
+        'return_to': request.get_full_path(),
     })
 
 
@@ -939,47 +1098,60 @@ def adoption_requests(request, post_id):
 @admin_required
 @require_POST
 def update_request(request, req_id, action):
-    req = get_object_or_404(PostRequest, id=req_id)
-    post = req.post
+    action = (action or "").strip().lower()
 
-    if action == 'accept':
-        scheduled_date_raw = request.POST.get('scheduled_appointment_date')
-        scheduled_date = parse_date(scheduled_date_raw) if scheduled_date_raw else req.appointment_date
-
-        if scheduled_date:
-            is_available = GlobalAppointmentDate.objects.filter(
-                appointment_date=scheduled_date,
-                is_active=True,
-            ).exists()
-            if not is_available:
-                messages.error(request, "Selected appointment date is not in the available schedule.")
-                return _build_request_redirect(req)
-
-        req.status = 'accepted'
-        req.scheduled_appointment_date = scheduled_date
-
-        #  Move post automatically
-        if req.request_type == 'claim':
-            post.status = 'reunited'
-        elif req.request_type == 'adopt':
-            post.status = 'adopted'
-
-        post.save()
-
-        # Auto reject others
-        post.requests.exclude(id=req.id).update(
-            
-            status='rejected',
-            scheduled_appointment_date=None,
+    with transaction.atomic():
+        req = get_object_or_404(
+            PostRequest.objects.select_related("post").select_for_update(),
+            id=req_id,
         )
+        post = Post.objects.select_for_update().get(id=req.post_id)
 
-    elif action == 'reject':
-        req.status = 'rejected'
-        req.scheduled_appointment_date = None
+        if action not in {'accept', 'reject'}:
+            messages.error(request, "Unsupported action.")
+            return _build_request_redirect_or_next(request, req)
 
-    req.save(update_fields=['status', 'scheduled_appointment_date'])
+        if req.status != 'pending':
+            messages.warning(request, "This request has already been processed.")
+            return _build_request_redirect_or_next(request, req)
 
-    return _build_request_redirect(req)
+        if action == 'accept':
+            scheduled_date_raw = (request.POST.get('scheduled_appointment_date') or '').strip()
+            if scheduled_date_raw:
+                scheduled_date = parse_date(scheduled_date_raw)
+                if not scheduled_date:
+                    messages.error(request, "Please select a valid appointment date.")
+                    return _build_request_redirect_or_next(request, req)
+                is_available = GlobalAppointmentDate.objects.filter(
+                    appointment_date=scheduled_date,
+                    is_active=True,
+                ).exists()
+                if not is_available:
+                    messages.error(request, "Selected appointment date is not in the available schedule.")
+                    return _build_request_redirect_or_next(request, req)
+            else:
+                scheduled_date = req.appointment_date
+
+            req.status = 'accepted'
+            req.scheduled_appointment_date = scheduled_date
+
+            if req.request_type == 'claim':
+                post.status = 'reunited'
+            elif req.request_type == 'adopt':
+                post.status = 'adopted'
+            post.save(update_fields=['status'])
+
+            post.requests.filter(status='pending').exclude(id=req.id).update(
+                status='rejected',
+                scheduled_appointment_date=None,
+            )
+        else:
+            req.status = 'rejected'
+            req.scheduled_appointment_date = None
+
+        req.save(update_fields=['status', 'scheduled_appointment_date'])
+
+    return _build_request_redirect_or_next(request, req)
 
 
 
@@ -988,11 +1160,14 @@ def update_request(request, req_id, action):
 def view_faceauth(request, user_id):
     user = get_object_or_404(User, id=user_id)
 
-    # Get all face auth images for this user
-    face_images = FaceImage.objects.filter(user=user)
-
-    # Optionally include profile info
-    profile = Profile.objects.filter(user=user).first()
+    face_images = FaceImage.objects.filter(user=user).only("image", "created_at").order_by("-created_at")
+    profile = Profile.objects.filter(user=user).only(
+        "user_id",
+        "address",
+        "age",
+        "middle_initial",
+        "profile_image",
+    ).first()
 
     return render(request, 'admin_home/view_faceauth.html', {
         'user': user,
@@ -1659,6 +1834,12 @@ def analytics_dashboard(request):
 
 @admin_required
 def register_dogs(request):
+    def _registration_error(text):
+        messages.error(request, text, extra_tags="registration")
+
+    def _registration_success(text):
+        messages.success(request, text, extra_tags="registration")
+
     # Admin-controlled barangay and date stored in session
     barangay = request.session.get('barangay', '')
     date = request.session.get('date', '')
@@ -1692,15 +1873,15 @@ def register_dogs(request):
         )
 
         if not barangay:
-            messages.error(request, "Please select a valid barangay from the suggestions.")
+            _registration_error("Please select a valid barangay from the suggestions.")
             return redirect('dogadoption_admin:register_dogs')
 
         if not name or not owner_first_name or not owner_last_name:
-            messages.error(request, "Dog Name and Owner First/Last Name are required.")
+            _registration_error("Dog Name and Owner First/Last Name are required.")
             return redirect('dogadoption_admin:register_dogs')
 
         if (owner_first_name or owner_last_name) and (not owner_first_name or not owner_last_name):
-            messages.error(request, "Please provide both owner first name and last name.")
+            _registration_error("Please provide both owner first name and last name.")
             return redirect('dogadoption_admin:register_dogs')
 
         owner_name, owner_name_key, owner_user = _resolve_registration_owner_identity(
@@ -1709,11 +1890,11 @@ def register_dogs(request):
             owner_user_id=owner_user_id,
         )
         if not owner_name or not owner_name_key:
-            messages.error(request, "Please provide a valid owner first name and last name.")
+            _registration_error("Please provide a valid owner first name and last name.")
             return redirect('dogadoption_admin:register_dogs')
 
         if species not in {"Canine", "Feline"}:
-            messages.error(request, "Please select a valid species (Canine or Feline).")
+            _registration_error("Please select a valid species (Canine or Feline).")
             return redirect('dogadoption_admin:register_dogs')
 
         try:
@@ -1721,24 +1902,24 @@ def register_dogs(request):
             if age_value <= 0:
                 raise ValueError
         except (TypeError, ValueError):
-            messages.error(request, "Age must be a valid positive number.")
+            _registration_error("Age must be a valid positive number.")
             return redirect('dogadoption_admin:register_dogs')
 
         if age_unit not in {"months", "years"}:
-            messages.error(request, "Please select a valid age unit.")
+            _registration_error("Please select a valid age unit.")
             return redirect('dogadoption_admin:register_dogs')
 
         age = f"{age_value} {'mos' if age_unit == 'months' else 'yrs'}"
 
         image_error = _validate_registration_images(uploaded_images)
         if image_error:
-            messages.error(request, image_error)
+            _registration_error(image_error)
             return redirect('dogadoption_admin:register_dogs')
 
         try:
             date_registered = datetime.strptime(date, '%Y-%m-%d').date()
         except ValueError:
-            messages.error(request, "Invalid date format.")
+            _registration_error("Invalid date format.")
             return redirect('dogadoption_admin:register_dogs')
         
         formatted_address = f"{barangay}, Bayawan City, Negros Oriental"
@@ -1756,8 +1937,7 @@ def register_dogs(request):
                 .count()
             )
             if owner_registered_count >= DOG_REGISTRATION_OWNER_MAX_PETS:
-                messages.error(
-                    request,
+                _registration_error(
                     (
                         f"{owner_name} already has {DOG_REGISTRATION_OWNER_MAX_PETS} "
                         f"registered pets. A maximum of {DOG_REGISTRATION_OWNER_MAX_PETS} "
@@ -1786,7 +1966,7 @@ def register_dogs(request):
         cache.delete("registration_record_available_years")
         cache.delete("registration_record_active_barangays")
         image_suffix = f" with {len(uploaded_images)} photo(s)" if uploaded_images else ""
-        messages.success(request, f"Dog '{name}' registered successfully{image_suffix}!")
+        _registration_success(f"Dog '{name}' registered successfully{image_suffix}!")
         return redirect('dogadoption_admin:register_dogs')
 
     return render(request, 'admin_registration/registration.html', {

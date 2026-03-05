@@ -30,7 +30,7 @@
             <div class="form-group">
                 <label for="{{ post_form.claim_days.id_for_label }}">Claim Days</label>
                 {{ post_form.claim_days }}
-                <small>After claim ends, adoption opens for 3 days.</small>
+                <small>Set to 0 for immediate adoption. Greater than 0 opens claim first, then adoption for 3 days.</small>
             </div>
         </div>
 
@@ -52,10 +52,32 @@
         </div>
     </form>
 </div>
+
+<div class="modal fade" id="publishConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Publish</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Publish this post now?
+            </div>
+            <div class="modal-footer justify-content-center gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="publishConfirmSubmit">Publish</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     const claimDaysInput = document.getElementById("{{ post_form.claim_days.id_for_label }}");
     const form = document.getElementById("create-post-form");
     const claimDaysStorageKey = "admin_create_post_claim_days";
+    const publishConfirmModalEl = document.getElementById("publishConfirmModal");
+    const publishConfirmSubmitBtn = document.getElementById("publishConfirmSubmit");
+    let publishConfirmed = false;
 
     if (claimDaysInput) {
         const savedClaimDays = window.localStorage.getItem(claimDaysStorageKey);
@@ -73,12 +95,42 @@
         });
     }
 
-    if (form && claimDaysInput) {
-        form.addEventListener('submit', () => {
-            const value = claimDaysInput.value;
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            const value = claimDaysInput ? claimDaysInput.value : "";
             if (value) {
                 window.localStorage.setItem(claimDaysStorageKey, value);
             }
+
+            if (publishConfirmed) {
+                return;
+            }
+
+            if (publishConfirmModalEl && window.bootstrap) {
+                e.preventDefault();
+                const modal = bootstrap.Modal.getOrCreateInstance(publishConfirmModalEl);
+                modal.show();
+            }
+        });
+    }
+
+    if (form && publishConfirmModalEl && publishConfirmSubmitBtn && window.bootstrap) {
+        publishConfirmSubmitBtn.addEventListener('click', () => {
+            publishConfirmed = true;
+            const modal = bootstrap.Modal.getOrCreateInstance(publishConfirmModalEl);
+            modal.hide();
+            if (typeof form.requestSubmit === "function") {
+                form.requestSubmit();
+            } else {
+                form.submit();
+            }
+        });
+
+        publishConfirmModalEl.addEventListener('hidden.bs.modal', () => {
+            if (!publishConfirmed) {
+                return;
+            }
+            publishConfirmed = false;
         });
     }
 </script>

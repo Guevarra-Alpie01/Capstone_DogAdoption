@@ -1,7 +1,10 @@
-from django.db import models
-from django.contrib.auth.models import User
-from django.utils import timezone
+import os
 from datetime import timedelta
+from uuid import uuid4
+
+from django.contrib.auth.models import User
+from django.db import models
+from django.utils import timezone
 
 class Post(models.Model):
     ADOPTION_DAYS = 3
@@ -352,11 +355,54 @@ class Dog(models.Model):
     neutering_status = models.CharField(max_length=2, choices=[('No', 'No'), ('C', 'Castrated'), ('S', 'Spayed')], default='No')
     color = models.CharField(max_length=50, blank=True)
     owner_name = models.CharField(max_length=100)
+    owner_name_key = models.CharField(max_length=120, blank=True, default="", db_index=True)
+    owner_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="registered_dogs",
+    )
     owner_address = models.TextField(blank=True)
     barangay = models.CharField(max_length=255, blank=True, null=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["date_registered"], name="dog_date_reg_idx"),
+            models.Index(fields=["barangay", "date_registered"], name="dog_brgy_date_idx"),
+        ]
+
     def __str__(self):
         return f"{self.name} ({self.species})"
+
+
+def dog_registration_image_upload_to(instance, filename):
+    _, ext = os.path.splitext(filename or "")
+    extension = ext.lower() if ext else ".jpg"
+    return (
+        f"dog_registrations/{instance.dog_id}/"
+        f"{timezone.now():%Y/%m}/{uuid4().hex}{extension}"
+    )
+
+
+class DogImage(models.Model):
+    dog = models.ForeignKey(
+        Dog,
+        on_delete=models.CASCADE,
+        related_name="images",
+    )
+    image = models.ImageField(upload_to=dog_registration_image_upload_to)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        indexes = [
+            models.Index(fields=["dog", "created_at"], name="dogimg_dog_created_idx"),
+            models.Index(fields=["created_at"], name="dogimg_created_idx"),
+        ]
+
+    def __str__(self):
+        return f"Dog {self.dog_id} image {self.id}"
 
 
 #dog certification 

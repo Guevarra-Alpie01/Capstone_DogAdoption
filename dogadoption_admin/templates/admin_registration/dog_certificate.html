@@ -16,6 +16,26 @@
         <p class="sub-header">Dog Vaccination Certificate</p>
     </div>
 
+    <div class="owner-search-panel">
+        <div class="field-group owner-search-group">
+            <div class="owner-search-anchor">
+                <div class="owner-search-row">
+                    <input
+                        type="text"
+                        id="certificate-owner-search"
+                        placeholder="Search by first name, last name, or username"
+                        autocomplete="off"
+                        data-user-search-url="{% url 'dogadoption_admin:registration_user_search_api' %}"
+                    >
+                    <button type="button" id="certificate-owner-search-btn" class="owner-search-btn" aria-label="Search user">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div id="certificate-owner-suggestions" class="owner-search-suggestions" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="form-card">
         <form method="post" action="{% url 'dogadoption_admin:dog_certificate' %}" id="dog-certificate-form">
             {% csrf_token %}
@@ -162,6 +182,127 @@
 </div>
 
 <script>
+    (function () {
+        const searchInput = document.getElementById('certificate-owner-search');
+        const searchBtn = document.getElementById('certificate-owner-search-btn');
+        const suggestionsBox = document.getElementById('certificate-owner-suggestions');
+        const ownerFirstName = document.getElementById('owner_first_name');
+        const ownerLastName = document.getElementById('owner_last_name');
+        const barangayInput = document.getElementById('barangay');
+
+        if (!searchInput || !searchBtn || !suggestionsBox || !ownerFirstName || !ownerLastName || !barangayInput) {
+            return;
+        }
+
+        const endpoint = searchInput.dataset.userSearchUrl || '';
+        if (!endpoint) {
+            return;
+        }
+
+        let debounceTimer = null;
+
+        function clearSuggestions() {
+            suggestionsBox.innerHTML = '';
+            suggestionsBox.style.display = 'none';
+        }
+
+        function renderSuggestions(results) {
+            suggestionsBox.innerHTML = '';
+
+            if (!results.length) {
+                const empty = document.createElement('div');
+                empty.className = 'owner-search-item owner-search-empty';
+                empty.textContent = 'No registered user found.';
+                suggestionsBox.appendChild(empty);
+                suggestionsBox.style.display = 'block';
+                return;
+            }
+
+            results.forEach((row) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'owner-search-item';
+
+                const fullName = document.createElement('strong');
+                fullName.textContent = row.full_name || '';
+                const username = document.createElement('span');
+                username.textContent = '@' + (row.username || '');
+
+                button.appendChild(fullName);
+                button.appendChild(username);
+                button.addEventListener('click', function () {
+                    ownerFirstName.value = row.first_name || '';
+                    ownerLastName.value = row.last_name || '';
+                    if (row.barangay) {
+                        barangayInput.value = row.barangay;
+                    }
+                    searchInput.value = row.full_name || row.username || '';
+                    clearSuggestions();
+                });
+                suggestionsBox.appendChild(button);
+            });
+
+            suggestionsBox.style.display = 'block';
+        }
+
+        function selectTopSuggestion() {
+            if (suggestionsBox.style.display === 'none') {
+                return false;
+            }
+            const topSuggestion = suggestionsBox.querySelector('button.owner-search-item');
+            if (!topSuggestion) {
+                return false;
+            }
+            topSuggestion.click();
+            return true;
+        }
+
+        async function runSearch(autoSelectFirst) {
+            const query = (searchInput.value || '').trim();
+            if (query.length < 2) {
+                clearSuggestions();
+                return;
+            }
+
+            try {
+                const response = await fetch(endpoint + '?q=' + encodeURIComponent(query), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!response.ok) {
+                    clearSuggestions();
+                    return;
+                }
+                const payload = await response.json();
+                renderSuggestions(Array.isArray(payload.results) ? payload.results : []);
+                if (autoSelectFirst) {
+                    selectTopSuggestion();
+                }
+            } catch (error) {
+                clearSuggestions();
+            }
+        }
+
+        searchBtn.addEventListener('click', runSearch);
+        searchInput.addEventListener('input', function () {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(runSearch, 200);
+        });
+        searchInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (selectTopSuggestion()) {
+                    return;
+                }
+                runSearch(true);
+            }
+        });
+        document.addEventListener('click', function (event) {
+            if (!suggestionsBox.contains(event.target) && event.target !== searchInput && event.target !== searchBtn) {
+                clearSuggestions();
+            }
+        });
+    })();
+
     const breedList = [
         "Aspin (Asong Pinoy)",
         "Askal",

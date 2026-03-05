@@ -148,14 +148,15 @@
             <table class="records-table" id="records-table">
                 <thead>
                     <tr>
-                        <th colspan="2">Registration</th>
+                        <th colspan="3">Registration</th>
                         <th colspan="6">Dog Profile</th>
                         <th colspan="2">Pet Owner</th>
                     </tr>
                     <tr>
+                        <th>Profile</th>
                         <th>No.</th>
                         <th>Date</th>
-                        <th>Name</th>
+                        <th> Pet Name</th>
                         <th>Species</th>
                         <th>Sex (M/F)</th>
                         <th>Age (yrs)</th>
@@ -168,7 +169,24 @@
                 <tbody>
                     {% for dog in dogs %}
                     <tr>
-                        <td>{{ forloop.counter }}</td>
+                        <td class="owner-profile-cell">
+                            {% if dog.show_owner_fields %}
+                                <button
+                                    type="button"
+                                    class="owner-profile-btn"
+                                    title="View dog photos"
+                                    data-dog-id="{{ dog.id }}"
+                                    data-photos-url="{% url 'dogadoption_admin:registration_dog_images_api' dog.id %}"
+                                >
+                                    {% if dog.owner_profile_image_url %}
+                                        <img src="{{ dog.owner_profile_image_url }}" alt="{{ dog.owner_name }} profile" class="owner-avatar">
+                                    {% else %}
+                                        <span class="owner-avatar owner-avatar-fallback">{{ dog.owner_initials }}</span>
+                                    {% endif %}
+                                </button>
+                            {% endif %}
+                        </td>
+                        <td>{% if dog.owner_display_number %}{{ dog.owner_display_number }}{% endif %}</td>
                         <td>{{ dog.date_registered|date:"m-d-Y" }}</td>
                         <td>{{ dog.name }}</td>
                         <td>{{ dog.species }}</td>
@@ -176,23 +194,57 @@
                         <td>{{ dog.age }}</td>
                         <td>{{ dog.neutering_status }}</td>
                         <td>{{ dog.color|default:"-" }}</td>
-                        <td>{{ dog.owner_name }}</td>
-                        <td>{{ dog.owner_address }}</td>
+                        <td>{% if dog.show_owner_fields %}{{ dog.owner_name }}{% endif %}</td>
+                        <td>{% if dog.show_owner_fields %}{{ dog.owner_address }}{% endif %}</td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="10" class="empty-state-row">No registration records found for the selected filters.</td>
+                        <td colspan="11" class="empty-state-row">No registration records found for the selected filters.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        {% if page_obj and page_obj.paginator.num_pages > 1 %}
+        <div class="record-pagination">
+            {% if page_obj.has_previous %}
+                <a class="record-pagination-btn" href="?{% if selected_barangay %}barangay={{ selected_barangay|urlencode }}&{% endif %}{% if date_filter_query %}{{ date_filter_query }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                    <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                    Previous
+                </a>
+            {% else %}
+                <span class="record-pagination-btn disabled">Previous</span>
+            {% endif %}
+
+            <span class="record-pagination-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+            {% if page_obj.has_next %}
+                <a class="record-pagination-btn" href="?{% if selected_barangay %}barangay={{ selected_barangay|urlencode }}&{% endif %}{% if date_filter_query %}{{ date_filter_query }}&{% endif %}page={{ page_obj.next_page_number }}">
+                    Next
+                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                </a>
+            {% else %}
+                <span class="record-pagination-btn disabled">Next</span>
+            {% endif %}
+        </div>
+        {% endif %}
         <div class="record-legend">
             <div><strong>Legend:</strong></div>
             <div>C - Castrated</div>
             <div>S - Spaying</div>
             <div>No - Not castrated nor spayed</div>
         </div>
+    </div>
+</div>
+
+<div id="dog-photo-modal" class="dog-photo-modal" hidden>
+    <div class="dog-photo-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="dog-photo-modal-title">
+        <div class="dog-photo-modal-head">
+            <h3 id="dog-photo-modal-title">Registered Dog Photos</h3>
+            <button type="button" class="dog-photo-modal-close" id="dog-photo-modal-close" aria-label="Close">x</button>
+        </div>
+        <p class="dog-photo-modal-subtitle" id="dog-photo-modal-subtitle"></p>
+        <div class="dog-photo-grid" id="dog-photo-grid"></div>
     </div>
 </div>
 
@@ -207,6 +259,35 @@
 
         const barangayName = "{{ selected_barangay|default:'All Barangays'|escapejs }}";
         const tableForPrint = table.cloneNode(true);
+        const headerRows = tableForPrint.querySelectorAll('thead tr');
+        if (headerRows.length >= 2) {
+            const groupHeaderFirstCell = headerRows[0].querySelector('th');
+            if (groupHeaderFirstCell) {
+                const spanValue = parseInt(groupHeaderFirstCell.getAttribute('colspan') || '1', 10);
+                if (spanValue > 1) {
+                    groupHeaderFirstCell.setAttribute('colspan', String(spanValue - 1));
+                }
+            }
+
+            const detailHeaderFirstCell = headerRows[1].querySelector('th');
+            if (detailHeaderFirstCell) {
+                detailHeaderFirstCell.remove();
+            }
+        }
+
+        tableForPrint.querySelectorAll('tbody tr').forEach((row) => {
+            const firstCell = row.querySelector('td');
+            if (!firstCell) {
+                return;
+            }
+            const colspanValue = parseInt(firstCell.getAttribute('colspan') || '0', 10);
+            if (colspanValue > 1) {
+                firstCell.setAttribute('colspan', String(Math.max(colspanValue - 1, 1)));
+            } else {
+                firstCell.remove();
+            }
+        });
+
         const thead = tableForPrint.querySelector('thead');
         if (thead) {
             const staticHeadBody = document.createElement('tbody');
@@ -291,6 +372,101 @@
         dateFilterTypeEl.addEventListener('change', toggleDateFilterInput);
     }
     toggleDateFilterInput();
+
+    (function () {
+        const modal = document.getElementById('dog-photo-modal');
+        const modalCloseBtn = document.getElementById('dog-photo-modal-close');
+        const modalSubtitle = document.getElementById('dog-photo-modal-subtitle');
+        const modalGrid = document.getElementById('dog-photo-grid');
+        const triggerButtons = document.querySelectorAll('.owner-profile-btn');
+
+        if (!modal || !modalCloseBtn || !modalSubtitle || !modalGrid || !triggerButtons.length) {
+            return;
+        }
+
+        function openModal() {
+            modal.hidden = false;
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            modal.hidden = true;
+            document.body.style.overflow = '';
+            modalGrid.innerHTML = '';
+            modalSubtitle.textContent = '';
+        }
+
+        async function loadDogPhotos(photosUrl) {
+            const response = await fetch(photosUrl, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!response.ok) {
+                throw new Error('Failed to load photos.');
+            }
+            return response.json();
+        }
+
+        function renderPhotos(payload) {
+            const ownerName = payload.owner_name || 'Unknown owner';
+            const dogName = payload.dog_name || 'Unknown dog';
+            const photos = Array.isArray(payload.photos) ? payload.photos : [];
+
+            modalSubtitle.textContent = ownerName + ' - ' + dogName;
+            if (!photos.length) {
+                modalGrid.innerHTML = '<p class="dog-photo-empty">No uploaded photos for this registration.</p>';
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            photos.forEach((url, index) => {
+                const item = document.createElement('figure');
+                item.className = 'dog-photo-item';
+
+                const image = document.createElement('img');
+                image.src = url;
+                image.alt = 'Registered dog photo ' + (index + 1);
+                image.loading = 'lazy';
+                item.appendChild(image);
+
+                fragment.appendChild(item);
+            });
+            modalGrid.innerHTML = '';
+            modalGrid.appendChild(fragment);
+        }
+
+        triggerButtons.forEach((button) => {
+            button.addEventListener('click', async function () {
+                const photosUrl = button.getAttribute('data-photos-url');
+                if (!photosUrl) {
+                    return;
+                }
+
+                modalGrid.innerHTML = '<p class="dog-photo-empty">Loading photos...</p>';
+                modalSubtitle.textContent = 'Fetching registration photos...';
+                openModal();
+
+                try {
+                    const payload = await loadDogPhotos(photosUrl);
+                    renderPhotos(payload);
+                } catch (error) {
+                    modalGrid.innerHTML = '<p class="dog-photo-empty">Unable to load photos right now.</p>';
+                    modalSubtitle.textContent = '';
+                }
+            });
+        });
+
+        modalCloseBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !modal.hidden) {
+                closeModal();
+            }
+        });
+    })();
 </script>
 
 {% endblock %}

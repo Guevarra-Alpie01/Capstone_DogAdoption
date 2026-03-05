@@ -17,10 +17,32 @@
         <p class="sub-header">Dog Registry and Vaccination Record</p>
     </div>
 
+    <div class="owner-search-panel">
+        <div class="field-group owner-search-group">
+            <div class="owner-search-anchor">
+                <div class="owner-search-row">
+                    <input
+                        type="text"
+                        id="registration-owner-search"
+                        placeholder="Search by first name, last name, or username"
+                        autocomplete="off"
+                        data-user-search-url="{% url 'dogadoption_admin:registration_user_search_api' %}"
+                    >
+                    <button type="button" id="registration-owner-search-btn" class="owner-search-btn" aria-label="Search user">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div id="registration-owner-suggestions" class="owner-search-suggestions" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="form-card">
-        <form method="post" action="{% url 'dogadoption_admin:register_dogs' %}">
+        <form method="post" action="{% url 'dogadoption_admin:register_dogs' %}" enctype="multipart/form-data" id="registration-form">
             {% csrf_token %}
-            
+            <input type="hidden" name="owner_user_id" id="owner_user_id" value="">
+
+           
             <div class="admin-fields">
                 <div class="field-group">
                   <label for="barangay">Name of Barangay</label>
@@ -109,7 +131,48 @@
                         <input type="text" name="owner_last_name" id="owner_last_name" placeholder="Last Name" required>
                     </div>
                 </div>
-                
+
+                <div class="field-group photo-entry-group">
+                    <label>Registration Photos (Optional)</label>
+                    <div class="photo-entry-actions">
+                        <button type="button" class="photo-option-trigger" id="open-photo-options-btn">
+                            <i class="bi bi-images" aria-hidden="true"></i>
+                            Add Photo
+                        </button>
+                        <span class="photo-count-text" id="selected-photo-count">No photos selected.</span>
+                    </div>
+                    <div class="selected-photo-summary" id="selected-photo-summary">
+                        <p class="selected-photo-empty">No photo preview yet.</p>
+                    </div>
+                    <input
+                        type="file"
+                        name="dog_images"
+                        id="dog_images"
+                        accept="image/*"
+                        multiple
+                        hidden
+                    >
+                    <input
+                        type="file"
+                        name="dog_camera_images"
+                        id="dog_camera_images"
+                        accept="image/*"
+                        capture="environment"
+                        hidden
+                    >
+                    <input
+                        type="file"
+                        name="captured_camera_images"
+                        id="captured_camera_images"
+                        accept="image/*"
+                        multiple
+                        hidden
+                    >
+                    <small class="field-hint">
+                        Choose how to add photo: upload file or take picture.
+                    </small>
+                </div>
+                  
             </div>
 
             <div class="form-actions">
@@ -118,5 +181,581 @@
         </form>
     </div>
 </div>
+{% if messages %}
+<div id="registration-message-source" hidden>
+    {% for message in messages %}
+        <div data-level="{{ message.tags|default:'' }}">{{ message }}</div>
+    {% endfor %}
+</div>
+<div class="registration-message-modal" id="registration-message-modal" hidden>
+    <div class="registration-message-modal__backdrop" data-registration-message-close></div>
+    <div class="registration-message-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="registration-message-title">
+        <button type="button" class="registration-message-modal__close" data-registration-message-close aria-label="Close">&times;</button>
+        <h3 id="registration-message-title" class="registration-message-modal__title">Form Notice</h3>
+        <p class="registration-message-modal__body" id="registration-message-body"></p>
+        <div class="registration-message-modal__actions">
+            <button type="button" class="registration-message-modal__ok" data-registration-message-close>OK</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+<div class="photo-option-modal" id="photo-option-modal" hidden>
+    <div class="photo-option-backdrop" data-photo-option-close></div>
+    <div class="photo-option-sheet" role="dialog" aria-modal="true" aria-labelledby="photo-option-title">
+        <h3 id="photo-option-title">Add Dog Photo</h3>
+        <button type="button" class="photo-option-btn" id="photo-option-upload">
+            <i class="bi bi-upload" aria-hidden="true"></i>
+            Upload Photo
+        </button>
+        <button type="button" class="photo-option-btn" id="photo-option-capture">
+            <i class="bi bi-camera-fill" aria-hidden="true"></i>
+            Take Picture
+        </button>
+        <button type="button" class="photo-option-btn secondary" data-photo-option-close>Cancel</button>
+    </div>
+</div>
+<div class="camera-capture-modal" id="camera-capture-modal" hidden>
+    <div class="camera-capture-backdrop" data-camera-capture-close></div>
+    <div class="camera-capture-dialog" role="dialog" aria-modal="true" aria-labelledby="camera-capture-title">
+        <div class="camera-capture-header">
+            <h3 id="camera-capture-title">Take Picture</h3>
+            <button type="button" class="camera-capture-close" data-camera-capture-close aria-label="Close">
+                &times;
+            </button>
+        </div>
+        <div class="camera-capture-group" id="camera-capture-group">
+            <div class="camera-control-row">
+                <button type="button" class="camera-action-btn" id="open-camera-btn">Open Camera</button>
+                <button type="button" class="camera-action-btn" id="take-photo-btn" disabled>Take Photo</button>
+                <button type="button" class="camera-action-btn secondary" id="close-camera-btn" disabled>Stop Camera</button>
+            </div>
+            <video id="camera-preview" class="camera-preview" autoplay playsinline muted></video>
+            <canvas id="camera-canvas" class="camera-canvas" aria-hidden="true"></canvas>
+            <div id="captured-photo-list" class="captured-photo-list"></div>
+            <small class="field-hint">
+                Camera view is corrected to avoid mirrored movement while capturing.
+            </small>
+        </div>
+        <div class="camera-capture-footer">
+            <button type="button" class="camera-save-btn" id="camera-save-btn" disabled>OK</button>
+        </div>
+    </div>
+</div>
 <script src="{% static 'js/barangay_autocomplete.js' %}"></script>
+<script>
+    (function () {
+        const source = document.getElementById('registration-message-source');
+        const modal = document.getElementById('registration-message-modal');
+        const bodyEl = document.getElementById('registration-message-body');
+        const titleEl = document.getElementById('registration-message-title');
+        const closeButtons = document.querySelectorAll('[data-registration-message-close]');
+
+        if (!source || !modal || !bodyEl || !titleEl || !closeButtons.length) {
+            return;
+        }
+
+        const rows = Array.from(source.querySelectorAll('div')).map((node) => ({
+            level: (node.dataset.level || '').toLowerCase(),
+            text: (node.textContent || '').trim(),
+        })).filter((row) => row.text);
+
+        if (!rows.length) {
+            return;
+        }
+
+        const selected =
+            rows.find((row) => row.level.includes('error')) ||
+            rows.find((row) => row.level.includes('warning')) ||
+            rows[0];
+
+        titleEl.textContent = selected.level.includes('error') ? 'Registration Error' : 'Form Notice';
+        bodyEl.textContent = selected.text;
+
+        function closeModal() {
+            modal.hidden = true;
+            document.body.style.overflow = '';
+        }
+
+        function openModal() {
+            modal.hidden = false;
+            document.body.style.overflow = 'hidden';
+        }
+
+        closeButtons.forEach((btn) => {
+            btn.addEventListener('click', closeModal);
+        });
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !modal.hidden) {
+                closeModal();
+            }
+        });
+
+        openModal();
+    })();
+</script>
+<script>
+    (function () {
+        const searchInput = document.getElementById('registration-owner-search');
+        const searchBtn = document.getElementById('registration-owner-search-btn');
+        const suggestionsBox = document.getElementById('registration-owner-suggestions');
+        const ownerFirstName = document.getElementById('owner_first_name');
+        const ownerLastName = document.getElementById('owner_last_name');
+        const ownerUserIdInput = document.getElementById('owner_user_id');
+        const barangayInput = document.getElementById('barangay');
+
+        if (!searchInput || !searchBtn || !suggestionsBox || !ownerFirstName || !ownerLastName || !ownerUserIdInput || !barangayInput) {
+            return;
+        }
+
+        const endpoint = searchInput.dataset.userSearchUrl || '';
+        if (!endpoint) {
+            return;
+        }
+
+        let debounceTimer = null;
+
+        function clearSuggestions() {
+            suggestionsBox.innerHTML = '';
+            suggestionsBox.style.display = 'none';
+        }
+
+        function clearOwnerUserSelection() {
+            ownerUserIdInput.value = '';
+        }
+
+        function renderSuggestions(results) {
+            suggestionsBox.innerHTML = '';
+
+            if (!results.length) {
+                const empty = document.createElement('div');
+                empty.className = 'owner-search-item owner-search-empty';
+                empty.textContent = 'No registered user found.';
+                suggestionsBox.appendChild(empty);
+                suggestionsBox.style.display = 'block';
+                return;
+            }
+
+            results.forEach((row) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'owner-search-item';
+                const fullName = document.createElement('strong');
+                fullName.textContent = row.full_name || '';
+                const username = document.createElement('span');
+                username.textContent = '@' + (row.username || '');
+                button.appendChild(fullName);
+                button.appendChild(username);
+                button.addEventListener('click', function () {
+                    ownerFirstName.value = row.first_name || '';
+                    ownerLastName.value = row.last_name || '';
+                    ownerUserIdInput.value = row.id ? String(row.id) : '';
+                    if (row.barangay) {
+                        barangayInput.value = row.barangay;
+                    }
+                    searchInput.value = row.full_name || row.username || '';
+                    clearSuggestions();
+                });
+                suggestionsBox.appendChild(button);
+            });
+
+            suggestionsBox.style.display = 'block';
+        }
+
+        function selectTopSuggestion() {
+            if (suggestionsBox.style.display === 'none') {
+                return false;
+            }
+            const topSuggestion = suggestionsBox.querySelector('button.owner-search-item');
+            if (!topSuggestion) {
+                return false;
+            }
+            topSuggestion.click();
+            return true;
+        }
+
+        async function runSearch(autoSelectFirst) {
+            const query = (searchInput.value || '').trim();
+            if (query.length < 2) {
+                clearSuggestions();
+                return;
+            }
+
+            try {
+                const response = await fetch(endpoint + '?q=' + encodeURIComponent(query), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!response.ok) {
+                    clearSuggestions();
+                    return;
+                }
+                const payload = await response.json();
+                renderSuggestions(Array.isArray(payload.results) ? payload.results : []);
+                if (autoSelectFirst) {
+                    selectTopSuggestion();
+                }
+            } catch (error) {
+                clearSuggestions();
+            }
+        }
+
+        searchBtn.addEventListener('click', runSearch);
+        searchInput.addEventListener('input', function () {
+            clearOwnerUserSelection();
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(runSearch, 200);
+        });
+        ownerFirstName.addEventListener('input', clearOwnerUserSelection);
+        ownerLastName.addEventListener('input', clearOwnerUserSelection);
+        searchInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (selectTopSuggestion()) {
+                    return;
+                }
+                runSearch(true);
+            }
+        });
+        document.addEventListener('click', function (event) {
+            if (!suggestionsBox.contains(event.target) && event.target !== searchInput && event.target !== searchBtn) {
+                clearSuggestions();
+            }
+        });
+    })();
+</script>
+<script>
+    (function () {
+        const openOptionsBtn = document.getElementById('open-photo-options-btn');
+        const photoOptionModal = document.getElementById('photo-option-modal');
+        const uploadOptionBtn = document.getElementById('photo-option-upload');
+        const captureOptionBtn = document.getElementById('photo-option-capture');
+        const closeOptionBtns = document.querySelectorAll('[data-photo-option-close]');
+        const cameraCaptureModal = document.getElementById('camera-capture-modal');
+        const cameraModalCloseBtns = document.querySelectorAll('[data-camera-capture-close]');
+        const photoCountText = document.getElementById('selected-photo-count');
+        const formPhotoSummary = document.getElementById('selected-photo-summary');
+        const uploadInput = document.getElementById('dog_images');
+        const mobileCameraInput = document.getElementById('dog_camera_images');
+
+        const group = document.getElementById('camera-capture-group');
+        if (
+            !group ||
+            !openOptionsBtn ||
+            !photoOptionModal ||
+            !cameraCaptureModal ||
+            !uploadInput ||
+            !mobileCameraInput ||
+            !photoCountText ||
+            !formPhotoSummary
+        ) {
+            return;
+        }
+
+        const openBtn = document.getElementById('open-camera-btn');
+        const takeBtn = document.getElementById('take-photo-btn');
+        const closeBtn = document.getElementById('close-camera-btn');
+        const saveBtn = document.getElementById('camera-save-btn');
+        const preview = document.getElementById('camera-preview');
+        const canvas = document.getElementById('camera-canvas');
+        const photoList = document.getElementById('captured-photo-list');
+        const capturedInput = document.getElementById('captured_camera_images');
+        const form = document.getElementById('registration-form');
+
+        const supportsCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+        const supportsDataTransfer = typeof DataTransfer !== 'undefined';
+        const capturedFiles = [];
+        let stream = null;
+        let mirrorCompensation = false;
+
+        if (!saveBtn) {
+            return;
+        }
+
+        function openOptionModal() {
+            photoOptionModal.hidden = false;
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeOptionModal() {
+            photoOptionModal.hidden = true;
+            document.body.style.overflow = '';
+        }
+
+        function openCameraModal() {
+            cameraCaptureModal.hidden = false;
+            document.body.style.overflow = 'hidden';
+            updateCameraSaveButton();
+        }
+
+        function closeCameraModal() {
+            stopStream();
+            cameraCaptureModal.hidden = true;
+            document.body.style.overflow = '';
+        }
+
+        function updatePhotoCount() {
+            const total =
+                (uploadInput.files ? uploadInput.files.length : 0) +
+                (mobileCameraInput.files ? mobileCameraInput.files.length : 0) +
+                capturedFiles.length;
+            photoCountText.textContent = total ? `${total} photo(s) selected.` : 'No photos selected.';
+            renderFormPhotoSummary();
+        }
+
+        function updateCameraSaveButton() {
+            saveBtn.disabled = capturedFiles.length === 0;
+        }
+
+        function replaceInputFiles(inputElement, filesArray) {
+            if (typeof DataTransfer === 'undefined') {
+                return false;
+            }
+            const transfer = new DataTransfer();
+            filesArray.forEach((file) => transfer.items.add(file));
+            inputElement.files = transfer.files;
+            return true;
+        }
+
+        function removeSummaryEntry(source, sourceIndex) {
+            if (source === 'captured') {
+                capturedFiles.splice(sourceIndex, 1);
+                syncCapturedInput();
+                return;
+            }
+
+            if (source === 'upload') {
+                const next = Array.from(uploadInput.files || []).filter((_, idx) => idx !== sourceIndex);
+                if (replaceInputFiles(uploadInput, next)) {
+                    updatePhotoCount();
+                }
+                return;
+            }
+
+            if (source === 'mobile') {
+                const next = Array.from(mobileCameraInput.files || []).filter((_, idx) => idx !== sourceIndex);
+                if (replaceInputFiles(mobileCameraInput, next)) {
+                    updatePhotoCount();
+                }
+            }
+        }
+
+        function renderFormPhotoSummary() {
+            formPhotoSummary.innerHTML = '';
+
+            const selectedFiles = [];
+            Array.from(uploadInput.files || []).forEach((file, sourceIndex) => {
+                selectedFiles.push({ file, label: 'Upload', source: 'upload', sourceIndex });
+            });
+            Array.from(mobileCameraInput.files || []).forEach((file, sourceIndex) => {
+                selectedFiles.push({ file, label: 'Mobile', source: 'mobile', sourceIndex });
+            });
+            capturedFiles.forEach((file, sourceIndex) => {
+                selectedFiles.push({ file, label: 'Captured', source: 'captured', sourceIndex });
+            });
+
+            if (!selectedFiles.length) {
+                formPhotoSummary.innerHTML = '<p class="selected-photo-empty">No photo preview yet.</p>';
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            selectedFiles.forEach((entry, index) => {
+                const item = document.createElement('figure');
+                item.className = 'selected-photo-item';
+
+                const img = document.createElement('img');
+                const imageUrl = URL.createObjectURL(entry.file);
+                img.src = imageUrl;
+                img.alt = 'Selected photo ' + (index + 1);
+                img.className = 'selected-photo-thumb';
+                img.loading = 'lazy';
+                img.onload = function () {
+                    URL.revokeObjectURL(imageUrl);
+                };
+
+                const badge = document.createElement('span');
+                badge.className = 'selected-photo-badge';
+                badge.textContent = entry.label;
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'selected-photo-remove';
+                removeBtn.setAttribute('aria-label', 'Remove selected photo');
+                removeBtn.textContent = 'x';
+                removeBtn.addEventListener('click', () => {
+                    removeSummaryEntry(entry.source, entry.sourceIndex);
+                });
+
+                item.appendChild(img);
+                item.appendChild(badge);
+                item.appendChild(removeBtn);
+                fragment.appendChild(item);
+            });
+
+            formPhotoSummary.appendChild(fragment);
+        }
+
+        function setButtons(isStreaming) {
+            takeBtn.disabled = !isStreaming;
+            closeBtn.disabled = !isStreaming;
+            openBtn.disabled = isStreaming;
+        }
+
+        function stopStream() {
+            if (!stream) return;
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+            preview.srcObject = null;
+            preview.classList.remove('camera-preview--mirror-fix');
+            mirrorCompensation = false;
+            setButtons(false);
+        }
+
+        function syncCapturedInput() {
+            if (typeof DataTransfer === 'undefined') {
+                capturedInput.value = '';
+                updatePhotoCount();
+                updateCameraSaveButton();
+                renderCapturedThumbnails();
+                return;
+            }
+            const transfer = new DataTransfer();
+            capturedFiles.forEach(file => transfer.items.add(file));
+            capturedInput.files = transfer.files;
+            updatePhotoCount();
+            updateCameraSaveButton();
+            renderCapturedThumbnails();
+        }
+
+        function renderCapturedThumbnails() {
+            photoList.innerHTML = '';
+            capturedFiles.forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'captured-photo-item';
+
+                const imageUrl = URL.createObjectURL(file);
+                const img = document.createElement('img');
+                img.src = imageUrl;
+                img.alt = 'Captured photo';
+                img.className = 'captured-photo-thumb';
+                img.onload = function () {
+                    URL.revokeObjectURL(imageUrl);
+                };
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'captured-photo-remove';
+                removeBtn.setAttribute('aria-label', 'Remove captured photo');
+                removeBtn.textContent = 'x';
+                removeBtn.addEventListener('click', () => {
+                    capturedFiles.splice(index, 1);
+                    syncCapturedInput();
+                });
+
+                item.appendChild(img);
+                item.appendChild(removeBtn);
+                photoList.appendChild(item);
+            });
+        }
+
+        openOptionsBtn.addEventListener('click', openOptionModal);
+        closeOptionBtns.forEach((btn) => {
+            btn.addEventListener('click', closeOptionModal);
+        });
+        photoOptionModal.addEventListener('click', (event) => {
+            if (event.target === photoOptionModal) {
+                closeOptionModal();
+            }
+        });
+
+        uploadOptionBtn.addEventListener('click', () => {
+            closeOptionModal();
+            uploadInput.click();
+        });
+
+        captureOptionBtn.addEventListener('click', () => {
+            closeOptionModal();
+            if (supportsCamera && supportsDataTransfer) {
+                openCameraModal();
+                openBtn.focus();
+            } else {
+                mobileCameraInput.click();
+            }
+        });
+
+        cameraModalCloseBtns.forEach((btn) => {
+            btn.addEventListener('click', closeCameraModal);
+        });
+
+        cameraCaptureModal.addEventListener('click', (event) => {
+            if (event.target === cameraCaptureModal) {
+                closeCameraModal();
+            }
+        });
+
+        uploadInput.addEventListener('change', updatePhotoCount);
+        mobileCameraInput.addEventListener('change', updatePhotoCount);
+
+        openBtn.addEventListener('click', async function () {
+            const allow = window.confirm('Allow camera access to take a photo for this registration?');
+            if (!allow) return;
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: 'environment' } },
+                    audio: false
+                });
+                preview.srcObject = stream;
+                const videoTrack = stream.getVideoTracks()[0];
+                const facingMode = videoTrack && videoTrack.getSettings ? videoTrack.getSettings().facingMode : '';
+                mirrorCompensation = !facingMode || facingMode === 'user';
+                preview.classList.toggle('camera-preview--mirror-fix', mirrorCompensation);
+                setButtons(true);
+            } catch (error) {
+                alert('Camera access failed. Please check browser camera permission and try again.');
+            }
+        });
+
+        takeBtn.addEventListener('click', function () {
+            if (!stream) return;
+            const width = preview.videoWidth || 640;
+            const height = preview.videoHeight || 480;
+            canvas.width = width;
+            canvas.height = height;
+            const context = canvas.getContext('2d');
+            if (mirrorCompensation) {
+                context.translate(width, 0);
+                context.scale(-1, 1);
+            }
+            context.drawImage(preview, 0, 0, width, height);
+            if (mirrorCompensation) {
+                context.setTransform(1, 0, 0, 1, 0, 0);
+            }
+
+            canvas.toBlob(function (blob) {
+                if (!blob) return;
+                const file = new File(
+                    [blob],
+                    'camera-' + Date.now() + '.jpg',
+                    { type: 'image/jpeg' }
+                );
+                capturedFiles.push(file);
+                syncCapturedInput();
+            }, 'image/jpeg', 0.92);
+        });
+
+        closeBtn.addEventListener('click', stopStream);
+        saveBtn.addEventListener('click', closeCameraModal);
+        if (form) {
+            form.addEventListener('submit', stopStream);
+        }
+        window.addEventListener('beforeunload', closeCameraModal);
+        updatePhotoCount();
+        updateCameraSaveButton();
+    })();
+</script>
 {% endblock %}

@@ -14,8 +14,8 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q
-from django.db.models.functions import Lower, Trim, TruncDate
+from django.db.models import Count, Prefetch, Q, Value
+from django.db.models.functions import Concat, Lower, Trim, TruncDate
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -45,6 +45,7 @@ from .models import (
     Citation,
     DewormingTreatmentRecord,
     Dog,
+    DogImage,
     DogAnnouncement,
     DogAnnouncementImage,
     DogCatcherContact,
@@ -65,6 +66,54 @@ from user.models import (
 
 def _clean_barangay(value):
     return " ".join((value or "").split()).strip()
+
+
+def _normalize_person_name(value):
+    return " ".join((value or "").split()).strip().casefold()
+
+
+def _owner_initials(name):
+    parts = [part for part in (name or "").strip().split() if part]
+    if not parts:
+        return "?"
+    if len(parts) == 1:
+        return parts[0][:1].upper()
+    return f"{parts[0][:1]}{parts[-1][:1]}".upper()
+
+
+def _build_owner_profile_lookup(owner_names):
+    normalized_names = {_normalize_person_name(name) for name in owner_names if name}
+    if not normalized_names:
+        return {}
+
+    profiles = (
+        Profile.objects.select_related("user")
+        .annotate(
+            owner_full_name_norm=Lower(
+                Trim(
+                    Concat(
+                        "user__first_name",
+                        Value(" "),
+                        "user__last_name",
+                    )
+                )
+            )
+        )
+        .filter(owner_full_name_norm__in=normalized_names)
+    )
+
+    lookup = {}
+    for profile in profiles:
+        image_field = getattr(profile, "profile_image", None)
+        if not image_field:
+            continue
+        try:
+            image_url = image_field.url
+        except (ValueError, AttributeError):
+            image_url = ""
+        if image_url and profile.owner_full_name_norm not in lookup:
+            lookup[profile.owner_full_name_norm] = image_url
+    return lookup
 
 
 def _normalize_barangay(value):
@@ -172,6 +221,68 @@ def _build_owner_full_name(first_name, last_name, fallback=""):
     if first or last:
         return f"{first} {last}".strip()
     return fallback_clean
+
+
+def _registration_owner_key_from_names(first_name, last_name, fallback=""):
+    owner_name = _build_owner_full_name(first_name, last_name, fallback)
+    return _normalize_person_name(owner_name)
+
+
+def _resolve_registration_owner_identity(owner_first_name, owner_last_name, owner_user_id=""):
+    first = " ".join((owner_first_name or "").split()).strip()
+    last = " ".join((owner_last_name or "").split()).strip()
+    owner_name_key = _registration_owner_key_from_names(first, last)
+    resolved_owner_user = None
+
+    owner_user_id_text = str(owner_user_id or "").strip()
+    if owner_user_id_text.isdigit() and owner_name_key:
+        resolved_owner_user = (
+            User.objects.filter(
+                id=int(owner_user_id_text),
+                is_active=True,
+                is_staff=False,
+                first_name__iexact=first,
+                last_name__iexact=last,
+            )
+            .only("id", "first_name", "last_name")
+            .first()
+        )
+
+    if not resolved_owner_user and owner_name_key:
+        resolved_owner_user = (
+            User.objects.filter(
+                is_active=True,
+                is_staff=False,
+                first_name__iexact=first,
+                last_name__iexact=last,
+            )
+            .order_by("id")
+            .only("id", "first_name", "last_name")
+            .first()
+        )
+
+    canonical_first = resolved_owner_user.first_name if resolved_owner_user else first
+    canonical_last = resolved_owner_user.last_name if resolved_owner_user else last
+    canonical_owner_name = _build_owner_full_name(canonical_first, canonical_last)
+    canonical_owner_key = _normalize_person_name(canonical_owner_name)
+
+    return canonical_owner_name, canonical_owner_key, resolved_owner_user
+
+
+def _build_owner_limit_query(owner_name_key, owner_name, owner_user=None):
+    normalized_owner_key = _normalize_person_name(owner_name_key or owner_name)
+    owner_query = Q()
+
+    if normalized_owner_key:
+        owner_query |= Q(owner_name_key=normalized_owner_key)
+
+    if owner_name:
+        owner_query |= Q(owner_name__iexact=owner_name)
+
+    if owner_user is not None:
+        owner_query |= Q(owner_user=owner_user)
+
+    return owner_query
 
 
 def _format_cert_date(value):
@@ -565,6 +676,28 @@ def _get_vaccination_post_values(request):
 
 def _latest_certificate_record_date(rows):
     return next((row.get("date", "") for row in rows if row.get("date")), "")
+
+
+DOG_REGISTRATION_MAX_IMAGES = 12
+DOG_REGISTRATION_MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+DOG_REGISTRATION_OWNER_MAX_PETS = 4
+
+
+def _validate_registration_images(uploaded_images):
+    if len(uploaded_images) > DOG_REGISTRATION_MAX_IMAGES:
+        return f"You can upload up to {DOG_REGISTRATION_MAX_IMAGES} photos per registration."
+
+    for image in uploaded_images:
+        if image.size <= 0:
+            return "One of the uploaded files is empty."
+        if image.size > DOG_REGISTRATION_MAX_IMAGE_SIZE_BYTES:
+            return "Each image must be 10 MB or smaller."
+
+        content_type = (getattr(image, "content_type", "") or "").lower()
+        if not content_type.startswith("image/"):
+            return "Only image files are allowed for registration photos."
+
+    return ""
 
 
 # views.py
@@ -1546,22 +1679,37 @@ def register_dogs(request):
         color = request.POST.get('color', '').strip()
         owner_first_name = request.POST.get('owner_first_name', '').strip()
         owner_last_name = request.POST.get('owner_last_name', '').strip()
-        owner_name = _build_owner_full_name(
-            owner_first_name,
-            owner_last_name,
-            request.POST.get('owner_name', '').strip(),
+        owner_user_id = (request.POST.get("owner_user_id") or "").strip()
+        uploaded_gallery_images = [img for img in request.FILES.getlist("dog_images") if img]
+        uploaded_camera_images = [img for img in request.FILES.getlist("dog_camera_images") if img]
+        uploaded_desktop_camera_images = [
+            img for img in request.FILES.getlist("captured_camera_images") if img
+        ]
+        uploaded_images = (
+            uploaded_gallery_images
+            + uploaded_camera_images
+            + uploaded_desktop_camera_images
         )
 
         if not barangay:
             messages.error(request, "Please select a valid barangay from the suggestions.")
             return redirect('dogadoption_admin:register_dogs')
 
-        if not name or not owner_name:
+        if not name or not owner_first_name or not owner_last_name:
             messages.error(request, "Dog Name and Owner First/Last Name are required.")
             return redirect('dogadoption_admin:register_dogs')
 
         if (owner_first_name or owner_last_name) and (not owner_first_name or not owner_last_name):
             messages.error(request, "Please provide both owner first name and last name.")
+            return redirect('dogadoption_admin:register_dogs')
+
+        owner_name, owner_name_key, owner_user = _resolve_registration_owner_identity(
+            owner_first_name,
+            owner_last_name,
+            owner_user_id=owner_user_id,
+        )
+        if not owner_name or not owner_name_key:
+            messages.error(request, "Please provide a valid owner first name and last name.")
             return redirect('dogadoption_admin:register_dogs')
 
         if species not in {"Canine", "Feline"}:
@@ -1582,6 +1730,11 @@ def register_dogs(request):
 
         age = f"{age_value} {'mos' if age_unit == 'months' else 'yrs'}"
 
+        image_error = _validate_registration_images(uploaded_images)
+        if image_error:
+            messages.error(request, image_error)
+            return redirect('dogadoption_admin:register_dogs')
+
         try:
             date_registered = datetime.strptime(date, '%Y-%m-%d').date()
         except ValueError:
@@ -1590,20 +1743,50 @@ def register_dogs(request):
         
         formatted_address = f"{barangay}, Bayawan City, Negros Oriental"
 
-        dog = Dog(
-            date_registered=date_registered,
-            name=name,
-            species=species,
-            sex=sex,
-            age=age,
-            neutering_status=neutering,
-            color=color,
-            owner_name=owner_name,
-            owner_address=formatted_address,
-            barangay=barangay
-        )
-        dog.save()
-        messages.success(request, f"Dog '{name}' registered successfully!")
+        with transaction.atomic():
+            owner_limit_query = _build_owner_limit_query(
+                owner_name_key=owner_name_key,
+                owner_name=owner_name,
+                owner_user=owner_user,
+            )
+            owner_registered_count = (
+                Dog.objects.select_for_update()
+                .filter(owner_limit_query)
+                .distinct()
+                .count()
+            )
+            if owner_registered_count >= DOG_REGISTRATION_OWNER_MAX_PETS:
+                messages.error(
+                    request,
+                    (
+                        f"{owner_name} already has {DOG_REGISTRATION_OWNER_MAX_PETS} "
+                        f"registered pets. A maximum of {DOG_REGISTRATION_OWNER_MAX_PETS} "
+                        "pets is allowed per owner."
+                    ),
+                )
+                return redirect('dogadoption_admin:register_dogs')
+
+            dog = Dog.objects.create(
+                date_registered=date_registered,
+                name=name,
+                species=species,
+                sex=sex,
+                age=age,
+                neutering_status=neutering,
+                color=color,
+                owner_name=owner_name,
+                owner_name_key=owner_name_key,
+                owner_user=owner_user,
+                owner_address=formatted_address,
+                barangay=barangay,
+            )
+            for image_file in uploaded_images:
+                DogImage.objects.create(dog=dog, image=image_file)
+
+        cache.delete("registration_record_available_years")
+        cache.delete("registration_record_active_barangays")
+        image_suffix = f" with {len(uploaded_images)} photo(s)" if uploaded_images else ""
+        messages.success(request, f"Dog '{name}' registered successfully{image_suffix}!")
         return redirect('dogadoption_admin:register_dogs')
 
     return render(request, 'admin_registration/registration.html', {
@@ -1626,9 +1809,12 @@ def registration_record(request):
     if date_filter_type not in {'all', 'day', 'month', 'year'}:
         date_filter_type = 'all'
 
-    barangay_list_parsed = list(
-        Barangay.objects.filter(is_active=True).values_list('name', flat=True)
-    )
+    barangay_list_parsed = cache.get("registration_record_active_barangays")
+    if barangay_list_parsed is None:
+        barangay_list_parsed = list(
+            Barangay.objects.filter(is_active=True).values_list('name', flat=True)
+        )
+        cache.set("registration_record_active_barangays", barangay_list_parsed, 300)
 
     dogs = Dog.objects.all()
     if selected_barangay:
@@ -1644,11 +1830,71 @@ def registration_record(request):
         filter_year,
     )
 
-    dogs = dogs.order_by('-date_registered')
-    available_years = [
-        d.year for d in Dog.objects.exclude(date_registered__isnull=True)
-        .dates('date_registered', 'year', order='DESC')
+    dogs = dogs.select_related("owner_user").only(
+        "id",
+        "date_registered",
+        "name",
+        "species",
+        "sex",
+        "age",
+        "neutering_status",
+        "color",
+        "owner_name",
+        "owner_address",
+        "owner_user_id",
+    ).order_by("date_registered", "id")
+    page_number = (request.GET.get("page") or "1").strip()
+    paginator = Paginator(dogs, 100)
+    page_obj = paginator.get_page(page_number)
+    dogs = list(page_obj.object_list)
+
+    owner_user_ids = {dog.owner_user_id for dog in dogs if dog.owner_user_id}
+    owner_profile_by_user_id = {}
+    if owner_user_ids:
+        profiles = Profile.objects.filter(user_id__in=owner_user_ids).only("user_id", "profile_image")
+        for profile in profiles:
+            image_field = getattr(profile, "profile_image", None)
+            if not image_field:
+                continue
+            try:
+                image_url = image_field.url
+            except (ValueError, AttributeError):
+                image_url = ""
+            if image_url and profile.user_id not in owner_profile_by_user_id:
+                owner_profile_by_user_id[profile.user_id] = image_url
+
+    names_without_user_profile = [
+        dog.owner_name
+        for dog in dogs
+        if dog.owner_name and not owner_profile_by_user_id.get(dog.owner_user_id)
     ]
+    owner_profile_lookup = _build_owner_profile_lookup(names_without_user_profile)
+    seen_owner_keys = set()
+    owner_row_number = 0
+    for dog in dogs:
+        normalized_owner = _normalize_person_name(dog.owner_name)
+        owner_key = normalized_owner or f"dog-{dog.id}"
+        dog.owner_profile_image_url = (
+            owner_profile_by_user_id.get(dog.owner_user_id)
+            or owner_profile_lookup.get(normalized_owner, "")
+        )
+        dog.owner_initials = _owner_initials(dog.owner_name)
+        if owner_key in seen_owner_keys:
+            dog.owner_display_number = ""
+            dog.show_owner_fields = False
+        else:
+            owner_row_number += 1
+            dog.owner_display_number = owner_row_number
+            dog.show_owner_fields = True
+            seen_owner_keys.add(owner_key)
+
+    available_years = cache.get("registration_record_available_years")
+    if available_years is None:
+        available_years = [
+            d.year for d in Dog.objects.exclude(date_registered__isnull=True)
+            .dates('date_registered', 'year', order='DESC')
+        ]
+        cache.set("registration_record_available_years", available_years, 300)
 
     date_filter_params = _build_registration_filter_params(
         date_filter_type,
@@ -1676,6 +1922,7 @@ def registration_record(request):
         'available_years': available_years,
         'date_filter_query': date_filter_query,
         'download_query': download_query,
+        'page_obj': page_obj,
     }
 
     return render(request, 'admin_registration/registration_record.html', context)
@@ -1683,9 +1930,96 @@ def registration_record(request):
 
 @admin_required
 def barangay_list_api(request):
-    barangays = list(Barangay.objects.filter(is_active=True).values_list('name', flat=True))
+    cache_key = "active_barangay_names"
+    barangays = cache.get(cache_key)
+    if barangays is None:
+        barangays = list(Barangay.objects.filter(is_active=True).values_list('name', flat=True))
+        cache.set(cache_key, barangays, 300)
     return JsonResponse({"barangays": barangays})
 
+
+@admin_required
+def registration_user_search_api(request):
+    query = " ".join((request.GET.get("q") or "").split()).strip()
+    if len(query) < 2:
+        return JsonResponse({"results": []})
+
+    cache_key = f"registration_user_search:{query.casefold()}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return JsonResponse({"results": cached})
+
+    tokens = query.split()
+    users = User.objects.filter(is_active=True, is_staff=False)
+    if len(tokens) >= 2:
+        users = users.filter(
+            (Q(first_name__istartswith=tokens[0]) & Q(last_name__istartswith=tokens[-1]))
+            | Q(username__istartswith=query)
+        )
+    else:
+        term = tokens[0]
+        users = users.filter(
+            Q(first_name__istartswith=term)
+            | Q(last_name__istartswith=term)
+            | Q(username__istartswith=term)
+        )
+
+    rows = users.order_by("first_name", "last_name", "id").values(
+        "id",
+        "first_name",
+        "last_name",
+        "username",
+        "profile__address",
+    )[:12]
+    results = []
+    for row in rows:
+        first_name = (row.get("first_name") or "").strip()
+        last_name = (row.get("last_name") or "").strip()
+        username = (row.get("username") or "").strip()
+        full_name = f"{first_name} {last_name}".strip()
+        barangay = _extract_barangay_from_address(row.get("profile__address") or "")
+        results.append(
+            {
+                "id": row["id"],
+                "first_name": first_name,
+                "last_name": last_name,
+                "username": username,
+                "full_name": full_name or username,
+                "barangay": barangay,
+            }
+        )
+
+    cache.set(cache_key, results, 60)
+    return JsonResponse({"results": results})
+
+
+@admin_required
+def registration_dog_images_api(request, dog_id):
+    dog = get_object_or_404(
+        Dog.objects.select_related("owner_user").prefetch_related("images"),
+        pk=dog_id,
+    )
+    image_urls = []
+    for image_obj in dog.images.all():
+        image_field = getattr(image_obj, "image", None)
+        if not image_field:
+            continue
+        try:
+            image_urls.append(image_field.url)
+        except (ValueError, AttributeError):
+            continue
+
+    return JsonResponse(
+        {
+            "dog_id": dog.id,
+            "dog_name": dog.name or "",
+            "owner_name": dog.owner_name or "",
+            "photos": image_urls,
+        }
+    )
+
+
+@admin_required
 def download_registration(request, file_type):
     selected_barangay_raw = request.GET.get('barangay', None)
     selected_barangay = _resolve_barangay_name(selected_barangay_raw) if selected_barangay_raw else None
@@ -1706,7 +2040,7 @@ def download_registration(request, file_type):
         filter_month,
         filter_year,
     )
-    dogs = dogs.order_by('-date_registered')
+    dogs = dogs.order_by("date_registered", "id")
     selected_barangay_label = selected_barangay or "All Barangays"
 
     # ================= EXCEL =================

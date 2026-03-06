@@ -9,7 +9,7 @@
 </head>
 <body>
     <div class="small-certificate-toolbar">
-        <a class="back-link" href="{% url 'dogadoption_admin:certificate_list' %}">Back to Certificate List</a>
+        <a class="back-link" href="{% url 'dogadoption_admin:certificate_list' %}" onclick="return goBackToCertificateList(event)">Back to Certificate List</a>
         <button class="print-btn" type="button" onclick="window.print()">Print Certificate</button>
     </div>
 
@@ -18,5 +18,19 @@
             {% include 'admin_registration/partials/small_certificate_sheet.html' %}
         {% endwith %}
     </main>
+
+    <script>
+    function goBackToCertificateList(event) {
+        const fallbackUrl = event.currentTarget.href;
+
+        if (document.referrer && document.referrer !== window.location.href) {
+            event.preventDefault();
+            window.history.back();
+            return false;
+        }
+
+        return true;
+    }
+    </script>
 </body>
 </html>

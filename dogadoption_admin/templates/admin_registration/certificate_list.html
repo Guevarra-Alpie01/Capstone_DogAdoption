@@ -9,39 +9,53 @@
 {% block content %}
 {% include 'admin_registration/registration_navigation.html' %}
 
-<div class="registration-wrapper certificate-list-page">
+<div id="certificate-list-page" class="registration-wrapper certificate-list-page">
 
     <div class="header-section">
-        <div class="export-buttons">
-
-            <select id="download-format">
-                <option value="pdf">PDF</option>
-                <option value="word">Word</option>
-                <option value="excel">Excel</option>
-            </select>
-
-            <button id="download-selected" class="btn-export">
-                Download Selected
-            </button>
-
-            <button id="print-selected" class="btn-export">
-                Print Selected
-            </button>
+        <div class="certificate-heading">
+            <h2><i class="fas fa-certificate" aria-hidden="true"></i> Vaccination Certificate Archive</h2>
+            <p>Manage saved vaccination certificates, export certificate files, or print selected records.</p>
         </div>
-
-        <h2>Saved Vaccination Certificates</h2>
     </div>
 
 
     <div class="certificate-list-layout">
         <div class="certificate-list-main">
+            <div class="certificate-table-toolbar">
+                <label class="select-all-control" for="select-all">
+                    <input type="checkbox" id="select-all">
+                    <span>Select All Certificates</span>
+                </label>
+
+                <div class="certificate-table-actions">
+                    <div class="certificate-format-control">
+                        <span class="certificate-format-icon" aria-hidden="true">
+                            <i class="fas fa-file-export"></i>
+                        </span>
+                        <select id="download-format" aria-label="Download file format">
+                            <option value="pdf">PDF</option>
+                            <option value="word">Word</option>
+                            <option value="excel">Excel</option>
+                        </select>
+                    </div>
+
+                    <button id="download-selected" class="btn-export btn-export-download" type="button">
+                        <i class="fas fa-download" aria-hidden="true"></i>
+                        Download Selected Certificates
+                    </button>
+
+                    <button id="print-selected" class="btn-export btn-export-print" type="button">
+                        <i class="fas fa-print" aria-hidden="true"></i>
+                        Print Selected Certificates
+                    </button>
+                </div>
+            </div>
+
             <div class="table-container">
                 <table class="records-table">
                     <thead>
                         <tr>
-                            <th>
-                                <input type="checkbox" id="select-all">
-                            </th>
+                            <th>Select</th>
                             <th>Reg No</th>
                             <th>Pet Name</th>
                             <th>Owner</th>
@@ -77,9 +91,7 @@
 
                             <td data-label="Action">
                                 <a href="{% url 'dogadoption_admin:certificate_print' cert.id %}"
-                                   class="action-btn-print"
-                                   target="_blank"
-                                   rel="noopener">
+                                   class="action-btn-print">
                                     <i class="fas fa-print"></i> Print
                                 </a>
                             </td>
@@ -95,216 +107,379 @@
 
                 </table>
             </div>
+
+            {% if page_obj and page_obj.paginator.num_pages > 1 %}
+            <div class="certificate-pagination">
+                {% if page_obj.has_previous %}
+                    <a class="certificate-pagination-btn" href="?page={{ page_obj.previous_page_number }}{% if selected_record_barangay %}&record_barangay={{ selected_record_barangay|urlencode }}{% endif %}{% if medical_page_obj %}&record_page={{ medical_page_obj.number }}{% endif %}">
+                        <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                        Previous
+                    </a>
+                {% else %}
+                    <span class="certificate-pagination-btn disabled">Previous</span>
+                {% endif %}
+
+                <span class="certificate-pagination-info">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+
+                {% if page_obj.has_next %}
+                    <a class="certificate-pagination-btn" href="?page={{ page_obj.next_page_number }}{% if selected_record_barangay %}&record_barangay={{ selected_record_barangay|urlencode }}{% endif %}{% if medical_page_obj %}&record_page={{ medical_page_obj.number }}{% endif %}">
+                        Next
+                        <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                    </a>
+                {% else %}
+                    <span class="certificate-pagination-btn disabled">Next</span>
+                {% endif %}
+            </div>
+            {% endif %}
         </div>
+
+        <aside class="certificate-side-panel">
+            <section class="side-card tracker-card">
+                <div class="tracker-card-head">
+                    <div>
+                        <h3>28 Barangay Expiry Tracker</h3>
+                        <p class="side-help">
+                            Expired vaccination cards per barangay.
+                        </p>
+                    </div>
+                    <span class="tracker-chip">{{ barangay_expiry_tracker|length }} Barangays</span>
+                </div>
+
+                <div class="tracker-grid" aria-label="Barangay expiry tracker">
+                    {% for area in barangay_expiry_tracker %}
+                    <div class="tracker-box {% if area.expired_count > 0 %}is-expired{% endif %}">
+                        <div class="tracker-box-name">{{ area.barangay }}</div>
+                        <div class="tracker-box-count">{{ area.expired_count }}</div>
+                        <div class="tracker-box-meta">Expired cards</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+        </aside>
     </div>
 
-    <aside class="certificate-side-panel certificate-bottom-panel">
+    <section class="certificate-bottom-panel">
         <section class="side-card">
-            <h3>Vaccination Only</h3>
-            <p class="side-help">
-                Registrations with vaccination records and no deworming/treatment record.
-            </p>
+            <div class="medical-record-head">
+                <div>
+                    <h3>Vaccination and Medical Record</h3>
+                    <p class="side-help">
+                        All certificate-linked vaccination records. Expired vaccination rows are highlighted in red.
+                    </p>
+                </div>
+                <form method="get" class="medical-record-filter">
+                    {% if page_obj %}
+                    <input type="hidden" name="page" value="{{ page_obj.number }}">
+                    {% endif %}
+                    <label for="record-barangay" class="medical-record-filter-label">Barangay</label>
+                    <select name="record_barangay" id="record-barangay" class="medical-record-filter-select">
+                        <option value="">All Barangays</option>
+                        {% for barangay_name in barangay_names %}
+                        <option value="{{ barangay_name }}" {% if selected_record_barangay == barangay_name %}selected{% endif %}>
+                            {{ barangay_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="medical-record-filter-btn">
+                        <i class="fas fa-search" aria-hidden="true"></i>
+                        Search
+                    </button>
+                </form>
+            </div>
+
+            <div class="medical-record-table-meta">
+                <span class="medical-record-chip">
+                    {{ medical_page_obj.paginator.count }} Record{{ medical_page_obj.paginator.count|pluralize }}
+                </span>
+                {% if selected_record_barangay %}
+                <span class="medical-record-chip medical-record-chip-filtered">
+                    Filtered: {{ selected_record_barangay }}
+                </span>
+                {% endif %}
+            </div>
             <div class="side-table-wrap">
                 <table class="side-table">
                     <thead>
                         <tr>
                             <th>Reg No</th>
+                            <th>Pet Name</th>
                             <th>Owner</th>
+                            <th>Barangay</th>
                             <th>Address</th>
+                            <th>Date Vaccinated</th>
+                            <th>Vaccine</th>
                             <th>Vaccine Expiry</th>
                             <th>Dog Vaccination Expiry</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for row in vaccination_only_rows %}
-                        <tr>
+                        {% for row in medical_page_obj %}
+                        <tr class="{% if row.is_expired %}side-row-expired{% endif %}">
                             <td>{{ row.reg_no }}</td>
+                            <td>{{ row.pet_name }}</td>
                             <td>{{ row.owner_name }}</td>
+                            <td>{{ row.barangay }}</td>
                             <td>{{ row.address }}</td>
+                            <td>{{ row.vaccination_date|date:"M d, Y" }}</td>
+                            <td>{{ row.vaccine_name }}</td>
                             <td>{{ row.vaccine_expiry_date|date:"M d, Y" }}</td>
                             <td>{{ row.dog_vaccination_expiry_date|date:"M d, Y" }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5" class="empty-row">No vaccination-only records.</td>
+                            <td colspan="9" class="empty-row">No vaccination medical records found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-        </section>
 
-        <section class="side-card">
-            <h3>28 Barangay Expiry Tracker</h3>
-            <p class="side-help">
-                Expired vaccine medicine or dog vaccination expiry by barangay.
-            </p>
-            <div class="tracker-toolbar">
-                <label for="expired-only-toggle" class="tracker-toggle-label">
-                    <input type="checkbox" id="expired-only-toggle">
-                    Show only barangays with expired records
-                </label>
-                <span id="tracker-visible-count" class="tracker-visible-count"></span>
+            {% if medical_page_obj and medical_page_obj.paginator.num_pages > 1 %}
+            <div class="medical-pagination">
+                {% if medical_page_obj.has_previous %}
+                    <a class="medical-pagination-btn" href="?{% if page_obj %}page={{ page_obj.number }}&{% endif %}{% if selected_record_barangay %}record_barangay={{ selected_record_barangay|urlencode }}&{% endif %}record_page={{ medical_page_obj.previous_page_number }}">
+                        <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                        Previous
+                    </a>
+                {% else %}
+                    <span class="medical-pagination-btn disabled">Previous</span>
+                {% endif %}
+
+                <span class="medical-pagination-info">
+                    Page {{ medical_page_obj.number }} of {{ medical_page_obj.paginator.num_pages }}
+                </span>
+
+                {% if medical_page_obj.has_next %}
+                    <a class="medical-pagination-btn" href="?{% if page_obj %}page={{ page_obj.number }}&{% endif %}{% if selected_record_barangay %}record_barangay={{ selected_record_barangay|urlencode }}&{% endif %}record_page={{ medical_page_obj.next_page_number }}">
+                        Next
+                        <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                    </a>
+                {% else %}
+                    <span class="medical-pagination-btn disabled">Next</span>
+                {% endif %}
             </div>
-
-            <div class="tracker-list">
-                {% for area in barangay_expiry_tracker %}
-                <details class="tracker-item" data-expired-count="{{ area.expired_count }}">
-                    <summary>
-                        <span>{{ area.barangay }}</span>
-                        <span class="count-badge">{{ area.expired_count }}</span>
-                    </summary>
-
-                    {% if area.expired_items %}
-                    <div class="tracker-records">
-                        {% for item in area.expired_items %}
-                        <div class="tracker-record">
-                            <strong>{{ item.reg_no }}</strong> - {{ item.owner_name }}<br>
-                            {{ item.vaccine_name }}<br>
-                            Vaccine Expiry: {{ item.vaccine_expiry_date|date:"M d, Y" }}<br>
-                            Dog Vaccination Expiry: {{ item.dog_vaccination_expiry_date|date:"M d, Y" }}
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <p class="tracker-empty">No expired vaccination records.</p>
-                    {% endif %}
-                </details>
-                {% endfor %}
-            </div>
+            {% endif %}
         </section>
-    </aside>
+    </section>
 </div>
 
 <script>
-/* ===========================
-   SELECT ALL FUNCTION
-=========================== */
-document.getElementById('select-all').addEventListener('change', function() {
-    const checked = this.checked;
-    document.querySelectorAll('.select-cert')
-            .forEach(cb => cb.checked = checked);
-});
+function getCertificatePageRoot() {
+    return document.getElementById('certificate-list-page');
+}
 
+function getSelectedCertificateIds(root) {
+    return Array.from(
+        root.querySelectorAll('.select-cert:checked')
+    ).map((checkbox) => checkbox.value);
+}
 
-/* ===========================
-   DOWNLOAD SELECTED
-=========================== */
-document.getElementById('download-selected').addEventListener('click', function() {
-
-    const selectedIds = Array.from(
-        document.querySelectorAll('.select-cert:checked')
-    ).map(cb => cb.value);
-
-    if (selectedIds.length === 0) {
-        alert("Please select at least one certificate to download.");
+function initSelectAll(root) {
+    const selectAllCheckbox = root.querySelector('#select-all');
+    if (!selectAllCheckbox) {
         return;
     }
 
-    const form = document.createElement('form');
-    form.method = "POST";
-    form.action = "{% url 'dogadoption_admin:export_selected_certificates' %}";
-
-    // CSRF
-    const csrfInput = document.createElement('input');
-    csrfInput.type = 'hidden';
-    csrfInput.name = 'csrfmiddlewaretoken';
-    csrfInput.value = '{{ csrf_token }}';
-    form.appendChild(csrfInput);
-
-    // Selected IDs
-    selectedIds.forEach(id => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'selected_ids';
-        input.value = id;
-        form.appendChild(input);
+    selectAllCheckbox.addEventListener('change', function() {
+        const checked = this.checked;
+        root.querySelectorAll('.select-cert').forEach((checkbox) => {
+            checkbox.checked = checked;
+        });
     });
+}
 
-    // Selected Format
-    const formatInput = document.createElement('input');
-    formatInput.type = 'hidden';
-    formatInput.name = 'format';
-    formatInput.value = document.getElementById('download-format').value;
-    form.appendChild(formatInput);
-
-    document.body.appendChild(form);
-    form.submit();
-});
-
-
-/* ===========================
-   PRINT SELECTED (MULTI PRINT)
-=========================== */
-document.getElementById('print-selected').addEventListener('click', function() {
-
-    const selectedIds = Array.from(
-        document.querySelectorAll('.select-cert:checked')
-    ).map(cb => cb.value);
-
-    if (selectedIds.length === 0) {
-        alert("Please select at least one certificate to print.");
+function initDownloadSelected(root) {
+    const downloadButton = root.querySelector('#download-selected');
+    if (!downloadButton) {
         return;
     }
 
-    const form = document.createElement('form');
-    form.method = "POST";
-    form.action = "{% url 'dogadoption_admin:bulk_certificate_print' %}";
-    form.target = "_blank";  // open in new tab
+    downloadButton.addEventListener('click', function() {
+        const selectedIds = getSelectedCertificateIds(root);
 
-    // CSRF
-    const csrfInput = document.createElement('input');
-    csrfInput.type = 'hidden';
-    csrfInput.name = 'csrfmiddlewaretoken';
-    csrfInput.value = '{{ csrf_token }}';
-    form.appendChild(csrfInput);
-
-    // Selected IDs
-    selectedIds.forEach(id => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'selected_ids';
-        input.value = id;
-        form.appendChild(input);
-    });
-
-    document.body.appendChild(form);
-    form.submit();
-});
-
-/* ===========================
-   BARANGAY TRACKER FILTER
-=========================== */
-const expiredOnlyToggle = document.getElementById('expired-only-toggle');
-const trackerItems = document.querySelectorAll('.tracker-item');
-const trackerVisibleCount = document.getElementById('tracker-visible-count');
-
-function applyBarangayTrackerFilter() {
-    if (!trackerItems.length) {
-        return;
-    }
-
-    const expiredOnly = expiredOnlyToggle && expiredOnlyToggle.checked;
-    let visible = 0;
-
-    trackerItems.forEach((item) => {
-        const count = parseInt(item.dataset.expiredCount || '0', 10);
-        const show = !expiredOnly || count > 0;
-        item.style.display = show ? '' : 'none';
-        if (show) {
-            visible += 1;
+        if (selectedIds.length === 0) {
+            alert("Please select at least one certificate to download.");
+            return;
         }
-    });
 
-    if (trackerVisibleCount) {
-        trackerVisibleCount.textContent = `Showing ${visible} of ${trackerItems.length} barangays`;
+        const form = document.createElement('form');
+        form.method = "POST";
+        form.action = "{% url 'dogadoption_admin:export_selected_certificates' %}";
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = '{{ csrf_token }}';
+        form.appendChild(csrfInput);
+
+        selectedIds.forEach((id) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_ids';
+            input.value = id;
+            form.appendChild(input);
+        });
+
+        const formatInput = document.createElement('input');
+        formatInput.type = 'hidden';
+        formatInput.name = 'format';
+        formatInput.value = root.querySelector('#download-format').value;
+        form.appendChild(formatInput);
+
+        document.body.appendChild(form);
+        form.submit();
+    });
+}
+
+function initPrintSelected(root) {
+    const printButton = root.querySelector('#print-selected');
+    if (!printButton) {
+        return;
+    }
+
+    printButton.addEventListener('click', function() {
+        const selectedIds = getSelectedCertificateIds(root);
+
+        if (selectedIds.length === 0) {
+            alert("Please select at least one certificate to print.");
+            return;
+        }
+
+        const printWindowName = 'bulkCertificatePrintWindow';
+        const printWindow = window.open('', printWindowName, 'width=1100,height=800');
+
+        if (!printWindow) {
+            alert("Please allow pop-ups to print certificates.");
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = "POST";
+        form.action = "{% url 'dogadoption_admin:bulk_certificate_print' %}";
+        form.target = printWindowName;
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = '{{ csrf_token }}';
+        form.appendChild(csrfInput);
+
+        selectedIds.forEach((id) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_ids';
+            input.value = id;
+            form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+        form.remove();
+    });
+}
+
+async function updateCertificatePage(url, options = {}) {
+    const root = getCertificatePageRoot();
+    if (!root) {
+        return;
+    }
+
+    const pushHistory = options.pushHistory !== false;
+    const scrollTop = window.scrollY;
+    root.classList.add('is-loading');
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin',
+            ...options,
+        });
+
+        if (!response.ok) {
+            window.location.href = url;
+            return;
+        }
+
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const nextRoot = doc.getElementById('certificate-list-page');
+
+        if (!nextRoot) {
+            window.location.href = url;
+            return;
+        }
+
+        root.innerHTML = nextRoot.innerHTML;
+        if (pushHistory) {
+            window.history.pushState({}, '', url);
+        }
+        window.scrollTo({ top: scrollTop });
+        initCertificateListPage();
+    } catch (error) {
+        window.location.href = url;
+    } finally {
+        const currentRoot = getCertificatePageRoot();
+        if (currentRoot) {
+            currentRoot.classList.remove('is-loading');
+        }
     }
 }
 
-if (expiredOnlyToggle) {
-    expiredOnlyToggle.addEventListener('change', applyBarangayTrackerFilter);
+function initAsyncPagination(root) {
+    root.querySelectorAll('.certificate-pagination-btn[href], .medical-pagination-btn[href]').forEach((link) => {
+        link.addEventListener('click', function(event) {
+            event.preventDefault();
+            updateCertificatePage(this.href);
+        });
+    });
 }
-applyBarangayTrackerFilter();
+
+function initMedicalRecordFilter(root) {
+    const filterForm = root.querySelector('.medical-record-filter');
+    if (!filterForm) {
+        return;
+    }
+
+    filterForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        const url = new URL(filterForm.action || window.location.href, window.location.origin);
+        const formData = new FormData(filterForm);
+        const params = new URLSearchParams();
+
+        formData.forEach((value, key) => {
+            if (value) {
+                params.set(key, value);
+            }
+        });
+
+        url.search = params.toString();
+        updateCertificatePage(url.toString());
+    });
+}
+
+function initCertificateListPage() {
+    const root = getCertificatePageRoot();
+    if (!root) {
+        return;
+    }
+
+    initSelectAll(root);
+    initDownloadSelected(root);
+    initPrintSelected(root);
+    initAsyncPagination(root);
+    initMedicalRecordFilter(root);
+}
+
+window.addEventListener('popstate', function() {
+    updateCertificatePage(window.location.href, { method: 'GET', pushHistory: false });
+});
+
+initCertificateListPage();
 </script>
 
 {% endblock %}

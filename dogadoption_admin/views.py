@@ -2656,37 +2656,46 @@ def certificate_print(request, pk):
 
 @admin_required
 def certificate_list(request):
-    certificates = DogRegistration.objects.all().order_by('-date_registered')
-    vaccination_only_regs = (
-        DogRegistration.objects.annotate(
-            vac_count=Count('vaccinations', distinct=True),
-            dew_count=Count('dewormings', distinct=True),
-        )
-        .filter(vac_count__gt=0, dew_count=0)
-        .prefetch_related(
-            Prefetch(
-                'vaccinations',
-                queryset=VaccinationRecord.objects.order_by('-date'),
-                to_attr='vaccination_records_sorted',
-            )
-        )
-        .order_by('-date_registered')
+    certificates_qs = DogRegistration.objects.all().order_by('-date_registered')
+    page_obj = Paginator(certificates_qs, 10).get_page(request.GET.get('page'))
+    today = timezone.localdate()
+    barangay_names = list(
+        Barangay.objects.filter(is_active=True)
+        .order_by('sort_order', 'name')
+        .values_list('name', flat=True)
+    )
+    selected_record_barangay = _clean_barangay(request.GET.get('record_barangay'))
+
+    medical_records_qs = (
+        VaccinationRecord.objects.select_related('registration')
+        .filter(registration__isnull=False)
+        .order_by('-date', '-id')
     )
 
-    vaccination_only_rows = []
-    for reg in vaccination_only_regs:
-        latest_vac = reg.vaccination_records_sorted[0] if reg.vaccination_records_sorted else None
-        if not latest_vac:
-            continue
-        vaccination_only_rows.append({
+    if selected_record_barangay:
+        medical_records_qs = medical_records_qs.filter(registration__address__icontains=selected_record_barangay)
+
+    medical_record_rows = []
+    for record in medical_records_qs:
+        reg = record.registration
+        medical_record_rows.append({
             'reg_no': reg.reg_no,
+            'pet_name': reg.name_of_pet,
             'owner_name': reg.owner_name,
+            'barangay': _extract_barangay_from_address(reg.address) or '-',
             'address': reg.address,
-            'vaccine_expiry_date': latest_vac.vaccine_expiry_date,
-            'dog_vaccination_expiry_date': latest_vac.vaccination_expiry_date,
+            'vaccination_date': record.date,
+            'vaccine_name': record.vaccine_name,
+            'vaccine_expiry_date': record.vaccine_expiry_date,
+            'dog_vaccination_expiry_date': record.vaccination_expiry_date,
+            'is_expired': (
+                record.vaccine_expiry_date < today or
+                record.vaccination_expiry_date < today
+            ),
         })
 
-    today = timezone.localdate()
+    medical_page_obj = Paginator(medical_record_rows, 10).get_page(request.GET.get('record_page'))
+
     expired_vaccinations = (
         VaccinationRecord.objects.select_related('registration')
         .filter(
@@ -2696,11 +2705,6 @@ def certificate_list(request):
         .order_by('vaccine_expiry_date', 'vaccination_expiry_date')
     )
 
-    barangay_names = list(
-        Barangay.objects.filter(is_active=True)
-        .order_by('sort_order', 'name')
-        .values_list('name', flat=True)
-    )
     tracker_map = {name: [] for name in barangay_names}
 
     for row in expired_vaccinations:
@@ -2726,8 +2730,11 @@ def certificate_list(request):
     ]
 
     return render(request, 'admin_registration/certificate_list.html', {
-        'certificates': certificates,
-        'vaccination_only_rows': vaccination_only_rows,
+        'certificates': page_obj,
+        'page_obj': page_obj,
+        'medical_page_obj': medical_page_obj,
+        'selected_record_barangay': selected_record_barangay,
+        'barangay_names': barangay_names,
         'barangay_expiry_tracker': barangay_expiry_tracker,
     })
 

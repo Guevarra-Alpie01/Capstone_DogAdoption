@@ -6,31 +6,133 @@
     padding: 0 clamp(14px, 2vw, 30px);
 }
 
+.certificate-list-page.is-loading {
+    opacity: 0.72;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+}
+
 .certificate-list-page .header-section {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 12px;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.certificate-heading {
     text-align: center;
-    margin-bottom: 8px;
 }
 
 .certificate-list-page .header-section h2 {
     margin: 0;
-}
-
-.certificate-list-page .export-buttons {
-    justify-content: center;
+    display: inline-flex;
     align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: clamp(1.8rem, 2.7vw, 2.5rem);
+    color: #183153;
 }
 
-.certificate-list-page .export-buttons #download-format,
-.certificate-list-page .export-buttons .btn-export {
-    min-height: 42px;
+.certificate-heading p {
+    margin: 8px auto 0;
+    max-width: 760px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #566579;
+}
+
+.certificate-format-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 180px;
+}
+
+.certificate-format-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #e7f0f7;
+    color: #1f5f8b;
+    border: 1px solid #c7d6e2;
+    font-size: 1rem;
+}
+
+.certificate-list-page #download-format {
+    flex: 1 1 auto;
+    min-height: 48px;
+    padding: 0 42px 0 16px;
+    border: 1px solid #c7d6e2;
+    border-radius: 12px;
+    background: #fff;
+    color: #183153;
+    font-size: 0.95rem;
+    font-weight: 600;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.certificate-list-page #download-format:focus {
+    outline: none;
+    border-color: #2b6cb0;
+    box-shadow: 0 0 0 4px rgba(43, 108, 176, 0.15);
+}
+
+.certificate-list-page .btn-export {
+    min-height: 48px;
+    padding: 0 18px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+}
+
+.certificate-list-page .btn-export:hover {
+    transform: translateY(-1px);
+}
+
+.certificate-list-page .btn-export:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.certificate-list-page .btn-export-download {
+    background: #1f5f8b;
+    border-color: #1f5f8b;
+    color: #fff;
+}
+
+.certificate-list-page .btn-export-download:hover {
+    background: #184d72;
+}
+
+.certificate-list-page .btn-export-print {
+    background: #426f2c;
+    border-color: #426f2c;
+    color: #fff;
+    min-width: 240px;
+}
+
+.certificate-list-page .btn-export-print:hover {
+    background: #355a23;
 }
 
 .certificate-list-layout {
-    display: block;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 18px;
+    align-items: start;
 }
 
 .certificate-list-main {
@@ -38,13 +140,162 @@
 }
 
 .certificate-side-panel {
-    display: grid;
+    min-width: 0;
+}
+
+.certificate-table-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 14px;
-    position: static;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, #ffffff 0%, #eef6fb 100%);
+    border: 1px solid #d8e4ec;
+    border-radius: 14px;
+    box-shadow: 0 8px 20px rgba(16, 24, 40, 0.05);
+}
+
+.select-all-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: #183153;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.3;
+    cursor: pointer;
+}
+
+.select-all-control input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #1f5f8b;
+    cursor: pointer;
+}
+
+.certificate-table-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    flex: 1 1 640px;
+    flex-wrap: wrap;
+}
+
+.certificate-pagination {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.certificate-pagination-btn {
+    border: 1px solid #c3cddd;
+    border-radius: 10px;
+    padding: 8px 14px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1f2937;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.certificate-pagination-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.certificate-pagination-info {
+    font-size: 0.9rem;
+    color: #334155;
+    font-weight: 600;
 }
 
 .certificate-bottom-panel {
     margin-top: 18px;
+}
+
+.medical-record-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.medical-record-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.medical-record-filter-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #334155;
+}
+
+.medical-record-filter-select {
+    min-width: 210px;
+    min-height: 42px;
+    padding: 0 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    color: #183153;
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.medical-record-filter-btn {
+    min-height: 42px;
+    padding: 0 16px;
+    border: 1px solid #1f5f8b;
+    border-radius: 10px;
+    background: #1f5f8b;
+    color: #fff;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.medical-record-table-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.medical-record-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: #eef6fb;
+    color: #1f5f8b;
+    border: 1px solid #d3e1eb;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.medical-record-chip-filtered {
+    background: #f3f4f6;
+    color: #374151;
+    border-color: #d1d5db;
 }
 
 .side-card {
@@ -65,6 +316,33 @@
     margin: 0 0 10px;
     font-size: 0.82rem;
     color: #475569;
+}
+
+.tracker-card {
+    padding: 14px;
+}
+
+.tracker-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.tracker-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: #eef6fb;
+    color: #1f5f8b;
+    border: 1px solid #d3e1eb;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
 }
 
 .side-table-wrap {
@@ -99,87 +377,102 @@
     vertical-align: top;
 }
 
-.tracker-list {
-    max-height: 430px;
-    overflow-y: auto;
-    display: grid;
-    gap: 6px;
+.side-table .side-row-expired td {
+    background: #fff5f5;
+    color: #7f1d1d;
+    border-bottom-color: #f1c6c6;
 }
 
-.tracker-toolbar {
+.side-table .side-row-expired td:first-child {
+    box-shadow: inset 4px 0 0 #dc2626;
+    font-weight: 700;
+}
+
+.medical-pagination {
+    margin-top: 14px;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
+    justify-content: center;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
-.tracker-toggle-label {
+.medical-pagination-btn {
+    border: 1px solid #c3cddd;
+    border-radius: 10px;
+    padding: 8px 14px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1f2937;
+    background: #fff;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.8rem;
-    color: #1f2937;
-    cursor: pointer;
 }
 
-.tracker-visible-count {
-    font-size: 0.75rem;
-    color: #64748b;
+.medical-pagination-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
-.tracker-item {
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 6px 8px;
-    background: #f8fafc;
-}
-
-.tracker-item summary {
-    list-style: none;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
+.medical-pagination-info {
+    font-size: 0.9rem;
+    color: #334155;
     font-weight: 600;
-    color: #111827;
 }
 
-.tracker-item summary::-webkit-details-marker {
-    display: none;
-}
-
-.count-badge {
-    min-width: 26px;
-    text-align: center;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: #dc2626;
-    color: #fff;
-    font-size: 0.75rem;
-}
-
-.tracker-records {
-    margin-top: 8px;
+.tracker-grid {
     display: grid;
-    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    max-height: 610px;
+    overflow-y: auto;
+    padding-right: 2px;
 }
 
-.tracker-record {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    padding: 7px;
-    font-size: 0.76rem;
-    line-height: 1.35;
+.tracker-box {
+    min-height: 102px;
+    border: 1px solid #dbe6ee;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #f8fbfd 0%, #f1f6fa 100%);
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 8px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.tracker-box.is-expired {
+    border-color: #f1c6c6;
+    background: linear-gradient(180deg, #fff7f7 0%, #fff0f0 100%);
+}
+
+.tracker-box-name {
+    font-size: 0.83rem;
+    font-weight: 700;
+    line-height: 1.3;
     color: #1f2937;
+    word-break: break-word;
 }
 
-.tracker-empty {
-    margin: 8px 0 0;
-    font-size: 0.8rem;
-    color: #64748b;
+.tracker-box-count {
+    font-size: 1.65rem;
+    font-weight: 800;
+    line-height: 1;
+    color: #15324f;
+}
+
+.tracker-box.is-expired .tracker-box-count {
+    color: #b42318;
+}
+
+.tracker-box-meta {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7280;
 }
 
 @media (max-width: 991.98px) {
@@ -190,31 +483,109 @@
 
     .certificate-list-page .header-section {
         align-items: stretch;
+    }
+
+    .certificate-heading {
         text-align: left;
     }
 
-    .certificate-list-page .export-buttons {
-        justify-content: stretch;
+    .certificate-list-layout {
+        grid-template-columns: 1fr;
     }
 
-    .certificate-list-page .export-buttons #download-format,
-    .certificate-list-page .export-buttons .btn-export {
-        flex: 1 1 auto;
-        min-width: 160px;
+    .certificate-table-toolbar {
+        align-items: stretch;
+    }
+
+    .certificate-table-actions {
+        justify-content: flex-start;
+    }
+
+    .certificate-format-control {
+        flex: 1 1 220px;
+    }
+
+    .certificate-list-page .btn-export-download {
+        flex: 1 1 260px;
+    }
+
+    .tracker-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        max-height: none;
+    }
+
+    .medical-record-head {
+        align-items: stretch;
     }
 }
 
 @media (max-width: 575.98px) {
-    .certificate-list-page .export-buttons {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 8px;
+    .certificate-table-toolbar {
+        padding: 12px;
     }
 
-    .certificate-list-page .export-buttons #download-format,
-    .certificate-list-page .export-buttons .btn-export {
+    .select-all-control,
+    .certificate-table-actions {
+        width: 100%;
+    }
+
+    .certificate-table-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .certificate-pagination {
+        justify-content: stretch;
+    }
+
+    .certificate-pagination-btn,
+    .certificate-pagination-info {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .certificate-format-control,
+    .certificate-list-page #download-format,
+    .certificate-list-page .btn-export {
         width: 100%;
         min-width: 0;
+    }
+
+    .certificate-format-control {
+        grid-template-columns: 48px minmax(0, 1fr);
+        display: grid;
+    }
+
+    .tracker-card-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .medical-record-filter {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .medical-record-filter-select,
+    .medical-record-filter-btn {
+        width: 100%;
+    }
+
+    .medical-pagination {
+        justify-content: stretch;
+    }
+
+    .medical-pagination-btn,
+    .medical-pagination-info {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .tracker-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .side-table {

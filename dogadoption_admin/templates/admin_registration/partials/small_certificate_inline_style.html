@@ -1,20 +1,32 @@
 <style>
+:root {
+    --cert-bg: #edf4df;
+    --cert-surface: #fffbe8;
+    --cert-text: #000000;
+    --cert-text-soft: #000000;
+    --cert-accent: #e0a53b;
+    --cert-accent-soft: #f8df8b;
+    --cert-accent-deep: #cc8121;
+    --cert-green: #6f9a3a;
+    --cert-green-deep: #000000;
+    --cert-line: #8dac62;
+}
+
 html,
 body {
     margin: 0;
     padding: 0;
-    background: #f3efe6;
-    color: #241c14;
+    background: var(--cert-bg);
+    color: var(--cert-text);
     font-family: "Georgia", "Times New Roman", serif;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    color-adjust: exact;
     forced-color-adjust: none;
 }
 
 .small-certificate-toolbar {
     max-width: 8.5in;
-    margin: 16px auto 10px;
+    margin: 16px auto 12px;
     padding: 0 12px;
     display: flex;
     justify-content: space-between;
@@ -23,25 +35,82 @@ body {
 }
 
 .small-certificate-toolbar .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
     text-decoration: none;
-    color: #8a6a2f;
+    color: #000000;
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
+    padding: 6px 12px 6px 6px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 240, 214, 0.9) 100%);
+    box-shadow: 0 6px 16px rgba(47, 37, 17, 0.08);
+    transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.small-certificate-toolbar .back-link:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(47, 37, 17, 0.12);
+}
+
+.small-certificate-toolbar .back-link-icon {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 999px;
+    background: linear-gradient(180deg, #ffffff 0%, #f4e8bd 100%);
+}
+
+.small-certificate-toolbar .back-link-icon svg {
+    width: 17px;
+    height: 17px;
+    fill: currentColor;
+}
+
+.small-certificate-toolbar .back-link-text {
+    line-height: 1;
+    letter-spacing: 0.01em;
 }
 
 .small-certificate-toolbar .print-btn {
-    border: 1px solid #8a6a2f;
-    background: #b58b3c;
-    color: #fffdf8;
-    border-radius: 8px;
-    padding: 8px 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid #2e5f22;
+    background: linear-gradient(180deg, #9dc557 0%, #5a873d 100%);
+    color: #fffdf4;
+    border-radius: 999px;
+    padding: 9px 16px;
     font-size: 0.92rem;
     font-weight: 700;
     cursor: pointer;
+    box-shadow: 0 8px 18px rgba(55, 90, 35, 0.2);
+    transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
 
 .small-certificate-toolbar .print-btn:hover {
-    background: #9b7530;
+    transform: translateY(-1px);
+    background: linear-gradient(180deg, #add266 0%, #4c7533 100%);
+    box-shadow: 0 10px 20px rgba(55, 90, 35, 0.25);
+}
+
+.small-certificate-toolbar .print-btn-icon {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.small-certificate-toolbar .print-btn-icon svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
 }
 
 .small-certificate-stack {
@@ -55,7 +124,7 @@ body {
     height: 11in;
     min-height: 11in;
     margin: 0 auto 18px;
-    background: #fcfaf3;
+    background: var(--cert-surface);
     box-sizing: border-box;
     overflow: hidden;
     page-break-after: always;
@@ -65,34 +134,131 @@ body {
     page-break-after: auto;
 }
 
+.certificate-print-page-compact .certificate-print-frame {
+    padding: 0.28in;
+}
+
+.certificate-print-page-compact .certificate-divider {
+    margin: 0.09in 0 0.1in;
+}
+
+.certificate-print-page-compact .certificate-page-title {
+    font-size: 0.36in;
+    line-height: 1;
+}
+
+.certificate-print-page-compact .certificate-section {
+    margin-top: 0.1in;
+}
+
+.certificate-print-page-compact .certificate-section-banner {
+    margin-bottom: 0.08in;
+}
+
+.certificate-print-page-compact .certificate-info-grid {
+    gap: 0.06in 0.14in;
+}
+
+.certificate-print-page-compact .certificate-label,
+.certificate-print-page-compact .certificate-line {
+    font-size: 0.118in;
+}
+
+.certificate-print-page-compact .certificate-record-table {
+    font-size: 0.09in;
+}
+
+.certificate-print-page-compact .certificate-record-table th,
+.certificate-print-page-compact .certificate-record-table td {
+    padding: 0.04in 0.05in;
+}
+
+.certificate-print-page-compact .certificate-record-table th {
+    font-size: 0.1in;
+}
+
+.certificate-print-page-compact .certificate-record-table td {
+    height: 0.16in;
+}
+
+.certificate-print-page-compact .deworming-record-table td {
+    height: 0.18in;
+}
+
+.certificate-print-page-compact .certificate-responsibility-section {
+    margin-top: 0.11in;
+}
+
+.certificate-print-page-compact .certificate-responsibility-copy,
+.certificate-print-page-compact .certificate-responsibility-list {
+    font-size: 0.112in;
+    line-height: 1.26;
+}
+
+.certificate-responsibility-list {
+    list-style: none;
+    padding-left: 0;
+}
+
+.certificate-print-page-compact .certificate-fine-title {
+    font-size: 0.155in;
+}
+
+.certificate-print-page-compact .certificate-fine-subtitle {
+    margin-top: 0.02in;
+    font-size: 0.1in;
+}
+
+.certificate-print-page-compact .certificate-fine-list {
+    margin-top: 0.05in;
+    font-size: 0.1in;
+    line-height: 1.24;
+}
+
+.certificate-print-page-compact .certificate-fine-item {
+    margin-bottom: 0.025in;
+}
+
 .certificate-print-frame {
     height: 11in;
     min-height: 11in;
     box-sizing: border-box;
     padding: 0.34in;
     background:
-        linear-gradient(#efe2bd, #efe2bd) top 0.18in left 0.18in / calc(100% - 0.36in) 2px no-repeat,
-        linear-gradient(#efe2bd, #efe2bd) bottom 0.18in left 0.18in / calc(100% - 0.36in) 2px no-repeat,
-        linear-gradient(#efe2bd, #efe2bd) top 0.18in left 0.18in / 2px calc(100% - 0.36in) no-repeat,
-        linear-gradient(#efe2bd, #efe2bd) top 0.18in right 0.18in / 2px calc(100% - 0.36in) no-repeat,
-        linear-gradient(180deg, #fffdf7 0%, #f7f1e3 100%);
-    border: 2px solid #c9a85d;
-    box-shadow: inset 0 0 0 3px #ead5a2, inset 0 0 0 8px #f8eed2;
+        linear-gradient(var(--cert-accent-soft), var(--cert-accent-soft)) top 0.18in left 0.18in / calc(100% - 0.36in) 2px no-repeat,
+        linear-gradient(var(--cert-accent-soft), var(--cert-accent-soft)) bottom 0.18in left 0.18in / calc(100% - 0.36in) 2px no-repeat,
+        linear-gradient(var(--cert-accent-soft), var(--cert-accent-soft)) top 0.18in left 0.18in / 2px calc(100% - 0.36in) no-repeat,
+        linear-gradient(var(--cert-accent-soft), var(--cert-accent-soft)) top 0.18in right 0.18in / 2px calc(100% - 0.36in) no-repeat,
+        linear-gradient(180deg, #fff8d9 0%, #eef6df 100%);
+    border: 3px solid var(--cert-green);
+    box-shadow: inset 0 0 0 3px #f2db90, inset 0 0 0 8px #edf4d7;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    color-adjust: exact;
     forced-color-adjust: none;
 }
 
 .certificate-print-header {
-    display: grid;
-    grid-template-columns: 0.9in 1.35in 0.64in 1fr;
-    gap: 0.1in;
-    align-items: start;
+    position: relative;
+    min-height: 0.98in;
+    padding: 0 1.4in;
 }
 
-.certificate-header-logos {
-    display: contents;
+.certificate-logo-slot {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+}
+
+.certificate-logo-slot-left {
+    left: 0;
+    justify-content: flex-start;
+}
+
+.certificate-logo-slot-right {
+    right: 0;
+    justify-content: flex-end;
 }
 
 .certificate-logo {
@@ -101,56 +267,57 @@ body {
     object-fit: contain;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    color-adjust: exact;
     forced-color-adjust: none;
     filter: none;
 }
 
 .bagong-logo {
-    width: 0.74in;
-    justify-self: center;
+    width: 0.8in;
 }
 
 .harvest-logo {
-    width: 1.14in;
-    justify-self: center;
-}
-
-.seal-logo {
-    width: 0.58in;
-    justify-self: center;
+    width: 1.18in;
+    transform: translateX(0.08in);
 }
 
 .certificate-office-block {
     font-family: "Arial", sans-serif;
-    line-height: 1.18;
-    align-self: start;
-    padding-top: 0.04in;
+    line-height: 1.12;
+    text-align: center;
+    padding-top: 0.02in;
+    width: fit-content;
+    margin: 0 auto;
+    transform: translateX(1.22in);
 }
 
 .certificate-office-title {
-    font-size: 0.3in;
+    font-size: 0.24in;
     font-weight: 700;
-    color: #1f1a14;
+    color: var(--cert-text);
+    white-space: nowrap;
 }
 
 .certificate-office-address {
     margin-top: 0.05in;
     font-size: 0.115in;
-    color: #352a1c;
+    color: var(--cert-text-soft);
+    text-align: center;
+    white-space: nowrap;
 }
 
 .certificate-office-law {
-    margin-top: 0.09in;
+    margin-top: 0.05in;
     font-family: "Georgia", serif;
     font-size: 0.12in;
+    color: var(--cert-green-deep);
     text-align: center;
+    white-space: nowrap;
 }
 
 .certificate-divider {
     height: 2px;
     margin: 0.12in 0 0.14in;
-    background: linear-gradient(90deg, transparent, #cfb06c, transparent);
+    background: linear-gradient(90deg, transparent, var(--cert-green), var(--cert-accent), transparent);
 }
 
 .certificate-page-title {
@@ -160,7 +327,7 @@ body {
     line-height: 1.05;
     letter-spacing: 0.01em;
     text-transform: uppercase;
-    color: #1d1813;
+    color: var(--cert-green-deep);
 }
 
 .certificate-section {
@@ -177,14 +344,22 @@ body {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    color: #2a2117;
-    background: linear-gradient(180deg, #f8edd1 0%, #e9d09a 55%, #f8edd1 100%);
-    border: 1px solid #b79249;
-    box-shadow: inset 0 0 0 2px #f8eed3;
+    color: var(--cert-green-deep);
+    background: linear-gradient(180deg, #fff1ab 0%, #f2c85e 55%, #fff6c9 100%);
+    border: 1px solid var(--cert-accent-deep);
+    box-shadow: inset 0 0 0 2px #fff4c3;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    color-adjust: exact;
     forced-color-adjust: none;
+}
+
+.certificate-section-banner-underline {
+    min-width: 0;
+    padding: 0 0 0.03in;
+    background: none;
+    border: 0;
+    border-bottom: 3px solid var(--cert-green);
+    box-shadow: none;
 }
 
 .certificate-info-grid {
@@ -211,13 +386,13 @@ body {
 .certificate-label {
     flex: 0 0 auto;
     font-size: 0.13in;
-    color: #302418;
+    color: var(--cert-text);
 }
 
 .certificate-line {
     flex: 1 1 auto;
     min-height: 0.18in;
-    border-bottom: 1px solid #8c7a5a;
+    border-bottom: 1px solid var(--cert-line);
     font-size: 0.13in;
     display: inline-flex;
     align-items: flex-end;
@@ -245,7 +420,7 @@ body {
 
 .certificate-record-table th,
 .certificate-record-table td {
-    border: 1px solid #b49a62;
+    border: 1px solid #9fb25f;
     padding: 0.05in 0.06in;
     vertical-align: top;
     word-break: break-word;
@@ -255,10 +430,10 @@ body {
     text-align: center;
     font-size: 0.11in;
     font-weight: 700;
-    background: linear-gradient(180deg, #f8eed7 0%, #ead9b0 100%);
+    color: var(--cert-green-deep);
+    background: linear-gradient(180deg, #fff0a3 0%, #efc14e 100%);
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    color-adjust: exact;
     forced-color-adjust: none;
 }
 
@@ -274,28 +449,48 @@ body {
     margin-top: 0.16in;
 }
 
-.certificate-responsibility-copy {
-    font-size: 0.125in;
-    line-height: 1.38;
-}
-
-.certificate-responsibility-list {
-    margin: 0.08in 0 0;
-    padding-left: 0.28in;
-    font-size: 0.12in;
-    line-height: 1.34;
-}
-
-.certificate-responsibility-list li {
-    margin-bottom: 0.03in;
-}
-
-.certificate-warning {
-    margin-top: 0.12in;
+.certificate-fine-title {
     text-align: center;
-    font-size: 0.16in;
+    font-size: 0.18in;
     font-weight: 700;
-    color: #2a2219;
+    color: var(--cert-green-deep);
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+}
+
+.certificate-fine-subtitle {
+    margin-top: 0.04in;
+    text-align: center;
+    font-size: 0.11in;
+    color: var(--cert-text-soft);
+}
+
+.certificate-fine-list {
+    margin-top: 0.08in;
+    font-size: 0.108in;
+    line-height: 1.34;
+    color: var(--cert-green-deep);
+}
+
+.certificate-fine-item {
+    display: grid;
+    grid-template-columns: 1.55in 1fr;
+    column-gap: 0.06in;
+    align-items: start;
+    margin-bottom: 0.04in;
+}
+
+.certificate-fine-amount {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.certificate-fine-description {
+    min-width: 0;
+}
+
+.certificate-fine-item strong {
+    font-weight: 700;
 }
 
 @media print {
@@ -311,7 +506,6 @@ body {
         padding: 0 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
-        color-adjust: exact !important;
         forced-color-adjust: none !important;
     }
 
@@ -345,11 +539,9 @@ body {
     .certificate-record-table th,
     .certificate-logo,
     .bagong-logo,
-    .harvest-logo,
-    .seal-logo {
+    .harvest-logo {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
-        color-adjust: exact !important;
         forced-color-adjust: none !important;
         filter: none !important;
     }

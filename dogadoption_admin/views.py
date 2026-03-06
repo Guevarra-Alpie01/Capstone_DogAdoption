@@ -358,6 +358,8 @@ def _build_certificate_payload(
         "contact_no": registration.contact_no or "",
         "vaccination_rows": _pad_rows(vac_rows, vac_min_rows),
         "deworming_rows": _pad_rows(dew_rows, dew_min_rows),
+        "vaccination_count": len(vac_records),
+        "deworming_count": len(dew_records),
         "has_vaccinations": bool(vac_records),
         "has_dewormings": bool(dew_records),
     }
@@ -2657,8 +2659,8 @@ def certificate_print(request, pk):
             registration,
             vaccinations=vaccinations,
             dewormings=dewormings,
-            vac_limit=4,
-            vac_min_rows=4,
+            vac_limit=3,
+            vac_min_rows=3,
             dew_limit=3,
             dew_min_rows=3,
         ),
@@ -2820,141 +2822,6 @@ def export_certificates_excel(request):
     return response
 
 
-#handles all the download/multi select
-
-
-@admin_required
-def export_selected_certificates(request):
-    if request.method == "POST":
-        selected_ids = [int(pk) for pk in request.POST.getlist('selected_ids') if str(pk).isdigit()]
-        file_format = request.POST.get('format')
-
-        if not selected_ids:
-            return HttpResponse("No certificates selected.", status=400)
-
-        registrations = (
-            DogRegistration.objects.filter(id__in=selected_ids)
-            .prefetch_related(
-                Prefetch(
-                    "vaccinations",
-                    queryset=VaccinationRecord.objects.order_by("-date"),
-                    to_attr="vaccination_records_sorted",
-                ),
-                Prefetch(
-                    "dewormings",
-                    queryset=DewormingTreatmentRecord.objects.order_by("-date"),
-                    to_attr="deworming_records_sorted",
-                ),
-            )
-            .order_by('-date_registered')
-        )
-
-        certificates = [
-            _build_certificate_payload(
-                reg,
-                vaccinations=getattr(reg, "vaccination_records_sorted", []),
-                dewormings=getattr(reg, "deworming_records_sorted", []),
-            )
-            for reg in registrations
-        ]
-
-        # ================= PDF =================
-        if file_format == "pdf":
-
-            response = HttpResponse(content_type='application/pdf')
-            response['Content-Disposition'] = 'attachment; filename="selected_certificates.pdf"'
-
-            html_content = render_to_string(
-                "admin_registration/certificate_pdf.html",
-                {
-                    "certificates": certificates,
-                    "logo_left_url": request.build_absolute_uri(static("images/officialseal.webp")),
-                    "logo_right_url": request.build_absolute_uri(static("images/Logo-Bagong-Pilipinas.png")),
-                },
-            )
-
-            pdf_result = pisa.CreatePDF(html_content, dest=response)
-            if pdf_result.err:
-                return HttpResponse("Failed to generate PDF.", status=500)
-            return response
-
-        # ================= WORD =================
-        elif file_format == "word":
-            document = Document()
-            document.add_heading('Selected Dog Vaccination Certificates', level=1)
-
-            table = document.add_table(rows=1, cols=7)
-            table.style = 'Table Grid'
-            headers = [
-                "Reg No",
-                "Pet Name",
-                "Owner",
-                "Address",
-                "Contact",
-                "Latest Vaccine Date",
-                "Latest Deworming Date",
-            ]
-            for idx, label in enumerate(headers):
-                table.rows[0].cells[idx].text = label
-
-            for cert in certificates:
-                latest_vac = _latest_certificate_record_date(cert["vaccination_rows"])
-                latest_dew = _latest_certificate_record_date(cert["deworming_rows"])
-                row_cells = table.add_row().cells
-                row_cells[0].text = cert["reg_no"]
-                row_cells[1].text = cert["name_of_pet"]
-                row_cells[2].text = cert["owner_name"]
-                row_cells[3].text = cert["address"]
-                row_cells[4].text = cert["contact_no"]
-                row_cells[5].text = latest_vac
-                row_cells[6].text = latest_dew
-
-            response = HttpResponse(
-                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-            )
-            response['Content-Disposition'] = 'attachment; filename="selected_certificates.docx"'
-            document.save(response)
-            return response
-        
-        # ================= EXCEL =================
-        elif file_format == "excel":
-            wb = Workbook()
-            ws = wb.active
-            ws.title = "Selected Certificates"
-
-            headers = [
-                "Reg No",
-                "Pet Name",
-                "Owner",
-                "Address",
-                "Contact",
-                "Latest Vaccine Date",
-                "Latest Deworming Date",
-            ]
-            ws.append(headers)
-
-            for cert in certificates:
-                latest_vac = _latest_certificate_record_date(cert["vaccination_rows"])
-                latest_dew = _latest_certificate_record_date(cert["deworming_rows"])
-                ws.append([
-                    cert["reg_no"],
-                    cert["name_of_pet"],
-                    cert["owner_name"],
-                    cert["address"],
-                    cert["contact_no"],
-                    latest_vac,
-                    latest_dew,
-                ])
-
-            response = HttpResponse(
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
-            response['Content-Disposition'] = 'attachment; filename="selected_certificates.xlsx"'
-            wb.save(response)
-            return response
-
-    return HttpResponse("Invalid request", status=400)
-
 @admin_required
 def bulk_certificate_print(request):
     if request.method == "POST":
@@ -2986,8 +2853,8 @@ def bulk_certificate_print(request):
                 registration,
                 vaccinations=getattr(registration, "vaccination_records_sorted", []),
                 dewormings=getattr(registration, "deworming_records_sorted", []),
-                vac_limit=4,
-                vac_min_rows=4,
+                vac_limit=3,
+                vac_min_rows=3,
                 dew_limit=3,
                 dew_min_rows=3,
             )

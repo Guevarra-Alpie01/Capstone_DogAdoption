@@ -67,7 +67,6 @@ urlpatterns = [
     path('export/pdf/', views.export_certificates_pdf, name='export_certificates_pdf'),
     path('export/word/', views.export_certificates_word, name='export_certificates_word'),
     path('export/excel/', views.export_certificates_excel, name='export_certificates_excel'),
-    path('export_selected_certificates/', views.export_selected_certificates, name='export_selected_certificates'),
     path("certificates/bulk-print/",views.bulk_certificate_print,name="bulk_certificate_print"),
 
     #PENALTIES AND CITATIONS

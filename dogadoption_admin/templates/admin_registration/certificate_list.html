@@ -14,7 +14,7 @@
     <div class="header-section">
         <div class="certificate-heading">
             <h2><i class="fas fa-certificate" aria-hidden="true"></i> Vaccination Certificate Archive</h2>
-            <p>Manage saved vaccination certificates, export certificate files, or print selected records.</p>
+            <p>Manage saved vaccination certificates and print selected records.</p>
         </div>
     </div>
     <section class="side-card combined-record-card">
@@ -49,22 +49,6 @@
             </label>
 
             <div class="certificate-table-actions">
-                <div class="certificate-format-control">
-                    <span class="certificate-format-icon" aria-hidden="true">
-                        <i class="fas fa-file-export"></i>
-                    </span>
-                    <select id="download-format" aria-label="Download file format">
-                        <option value="pdf">PDF</option>
-                        <option value="word">Word</option>
-                        <option value="excel">Excel</option>
-                    </select>
-                </div>
-
-                <button id="download-selected" class="btn-export btn-export-download" type="button">
-                    <i class="fas fa-download" aria-hidden="true"></i>
-                    Download Selected Certificates
-                </button>
-
                 <button id="print-selected" class="btn-export btn-export-print" type="button">
                     <i class="fas fa-print" aria-hidden="true"></i>
                     Print Selected Certificates
@@ -214,49 +198,6 @@ function initSelectAll(root) {
     });
 }
 
-function initDownloadSelected(root) {
-    const downloadButton = root.querySelector('#download-selected');
-    if (!downloadButton) {
-        return;
-    }
-
-    downloadButton.addEventListener('click', function() {
-        const selectedIds = getSelectedCertificateIds(root);
-
-        if (selectedIds.length === 0) {
-            alert("Please select at least one certificate to download.");
-            return;
-        }
-
-        const form = document.createElement('form');
-        form.method = "POST";
-        form.action = "{% url 'dogadoption_admin:export_selected_certificates' %}";
-
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrfmiddlewaretoken';
-        csrfInput.value = '{{ csrf_token }}';
-        form.appendChild(csrfInput);
-
-        selectedIds.forEach((id) => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'selected_ids';
-            input.value = id;
-            form.appendChild(input);
-        });
-
-        const formatInput = document.createElement('input');
-        formatInput.type = 'hidden';
-        formatInput.name = 'format';
-        formatInput.value = root.querySelector('#download-format').value;
-        form.appendChild(formatInput);
-
-        document.body.appendChild(form);
-        form.submit();
-    });
-}
-
 function initPrintSelected(root) {
     const printButton = root.querySelector('#print-selected');
     if (!printButton) {
@@ -384,7 +325,6 @@ function initCertificateListPage() {
     }
 
     initSelectAll(root);
-    initDownloadSelected(root);
     initPrintSelected(root);
     initAsyncPagination(root);
     initMedicalRecordFilter(root);

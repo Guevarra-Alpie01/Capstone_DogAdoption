@@ -87,4 +87,4 @@ class SectionForm(forms.ModelForm):
 class PenaltyForm(forms.ModelForm):
     class Meta:
         model = Penalty
-        fields = ['section', 'number', 'title', 'amount', 'active']
+        fields = ['section', 'number', 'title', 'amount']

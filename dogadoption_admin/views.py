@@ -2955,28 +2955,65 @@ def citation_print(request, pk):
 
 
 def penalty_manager(request):
-    sections = PenaltySection.objects.prefetch_related('penalties')
+    editing_penalty = None
+    edit_penalty_id = request.GET.get('edit_penalty')
+    if str(edit_penalty_id).isdigit():
+        editing_penalty = get_object_or_404(
+            Penalty.objects.select_related('section'),
+            pk=int(edit_penalty_id),
+        )
 
-    # ALWAYS initialize forms
     s_form = SectionForm()
-    p_form = PenaltyForm()
+    p_form = PenaltyForm(instance=editing_penalty) if editing_penalty else PenaltyForm()
 
     if request.method == 'POST':
-
         if 'add_section' in request.POST:
             s_form = SectionForm(request.POST)
             if s_form.is_valid():
                 s_form.save()
-                s_form = SectionForm()   # reset form
+                messages.success(request, "Section added.")
+                return redirect('dogadoption_admin:penalty_manage')
 
         elif 'add_penalty' in request.POST:
             p_form = PenaltyForm(request.POST)
             if p_form.is_valid():
                 p_form.save()
-                p_form = PenaltyForm()   # reset form
+                messages.success(request, "Penalty added.")
+                return redirect('dogadoption_admin:penalty_manage')
+
+        elif 'update_penalty' in request.POST:
+            penalty_id = request.POST.get('penalty_id')
+            editing_penalty = get_object_or_404(Penalty, pk=penalty_id)
+            p_form = PenaltyForm(request.POST, instance=editing_penalty)
+            if p_form.is_valid():
+                p_form.save()
+                messages.success(request, "Penalty updated.")
+                return redirect('dogadoption_admin:penalty_manage')
+
+        elif 'delete_penalty' in request.POST:
+            penalty_id = request.POST.get('penalty_id')
+            penalty = get_object_or_404(Penalty, pk=penalty_id)
+            penalty.delete()
+            messages.success(request, "Penalty deleted.")
+            return redirect('dogadoption_admin:penalty_manage')
+
+    sections = list(
+        PenaltySection.objects.prefetch_related('penalties').order_by('number')
+    )
+    total_penalties = 0
+    active_penalties = 0
+    for section in sections:
+        section_penalties = list(section.penalties.all().order_by('number'))
+        section.penalties_list = section_penalties
+        total_penalties += len(section_penalties)
+        active_penalties += sum(1 for penalty in section_penalties if penalty.active)
 
     return render(request, 'admin_registration/penalty_manage.html', {
         'sections': sections,
         's_form': s_form,
-        'p_form': p_form
+        'p_form': p_form,
+        'editing_penalty': editing_penalty,
+        'section_count': len(sections),
+        'penalty_count': total_penalties,
+        'active_penalty_count': active_penalties,
     })

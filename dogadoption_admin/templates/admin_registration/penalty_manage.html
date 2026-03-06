@@ -11,38 +11,133 @@
 
 <div class="registration-wrapper penalty-wrapper">
     <div class="header-section penalty-header">
+        <div class="penalty-header-copy">
+            <h2>Penalty Manager</h2>
+            <p>Maintain citation sections and penalties in one place. Update amounts, keep status accurate, and remove unused entries.</p>
+        </div>
         <div class="export-buttons">
             <a href="{% url 'dogadoption_admin:citation_create' %}" class="btn-export action-link">Create Citation</a>
         </div>
-        <h2>Penalty Manager</h2>
     </div>
 
+    <section class="penalty-summary-grid">
+        <article class="penalty-summary-card">
+            <span class="penalty-summary-label">Sections</span>
+            <strong>{{ section_count }}</strong>
+        </article>
+        <article class="penalty-summary-card">
+            <span class="penalty-summary-label">Total Penalties</span>
+            <strong>{{ penalty_count }}</strong>
+        </article>
+        <article class="penalty-summary-card">
+            <span class="penalty-summary-label">Active Penalties</span>
+            <strong>{{ active_penalty_count }}</strong>
+        </article>
+    </section>
+
+    {% if messages %}
+    <div class="penalty-message-stack">
+        {% for message in messages %}
+        <div class="penalty-message penalty-message-{{ message.level_tag|default:'info' }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <div class="penalty-forms-grid">
-        <div class="form-card combined-form-card">
-            <div class="form-block">
+        <section class="form-card penalty-form-card">
+            <div class="penalty-form-head">
                 <h4>Add Section</h4>
-                <form method="post" class="penalty-form">
-                    {% csrf_token %}
-                    {{ s_form.as_p }}
-                    <button type="submit" name="add_section" class="save-btn">Add Section</button>
-                </form>
+                <p>Create a section first so penalties can be grouped correctly on citations.</p>
             </div>
 
-            <hr class="form-divider">
+            <form method="post" class="penalty-form">
+                {% csrf_token %}
+                {{ s_form.non_field_errors }}
+                <div class="field-shell">
+                    <label for="{{ s_form.number.id_for_label }}">{{ s_form.number.label }}</label>
+                    {{ s_form.number }}
+                    {% if s_form.number.errors %}
+                    <div class="field-error">{{ s_form.number.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+                <button type="submit" name="add_section" class="save-btn">Add Section</button>
+            </form>
+        </section>
 
-            <div class="form-block">
-                <h4>Add Penalty</h4>
-                <form method="post" class="penalty-form">
-                    {% csrf_token %}
-                    {{ p_form.as_p }}
-                    <button type="submit" name="add_penalty" class="save-btn">Add Penalty</button>
-                </form>
+        <section class="form-card penalty-form-card">
+            <div class="penalty-form-head">
+                <h4>{% if editing_penalty %}Edit Penalty{% else %}Add Penalty{% endif %}</h4>
+                <p>
+                    {% if editing_penalty %}
+                    Update the selected penalty details below.
+                    {% else %}
+                    Add a new penalty rule with its section, number, title, amount, and status.
+                    {% endif %}
+                </p>
             </div>
-        </div>
+
+            {% if editing_penalty %}
+            <div class="penalty-edit-banner">
+                Editing <strong>Penalty {{ editing_penalty.number }}</strong> from
+                <strong>Section {{ editing_penalty.section.number }}</strong>.
+                <a href="{% url 'dogadoption_admin:penalty_manage' %}" class="penalty-edit-cancel">Cancel</a>
+            </div>
+            {% endif %}
+
+            <form method="post" class="penalty-form penalty-form-grid">
+                {% csrf_token %}
+                {% if editing_penalty %}
+                <input type="hidden" name="penalty_id" value="{{ editing_penalty.id }}">
+                {% endif %}
+                {{ p_form.non_field_errors }}
+
+                <div class="field-shell">
+                    <label for="{{ p_form.section.id_for_label }}">{{ p_form.section.label }}</label>
+                    {{ p_form.section }}
+                    {% if p_form.section.errors %}
+                    <div class="field-error">{{ p_form.section.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="field-shell">
+                    <label for="{{ p_form.number.id_for_label }}">{{ p_form.number.label }}</label>
+                    {{ p_form.number }}
+                    {% if p_form.number.errors %}
+                    <div class="field-error">{{ p_form.number.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="field-shell field-shell-wide">
+                    <label for="{{ p_form.title.id_for_label }}">{{ p_form.title.label }}</label>
+                    {{ p_form.title }}
+                    {% if p_form.title.errors %}
+                    <div class="field-error">{{ p_form.title.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="field-shell">
+                    <label for="{{ p_form.amount.id_for_label }}">{{ p_form.amount.label }}</label>
+                    {{ p_form.amount }}
+                    {% if p_form.amount.errors %}
+                    <div class="field-error">{{ p_form.amount.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="penalty-form-actions">
+                    <button type="submit" name="{% if editing_penalty %}update_penalty{% else %}add_penalty{% endif %}" class="save-btn">
+                        {% if editing_penalty %}Save Changes{% else %}Add Penalty{% endif %}
+                    </button>
+                    {% if editing_penalty %}
+                    <a href="{% url 'dogadoption_admin:penalty_manage' %}" class="secondary-btn">Cancel</a>
+                    {% endif %}
+                </div>
+            </form>
+        </section>
     </div>
 
     <div class="table-header-info">
         <h3>Existing Sections and Penalties</h3>
+        <p>Edit or remove any listed penalty directly from its card.</p>
     </div>
 
     <div class="penalty-sections-card">
@@ -50,30 +145,59 @@
             {% for section in sections %}
                 <article class="section-group">
                     <div class="section-card-header">
-                        <h4>
-                            {% if section.number %}
-                                Section {{ section.number }}
-                            {% else %}
-                                Section Unset
-                            {% endif %}
-                        </h4>
-                        <span class="penalty-count">{{ section.penalties.count }} Penalt{{ section.penalties.count|pluralize:"y,ies" }}</span>
+                        <div>
+                            <h4>
+                                {% if section.number %}
+                                    Section {{ section.number }}
+                                {% else %}
+                                    Section Unset
+                                {% endif %}
+                            </h4>
+                            <p class="section-card-meta">Manage the penalties assigned to this section.</p>
+                        </div>
+                        <span class="penalty-count">{{ section.penalties_list|length }} Penalt{{ section.penalties_list|length|pluralize:"y,ies" }}</span>
                     </div>
 
                     <div class="penalty-items">
-                        {% for penalty in section.penalties.all %}
-                            <div class="penalty-item">
+                        {% for penalty in section.penalties_list %}
+                            <article class="penalty-item">
                                 <div class="penalty-item-top">
-                                    <span class="penalty-number">{{ penalty.number }}.</span>
-                                    {% if penalty.active %}
-                                        <span class="status-pill active">Active</span>
-                                    {% else %}
-                                        <span class="status-pill inactive">Inactive</span>
-                                    {% endif %}
+                                    <div class="penalty-item-headline">
+                                        <span class="penalty-number">Penalty {{ penalty.number }}</span>
+                                    </div>
+                                    <p class="penalty-amount">PHP {{ penalty.amount }}</p>
                                 </div>
                                 <p class="penalty-title">{{ penalty.title }}</p>
-                                <p class="penalty-amount">PHP {{ penalty.amount }}</p>
-                            </div>
+                                <div class="penalty-card-actions">
+                                    <a
+                                        href="{% url 'dogadoption_admin:penalty_manage' %}?edit_penalty={{ penalty.id }}"
+                                        class="penalty-card-btn penalty-card-btn-icon penalty-card-btn-edit"
+                                        aria-label="Edit penalty {{ penalty.number }}"
+                                        title="Edit penalty"
+                                    >
+                                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                            <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-1.5-1.5a1.003 1.003 0 0 0-1.42 0l-1.17 1.17 2.75 2.75 1.34-1z"></path>
+                                        </svg>
+                                        <span class="visually-hidden">Edit</span>
+                                    </a>
+                                    <form method="post" class="penalty-delete-form" onsubmit="return confirm('Delete this penalty?');">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="penalty_id" value="{{ penalty.id }}">
+                                        <button
+                                            type="submit"
+                                            name="delete_penalty"
+                                            class="penalty-card-btn penalty-card-btn-icon penalty-card-btn-delete"
+                                            aria-label="Delete penalty {{ penalty.number }}"
+                                            title="Delete penalty"
+                                        >
+                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                                <path d="M6 7h12l-1 13H7L6 7zm3-3h6l1 2h4v2H4V6h4l1-2z"></path>
+                                            </svg>
+                                            <span class="visually-hidden">Delete</span>
+                                        </button>
+                                    </form>
+                                </div>
+                            </article>
                         {% empty %}
                             <p class="empty-row">No penalties in this section yet.</p>
                         {% endfor %}

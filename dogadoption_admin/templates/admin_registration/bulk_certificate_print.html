@@ -5,24 +5,46 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bulk Dog Vaccination Certificates</title>
+    {% include 'admin_registration/partials/small_certificate_inline_style.html' %}
     <link rel="stylesheet" href="{% static 'css/register/small_certificate.css' %}">
 </head>
 <body>
     <main class="small-certificate-stack">
         {% for cert in certificates %}
-        <div class="bulk-meta">Certificate {{ forloop.counter }} of {{ certificates|length }}</div>
         {% include 'admin_registration/partials/small_certificate_sheet.html' %}
         {% endfor %}
     </main>
 
     <script>
-    window.onload = function() {
-        setTimeout(function() {
-            window.focus();
-            window.print();
-            window.close();
-        }, 350);
-    };
+    function waitForPrintAssets() {
+        const imagePromises = Array.from(document.images).map((image) => {
+            if (image.complete) {
+                return Promise.resolve();
+            }
+
+            return new Promise((resolve) => {
+                image.addEventListener('load', resolve, { once: true });
+                image.addEventListener('error', resolve, { once: true });
+            });
+        });
+
+        const fontPromise = document.fonts && document.fonts.ready
+            ? document.fonts.ready.catch(() => undefined)
+            : Promise.resolve();
+
+        return Promise.all([fontPromise, ...imagePromises]).then(() => (
+            new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        ));
+    }
+
+    async function openBulkPrintDialog() {
+        await waitForPrintAssets();
+        window.focus();
+        window.print();
+    }
+
+    window.addEventListener('load', openBulkPrintDialog);
+    window.addEventListener('afterprint', () => window.close());
     </script>
 </body>
 </html>

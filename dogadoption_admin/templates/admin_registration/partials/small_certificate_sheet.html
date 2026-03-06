@@ -1,161 +1,149 @@
 {% load static %}
-<div class="small-cert-set">
-    <section class="small-cert-face small-cert-front">
-        <table class="cert-header-table">
-            <tr>
-                <td class="logo-cell">
-                    {% if logo_left_url %}
-                        <img src="{{ logo_left_url }}" alt="Official Seal" class="top-logo">
-                    {% else %}
-                        <img src="{% static 'images/officialseal.webp' %}" alt="Official Seal" class="top-logo">
-                    {% endif %}
-                </td>
-                <td class="office-cell">
-                    <div class="office-line strong">CITY VETERINARY OFFICE</div>
-                    <div class="office-line">Bayawan City, Negros Oriental, Philippines</div>
-                </td>
-                <td class="logo-cell right">
-                    {% if logo_right_url %}
-                        <img src="{{ logo_right_url }}" alt="Bagong Pilipinas" class="top-logo">
-                    {% else %}
-                        <img src="{% static 'images/Logo-Bagong-Pilipinas.png' %}" alt="Bagong Pilipinas" class="top-logo">
-                    {% endif %}
-                </td>
-            </tr>
-        </table>
+<article class="certificate-print-page">
+    <div class="certificate-print-frame">
+        <header class="certificate-print-header">
+            <div class="certificate-header-logos">
+                <img src="{% static 'images/Logo-Bagong-Pilipinas-print.png' %}" alt="Bagong Pilipinas" class="certificate-logo bagong-logo" width="90" height="90" decoding="async">
+                <img src="{% static 'images/bayawanharvest-removebg-preview.png' %}" alt="Bayawan harvest" class="certificate-logo harvest-logo" width="136" height="70" decoding="async">
+                <img src="{% static 'images/officialseal.webp' %}" alt="Official Seal" class="certificate-logo seal-logo" width="58" height="58" decoding="async">
+            </div>
+            <div class="certificate-office-block">
+                <div class="certificate-office-title">City Veterinary Office</div>
+                <div class="certificate-office-address">National Highway, Barangay Villareal, Bayawan City</div>
+                <div class="certificate-office-law">Negros Oriental, 6221 Philippines</div>
+            </div>
+        </header>
 
-        <h1 class="cert-main-title">DOG VACCINATION CERTIFICATE</h1>
+        <div class="certificate-divider"></div>
 
-        <table class="cert-info-table">
-            <tr>
-                <td class="label-col">Reg No:</td>
-                <td class="value-col">{{ cert.reg_no }}</td>
-            </tr>
-            <tr>
-                <td class="label-col">Name of Pet:</td>
-                <td class="value-col">{{ cert.name_of_pet }}</td>
-            </tr>
-            <tr>
-                <td class="label-col">Breed:</td>
-                <td class="value-col">{{ cert.breed }}</td>
-            </tr>
-            <tr>
-                <td class="label-col">DOB:</td>
-                <td class="value-col">{{ cert.dob|default:"-" }}</td>
-            </tr>
-            <tr>
-                <td class="label-col">Color/Markings:</td>
-                <td class="value-col">{{ cert.color_markings|default:"-" }}</td>
-            </tr>
-            <tr>
-                <td class="label-col">Sex:</td>
-                <td class="value-col">
-                    ( {% if cert.is_male %}X{% endif %} ) M
-                    &nbsp;&nbsp;&nbsp;
-                    ( {% if cert.is_female %}X{% endif %} ) F
-                </td>
-            </tr>
-            <tr>
-                <td class="label-col">Status:</td>
-                <td class="value-col">
-                    Castrated ( {% if cert.is_castrated %}X{% endif %} )
-                    &nbsp;&nbsp;
-                    Spayed ( {% if cert.is_spayed %}X{% endif %} )
-                    &nbsp;&nbsp;
-                    Intact ( {% if cert.is_intact %}X{% endif %} )
-                </td>
-            </tr>
-            <tr>
-                <td class="label-col">Name of Owner:</td>
-                <td class="value-col">{{ cert.owner_name }}</td>
-            </tr>
-            <tr>
-                <td class="label-col">Address:</td>
-                <td class="value-col">{{ cert.address }}</td>
-            </tr>
-            <tr>
-                <td class="label-col">Contact No:</td>
-                <td class="value-col">{{ cert.contact_no }}</td>
-            </tr>
-        </table>
+        <h1 class="certificate-page-title">Dog Vaccination &amp; Medical Certificate</h1>
 
-        <div class="front-bottom-note">
-            <div class="ra-line">Republic Act No. 9482, Anti-Rabies Act of 2007</div>
-            <div class="law-line">An act providing for the control and elimination of human and animal rabies.</div>
-        </div>
-    </section>
+        <section class="certificate-section">
+            <div class="certificate-section-banner">Pet Information</div>
+            <div class="certificate-info-grid">
+                <div class="certificate-info-row full">
+                    <span class="certificate-label">Registration No.</span>
+                    <span class="certificate-line">{{ cert.reg_no|default:"" }}</span>
+                </div>
+                <div class="certificate-info-row">
+                    <span class="certificate-label">Name of Pet</span>
+                    <span class="certificate-line">{{ cert.name_of_pet|default:"" }}</span>
+                </div>
+                <div class="certificate-info-row">
+                    <span class="certificate-label">Sex</span>
+                    <span class="certificate-line checkbox-line">
+                        <span class="checkbox-mark">{% if cert.is_male %}&#9745;{% else %}&#9744;{% endif %}</span> Male
+                        <span class="checkbox-mark">{% if cert.is_female %}&#9745;{% else %}&#9744;{% endif %}</span> Female
+                    </span>
+                </div>
+                <div class="certificate-info-row">
+                    <span class="certificate-label">Breed</span>
+                    <span class="certificate-line">{{ cert.breed|default:"" }}</span>
+                </div>
+                <div class="certificate-info-row">
+                    <span class="certificate-label">Date of Birth</span>
+                    <span class="certificate-line">{{ cert.dob|default:"" }}</span>
+                </div>
+                <div class="certificate-info-row">
+                    <span class="certificate-label">Color / Markings</span>
+                    <span class="certificate-line">{{ cert.color_markings|default:"" }}</span>
+                </div>
+                <div class="certificate-info-row">
+                    <span class="certificate-label">Status</span>
+                    <span class="certificate-line checkbox-line">
+                        <span class="checkbox-mark">{% if cert.is_castrated %}&#9745;{% else %}&#9744;{% endif %}</span> Castrated
+                        <span class="checkbox-mark">{% if cert.is_spayed %}&#9745;{% else %}&#9744;{% endif %}</span> Spayed
+                        <span class="checkbox-mark">{% if cert.is_intact %}&#9745;{% else %}&#9744;{% endif %}</span> Intact
+                    </span>
+                </div>
+            </div>
+        </section>
 
-    <section class="small-cert-face small-cert-back">
-        <h2 class="back-title">VACCINATION and MEDICAL RECORD</h2>
+        <section class="certificate-section">
+            <div class="certificate-section-banner">Owner Information</div>
+            <div class="certificate-info-grid owner-grid">
+                <div class="certificate-info-row">
+                    <span class="certificate-label">Owner Name</span>
+                    <span class="certificate-line">{{ cert.owner_name|default:"" }}</span>
+                </div>
+                <div class="certificate-info-row">
+                    <span class="certificate-label">Contact No.</span>
+                    <span class="certificate-line">{{ cert.contact_no|default:"" }}</span>
+                </div>
+                <div class="certificate-info-row full">
+                    <span class="certificate-label">Address</span>
+                    <span class="certificate-line">{{ cert.address|default:"" }}</span>
+                </div>
+            </div>
+        </section>
 
-        <div class="record-section-label">A. VACCINATION</div>
-        <table class="record-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Kind of Vaccine</th>
-                    <th>Manufacturer &amp; Lot No.</th>
-                    <th>Vaccine Expiry Date</th>
-                    <th>Dog Vaccination Expiry Date</th>
-                    <th>Veterinarian / LVT Signature</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in cert.vaccination_rows %}
-                <tr>
-                    <td>{{ row.date|default:"" }}</td>
-                    <td>{{ row.vaccine_name|default:"" }}</td>
-                    <td>{{ row.manufacturer_lot_no|default:"" }}</td>
-                    <td>{{ row.vaccine_expiry_date|default:"" }}</td>
-                    <td>{{ row.vaccination_expiry_date|default:"" }}</td>
-                    <td>{{ row.veterinarian|default:"" }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <section class="certificate-section">
+            <div class="certificate-section-banner">A. Vaccination Record</div>
+            <table class="certificate-record-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Kind of Vaccine</th>
+                        <th>Manufacturer / Lot No.</th>
+                        <th>Vaccine Expiry / Dog Vaccination Expiry</th>
+                        <th>Veterinarian Signature</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in cert.vaccination_rows %}
+                    <tr>
+                        <td>{{ row.date|default:"" }}</td>
+                        <td>{{ row.vaccine_name|default:"" }}</td>
+                        <td>{{ row.manufacturer_lot_no|default:"" }}</td>
+                        <td>
+                            {% if row.vaccine_expiry_date or row.vaccination_expiry_date %}
+                                {{ row.vaccine_expiry_date|default:"" }}{% if row.vaccination_expiry_date %} / {{ row.vaccination_expiry_date }}{% endif %}
+                            {% endif %}
+                        </td>
+                        <td>{{ row.veterinarian|default:"" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
 
-        <div class="record-section-label deworming">B. DEWORMING AND TREATMENT</div>
-        <table class="record-table deworming-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Medicine Given</th>
-                    <th>Route and Frequency</th>
-                    <th>Veterinarian</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in cert.deworming_rows %}
-                <tr>
-                    <td>{{ row.date|default:"" }}</td>
-                    <td>{{ row.medicine_given|default:"" }}</td>
-                    <td>{{ row.route_frequency|default:"" }}</td>
-                    <td>{{ row.veterinarian|default:"" }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <section class="certificate-section">
+            <div class="certificate-section-banner">B. Deworming &amp; Treatment Record</div>
+            <table class="certificate-record-table deworming-record-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Medicine Given</th>
+                        <th>Route &amp; Frequency</th>
+                        <th>Veterinarian</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in cert.deworming_rows %}
+                    <tr>
+                        <td>{{ row.date|default:"" }}</td>
+                        <td>{{ row.medicine_given|default:"" }}</td>
+                        <td>{{ row.route_frequency|default:"" }}</td>
+                        <td>{{ row.veterinarian|default:"" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
 
-        <table class="back-footer-table">
-            <tr>
-                <td class="responsible-col">
-                    <div class="strong">BE A RESPONSIBLE OWNER</div>
-                    <ol>
-                        <li>Submit dogs for annual anti-rabies vaccination.</li>
-                        <li>Register and license dogs as required.</li>
-                        <li>Do not allow dogs to roam public places unleashed.</li>
-                        <li>Provide proper food, clean shelter, and care.</li>
-                        <li>Report biting incidents and cooperate with authorities.</li>
-                    </ol>
-                </td>
-                <td class="penalty-col">
-                    <div class="strong">MGA MULTA SA BALAOD SA RABIES</div>
-                    <div>P 2,000.00 - Dili magparehistro / magpabakuna sa iro.</div>
-                    <div>P 10,000.00 - Dili pag-obserbar sa iro nga nakapaak.</div>
-                    <div>P 25,000.00 - Dili pagtabang sa medical expenses sa biktima.</div>
-                    <div class="rabies-kills">RABIES KILLS! Be Responsible Pet Owner!</div>
-                </td>
-            </tr>
-        </table>
-    </section>
-</div>
+        <section class="certificate-section certificate-responsibility-section">
+            <div class="certificate-section-banner">Owner Responsibilities</div>
+            <div class="certificate-responsibility-copy">
+                Under <strong>Republic Act 9482</strong> (Anti-Rabies Act of 2007), pet owners must:
+            </div>
+            <ol class="certificate-responsibility-list">
+                <li>Submit dogs for regular or annual rabies vaccination.</li>
+                <li>Register and license their dogs.</li>
+                <li>Do not allow dogs to roam in public places without a leash.</li>
+                <li>Provide proper care, food, and shelter.</li>
+                <li>Report biting incidents and submit dogs for observation when required.</li>
+            </ol>
+            <div class="certificate-warning">Rabies Kills - Be a Responsible Pet Owner</div>
+        </section>
+    </div>
+</article>

@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dog Vaccination Certificate</title>
+    {% include 'admin_registration/partials/small_certificate_inline_style.html' %}
     <link rel="stylesheet" href="{% static 'css/register/small_certificate.css' %}">
 </head>
 <body>
@@ -14,9 +15,15 @@
     </div>
 
     <main class="small-certificate-stack">
-        {% with cert=certificate %}
-            {% include 'admin_registration/partials/small_certificate_sheet.html' %}
-        {% endwith %}
+        {% if certificates %}
+            {% for cert in certificates %}
+                {% include 'admin_registration/partials/small_certificate_sheet.html' %}
+            {% endfor %}
+        {% else %}
+            {% with cert=certificate %}
+                {% include 'admin_registration/partials/small_certificate_sheet.html' %}
+            {% endwith %}
+        {% endif %}
     </main>
 
     <script>

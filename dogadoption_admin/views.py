@@ -300,7 +300,15 @@ def _pad_rows(rows, min_rows):
     return padded
 
 
-def _build_certificate_payload(registration, vaccinations=None, dewormings=None):
+def _build_certificate_payload(
+    registration,
+    vaccinations=None,
+    dewormings=None,
+    vac_limit=10,
+    vac_min_rows=10,
+    dew_limit=8,
+    dew_min_rows=8,
+):
     vac_records = list(vaccinations) if vaccinations is not None else list(
         VaccinationRecord.objects.filter(registration=registration).order_by("-date")
     )
@@ -309,7 +317,7 @@ def _build_certificate_payload(registration, vaccinations=None, dewormings=None)
     )
 
     vac_rows = []
-    for record in vac_records[:10]:
+    for record in vac_records[:vac_limit]:
         vac_rows.append({
             "date": _format_cert_date(record.date),
             "vaccine_name": record.vaccine_name or "",
@@ -320,7 +328,7 @@ def _build_certificate_payload(registration, vaccinations=None, dewormings=None)
         })
 
     dew_rows = []
-    for record in dew_records[:8]:
+    for record in dew_records[:dew_limit]:
         route = (record.route or "").strip()
         frequency = (record.frequency or "").strip()
         route_frequency = f"{route} / {frequency}".strip(" /") if (route or frequency) else ""
@@ -348,8 +356,8 @@ def _build_certificate_payload(registration, vaccinations=None, dewormings=None)
         "owner_name": registration.owner_name or "",
         "address": registration.address or "",
         "contact_no": registration.contact_no or "",
-        "vaccination_rows": _pad_rows(vac_rows, 10),
-        "deworming_rows": _pad_rows(dew_rows, 8),
+        "vaccination_rows": _pad_rows(vac_rows, vac_min_rows),
+        "deworming_rows": _pad_rows(dew_rows, dew_min_rows),
         "has_vaccinations": bool(vac_records),
         "has_dewormings": bool(dew_records),
     }
@@ -2649,6 +2657,10 @@ def certificate_print(request, pk):
             registration,
             vaccinations=vaccinations,
             dewormings=dewormings,
+            vac_limit=4,
+            vac_min_rows=4,
+            dew_limit=3,
+            dew_min_rows=3,
         ),
     }
 
@@ -2656,15 +2668,13 @@ def certificate_print(request, pk):
 
 @admin_required
 def certificate_list(request):
-    certificates_qs = DogRegistration.objects.all().order_by('-date_registered')
-    page_obj = Paginator(certificates_qs, 10).get_page(request.GET.get('page'))
     today = timezone.localdate()
     barangay_names = list(
         Barangay.objects.filter(is_active=True)
         .order_by('sort_order', 'name')
         .values_list('name', flat=True)
     )
-    selected_record_barangay = _clean_barangay(request.GET.get('record_barangay'))
+    selected_barangay = _clean_barangay(request.GET.get('barangay'))
 
     medical_records_qs = (
         VaccinationRecord.objects.select_related('registration')
@@ -2672,18 +2682,20 @@ def certificate_list(request):
         .order_by('-date', '-id')
     )
 
-    if selected_record_barangay:
-        medical_records_qs = medical_records_qs.filter(registration__address__icontains=selected_record_barangay)
+    if selected_barangay:
+        medical_records_qs = medical_records_qs.filter(registration__address__icontains=selected_barangay)
 
-    medical_record_rows = []
+    combined_rows = []
     for record in medical_records_qs:
         reg = record.registration
-        medical_record_rows.append({
+        combined_rows.append({
+            'registration_id': reg.id,
             'reg_no': reg.reg_no,
             'pet_name': reg.name_of_pet,
             'owner_name': reg.owner_name,
             'barangay': _extract_barangay_from_address(reg.address) or '-',
             'address': reg.address,
+            'date_issued': reg.date_registered,
             'vaccination_date': record.date,
             'vaccine_name': record.vaccine_name,
             'vaccine_expiry_date': record.vaccine_expiry_date,
@@ -2694,7 +2706,7 @@ def certificate_list(request):
             ),
         })
 
-    medical_page_obj = Paginator(medical_record_rows, 10).get_page(request.GET.get('record_page'))
+    page_obj = Paginator(combined_rows, 10).get_page(request.GET.get('page'))
 
     expired_vaccinations = (
         VaccinationRecord.objects.select_related('registration')
@@ -2730,10 +2742,8 @@ def certificate_list(request):
     ]
 
     return render(request, 'admin_registration/certificate_list.html', {
-        'certificates': page_obj,
         'page_obj': page_obj,
-        'medical_page_obj': medical_page_obj,
-        'selected_record_barangay': selected_record_barangay,
+        'selected_barangay': selected_barangay,
         'barangay_names': barangay_names,
         'barangay_expiry_tracker': barangay_expiry_tracker,
     })
@@ -2976,13 +2986,17 @@ def bulk_certificate_print(request):
                 registration,
                 vaccinations=getattr(registration, "vaccination_records_sorted", []),
                 dewormings=getattr(registration, "deworming_records_sorted", []),
+                vac_limit=4,
+                vac_min_rows=4,
+                dew_limit=3,
+                dew_min_rows=3,
             )
             for registration in registrations
         ]
 
         return render(
             request,
-            "admin_registration/bulk_certificate_print.html",
+            "admin_registration/certificate_print.html",
             {"certificates": certificates}
         )
 

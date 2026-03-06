@@ -17,250 +17,174 @@
             <p>Manage saved vaccination certificates, export certificate files, or print selected records.</p>
         </div>
     </div>
+    <section class="side-card combined-record-card">
+        <div class="combined-record-head">
+            <div>
+                <h3>Vaccination Print and Medical Record</h3>
+                <p class="side-help">
+                    All vaccination certificate records in one table. Expired vaccinations are marked in red, and each row includes a print action.
+                </p>
+            </div>
+            <form method="get" class="medical-record-filter">
+                <label for="barangay-filter" class="medical-record-filter-label">Barangay</label>
+                <select name="barangay" id="barangay-filter" class="medical-record-filter-select">
+                    <option value="">All Barangays</option>
+                    {% for barangay_name in barangay_names %}
+                    <option value="{{ barangay_name }}" {% if selected_barangay == barangay_name %}selected{% endif %}>
+                        {{ barangay_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="medical-record-filter-btn">
+                    <i class="fas fa-search" aria-hidden="true"></i>
+                    Search
+                </button>
+            </form>
+        </div>
 
+        <div class="certificate-table-toolbar">
+            <label class="select-all-control" for="select-all">
+                <input type="checkbox" id="select-all">
+                <span>Select All Certificates</span>
+            </label>
 
-    <div class="certificate-list-layout">
-        <div class="certificate-list-main">
-            <div class="certificate-table-toolbar">
-                <label class="select-all-control" for="select-all">
-                    <input type="checkbox" id="select-all">
-                    <span>Select All Certificates</span>
-                </label>
-
-                <div class="certificate-table-actions">
-                    <div class="certificate-format-control">
-                        <span class="certificate-format-icon" aria-hidden="true">
-                            <i class="fas fa-file-export"></i>
-                        </span>
-                        <select id="download-format" aria-label="Download file format">
-                            <option value="pdf">PDF</option>
-                            <option value="word">Word</option>
-                            <option value="excel">Excel</option>
-                        </select>
-                    </div>
-
-                    <button id="download-selected" class="btn-export btn-export-download" type="button">
-                        <i class="fas fa-download" aria-hidden="true"></i>
-                        Download Selected Certificates
-                    </button>
-
-                    <button id="print-selected" class="btn-export btn-export-print" type="button">
-                        <i class="fas fa-print" aria-hidden="true"></i>
-                        Print Selected Certificates
-                    </button>
+            <div class="certificate-table-actions">
+                <div class="certificate-format-control">
+                    <span class="certificate-format-icon" aria-hidden="true">
+                        <i class="fas fa-file-export"></i>
+                    </span>
+                    <select id="download-format" aria-label="Download file format">
+                        <option value="pdf">PDF</option>
+                        <option value="word">Word</option>
+                        <option value="excel">Excel</option>
+                    </select>
                 </div>
+
+                <button id="download-selected" class="btn-export btn-export-download" type="button">
+                    <i class="fas fa-download" aria-hidden="true"></i>
+                    Download Selected Certificates
+                </button>
+
+                <button id="print-selected" class="btn-export btn-export-print" type="button">
+                    <i class="fas fa-print" aria-hidden="true"></i>
+                    Print Selected Certificates
+                </button>
             </div>
+        </div>
 
-            <div class="table-container">
-                <table class="records-table">
-                    <thead>
-                        <tr>
-                            <th>Select</th>
-                            <th>Reg No</th>
-                            <th>Pet Name</th>
-                            <th>Owner</th>
-                            <th>Date Issued</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        {% for cert in certificates %}
-                        <tr>
-                            <td>
-                                <input type="checkbox"
-                                       class="select-cert"
-                                       value="{{ cert.id }}">
-                            </td>
-
-                            <td data-label="Reg No">
-                                <strong>{{ cert.reg_no }}</strong>
-                            </td>
-
-                            <td data-label="Pet">
-                                {{ cert.name_of_pet }}
-                            </td>
-
-                            <td data-label="Owner">
-                                {{ cert.owner_name }}
-                            </td>
-
-                            <td data-label="Date">
-                                {{ cert.date_registered|date:"M d, Y" }}
-                            </td>
-
-                            <td data-label="Action">
-                                <a href="{% url 'dogadoption_admin:certificate_print' cert.id %}"
-                                   class="action-btn-print">
-                                    <i class="fas fa-print"></i> Print
-                                </a>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="6" class="empty-row">
-                                No certificates found.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-
-                </table>
-            </div>
-
-            {% if page_obj and page_obj.paginator.num_pages > 1 %}
-            <div class="certificate-pagination">
-                {% if page_obj.has_previous %}
-                    <a class="certificate-pagination-btn" href="?page={{ page_obj.previous_page_number }}{% if selected_record_barangay %}&record_barangay={{ selected_record_barangay|urlencode }}{% endif %}{% if medical_page_obj %}&record_page={{ medical_page_obj.number }}{% endif %}">
-                        <i class="fas fa-chevron-left" aria-hidden="true"></i>
-                        Previous
-                    </a>
-                {% else %}
-                    <span class="certificate-pagination-btn disabled">Previous</span>
-                {% endif %}
-
-                <span class="certificate-pagination-info">
-                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-                </span>
-
-                {% if page_obj.has_next %}
-                    <a class="certificate-pagination-btn" href="?page={{ page_obj.next_page_number }}{% if selected_record_barangay %}&record_barangay={{ selected_record_barangay|urlencode }}{% endif %}{% if medical_page_obj %}&record_page={{ medical_page_obj.number }}{% endif %}">
-                        Next
-                        <i class="fas fa-chevron-right" aria-hidden="true"></i>
-                    </a>
-                {% else %}
-                    <span class="certificate-pagination-btn disabled">Next</span>
-                {% endif %}
-            </div>
+        <div class="medical-record-table-meta">
+            <span class="medical-record-chip">
+                {{ page_obj.paginator.count }} Record{{ page_obj.paginator.count|pluralize }}
+            </span>
+            {% if selected_barangay %}
+            <span class="medical-record-chip medical-record-chip-filtered">
+                Filtered: {{ selected_barangay }}
+            </span>
             {% endif %}
         </div>
 
-        <aside class="certificate-side-panel">
-            <section class="side-card tracker-card">
-                <div class="tracker-card-head">
-                    <div>
-                        <h3>28 Barangay Expiry Tracker</h3>
-                        <p class="side-help">
-                            Expired vaccination cards per barangay.
-                        </p>
-                    </div>
-                    <span class="tracker-chip">{{ barangay_expiry_tracker|length }} Barangays</span>
-                </div>
-
-                <div class="tracker-grid" aria-label="Barangay expiry tracker">
-                    {% for area in barangay_expiry_tracker %}
-                    <div class="tracker-box {% if area.expired_count > 0 %}is-expired{% endif %}">
-                        <div class="tracker-box-name">{{ area.barangay }}</div>
-                        <div class="tracker-box-count">{{ area.expired_count }}</div>
-                        <div class="tracker-box-meta">Expired cards</div>
-                    </div>
+        <div class="table-container combined-table-container">
+            <table class="records-table combined-record-table">
+                <thead>
+                    <tr>
+                        <th>Select</th>
+                        <th>Reg No</th>
+                        <th>Pet Name</th>
+                        <th>Owner</th>
+                        <th>Barangay</th>
+                        <th>Address</th>
+                        <th>Date Issued</th>
+                        <th>Date Vaccinated</th>
+                        <th>Vaccine</th>
+                        <th>Vaccine Expiry</th>
+                        <th>Dog Vaccination Expiry</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in page_obj %}
+                    <tr class="{% if row.is_expired %}combined-row-expired{% endif %}">
+                        <td>
+                            <input type="checkbox"
+                                   class="select-cert"
+                                   value="{{ row.registration_id }}">
+                        </td>
+                        <td><strong>{{ row.reg_no }}</strong></td>
+                        <td>{{ row.pet_name }}</td>
+                        <td>{{ row.owner_name }}</td>
+                        <td>{{ row.barangay }}</td>
+                        <td>{{ row.address }}</td>
+                        <td>{{ row.date_issued|date:"M d, Y" }}</td>
+                        <td>{{ row.vaccination_date|date:"M d, Y" }}</td>
+                        <td>{{ row.vaccine_name }}</td>
+                        <td>{{ row.vaccine_expiry_date|date:"M d, Y" }}</td>
+                        <td>{{ row.dog_vaccination_expiry_date|date:"M d, Y" }}</td>
+                        <td>
+                            <a href="{% url 'dogadoption_admin:certificate_print' row.registration_id %}"
+                               class="action-btn-print">
+                                <i class="fas fa-print"></i> Print
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="12" class="empty-row">
+                            No vaccination records found.
+                        </td>
+                    </tr>
                     {% endfor %}
-                </div>
-            </section>
-        </aside>
-    </div>
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj and page_obj.paginator.num_pages > 1 %}
+        <div class="certificate-pagination">
+            {% if page_obj.has_previous %}
+                <a class="certificate-pagination-btn" href="?page={{ page_obj.previous_page_number }}{% if selected_barangay %}&barangay={{ selected_barangay|urlencode }}{% endif %}">
+                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                    Previous
+                </a>
+            {% else %}
+                <span class="certificate-pagination-btn disabled">Previous</span>
+            {% endif %}
+
+            <span class="certificate-pagination-info">
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </span>
+
+            {% if page_obj.has_next %}
+                <a class="certificate-pagination-btn" href="?page={{ page_obj.next_page_number }}{% if selected_barangay %}&barangay={{ selected_barangay|urlencode }}{% endif %}">
+                    Next
+                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                </a>
+            {% else %}
+                <span class="certificate-pagination-btn disabled">Next</span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </section>
 
     <section class="certificate-bottom-panel">
-        <section class="side-card">
-            <div class="medical-record-head">
+        <section class="side-card tracker-card tracker-card-bottom">
+            <div class="tracker-card-head">
                 <div>
-                    <h3>Vaccination and Medical Record</h3>
+                    <h3>28 Barangay Expiry Tracker</h3>
                     <p class="side-help">
-                        All certificate-linked vaccination records. Expired vaccination rows are highlighted in red.
+                        Expired vaccination cards per barangay.
                     </p>
                 </div>
-                <form method="get" class="medical-record-filter">
-                    {% if page_obj %}
-                    <input type="hidden" name="page" value="{{ page_obj.number }}">
-                    {% endif %}
-                    <label for="record-barangay" class="medical-record-filter-label">Barangay</label>
-                    <select name="record_barangay" id="record-barangay" class="medical-record-filter-select">
-                        <option value="">All Barangays</option>
-                        {% for barangay_name in barangay_names %}
-                        <option value="{{ barangay_name }}" {% if selected_record_barangay == barangay_name %}selected{% endif %}>
-                            {{ barangay_name }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <button type="submit" class="medical-record-filter-btn">
-                        <i class="fas fa-search" aria-hidden="true"></i>
-                        Search
-                    </button>
-                </form>
+                <span class="tracker-chip">{{ barangay_expiry_tracker|length }} Barangays</span>
             </div>
 
-            <div class="medical-record-table-meta">
-                <span class="medical-record-chip">
-                    {{ medical_page_obj.paginator.count }} Record{{ medical_page_obj.paginator.count|pluralize }}
-                </span>
-                {% if selected_record_barangay %}
-                <span class="medical-record-chip medical-record-chip-filtered">
-                    Filtered: {{ selected_record_barangay }}
-                </span>
-                {% endif %}
+            <div class="tracker-grid tracker-grid-bottom" aria-label="Barangay expiry tracker">
+                {% for area in barangay_expiry_tracker %}
+                <div class="tracker-box {% if area.expired_count > 0 %}is-expired{% endif %}">
+                    <div class="tracker-box-name">{{ area.barangay }}</div>
+                    <div class="tracker-box-count">{{ area.expired_count }}</div>
+                    <div class="tracker-box-meta">Expired cards</div>
+                </div>
+                {% endfor %}
             </div>
-            <div class="side-table-wrap">
-                <table class="side-table">
-                    <thead>
-                        <tr>
-                            <th>Reg No</th>
-                            <th>Pet Name</th>
-                            <th>Owner</th>
-                            <th>Barangay</th>
-                            <th>Address</th>
-                            <th>Date Vaccinated</th>
-                            <th>Vaccine</th>
-                            <th>Vaccine Expiry</th>
-                            <th>Dog Vaccination Expiry</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in medical_page_obj %}
-                        <tr class="{% if row.is_expired %}side-row-expired{% endif %}">
-                            <td>{{ row.reg_no }}</td>
-                            <td>{{ row.pet_name }}</td>
-                            <td>{{ row.owner_name }}</td>
-                            <td>{{ row.barangay }}</td>
-                            <td>{{ row.address }}</td>
-                            <td>{{ row.vaccination_date|date:"M d, Y" }}</td>
-                            <td>{{ row.vaccine_name }}</td>
-                            <td>{{ row.vaccine_expiry_date|date:"M d, Y" }}</td>
-                            <td>{{ row.dog_vaccination_expiry_date|date:"M d, Y" }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="9" class="empty-row">No vaccination medical records found.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            {% if medical_page_obj and medical_page_obj.paginator.num_pages > 1 %}
-            <div class="medical-pagination">
-                {% if medical_page_obj.has_previous %}
-                    <a class="medical-pagination-btn" href="?{% if page_obj %}page={{ page_obj.number }}&{% endif %}{% if selected_record_barangay %}record_barangay={{ selected_record_barangay|urlencode }}&{% endif %}record_page={{ medical_page_obj.previous_page_number }}">
-                        <i class="fas fa-chevron-left" aria-hidden="true"></i>
-                        Previous
-                    </a>
-                {% else %}
-                    <span class="medical-pagination-btn disabled">Previous</span>
-                {% endif %}
-
-                <span class="medical-pagination-info">
-                    Page {{ medical_page_obj.number }} of {{ medical_page_obj.paginator.num_pages }}
-                </span>
-
-                {% if medical_page_obj.has_next %}
-                    <a class="medical-pagination-btn" href="?{% if page_obj %}page={{ page_obj.number }}&{% endif %}{% if selected_record_barangay %}record_barangay={{ selected_record_barangay|urlencode }}&{% endif %}record_page={{ medical_page_obj.next_page_number }}">
-                        Next
-                        <i class="fas fa-chevron-right" aria-hidden="true"></i>
-                    </a>
-                {% else %}
-                    <span class="medical-pagination-btn disabled">Next</span>
-                {% endif %}
-            </div>
-            {% endif %}
         </section>
     </section>
 </div>
@@ -271,9 +195,9 @@ function getCertificatePageRoot() {
 }
 
 function getSelectedCertificateIds(root) {
-    return Array.from(
+    return [...new Set(Array.from(
         root.querySelectorAll('.select-cert:checked')
-    ).map((checkbox) => checkbox.value);
+    ).map((checkbox) => checkbox.value))];
 }
 
 function initSelectAll(root) {
@@ -347,18 +271,9 @@ function initPrintSelected(root) {
             return;
         }
 
-        const printWindowName = 'bulkCertificatePrintWindow';
-        const printWindow = window.open('', printWindowName, 'width=1100,height=800');
-
-        if (!printWindow) {
-            alert("Please allow pop-ups to print certificates.");
-            return;
-        }
-
         const form = document.createElement('form');
         form.method = "POST";
         form.action = "{% url 'dogadoption_admin:bulk_certificate_print' %}";
-        form.target = printWindowName;
 
         const csrfInput = document.createElement('input');
         csrfInput.type = 'hidden';
@@ -431,7 +346,7 @@ async function updateCertificatePage(url, options = {}) {
 }
 
 function initAsyncPagination(root) {
-    root.querySelectorAll('.certificate-pagination-btn[href], .medical-pagination-btn[href]').forEach((link) => {
+    root.querySelectorAll('.certificate-pagination-btn[href]').forEach((link) => {
         link.addEventListener('click', function(event) {
             event.preventDefault();
             updateCertificatePage(this.href);

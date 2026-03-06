@@ -84,11 +84,14 @@ def login_view(request):
             response.delete_cookie("admin_sessionid")
             return response
 
-        return render(request, "login.html", {
-            "error": "Invalid username or password"
-        })
+        return _render_home_with_auth_modal(
+            request,
+            "login",
+            login_error="Invalid username or password",
+            login_form_data={"username": username or ""},
+        )
 
-    return render(request, "login.html")
+    return _render_home_with_auth_modal(request, "login")
 
 
 def logout_view(request):
@@ -441,6 +444,11 @@ def barangay_list_api(request):
 
 
 def signup_view(request):
+    if request.user.is_authenticated:
+        if request.user.is_staff:
+            return redirect("dogadoption_admin:post_list")
+        return redirect("user:user_home")
+
     if request.method == "POST":
         username = (request.POST.get("username") or "").strip()
         password = request.POST.get("password") or ""
@@ -457,37 +465,47 @@ def signup_view(request):
         }
 
         if not username:
-            return render(request, "signup.html", {
-                "error": "Username is required.",
-                "signup_form_data": signup_form_data,
-            })
+            return _render_home_with_auth_modal(
+                request,
+                "signup",
+                signup_error="Username is required.",
+                signup_form_data=signup_form_data,
+            )
 
         if User.objects.filter(username__iexact=username).exists():
-            return render(request, "signup.html", {
-                "error": "Username already exists",
-                "signup_form_data": signup_form_data,
-            })
+            return _render_home_with_auth_modal(
+                request,
+                "signup",
+                signup_error="Username already exists",
+                signup_form_data=signup_form_data,
+            )
 
         if password != confirm_password:
-            return render(request, "signup.html", {
-                "error": "Passwords do not match.",
-                "signup_form_data": signup_form_data,
-            })
+            return _render_home_with_auth_modal(
+                request,
+                "signup",
+                signup_error="Passwords do not match.",
+                signup_form_data=signup_form_data,
+            )
 
         try:
             temp_user = User(username=username, first_name=request.POST.get("first_name"), last_name=request.POST.get("last_name"))
             validate_password(password, user=temp_user)
         except ValidationError as exc:
-            return render(request, "signup.html", {
-                "error": " ".join(exc.messages),
-                "signup_form_data": signup_form_data,
-            })
+            return _render_home_with_auth_modal(
+                request,
+                "signup",
+                signup_error=" ".join(exc.messages),
+                signup_form_data=signup_form_data,
+            )
 
         if not barangay:
-            return render(request, "signup.html", {
-                "error": "Please select a valid barangay from the suggestions.",
-                "signup_form_data": signup_form_data,
-            })
+            return _render_home_with_auth_modal(
+                request,
+                "signup",
+                signup_error="Please select a valid barangay from the suggestions.",
+                signup_form_data=signup_form_data,
+            )
 
         # SAVE DATA TEMPORARILY (SESSION)
         request.session["signup_data"] = {
@@ -503,7 +521,7 @@ def signup_view(request):
         # GO TO FACE AUTH STEP
         return redirect("user:face_auth")
 
-    return render(request, "signup.html")
+    return _render_home_with_auth_modal(request, "signup")
 
 #editing users profileS
 @user_only
@@ -625,44 +643,21 @@ def signup_complete(request):
     request.session.pop("signup_data", None)
     request.session.pop("face_images_files", None)
 
+    messages.success(request, "Account created successfully. Please log in.")
     return redirect("user:login")
 
 # USER HOME VIEW
-def user_home(request):
-    # Redirect staff to admin dashboard
-    if request.user.is_authenticated and request.user.is_staff:
-        return redirect('dogadoption_admin:post_list')
-
-    selected_type = request.GET.get("type", "adoption")
-    adoption_form = UserAdoptionPostForm()
-    missing_form = MissingDogPostForm()
-    open_create_modal = False
-
-    if request.method == "POST" and request.POST.get("home_create_post") == "1":
-        if not request.user.is_authenticated:
-            messages.error(request, "Please log in to create a post.")
-            return redirect("user:login")
-
-        selected_type = request.POST.get("post_type", "adoption")
-        open_create_modal = True
-        created, adoption_form, missing_form = _handle_user_post_creation_submission(
-            request,
-            selected_type,
-        )
-        if created:
-            return redirect("user:user_home")
-
+def _build_user_home_context(
+    request,
+    *,
+    selected_type="adoption",
+    adoption_form=None,
+    missing_form=None,
+    open_create_modal=False,
+):
+    adoption_form = adoption_form or UserAdoptionPostForm()
+    missing_form = missing_form or MissingDogPostForm()
     query = _normalized_feed_query(request.GET.get("q"))
-    if request.GET.get("refresh") == "1":
-        refresh_seed = f"{query}:{timezone.now().timestamp()}:{random.random()}"
-        refresh_token = hashlib.md5(refresh_seed.encode("utf-8")).hexdigest()[:16]
-        params = request.GET.copy()
-        params.pop("refresh", None)
-        params["feed_token"] = refresh_token
-        params["page"] = "1"
-        target = reverse("user:user_home")
-        return redirect(f"{target}?{params.urlencode()}")
-
     feed_token = _normalized_feed_token(request.GET.get("feed_token"))
     page_number = request.GET.get("page", 1)
     mixed_rows = _build_random_home_rows(query, feed_token=feed_token)
@@ -684,10 +679,17 @@ def user_home(request):
             "user", "user__profile"
         ).prefetch_related("images").filter(id__in=ids_by_type["admin"])
     }
+    announcement_user_reaction_subquery = AnnouncementReaction.objects.filter(
+        announcement_id=OuterRef("pk"),
+        user_id=request.user.id,
+    )
     announcement_map = {
         post.id: post
         for post in DogAnnouncement.objects.select_related(
             "created_by", "created_by__profile"
+        ).annotate(
+            reaction_count=Count("reactions", distinct=True),
+            user_reacted=Exists(announcement_user_reaction_subquery),
         ).prefetch_related("images").filter(id__in=ids_by_type["announcement"])
     }
     user_map = {
@@ -762,6 +764,11 @@ def user_home(request):
                 "posted_label": _format_posted_label(p.created_at),
                 "main_image_url": main_image_url,
                 "image_count": len(announcement_images),
+                "reaction_count": getattr(p, "reaction_count", 0),
+                "user_reacted": bool(getattr(p, "user_reacted", False)),
+                "share_url": request.build_absolute_uri(
+                    reverse("user:announcement_share_preview", args=[p.id])
+                ),
             })
             continue
 
@@ -802,16 +809,69 @@ def user_home(request):
             "main_image": None,
         })
 
-    return render(request, 'home/user_home.html', {
-        'posts': combined_posts,
-        'page_obj': page_obj,
-        'query': query,
-        'feed_token': feed_token,
-        'selected_type': selected_type,
-        'adoption_form': adoption_form,
-        'missing_form': missing_form,
-        'open_create_modal': open_create_modal,
+    return {
+        "posts": combined_posts,
+        "page_obj": page_obj,
+        "query": query,
+        "feed_token": feed_token,
+        "selected_type": selected_type,
+        "adoption_form": adoption_form,
+        "missing_form": missing_form,
+        "open_create_modal": open_create_modal,
+    }
+
+
+def _render_home_with_auth_modal(request, auth_modal, **extra_context):
+    context = _build_user_home_context(request)
+    context.update({
+        "auth_modal": auth_modal,
+        **extra_context,
     })
+    return render(request, "home/user_home.html", context)
+
+
+def user_home(request):
+    # Redirect staff to admin dashboard
+    if request.user.is_authenticated and request.user.is_staff:
+        return redirect('dogadoption_admin:post_list')
+
+    selected_type = request.GET.get("type", "adoption")
+    adoption_form = UserAdoptionPostForm()
+    missing_form = MissingDogPostForm()
+    open_create_modal = False
+
+    if request.method == "POST" and request.POST.get("home_create_post") == "1":
+        if not request.user.is_authenticated:
+            messages.error(request, "Please log in to create a post.")
+            return redirect("user:login")
+
+        selected_type = request.POST.get("post_type", "adoption")
+        open_create_modal = True
+        created, adoption_form, missing_form = _handle_user_post_creation_submission(
+            request,
+            selected_type,
+        )
+        if created:
+            return redirect("user:user_home")
+
+    query = _normalized_feed_query(request.GET.get("q"))
+    if request.GET.get("refresh") == "1":
+        refresh_seed = f"{query}:{timezone.now().timestamp()}:{random.random()}"
+        refresh_token = hashlib.md5(refresh_seed.encode("utf-8")).hexdigest()[:16]
+        params = request.GET.copy()
+        params.pop("refresh", None)
+        params["feed_token"] = refresh_token
+        params["page"] = "1"
+        target = reverse("user:user_home")
+        return redirect(f"{target}?{params.urlencode()}")
+
+    return render(request, "home/user_home.html", _build_user_home_context(
+        request,
+        selected_type=selected_type,
+        adoption_form=adoption_form,
+        missing_form=missing_form,
+        open_create_modal=open_create_modal,
+    ))
 
 @user_only
 def create_post(request):

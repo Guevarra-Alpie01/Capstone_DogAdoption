@@ -1,0 +1,163 @@
+{% load static %}
+<div class="modal fade auth-modal" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered auth-modal-dialog">
+        <div class="modal-content auth-modal-content">
+            <div class="auth-card login-card">
+                <button type="button" class="btn-close btn-close-white auth-modal-close" data-bs-dismiss="modal" aria-label="Close"></button>
+
+                <h2 id="loginModalLabel" class="text-center mb-4 brand-title">Login</h2>
+
+                {% if login_error %}
+                <div class="alert alert-danger text-center auth-inline-alert" role="alert">
+                    {{ login_error }}
+                </div>
+                {% endif %}
+
+                <form method="post" action="{% url 'user:login' %}" class="login-form">
+                    {% csrf_token %}
+
+                    <div class="mb-3 input-group">
+                        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                        <input type="text"
+                               name="username"
+                               class="form-control"
+                               placeholder="Username"
+                               value="{{ login_form_data.username|default:'' }}"
+                               autocomplete="username"
+                               required>
+                    </div>
+
+                    <div class="mb-3 input-group">
+                        <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+                        <input type="password"
+                               id="loginPassword"
+                               name="password"
+                               class="form-control"
+                               placeholder="Password"
+                               autocomplete="current-password"
+                               required>
+                        <button type="button" class="input-group-text password-toggle" data-password-toggle="loginPassword" aria-label="Show password">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+
+                    <button type="submit" class="w-100 login-btn py-2">
+                        Log In
+                    </button>
+                </form>
+
+                <div class="text-center my-3">
+                    <span class="text-muted">or</span>
+                </div>
+
+                <button type="button"
+                        class="w-100 login-btn d-block text-center py-2 create-account-link border-0"
+                        data-auth-switch="signup">
+                    Create New Account
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade auth-modal" id="signupModal" tabindex="-1" aria-labelledby="signupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered auth-modal-dialog">
+        <div class="modal-content auth-modal-content">
+            <div class="auth-card signup-card">
+                <button type="button" class="btn-close btn-close-white auth-modal-close" data-bs-dismiss="modal" aria-label="Close"></button>
+
+                <h2 id="signupModalLabel">Create Account</h2>
+
+                {% if signup_error %}
+                <div class="alert alert-danger py-2 mb-3 auth-inline-alert" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ signup_error }}
+                </div>
+                {% endif %}
+
+                <form method="post" action="{% url 'user:signup' %}" class="signup-form">
+                    {% csrf_token %}
+
+                    <div class="mb-2 input-group">
+                        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                        <input type="text" name="username" class="form-control" placeholder="Username" value="{{ signup_form_data.username|default:'' }}" autocomplete="username" required>
+                    </div>
+
+                    <div class="mb-2 input-group">
+                        <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+                        <input
+                            type="password"
+                            id="signupPassword"
+                            name="password"
+                            class="form-control"
+                            placeholder="Password"
+                            minlength="8"
+                            autocomplete="new-password"
+                            required
+                        >
+                        <button type="button" class="input-group-text password-toggle" data-password-toggle="signupPassword" aria-label="Show password">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+
+                    <div class="mb-2 input-group">
+                        <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
+                        <input
+                            type="password"
+                            id="signupConfirmPassword"
+                            name="confirm_password"
+                            class="form-control"
+                            placeholder="Confirm Password"
+                            minlength="8"
+                            autocomplete="new-password"
+                            required
+                        >
+                        <button type="button" class="input-group-text password-toggle" data-password-toggle="signupConfirmPassword" aria-label="Show password">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+
+                    <div class="mb-2 input-group">
+                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        <input type="text" name="first_name" class="form-control" placeholder="First Name" value="{{ signup_form_data.first_name|default:'' }}" autocomplete="given-name" required>
+                    </div>
+
+                    <div class="mb-2 input-group">
+                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        <input type="text" name="last_name" class="form-control" placeholder="Last Name" value="{{ signup_form_data.last_name|default:'' }}" autocomplete="family-name" required>
+                    </div>
+
+                    <div class="mb-3 signup-barangay-wrap">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                            <input
+                                type="text"
+                                name="address"
+                                id="signupBarangay"
+                                class="form-control"
+                                placeholder="Barangay"
+                                value="{{ signup_form_data.address|default:'' }}"
+                                autocomplete="off"
+                                required
+                                data-barangay-autocomplete="true"
+                                data-barangay-source-url="{% url 'user:barangay_list_api' %}"
+                                data-barangay-suggestions-id="signup-barangay-suggestions"
+                                data-barangay-strict="true"
+                            >
+                        </div>
+                        <div id="signup-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
+                    </div>
+
+                    <button type="submit" class="login-btn w-100 py-2">
+                        Next
+                    </button>
+                </form>
+
+                <div class="mt-3 text-center">
+                    <button type="button" class="auth-text-link border-0 bg-transparent p-0" data-auth-switch="login">
+                        Already have an account? Log in
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -5,35 +5,32 @@
 <link rel="stylesheet" href="{% static 'css/announcement_detail.css' %}">
 
 <div class="announcement-detail-page">
-    <div class="detail-card">
-        <div class="detail-header">
-            <a class="details-link" href="{% url 'user:announcement_list' %}">Back to Announcements</a>
-            <span class="post-category-badge">{{ post.get_category_display }}</span>
-        </div>
+    <article class="detail-clean-card{% if post.display_bucket == 'campaign' %} is-education{% elif post.display_bucket == 'pinned' %} is-pinned{% endif %}">
+        <a class="detail-back-link" href="{% url 'user:announcement_list' %}">
+            <i class="bi bi-arrow-left"></i>
+            <span>Back to Announcements</span>
+        </a>
 
-        <div class="detail-content">
-            <h1 class="detail-title">{{ post.title }}</h1>
-
-            <div class="post-meta">Published {{ post.created_at|date:'M d, Y h:i A' }} by {{ post.created_by.username }}</div>
-            <div class="detail-author">
-                <img src="{{ post.admin_profile_image_url }}" alt="Admin profile" class="detail-author-avatar">
-                <span class="detail-author-name">{{ post.created_by.get_full_name|default:post.created_by.username }}</span>
-            </div>
-
-            <div class="detail-body">{{ post.content_display|linebreaksbr }}</div>
-
-            {% if post.schedule_data %}
-            <div class="schedule-section">
-                <h4 class="schedule-title">Schedule</h4>
-                {% for item in post.schedule_data %}
-                <div class="schedule-row">
-                    <span class="time">{{ item.time }}</span>
-                    <span class="task">{{ item.task }}</span>
-                </div>
-                {% endfor %}
-            </div>
+        <div class="detail-clean-badges">
+            <span class="detail-pill">{{ post.get_category_display }}</span>
+            {% if post.display_bucket %}
+            <span class="detail-pill detail-pill-bucket">{{ post.get_display_bucket_display }}</span>
             {% endif %}
         </div>
+
+        <header class="detail-clean-author">
+            <img src="{{ post.admin_profile_image_url }}" alt="Admin profile" class="detail-author-avatar">
+            <div class="detail-author-copy">
+                <strong>{{ post.created_by.get_full_name|default:post.created_by.username }}</strong>
+                <span>{{ post.created_at|timesince }} ago <span class="detail-meta-dot">.</span> {{ post.get_category_display }}</span>
+            </div>
+        </header>
+
+        {% if post.title %}
+        <h1 class="detail-clean-title">{{ post.title }}</h1>
+        {% endif %}
+
+        <div class="detail-body">{{ post.content_display|linebreaksbr }}</div>
 
         {% if post.background_image or post.prefetched_images %}
         <div class="media-viewer">
@@ -78,25 +75,46 @@
         </div>
         {% endif %}
 
-        <div class="comments-section">
-            <h4>Reactions</h4>
-            <form method="POST" action="{% url 'user:announcement_react' post.id %}" class="comment-form">
+        {% if post.schedule_data %}
+        <section class="detail-schedule-block">
+            <h2>Planned activities</h2>
+            <div class="schedule-list">
+                {% for item in post.schedule_data %}
+                <div class="schedule-row">
+                    <span class="time">{{ item.time }}</span>
+                    <span class="task">{{ item.task }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <div class="detail-clean-stats">
+            <span class="fb-like-badge"><i class="bi bi-hand-thumbs-up-fill"></i></span>
+            <span class="js-detail-reaction-count">{{ post.reaction_count }}</span>
+        </div>
+
+        <div class="detail-inline-actions">
+            <form method="POST"
+                  action="{% url 'user:announcement_react' post.id %}"
+                  class="detail-inline-form js-detail-react-form">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.path }}">
-                <button type="submit">
-                    {% if post.user_reacted %}Reacted{% else %}React{% endif %}
-                    ({{ post.reaction_count }})
+                <button type="submit" class="detail-inline-action js-detail-react-btn {% if post.user_reacted %}is-active{% endif %}">
+                    <i class="bi bi-hand-thumbs-up"></i>
+                    <span class="js-detail-react-label">{% if post.user_reacted %}Reacted{% else %}React{% endif %}</span>
                 </button>
             </form>
+
             <a href="https://www.facebook.com/sharer/sharer.php?u={{ share_url|urlencode }}"
                target="_blank"
                rel="noopener noreferrer"
-               class="details-link"
-               style="margin-top: 10px;">
-                Share on Facebook
+               class="detail-inline-action">
+                <i class="bi bi-share"></i>
+                <span>Share</span>
             </a>
         </div>
-    </div>
+    </article>
 </div>
 
 <div id="imageLightbox" class="image-lightbox" hidden>
@@ -136,6 +154,49 @@
             });
         });
     }
+
+    document.querySelector('.js-detail-react-form')?.addEventListener('submit', async (evt) => {
+        evt.preventDefault();
+
+        const form = evt.currentTarget;
+        const button = form.querySelector('.js-detail-react-btn');
+        const label = form.querySelector('.js-detail-react-label');
+        const countNodes = document.querySelectorAll('.js-detail-reaction-count');
+        const payload = new FormData(form);
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: payload
+            });
+
+            if (!response.ok) {
+                throw new Error('Request failed');
+            }
+
+            const data = await response.json();
+            if (!data.ok) {
+                throw new Error('Invalid response');
+            }
+
+            countNodes.forEach((node) => {
+                node.textContent = String(data.reaction_count || 0);
+            });
+
+            if (button) {
+                button.classList.toggle('is-active', !!data.reacted);
+            }
+
+            if (label) {
+                label.textContent = data.reacted ? 'Reacted' : 'React';
+            }
+        } catch (err) {
+            form.submit();
+        }
+    });
 
     const triggers = document.querySelectorAll('.js-zoom-image');
     const lightbox = document.getElementById('imageLightbox');

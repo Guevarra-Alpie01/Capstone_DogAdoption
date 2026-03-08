@@ -31,25 +31,171 @@
         background: #ffffff;
     }
 
-    .claim-photo {
-        width: 100px;
-        height: 100px;
-        object-fit: cover;
+    .claim-content {
+        padding: 16px 18px;
+    }
+
+    .claim-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+    }
+
+    .claim-preview {
+        border-color: #dbe5f3;
+        overflow: hidden;
+    }
+
+    .claim-preview-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        background: #f5f8fe;
+        border-bottom: 1px solid #e6edf8;
+    }
+
+    .claim-preview-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #1d4ed8;
+        flex-shrink: 0;
+    }
+
+    .claim-preview-title {
+        margin: 0;
+        font-size: 0.92rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: #0f2a57;
+    }
+
+    .claim-summary-list {
+        padding: 12px;
+        display: grid;
+        gap: 8px;
+    }
+
+    .claim-summary-item {
+        border: 1px solid #e5ebf5;
         border-radius: 10px;
-        border: 1px solid #ddd;
+        background: #ffffff;
+        padding: 8px 10px;
+    }
+
+    .claim-summary-label {
+        display: block;
+        font-size: 0.68rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #64748b;
+        font-weight: 700;
+        margin-bottom: 2px;
+    }
+
+    .claim-summary-value {
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.35;
+        color: #0f172a;
+        font-weight: 600;
+        word-break: break-word;
+    }
+
+    .claim-preview-gallery {
+        padding: 0 12px 12px;
+    }
+
+    .claim-preview-gallery-title {
+        margin: 0 0 6px;
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #64748b;
+        font-weight: 700;
+    }
+
+    .claim-photo {
+        width: 68px;
+        height: 68px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid #d7deea;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+    }
+
+    .claim-form .form-label {
+        margin-bottom: 4px;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .claim-form .form-control {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.65rem;
+    }
+
+    .claim-form textarea.form-control {
+        min-height: 84px;
+    }
+
+    .claim-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .claim-actions .btn {
+        min-width: 128px;
+        font-weight: 700;
     }
 
     .btn-claim-submit {
-        background: #254e1e;
-        border-color: #254e1e;
-        color: #f7c600;
+        background: #198754;
+        border-color: #198754;
+        color: #ffffff;
         font-weight: 700;
     }
 
     .btn-claim-submit:hover {
-        background: #1b3a14;
-        border-color: #1b3a14;
-        color: #fff;
+        background: #198754;
+        border-color: #198754;
+        color: #ffffff;
+    }
+
+    .btn-claim-cancel {
+        background: #dc3545;
+        border-color: #dc3545;
+        color: #ffffff;
+    }
+
+    .btn-claim-cancel:hover {
+        background: #dc3545;
+        border-color: #dc3545;
+        color: #ffffff;
+    }
+
+    .btn-claim-cancel:focus,
+    .btn-claim-cancel:active,
+    .btn-claim-cancel:focus-visible {
+        background: #dc3545;
+        border-color: #dc3545;
+        color: #ffffff;
+        box-shadow: none;
+    }
+
+    @media (min-width: 992px) {
+        .claim-layout {
+            grid-template-columns: minmax(280px, 34%) minmax(0, 1fr);
+            gap: 16px;
+        }
+
+        .claim-preview {
+            position: sticky;
+            top: 84px;
+        }
     }
 
 </style>
@@ -64,71 +210,93 @@
             <span class="claim-badge">Claim Window Open</span>
         </div>
 
-        <div class="p-4">
-            <div class="claim-preview p-3 mb-4">
-                <h6 class="fw-bold mb-2">Post Summary</h6>
-                <p class="mb-1"><strong>Description:</strong> {{ post.caption }}</p>
-
-                {% if post.location %}
-                    <p class="mb-1"><strong>Location:</strong> {{ post.location }}</p>
-                {% endif %}
-
-                {% if post.rescued_date %}
-                    <p class="mb-2"><strong>Rescued on:</strong> {{ post.rescued_date|date:"M d, Y" }}</p>
-                {% endif %}
-
-                {% if post.images.exists %}
-                    <div class="d-flex flex-wrap gap-2 mt-2">
-                        {% for image in post.images.all|slice:":4" %}
-                            <img src="{{ image.image.url }}" alt="Dog photo" class="claim-photo">
-                        {% endfor %}
+        <div class="claim-content">
+            <div class="claim-layout">
+                <div class="claim-preview">
+                    <div class="claim-preview-head">
+                        <span class="claim-preview-dot"></span>
+                        <h6 class="claim-preview-title">Post Summary</h6>
                     </div>
-                {% endif %}
+
+                    <div class="claim-summary-list">
+                        <div class="claim-summary-item">
+                            <span class="claim-summary-label">Description</span>
+                            <p class="claim-summary-value">{{ post.caption }}</p>
+                        </div>
+
+                        {% if post.location %}
+                            <div class="claim-summary-item">
+                                <span class="claim-summary-label">Location</span>
+                                <p class="claim-summary-value">{{ post.location }}</p>
+                            </div>
+                        {% endif %}
+
+                        {% if post.rescued_date %}
+                            <div class="claim-summary-item">
+                                <span class="claim-summary-label">Rescued On</span>
+                                <p class="claim-summary-value">{{ post.rescued_date|date:"M d, Y" }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    {% if post.images.exists %}
+                        <div class="claim-preview-gallery">
+                            <p class="claim-preview-gallery-title">Reference Photos</p>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for image in post.images.all|slice:":4" %}
+                                    <img src="{{ image.image.url }}" alt="Dog photo" class="claim-photo">
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <form method="post" enctype="multipart/form-data" id="claimForm" class="claim-form">
+                    {% csrf_token %}
+
+                    <div class="mb-2">
+                        <label for="id_explanation" class="form-label">Explanation (optional)</label>
+                        <textarea
+                            id="id_explanation"
+                            name="explanation"
+                            class="form-control"
+                            rows="3"
+                            placeholder="Where and when did you lose the dog? Any unique marks or behavior?"
+                        ></textarea>
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-md-7">
+                            <label for="id_last_known_location" class="form-label">Last Known Location (optional)</label>
+                            <input
+                                id="id_last_known_location"
+                                type="text"
+                                name="last_known_location"
+                                class="form-control"
+                                placeholder="Example: Near Barangay Hall, Main Street"
+                            >
+                        </div>
+
+                        <div class="col-md-5">
+                            <label for="id_images" class="form-label">Upload Photos (optional)</label>
+                            <input id="id_images" type="file" name="images" class="form-control" multiple accept="image/*">
+                        </div>
+                    </div>
+
+                    <div class="mb-2 mt-2">
+                        {% include "partials/appointment_picker.html" with submit_btn_id="claim_submit_btn" %}
+                    </div>
+
+                    <p class="text-muted small mt-2 mb-2">
+                        You can submit this claim even without photos or explanation. Admin review is still required.
+                    </p>
+
+                    <div class="claim-actions">
+                        <button type="submit" id="claim_submit_btn" class="btn btn-claim-submit" {% if not available_dates %}disabled{% endif %}>Submit Claim</button>
+                        <a href="{% url 'user:user_home' %}" class="btn btn-claim-cancel">Cancel</a>
+                    </div>
+                </form>
             </div>
-
-            <form method="post" enctype="multipart/form-data" id="claimForm">
-                {% csrf_token %}
-
-                <div class="mb-3">
-                    <label for="id_explanation" class="form-label fw-semibold">Explanation (optional)</label>
-                    <textarea
-                        id="id_explanation"
-                        name="explanation"
-                        class="form-control"
-                        rows="4"
-                        placeholder="Where and when did you lose the dog? Any unique marks or behavior?"
-                    ></textarea>
-                </div>
-
-                <div class="mb-3">
-                    <label for="id_last_known_location" class="form-label fw-semibold">Last Known Location (optional)</label>
-                    <input
-                        id="id_last_known_location"
-                        type="text"
-                        name="last_known_location"
-                        class="form-control"
-                        placeholder="Example: Near Barangay Hall, Main Street"
-                    >
-                </div>
-
-                <div class="mb-2">
-                    <label for="id_images" class="form-label fw-semibold">Upload Photos (optional)</label>
-                    <input id="id_images" type="file" name="images" class="form-control" multiple accept="image/*">
-                </div>
-
-                <div class="mb-3">
-                    {% include "partials/appointment_picker.html" with submit_btn_id="claim_submit_btn" %}
-                </div>
-
-                <p class="text-muted small mt-2 mb-3">
-                    You can submit this claim even without photos or explanation. Admin review is still required.
-                </p>
-
-                <div class="d-flex flex-wrap gap-2">
-                    <button type="submit" id="claim_submit_btn" class="btn btn-claim-submit" {% if not available_dates %}disabled{% endif %}>Submit Claim</button>
-                    <a href="{% url 'user:user_home' %}" class="btn btn-outline-secondary">Cancel</a>
-                </div>
-            </form>
         </div>
     </div>
 </div>

@@ -38,6 +38,7 @@ urlpatterns = [
         name='announcement_create_form'
     ),
     path('announcements/<int:post_id>/edit/', views.announcement_edit, name='announcement_edit'),
+    path('announcements/<int:post_id>/bucket/', views.announcement_update_bucket, name='announcement_update_bucket'),
     path('announcements/<int:post_id>/delete/', views.announcement_delete, name='announcement_delete'),
 
     #USER MANAGEMENT
@@ -76,5 +77,4 @@ urlpatterns = [
     # PENALTY MANAGEMENT (custom admin)
     path('penalties/', views.penalty_manager, name='penalty_manage'),
 ]
-
 

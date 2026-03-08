@@ -475,6 +475,10 @@ ANNOUNCEMENT_CATEGORY_BY_VALUE = {
     option["value"]: option for option in ANNOUNCEMENT_CATEGORY_OPTIONS
 }
 
+ANNOUNCEMENT_BUCKET_VALUES = {
+    value for value, _label in DogAnnouncement.DISPLAY_BUCKET_CHOICES
+}
+
 ANALYTICS_DASHBOARD_CACHE_TTL_SECONDS = 60
 
 
@@ -1483,6 +1487,28 @@ def announcement_edit(request, post_id):
     return render(request, "admin_announcement/edit_announcement.html", {
         "post": post,
         "category_options": ANNOUNCEMENT_CATEGORY_OPTIONS,
+    })
+
+@admin_required
+@require_POST
+def announcement_update_bucket(request, post_id):
+    post = get_object_or_404(DogAnnouncement.objects.only("id", "display_bucket"), id=post_id)
+    bucket = (request.POST.get("bucket") or "").strip().lower()
+
+    if bucket not in ANNOUNCEMENT_BUCKET_VALUES:
+        return JsonResponse({
+            "ok": False,
+            "error": "Invalid announcement bucket.",
+        }, status=400)
+
+    if post.display_bucket != bucket:
+        post.display_bucket = bucket
+        post.save(update_fields=["display_bucket"])
+
+    return JsonResponse({
+        "ok": True,
+        "bucket": post.display_bucket,
+        "bucket_label": post.get_display_bucket_display(),
     })
 
 @admin_required

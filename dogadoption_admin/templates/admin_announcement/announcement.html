@@ -4,8 +4,11 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/admin_announcement/announcement.css' %}">
 
-<div class="announcement-header">
-    <h2>Announcements</h2>
+<div class="announcement-header announcement-header-education">
+    <div class="announcement-header-copy">
+        <span class="announcement-header-kicker">Education Campaign</span>
+        <h2>Admin Announcement Board</h2>
+    </div>
 
     {% if request.user.is_staff %}
     <button class="create-post-btn" type="button" data-bs-toggle="modal" data-bs-target="#announcementCreateModal">
@@ -80,19 +83,93 @@
     </div>
 </div>
 
-<div class="admin-announcement-grid">
+<div class="education-board-layout" data-layout="board">
+<aside class="announcement-side-panel" aria-label="Announcement side panel">
+    <section class="announcement-column announcement-column-pinned">
+        <div class="announcement-column-header">
+            <div class="announcement-column-title-row">
+                <span class="announcement-column-kicker announcement-column-kicker-pinned">
+                    <i class="bi bi-pin-angle-fill"></i>
+                    <span>Pinned Announcements</span>
+                </span>
+                <span class="announcement-column-count" data-pin-count>0</span>
+            </div>
+        </div>
+        <div class="announcement-column-body announcement-pinned-column" data-pin-column>
+            <div class="announcement-column-empty" data-pin-empty>
+                <i class="bi bi-pin-angle"></i>
+                <span>No pinned announcements yet.</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="announcement-column announcement-column-campaign">
+        <div class="announcement-column-header">
+            <div class="announcement-column-title-row">
+                <span class="announcement-column-kicker announcement-column-kicker-campaign">
+                    <i class="bi bi-bookmark-star-fill"></i>
+                    <span>Education Campaign</span>
+                </span>
+                <span class="announcement-column-count announcement-column-count-campaign" data-campaign-count>0</span>
+            </div>
+        </div>
+        <div class="announcement-column-body announcement-campaign-column" data-campaign-column>
+            <div class="announcement-column-empty" data-campaign-empty>
+                <i class="bi bi-bookmark-star"></i>
+                <span>No education campaign announcements selected yet.</span>
+            </div>
+        </div>
+    </section>
+</aside>
+
+<section class="announcement-column announcement-column-ordinary">
+    <div class="announcement-column-header">
+        <div class="announcement-column-title-row">
+            <span class="announcement-column-kicker announcement-column-kicker-ordinary">
+                <i class="bi bi-journal-text"></i>
+                <span>Main Feed</span>
+            </span>
+            <span class="announcement-column-count announcement-column-count-ordinary" data-regular-count>0</span>
+        </div>
+    </div>
+    <div class="announcement-column-body admin-announcement-grid" data-regular-column>
 {% for post in announcements %}
-<article class="post-card" id="post-{{ post.id }}">
-    <button type="button"
-            class="post-more-btn"
-            data-actions-toggle
-            aria-expanded="false"
-            aria-controls="postActionsPopover-{{ post.id }}"
-            aria-label="Open post actions">
-        <i class="bi bi-three-dots"></i>
-    </button>
+<article class="post-card"
+         id="post-{{ post.id }}"
+         data-post-id="{{ post.id }}"
+         data-initial-bucket="{{ post.display_bucket }}"
+         data-bucket-update-url="{% url 'dogadoption_admin:announcement_update_bucket' post.id %}">
+    <div class="post-card-controls">
+        <button type="button"
+                class="post-pin-btn"
+                data-pin-toggle
+                aria-pressed="false"
+                aria-label="Pin announcement"
+                title="Pin announcement">
+            <i class="bi bi-pin-angle"></i>
+        </button>
+        <button type="button"
+                class="post-campaign-btn"
+                data-campaign-toggle
+                aria-pressed="false"
+                aria-label="Move to Education Campaign column"
+                title="Move to Education Campaign column">
+            <i class="bi bi-bookmark-star"></i>
+        </button>
+        <button type="button"
+                class="post-more-btn"
+                data-actions-toggle
+                aria-expanded="false"
+                aria-controls="postActionsPopover-{{ post.id }}"
+                aria-label="Open post actions">
+            <i class="bi bi-three-dots"></i>
+        </button>
+    </div>
     <div class="post-top-row">
-        <span class="post-category">{{ post.get_category_display }}</span>
+        <div class="post-top-badges">
+            <span class="post-category">{{ post.get_category_display }}</span>
+            <span class="post-bucket-badge" data-bucket-label>Ordinary</span>
+        </div>
     </div>
     <div class="post-author-block">
         <img src="{{ post.admin_profile_image_url }}" alt="Admin profile" class="post-author-avatar">
@@ -226,6 +303,12 @@
     <p>No announcements yet. Use the Create Post button to publish your first update.</p>
 </div>
 {% endfor %}
+        <div class="announcement-column-empty" data-regular-empty hidden>
+            <i class="bi bi-journal-x"></i>
+            <span>No ordinary announcements left. Everything is pinned.</span>
+        </div>
+    </div>
+</section>
 </div>
 
 <div class="modal fade wiki-modal" id="announcementSubmitConfirmModal" tabindex="-1" aria-labelledby="announcementSubmitConfirmLabel" aria-hidden="true">
@@ -503,6 +586,273 @@
     document.addEventListener('keydown', (evt) => {
         if (evt.key === 'Escape' && !lightbox.hidden) closeLightbox();
     });
+})();
+</script>
+<script>
+(function () {
+    const legacyBucketStorageKey = 'adminEducationAnnouncementBuckets';
+    const board = document.querySelector('.education-board-layout');
+    const pinnedColumn = document.querySelector('[data-pin-column]');
+    const campaignColumn = document.querySelector('[data-campaign-column]');
+    const regularColumn = document.querySelector('[data-regular-column]');
+    const pinnedEmpty = document.querySelector('[data-pin-empty]');
+    const campaignEmpty = document.querySelector('[data-campaign-empty]');
+    const regularEmpty = document.querySelector('[data-regular-empty]');
+    const pinnedCount = document.querySelector('[data-pin-count]');
+    const campaignCount = document.querySelector('[data-campaign-count]');
+    const regularCount = document.querySelector('[data-regular-count]');
+    const cards = Array.from(document.querySelectorAll('.post-card[data-post-id]'));
+
+    if (!board || !pinnedColumn || !campaignColumn || !regularColumn || !cards.length) {
+        return;
+    }
+
+    const allowedBuckets = new Set(['pinned', 'campaign', 'ordinary']);
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+    const bucketState = {};
+
+    cards.forEach((card) => {
+        const postId = card.getAttribute('data-post-id');
+        const initialBucket = card.getAttribute('data-initial-bucket');
+        bucketState[postId] = allowedBuckets.has(initialBucket) ? initialBucket : 'ordinary';
+    });
+
+    function getBucket(postId) {
+        const bucket = bucketState[postId];
+        return allowedBuckets.has(bucket) ? bucket : 'ordinary';
+    }
+
+    function setBucket(postId, bucket) {
+        bucketState[postId] = allowedBuckets.has(bucket) ? bucket : 'ordinary';
+    }
+
+    function setCardBusy(card, isBusy) {
+        card.querySelectorAll('[data-pin-toggle], [data-campaign-toggle]').forEach((button) => {
+            button.disabled = isBusy;
+        });
+    }
+
+    async function persistBucket(card, bucket) {
+        const updateUrl = card.getAttribute('data-bucket-update-url');
+        if (!updateUrl) {
+            throw new Error('Missing bucket update URL.');
+        }
+
+        const payload = new FormData();
+        payload.append('bucket', bucket);
+        if (csrfToken) {
+            payload.append('csrfmiddlewaretoken', csrfToken);
+        }
+
+        const response = await fetch(updateUrl, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+            body: payload,
+        });
+
+        if (!response.ok) {
+            throw new Error('Bucket update failed.');
+        }
+
+        const data = await response.json();
+        if (!data.ok || !allowedBuckets.has(data.bucket)) {
+            throw new Error('Invalid bucket response.');
+        }
+
+        const postId = card.getAttribute('data-post-id');
+        setBucket(postId, data.bucket);
+        card.setAttribute('data-initial-bucket', data.bucket);
+    }
+
+    function updateCardBucketState(card, bucket) {
+        const pinButton = card.querySelector('[data-pin-toggle]');
+        const pinIcon = pinButton?.querySelector('i');
+        const campaignButton = card.querySelector('[data-campaign-toggle]');
+        const campaignIcon = campaignButton?.querySelector('i');
+        const bucketLabel = card.querySelector('[data-bucket-label]');
+        const isPinned = bucket === 'pinned';
+        const isCampaign = bucket === 'campaign';
+        const isOrdinary = bucket === 'ordinary';
+
+        card.classList.toggle('is-pinned', isPinned);
+        card.classList.toggle('is-campaign', isCampaign);
+        card.classList.toggle('is-ordinary', isOrdinary);
+        card.setAttribute('data-bucket', bucket);
+
+        if (pinButton) {
+            pinButton.setAttribute('aria-pressed', isPinned ? 'true' : 'false');
+            pinButton.setAttribute('aria-label', isPinned ? 'Unpin announcement' : 'Pin announcement');
+            pinButton.setAttribute('title', isPinned ? 'Unpin announcement' : 'Pin announcement');
+        }
+
+        if (pinIcon) {
+            pinIcon.className = isPinned ? 'bi bi-pin-angle-fill' : 'bi bi-pin-angle';
+        }
+
+        if (campaignButton) {
+            campaignButton.setAttribute('aria-pressed', isCampaign ? 'true' : 'false');
+            campaignButton.setAttribute(
+                'aria-label',
+                isCampaign ? 'Remove from Education Campaign column' : 'Move to Education Campaign column'
+            );
+            campaignButton.setAttribute(
+                'title',
+                isCampaign ? 'Remove from Education Campaign column' : 'Move to Education Campaign column'
+            );
+        }
+
+        if (campaignIcon) {
+            campaignIcon.className = isCampaign ? 'bi bi-bookmark-star-fill' : 'bi bi-bookmark-star';
+        }
+
+        if (bucketLabel) {
+            bucketLabel.textContent =
+                bucket === 'pinned'
+                    ? 'Pinned'
+                    : bucket === 'campaign'
+                        ? 'Education'
+                        : 'Ordinary';
+        }
+    }
+
+    function toggleEmptyStates() {
+        if (pinnedEmpty) {
+            pinnedEmpty.hidden = !!pinnedColumn.querySelector('.post-card[data-post-id]');
+        }
+
+        if (campaignEmpty) {
+            campaignEmpty.hidden = !!campaignColumn.querySelector('.post-card[data-post-id]');
+        }
+
+        if (regularEmpty) {
+            regularEmpty.hidden = !!regularColumn.querySelector('.post-card[data-post-id]');
+        }
+    }
+
+    function updateCounts() {
+        if (pinnedCount) {
+            pinnedCount.textContent = String(pinnedColumn.querySelectorAll('.post-card[data-post-id]').length);
+        }
+
+        if (campaignCount) {
+            campaignCount.textContent = String(campaignColumn.querySelectorAll('.post-card[data-post-id]').length);
+        }
+
+        if (regularCount) {
+            regularCount.textContent = String(regularColumn.querySelectorAll('.post-card[data-post-id]').length);
+        }
+    }
+
+    function renderColumns() {
+        cards.forEach((card) => {
+            const postId = card.getAttribute('data-post-id');
+            const bucket = getBucket(postId);
+            updateCardBucketState(card, bucket);
+
+            if (bucket === 'pinned') {
+                pinnedColumn.appendChild(card);
+                return;
+            }
+
+            if (bucket === 'campaign') {
+                campaignColumn.appendChild(card);
+                return;
+            }
+
+            regularColumn.appendChild(card);
+        });
+
+        toggleEmptyStates();
+        updateCounts();
+    }
+
+    async function updateBucket(card, nextBucket) {
+        const postId = card.getAttribute('data-post-id');
+        const previousBucket = getBucket(postId);
+
+        setBucket(postId, nextBucket);
+        renderColumns();
+        setCardBusy(card, true);
+
+        try {
+            await persistBucket(card, nextBucket);
+        } catch (err) {
+            setBucket(postId, previousBucket);
+            renderColumns();
+            window.alert('Could not update the announcement section. Please try again.');
+        } finally {
+            setCardBusy(card, false);
+        }
+    }
+
+    async function syncLegacyLocalBuckets() {
+        let storedBuckets = {};
+
+        try {
+            storedBuckets = JSON.parse(window.localStorage.getItem(legacyBucketStorageKey) || '{}');
+        } catch (err) {
+            storedBuckets = {};
+        }
+
+        window.localStorage.removeItem(legacyBucketStorageKey);
+
+        const syncQueue = cards
+            .map((card) => {
+                const postId = card.getAttribute('data-post-id');
+                const legacyBucket = storedBuckets?.[postId];
+                const currentBucket = getBucket(postId);
+                if (
+                    currentBucket === 'ordinary'
+                    && allowedBuckets.has(legacyBucket)
+                    && legacyBucket !== 'ordinary'
+                ) {
+                    setBucket(postId, legacyBucket);
+                    return { card, bucket: legacyBucket };
+                }
+                return null;
+            })
+            .filter(Boolean);
+
+        if (!syncQueue.length) {
+            return;
+        }
+
+        renderColumns();
+
+        for (const entry of syncQueue) {
+            try {
+                await persistBucket(entry.card, entry.bucket);
+            } catch (err) {
+                const postId = entry.card.getAttribute('data-post-id');
+                setBucket(postId, 'ordinary');
+            }
+        }
+
+        renderColumns();
+    }
+
+    cards.forEach((card) => {
+        const pinButton = card.querySelector('[data-pin-toggle]');
+        const campaignButton = card.querySelector('[data-campaign-toggle]');
+        const postId = card.getAttribute('data-post-id');
+
+        pinButton?.addEventListener('click', () => {
+            const current = getBucket(postId);
+            void updateBucket(card, current === 'pinned' ? 'ordinary' : 'pinned');
+        });
+
+        campaignButton?.addEventListener('click', () => {
+            const current = getBucket(postId);
+            void updateBucket(card, current === 'campaign' ? 'ordinary' : 'campaign');
+        });
+    });
+
+    board.setAttribute('data-layout', 'board');
+    renderColumns();
+    void syncLegacyLocalBuckets();
 })();
 </script>
 {% endblock %}

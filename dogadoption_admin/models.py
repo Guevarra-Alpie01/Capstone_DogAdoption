@@ -206,6 +206,14 @@ class DogAnnouncement(models.Model):
         (CATEGORY_DOG_ANNOUNCEMENT, "Dog Announcements"),
         (CATEGORY_DOG_LAW, "Dog Laws"),
     ]
+    BUCKET_ORDINARY = "ordinary"
+    BUCKET_PINNED = "pinned"
+    BUCKET_CAMPAIGN = "campaign"
+    DISPLAY_BUCKET_CHOICES = [
+        (BUCKET_ORDINARY, "Ordinary"),
+        (BUCKET_PINNED, "Pinned"),
+        (BUCKET_CAMPAIGN, "Education"),
+    ]
 
     POST_TYPES = [
         ('COLOR', 'Plain Color with Text'),
@@ -219,6 +227,11 @@ class DogAnnouncement(models.Model):
         max_length=40,
         choices=CATEGORY_CHOICES,
         default=CATEGORY_DOG_ANNOUNCEMENT
+    )
+    display_bucket = models.CharField(
+        max_length=16,
+        choices=DISPLAY_BUCKET_CHOICES,
+        default=BUCKET_ORDINARY,
     )
 
     # Background options
@@ -251,6 +264,7 @@ class DogAnnouncement(models.Model):
         indexes = [
             models.Index(fields=["created_at"], name="dogann_created_idx"),
             models.Index(fields=["category", "created_at"], name="dogann_category_created_idx"),
+            models.Index(fields=["display_bucket", "created_at"], name="dogann_bucket_created_idx"),
         ]
 
     def __str__(self):

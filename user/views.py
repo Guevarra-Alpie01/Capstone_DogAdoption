@@ -350,8 +350,9 @@ def _sample_ids_with_cache(cache_key, candidate_ids, sample_limit):
     return sampled_ids
 
 
-def _build_random_home_rows(query, feed_token=""):
-    mixed_cache_key = _feed_cache_key("mixed_rows", query, feed_token)
+def _build_random_home_rows(query, feed_token="", dogs_only=False):
+    feed_scope = "dogs_only" if dogs_only else "mixed"
+    mixed_cache_key = _feed_cache_key(f"{feed_scope}_rows", query, feed_token)
     cached_rows = cache.get(mixed_cache_key)
     if cached_rows is not None:
         return cached_rows
@@ -393,24 +394,26 @@ def _build_random_home_rows(query, feed_token=""):
         post.id for post in admin_candidates if post.current_phase() in {"claim", "adopt"}
     ]
     admin_ids = _sample_ids_with_cache(
-        _feed_cache_key("admin_ids", query, feed_token),
+        _feed_cache_key(f"{feed_scope}_admin_ids", query, feed_token),
         active_admin_candidate_ids,
         sample_limit=FEED_ADMIN_SAMPLE_LIMIT,
     )
-    announcement_ids = _sample_recent_ids_with_cache(
-        _feed_cache_key("announcement_ids", query, feed_token),
-        announcement_qs,
-        candidate_limit=FEED_ANNOUNCEMENT_CANDIDATE_LIMIT,
-        sample_limit=FEED_ANNOUNCEMENT_SAMPLE_LIMIT,
-    )
+    announcement_ids = []
+    if not dogs_only:
+        announcement_ids = _sample_recent_ids_with_cache(
+            _feed_cache_key(f"{feed_scope}_announcement_ids", query, feed_token),
+            announcement_qs,
+            candidate_limit=FEED_ANNOUNCEMENT_CANDIDATE_LIMIT,
+            sample_limit=FEED_ANNOUNCEMENT_SAMPLE_LIMIT,
+        )
     user_ids = _sample_recent_ids_with_cache(
-        _feed_cache_key("user_ids", query, feed_token),
+        _feed_cache_key(f"{feed_scope}_user_ids", query, feed_token),
         user_qs,
         candidate_limit=FEED_USER_CANDIDATE_LIMIT,
         sample_limit=FEED_USER_SAMPLE_LIMIT,
     )
     missing_ids = _sample_recent_ids_with_cache(
-        _feed_cache_key("missing_ids", query, feed_token),
+        _feed_cache_key(f"{feed_scope}_missing_ids", query, feed_token),
         missing_qs,
         candidate_limit=FEED_MISSING_CANDIDATE_LIMIT,
         sample_limit=FEED_MISSING_SAMPLE_LIMIT,
@@ -660,7 +663,8 @@ def _build_user_home_context(
     query = _normalized_feed_query(request.GET.get("q"))
     feed_token = _normalized_feed_token(request.GET.get("feed_token"))
     page_number = request.GET.get("page", 1)
-    mixed_rows = _build_random_home_rows(query, feed_token=feed_token)
+    show_dogs_only = request.user.is_authenticated and not request.user.is_staff
+    mixed_rows = _build_random_home_rows(query, feed_token=feed_token, dogs_only=show_dogs_only)
 
     paginator = Paginator(mixed_rows, FEED_POSTS_PER_PAGE)
     page_obj = paginator.get_page(page_number)
@@ -1399,6 +1403,10 @@ def announcement_list(request):
 
     posts = list(posts)
     default_admin_avatar_url = static("images/officialseal.webp")
+    pinned_announcements = []
+    campaign_announcements = []
+    regular_announcements = []
+
     for post in posts:
         post.admin_profile_image_url = _profile_image_url_or_default(
             post.created_by, default_admin_avatar_url
@@ -1407,9 +1415,17 @@ def announcement_list(request):
         post.share_url = request.build_absolute_uri(
             reverse("user:announcement_share_preview", args=[post.id])
         )
+        if post.display_bucket == DogAnnouncement.BUCKET_PINNED:
+            pinned_announcements.append(post)
+        elif post.display_bucket == DogAnnouncement.BUCKET_CAMPAIGN:
+            campaign_announcements.append(post)
+        else:
+            regular_announcements.append(post)
 
     return render(request, 'announcement/announcement.html', {
-        'announcements': posts
+        'pinned_announcements': pinned_announcements,
+        'campaign_announcements': campaign_announcements,
+        'regular_announcements': regular_announcements,
     })
 
 
@@ -1577,4 +1593,3 @@ def claim_confirm(request, post_id):
         duplicate_message="You already submitted a claim for this dog.",
         success_message="Claim submitted successfully! Admin will review it carefully ðŸ¾",
     )
-

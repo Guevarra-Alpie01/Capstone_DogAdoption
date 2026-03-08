@@ -4,78 +4,77 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}">
 
-<div class="fb-feed-page">
-    <h2 class="fb-feed-title">Announcements</h2>
+<div class="user-ann-board">
+    <div class="user-ann-header">
+        <h2 class="user-ann-title">Announcements</h2>
+        <p class="user-ann-subtitle">View pinned notices, education campaigns, and regular admin updates in separate sections.</p>
+    </div>
 
-    <div class="fb-feed">
-        {% for post in announcements %}
-        <article class="fb-card">
-            <header class="fb-card-header">
-                <img src="{{ post.admin_profile_image_url }}" alt="Admin profile" class="fb-page-avatar">
-                <div class="fb-page-meta">
-                    <h3 class="fb-page-name">{{ post.created_by.get_full_name|default:post.created_by.username }}</h3>
-                    <div class="fb-post-meta">
-                        <span>{{ post.created_at|timesince }} ago</span>
-                        <span class="fb-meta-dot">.</span>
-                        <span>{{ post.get_category_display }}</span>
-                    </div>
-                </div>
-            </header>
-
-            <div class="fb-caption">
-                {{ post.content_display|linebreaksbr }}
-            </div>
-
-            {% if post.background_image or post.prefetched_images %}
-            <div class="fb-photo-viewer" data-photo-viewer>
-                <img src="" class="fb-photo-main" alt="Announcement photo">
-                <button type="button" class="fb-photo-nav fb-photo-prev" aria-label="Previous photo">&lt;</button>
-                <button type="button" class="fb-photo-nav fb-photo-next" aria-label="Next photo">&gt;</button>
-                <div class="fb-photo-sources" hidden>
-                    {% if post.background_image %}
-                    <span data-src="{{ post.background_image.url }}" data-alt="{{ post.title }}"></span>
-                    {% endif %}
-                    {% for photo in post.prefetched_images %}
-                    <span data-src="{{ photo.image.url }}" data-alt="{{ post.title }} photo {{ forloop.counter }}"></span>
-                    {% endfor %}
+    <div class="user-ann-columns">
+        <section class="user-ann-column user-ann-column-pinned">
+            <div class="user-ann-column-header">
+                <div class="user-ann-column-title-row">
+                    <span class="user-ann-kicker">
+                        <i class="bi bi-pin-angle-fill"></i>
+                        <span>Pinned Announcements</span>
+                    </span>
+                    <span class="user-ann-count">{{ pinned_announcements|length }}</span>
                 </div>
             </div>
-            {% endif %}
+            <div class="user-ann-column-body">
+                {% for post in pinned_announcements %}
+                    {% include 'announcement/_announcement_card.html' with post=post %}
+                {% empty %}
+                <div class="user-ann-empty">
+                    <i class="bi bi-pin-angle"></i>
+                    <span>No pinned announcements yet.</span>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
 
-            <div class="fb-social-row">
-                <div class="fb-like-count">
-                    <span class="fb-like-badge"><i class="bi bi-hand-thumbs-up-fill"></i></span>
-                    <span class="js-reaction-count">{{ post.reaction_count }}</span>
+        <section class="user-ann-column user-ann-column-regular">
+            <div class="user-ann-column-header">
+                <div class="user-ann-column-title-row">
+                    <span class="user-ann-kicker">
+                        <i class="bi bi-journal-text"></i>
+                        <span>Main Feed</span>
+                    </span>
+                    <span class="user-ann-count user-ann-count-regular">{{ regular_announcements|length }}</span>
                 </div>
             </div>
-
-            <div class="fb-action-row">
-                <form method="POST"
-                      action="{% url 'user:announcement_react' post.id %}"
-                      class="fb-action-form js-react-form">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ request.path }}">
-                    <button type="submit"
-                            class="fb-action-btn js-react-btn {% if post.user_reacted %}is-active{% endif %}">
-                        <i class="bi bi-hand-thumbs-up"></i>
-                        <span class="js-react-label">{% if post.user_reacted %}Reacted{% else %}React{% endif %}</span>
-                    </button>
-                </form>
-
-                <a href="https://www.facebook.com/sharer/sharer.php?u={{ post.share_url|urlencode }}"
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   class="fb-action-btn">
-                    <i class="bi bi-share"></i>
-                    <span>Share</span>
-                </a>
+            <div class="user-ann-column-body user-ann-regular-grid">
+                {% for post in regular_announcements %}
+                    {% include 'announcement/_announcement_card.html' with post=post %}
+                {% empty %}
+                <div class="fb-empty-card">
+                    No announcements yet. Please check back for updates.
+                </div>
+                {% endfor %}
             </div>
-        </article>
-        {% empty %}
-        <div class="fb-empty-card">
-            No announcements yet. Please check back for updates.
-        </div>
-        {% endfor %}
+        </section>
+
+        <section class="user-ann-column user-ann-column-education">
+            <div class="user-ann-column-header">
+                <div class="user-ann-column-title-row">
+                    <span class="user-ann-kicker">
+                        <i class="bi bi-bookmark-star-fill"></i>
+                        <span>Education Campaign</span>
+                    </span>
+                    <span class="user-ann-count user-ann-count-education">{{ campaign_announcements|length }}</span>
+                </div>
+            </div>
+            <div class="user-ann-column-body">
+                {% for post in campaign_announcements %}
+                    {% include 'announcement/_announcement_card.html' with post=post %}
+                {% empty %}
+                <div class="user-ann-empty">
+                    <i class="bi bi-bookmark-star"></i>
+                    <span>No education campaign announcements yet.</span>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
     </div>
 </div>
 

@@ -76,7 +76,49 @@
     </div>
 
     <div class="chart-grid">
-        <div class="chart-card chart-span-2">
+        <div class="chart-card">
+            <div class="chart-head">
+                <h4 class="chart-title">
+                    <span class="chart-icon icon-breed-pie" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M12 3v9l7 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"></circle>
+                        </svg>
+                    </span>
+                    <span>Vaccinated Breeds Distribution</span>
+                </h4>
+                <div class="chart-filters">
+                    <select id="vaccinationBreedYearFilter" class="chart-filter-select"></select>
+                    <select id="vaccinationBreedViewFilter" class="chart-filter-select">
+                        <option value="year">Whole Year</option>
+                        <option value="month">By Month</option>
+                    </select>
+                    <select id="vaccinationBreedMonthFilter" class="chart-filter-select">
+                        <option value="1">Jan</option>
+                        <option value="2">Feb</option>
+                        <option value="3">Mar</option>
+                        <option value="4">Apr</option>
+                        <option value="5">May</option>
+                        <option value="6">Jun</option>
+                        <option value="7">Jul</option>
+                        <option value="8">Aug</option>
+                        <option value="9">Sep</option>
+                        <option value="10">Oct</option>
+                        <option value="11">Nov</option>
+                        <option value="12">Dec</option>
+                    </select>
+                    <select id="vaccinationBreedTypeFilter" class="chart-filter-select">
+                        <option value="all">All Breeds</option>
+                        <option value="dog">Dog Breeds</option>
+                        <option value="cat">Cat Breeds</option>
+                    </select>
+                </div>
+            </div>
+            <canvas id="vaccinationBreedChart"></canvas>
+            <p id="vaccinationBreedEmptyState" class="chart-empty" hidden>No vaccinated breed data for the selected filter.</p>
+        </div>
+
+        <div class="chart-card">
             <h4 class="chart-title">
                 <span class="chart-icon icon-barangay" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none">
@@ -86,6 +128,43 @@
                 <span>Top Registered Barangays</span>
             </h4>
             <canvas id="barangayChart"></canvas>
+        </div>
+
+        <div class="chart-card chart-span-2">
+            <div class="chart-head">
+                <h4 class="chart-title">
+                    <span class="chart-icon icon-adoption-trend" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M4 16l5-5 4 4 7-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path d="M17 7h3v3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                    </span>
+                    <span>Adopted vs Claimed Dogs</span>
+                </h4>
+                <div class="chart-filters">
+                    <select id="adoptionClaimTrendYearFilter" class="chart-filter-select"></select>
+                    <select id="adoptionClaimTrendViewFilter" class="chart-filter-select">
+                        <option value="year">Whole Year</option>
+                        <option value="month">By Month</option>
+                    </select>
+                    <select id="adoptionClaimTrendMonthFilter" class="chart-filter-select">
+                        <option value="1">Jan</option>
+                        <option value="2">Feb</option>
+                        <option value="3">Mar</option>
+                        <option value="4">Apr</option>
+                        <option value="5">May</option>
+                        <option value="6">Jun</option>
+                        <option value="7">Jul</option>
+                        <option value="8">Aug</option>
+                        <option value="9">Sep</option>
+                        <option value="10">Oct</option>
+                        <option value="11">Nov</option>
+                        <option value="12">Dec</option>
+                    </select>
+                </div>
+            </div>
+            <canvas id="adoptionClaimTrendChart"></canvas>
+            <p id="adoptionClaimTrendEmptyState" class="chart-empty" hidden>No adopted or claimed dog data for the selected filter.</p>
         </div>
 
         <div class="chart-card chart-span-2">
@@ -165,15 +244,255 @@
     </div>
 </div>
 
+{{ vaccination_breed_chart|json_script:"vaccination-breed-data" }}
+{{ adoption_claim_trend_chart|json_script:"adoption-claim-trend-data" }}
 {{ rescue_barangay_trend_chart|json_script:"rescue-barangay-trend-data" }}
 {{ vaccination_barangay_chart|json_script:"vaccination-barangay-data" }}
 {{ barangay_chart|json_script:"barangay-data" }}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    const vaccinationBreedData = JSON.parse(document.getElementById('vaccination-breed-data').textContent);
+    const adoptionClaimTrendData = JSON.parse(document.getElementById('adoption-claim-trend-data').textContent);
     const rescueBarangayTrendData = JSON.parse(document.getElementById('rescue-barangay-trend-data').textContent);
     const vaccinationBarangayData = JSON.parse(document.getElementById('vaccination-barangay-data').textContent);
     const barangayData = JSON.parse(document.getElementById('barangay-data').textContent);
+
+    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentMonth = new Date().getMonth() + 1;
+    const piePalette = ['#2563eb', '#0f766e', '#f97316', '#be123c', '#7c3aed', '#0891b2', '#ca8a04', '#4f46e5', '#15803d'];
+
+    const vaccinationBreedYearFilter = document.getElementById('vaccinationBreedYearFilter');
+    const vaccinationBreedViewFilter = document.getElementById('vaccinationBreedViewFilter');
+    const vaccinationBreedMonthFilter = document.getElementById('vaccinationBreedMonthFilter');
+    const vaccinationBreedTypeFilter = document.getElementById('vaccinationBreedTypeFilter');
+    const vaccinationBreedEmptyState = document.getElementById('vaccinationBreedEmptyState');
+    const vaccinationBreedCanvas = document.getElementById('vaccinationBreedChart');
+    const vaccinationBreedRows = vaccinationBreedData.rows || [];
+    const vaccinationBreedYears = (vaccinationBreedData.years || []).slice().sort((a, b) => a - b);
+    let vaccinationBreedChart = null;
+
+    const resolveVaccinationBreedDefaultYear = () => {
+        const nowYear = new Date().getFullYear();
+        if (vaccinationBreedYears.includes(nowYear)) return nowYear;
+        return vaccinationBreedYears.length ? vaccinationBreedYears[vaccinationBreedYears.length - 1] : nowYear;
+    };
+
+    const selectedVaccinationBreedYearDefault = resolveVaccinationBreedDefaultYear();
+    if (!vaccinationBreedYears.length) {
+        vaccinationBreedYears.push(selectedVaccinationBreedYearDefault);
+    }
+
+    vaccinationBreedYears.forEach((year) => {
+        const option = document.createElement('option');
+        option.value = String(year);
+        option.textContent = String(year);
+        vaccinationBreedYearFilter.appendChild(option);
+    });
+    vaccinationBreedYearFilter.value = String(selectedVaccinationBreedYearDefault);
+    vaccinationBreedMonthFilter.value = String(currentMonth);
+
+    const buildVaccinationBreedPieData = (mode, year, month, animalType) => {
+        const totalsByBreed = new Map();
+
+        vaccinationBreedRows.forEach((row) => {
+            const rowDate = new Date(`${row.date}T00:00:00`);
+            if (Number.isNaN(rowDate.getTime())) return;
+            if (rowDate.getFullYear() !== year) return;
+            if (mode === 'month' && (rowDate.getMonth() + 1) !== month) return;
+            if (animalType !== 'all' && row.animal_type !== animalType) return;
+
+            const breed = row.breed || 'Unknown Breed';
+            totalsByBreed.set(breed, (totalsByBreed.get(breed) || 0) + (Number(row.total) || 0));
+        });
+
+        const rankedBreeds = Array.from(totalsByBreed.entries())
+            .map(([label, total]) => ({ label, total }))
+            .sort((a, b) => b.total - a.total);
+
+        const topBreeds = rankedBreeds.slice(0, 8);
+        const otherTotal = rankedBreeds
+            .slice(8)
+            .reduce((sum, entry) => sum + entry.total, 0);
+
+        const labels = topBreeds.map((entry) => entry.label);
+        const values = topBreeds.map((entry) => entry.total);
+        if (otherTotal > 0) {
+            labels.push('Other Breeds');
+            values.push(otherTotal);
+        }
+
+        return {
+            labels,
+            datasets: [{
+                data: values,
+                backgroundColor: labels.map((_, idx) => piePalette[idx % piePalette.length]),
+                borderColor: '#ffffff',
+                borderWidth: 2,
+            }],
+        };
+    };
+
+    const renderVaccinationBreedChart = () => {
+        const mode = vaccinationBreedViewFilter.value;
+        const selectedYear = Number(vaccinationBreedYearFilter.value);
+        const selectedMonth = Number(vaccinationBreedMonthFilter.value);
+        const selectedType = vaccinationBreedTypeFilter.value;
+
+        vaccinationBreedMonthFilter.style.display = mode === 'month' ? 'inline-flex' : 'none';
+
+        const data = buildVaccinationBreedPieData(
+            mode,
+            selectedYear,
+            selectedMonth,
+            selectedType,
+        );
+        const hasData = data.labels.length > 0;
+        vaccinationBreedEmptyState.hidden = hasData;
+
+        if (vaccinationBreedChart) {
+            vaccinationBreedChart.destroy();
+        }
+
+        vaccinationBreedChart = new Chart(vaccinationBreedCanvas, {
+            type: 'pie',
+            data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    },
+                },
+            },
+        });
+    };
+
+    vaccinationBreedYearFilter.addEventListener('change', renderVaccinationBreedChart);
+    vaccinationBreedViewFilter.addEventListener('change', renderVaccinationBreedChart);
+    vaccinationBreedMonthFilter.addEventListener('change', renderVaccinationBreedChart);
+    vaccinationBreedTypeFilter.addEventListener('change', renderVaccinationBreedChart);
+    renderVaccinationBreedChart();
+
+    const adoptionClaimTrendYearFilter = document.getElementById('adoptionClaimTrendYearFilter');
+    const adoptionClaimTrendViewFilter = document.getElementById('adoptionClaimTrendViewFilter');
+    const adoptionClaimTrendMonthFilter = document.getElementById('adoptionClaimTrendMonthFilter');
+    const adoptionClaimTrendEmptyState = document.getElementById('adoptionClaimTrendEmptyState');
+    const adoptionClaimTrendCanvas = document.getElementById('adoptionClaimTrendChart');
+    const adoptionClaimRows = adoptionClaimTrendData.rows || [];
+    const adoptionClaimYears = (adoptionClaimTrendData.years || []).slice().sort((a, b) => a - b);
+    let adoptionClaimTrendChart = null;
+
+    const resolveAdoptionClaimDefaultYear = () => {
+        const nowYear = new Date().getFullYear();
+        if (adoptionClaimYears.includes(nowYear)) return nowYear;
+        return adoptionClaimYears.length ? adoptionClaimYears[adoptionClaimYears.length - 1] : nowYear;
+    };
+
+    const selectedAdoptionClaimYearDefault = resolveAdoptionClaimDefaultYear();
+    if (!adoptionClaimYears.length) {
+        adoptionClaimYears.push(selectedAdoptionClaimYearDefault);
+    }
+
+    adoptionClaimYears.forEach((year) => {
+        const option = document.createElement('option');
+        option.value = String(year);
+        option.textContent = String(year);
+        adoptionClaimTrendYearFilter.appendChild(option);
+    });
+    adoptionClaimTrendYearFilter.value = String(selectedAdoptionClaimYearDefault);
+    adoptionClaimTrendMonthFilter.value = String(currentMonth);
+
+    const buildAdoptionClaimTrendSeries = (mode, year, month) => {
+        const labels = mode === 'year'
+            ? monthLabels
+            : Array.from(
+                { length: new Date(year, month, 0).getDate() },
+                (_, idx) => String(idx + 1),
+            );
+
+        const adoptedData = Array(labels.length).fill(0);
+        const claimedData = Array(labels.length).fill(0);
+
+        adoptionClaimRows.forEach((row) => {
+            const eventDate = new Date(`${row.date}T00:00:00`);
+            if (Number.isNaN(eventDate.getTime())) return;
+            if (eventDate.getFullYear() !== year) return;
+            if (mode === 'month' && (eventDate.getMonth() + 1) !== month) return;
+
+            const bucketIdx = mode === 'year' ? eventDate.getMonth() : eventDate.getDate() - 1;
+            const rowTotal = Number(row.total) || 0;
+            if (row.status === 'adopted') {
+                adoptedData[bucketIdx] += rowTotal;
+                return;
+            }
+            claimedData[bucketIdx] += rowTotal;
+        });
+
+        return {
+            labels,
+            datasets: [
+                {
+                    label: 'Adopted',
+                    data: adoptedData,
+                    borderColor: '#be123c',
+                    backgroundColor: '#be123c',
+                    tension: 0.25,
+                    fill: false,
+                },
+                {
+                    label: 'Claimed',
+                    data: claimedData,
+                    borderColor: '#0f766e',
+                    backgroundColor: '#0f766e',
+                    tension: 0.25,
+                    fill: false,
+                }
+            ],
+        };
+    };
+
+    const renderAdoptionClaimTrendChart = () => {
+        const mode = adoptionClaimTrendViewFilter.value;
+        const selectedYear = Number(adoptionClaimTrendYearFilter.value);
+        const selectedMonth = Number(adoptionClaimTrendMonthFilter.value);
+
+        adoptionClaimTrendMonthFilter.style.display = mode === 'month' ? 'inline-flex' : 'none';
+
+        const data = buildAdoptionClaimTrendSeries(mode, selectedYear, selectedMonth);
+        const hasData = data.datasets.some((dataset) => dataset.data.some((value) => value > 0));
+        adoptionClaimTrendEmptyState.hidden = hasData;
+
+        if (adoptionClaimTrendChart) {
+            adoptionClaimTrendChart.destroy();
+        }
+
+        adoptionClaimTrendChart = new Chart(adoptionClaimTrendCanvas, {
+            type: 'line',
+            data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: { mode: 'index', intersect: false },
+                },
+                interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 },
+                    }
+                }
+            }
+        });
+    };
+
+    adoptionClaimTrendYearFilter.addEventListener('change', renderAdoptionClaimTrendChart);
+    adoptionClaimTrendViewFilter.addEventListener('change', renderAdoptionClaimTrendChart);
+    adoptionClaimTrendMonthFilter.addEventListener('change', renderAdoptionClaimTrendChart);
+    renderAdoptionClaimTrendChart();
 
     const rescueTrendYearFilter = document.getElementById('rescueTrendYearFilter');
     const rescueTrendViewFilter = document.getElementById('rescueTrendViewFilter');
@@ -181,10 +500,8 @@
     const rescueTrendEmptyState = document.getElementById('rescueTrendEmptyState');
     const rescueTrendCanvas = document.getElementById('rescueBarangayTrendChart');
 
-    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const linePalette = ['#2563eb', '#dc2626', '#16a34a', '#7c3aed', '#ea580c', '#0891b2', '#be123c', '#4f46e5', '#0f766e', '#9333ea'];
     const rescueEvents = rescueBarangayTrendData.events || [];
-    const currentMonth = new Date().getMonth() + 1;
     const years = (rescueBarangayTrendData.years || []).slice().sort((a, b) => a - b);
     let rescueTrendChart = null;
 

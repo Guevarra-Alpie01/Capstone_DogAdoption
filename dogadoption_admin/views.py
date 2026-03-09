@@ -69,12 +69,85 @@ from user.notification_utils import (
     remember_request_reviewed_at,
 )
 
+CAT_BREED_KEYWORDS = {
+    "abyssinian",
+    "american curl",
+    "american shorthair",
+    "balinese",
+    "bengal",
+    "birman",
+    "bombay",
+    "british shorthair",
+    "burmese",
+    "chartreux",
+    "cornish rex",
+    "devon rex",
+    "domestic longhair",
+    "domestic shorthair",
+    "egyptian mau",
+    "exotic shorthair",
+    "feline",
+    "himalayan",
+    "maine coon",
+    "manx",
+    "munchkin",
+    "norwegian forest",
+    "ocicat",
+    "oriental shorthair",
+    "persian",
+    "puspin",
+    "ragdoll",
+    "russian blue",
+    "savannah",
+    "scottish fold",
+    "selkirk rex",
+    "siamese",
+    "siberian",
+    "singapura",
+    "snowshoe",
+    "sphynx",
+    "tonkinese",
+    "turkish angora",
+    "turkish van",
+}
+
+
 def _clean_barangay(value):
     return " ".join((value or "").split()).strip()
 
 
 def _normalize_person_name(value):
     return " ".join((value or "").split()).strip().casefold()
+
+
+def _clean_breed(value):
+    return " ".join((value or "").split()).strip()
+
+
+def _normalize_breed_key(value):
+    return re.sub(r"[^a-z0-9]+", " ", _clean_breed(value).casefold()).strip()
+
+
+def _format_breed_label(value):
+    cleaned = _clean_breed(value)
+    if not cleaned:
+        return ""
+    if cleaned == cleaned.lower() or cleaned == cleaned.upper():
+        return cleaned.title()
+    return cleaned
+
+
+def _exclude_breed_from_chart(value):
+    return _normalize_breed_key(value) == "mongril"
+
+
+def _classify_breed_type(value):
+    breed_key = _normalize_breed_key(value)
+    if not breed_key:
+        return "dog"
+    if any(keyword in breed_key for keyword in CAT_BREED_KEYWORDS):
+        return "cat"
+    return "dog"
 
 
 def _owner_initials(name):
@@ -1720,6 +1793,75 @@ def analytics_dashboard(request):
         capture_status_totals.get(key, 0) for key, _ in DogCaptureRequest.STATUS_CHOICES
     ]
 
+    adoption_claim_trend_rows = []
+    adoption_claim_years = set()
+    adoption_claim_trends = (
+        Post.objects.filter(status__in=["adopted", "reunited"])
+        .annotate(activity_date=TruncDate("created_at", tzinfo=timezone.get_current_timezone()))
+        .values("status", "activity_date")
+        .annotate(total=Count("id"))
+        .order_by("activity_date", "status")
+    )
+    for row in adoption_claim_trends:
+        activity_date = row["activity_date"]
+        if not activity_date:
+            continue
+
+        adoption_claim_trend_rows.append({
+            "status": "claimed" if row["status"] == "reunited" else "adopted",
+            "date": activity_date.isoformat(),
+            "total": row["total"],
+        })
+        adoption_claim_years.add(activity_date.year)
+
+    adoption_claim_trend_chart = {
+        "rows": adoption_claim_trend_rows,
+        "years": sorted(adoption_claim_years),
+    }
+
+    vaccination_breed_counts = defaultdict(int)
+    vaccination_breed_labels = {}
+    vaccination_breed_years = set()
+    vaccination_breed_trends = (
+        VaccinationRecord.objects.exclude(registration__isnull=True)
+        .exclude(registration__breed__isnull=True)
+        .exclude(registration__breed__exact="")
+        .values("date", "registration__breed")
+        .annotate(total=Count("registration_id", distinct=True))
+        .order_by("date", "registration__breed")
+    )
+    for row in vaccination_breed_trends:
+        vaccination_date = row["date"]
+        breed_raw = row["registration__breed"]
+        breed_key = _normalize_breed_key(breed_raw)
+        if not vaccination_date or not breed_key:
+            continue
+        if _exclude_breed_from_chart(breed_raw):
+            continue
+
+        breed_type = _classify_breed_type(breed_raw)
+        label_key = (breed_key, breed_type)
+        vaccination_breed_labels.setdefault(label_key, _format_breed_label(breed_raw))
+        vaccination_breed_counts[(vaccination_date, breed_key, breed_type)] += row["total"]
+        vaccination_breed_years.add(vaccination_date.year)
+
+    vaccination_breed_rows = []
+    for (vaccination_date, breed_key, breed_type), total in sorted(
+        vaccination_breed_counts.items(),
+        key=lambda item: (item[0][0], item[0][1], item[0][2]),
+    ):
+        vaccination_breed_rows.append({
+            "date": vaccination_date.isoformat(),
+            "breed": vaccination_breed_labels[(breed_key, breed_type)],
+            "animal_type": breed_type,
+            "total": total,
+        })
+
+    vaccination_breed_chart = {
+        "rows": vaccination_breed_rows,
+        "years": sorted(vaccination_breed_years),
+    }
+
     rescue_events = []
     rescue_years = set()
     for row in (
@@ -1818,6 +1960,8 @@ def analytics_dashboard(request):
             "labels": capture_status_labels,
             "data": capture_status_data,
         },
+        "vaccination_breed_chart": vaccination_breed_chart,
+        "adoption_claim_trend_chart": adoption_claim_trend_chart,
         "rescue_barangay_trend_chart": rescue_barangay_trend_chart,
         "vaccination_barangay_chart": vaccination_barangay_chart,
         "barangay_chart": barangay_chart,

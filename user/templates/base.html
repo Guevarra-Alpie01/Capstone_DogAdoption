@@ -77,7 +77,7 @@
 <body>
 
 <!-- ================= TOP NAVBAR ================= -->
-<nav class="navbar navbar-expand-lg fixed-top">
+<nav class="navbar navbar-expand-lg fixed-top app-topbar">
     <div class="container-fluid">
 
         {% if user.is_authenticated %}
@@ -217,31 +217,31 @@
 {% endif %}
 
 <!-- ================= MOBILE BOTTOM NAV ================= -->
-<nav class="navbar fixed-bottom d-lg-none border-top bg-white">
+<nav class="navbar fixed-bottom d-lg-none border-top bg-white app-bottom-nav">
     <div class="container-fluid justify-content-around">
 
-        <a href="{% url 'user:user_home' %}" class="nav-link text-center p-0 bottom-nav-link">
+        <a href="{% url 'user:user_home' %}" class="nav-link text-center p-0 bottom-nav-link {% if request.resolver_match.url_name == 'user_home' %}is-active{% endif %}">
             <i class="bi bi-house-door-fill bottom-nav-icon"></i><br>
             <small class="bottom-nav-label">Home</small>
         </a>
 
         {% if user.is_authenticated %}
-            <a href="{% url 'user:dog_capture_request' %}" class="nav-link text-center p-0 bottom-nav-link">
+            <a href="{% url 'user:dog_capture_request' %}" class="nav-link text-center p-0 bottom-nav-link {% if request.resolver_match.url_name == 'dog_capture_request' or request.resolver_match.url_name == 'edit_dog_capture_request' or request.resolver_match.url_name == 'delete_dog_capture_request' %}is-active{% endif %}">
                 <i class="bi bi-file-earmark-plus-fill bottom-nav-icon"></i><br>
                 <small class="bottom-nav-label">Request</small>
             </a>
 
-            <a href="{% url 'user:my_claims' %}" class="nav-link text-center p-0 bottom-nav-link">
+            <a href="{% url 'user:my_claims' %}" class="nav-link text-center p-0 bottom-nav-link {% if request.resolver_match.url_name == 'my_claims' or request.resolver_match.url_name == 'claim_confirm' %}is-active{% endif %}">
                 <i class="bi bi-patch-check-fill bottom-nav-icon"></i><br>
                 <small class="bottom-nav-label">Claims</small>
             </a>
 
-            <a href="{% url 'user:announcement_list' %}" class="nav-link text-center p-0 bottom-nav-link">
+            <a href="{% url 'user:announcement_list' %}" class="nav-link text-center p-0 bottom-nav-link {% if request.resolver_match.url_name == 'announcement_list' or request.resolver_match.url_name == 'announcement_detail' or request.resolver_match.url_name == 'announcement_share_preview' %}is-active{% endif %}">
                 <i class="bi bi-megaphone-fill bottom-nav-icon"></i><br>
                 <small class="bottom-nav-label">Alerts</small>
             </a>
 
-            <a href="{% url 'user:adopt_list' %}" class="nav-link text-center p-0 bottom-nav-link">
+            <a href="{% url 'user:adopt_list' %}" class="nav-link text-center p-0 bottom-nav-link {% if request.resolver_match.url_name == 'adopt_list' or request.resolver_match.url_name == 'adopt_confirm' or request.resolver_match.url_name == 'adopt_status' or request.resolver_match.url_name == 'adopt_user_post' or request.resolver_match.url_name == 'user_adoption_requests' or request.resolver_match.url_name == 'user_adoption_request_action' %}is-active{% endif %}">
                 <i class="bi bi-heart-fill bottom-nav-icon"></i><br>
                 <small class="bottom-nav-label">Adopt</small>
             </a>

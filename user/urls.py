@@ -15,6 +15,8 @@ urlpatterns = [
     path('signup/complete/', views.signup_complete, name="signup_complete"),
     path('signup/save-face/', views.save_face, name="save_face"),
     path("profile/edit/", views.edit_profile, name="edit_profile"),
+    path("profile/posts/adoption/<int:post_id>/delete/", views.delete_user_adoption_post, name="delete_user_adoption_post"),
+    path("profile/posts/missing/<int:post_id>/delete/", views.delete_missing_dog_post, name="delete_missing_dog_post"),
     
     #navigation links/ home  urls
     path('',views.user_home, name="user_home"),

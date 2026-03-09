@@ -703,6 +703,21 @@
         return `${y}-${m}-${d}`;
     }
 
+    function getBootstrapModal(element) {
+        if (!element || !window.bootstrap || !window.bootstrap.Modal) {
+            return null;
+        }
+        if (typeof window.bootstrap.Modal.getOrCreateInstance !== "function") {
+            return null;
+        }
+        try {
+            return window.bootstrap.Modal.getOrCreateInstance(element);
+        } catch (e) {
+            console.error("Bootstrap modal error:", e);
+            return null;
+        }
+    }
+
     function initAppointmentCalendar() {
         const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         const monthLabel = document.getElementById("month_label");
@@ -850,19 +865,21 @@
                     return;
                 }
 
-                if (publishConfirmModalEl && window.bootstrap) {
+                const modal = getBootstrapModal(publishConfirmModalEl);
+                if (modal) {
                     e.preventDefault();
-                    const modal = bootstrap.Modal.getOrCreateInstance(publishConfirmModalEl);
                     modal.show();
                 }
             });
         }
 
-        if (form && publishConfirmModalEl && publishConfirmSubmitBtn && window.bootstrap) {
+        if (form && publishConfirmModalEl && publishConfirmSubmitBtn) {
             publishConfirmSubmitBtn.addEventListener("click", () => {
                 publishConfirmed = true;
-                const modal = bootstrap.Modal.getOrCreateInstance(publishConfirmModalEl);
-                modal.hide();
+                const modal = getBootstrapModal(publishConfirmModalEl);
+                if (modal) {
+                    modal.hide();
+                }
                 if (typeof form.requestSubmit === "function") {
                     form.requestSubmit();
                 } else {
@@ -883,19 +900,21 @@
                 if (appointmentConfirmed) {
                     return;
                 }
-                if (appointmentConfirmModalEl && window.bootstrap) {
+                const modal = getBootstrapModal(appointmentConfirmModalEl);
+                if (modal) {
                     e.preventDefault();
-                    const modal = bootstrap.Modal.getOrCreateInstance(appointmentConfirmModalEl);
                     modal.show();
                 }
             });
         }
 
-        if (appointmentFormEl && appointmentConfirmModalEl && appointmentConfirmSubmitBtn && window.bootstrap) {
+        if (appointmentFormEl && appointmentConfirmModalEl && appointmentConfirmSubmitBtn) {
             appointmentConfirmSubmitBtn.addEventListener("click", () => {
                 appointmentConfirmed = true;
-                const modal = bootstrap.Modal.getOrCreateInstance(appointmentConfirmModalEl);
-                modal.hide();
+                const modal = getBootstrapModal(appointmentConfirmModalEl);
+                if (modal) {
+                    modal.hide();
+                }
                 if (typeof appointmentFormEl.requestSubmit === "function") {
                     appointmentFormEl.requestSubmit();
                 } else {
@@ -911,14 +930,18 @@
             });
         }
 
-        if (createPostModalEl && shouldOpenCreateModal && window.bootstrap) {
-            const modal = bootstrap.Modal.getOrCreateInstance(createPostModalEl);
-            modal.show();
+        if (createPostModalEl && shouldOpenCreateModal) {
+            const modal = getBootstrapModal(createPostModalEl);
+            if (modal) {
+                modal.show();
+            }
         }
 
-        if (appointmentModalEl && shouldOpenAppointmentModal && window.bootstrap) {
-            const modal = bootstrap.Modal.getOrCreateInstance(appointmentModalEl);
-            modal.show();
+        if (appointmentModalEl && shouldOpenAppointmentModal) {
+            const modal = getBootstrapModal(appointmentModalEl);
+            if (modal) {
+                modal.show();
+            }
         }
 
         const confirmModalEl = document.getElementById("requestConfirmModal");
@@ -927,8 +950,11 @@
         const confirmSubmitBtn = document.getElementById("requestConfirmSubmit");
         let pendingActionForm = null;
 
-        if (confirmModalEl && confirmTitleEl && confirmBodyEl && confirmSubmitBtn && window.bootstrap) {
-            const confirmModal = bootstrap.Modal.getOrCreateInstance(confirmModalEl);
+        if (confirmModalEl && confirmTitleEl && confirmBodyEl && confirmSubmitBtn) {
+            const confirmModal = getBootstrapModal(confirmModalEl);
+            if (!confirmModal) {
+                return;
+            }
 
             document.querySelectorAll(".js-confirm-action").forEach((btn) => {
                 btn.addEventListener("click", () => {

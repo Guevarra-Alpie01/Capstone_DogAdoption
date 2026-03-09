@@ -752,8 +752,63 @@ def edit_profile(request):
         messages.success(request, "Profile updated successfully")
         return redirect("user:edit_profile")
 
+    recent_post_limit = 6
+    adoption_posts = list(
+        UserAdoptionPost.objects.filter(owner=user)
+        .prefetch_related(
+            Prefetch(
+                "images",
+                queryset=UserAdoptionImage.objects.only("id", "post_id", "image").order_by("id"),
+            )
+        )
+        .only("id", "dog_name", "location", "status", "created_at")
+        .order_by("-created_at")[:recent_post_limit]
+    )
+    missing_posts = list(
+        MissingDogPost.objects.filter(owner=user)
+        .only("id", "dog_name", "location", "status", "created_at", "image")
+        .order_by("-created_at")[:recent_post_limit]
+    )
+
+    profile_posts = []
+
+    for post in adoption_posts:
+        post_images = list(post.images.all())
+        first_image = post_images[0] if post_images else None
+        profile_posts.append({
+            "id": post.id,
+            "post_type": "adoption",
+            "post_type_label": "Adoption",
+            "title": post.dog_name,
+            "location": post.location,
+            "status_key": post.status,
+            "status_label": post.get_status_display(),
+            "posted_label": _format_posted_label(post.created_at),
+            "created_at": post.created_at,
+            "image_url": first_image.image.url if first_image else "",
+        })
+
+    for post in missing_posts:
+        profile_posts.append({
+            "id": post.id,
+            "post_type": "missing",
+            "post_type_label": "Missing",
+            "title": post.dog_name,
+            "location": post.location,
+            "status_key": post.status,
+            "status_label": post.get_status_display(),
+            "posted_label": _format_posted_label(post.created_at),
+            "created_at": post.created_at,
+            "image_url": post.image.url if post.image else "",
+        })
+
+    profile_posts.sort(key=lambda item: item["created_at"], reverse=True)
+    profile_posts = profile_posts[:recent_post_limit]
+
     return render(request, "edit_profile.html", {
         "profile": profile,
+        "profile_posts": profile_posts,
+        "profile_posts_limit": recent_post_limit,
     })
 
 
@@ -1151,6 +1206,26 @@ def user_adoption_request_action(request, req_id, action):
         messages.info(request, "Adoption request declined.")
 
     return redirect("user:user_adoption_requests")
+
+
+@require_POST
+@user_only
+def delete_user_adoption_post(request, post_id):
+    post = get_object_or_404(UserAdoptionPost, id=post_id, owner=request.user)
+    dog_name = post.dog_name
+    post.delete()
+    messages.success(request, f'Adoption post "{dog_name}" deleted.')
+    return redirect("user:edit_profile")
+
+
+@require_POST
+@user_only
+def delete_missing_dog_post(request, post_id):
+    post = get_object_or_404(MissingDogPost, id=post_id, owner=request.user)
+    dog_name = post.dog_name
+    post.delete()
+    messages.success(request, f'Missing dog post "{dog_name}" deleted.')
+    return redirect("user:edit_profile")
 
 
 

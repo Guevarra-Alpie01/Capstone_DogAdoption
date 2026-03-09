@@ -212,7 +212,7 @@
 
     .profile-content-grid {
         display: grid;
-        grid-template-columns: 290px minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
         gap: 18px;
         padding: 22px;
         background: #f5f6f8;
@@ -271,9 +271,187 @@
         word-break: break-word;
     }
 
-    .profile-note {
-        padding: 0 18px 18px;
+    .profile-panel-header.is-split {
+        justify-content: space-between;
+    }
+
+    .profile-panel-caption {
+        font-size: 0.78rem;
+        font-weight: 700;
         color: #6b7280;
+    }
+
+    .profile-posts-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+    }
+
+    .profile-post-card {
+        display: grid;
+        grid-template-columns: 88px minmax(0, 1fr);
+        gap: 12px;
+        padding: 12px;
+        border: 1px solid #edf1f5;
+        border-radius: 14px;
+        background: #fbfcfd;
+    }
+
+    .profile-post-thumb {
+        width: 88px;
+        height: 88px;
+        border-radius: 12px;
+        overflow: hidden;
+        background: linear-gradient(135deg, #d8e7f7 0%, #b7d3c0 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #4b5563;
+        font-size: 1.4rem;
+    }
+
+    .profile-post-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .profile-post-copy {
+        min-width: 0;
+    }
+
+    .profile-post-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 10px;
+    }
+
+    .profile-post-delete-form {
+        margin: 0;
+    }
+
+    .profile-post-delete-btn {
+        border: 1px solid #fecaca;
+        background: #fff1f2;
+        color: #b91c1c;
+        border-radius: 10px;
+        padding: 7px 11px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .profile-post-delete-btn:hover,
+    .profile-post-delete-btn:focus {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .profile-post-topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 6px;
+        flex-wrap: wrap;
+    }
+
+    .profile-post-type {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.73rem;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+    }
+
+    .profile-post-type.type-adoption {
+        background: #e6f4ea;
+        color: #1f7a3a;
+    }
+
+    .profile-post-type.type-missing {
+        background: #fff1f2;
+        color: #c2410c;
+    }
+
+    .profile-post-time {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #6b7280;
+    }
+
+    .profile-post-title {
+        margin: 0;
+        color: #1f2937;
+        font-size: 1rem;
+        font-weight: 800;
+        line-height: 1.25;
+    }
+
+    .profile-post-location {
+        margin: 6px 0 10px;
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+
+    .profile-post-status {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 10px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+    }
+
+    .profile-post-status.status-available {
+        background: #e6f4ea;
+        color: #1f7a3a;
+    }
+
+    .profile-post-status.status-adopted {
+        background: #e0ecff;
+        color: #2563eb;
+    }
+
+    .profile-post-status.status-missing {
+        background: #fff4d6;
+        color: #b45309;
+    }
+
+    .profile-post-status.status-found {
+        background: #ede9fe;
+        color: #6d28d9;
+    }
+
+    .profile-post-empty {
+        padding: 30px 18px 22px;
+        text-align: center;
+        color: #6b7280;
+    }
+
+    .profile-post-empty i {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 52px;
+        margin-bottom: 10px;
+        border-radius: 50%;
+        background: #eef2f7;
+        color: #4b5563;
+        font-size: 1.25rem;
+    }
+
+    .profile-post-empty p {
+        margin: 0;
         font-size: 0.92rem;
     }
 
@@ -450,6 +628,15 @@
             padding: 14px;
         }
 
+        .profile-post-card {
+            grid-template-columns: 72px minmax(0, 1fr);
+        }
+
+        .profile-post-thumb {
+            width: 72px;
+            height: 72px;
+        }
+
         .profile-form-grid {
             grid-template-columns: 1fr;
         }
@@ -504,6 +691,15 @@
             font-size: 0.9rem;
             white-space: nowrap;
         }
+
+        .profile-post-card {
+            grid-template-columns: 1fr;
+        }
+
+        .profile-post-thumb {
+            width: 100%;
+            height: 168px;
+        }
     }
 </style>
 
@@ -547,27 +743,6 @@
         </div>
 
         <div class="profile-content-grid">
-            <aside class="profile-panel">
-                <div class="profile-panel-header">
-                    <i class="bi bi-person-lines-fill"></i>
-                    <span>Quick Info</span>
-                </div>
-                <ul class="profile-summary-list">
-                    <li>
-                        <i class="bi bi-telephone-fill profile-info-icon"></i>
-                        <span>{{ profile.phone_number|default:"No phone number added" }}</span>
-                    </li>
-                    <li>
-                        <i class="bi bi-calendar2-week-fill profile-info-icon"></i>
-                        <span>{{ profile.age|default:"-" }} years old</span>
-                    </li>
-                    <li>
-                        <i class="bi bi-geo-alt-fill profile-info-icon"></i>
-                        <span>{{ profile.address|default:"No address added" }}</span>
-                    </li>
-                </ul>
-            </aside>
-
             <section class="profile-panel">
                 <div class="profile-panel-header">
                     <i class="bi bi-info-square-fill"></i>
@@ -601,10 +776,69 @@
                     </li>
                 </ul>
 
-                <div class="profile-note">
-                    Click <strong>Edit Profile</strong> to update your details. Click the camera icon on your photo to upload a new profile picture.
-                </div>
             </section>
+
+            <aside class="profile-panel">
+                <div class="profile-panel-header is-split">
+                    <span>
+                        <i class="bi bi-grid-1x2-fill"></i>
+                        Recent posts
+                    </span>
+                    <span class="profile-panel-caption">Latest {{ profile_posts_limit }}</span>
+                </div>
+
+                {% if profile_posts %}
+                <div class="profile-posts-list">
+                    {% for item in profile_posts %}
+                    <article class="profile-post-card">
+                        <div class="profile-post-thumb{% if not item.image_url %} is-empty{% endif %}">
+                            {% if item.image_url %}
+                            <img src="{{ item.image_url }}" alt="{{ item.title }}">
+                            {% else %}
+                            <i class="bi bi-image"></i>
+                            {% endif %}
+                        </div>
+
+                        <div class="profile-post-copy">
+                            <div class="profile-post-topline">
+                                <span class="profile-post-type type-{{ item.post_type }}">{{ item.post_type_label }}</span>
+                                <span class="profile-post-time">{{ item.posted_label }}</span>
+                            </div>
+
+                            <h3 class="profile-post-title">{{ item.title }}</h3>
+                            <p class="profile-post-location">{{ item.location|default:"No location added" }}</p>
+                            <span class="profile-post-status status-{{ item.status_key }}">{{ item.status_label }}</span>
+
+                            <div class="profile-post-actions">
+                                {% if item.post_type == "adoption" %}
+                                <form method="post" action="{% url 'user:delete_user_adoption_post' item.id %}" class="profile-post-delete-form" onsubmit="return confirm('Delete this post?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="profile-post-delete-btn">
+                                        <i class="bi bi-trash3"></i>
+                                        <span>Delete</span>
+                                    </button>
+                                </form>
+                                {% else %}
+                                <form method="post" action="{% url 'user:delete_missing_dog_post' item.id %}" class="profile-post-delete-form" onsubmit="return confirm('Delete this post?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="profile-post-delete-btn">
+                                        <i class="bi bi-trash3"></i>
+                                        <span>Delete</span>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="profile-post-empty">
+                    <i class="bi bi-card-list"></i>
+                    <p>No adoption or missing dog posts yet.</p>
+                </div>
+                {% endif %}
+            </aside>
         </div>
     </div>
 </div>

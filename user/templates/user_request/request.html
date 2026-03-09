@@ -22,14 +22,22 @@
             <div class="step-panel" data-step="1">
                 <h3>Step 1: Photo</h3>
                 <div class="capture-choice">
-                    <button type="button" class="btn-secondary" id="uploadModeBtn">Upload Photo</button>
-                    <button type="button" class="btn-secondary" id="cameraModeBtn">Take Picture</button>
+                    <button type="button" class="btn-secondary capture-action-btn" id="openPhotoModeBtn">Add Dog Photo</button>
                 </div>
 
-                <div id="uploadSection" class="media-section">
-                    <label>Upload Photo</label>
-                    <input type="file" name="images" id="imageInput" accept="image/*" multiple>
-                    <small class="upload-hint">You can select multiple photos.</small>
+                <div id="photoModeModal" class="photo-mode-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="photoModeTitle">
+                    <div class="photo-mode-sheet">
+                        <h4 id="photoModeTitle">Add Dog Photo</h4>
+                        <div class="photo-mode-actions">
+                            <button type="button" class="photo-option-btn upload" id="uploadModeBtn">Upload Photo</button>
+                            <button type="button" class="photo-option-btn camera" id="cameraModeBtn">Take Picture</button>
+                            <button type="button" class="photo-option-btn cancel" id="closePhotoModeBtn">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="uploadSection" class="upload-input-shell" aria-hidden="true">
+                    <input type="file" name="images" id="imageInput" class="photo-input-hidden" accept="image/*" multiple>
                 </div>
 
                 <div id="cameraSection" class="media-section" style="display:none;">
@@ -126,6 +134,11 @@
                         <small class="upload-hint">Upload one or more clear photos so the rabies control team can locate your exact area faster.</small>
                     </div>
                 </div>
+            </div>
+
+            <div id="photoSummaryTray" class="photo-summary-tray" aria-live="polite">
+                <p class="photo-summary-title">Selected Photos</p>
+                <div id="photoSummaryList" class="photo-summary-list"></div>
             </div>
 
             <div class="wizard-actions">
@@ -327,39 +340,153 @@ prevBtn.addEventListener('click', () => {
     if (currentStep > 1) setStep(currentStep - 1);
 });
 
-const uploadSection = document.getElementById('uploadSection');
 const cameraSection = document.getElementById('cameraSection');
+const photoModeModal = document.getElementById('photoModeModal');
+const openPhotoModeBtn = document.getElementById('openPhotoModeBtn');
+const closePhotoModeBtn = document.getElementById('closePhotoModeBtn');
 const uploadModeBtn = document.getElementById('uploadModeBtn');
 const cameraModeBtn = document.getElementById('cameraModeBtn');
 const imageInput = document.getElementById('imageInput');
+const photoSummaryTray = document.getElementById('photoSummaryTray');
+const photoSummaryList = document.getElementById('photoSummaryList');
 const capturedPreview = document.getElementById('capturedPreview');
 const capturedImageInput = document.getElementById('capturedImage');
+const canMutateFileList = typeof DataTransfer !== 'undefined';
+let selectedUploadFiles = [];
 
 function openImagePicker() {
-    if (typeof imageInput.showPicker === 'function') {
-        imageInput.showPicker();
-    } else {
-        imageInput.click();
+    try {
+        if (typeof imageInput.showPicker === 'function') {
+            imageInput.showPicker();
+            return;
+        }
+    } catch (error) {
+        // Fallback to click when showPicker is not allowed.
     }
+    imageInput.click();
 }
 
+function syncImageInputFiles() {
+    if (!canMutateFileList) {
+        if (!selectedUploadFiles.length) {
+            imageInput.value = '';
+        }
+        return;
+    }
+
+    const transfer = new DataTransfer();
+    selectedUploadFiles.forEach((file) => transfer.items.add(file));
+    imageInput.files = transfer.files;
+}
+
+function buildPhotoSummaryCard(label, src, onRemove) {
+    const card = document.createElement('div');
+    card.className = 'photo-summary-card';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'photo-summary-remove';
+    removeBtn.setAttribute('aria-label', `Remove ${label} photo`);
+    removeBtn.textContent = 'X';
+    removeBtn.addEventListener('click', onRemove);
+
+    const image = document.createElement('img');
+    image.src = src;
+    image.alt = `${label} photo preview`;
+    image.loading = 'lazy';
+
+    const tag = document.createElement('span');
+    tag.className = 'photo-summary-tag';
+    tag.textContent = label;
+
+    card.appendChild(removeBtn);
+    card.appendChild(image);
+    card.appendChild(tag);
+    return { card, image };
+}
+
+function renderPhotoSummary() {
+    if (!photoSummaryTray || !photoSummaryList) return;
+    photoSummaryList.innerHTML = '';
+
+    selectedUploadFiles.forEach((file, index) => {
+        const objectUrl = URL.createObjectURL(file);
+        const summaryCard = buildPhotoSummaryCard('Upload', objectUrl, () => {
+            if (!canMutateFileList) {
+                selectedUploadFiles = [];
+                imageInput.value = '';
+                renderPhotoSummary();
+                return;
+            }
+            selectedUploadFiles.splice(index, 1);
+            syncImageInputFiles();
+            renderPhotoSummary();
+        });
+        summaryCard.image.addEventListener('load', () => URL.revokeObjectURL(objectUrl), { once: true });
+        photoSummaryList.appendChild(summaryCard.card);
+    });
+
+    if (capturedImageInput.value.trim()) {
+        const summaryCard = buildPhotoSummaryCard('Capture', capturedImageInput.value, () => {
+            capturedImageInput.value = '';
+            capturedPreview.style.display = 'none';
+            capturedPreview.removeAttribute('src');
+            renderPhotoSummary();
+        });
+        photoSummaryList.appendChild(summaryCard.card);
+    }
+
+    photoSummaryTray.classList.toggle('is-visible', photoSummaryList.childElementCount > 0);
+}
+
+function openPhotoModeModal() {
+    if (!photoModeModal) return;
+    photoModeModal.classList.add('is-open');
+    photoModeModal.setAttribute('aria-hidden', 'false');
+}
+
+function closePhotoModeModal() {
+    if (!photoModeModal) return;
+    photoModeModal.classList.remove('is-open');
+    photoModeModal.setAttribute('aria-hidden', 'true');
+}
+
+openPhotoModeBtn?.addEventListener('click', openPhotoModeModal);
+closePhotoModeBtn?.addEventListener('click', closePhotoModeModal);
+
+photoModeModal?.addEventListener('click', (event) => {
+    if (event.target === photoModeModal) {
+        closePhotoModeModal();
+    }
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && photoModeModal?.classList.contains('is-open')) {
+        closePhotoModeModal();
+    }
+});
+
 uploadModeBtn.addEventListener('click', () => {
-    uploadSection.style.display = 'block';
     cameraSection.style.display = 'none';
     stopCamera();
+    closePhotoModeModal();
     openImagePicker();
 });
 
 cameraModeBtn.addEventListener('click', () => {
-    uploadSection.style.display = 'none';
     cameraSection.style.display = 'block';
+    closePhotoModeModal();
 });
 
 imageInput.addEventListener('change', () => {
-    if (imageInput.files.length > 0) {
+    selectedUploadFiles = Array.from(imageInput.files || []);
+    if (selectedUploadFiles.length > 0) {
         capturedImageInput.value = '';
         capturedPreview.style.display = 'none';
+        capturedPreview.removeAttribute('src');
     }
+    syncImageInputFiles();
+    renderPhotoSummary();
 });
 
 function stopCamera() {
@@ -426,7 +553,10 @@ document.getElementById('captureBtn').addEventListener('click', () => {
 
     const imageData = canvas.toDataURL('image/png');
     capturedImageInput.value = imageData;
+    selectedUploadFiles = [];
     imageInput.value = '';
+    syncImageInputFiles();
+    renderPhotoSummary();
 
     capturedPreview.src = imageData;
     capturedPreview.style.display = 'block';
@@ -701,6 +831,7 @@ function initRequestStatusFilter() {
 initRequestStatusFilter();
 applyCreateLocationMode();
 setStep(1);
+renderPhotoSummary();
 </script>
 
 {% endblock %}

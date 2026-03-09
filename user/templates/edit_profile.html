@@ -2,100 +2,682 @@
 {% load static %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
+<style>
+    .profile-page-shell {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 8px 0 24px;
+    }
 
-        <div class="card shadow-sm">
-            <div class="card-body">
+    .profile-card {
+        background: #ffffff;
+        border: 1px solid #d9dee8;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+    }
 
-                <h4 class="mb-4 text-center">Edit Profile</h4>
+    .profile-cover {
+        position: relative;
+        min-height: 300px;
+        background:
+            linear-gradient(180deg, rgba(10, 34, 61, 0.12), rgba(17, 24, 39, 0.48)),
+            {% if profile.profile_image %}
+            url('{{ profile.profile_image.url }}')
+            {% else %}
+            linear-gradient(135deg, #d9ecff 0%, #9ec4f5 38%, #6ea48c 72%, #386641 100%)
+            {% endif %};
+        background-size: cover;
+        background-position: center;
+    }
 
-                <form method="POST" enctype="multipart/form-data">
-                    {% csrf_token %}
+    .profile-cover::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 34%),
+            linear-gradient(0deg, rgba(11, 19, 43, 0.48), transparent 38%);
+    }
 
-                    <!-- Profile Image -->
-                    <div class="text-center mb-4">
-                        <img src="{{ profile.profile_image.url }}"
-                             class="rounded-circle mb-2"
-                             width="120" height="120"
-                             style="object-fit: cover;">
-                        <div>
-                            <input type="file"
-                                   name="profile_image"
-                                   class="form-control form-control-sm">
+    .profile-header-bar {
+        position: absolute;
+        inset: auto 0 0 0;
+        z-index: 1;
+        padding: 0 28px 26px;
+    }
+
+    .profile-header-grid {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 18px;
+        flex-wrap: wrap;
+    }
+
+    .profile-identity {
+        display: flex;
+        align-items: flex-end;
+        gap: 18px;
+        flex-wrap: wrap;
+    }
+
+    .profile-avatar-stack {
+        position: relative;
+        width: 164px;
+        height: 164px;
+        border-radius: 50%;
+        border: 5px solid #ffffff;
+        background: #ffffff;
+        box-shadow: 0 18px 28px rgba(15, 23, 42, 0.2);
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .profile-avatar-stack img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .profile-photo-form {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+    }
+
+    .profile-avatar-edit {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #ffffff;
+        border: 1px solid #d0d7e2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #111827;
+        box-shadow: 0 8px 16px rgba(15, 23, 42, 0.16);
+        cursor: pointer;
+    }
+
+    .profile-avatar-edit:hover {
+        background: #f8fafc;
+    }
+
+    .profile-title-block {
+        color: #ffffff;
+        padding-bottom: 10px;
+        max-width: 100%;
+    }
+
+    .profile-name-line {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 0;
+    }
+
+    .profile-name-line h1 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.05;
+    }
+
+    .profile-status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #53d769;
+        box-shadow: 0 0 0 4px rgba(83, 215, 105, 0.2);
+    }
+
+    .profile-location-tag {
+        font-size: 1rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.88);
+    }
+
+    .profile-meta-line {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        color: rgba(255, 255, 255, 0.78);
+        font-size: 0.95rem;
+    }
+
+    .profile-meta-line span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .profile-header-action {
+        padding-bottom: 18px;
+    }
+
+    .profile-edit-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.95);
+        color: #1f2937;
+        border: 1px solid rgba(203, 213, 225, 0.9);
+        font-weight: 700;
+        text-decoration: none;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+    }
+
+    .profile-edit-btn:hover {
+        color: #111827;
+        background: #ffffff;
+    }
+
+    .profile-tabs {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        border-top: 1px solid #e5e7eb;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 0 20px;
+        background: #ffffff;
+    }
+
+    .profile-tab {
+        position: relative;
+        padding: 16px 12px 15px;
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #6b7280;
+    }
+
+    .profile-tab.is-active {
+        color: #1f4a19;
+    }
+
+    .profile-tab.is-active::after {
+        content: "";
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: -1px;
+        height: 3px;
+        border-radius: 999px 999px 0 0;
+        background: #1f7a1f;
+    }
+
+    .profile-content-grid {
+        display: grid;
+        grid-template-columns: 290px minmax(0, 1fr);
+        gap: 18px;
+        padding: 22px;
+        background: #f5f6f8;
+    }
+
+    .profile-panel {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    .profile-panel-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 16px;
+        border-bottom: 1px solid #edf1f5;
+        font-size: 0.98rem;
+        font-weight: 800;
+        color: #374151;
+    }
+
+    .profile-summary-list,
+    .profile-detail-list {
+        list-style: none;
+        margin: 0;
+        padding: 14px 16px;
+    }
+
+    .profile-summary-list li,
+    .profile-detail-list li {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 0;
+        color: #4b5563;
+        font-size: 0.96rem;
+    }
+
+    .profile-summary-list li + li,
+    .profile-detail-list li + li {
+        border-top: 1px solid #f0f2f5;
+    }
+
+    .profile-info-icon {
+        width: 18px;
+        min-width: 18px;
+        text-align: center;
+        color: #6b7280;
+    }
+
+    .profile-detail-list a {
+        color: #1877f2;
+        text-decoration: none;
+        word-break: break-word;
+    }
+
+    .profile-note {
+        padding: 0 18px 18px;
+        color: #6b7280;
+        font-size: 0.92rem;
+    }
+
+    .profile-edit-modal .modal-content {
+        border: none;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+    }
+
+    .profile-edit-modal .modal-header {
+        border-bottom: 1px solid #e5e7eb;
+        padding: 16px 20px;
+    }
+
+    .profile-edit-modal .modal-title {
+        font-weight: 800;
+        color: #1f2937;
+    }
+
+    .profile-modal-form {
+        padding: 18px 20px 20px;
+    }
+
+    .profile-form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .profile-field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .profile-field.is-full {
+        grid-column: 1 / -1;
+    }
+
+    .profile-field label {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #4b5563;
+    }
+
+    .profile-field input,
+    .profile-field textarea {
+        width: 100%;
+        border: 1px solid #d6dce5;
+        border-radius: 12px;
+        padding: 12px 14px;
+        background: #f9fafb;
+        color: #111827;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+    }
+
+    .profile-field input:focus,
+    .profile-field textarea:focus {
+        outline: none;
+        border-color: #8bc34a;
+        background: #ffffff;
+        box-shadow: 0 0 0 4px rgba(139, 195, 74, 0.14);
+    }
+
+    .profile-modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding-top: 18px;
+    }
+
+    .profile-cancel-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 130px;
+        padding: 12px 16px;
+        border-radius: 12px;
+        background: #eef2f7;
+        color: #374151;
+        border: 1px solid #d6dce5;
+        font-weight: 700;
+    }
+
+    .profile-cancel-btn:hover {
+        background: #e5e7eb;
+        color: #1f2937;
+    }
+
+    .profile-save-btn {
+        min-width: 190px;
+        border: none;
+        border-radius: 12px;
+        padding: 12px 18px;
+        background: linear-gradient(180deg, #2f7d22 0%, #1f5f18 100%);
+        color: #ffffff;
+        font-weight: 800;
+        letter-spacing: 0.01em;
+        box-shadow: 0 12px 22px rgba(31, 95, 24, 0.18);
+    }
+
+    .profile-save-btn:hover,
+    .profile-save-btn:focus {
+        background: linear-gradient(180deg, #286b1d 0%, #184d12 100%);
+        color: #ffffff;
+    }
+
+    @media (max-width: 991.98px) {
+        .profile-cover {
+            min-height: 270px;
+        }
+
+        .profile-content-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 767.98px) {
+        .profile-page-shell {
+            padding-top: 0;
+        }
+
+        .profile-card {
+            border-radius: 14px;
+        }
+
+        .profile-cover {
+            min-height: 240px;
+        }
+
+        .profile-header-bar {
+            padding: 0 18px 18px;
+        }
+
+        .profile-identity {
+            align-items: flex-end;
+            gap: 10px;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .profile-avatar-stack {
+            width: 112px;
+            height: 112px;
+            border-width: 4px;
+        }
+
+        .profile-photo-form {
+            right: 6px;
+            bottom: 6px;
+        }
+
+        .profile-avatar-edit {
+            width: 34px;
+            height: 34px;
+        }
+
+        .profile-name-line h1 {
+            font-size: 1.8rem;
+        }
+
+        .profile-header-action {
+            padding-bottom: 4px;
+            margin-left: auto;
+        }
+
+        .profile-tabs {
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .profile-content-grid {
+            padding: 14px;
+        }
+
+        .profile-form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .profile-modal-footer {
+            flex-direction: column;
+        }
+
+        .profile-cancel-btn,
+        .profile-save-btn {
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        .profile-cover {
+            min-height: 210px;
+        }
+
+        .profile-header-bar {
+            padding: 0 14px 14px;
+        }
+
+        .profile-header-grid {
+            align-items: flex-end;
+            justify-content: space-between;
+            flex-wrap: nowrap;
+            gap: 12px;
+        }
+
+        .profile-avatar-stack {
+            width: 92px;
+            height: 92px;
+        }
+
+        .profile-avatar-edit {
+            width: 30px;
+            height: 30px;
+            font-size: 0.85rem;
+        }
+
+        .profile-name-line h1 {
+            font-size: 1.35rem;
+        }
+
+        .profile-title-block {
+            padding-bottom: 2px;
+        }
+
+        .profile-edit-btn {
+            padding: 9px 13px;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+    }
+</style>
+
+<div class="profile-page-shell">
+    <div class="profile-card">
+        <div class="profile-cover">
+            <div class="profile-header-bar">
+                <div class="profile-header-grid">
+                    <div class="profile-identity">
+                        <div class="profile-avatar-stack">
+                            <img src="{{ profile.profile_image.url }}" alt="{{ user.username }}">
+                            <form method="POST" enctype="multipart/form-data" class="profile-photo-form" id="profilePhotoForm">
+                                {% csrf_token %}
+                                <input type="hidden" name="edit_action" value="photo">
+                                <input id="profilePhotoInput" type="file" name="profile_image" accept="image/*" hidden>
+                                <label for="profilePhotoInput" class="profile-avatar-edit" title="Update profile photo">
+                                    <i class="bi bi-camera-fill"></i>
+                                </label>
+                            </form>
+                        </div>
+                        <div class="profile-title-block">
+                            <div class="profile-name-line">
+                                <h1>{{ user.get_full_name|default:user.username }}</h1>
+                            </div>
                         </div>
                     </div>
-
-                    <!-- Names -->
-                    <div class="row mb-3">
-                        <div class="col">
-                            <label class="form-label">First Name</label>
-                            <input type="text"
-                                   name="first_name"
-                                   class="form-control"
-                                   value="{{ user.first_name }}">
-                        </div>
-
-                        <div class="col">
-                            <label class="form-label">Last Name</label>
-                            <input type="text"
-                                   name="last_name"
-                                   class="form-control"
-                                   value="{{ user.last_name }}">
-                        </div>
+                    <div class="profile-header-action">
+                        <button type="button" class="profile-edit-btn" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+                            <i class="bi bi-pencil-square"></i>
+                            <span>Edit Profile</span>
+                        </button>
                     </div>
-
-                    <!-- Middle Initial -->
-                    <div class="mb-3">
-                        <label class="form-label">Middle Initial</label>
-                        <input type="text"
-                               name="middle_initial"
-                               maxlength="1"
-                               class="form-control"
-                               value="{{ profile.middle_initial }}">
-                    </div>
-
-                    <!-- Address -->
-                    <div class="mb-3">
-                        <label class="form-label">Address</label>
-                        <textarea name="address"
-                                  class="form-control"
-                                  rows="3">{{ profile.address }}</textarea>
-                    </div>
-
-                    <!-- Age -->
-                    <div class="mb-4">
-                        <label class="form-label">Age</label>
-                        <input type="number"
-                               name="age"
-                               class="form-control"
-                               value="{{ profile.age }}">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Phone Number</label>
-                        <input type="text"
-                               name="phone_number"
-                               class="form-control"
-                               value="{{ profile.phone_number }}">
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="form-label">Facebook Profile URL</label>
-                        <input type="url"
-                               name="facebook_url"
-                               class="form-control"
-                               value="{{ profile.facebook_url }}">
-                    </div>
-
-                    <button type="submit" class="btn btn-primary w-100">
-                        Save Changes
-                    </button>
-                </form>
-
+                </div>
             </div>
         </div>
 
+        <div class="profile-tabs">
+            <span class="profile-tab">Posts</span>
+            <span class="profile-tab is-active">About</span>
+            <span class="profile-tab">Photos</span>
+        </div>
+
+        <div class="profile-content-grid">
+            <aside class="profile-panel">
+                <div class="profile-panel-header">
+                    <i class="bi bi-person-lines-fill"></i>
+                    <span>Quick Info</span>
+                </div>
+                <ul class="profile-summary-list">
+                    <li>
+                        <i class="bi bi-telephone-fill profile-info-icon"></i>
+                        <span>{{ profile.phone_number|default:"No phone number added" }}</span>
+                    </li>
+                    <li>
+                        <i class="bi bi-calendar2-week-fill profile-info-icon"></i>
+                        <span>{{ profile.age|default:"-" }} years old</span>
+                    </li>
+                    <li>
+                        <i class="bi bi-geo-alt-fill profile-info-icon"></i>
+                        <span>{{ profile.address|default:"No address added" }}</span>
+                    </li>
+                </ul>
+            </aside>
+
+            <section class="profile-panel">
+                <div class="profile-panel-header">
+                    <i class="bi bi-info-square-fill"></i>
+                    <span>{{ user.first_name|default:user.username }} details</span>
+                </div>
+
+                <ul class="profile-detail-list">
+                    <li>
+                        <i class="bi bi-person-badge-fill profile-info-icon"></i>
+                        <span>{{ user.first_name|default:"-" }} {{ profile.middle_initial|default:"" }} {{ user.last_name|default:"" }}</span>
+                    </li>
+                    <li>
+                        <i class="bi bi-telephone-fill profile-info-icon"></i>
+                        <span>{{ profile.phone_number|default:"No phone number added" }}</span>
+                    </li>
+                    <li>
+                        <i class="bi bi-calendar2-week-fill profile-info-icon"></i>
+                        <span>{{ profile.age|default:"-" }} years old</span>
+                    </li>
+                    <li>
+                        <i class="bi bi-geo-alt-fill profile-info-icon"></i>
+                        <span>{{ profile.address|default:"No address added" }}</span>
+                    </li>
+                    <li>
+                        <i class="bi bi-facebook profile-info-icon"></i>
+                        {% if profile.facebook_url %}
+                        <a href="{{ profile.facebook_url }}" target="_blank" rel="noopener noreferrer">{{ profile.facebook_url }}</a>
+                        {% else %}
+                        <span>No Facebook profile added</span>
+                        {% endif %}
+                    </li>
+                </ul>
+
+                <div class="profile-note">
+                    Click <strong>Edit Profile</strong> to update your details. Click the camera icon on your photo to upload a new profile picture.
+                </div>
+            </section>
+        </div>
     </div>
 </div>
+
+<div class="modal fade profile-edit-modal" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editProfileModalLabel">Edit Profile Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" class="profile-modal-form">
+                {% csrf_token %}
+                <input type="hidden" name="edit_action" value="details">
+
+                <div class="profile-form-grid">
+                    <div class="profile-field">
+                        <label for="firstNameInput">First Name</label>
+                        <input id="firstNameInput" type="text" name="first_name" value="{{ user.first_name }}">
+                    </div>
+
+                    <div class="profile-field">
+                        <label for="lastNameInput">Last Name</label>
+                        <input id="lastNameInput" type="text" name="last_name" value="{{ user.last_name }}">
+                    </div>
+
+                    <div class="profile-field">
+                        <label for="middleInitialInput">Middle Initial</label>
+                        <input id="middleInitialInput" type="text" name="middle_initial" maxlength="1" value="{{ profile.middle_initial }}">
+                    </div>
+
+                    <div class="profile-field">
+                        <label for="ageInput">Age</label>
+                        <input id="ageInput" type="number" name="age" value="{{ profile.age }}">
+                    </div>
+
+                    <div class="profile-field">
+                        <label for="phoneNumberInput">Phone Number</label>
+                        <input id="phoneNumberInput" type="text" name="phone_number" value="{{ profile.phone_number }}">
+                    </div>
+
+                    <div class="profile-field">
+                        <label for="facebookUrlInput">Facebook Profile URL</label>
+                        <input id="facebookUrlInput" type="url" name="facebook_url" value="{{ profile.facebook_url }}">
+                    </div>
+
+                    <div class="profile-field is-full">
+                        <label for="addressInput">Address</label>
+                        <textarea id="addressInput" name="address" rows="3">{{ profile.address }}</textarea>
+                    </div>
+                </div>
+
+                <div class="profile-modal-footer">
+                    <button type="button" class="profile-cancel-btn" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="profile-save-btn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const photoInput = document.getElementById("profilePhotoInput");
+        const photoForm = document.getElementById("profilePhotoForm");
+
+        if (photoInput && photoForm) {
+            photoInput.addEventListener("change", function () {
+                if (photoInput.files && photoInput.files.length > 0) {
+                    photoForm.submit();
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}

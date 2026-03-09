@@ -551,19 +551,25 @@ def edit_profile(request):
     )
 
     if request.method == "POST":
-        # User fields
+        edit_action = request.POST.get("edit_action", "details")
+
+        if edit_action == "photo":
+            if request.FILES.get("profile_image"):
+                profile.profile_image = request.FILES["profile_image"]
+                profile.save(update_fields=["profile_image"])
+                messages.success(request, "Profile photo updated successfully")
+            else:
+                messages.error(request, "Please choose a profile photo first.")
+            return redirect("user:edit_profile")
+
         user.first_name = request.POST.get("first_name", "").strip()
         user.last_name = request.POST.get("last_name", "").strip()
 
-        # Profile fields
         profile.middle_initial = request.POST.get("middle_initial", "").strip()
         profile.address = request.POST.get("address", "").strip()
         profile.age = request.POST.get("age") or profile.age
         profile.phone_number = request.POST.get("phone_number", "").strip()
         profile.facebook_url = request.POST.get("facebook_url", "").strip()
-
-        if request.FILES.get("profile_image"):
-            profile.profile_image = request.FILES["profile_image"]
 
         user.save()
         profile.save()
@@ -572,7 +578,7 @@ def edit_profile(request):
         return redirect("user:edit_profile")
 
     return render(request, "edit_profile.html", {
-        "profile": profile
+        "profile": profile,
     })
 
 

@@ -195,6 +195,7 @@ def _handle_user_post_creation_submission(request, selected_type):
             post.save()
             messages.success(request, "Missing dog post created successfully.")
             return True, adoption_form, missing_form
+        messages.error(request, "Missing dog post was not saved. Check the required fields and try again.")
         return False, adoption_form, missing_form
 
     adoption_form = UserAdoptionPostForm(request.POST, request.FILES)
@@ -206,6 +207,7 @@ def _handle_user_post_creation_submission(request, selected_type):
         messages.success(request, "Adoption post created successfully.")
         return True, adoption_form, missing_form
 
+    messages.error(request, "Adoption post was not saved. Check the required fields and try again.")
     return False, adoption_form, missing_form
 
 
@@ -315,6 +317,15 @@ def _feed_cache_key(prefix, query, feed_token=""):
 
 def _normalized_feed_token(raw_token):
     return (raw_token or "").strip()[:64]
+
+
+def _fresh_feed_token():
+    refresh_seed = f"{timezone.now().timestamp()}:{random.random()}"
+    return hashlib.md5(refresh_seed.encode("utf-8")).hexdigest()[:16]
+
+
+def _redirect_to_user_home_with_fresh_feed():
+    return redirect(f"{reverse('user:user_home')}?feed_token={_fresh_feed_token()}")
 
 
 def _sample_recent_ids_with_cache(cache_key, base_qs, candidate_limit, sample_limit):
@@ -856,7 +867,7 @@ def user_home(request):
             selected_type,
         )
         if created:
-            return redirect("user:user_home")
+            return _redirect_to_user_home_with_fresh_feed()
 
     query = _normalized_feed_query(request.GET.get("q"))
     if request.GET.get("refresh") == "1":
@@ -892,7 +903,7 @@ def create_post(request):
             selected_type,
         )
         if created:
-            return redirect("user:user_home")
+            return _redirect_to_user_home_with_fresh_feed()
 
     return render(request, "home/post_create.html", {
         "selected_type": selected_type,

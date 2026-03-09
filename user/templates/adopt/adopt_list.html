@@ -2,14 +2,54 @@
 {% load static %}
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/adopt_list.css' %}">
+<style>
+    .listing-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        margin: 12px 0 18px;
+    }
+
+    .listing-toolbar-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: #2f5b27;
+        color: #fff;
+        text-decoration: none;
+        font-weight: 700;
+    }
+
+    .listing-toolbar-link:hover {
+        color: #fff;
+        opacity: 0.95;
+    }
+
+    .listing-toolbar-badge {
+        min-width: 24px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.18);
+        padding: 0 8px;
+        font-size: 0.8rem;
+    }
+</style>
 <div class="subtop-nav">
-    <a href="?filter=all" class="nav-item {% if current_filter == 'all' or not current_filter %}active{% endif %}">All</a>
-    <a href="?filter=ready_claim" class="nav-item {% if current_filter == 'ready_claim' %}active{% endif %}">Ready to Claim</a>
-    <a href="?filter=ready_adopt" class="nav-item {% if current_filter == 'ready_adopt' %}active{% endif %}">Ready to Adopt</a>
-    <a href="?filter=adopted" class="nav-item {% if current_filter == 'adopted' %}active{% endif %}">Adopted</a>
-    <a href="?filter=claimed" class="nav-item {% if current_filter == 'claimed' %}active{% endif %}">Reunited</a>
+    {% for tab in nav_tabs %}
+    <a href="?filter={{ tab.key }}" class="nav-item {% if current_filter == tab.key %}active{% endif %}">{{ tab.label }}</a>
+    {% endfor %}
 </div>
-<h2>Dogs for Adoption</h2>
+<div class="listing-toolbar">
+    <a href="{{ status_page_url }}" class="listing-toolbar-link">
+        <span>{{ status_page_label }}</span>
+        <span class="listing-toolbar-badge">{{ pending_request_count }}</span>
+    </a>
+</div>
+<h2>{{ page_title }}</h2>
 {% if posts %}
     {% for item in posts %}
         {% with post=item.post %}
@@ -23,21 +63,25 @@
                 <p><strong>Location:</strong> {{ post.location }}</p>
                 <p><strong>Status:</strong> {{ post.get_status_display }}</p>
 
-                {% if item.phase == 'claim' %}
+                {% if listing_mode == 'claim' and item.phase == 'claim' %}
                     <span class="status-tag status-open">Ready to Claim</span>
                     <p>Claim time left: {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m</p>
-                {% elif item.phase == 'adopt' %}
+                {% elif listing_mode == 'adopt' and item.phase == 'adopt' %}
                     <span class="status-tag status-open">Ready to Adopt</span>
                     <p>Adoption time left: {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m</p>
+                {% elif post.status == 'reunited' %}
+                    <span class="status-tag status-closed">Reunited</span>
+                {% elif post.status == 'adopted' %}
+                    <span class="status-tag status-closed">Adopted</span>
                 {% else %}
                     <span class="status-tag status-closed">Closed</span>
                 {% endif %}
 
                 <br>
 
-                {% if item.phase == 'claim' %}
+                {% if listing_mode == 'claim' and item.phase == 'claim' %}
                     <a href="{% url 'user:claim_confirm' post.id %}" class="btn-action">Claim Dog</a>
-                {% elif item.phase == 'adopt' %}
+                {% elif listing_mode == 'adopt' and item.phase == 'adopt' %}
                     <a href="{% url 'user:adopt_confirm' post.id %}" class="btn-action">Adopt Dog</a>
                 {% endif %}
             </div>

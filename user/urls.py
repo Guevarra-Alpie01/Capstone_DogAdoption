@@ -8,6 +8,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('user-login/', views.login_view, name="login"),
     path('logout/', views.logout_view, name='logout'),
+    path('notifications/seen/', views.mark_notifications_seen, name='mark_notifications_seen'),
     path('sign-up/', views.signup_view, name="signup"),
     path('barangays/', views.barangay_list_api, name="barangay_list_api"),
     path('signup/face-auth/', views.face_auth, name="face_auth"),
@@ -28,6 +29,7 @@ urlpatterns = [
     path('request/<int:req_id>/delete/', views.delete_dog_capture_request, name='delete_dog_capture_request'),
 
     #navigation links/ claim  urls
+    path('claim-list/', views.claim_list, name='claim_list'),
     path('my-claims/', views.my_claims, name='my_claims'),
     path('claim/<int:post_id>/', views.claim_confirm, name='claim_confirm'),
 

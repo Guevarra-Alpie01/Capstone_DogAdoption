@@ -46,6 +46,10 @@ from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, Mi
 
 #FORMS.PY 
 from .forms import MissingDogPostForm, UserAdoptionPostForm
+from .notification_utils import (
+    USER_NOTIFICATIONS_SEEN_SESSION_KEY,
+    invalidate_user_notification_content,
+)
 # Decorator to allow only users
 
 
@@ -99,6 +103,14 @@ def logout_view(request):
     response = redirect("user:login")
     response.delete_cookie("admin_sessionid")
     return response
+
+
+@require_POST
+@user_only
+def mark_notifications_seen(request):
+    request.session[USER_NOTIFICATIONS_SEEN_SESSION_KEY] = timezone.now().isoformat()
+    request.session.modified = True
+    return JsonResponse({"ok": True, "unread_count": 0})
 
 
 
@@ -175,6 +187,144 @@ def _post_phase_payload(post):
     return phase, days, hours, minutes
 
 
+def _base_public_post_queryset():
+    return Post.objects.select_related(
+        "user", "user__profile"
+    ).prefetch_related("images").order_by("-created_at")
+
+
+def _filter_public_posts(posts_qs, listing_mode, filter_type):
+    now = timezone.now()
+    post_table = Post._meta.db_table
+    active_statuses = ["rescued", "under_care"]
+
+    claim_deadline_expr = RawSQL(
+        f"DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY)",
+        [],
+        output_field=DateTimeField(),
+    )
+    adopt_deadline_expr = RawSQL(
+        f"DATE_ADD(DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY), INTERVAL %s DAY)",
+        [Post.ADOPTION_DAYS],
+        output_field=DateTimeField(),
+    )
+
+    if listing_mode == "claim":
+        allowed_filters = {"all", "ready_claim", "reunited"}
+        if filter_type not in allowed_filters:
+            filter_type = "all"
+
+        if filter_type in {"all", "ready_claim"}:
+            posts_qs = posts_qs.annotate(claim_deadline_db=claim_deadline_expr)
+
+        if filter_type == "ready_claim":
+            posts_qs = posts_qs.filter(
+                status__in=active_statuses,
+                claim_deadline_db__gte=now,
+            )
+        elif filter_type == "reunited":
+            posts_qs = posts_qs.filter(status="reunited")
+        else:
+            posts_qs = posts_qs.filter(
+                Q(status="reunited")
+                | (
+                    Q(status__in=active_statuses)
+                    & Q(claim_deadline_db__gte=now)
+                )
+            )
+        return posts_qs, filter_type
+
+    allowed_filters = {"all", "ready_adopt", "adopted"}
+    if filter_type not in allowed_filters:
+        filter_type = "all"
+
+    if filter_type in {"all", "ready_adopt"}:
+        posts_qs = posts_qs.annotate(
+            claim_deadline_db=claim_deadline_expr,
+            adopt_deadline_db=adopt_deadline_expr,
+        )
+
+    if filter_type == "ready_adopt":
+        posts_qs = posts_qs.filter(
+            status__in=active_statuses,
+            claim_deadline_db__lt=now,
+            adopt_deadline_db__gte=now,
+        )
+    elif filter_type == "adopted":
+        posts_qs = posts_qs.filter(status="adopted")
+    else:
+        posts_qs = posts_qs.filter(
+            Q(status="adopted")
+            | (
+                Q(status__in=active_statuses)
+                & Q(claim_deadline_db__lt=now)
+                & Q(adopt_deadline_db__gte=now)
+            )
+        )
+
+    return posts_qs, filter_type
+
+
+def _build_public_post_listing(request, listing_mode):
+    filter_type = request.GET.get("filter", "all")
+    page_number = request.GET.get("page", 1)
+    posts_per_page = 12
+    request_type = "claim" if listing_mode == "claim" else "adopt"
+
+    posts_qs, filter_type = _filter_public_posts(
+        _base_public_post_queryset(),
+        listing_mode,
+        filter_type,
+    )
+
+    paginator = Paginator(posts_qs, posts_per_page)
+    page_obj = paginator.get_page(page_number)
+    post_items = []
+    for post in page_obj.object_list:
+        post_images = list(post.images.all())
+        main_image = post_images[0] if post_images else None
+        phase, days, hours, minutes = _post_phase_payload(post)
+        post_items.append({
+            "post": post,
+            "phase": phase,
+            "days_left": days,
+            "hours_left": hours,
+            "minutes_left": minutes,
+            "main_image_url": main_image.image.url if main_image else "",
+        })
+
+    if listing_mode == "claim":
+        nav_tabs = [
+            {"key": "all", "label": "All"},
+            {"key": "ready_claim", "label": "Ready to Claim"},
+            {"key": "reunited", "label": "Reunited"},
+        ]
+        page_title = "Dogs for Claim"
+    else:
+        nav_tabs = [
+            {"key": "all", "label": "All"},
+            {"key": "ready_adopt", "label": "Ready to Adopt"},
+            {"key": "adopted", "label": "Adopted"},
+        ]
+        page_title = "Dogs for Adoption"
+
+    return {
+        "posts": post_items,
+        "current_filter": filter_type,
+        "page_obj": page_obj,
+        "listing_mode": listing_mode,
+        "nav_tabs": nav_tabs,
+        "page_title": page_title,
+        "status_page_url": reverse(_request_history_route_name(request_type)),
+        "status_page_label": "My Claim Requests" if request_type == "claim" else "My Adoption Requests",
+        "pending_request_count": PostRequest.objects.filter(
+            user=request.user,
+            request_type=request_type,
+            status="pending",
+        ).count(),
+    }
+
+
 def _create_user_adoption_images(request, post):
     main_image = request.FILES.get("main_image")
     if main_image:
@@ -193,6 +343,7 @@ def _handle_user_post_creation_submission(request, selected_type):
             post = missing_form.save(commit=False)
             post.owner = request.user
             post.save()
+            invalidate_user_notification_content()
             messages.success(request, "Missing dog post created successfully.")
             return True, adoption_form, missing_form
         messages.error(request, "Missing dog post was not saved. Check the required fields and try again.")
@@ -204,6 +355,7 @@ def _handle_user_post_creation_submission(request, selected_type):
         post.owner = request.user
         post.save()
         _create_user_adoption_images(request, post)
+        invalidate_user_notification_content()
         messages.success(request, "Adoption post created successfully.")
         return True, adoption_form, missing_form
 
@@ -218,11 +370,32 @@ def _get_available_appointment_dates():
     ).order_by("appointment_date")
 
 
-def _render_confirm_page(request, template_name, post, available_dates):
+def _render_confirm_page(request, template_name, post, available_dates, request_type=None):
+    cancel_url = reverse(_public_listing_route_name(request_type)) if request_type else reverse("user:user_home")
+    status_url = reverse(_request_history_route_name(request_type)) if request_type else reverse("user:user_home")
     return render(request, template_name, {
         "post": post,
         "available_dates": available_dates,
+        "cancel_url": cancel_url,
+        "status_url": status_url,
     })
+
+
+def _request_history_route_name(request_type):
+    return "user:my_claims" if request_type == "claim" else "user:adopt_status"
+
+
+def _public_listing_route_name(request_type):
+    return "user:claim_list" if request_type == "claim" else "user:adopt_list"
+
+
+def _request_status_summary(items):
+    return {
+        "total": len(items),
+        "pending": sum(1 for item in items if item.status == "pending"),
+        "accepted": sum(1 for item in items if item.status == "accepted"),
+        "rejected": sum(1 for item in items if item.status == "rejected"),
+    }
 
 
 def _create_post_request_with_images(request, post, request_type, appointment_date):
@@ -250,14 +423,16 @@ def _handle_confirm_request(
 ):
     post = get_object_or_404(Post, id=post_id)
     available_dates = _get_available_appointment_dates()
+    history_url = _request_history_route_name(request_type)
+    listing_url = _public_listing_route_name(request_type)
 
     if post.status in ["reunited", "adopted"]:
         messages.warning(request, "This dog is no longer available.")
-        return redirect("user:user_home")
+        return redirect(listing_url)
 
     if not is_open_fn(post):
         messages.warning(request, not_open_message)
-        return redirect("user:user_home")
+        return redirect(listing_url)
 
     if PostRequest.objects.filter(
         user=request.user,
@@ -265,7 +440,7 @@ def _handle_confirm_request(
         request_type=request_type,
     ).exists():
         messages.info(request, duplicate_message)
-        return redirect("user:user_home")
+        return redirect(history_url)
 
     if request.method == "POST":
         appointment_date_raw = request.POST.get("appointment_date")
@@ -273,17 +448,17 @@ def _handle_confirm_request(
 
         if not appointment_date:
             messages.error(request, "Please select an appointment date.")
-            return _render_confirm_page(request, template_name, post, available_dates)
+            return _render_confirm_page(request, template_name, post, available_dates, request_type)
 
         if not available_dates.filter(appointment_date=appointment_date).exists():
             messages.error(request, "Selected appointment date is not available.")
-            return _render_confirm_page(request, template_name, post, available_dates)
+            return _render_confirm_page(request, template_name, post, available_dates, request_type)
 
         _create_post_request_with_images(request, post, request_type, appointment_date)
         messages.success(request, success_message)
-        return redirect("user:user_home")
+        return redirect(history_url)
 
-    return _render_confirm_page(request, template_name, post, available_dates)
+    return _render_confirm_page(request, template_name, post, available_dates, request_type)
 
 
 def _user_post_requests(user, request_type):
@@ -1312,72 +1487,16 @@ def claim(request):
 #ADOPTION PAGE
 @user_only
 def adopt_list(request):
-    filter_type = request.GET.get("filter", "all")
-    page_number = request.GET.get("page", 1)
-    posts_per_page = 12
-    now = timezone.now()
-    post_table = Post._meta.db_table
-
-    claim_deadline_expr = RawSQL(
-        f"DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY)",
-        [],
-        output_field=DateTimeField(),
-    )
-    adopt_deadline_expr = RawSQL(
-        f"DATE_ADD(DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY), INTERVAL %s DAY)",
-        [Post.ADOPTION_DAYS],
-        output_field=DateTimeField(),
-    )
-    active_statuses = ["rescued", "under_care"]
-
-    posts_qs = Post.objects.select_related(
-        "user", "user__profile"
-    ).prefetch_related("images").order_by("-created_at")
-
-    # Use database filters so large datasets can still paginate efficiently.
-    if filter_type == "ready_claim":
-        posts_qs = posts_qs.filter(status__in=active_statuses).annotate(
-            claim_deadline_db=claim_deadline_expr
-        ).filter(claim_deadline_db__gte=now)
-    elif filter_type == "ready_adopt":
-        posts_qs = posts_qs.filter(status__in=active_statuses).annotate(
-            claim_deadline_db=claim_deadline_expr,
-            adopt_deadline_db=adopt_deadline_expr,
-        ).filter(
-            claim_deadline_db__lt=now,
-            adopt_deadline_db__gte=now,
-        )
-    elif filter_type == "adopted":
-        posts_qs = posts_qs.filter(status="adopted")
-    elif filter_type == "claimed":
-        posts_qs = posts_qs.filter(status="reunited")
-
-    paginator = Paginator(posts_qs, posts_per_page)
-    page_obj = paginator.get_page(page_number)
-    post_items = []
-    for p in page_obj.object_list:
-        post_images = list(p.images.all())
-        main_image = post_images[0] if post_images else None
-        phase, days, hours, minutes = _post_phase_payload(p)
-        post_items.append({
-            "post": p,
-            "phase": phase,
-            "days_left": days,
-            "hours_left": hours,
-            "minutes_left": minutes,
-            "main_image_url": main_image.image.url if main_image else "",
-        })
-
-    return render(request, "adopt/adopt_list.html", {
-        "posts": post_items,
-        "current_filter": filter_type,
-        "page_obj": page_obj,
-    })
+    return render(request, "adopt/adopt_list.html", _build_public_post_listing(request, "adopt"))
 
 @user_only
 def adopt_status(request):
-    requests = _user_post_requests(request.user, "adopt")
-    return render(request, 'adopt/adopt.html', {'requests': requests})
+    requests = list(_user_post_requests(request.user, "adopt"))
+    return render(request, 'adopt/adopt.html', {
+        'requests': requests,
+        'summary': _request_status_summary(requests),
+        'browse_url': reverse("user:adopt_list"),
+    })
 
 @user_only
 def adopt_confirm(request, post_id):
@@ -1591,11 +1710,18 @@ def announcement_comment(request, post_id):
 
 @user_only
 def my_claims(request):
-    claims = _user_post_requests(request.user, "claim")
+    claims = list(_user_post_requests(request.user, "claim"))
 
     return render(request, 'claim/claim.html', {
-        'claims': claims
+        'claims': claims,
+        'summary': _request_status_summary(claims),
+        'browse_url': reverse("user:claim_list"),
     })
+
+
+@user_only
+def claim_list(request):
+    return render(request, "adopt/adopt_list.html", _build_public_post_listing(request, "claim"))
 
 
 @user_only

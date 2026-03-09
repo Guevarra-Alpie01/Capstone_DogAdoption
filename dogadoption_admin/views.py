@@ -63,6 +63,11 @@ from user.models import (
     FaceImage,
     Profile,
 )
+from user.notification_utils import (
+    invalidate_user_notification_content,
+    invalidate_user_notification_payload,
+    remember_request_reviewed_at,
+)
 
 def _clean_barangay(value):
     return " ".join((value or "").split()).strip()
@@ -767,6 +772,7 @@ def create_post(request):
             for image in request.FILES.getlist('images'):
                 PostImage.objects.create(post=post, image=image)
 
+            invalidate_user_notification_content()
             messages.success(request, "Post created successfully.", extra_tags="post_list")
             return redirect('dogadoption_admin:post_list')
     else:
@@ -810,6 +816,7 @@ def post_list(request):
                 for image in request.FILES.getlist('images'):
                     PostImage.objects.create(post=post, image=image)
 
+                invalidate_user_notification_content()
                 messages.success(request, "Post created successfully.", extra_tags="post_list")
                 return redirect(reverse('dogadoption_admin:post_list'))
 
@@ -1162,7 +1169,10 @@ def update_request(request, req_id, action):
             req.status = 'rejected'
             req.scheduled_appointment_date = None
 
+        reviewed_at = timezone.now()
         req.save(update_fields=['status', 'scheduled_appointment_date'])
+        remember_request_reviewed_at(req.id, reviewed_at)
+        invalidate_user_notification_payload(req.user_id)
 
     return _build_request_redirect_or_next(request, req)
 
@@ -1452,6 +1462,7 @@ def announcement_create_form(request, category_slug):
         )
         for image in uploaded_images[1:]:
             DogAnnouncementImage.objects.create(announcement=post, image=image)
+        invalidate_user_notification_content()
         messages.success(request, f"{category_option['label']} post published.")
 
         return redirect("dogadoption_admin:admin_announcements")
@@ -1481,6 +1492,7 @@ def announcement_edit(request, post_id):
             post.images.all().delete()
             for image in uploaded_images[1:]:
                 DogAnnouncementImage.objects.create(announcement=post, image=image)
+        invalidate_user_notification_content()
         messages.success(request, "Announcement updated.")
         return redirect("dogadoption_admin:admin_announcements")
 
@@ -1516,6 +1528,7 @@ def announcement_update_bucket(request, post_id):
 def announcement_delete(request, post_id):
     post = get_object_or_404(DogAnnouncement, id=post_id)
     post.delete()
+    invalidate_user_notification_content()
     messages.success(request, "Announcement deleted.")
 
     return redirect("dogadoption_admin:admin_announcements")

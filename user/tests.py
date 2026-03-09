@@ -4,7 +4,10 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
-from dogadoption_admin.models import DogAnnouncement
+from django.utils import timezone
+
+from dogadoption_admin.models import DogAnnouncement, Post, PostRequest
+from user.notification_utils import remember_request_reviewed_at
 from user.models import MissingDogPost, UserAdoptionPost
 
 
@@ -145,3 +148,89 @@ class UserPostCreationFlowTests(TestCase):
                 for item in follow_response.context["posts"]
             )
         )
+
+
+class UserNotificationTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.admin = User.objects.create_user(
+            username="notif_admin",
+            password="secret123",
+            is_staff=True,
+        )
+        self.user = User.objects.create_user(
+            username="notif_user",
+            password="secret123",
+        )
+        self.other_user = User.objects.create_user(
+            username="community_user",
+            password="secret123",
+        )
+        self.client.force_login(self.user)
+
+    def test_notification_context_includes_accepted_request_and_recent_posts(self):
+        rescued_post = Post.objects.create(
+            user=self.admin,
+            caption="Admin rescued a new dog",
+            location="Barangay 1",
+            status="adopted",
+        )
+        accepted_request = PostRequest.objects.create(
+            post=rescued_post,
+            user=self.user,
+            request_type="adopt",
+            status="accepted",
+        )
+        remember_request_reviewed_at(accepted_request.id, timezone.now())
+        announcement = DogAnnouncement.objects.create(
+            title="Official update",
+            content="Announcement body",
+            created_by=self.admin,
+        )
+        community_post = UserAdoptionPost.objects.create(
+            owner=self.other_user,
+            dog_name="Brownie",
+            description="Friendly dog",
+            location="Barangay 2",
+            status="available",
+        )
+
+        response = self.client.get(reverse("user:adopt_status"))
+
+        self.assertEqual(response.status_code, 200)
+        notifications = response.context["user_latest_notifications"]
+        self.assertGreaterEqual(response.context["user_unread_notifications"], 1)
+        self.assertTrue(any(item["kind"] == "accepted_request" for item in notifications))
+        self.assertTrue(any(item["kind"] == "announcement" and str(announcement.id) in item["url"] for item in notifications))
+        self.assertTrue(any(item["kind"] == "admin_post" and str(rescued_post.id) in item["url"] for item in notifications))
+        self.assertTrue(any(item["kind"] == "community_post" and community_post.owner.username in item["message"] for item in notifications))
+        self.assertEqual(accepted_request.scheduled_appointment_date, None)
+
+    def test_mark_notifications_seen_clears_unread_count(self):
+        rescued_post = Post.objects.create(
+            user=self.admin,
+            caption="Accepted request post",
+            location="Barangay 3",
+            status="reunited",
+        )
+        PostRequest.objects.create(
+            post=rescued_post,
+            user=self.user,
+            request_type="claim",
+            status="accepted",
+        )
+        accepted_request = PostRequest.objects.get(
+            post=rescued_post,
+            user=self.user,
+            request_type="claim",
+        )
+        remember_request_reviewed_at(accepted_request.id, timezone.now())
+
+        first_response = self.client.get(reverse("user:my_claims"))
+        self.assertGreater(first_response.context["user_unread_notifications"], 0)
+
+        mark_response = self.client.post(reverse("user:mark_notifications_seen"))
+        self.assertEqual(mark_response.status_code, 200)
+
+        second_response = self.client.get(reverse("user:my_claims"))
+        self.assertEqual(second_response.context["user_unread_notifications"], 0)

@@ -52,6 +52,31 @@
         flex-shrink: 0;
     }
 
+    .claims-hero-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .claims-action-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 160px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        text-decoration: none;
+        font-weight: 700;
+        background: #2f5b27;
+        color: #ffffff;
+    }
+
+    .claims-action-link:hover {
+        color: #ffffff;
+        opacity: 0.95;
+    }
+
     .claims-counter-label {
         display: block;
         font-size: 0.68rem;
@@ -72,6 +97,35 @@
     .claims-list {
         display: grid;
         gap: 14px;
+    }
+
+    .claims-summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .claims-summary-card {
+        border: 1px solid #dbe3ef;
+        border-radius: 14px;
+        background: #ffffff;
+        padding: 12px 14px;
+    }
+
+    .claims-summary-card span {
+        display: block;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #64748b;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .claims-summary-card strong {
+        font-size: 1.35rem;
+        color: #0f172a;
     }
 
     .claim-card {
@@ -251,6 +305,10 @@
         .claim-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
+
+        .claims-summary {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
     }
 
     @media (max-width: 575.98px) {
@@ -272,6 +330,10 @@
         .claim-grid {
             grid-template-columns: 1fr;
         }
+
+        .claims-summary {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 
@@ -280,11 +342,33 @@
         <div>
             <p class="claims-kicker">Claim Dashboard</p>
             <h1 class="claims-title">My Dog Claims</h1>
-            <p class="claims-subtitle">Track your submitted claims, schedule details, and uploaded proof photos.</p>
+            <p class="claims-subtitle">Pending claim requests stay here until the admin accepts or rejects them.</p>
         </div>
-        <div class="claims-counter">
-            <span class="claims-counter-label">Total Claims</span>
-            <span class="claims-counter-value">{{ claims|length }}</span>
+        <div class="claims-hero-actions">
+            <a href="{{ browse_url }}" class="claims-action-link">Browse Dogs</a>
+            <div class="claims-counter">
+                <span class="claims-counter-label">Total Claims</span>
+                <span class="claims-counter-value">{{ summary.total }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="claims-summary">
+        <div class="claims-summary-card">
+            <span>Total</span>
+            <strong>{{ summary.total }}</strong>
+        </div>
+        <div class="claims-summary-card">
+            <span>Pending</span>
+            <strong>{{ summary.pending }}</strong>
+        </div>
+        <div class="claims-summary-card">
+            <span>Accepted</span>
+            <strong>{{ summary.accepted }}</strong>
+        </div>
+        <div class="claims-summary-card">
+            <span>Rejected</span>
+            <strong>{{ summary.rejected }}</strong>
         </div>
     </div>
 

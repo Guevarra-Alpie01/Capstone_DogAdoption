@@ -120,6 +120,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'user.context_processors.user_notifications',
                 'dogadoption_admin.context_processors.admin_notifications',
             ],
         },

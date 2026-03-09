@@ -1720,41 +1720,6 @@ def analytics_dashboard(request):
         capture_status_totals.get(key, 0) for key, _ in DogCaptureRequest.STATUS_CHOICES
     ]
 
-    start_day = timezone.localdate() - timedelta(days=13)
-    trend_days = [start_day + timedelta(days=i) for i in range(14)]
-    trend_labels = [day.strftime("%b %d") for day in trend_days]
-
-    posts_per_day = {
-        row["day"]: row["total"]
-        for row in Post.objects.filter(created_at__date__gte=start_day)
-        .annotate(day=TruncDate("created_at"))
-        .values("day")
-        .annotate(total=Count("id"))
-    }
-    requests_per_day = {
-        row["day"]: row["total"]
-        for row in PostRequest.objects.filter(created_at__date__gte=start_day)
-        .annotate(day=TruncDate("created_at"))
-        .values("day")
-        .annotate(total=Count("id"))
-    }
-    captures_per_day = {
-        row["day"]: row["total"]
-        for row in DogCaptureRequest.objects.filter(created_at__date__gte=start_day)
-        .annotate(day=TruncDate("created_at"))
-        .values("day")
-        .annotate(total=Count("id"))
-    }
-
-    activity_trend_chart = {
-        "labels": trend_labels,
-        "datasets": [
-            {"label": "Rescue Posts", "data": [posts_per_day.get(day, 0) for day in trend_days]},
-            {"label": "Claim/Adopt Requests", "data": [requests_per_day.get(day, 0) for day in trend_days]},
-            {"label": "Capture Requests", "data": [captures_per_day.get(day, 0) for day in trend_days]},
-        ],
-    }
-
     rescue_events = []
     rescue_years = set()
     for row in (
@@ -1853,7 +1818,6 @@ def analytics_dashboard(request):
             "labels": capture_status_labels,
             "data": capture_status_data,
         },
-        "activity_trend_chart": activity_trend_chart,
         "rescue_barangay_trend_chart": rescue_barangay_trend_chart,
         "vaccination_barangay_chart": vaccination_barangay_chart,
         "barangay_chart": barangay_chart,

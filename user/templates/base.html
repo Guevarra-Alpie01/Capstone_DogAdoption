@@ -15,6 +15,62 @@
     <link rel="stylesheet" href="{% static 'css/auth_modal.css' %}">
     {% endif %}
     <link rel="stylesheet" href="{% static 'css/user_theme.css' %}">
+    <style>
+        .flash-toast-stack {
+            position: fixed;
+            top: 84px;
+            right: 16px;
+            z-index: 1100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: min(92vw, 420px);
+            pointer-events: none;
+        }
+        .flash-toast {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+            padding: 12px 14px;
+            color: #1e293b;
+            background: #e0f2fe;
+            pointer-events: auto;
+            opacity: 0;
+            transform: translateY(-8px);
+            animation: flash-toast-in .22s ease-out forwards;
+        }
+        .flash-toast.is-success { background: #dcfce7; color: #14532d; }
+        .flash-toast.is-error { background: #fee2e2; color: #7f1d1d; }
+        .flash-toast.is-warning { background: #fef3c7; color: #78350f; }
+        .flash-toast.is-info { background: #e0f2fe; color: #0f4c81; }
+        .flash-toast__text { line-height: 1.35; font-size: 0.95rem; }
+        .flash-toast__close {
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font-size: 1.2rem;
+            line-height: 1;
+            padding: 0;
+            opacity: .8;
+        }
+        .flash-toast__close:hover { opacity: 1; }
+        .flash-toast.is-hiding {
+            opacity: 0;
+            transform: translateY(-6px);
+            transition: opacity .2s ease, transform .2s ease;
+        }
+        @keyframes flash-toast-in {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 576px) {
+            .flash-toast-stack { top: 76px; left: 12px; right: 12px; width: auto; }
+        }
+    </style>
 </head>
 
 <body>
@@ -153,12 +209,18 @@
         <div class="content-container">
             <div class="container-fluid pt-4 pb-5 mt-4">
                 {% if messages %}
-                <div class="pt-2">
+                <div class="flash-toast-stack" id="flash-toast-stack" aria-live="polite" aria-atomic="true">
                     {% for message in messages %}
-                    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    {% with tags=message.tags|default:'' %}
+                    <div
+                        class="flash-toast {% if 'error' in tags %}is-error{% elif 'warning' in tags %}is-warning{% elif 'success' in tags %}is-success{% else %}is-info{% endif %}"
+                        data-flash-toast
+                        role="status"
+                    >
+                        <div class="flash-toast__text">{{ message }}</div>
+                        <button type="button" class="flash-toast__close" data-flash-toast-close aria-label="Close">&times;</button>
                     </div>
+                    {% endwith %}
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -317,6 +379,34 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 {% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    function hideToast(toast) {
+        if (!toast || toast.dataset.closed === "1") {
+            return;
+        }
+        toast.dataset.closed = "1";
+        toast.classList.add("is-hiding");
+        window.setTimeout(function () {
+            toast.remove();
+        }, 220);
+    }
+
+    document.querySelectorAll("[data-flash-toast]").forEach(function (toast, index) {
+        var closeBtn = toast.querySelector("[data-flash-toast-close]");
+        if (closeBtn) {
+            closeBtn.addEventListener("click", function () {
+                hideToast(toast);
+            });
+        }
+
+        window.setTimeout(function () {
+            hideToast(toast);
+        }, 4000 + (index * 250));
+    });
+});
+</script>
 
 </body>
 </html>

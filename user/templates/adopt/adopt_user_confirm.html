@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card shadow p-4">
+    <h3 class="mb-3">Confirm Adoption Request</h3>
+    <p class="mb-1"><strong>Dog:</strong> {{ post.dog_name }}</p>
+    <p class="mb-1"><strong>Posted by:</strong> {{ post.owner.get_full_name|default:post.owner.username }}</p>
+    {% if post.location %}
+        <p class="mb-3"><strong>Location:</strong> {{ post.location }}</p>
+    {% endif %}
+
+    <p class="text-muted mb-4">Send this request to the owner of the post?</p>
+
+    <form method="post" class="d-flex gap-2">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-success">Confirm Request</button>
+        <a href="{% url 'user:user_home' %}" class="btn btn-cancel-action">Cancel</a>
+    </form>
+</div>
+{% endblock %}

@@ -1,5 +1,40 @@
 {% load static %}
 <link rel="stylesheet" href="{% static 'css/admin_login.css' %}">
+<style>
+    .flash-toast-stack-login {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .flash-toast-login {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        padding: 10px 12px;
+        line-height: 1.35;
+    }
+    .flash-toast-login.is-success { background: #dcfce7; color: #14532d; }
+    .flash-toast-login.is-error { background: #fee2e2; color: #7f1d1d; }
+    .flash-toast-login.is-warning { background: #fef3c7; color: #78350f; }
+    .flash-toast-login.is-info { background: #e0f2fe; color: #0f4c81; }
+    .flash-toast-login__close {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font-size: 1.1rem;
+        line-height: 1;
+        padding: 0;
+    }
+    .flash-toast-login.is-hiding {
+        opacity: 0;
+        transform: translateY(-6px);
+        transition: opacity .2s ease, transform .2s ease;
+    }
+</style>
 
 <div class="admin-login-page">
     <div class="card admin-login-card">
@@ -8,11 +43,16 @@
             <h2>Admin Login</h2>
 
             {% if messages %}
+            <div class="flash-toast-stack-login">
                 {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }}">
-                        {{ message }}
-                    </div>
+                {% with tags=message.tags|default:'' %}
+                <div class="flash-toast-login {% if 'error' in tags %}is-error{% elif 'warning' in tags %}is-warning{% elif 'success' in tags %}is-success{% else %}is-info{% endif %}" data-flash-toast-login>
+                    <span>{{ message }}</span>
+                    <button type="button" class="flash-toast-login__close" data-flash-toast-login-close aria-label="Close">&times;</button>
+                </div>
+                {% endwith %}
                 {% endfor %}
+            </div>
             {% endif %}
 
             <form method="post">
@@ -32,3 +72,28 @@
         </div>
     </div>
 </div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    function hideToast(toast) {
+        if (!toast || toast.dataset.closed === "1") {
+            return;
+        }
+        toast.dataset.closed = "1";
+        toast.classList.add("is-hiding");
+        window.setTimeout(function () {
+            toast.remove();
+        }, 220);
+    }
+    document.querySelectorAll("[data-flash-toast-login]").forEach(function (toast, index) {
+        const closeBtn = toast.querySelector("[data-flash-toast-login-close]");
+        if (closeBtn) {
+            closeBtn.addEventListener("click", function () {
+                hideToast(toast);
+            });
+        }
+        window.setTimeout(function () {
+            hideToast(toast);
+        }, 4000 + (index * 250));
+    });
+});
+</script>

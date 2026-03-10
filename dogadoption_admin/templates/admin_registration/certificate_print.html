@@ -43,10 +43,25 @@
     <script>
     function goBackToCertificateList(event) {
         const fallbackUrl = event.currentTarget.href;
+        let hasUsableHistory = false;
 
-        if (document.referrer && document.referrer !== window.location.href) {
+        try {
+            if (window.history.length > 1 && document.referrer) {
+                const ref = new URL(document.referrer);
+                hasUsableHistory = ref.origin === window.location.origin;
+            }
+        } catch (error) {
+            hasUsableHistory = false;
+        }
+
+        if (hasUsableHistory) {
             event.preventDefault();
             window.history.back();
+            window.setTimeout(function () {
+                if (window.location.href === fallbackUrl || window.history.length <= 1) {
+                    window.location.href = fallbackUrl;
+                }
+            }, 250);
             return false;
         }
 

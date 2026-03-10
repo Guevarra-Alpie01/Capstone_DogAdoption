@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -10,7 +8,7 @@ from django.utils import timezone
 
 from dogadoption_admin.models import DogAnnouncement, Post, PostRequest
 from user.notification_utils import remember_request_reviewed_at
-from user.models import MissingDogPost, UserAdoptionPost
+from user.models import MissingDogPost, Profile, UserAdoptionPost, UserAdoptionRequest
 
 
 class AnnouncementListBucketTests(TestCase):
@@ -152,6 +150,44 @@ class UserPostCreationFlowTests(TestCase):
         )
 
 
+class UserToUserAdoptionRequestFlowTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner_user", password="secret123")
+        self.requester = User.objects.create_user(username="requester_user", password="secret123")
+        Profile.objects.create(
+            user=self.requester,
+            address="Test Address",
+            age=25,
+            phone_number="09171234567",
+            facebook_url="https://facebook.com/requester",
+        )
+        self.post = UserAdoptionPost.objects.create(
+            owner=self.owner,
+            dog_name="Buddy",
+            description="Friendly dog",
+            location="Barangay 3",
+            status="available",
+        )
+        self.client.force_login(self.requester)
+
+    def test_get_adopt_user_post_shows_confirmation_page(self):
+        response = self.client.get(reverse("user:adopt_user_post", args=[self.post.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "adopt/adopt_user_confirm.html")
+        self.assertContains(response, "Confirm Adoption Request")
+        self.assertContains(response, self.post.dog_name)
+
+    def test_post_adopt_user_post_creates_request_and_redirects_home(self):
+        response = self.client.post(reverse("user:adopt_user_post", args=[self.post.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("user:user_home"))
+        self.assertTrue(
+            UserAdoptionRequest.objects.filter(post=self.post, requester=self.requester).exists()
+        )
+
+
 class UserHomeFeedTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -226,8 +262,6 @@ class UserHomeSearchTests(TestCase):
             first_name="Pet",
             last_name="Owner",
         )
-        self.search_date = timezone.localdate() - timedelta(days=2)
-
         Post.objects.create(
             user=self.staff,
             caption="Riley",
@@ -252,7 +286,7 @@ class UserHomeSearchTests(TestCase):
             dog_name="Comet",
             description="Missing near market",
             image=self._image_file("missing-search.gif"),
-            date_lost=self.search_date,
+            date_lost=timezone.localdate(),
             time_lost="08:30",
             location="Market road",
             status="missing",
@@ -284,36 +318,13 @@ class UserHomeSearchTests(TestCase):
             )
         )
 
-    def test_role_filter_staff_excludes_normal_user_posts(self):
-        response = self.client.get(reverse("user:home_search"), {"role": "staff"})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.context["search_performed"])
-        post_types = {item["post_type"] for item in response.context["posts"]}
-        self.assertTrue(post_types)
-        self.assertTrue(post_types.issubset({"admin", "announcement"}))
-
-    def test_search_by_date_keyword_matches_missing_date(self):
-        response = self.client.get(
-            reverse("user:home_search"),
-            {"q": self.search_date.isoformat()},
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(
-            any(
-                item["post_type"] == "missing" and item["post"].id == self.missing_post.id
-                for item in response.context["posts"]
-            )
-        )
-
     def test_search_without_filters_shows_prompt_empty_state(self):
         response = self.client.get(reverse("user:home_search"))
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.context["search_performed"])
         self.assertEqual(response.context["result_count"], 0)
-        self.assertContains(response, "Enter a keyword, date, or role to begin searching.")
+        self.assertContains(response, "Enter a keyword to begin searching.")
 
 
 class UserNotificationTests(TestCase):

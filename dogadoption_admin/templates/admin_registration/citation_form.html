@@ -37,30 +37,38 @@
         <div class="form-group">
             <label>Select Owner</label>
             <div class="owner-search-row">
-                <input
-                    type="text"
-                    id="owner-search-input"
-                    class="owner-search-input"
-                    placeholder="Search by username, first name, or last name"
-                >
+                <div class="owner-search-input-wrap">
+                    <input
+                        type="text"
+                        id="owner-search-input"
+                        class="owner-search-input"
+                        placeholder="Search by username, first name, last name, or barangay"
+                    >
+                    <button type="button" class="owner-search-clear" id="owner-search-clear" aria-label="Clear search">&times;</button>
+                </div>
                 <button type="button" class="toolbar-btn owner-search-btn" id="owner-search-btn">Search</button>
-                <button type="button" class="toolbar-btn secondary owner-search-btn" id="owner-search-clear">Clear</button>
+            </div>
+            <div class="owner-suggestions" id="owner-search-suggestions" style="display:none;"></div>
+            {{ form.owner }}
+
+            <div class="owner-details-grid">
+                <div>
+                    <label for="{{ form.owner_first_name.id_for_label }}">First Name</label>
+                    {{ form.owner_first_name }}
+                    {% if form.owner_first_name.errors %}<small class="error-text">{{ form.owner_first_name.errors|striptags }}</small>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.owner_last_name.id_for_label }}">Last Name</label>
+                    {{ form.owner_last_name }}
+                    {% if form.owner_last_name.errors %}<small class="error-text">{{ form.owner_last_name.errors|striptags }}</small>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.owner_barangay.id_for_label }}">Barangay</label>
+                    {{ form.owner_barangay }}
+                    {% if form.owner_barangay.errors %}<small class="error-text">{{ form.owner_barangay.errors|striptags }}</small>{% endif %}
+                </div>
             </div>
 
-            <select name="{{ form.owner.name }}" id="{{ form.owner.id_for_label }}" class="user-search">
-                <option value="">---------</option>
-                {% for user in form.owner.field.queryset %}
-                    <option
-                        value="{{ user.pk }}"
-                        data-username="{{ user.username|lower }}"
-                        data-firstname="{{ user.first_name|lower }}"
-                        data-lastname="{{ user.last_name|lower }}"
-                        {% if form.owner.value|stringformat:"s" == user.pk|stringformat:"s" %}selected{% endif %}
-                    >
-                        {{ user.username }}{% if user.first_name or user.last_name %} - {{ user.first_name }} {{ user.last_name }}{% endif %}
-                    </option>
-                {% endfor %}
-            </select>
             <small class="helper-text owner-search-result" id="owner-search-result"></small>
             {% if form.owner.errors %}<small class="error-text">{{ form.owner.errors|striptags }}</small>{% endif %}
         </div>
@@ -200,11 +208,7 @@
                             <tr>
                                 <td>{{ row.citation.id }}</td>
                                 <td>
-                                    {% if row.citation.owner %}
-                                        {{ row.citation.owner.get_full_name|default:row.citation.owner.username }}
-                                    {% else %}
-                                        Unknown Owner
-                                    {% endif %}
+                                    {{ row.display_name }}
                                 </td>
                                 <td>{{ row.violations }}</td>
                                 <td>PHP {{ row.total_fees }}</td>
@@ -222,7 +226,27 @@
     </div>
 </div>
 
+<div class="citation-confirm-modal" id="citation-confirm-modal" aria-hidden="true">
+    <div class="citation-confirm-modal__backdrop" data-citation-confirm-close></div>
+    <div class="citation-confirm-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="citation-confirm-title">
+        <button type="button" class="citation-confirm-modal__close" data-citation-confirm-close aria-label="Close">&times;</button>
+        <div class="citation-confirm-modal__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"></circle>
+                <path d="M8 12l2.6 2.6L16 9.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        </div>
+        <h3 id="citation-confirm-title">Save Citation?</h3>
+        <p>The citation will be saved and you will be redirected to the print page.</p>
+        <div class="citation-confirm-modal__actions">
+            <button type="button" class="citation-confirm-modal__btn secondary" data-citation-confirm-close>Review</button>
+            <button type="button" class="citation-confirm-modal__btn primary" id="citation-confirm-submit">Save &amp; Print</button>
+        </div>
+    </div>
+</div>
+
 {{ form.media }}
+{{ owner_search_data|json_script:"citation-owner-data" }}
 
 <script>
 function quickPrintCitation() {
@@ -246,61 +270,216 @@ function wireOwnerSearch() {
     const input = document.getElementById('owner-search-input');
     const searchBtn = document.getElementById('owner-search-btn');
     const clearBtn = document.getElementById('owner-search-clear');
+    const suggestions = document.getElementById('owner-search-suggestions');
     const result = document.getElementById('owner-search-result');
-    const select = document.getElementById('{{ form.owner.id_for_label }}');
-    if (!input || !searchBtn || !clearBtn || !result || !select) return;
+    const ownerInput = document.getElementById('{{ form.owner.id_for_label }}');
+    const firstNameInput = document.getElementById('{{ form.owner_first_name.id_for_label }}');
+    const lastNameInput = document.getElementById('{{ form.owner_last_name.id_for_label }}');
+    const barangayInput = document.getElementById('{{ form.owner_barangay.id_for_label }}');
+    const ownersDataNode = document.getElementById('citation-owner-data');
+    if (!input || !searchBtn || !clearBtn || !suggestions || !result || !ownerInput || !firstNameInput || !lastNameInput || !barangayInput || !ownersDataNode) return;
 
-    const ownerOptions = Array.from(select.options).filter((opt) => opt.value);
+    const owners = JSON.parse(ownersDataNode.textContent || '[]');
+    let currentMatches = [];
+
+    const toggleClearBtn = () => {
+        clearBtn.style.display = input.value.trim() ? 'inline-flex' : 'none';
+    };
+
+    const hideSuggestions = () => {
+        suggestions.style.display = 'none';
+        suggestions.innerHTML = '';
+    };
+
+    const selectOwner = (owner) => {
+        ownerInput.value = owner.id || '';
+        firstNameInput.value = owner.first_name || '';
+        lastNameInput.value = owner.last_name || '';
+        barangayInput.value = owner.barangay || barangayInput.value || '';
+        input.value = [owner.username, owner.first_name, owner.last_name].filter(Boolean).join(' - ');
+        result.textContent = 'Registered user found. Fields were auto-filled.';
+        hideSuggestions();
+        toggleClearBtn();
+    };
+
+    const getMatches = (term) => {
+        const normalized = (term || '').trim().toLowerCase();
+        if (!normalized) {
+            return [];
+        }
+        return owners.filter((owner) => {
+            const haystack = [
+                owner.username || '',
+                owner.first_name || '',
+                owner.last_name || '',
+                owner.barangay || '',
+            ].join(' ').toLowerCase();
+            return haystack.includes(normalized);
+        });
+    };
+
+    const renderSuggestions = (matches) => {
+        if (!matches.length) {
+            hideSuggestions();
+            return;
+        }
+
+        const topMatches = matches.slice(0, 8);
+        suggestions.innerHTML = '';
+        topMatches.forEach((owner, idx) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'owner-suggestion-item';
+            btn.dataset.ownerIndex = String(idx);
+
+            const strong = document.createElement('strong');
+            strong.textContent = `${owner.first_name || ''} ${owner.last_name || ''}`.trim() || owner.username || 'Unknown user';
+            btn.appendChild(strong);
+
+            const span = document.createElement('span');
+            span.textContent = `@${owner.username || '-'}${owner.barangay ? ' • ' + owner.barangay : ''}`;
+            btn.appendChild(span);
+
+            suggestions.appendChild(btn);
+        });
+        suggestions.style.display = 'block';
+    };
 
     const applySearch = () => {
-        const term = (input.value || '').trim().toLowerCase();
-        let firstMatch = null;
-        let matchCount = 0;
-
-        ownerOptions.forEach((opt) => {
-            const haystack = [
-                opt.dataset.username || '',
-                opt.dataset.firstname || '',
-                opt.dataset.lastname || '',
-                opt.textContent || '',
-            ].join(' ').toLowerCase();
-
-            const matched = !term || haystack.includes(term);
-            opt.hidden = !matched;
-            if (matched) {
-                matchCount += 1;
-                if (!firstMatch) firstMatch = opt;
-            }
-        });
-
-        if (term && firstMatch) {
-            select.value = firstMatch.value;
-            select.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+        const term = (input.value || '').trim();
+        currentMatches = getMatches(term);
+        renderSuggestions(currentMatches);
 
         if (!term) {
-            result.textContent = '';
-        } else if (matchCount === 0) {
-            result.textContent = 'No matching owner found.';
-        } else {
-            result.textContent = `${matchCount} owner${matchCount === 1 ? '' : 's'} found.`;
+            ownerInput.value = '';
+            result.textContent = 'Type a name, username, or barangay to search registered users.';
+            return;
         }
+
+        if (!currentMatches.length) {
+            ownerInput.value = '';
+            result.textContent = 'No registered user found. You can fill in the fields manually.';
+            return;
+        }
+
+        selectOwner(currentMatches[0]);
     };
 
     searchBtn.addEventListener('click', applySearch);
+    input.addEventListener('input', () => {
+        toggleClearBtn();
+        ownerInput.value = '';
+        currentMatches = getMatches(input.value);
+        renderSuggestions(currentMatches);
+        if ((input.value || '').trim() && currentMatches.length) {
+            result.textContent = `${currentMatches.length} matching user${currentMatches.length === 1 ? '' : 's'}.`;
+        } else {
+            result.textContent = '';
+        }
+    });
+    input.addEventListener('focus', () => {
+        if ((input.value || '').trim()) {
+            currentMatches = getMatches(input.value);
+            renderSuggestions(currentMatches);
+        }
+    });
     input.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             event.preventDefault();
-            applySearch();
+            currentMatches = getMatches(input.value);
+            if (currentMatches.length) {
+                selectOwner(currentMatches[0]);
+            } else {
+                applySearch();
+            }
+        }
+    });
+
+    suggestions.addEventListener('click', (event) => {
+        const item = event.target.closest('.owner-suggestion-item');
+        if (!item) return;
+        const idx = Number(item.dataset.ownerIndex);
+        const owner = currentMatches[idx];
+        if (owner) {
+            selectOwner(owner);
         }
     });
 
     clearBtn.addEventListener('click', () => {
         input.value = '';
-        ownerOptions.forEach((opt) => {
-            opt.hidden = false;
-        });
+        ownerInput.value = '';
+        firstNameInput.value = '';
+        lastNameInput.value = '';
+        barangayInput.value = '';
+        hideSuggestions();
         result.textContent = '';
+        toggleClearBtn();
+        input.focus();
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('.owner-search-input-wrap') && !event.target.closest('.owner-suggestions')) {
+            hideSuggestions();
+        }
+    });
+
+    toggleClearBtn();
+}
+
+function wireCitationSaveConfirm() {
+    const form = document.querySelector('form.citation-form-card');
+    const modal = document.getElementById('citation-confirm-modal');
+    const confirmBtn = document.getElementById('citation-confirm-submit');
+    const closeTriggers = document.querySelectorAll('[data-citation-confirm-close]');
+    if (!form || !modal || !confirmBtn) return;
+
+    let allowSubmit = false;
+
+    const closeModal = () => {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+    };
+
+    const openModal = () => {
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+        confirmBtn.focus();
+    };
+
+    form.addEventListener('submit', (event) => {
+        if (allowSubmit) {
+            allowSubmit = false;
+            return;
+        }
+
+        if (!form.checkValidity()) {
+            return;
+        }
+
+        event.preventDefault();
+        openModal();
+    });
+
+    confirmBtn.addEventListener('click', () => {
+        allowSubmit = true;
+        closeModal();
+        if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+        } else {
+            form.submit();
+        }
+    });
+
+    closeTriggers.forEach((trigger) => {
+        trigger.addEventListener('click', closeModal);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+            closeModal();
+        }
     });
 }
 
@@ -311,6 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
         check.addEventListener('change', syncViolationSelectionUI);
     });
     wireOwnerSearch();
+    wireCitationSaveConfirm();
 });
 </script>
 {% endblock %}

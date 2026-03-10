@@ -12,7 +12,7 @@ class Post(models.Model):
     STATUS_CHOICES = [
         ('rescued', 'Rescued'),
         ('under_care', 'Under Care'),
-        ('reunited', 'Reunited'),
+        ('reunited', 'Reclaimed'),
         ('adopted', 'Adopted'),
     ]
 
@@ -576,6 +576,9 @@ class Penalty(models.Model):
     
 class Citation(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    owner_first_name = models.CharField(max_length=150, blank=True, default="")
+    owner_last_name = models.CharField(max_length=150, blank=True, default="")
+    owner_barangay = models.CharField(max_length=255, blank=True, default="")
 
     penalty = models.ForeignKey(Penalty, on_delete=models.CASCADE)
     penalties = models.ManyToManyField(Penalty, related_name='citations', blank=True)

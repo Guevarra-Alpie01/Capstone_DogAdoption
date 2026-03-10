@@ -66,14 +66,22 @@ class CitationForm(forms.ModelForm):
     owner = forms.ModelChoiceField(
         queryset=User.objects.filter(is_staff=False).order_by('username'),
         label="Search Owner",
-        widget=forms.Select(attrs={
-            "class": "user-search",
-        })
+        required=False,
+        widget=forms.HiddenInput(),
     )
+
+    owner_first_name = forms.CharField(max_length=150, required=True)
+    owner_last_name = forms.CharField(max_length=150, required=True)
+    owner_barangay = forms.CharField(max_length=255, required=True)
 
     class Meta:
         model = Citation
-        fields = ['owner']
+        fields = ['owner', 'owner_first_name', 'owner_last_name', 'owner_barangay']
+        widgets = {
+            'owner_first_name': forms.TextInput(attrs={'placeholder': 'First name'}),
+            'owner_last_name': forms.TextInput(attrs={'placeholder': 'Last name'}),
+            'owner_barangay': forms.TextInput(attrs={'placeholder': 'Barangay'}),
+        }
 
 class SectionForm(forms.ModelForm):
     class Meta:

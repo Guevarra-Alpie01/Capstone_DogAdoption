@@ -98,22 +98,96 @@
 
 .owner-search-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;
     margin-bottom: 8px;
 }
 
+.owner-search-input-wrap {
+    position: relative;
+}
+
 .owner-search-input {
     min-width: 0;
+    padding-right: 34px !important;
+}
+
+.owner-search-clear {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    font-size: 1rem;
+    line-height: 1;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.owner-search-clear:hover {
+    color: #0f172a;
 }
 
 .owner-search-btn {
     padding: 10px 12px;
 }
 
+.owner-suggestions {
+    margin: 0 0 8px;
+    border: 1px solid #cfcfcf;
+    border-radius: 8px;
+    background: #ffffff;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.owner-suggestion-item {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    padding: 9px 11px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.owner-suggestion-item + .owner-suggestion-item {
+    border-top: 1px solid #ececec;
+}
+
+.owner-suggestion-item strong {
+    font-size: 0.9rem;
+    color: #111827;
+    font-weight: 700;
+}
+
+.owner-suggestion-item span {
+    font-size: 0.82rem;
+    color: #64748b;
+}
+
+.owner-suggestion-item:hover {
+    background: #f8fafc;
+}
+
 .owner-search-result {
     display: block;
     margin-top: 6px;
+}
+
+.owner-details-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
 }
 
 .penalty-options {
@@ -306,6 +380,111 @@
     background: #fafafa;
 }
 
+.citation-confirm-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.citation-confirm-modal.is-open {
+    display: flex;
+}
+
+.citation-confirm-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+}
+
+.citation-confirm-modal__dialog {
+    position: relative;
+    width: min(92vw, 460px);
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+    padding: 22px 18px 18px;
+    text-align: center;
+}
+
+.citation-confirm-modal__close {
+    position: absolute;
+    right: 10px;
+    top: 8px;
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    font-size: 1.65rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.citation-confirm-modal__icon {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 10px;
+    border-radius: 999px;
+    background: #f3f3f3;
+    color: #111111;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.citation-confirm-modal__icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.citation-confirm-modal__dialog h3 {
+    margin: 0 0 6px;
+    color: #0f172a;
+    font-size: 1.2rem;
+}
+
+.citation-confirm-modal__dialog p {
+    margin: 0;
+    color: #475569;
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
+.citation-confirm-modal__actions {
+    margin-top: 16px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.citation-confirm-modal__btn {
+    border-radius: 9px;
+    border: 1px solid #cbd5e1;
+    padding: 9px 16px;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 122px;
+}
+
+.citation-confirm-modal__btn.secondary {
+    background: #fff;
+    color: #0f172a;
+}
+
+.citation-confirm-modal__btn.primary {
+    background: #2f6b2f;
+    border-color: #2f6b2f;
+    color: #fff;
+}
+
+body.modal-open {
+    overflow: hidden;
+}
+
 @media (max-width: 760px) {
     .quick-print {
         width: 100%;
@@ -321,14 +500,27 @@
     }
 
     .owner-search-row {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
     }
 
-    .owner-search-input {
-        grid-column: 1 / -1;
+    .owner-details-grid {
+        grid-template-columns: 1fr;
     }
 
     .penalty-options {
         padding-bottom: 10px;
+    }
+
+    .citation-confirm-modal__dialog {
+        width: min(94vw, 420px);
+        padding: 20px 14px 14px;
+    }
+
+    .citation-confirm-modal__actions {
+        flex-direction: column;
+    }
+
+    .citation-confirm-modal__btn {
+        width: 100%;
     }
 }

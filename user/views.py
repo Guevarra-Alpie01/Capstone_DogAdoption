@@ -20,7 +20,7 @@ from django.http import JsonResponse
 from django.core.files.base import ContentFile
 from django.conf import settings
 from django.core.cache import cache
-from datetime import datetime, timedelta
+from datetime import timedelta
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
 from django.urls import reverse
@@ -298,7 +298,7 @@ def _build_public_post_listing(request, listing_mode):
         nav_tabs = [
             {"key": "all", "label": "All"},
             {"key": "ready_claim", "label": "Ready to Claim"},
-            {"key": "reunited", "label": "Reunited"},
+            {"key": "reunited", "label": "Reclaimed"},
         ]
         page_title = "Dogs for Claim"
     else:
@@ -483,7 +483,6 @@ SEARCH_RESULTS_PER_PAGE = 12
 SEARCH_CANDIDATE_LIMIT = 240
 SEARCH_CACHE_TTL_SECONDS = 90
 SEARCH_MAX_QUERY_LENGTH = 80
-SEARCH_ROLE_CHOICES = {"all", "staff", "user"}
 
 
 def _normalized_feed_query(raw_query):
@@ -492,28 +491,6 @@ def _normalized_feed_query(raw_query):
 
 def _normalized_search_query(raw_query):
     return _normalized_feed_query(raw_query)[:SEARCH_MAX_QUERY_LENGTH]
-
-
-def _normalized_search_role(raw_role):
-    role = (raw_role or "all").strip().lower()
-    return role if role in SEARCH_ROLE_CHOICES else "all"
-
-
-def _parse_search_date_hint(raw_text):
-    value = (raw_text or "").strip()
-    if not value:
-        return None
-
-    parsed = parse_date(value)
-    if parsed:
-        return parsed
-
-    for fmt in ("%b %d, %Y", "%B %d, %Y", "%m/%d/%Y", "%m-%d-%Y"):
-        try:
-            return datetime.strptime(value, fmt).date()
-        except ValueError:
-            continue
-    return None
 
 
 def _pagination_query_without_page(querydict):
@@ -659,18 +636,17 @@ def _build_random_home_rows(query, feed_token="", dogs_only=False):
     return mixed_rows
 
 
-def _build_search_rows_cache_key(query, role_filter, date_from, date_to, dogs_only):
+def _build_search_rows_cache_key(query, dogs_only):
     prefix = "search_dogs_only" if dogs_only else "search_mixed"
-    date_token = f"{date_from.isoformat() if date_from else 'none'}:{date_to.isoformat() if date_to else 'none'}"
-    return _feed_cache_key(f"{prefix}:{role_filter}:{date_token}", query)
+    return _feed_cache_key(f"{prefix}:keyword_only", query)
 
 
-def _build_search_home_rows(query, role_filter, date_from, date_to, dogs_only=False):
-    has_filters = bool(query or role_filter != "all" or date_from or date_to)
+def _build_search_home_rows(query, dogs_only=False):
+    has_filters = bool(query)
     if not has_filters:
         return []
 
-    cache_key = _build_search_rows_cache_key(query, role_filter, date_from, date_to, dogs_only)
+    cache_key = _build_search_rows_cache_key(query, dogs_only)
     cached_rows = cache.get(cache_key)
     if cached_rows is not None:
         return cached_rows
@@ -685,18 +661,6 @@ def _build_search_home_rows(query, role_filter, date_from, date_to, dogs_only=Fa
     user_qs = UserAdoptionPost.objects.filter(status="available")
     missing_qs = MissingDogPost.objects.filter(status="missing")
 
-    if role_filter == "staff":
-        admin_qs = admin_qs.filter(user__is_staff=True)
-        announcement_qs = announcement_qs.filter(created_by__is_staff=True)
-        user_qs = user_qs.filter(owner__is_staff=True)
-        missing_qs = missing_qs.filter(owner__is_staff=True)
-    elif role_filter == "user":
-        admin_qs = admin_qs.filter(user__is_staff=False)
-        announcement_qs = announcement_qs.filter(created_by__is_staff=False)
-        user_qs = user_qs.filter(owner__is_staff=False)
-        missing_qs = missing_qs.filter(owner__is_staff=False)
-
-    query_date = _parse_search_date_hint(query)
     if query:
         admin_filters = (
             Q(caption__icontains=query)
@@ -731,35 +695,10 @@ def _build_search_home_rows(query, role_filter, date_from, date_to, dogs_only=Fa
             | Q(owner__last_name__icontains=query)
         )
 
-        if query_date:
-            admin_filters |= Q(created_at__date=query_date) | Q(rescued_date=query_date)
-            announcement_filters |= Q(created_at__date=query_date)
-            user_filters |= Q(created_at__date=query_date)
-            missing_filters |= Q(created_at__date=query_date) | Q(date_lost=query_date)
-
         admin_qs = admin_qs.filter(admin_filters)
         announcement_qs = announcement_qs.filter(announcement_filters)
         user_qs = user_qs.filter(user_filters)
         missing_qs = missing_qs.filter(missing_filters)
-
-    if date_from:
-        admin_qs = admin_qs.filter(
-            Q(created_at__date__gte=date_from) | Q(rescued_date__gte=date_from)
-        )
-        announcement_qs = announcement_qs.filter(created_at__date__gte=date_from)
-        user_qs = user_qs.filter(created_at__date__gte=date_from)
-        missing_qs = missing_qs.filter(
-            Q(created_at__date__gte=date_from) | Q(date_lost__gte=date_from)
-        )
-    if date_to:
-        admin_qs = admin_qs.filter(
-            Q(created_at__date__lte=date_to) | Q(rescued_date__lte=date_to)
-        )
-        announcement_qs = announcement_qs.filter(created_at__date__lte=date_to)
-        user_qs = user_qs.filter(created_at__date__lte=date_to)
-        missing_qs = missing_qs.filter(
-            Q(created_at__date__lte=date_to) | Q(date_lost__lte=date_to)
-        )
 
     admin_rows = list(
         admin_qs.order_by("-created_at").values("id", "created_at")[:SEARCH_CANDIDATE_LIMIT]
@@ -1235,9 +1174,6 @@ def _build_user_home_context(
     adoption_form = adoption_form or UserAdoptionPostForm()
     missing_form = missing_form or MissingDogPostForm()
     query = _normalized_feed_query(request.GET.get("q"))
-    role_filter = _normalized_search_role(request.GET.get("role"))
-    date_from_value = (request.GET.get("date_from") or "").strip()
-    date_to_value = (request.GET.get("date_to") or "").strip()
     feed_token = _normalized_feed_token(request.GET.get("feed_token")) or _fresh_feed_token()
     page_number = request.GET.get("page", 1)
     show_dogs_only = request.user.is_authenticated and not request.user.is_staff
@@ -1257,9 +1193,6 @@ def _build_user_home_context(
         "query": query,
         "feed_token": feed_token,
         "pagination_query": pagination_params.urlencode(),
-        "role_filter": role_filter,
-        "date_from_value": date_from_value,
-        "date_to_value": date_to_value,
         "selected_type": selected_type,
         "adoption_form": adoption_form,
         "missing_form": missing_form,
@@ -1316,21 +1249,10 @@ def home_search(request):
         return redirect("dogadoption_admin:post_list")
 
     query = _normalized_search_query(request.GET.get("q"))
-    role_filter = _normalized_search_role(request.GET.get("role"))
-    raw_date_from = (request.GET.get("date_from") or "").strip()
-    raw_date_to = (request.GET.get("date_to") or "").strip()
-    date_from = parse_date(raw_date_from) if raw_date_from else None
-    date_to = parse_date(raw_date_to) if raw_date_to else None
-    if date_from and date_to and date_from > date_to:
-        date_from, date_to = date_to, date_from
-
-    search_performed = bool(query or role_filter != "all" or date_from or date_to)
+    search_performed = bool(query)
     show_dogs_only = request.user.is_authenticated and not request.user.is_staff
     search_rows = _build_search_home_rows(
         query=query,
-        role_filter=role_filter,
-        date_from=date_from,
-        date_to=date_to,
         dogs_only=show_dogs_only,
     )
 
@@ -1340,18 +1262,15 @@ def home_search(request):
     result_count = len(search_rows)
 
     if search_performed:
-        empty_message = "No results found. Try another keyword, date, or role filter."
+        empty_message = "No results found. Try another keyword."
     else:
-        empty_message = "Enter a keyword, date, or role to begin searching."
+        empty_message = "Enter a keyword to begin searching."
 
     context = {
         "posts": posts,
         "page_obj": page_obj,
         "pagination_query": _pagination_query_without_page(request.GET),
         "query": query,
-        "role_filter": role_filter,
-        "date_from_value": date_from.isoformat() if date_from else raw_date_from,
-        "date_to_value": date_to.isoformat() if date_to else raw_date_to,
         "result_count": result_count,
         "search_performed": search_performed,
         "search_mode": True,
@@ -1388,6 +1307,7 @@ def adopt_user_post(request, post_id):
     post = get_object_or_404(UserAdoptionPost, id=post_id)
 
     if post.owner == request.user:
+        messages.info(request, "You cannot request adoption for your own post.")
         return redirect('user:user_home')
 
     if post.status != "available":
@@ -1399,12 +1319,21 @@ def adopt_user_post(request, post_id):
         messages.warning(request, "Please add your phone number and Facebook profile before requesting adoption.")
         return redirect("user:edit_profile")
 
-    UserAdoptionRequest.objects.get_or_create(
-        post=post,
-        requester=request.user
-    )
+    if request.method == "POST":
+        _, created = UserAdoptionRequest.objects.get_or_create(
+            post=post,
+            requester=request.user,
+        )
 
-    return redirect('user:user_home')
+        if created:
+            messages.success(request, "Adoption request submitted successfully.")
+        else:
+            messages.info(request, "You already submitted an adoption request for this post.")
+        return redirect('user:user_home')
+
+    return render(request, "adopt/adopt_user_confirm.html", {
+        "post": post,
+    })
 
 
 @user_only

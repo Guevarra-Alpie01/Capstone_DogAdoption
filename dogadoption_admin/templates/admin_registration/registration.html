@@ -182,26 +182,6 @@
         </form>
     </div>
 </div>
-{% if messages %}
-<div id="registration-message-source" hidden>
-    {% for message in messages %}
-        {% if 'registration' in message.tags %}
-        <div data-level="{{ message.tags|default:'' }}">{{ message }}</div>
-        {% endif %}
-    {% endfor %}
-</div>
-<div class="registration-message-modal" id="registration-message-modal" hidden>
-    <div class="registration-message-modal__backdrop" data-registration-message-close></div>
-    <div class="registration-message-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="registration-message-title">
-        <button type="button" class="registration-message-modal__close" data-registration-message-close aria-label="Close">&times;</button>
-        <h3 id="registration-message-title" class="registration-message-modal__title">Form Notice</h3>
-        <p class="registration-message-modal__body" id="registration-message-body"></p>
-        <div class="registration-message-modal__actions">
-            <button type="button" class="registration-message-modal__ok" data-registration-message-close>OK</button>
-        </div>
-    </div>
-</div>
-{% endif %}
 <div class="photo-option-modal" id="photo-option-modal" hidden>
     <div class="photo-option-backdrop" data-photo-option-close></div>
     <div class="photo-option-sheet" role="dialog" aria-modal="true" aria-labelledby="photo-option-title">
@@ -245,62 +225,6 @@
     </div>
 </div>
 <script src="{% static 'js/barangay_autocomplete.js' %}"></script>
-<script>
-    (function () {
-        const source = document.getElementById('registration-message-source');
-        const modal = document.getElementById('registration-message-modal');
-        const bodyEl = document.getElementById('registration-message-body');
-        const titleEl = document.getElementById('registration-message-title');
-        const closeButtons = document.querySelectorAll('[data-registration-message-close]');
-
-        if (!source || !modal || !bodyEl || !titleEl || !closeButtons.length) {
-            return;
-        }
-
-        const rows = Array.from(source.querySelectorAll('div')).map((node) => ({
-            level: (node.dataset.level || '').toLowerCase(),
-            text: (node.textContent || '').trim(),
-        })).filter((row) => row.text);
-
-        if (!rows.length) {
-            return;
-        }
-
-        const selected =
-            rows.find((row) => row.level.includes('error')) ||
-            rows.find((row) => row.level.includes('warning')) ||
-            rows[0];
-
-        titleEl.textContent = selected.level.includes('error') ? 'Registration Error' : 'Form Notice';
-        bodyEl.textContent = selected.text;
-
-        function closeModal() {
-            modal.hidden = true;
-            document.body.style.overflow = '';
-        }
-
-        function openModal() {
-            modal.hidden = false;
-            document.body.style.overflow = 'hidden';
-        }
-
-        closeButtons.forEach((btn) => {
-            btn.addEventListener('click', closeModal);
-        });
-        modal.addEventListener('click', function (event) {
-            if (event.target === modal) {
-                closeModal();
-            }
-        });
-        document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape' && !modal.hidden) {
-                closeModal();
-            }
-        });
-
-        openModal();
-    })();
-</script>
 <script>
     (function () {
         const searchInput = document.getElementById('registration-owner-search');

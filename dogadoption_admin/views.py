@@ -3088,12 +3088,37 @@ def citation_create(request):
             penalties = [citation.penalty]
         violations = ", ".join([p.title for p in penalties]) if penalties else "-"
         total_fees = sum([p.amount for p in penalties]) if penalties else 0
+        citation_name = " ".join(
+            part for part in [citation.owner_first_name, citation.owner_last_name] if part
+        ).strip()
+        if not citation_name and citation.owner_id:
+            citation_name = citation.owner.get_full_name().strip() or citation.owner.username
+        if not citation_name:
+            citation_name = "Unknown Owner"
         citation_rows.append({
             "citation": citation,
+            "display_name": citation_name,
             "violations": violations,
             "total_fees": total_fees,
         })
     penalties = Penalty.objects.filter(active=True).select_related('section').order_by('section__number', 'number')
+
+    owner_search_data = []
+    owner_rows = User.objects.filter(is_staff=False).values(
+        "id",
+        "username",
+        "first_name",
+        "last_name",
+        "profile__address",
+    ).order_by("username")
+    for row in owner_rows:
+        owner_search_data.append({
+            "id": row["id"],
+            "username": row["username"] or "",
+            "first_name": row["first_name"] or "",
+            "last_name": row["last_name"] or "",
+            "barangay": _extract_barangay_from_address(row.get("profile__address") or ""),
+        })
 
     if request.method == 'POST' and form.is_valid():
         selected_ids = request.POST.getlist('penalties')
@@ -3103,6 +3128,13 @@ def citation_create(request):
             messages.error(request, 'Please select at least one violation.')
         else:
             citation = form.save(commit=False)
+            owner = form.cleaned_data.get("owner")
+            citation.owner = owner
+
+            if owner and not citation.owner_barangay:
+                owner_address = getattr(getattr(owner, "profile", None), "address", "") or ""
+                citation.owner_barangay = _extract_barangay_from_address(owner_address)
+
             # Keep backward compatibility with existing single-penalty references.
             citation.penalty = selected_penalties[0]
             citation.save()
@@ -3114,6 +3146,7 @@ def citation_create(request):
         'latest_citation': latest_citation,
         'citation_rows': citation_rows,
         'penalties': penalties,
+        'owner_search_data': owner_search_data,
         'selected_penalty_ids': [int(x) for x in request.POST.getlist('penalties') if str(x).isdigit()] if request.method == 'POST' else [],
     })
 
@@ -3123,22 +3156,27 @@ def citation_print(request, pk):
     if not selected_penalties and citation.penalty_id:
         selected_penalties = [citation.penalty]
 
-    owner_name = "Unknown Owner"
+    owner_name = " ".join(
+        part for part in [citation.owner_first_name, citation.owner_last_name] if part
+    ).strip() or "Unknown Owner"
     owner_address = "-"
-    owner_barangay = "-"
+    owner_barangay = citation.owner_barangay or "-"
     if citation.owner_id:
         try:
-            owner_name = citation.owner.get_full_name().strip() or citation.owner.username
-            owner_address = citation.owner.profile.address or "-"
+            profile_address = citation.owner.profile.address or "-"
         except Exception:
-            owner_address = "-"
-            owner_name = citation.owner.username
+            profile_address = "-"
+        owner_address = profile_address
 
-    extracted_barangay = _extract_barangay_from_address(owner_address)
-    if extracted_barangay:
-        owner_barangay = extracted_barangay
-    elif owner_address and owner_address != "-":
-        owner_barangay = owner_address.split(",")[0].strip() or "-"
+        if owner_name == "Unknown Owner":
+            owner_name = citation.owner.get_full_name().strip() or citation.owner.username
+
+        if not citation.owner_barangay:
+            extracted_barangay = _extract_barangay_from_address(owner_address)
+            if extracted_barangay:
+                owner_barangay = extracted_barangay
+            elif owner_address and owner_address != "-":
+                owner_barangay = owner_address.split(",")[0].strip() or "-"
 
     total_amount = sum((p.amount for p in selected_penalties), Decimal("0.00"))
     receipt_seed = f"{citation.id}|{citation.owner_id or 0}|{citation.date_issued.isoformat()}"

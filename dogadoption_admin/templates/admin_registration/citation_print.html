@@ -237,6 +237,76 @@
     </div>
 
     <script>
+        let citationReturnHandled = false;
+
+        function resolveCitationReturnUrl() {
+            const fallbackUrl = "{% url 'dogadoption_admin:citation_create' %}";
+            if (!document.referrer) {
+                return fallbackUrl;
+            }
+
+            try {
+                const refUrl = new URL(document.referrer);
+                if (refUrl.origin === window.location.origin && refUrl.href !== window.location.href) {
+                    return refUrl.href;
+                }
+            } catch (error) {
+                return fallbackUrl;
+            }
+
+            return fallbackUrl;
+        }
+
+        function navigateAfterPrintDialog() {
+            if (citationReturnHandled) {
+                return;
+            }
+            citationReturnHandled = true;
+
+            const returnUrl = resolveCitationReturnUrl();
+            let triedHistoryBack = false;
+
+            try {
+                const refUrl = document.referrer ? new URL(document.referrer) : null;
+                if (window.history.length > 1 && refUrl && refUrl.origin === window.location.origin) {
+                    triedHistoryBack = true;
+                    window.history.back();
+                }
+            } catch (error) {
+                triedHistoryBack = false;
+            }
+
+            if (triedHistoryBack) {
+                window.setTimeout(() => {
+                    if (window.location.href.includes('/citation/') && window.location.href.includes('/print/')) {
+                        window.location.href = returnUrl;
+                    }
+                }, 350);
+                return;
+            }
+
+            window.location.href = returnUrl;
+        }
+
+        function wirePrintCloseHandlers() {
+            window.addEventListener('afterprint', navigateAfterPrintDialog);
+
+            const mediaQuery = window.matchMedia ? window.matchMedia('print') : null;
+            if (mediaQuery && typeof mediaQuery.addEventListener === 'function') {
+                mediaQuery.addEventListener('change', (event) => {
+                    if (!event.matches) {
+                        navigateAfterPrintDialog();
+                    }
+                });
+            } else if (mediaQuery && typeof mediaQuery.addListener === 'function') {
+                mediaQuery.addListener((event) => {
+                    if (!event.matches) {
+                        navigateAfterPrintDialog();
+                    }
+                });
+            }
+        }
+
         function preparePrintTicket() {
             const printEl = document.getElementById('printed-on');
             if (printEl) {
@@ -253,6 +323,7 @@
                 });
                 printEl.textContent = `${datePart} ${timePart}`;
             }
+            wirePrintCloseHandlers();
             window.print();
         }
     </script>

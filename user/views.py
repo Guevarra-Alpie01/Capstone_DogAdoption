@@ -33,6 +33,7 @@ from dogadoption_admin.models import (
     AnnouncementComment,
     AnnouncementReaction,
     Barangay,
+    Citation,
     DogAnnouncement,
     DogAnnouncementImage,
     GlobalAppointmentDate,
@@ -1071,10 +1072,43 @@ def edit_profile(request):
     profile_posts.sort(key=lambda item: item["created_at"], reverse=True)
     profile_posts = profile_posts[:recent_post_limit]
 
+    user_citations = (
+        Citation.objects.filter(owner=user)
+        .select_related("penalty", "penalty__section")
+        .prefetch_related("penalties", "penalties__section")
+        .order_by("-date_issued", "-id")
+    )
+    user_violation_count = 0
+    user_violation_records = []
+    for citation in user_citations:
+        penalties = list(citation.penalties.all())
+        if not penalties and citation.penalty_id:
+            penalties = [citation.penalty]
+
+        user_violation_count += len(penalties)
+        violation_labels = [
+            f"Sec. {penalty.section.number} #{penalty.number} - {penalty.title}"
+            for penalty in penalties
+        ]
+        total_amount = sum((penalty.amount for penalty in penalties), 0)
+
+        user_violation_records.append(
+            {
+                "citation_id": citation.id,
+                "date_issued": citation.date_issued,
+                "violations": violation_labels,
+                "violation_count": len(penalties),
+                "total_amount": total_amount,
+                "remarks": (citation.remarks or "").strip(),
+            }
+        )
+
     return render(request, "edit_profile.html", {
         "profile": profile,
         "profile_posts": profile_posts,
         "profile_posts_limit": recent_post_limit,
+        "user_violation_count": user_violation_count,
+        "user_violation_records": user_violation_records,
     })
 
 

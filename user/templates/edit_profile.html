@@ -193,6 +193,9 @@
         font-size: 0.92rem;
         font-weight: 700;
         color: #6b7280;
+        border: none;
+        background: transparent;
+        cursor: pointer;
     }
 
     .profile-tab.is-active {
@@ -216,6 +219,18 @@
         gap: 18px;
         padding: 22px;
         background: #f5f6f8;
+    }
+
+    .profile-content-grid--single {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .profile-tab-content {
+        display: none;
+    }
+
+    .profile-tab-content.is-active {
+        display: block;
     }
 
     .profile-panel {
@@ -453,6 +468,75 @@
     .profile-post-empty p {
         margin: 0;
         font-size: 0.92rem;
+    }
+
+    .profile-violation-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+    }
+
+    .profile-violation-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: #fcfdfd;
+        padding: 12px 14px;
+    }
+
+    .profile-violation-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+    }
+
+    .profile-violation-ticket {
+        font-size: 0.9rem;
+        font-weight: 800;
+        color: #1f2937;
+    }
+
+    .profile-violation-date {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #6b7280;
+    }
+
+    .profile-violation-points {
+        margin: 0;
+        padding-left: 18px;
+        color: #374151;
+        font-size: 0.9rem;
+    }
+
+    .profile-violation-points li + li {
+        margin-top: 4px;
+    }
+
+    .profile-violation-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #eef2f7;
+        font-size: 0.88rem;
+        color: #4b5563;
+    }
+
+    .profile-violation-foot strong {
+        font-size: 0.95rem;
+        color: #1f7a3a;
+    }
+
+    .profile-violation-remarks {
+        margin: 10px 0 0;
+        font-size: 0.88rem;
+        color: #4b5563;
     }
 
     .profile-edit-modal .modal-content {
@@ -737,108 +821,160 @@
         </div>
 
         <div class="profile-tabs">
-            <span class="profile-tab">Posts</span>
-            <span class="profile-tab is-active">About</span>
-            <span class="profile-tab">Photos</span>
+            <button type="button" class="profile-tab" data-tab-target="posts">Posts</button>
+            <button type="button" class="profile-tab is-active" data-tab-target="details">Details</button>
+            <button type="button" class="profile-tab" data-tab-target="violations">Violations ({{ user_violation_count }})</button>
         </div>
 
-        <div class="profile-content-grid">
-            <section class="profile-panel">
-                <div class="profile-panel-header">
-                    <i class="bi bi-info-square-fill"></i>
-                    <span>{{ user.first_name|default:user.username }} details</span>
-                </div>
+        <div class="profile-tab-content is-active" data-tab-panel="details">
+            <div class="profile-content-grid profile-content-grid--single">
+                <section class="profile-panel">
+                    <div class="profile-panel-header">
+                        <i class="bi bi-info-square-fill"></i>
+                        <span>{{ user.first_name|default:user.username }} details</span>
+                    </div>
 
-                <ul class="profile-detail-list">
-                    <li>
-                        <i class="bi bi-person-badge-fill profile-info-icon"></i>
-                        <span>{{ user.first_name|default:"-" }} {{ profile.middle_initial|default:"" }} {{ user.last_name|default:"" }}</span>
-                    </li>
-                    <li>
-                        <i class="bi bi-telephone-fill profile-info-icon"></i>
-                        <span>{{ profile.phone_number|default:"No phone number added" }}</span>
-                    </li>
-                    <li>
-                        <i class="bi bi-calendar2-week-fill profile-info-icon"></i>
-                        <span>{{ profile.age|default:"-" }} years old</span>
-                    </li>
-                    <li>
-                        <i class="bi bi-geo-alt-fill profile-info-icon"></i>
-                        <span>{{ profile.address|default:"No address added" }}</span>
-                    </li>
-                    <li>
-                        <i class="bi bi-facebook profile-info-icon"></i>
-                        {% if profile.facebook_url %}
-                        <a href="{{ profile.facebook_url }}" target="_blank" rel="noopener noreferrer">{{ profile.facebook_url }}</a>
-                        {% else %}
-                        <span>No Facebook profile added</span>
-                        {% endif %}
-                    </li>
-                </ul>
-
-            </section>
-
-            <aside class="profile-panel">
-                <div class="profile-panel-header is-split">
-                    <span>
-                        <i class="bi bi-grid-1x2-fill"></i>
-                        Recent posts
-                    </span>
-                    <span class="profile-panel-caption">Latest {{ profile_posts_limit }}</span>
-                </div>
-
-                {% if profile_posts %}
-                <div class="profile-posts-list">
-                    {% for item in profile_posts %}
-                    <article class="profile-post-card">
-                        <div class="profile-post-thumb{% if not item.image_url %} is-empty{% endif %}">
-                            {% if item.image_url %}
-                            <img src="{{ item.image_url }}" alt="{{ item.title }}">
+                    <ul class="profile-detail-list">
+                        <li>
+                            <i class="bi bi-person-badge-fill profile-info-icon"></i>
+                            <span>{{ user.first_name|default:"-" }} {{ profile.middle_initial|default:"" }} {{ user.last_name|default:"" }}</span>
+                        </li>
+                        <li>
+                            <i class="bi bi-telephone-fill profile-info-icon"></i>
+                            <span>{{ profile.phone_number|default:"No phone number added" }}</span>
+                        </li>
+                        <li>
+                            <i class="bi bi-calendar2-week-fill profile-info-icon"></i>
+                            <span>{{ profile.age|default:"-" }} years old</span>
+                        </li>
+                        <li>
+                            <i class="bi bi-geo-alt-fill profile-info-icon"></i>
+                            <span>{{ profile.address|default:"No address added" }}</span>
+                        </li>
+                        <li>
+                            <i class="bi bi-facebook profile-info-icon"></i>
+                            {% if profile.facebook_url %}
+                            <a href="{{ profile.facebook_url }}" target="_blank" rel="noopener noreferrer">{{ profile.facebook_url }}</a>
                             {% else %}
-                            <i class="bi bi-image"></i>
+                            <span>No Facebook profile added</span>
                             {% endif %}
-                        </div>
+                        </li>
+                    </ul>
+                </section>
+            </div>
+        </div>
 
-                        <div class="profile-post-copy">
-                            <div class="profile-post-topline">
-                                <span class="profile-post-type type-{{ item.post_type }}">{{ item.post_type_label }}</span>
-                                <span class="profile-post-time">{{ item.posted_label }}</span>
-                            </div>
+        <div class="profile-tab-content" data-tab-panel="posts">
+            <div class="profile-content-grid profile-content-grid--single">
+                <section class="profile-panel">
+                    <div class="profile-panel-header is-split">
+                        <span>
+                            <i class="bi bi-grid-1x2-fill"></i>
+                            Recent posts
+                        </span>
+                        <span class="profile-panel-caption">Latest {{ profile_posts_limit }}</span>
+                    </div>
 
-                            <h3 class="profile-post-title">{{ item.title }}</h3>
-                            <p class="profile-post-location">{{ item.location|default:"No location added" }}</p>
-                            <span class="profile-post-status status-{{ item.status_key }}">{{ item.status_label }}</span>
-
-                            <div class="profile-post-actions">
-                                {% if item.post_type == "adoption" %}
-                                <form method="post" action="{% url 'user:delete_user_adoption_post' item.id %}" class="profile-post-delete-form" onsubmit="return confirm('Delete this post?');">
-                                    {% csrf_token %}
-                                    <button type="submit" class="profile-post-delete-btn">
-                                        <i class="bi bi-trash3"></i>
-                                        <span>Delete</span>
-                                    </button>
-                                </form>
+                    {% if profile_posts %}
+                    <div class="profile-posts-list">
+                        {% for item in profile_posts %}
+                        <article class="profile-post-card">
+                            <div class="profile-post-thumb{% if not item.image_url %} is-empty{% endif %}">
+                                {% if item.image_url %}
+                                <img src="{{ item.image_url }}" alt="{{ item.title }}">
                                 {% else %}
-                                <form method="post" action="{% url 'user:delete_missing_dog_post' item.id %}" class="profile-post-delete-form" onsubmit="return confirm('Delete this post?');">
-                                    {% csrf_token %}
-                                    <button type="submit" class="profile-post-delete-btn">
-                                        <i class="bi bi-trash3"></i>
-                                        <span>Delete</span>
-                                    </button>
-                                </form>
+                                <i class="bi bi-image"></i>
                                 {% endif %}
                             </div>
-                        </div>
-                    </article>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="profile-post-empty">
-                    <i class="bi bi-card-list"></i>
-                    <p>No adoption or missing dog posts yet.</p>
-                </div>
-                {% endif %}
-            </aside>
+
+                            <div class="profile-post-copy">
+                                <div class="profile-post-topline">
+                                    <span class="profile-post-type type-{{ item.post_type }}">{{ item.post_type_label }}</span>
+                                    <span class="profile-post-time">{{ item.posted_label }}</span>
+                                </div>
+
+                                <h3 class="profile-post-title">{{ item.title }}</h3>
+                                <p class="profile-post-location">{{ item.location|default:"No location added" }}</p>
+                                <span class="profile-post-status status-{{ item.status_key }}">{{ item.status_label }}</span>
+
+                                <div class="profile-post-actions">
+                                    {% if item.post_type == "adoption" %}
+                                    <form method="post" action="{% url 'user:delete_user_adoption_post' item.id %}" class="profile-post-delete-form" onsubmit="return confirm('Delete this post?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="profile-post-delete-btn">
+                                            <i class="bi bi-trash3"></i>
+                                            <span>Delete</span>
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <form method="post" action="{% url 'user:delete_missing_dog_post' item.id %}" class="profile-post-delete-form" onsubmit="return confirm('Delete this post?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="profile-post-delete-btn">
+                                            <i class="bi bi-trash3"></i>
+                                            <span>Delete</span>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </article>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="profile-post-empty">
+                        <i class="bi bi-card-list"></i>
+                        <p>No adoption or missing dog posts yet.</p>
+                    </div>
+                    {% endif %}
+                </section>
+            </div>
+        </div>
+
+        <div class="profile-tab-content" data-tab-panel="violations">
+            <div class="profile-content-grid profile-content-grid--single">
+                <section class="profile-panel">
+                    <div class="profile-panel-header is-split">
+                        <span>
+                            <i class="bi bi-exclamation-octagon-fill"></i>
+                            Violation records
+                        </span>
+                        <span class="profile-panel-caption">Total {{ user_violation_count }}</span>
+                    </div>
+
+                    {% if user_violation_records %}
+                    <div class="profile-violation-list">
+                        {% for record in user_violation_records %}
+                        <article class="profile-violation-card">
+                            <div class="profile-violation-head">
+                                <span class="profile-violation-ticket">Citation #{{ record.citation_id }}</span>
+                                <span class="profile-violation-date">{{ record.date_issued|date:"M d, Y h:i A" }}</span>
+                            </div>
+
+                            <ul class="profile-violation-points">
+                                {% for violation in record.violations %}
+                                <li>{{ violation }}</li>
+                                {% endfor %}
+                            </ul>
+
+                            <div class="profile-violation-foot">
+                                <span>{{ record.violation_count }} violation{{ record.violation_count|pluralize }}</span>
+                                <strong>PHP {{ record.total_amount|floatformat:2 }}</strong>
+                            </div>
+
+                            {% if record.remarks %}
+                            <p class="profile-violation-remarks"><strong>Remarks:</strong> {{ record.remarks }}</p>
+                            {% endif %}
+                        </article>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="profile-post-empty">
+                        <i class="bi bi-shield-check"></i>
+                        <p>No violation records from veterinary office.</p>
+                    </div>
+                    {% endif %}
+                </section>
+            </div>
         </div>
     </div>
 </div>
@@ -904,6 +1040,8 @@
     document.addEventListener("DOMContentLoaded", function () {
         const photoInput = document.getElementById("profilePhotoInput");
         const photoForm = document.getElementById("profilePhotoForm");
+        const tabButtons = document.querySelectorAll("[data-tab-target]");
+        const tabPanels = document.querySelectorAll("[data-tab-panel]");
 
         if (photoInput && photoForm) {
             photoInput.addEventListener("change", function () {
@@ -912,6 +1050,22 @@
                 }
             });
         }
+
+        function setActiveTab(tabKey) {
+            tabButtons.forEach(function (button) {
+                button.classList.toggle("is-active", button.dataset.tabTarget === tabKey);
+            });
+
+            tabPanels.forEach(function (panel) {
+                panel.classList.toggle("is-active", panel.dataset.tabPanel === tabKey);
+            });
+        }
+
+        tabButtons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                setActiveTab(button.dataset.tabTarget);
+            });
+        });
     });
 </script>
 {% endblock %}

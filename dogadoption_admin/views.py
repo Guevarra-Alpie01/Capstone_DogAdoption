@@ -3258,4 +3258,5 @@ def penalty_manager(request):
         'section_count': len(sections),
         'penalty_count': total_penalties,
         'active_penalty_count': active_penalties,
+        'inactive_penalty_count': max(total_penalties - active_penalties, 0),
     })

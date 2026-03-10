@@ -56,6 +56,9 @@
     }
 
     function initInput(input) {
+        if (!input || input.dataset.barangayAutocompleteReady === "true") {
+            return;
+        }
         const sourceUrl = input.dataset.barangaySourceUrl || "";
         const suggestionsId = input.dataset.barangaySuggestionsId || "";
         const strictMode = input.dataset.barangayStrict === "true";
@@ -69,6 +72,8 @@
         if (!sourceUrl || !suggestionsBox) {
             return;
         }
+
+        input.dataset.barangayAutocompleteReady = "true";
 
         function renderSuggestions(matches) {
             if (!matches.length) {
@@ -146,20 +151,34 @@
             renderSuggestions(matches);
         }
 
+        async function submitSearchForm() {
+            await searchNow();
+            if (parentForm && searchButton) {
+                parentForm.requestSubmit(searchButton);
+            }
+        }
+
         input.addEventListener("input", (e) => {
             input.setCustomValidity("");
             showSuggestions(e.target.value);
         });
         input.addEventListener("blur", () => normalizeField());
-        input.addEventListener("keydown", (e) => {
+        input.addEventListener("keydown", async (e) => {
             if (e.key === "Enter") {
                 e.preventDefault();
-                searchNow();
+                if (searchButton && parentForm) {
+                    await submitSearchForm();
+                    return;
+                }
+                await searchNow();
             }
         });
 
         if (searchButton) {
-            searchButton.addEventListener("click", () => searchNow());
+            searchButton.addEventListener("click", async (e) => {
+                e.preventDefault();
+                await submitSearchForm();
+            });
         }
 
         if (parentForm) {
@@ -192,8 +211,15 @@
         });
     }
 
-    document.addEventListener("DOMContentLoaded", function () {
-        const inputs = document.querySelectorAll("[data-barangay-autocomplete='true']");
+    function initBarangayAutocomplete(root) {
+        const scope = root && root.querySelectorAll ? root : document;
+        const inputs = scope.querySelectorAll("[data-barangay-autocomplete='true']");
         inputs.forEach((input) => initInput(input));
+    }
+
+    window.initBarangayAutocomplete = initBarangayAutocomplete;
+
+    document.addEventListener("DOMContentLoaded", function () {
+        initBarangayAutocomplete(document);
     });
 })();

@@ -119,15 +119,39 @@
         </div>
 
         <div class="chart-card">
-            <h4 class="chart-title">
-                <span class="chart-icon icon-barangay" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none">
-                        <path d="M3 21h18M6 18V9m6 9V5m6 13v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-                    </svg>
-                </span>
-                <span>Top Registered Barangays</span>
-            </h4>
+            <div class="chart-head chart-head-stacked">
+                <h4 class="chart-title">
+                    <span class="chart-icon icon-barangay" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M3 21h18M6 18V9m6 9V5m6 13v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                        </svg>
+                    </span>
+                    <span>Top Registered Barangays</span>
+                </h4>
+                <div class="chart-filters">
+                    <select id="registeredBarangayYearFilter" class="chart-filter-select"></select>
+                    <select id="registeredBarangayViewFilter" class="chart-filter-select">
+                        <option value="year">Whole Year</option>
+                        <option value="month">By Month</option>
+                    </select>
+                    <select id="registeredBarangayMonthFilter" class="chart-filter-select">
+                        <option value="1">Jan</option>
+                        <option value="2">Feb</option>
+                        <option value="3">Mar</option>
+                        <option value="4">Apr</option>
+                        <option value="5">May</option>
+                        <option value="6">Jun</option>
+                        <option value="7">Jul</option>
+                        <option value="8">Aug</option>
+                        <option value="9">Sep</option>
+                        <option value="10">Oct</option>
+                        <option value="11">Nov</option>
+                        <option value="12">Dec</option>
+                    </select>
+                </div>
+            </div>
             <canvas id="barangayChart"></canvas>
+            <p id="registeredBarangayEmptyState" class="chart-empty" hidden>No registration data for the selected filter.</p>
         </div>
 
         <div class="chart-card chart-span-2">
@@ -792,30 +816,109 @@
     vaccinationDayFilter.addEventListener('change', renderVaccinationBarangayChart);
     renderVaccinationBarangayChart();
 
-    new Chart(document.getElementById('barangayChart'), {
-        type: 'pie',
-        data: {
-            labels: barangayData.labels,
+    const registeredBarangayYearFilter = document.getElementById('registeredBarangayYearFilter');
+    const registeredBarangayViewFilter = document.getElementById('registeredBarangayViewFilter');
+    const registeredBarangayMonthFilter = document.getElementById('registeredBarangayMonthFilter');
+    const registeredBarangayEmptyState = document.getElementById('registeredBarangayEmptyState');
+    const registeredBarangayEvents = barangayData.events || [];
+    const registeredBarangayYears = (barangayData.years || []).slice().sort((a, b) => a - b);
+    const registeredBarangayCanvas = document.getElementById('barangayChart');
+    let registeredBarangayChart = null;
+
+    const resolveRegisteredBarangayDefaultYear = () => {
+        const nowYear = new Date().getFullYear();
+        if (registeredBarangayYears.includes(nowYear)) return nowYear;
+        return registeredBarangayYears.length ? registeredBarangayYears[registeredBarangayYears.length - 1] : nowYear;
+    };
+
+    const selectedRegisteredBarangayYearDefault = resolveRegisteredBarangayDefaultYear();
+    if (!registeredBarangayYears.length) {
+        registeredBarangayYears.push(selectedRegisteredBarangayYearDefault);
+    }
+
+    registeredBarangayYears.forEach((year) => {
+        const option = document.createElement('option');
+        option.value = String(year);
+        option.textContent = String(year);
+        registeredBarangayYearFilter.appendChild(option);
+    });
+    registeredBarangayYearFilter.value = String(selectedRegisteredBarangayYearDefault);
+    registeredBarangayMonthFilter.value = String(currentMonth);
+
+    const buildRegisteredBarangayPieData = (mode, year, month) => {
+        const totalsByBarangay = new Map();
+
+        registeredBarangayEvents.forEach((event) => {
+            const eventDate = new Date(`${event.date}T00:00:00`);
+            if (Number.isNaN(eventDate.getTime())) return;
+            if (eventDate.getFullYear() !== year) return;
+            if (mode === 'month' && (eventDate.getMonth() + 1) !== month) return;
+
+            const barangay = event.barangay || 'Unknown';
+            totalsByBarangay.set(barangay, (totalsByBarangay.get(barangay) || 0) + 1);
+        });
+
+        const rankedBarangays = Array.from(totalsByBarangay.entries())
+            .map(([label, total]) => ({ label, total }))
+            .sort((a, b) => b.total - a.total);
+
+        const topBarangays = rankedBarangays.slice(0, 6);
+        const otherTotal = rankedBarangays
+            .slice(6)
+            .reduce((sum, entry) => sum + entry.total, 0);
+
+        const labels = topBarangays.map((entry) => entry.label);
+        const values = topBarangays.map((entry) => entry.total);
+        if (otherTotal > 0) {
+            labels.push('Other Barangays');
+            values.push(otherTotal);
+        }
+
+        return {
+            labels,
             datasets: [{
                 label: 'Registered Dogs',
-                data: barangayData.data,
-                backgroundColor: [
-                    '#2563eb', '#22c55e', '#f97316', '#e11d48', '#8b5cf6',
-                    '#06b6d4', '#f59e0b', '#14b8a6', '#ef4444', '#84cc16'
-                ],
+                data: values,
+                backgroundColor: labels.map((_, idx) => piePalette[idx % piePalette.length]),
                 borderColor: '#ffffff',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom'
+                borderWidth: 2,
+            }],
+        };
+    };
+
+    const renderRegisteredBarangayChart = () => {
+        const mode = registeredBarangayViewFilter.value;
+        const selectedYear = Number(registeredBarangayYearFilter.value);
+        const selectedMonth = Number(registeredBarangayMonthFilter.value);
+
+        registeredBarangayMonthFilter.style.display = mode === 'month' ? 'inline-flex' : 'none';
+
+        const data = buildRegisteredBarangayPieData(mode, selectedYear, selectedMonth);
+        const hasData = data.labels.length > 0;
+        registeredBarangayEmptyState.hidden = hasData;
+
+        if (registeredBarangayChart) {
+            registeredBarangayChart.destroy();
+        }
+
+        registeredBarangayChart = new Chart(registeredBarangayCanvas, {
+            type: 'pie',
+            data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
                 }
             }
-        }
-    });
+        });
+    };
+
+    registeredBarangayYearFilter.addEventListener('change', renderRegisteredBarangayChart);
+    registeredBarangayViewFilter.addEventListener('change', renderRegisteredBarangayChart);
+    registeredBarangayMonthFilter.addEventListener('change', renderRegisteredBarangayChart);
+    renderRegisteredBarangayChart();
 </script>
 {% endblock %}

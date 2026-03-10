@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.core.cache import cache
 from django.contrib.auth.models import User
 from django.test import TestCase
@@ -7,8 +9,11 @@ from django.utils import timezone
 from .models import (
     AdminNotification,
     DewormingTreatmentRecord,
+    Dog,
     DogAnnouncement,
     DogRegistration,
+    Post,
+    PostRequest,
     VaccinationRecord,
 )
 
@@ -149,3 +154,100 @@ class AdminExpiryNotificationTests(TestCase):
         self.assertEqual(record.medicine_expiry_date, today)
         self.assertContains(response, "Medicine expires today")
         self.assertEqual(response.context["admin_unread_notifications"], 1)
+
+
+class AnalyticsDashboardTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.admin = User.objects.create_user(
+            username="admin_analytics",
+            password="secret123",
+            is_staff=True,
+        )
+        self.request_user = User.objects.create_user(
+            username="claimer",
+            password="secret123",
+        )
+
+    def test_adoption_claim_chart_uses_request_activity_date_not_post_created_at(self):
+        january_dt = timezone.make_aware(datetime(2026, 1, 15, 10, 0, 0), timezone.get_current_timezone())
+        march_dt = timezone.make_aware(datetime(2026, 3, 9, 11, 0, 0), timezone.get_current_timezone())
+
+        claim_post = Post.objects.create(
+            user=self.admin,
+            caption="Claimed dog",
+            location="Bugay",
+            status="reunited",
+        )
+        adopt_post = Post.objects.create(
+            user=self.admin,
+            caption="Adopted dog",
+            location="San Jose",
+            status="adopted",
+        )
+        Post.objects.filter(pk__in=[claim_post.pk, adopt_post.pk]).update(created_at=january_dt)
+
+        claim_request = PostRequest.objects.create(
+            post=claim_post,
+            user=self.request_user,
+            request_type="claim",
+            status="accepted",
+            scheduled_appointment_date=timezone.datetime(2026, 3, 9).date(),
+        )
+        adopt_request = PostRequest.objects.create(
+            post=adopt_post,
+            user=self.request_user,
+            request_type="adopt",
+            status="accepted",
+            scheduled_appointment_date=timezone.datetime(2026, 3, 1).date(),
+        )
+        PostRequest.objects.filter(pk__in=[claim_request.pk, adopt_request.pk]).update(created_at=march_dt)
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("dogadoption_admin:analytics_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        rows = response.context["adoption_claim_trend_chart"]["rows"]
+        self.assertIn(
+            {"status": "claimed", "date": "2026-03-09", "total": 1},
+            rows,
+        )
+        self.assertIn(
+            {"status": "adopted", "date": "2026-03-01", "total": 1},
+            rows,
+        )
+        self.assertNotIn(
+            {"status": "claimed", "date": "2026-01-15", "total": 1},
+            rows,
+        )
+
+    def test_registered_barangay_chart_exposes_date_based_events_for_filters(self):
+        Dog.objects.create(
+            date_registered=timezone.datetime(2026, 3, 5).date(),
+            name="Alpha",
+            sex="M",
+            age="2 yrs",
+            neutering_status="No",
+            owner_name="Owner One",
+            owner_address="Bugay",
+            barangay="Bugay",
+        )
+        Dog.objects.create(
+            date_registered=timezone.datetime(2026, 2, 12).date(),
+            name="Beta",
+            sex="F",
+            age="1 yr",
+            neutering_status="No",
+            owner_name="Owner Two",
+            owner_address="San Jose",
+            barangay="San Jose",
+        )
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("dogadoption_admin:analytics_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        chart = response.context["barangay_chart"]
+        self.assertEqual(chart["years"], [2026])
+        self.assertIn({"barangay": "Bugay", "date": "2026-03-05"}, chart["events"])
+        self.assertIn({"barangay": "San Jose", "date": "2026-02-12"}, chart["events"])

@@ -1816,26 +1816,40 @@ def analytics_dashboard(request):
         capture_status_totals.get(key, 0) for key, _ in DogCaptureRequest.STATUS_CHOICES
     ]
 
-    adoption_claim_trend_rows = []
+    adoption_claim_counts = defaultdict(int)
     adoption_claim_years = set()
-    adoption_claim_trends = (
-        Post.objects.filter(status__in=["adopted", "reunited"])
-        .annotate(activity_date=TruncDate("created_at", tzinfo=timezone.get_current_timezone()))
-        .values("status", "activity_date")
-        .annotate(total=Count("id"))
-        .order_by("activity_date", "status")
+    adoption_claim_requests = (
+        PostRequest.objects.select_related("post")
+        .filter(
+            status="accepted",
+            request_type__in=["claim", "adopt"],
+            post__status__in=["reunited", "adopted"],
+        )
+        .only("request_type", "scheduled_appointment_date", "created_at", "post__status")
+        .order_by("scheduled_appointment_date", "created_at", "id")
     )
-    for row in adoption_claim_trends:
-        activity_date = row["activity_date"]
+    for req in adoption_claim_requests:
+        activity_date = req.scheduled_appointment_date
+        if not activity_date and req.created_at:
+            activity_date = timezone.localtime(req.created_at).date()
         if not activity_date:
             continue
 
-        adoption_claim_trend_rows.append({
-            "status": "claimed" if row["status"] == "reunited" else "adopted",
-            "date": activity_date.isoformat(),
-            "total": row["total"],
-        })
+        status_key = "claimed" if req.request_type == "claim" else "adopted"
+        adoption_claim_counts[(status_key, activity_date)] += 1
         adoption_claim_years.add(activity_date.year)
+
+    adoption_claim_trend_rows = [
+        {
+            "status": status_key,
+            "date": activity_date.isoformat(),
+            "total": total,
+        }
+        for (status_key, activity_date), total in sorted(
+            adoption_claim_counts.items(),
+            key=lambda item: (item[0][1], item[0][0]),
+        )
+    ]
 
     adoption_claim_trend_chart = {
         "rows": adoption_claim_trend_rows,
@@ -1952,16 +1966,28 @@ def analytics_dashboard(request):
         "today": today.isoformat(),
     }
 
-    top_barangays = (
+    registered_barangay_events = []
+    registered_barangay_years = set()
+    for row in (
         Dog.objects.exclude(barangay__isnull=True)
         .exclude(barangay__exact="")
-        .values("barangay")
-        .annotate(total=Count("id"))
-        .order_by("-total")[:6]
-    )
+        .exclude(date_registered__isnull=True)
+        .values("barangay", "date_registered")
+        .order_by("date_registered", "barangay")
+    ):
+        registration_date = row["date_registered"]
+        barangay_name = (row["barangay"] or "").strip()
+        if not registration_date or not barangay_name:
+            continue
+        registered_barangay_events.append({
+            "barangay": barangay_name,
+            "date": registration_date.isoformat(),
+        })
+        registered_barangay_years.add(registration_date.year)
+
     barangay_chart = {
-        "labels": [row["barangay"] for row in top_barangays],
-        "data": [row["total"] for row in top_barangays],
+        "events": registered_barangay_events,
+        "years": sorted(registered_barangay_years),
     }
 
     context = {

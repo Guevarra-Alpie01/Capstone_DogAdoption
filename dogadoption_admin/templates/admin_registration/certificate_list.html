@@ -10,35 +10,27 @@
 {% include 'admin_registration/registration_navigation.html' %}
 
 <div id="certificate-list-page" class="registration-wrapper certificate-list-page">
-
-    <div class="header-section">
-        <div class="certificate-heading">
-            <h2><i class="fas fa-certificate" aria-hidden="true"></i> Vaccination Certificate Archive</h2>
-            <p>Manage saved vaccination certificates and print selected records.</p>
-        </div>
-    </div>
     <section class="side-card combined-record-card">
         <div class="combined-record-head">
-            <div>
-                <h3>Vaccination Print and Medical Record</h3>
-                <p class="side-help">
-                    All vaccination certificate records in one table. Expired vaccinations are marked in red, and each row includes a print action.
-                </p>
-            </div>
-            <form method="get" class="medical-record-filter">
-                <label for="barangay-filter" class="medical-record-filter-label">Barangay</label>
-                <select name="barangay" id="barangay-filter" class="medical-record-filter-select">
-                    <option value="">All Barangays</option>
-                    {% for barangay_name in barangay_names %}
-                    <option value="{{ barangay_name }}" {% if selected_barangay == barangay_name %}selected{% endif %}>
-                        {{ barangay_name }}
-                    </option>
-                    {% endfor %}
-                </select>
-                <button type="submit" class="medical-record-filter-btn">
+            <form method="get" class="medical-record-filter medical-record-search-form" id="certificate-list-search-form">
+                <input
+                    type="text"
+                    name="barangay"
+                    id="certificate-list-barangay"
+                    class="medical-record-filter-input"
+                    placeholder="Search other..."
+                    value="{{ selected_barangay|default:'' }}"
+                    autocomplete="off"
+                    enterkeyhint="search"
+                    data-barangay-autocomplete="true"
+                    data-barangay-source-url="{% url 'dogadoption_admin:barangay_list_api' %}"
+                    data-barangay-suggestions-id="certificate-list-suggestions"
+                >
+                <button type="submit" class="medical-record-filter-btn" data-barangay-search-target="certificate-list-barangay">
                     <i class="fas fa-search" aria-hidden="true"></i>
                     Search
                 </button>
+                <div id="certificate-list-suggestions" class="suggestions-box medical-record-suggestions-box" style="display:none;"></div>
             </form>
         </div>
 
@@ -173,6 +165,7 @@
     </section>
 </div>
 
+<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 <script>
 function getCertificatePageRoot() {
     return document.getElementById('certificate-list-page');
@@ -324,6 +317,9 @@ function initCertificateListPage() {
         return;
     }
 
+    if (typeof window.initBarangayAutocomplete === 'function') {
+        window.initBarangayAutocomplete(root);
+    }
     initSelectAll(root);
     initPrintSelected(root);
     initAsyncPagination(root);

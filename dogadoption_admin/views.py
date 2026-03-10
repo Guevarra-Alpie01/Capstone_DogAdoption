@@ -26,16 +26,8 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from django.views.decorators.http import require_http_methods, require_POST
 
-from docx import Document
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import landscape, letter
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-from xhtml2pdf import pisa
-
 from .forms import CitationForm, PenaltyForm, PostForm, SectionForm
+from .admin_notification_utils import sync_expiry_notifications
 from .cache_utils import ANALYTICS_DASHBOARD_CACHE_KEY
 from .context_processors import ADMIN_NOTIFICATIONS_CACHE_KEY
 from .models import (
@@ -110,6 +102,34 @@ CAT_BREED_KEYWORDS = {
     "turkish angora",
     "turkish van",
 }
+
+
+def _get_python_docx_document():
+    try:
+        from docx import Document
+    except ImportError as exc:
+        raise RuntimeError("python-docx is required for Word export.") from exc
+    return Document
+
+
+def _get_openpyxl_exports():
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    except ImportError as exc:
+        raise RuntimeError("openpyxl is required for Excel export.") from exc
+    return Workbook, Alignment, Border, Font, PatternFill, Side
+
+
+def _get_reportlab_exports():
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import landscape, letter
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    except ImportError as exc:
+        raise RuntimeError("reportlab is required for PDF export.") from exc
+    return colors, landscape, letter, getSampleStyleSheet, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 
 def _clean_barangay(value):
@@ -1690,6 +1710,9 @@ def admin_edit_profile(request):
 
 @admin_required
 def admin_notifications(request):
+    if sync_expiry_notifications():
+        cache.delete(ADMIN_NOTIFICATIONS_CACHE_KEY)
+
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "mark_all_read":
@@ -2369,6 +2392,7 @@ def download_registration(request, file_type):
 
     # ================= EXCEL =================
     if file_type == 'excel':
+        Workbook, Alignment, Border, Font, PatternFill, Side = _get_openpyxl_exports()
         wb = Workbook()
         ws = wb.active
         ws.title = "Dog Registrations"
@@ -2473,6 +2497,7 @@ def download_registration(request, file_type):
 
     # ================= PDF =================
     elif file_type == 'pdf':
+        colors, landscape, letter, getSampleStyleSheet, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle = _get_reportlab_exports()
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
             buffer,
@@ -2651,6 +2676,7 @@ def med_record(request, registration_id):
                 registration=registration,
                 date=request.POST.get("dew_date"),
                 medicine_given=request.POST.get("medicine_given"),
+                medicine_expiry_date=(request.POST.get("medicine_expiry_date") or "").strip() or None,
                 route=request.POST.get("route"),
                 frequency=request.POST.get("frequency"),
                 veterinarian=request.POST.get("dew_veterinarian"),
@@ -2678,11 +2704,13 @@ def med_record(request, registration_id):
                 registration=registration,
                 date=request.POST.get("dew_date"),
                 medicine_given=request.POST.get("medicine_given"),
+                medicine_expiry_date=(request.POST.get("medicine_expiry_date") or "").strip() or None,
                 route=request.POST.get("route"),
                 frequency=request.POST.get("frequency"),
                 veterinarian=request.POST.get("dew_veterinarian"),
             )
 
+        cache.delete(ADMIN_NOTIFICATIONS_CACHE_KEY)
         return redirect('dogadoption_admin:med_records', registration_id=registration.id)
 
     context = {
@@ -2900,6 +2928,7 @@ def certificate_list(request):
 
 @admin_required
 def export_certificates_pdf(request):
+    _, _, _, _, _, SimpleDocTemplate, _, Table, _ = _get_reportlab_exports()
     certificates = DogRegistration.objects.all().order_by('-date_registered')
 
     response = HttpResponse(content_type='application/pdf')
@@ -2922,6 +2951,7 @@ def export_certificates_pdf(request):
 
 @admin_required
 def export_certificates_word(request):
+    Document = _get_python_docx_document()
     certificates = DogRegistration.objects.all().order_by('-date_registered')
 
     document = Document()
@@ -2947,6 +2977,7 @@ def export_certificates_word(request):
 
 @admin_required
 def export_certificates_excel(request):
+    Workbook, _, _, _, _, _ = _get_openpyxl_exports()
     certificates = DogRegistration.objects.all().order_by('-date_registered')
 
     wb = Workbook()

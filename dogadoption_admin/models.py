@@ -360,6 +360,7 @@ class AdminNotification(models.Model):
     title = models.CharField(max_length=160)
     message = models.TextField(blank=True)
     url = models.CharField(max_length=255, blank=True)
+    event_key = models.CharField(max_length=255, blank=True, default="", db_index=True)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -537,6 +538,7 @@ class DewormingTreatmentRecord(models.Model):
     )
     date = models.DateField()
     medicine_given = models.CharField(max_length=255)
+    medicine_expiry_date = models.DateField(null=True, blank=True)
     route = models.CharField(max_length=255)
     frequency = models.CharField(max_length=255)
     veterinarian = models.CharField(max_length=255)

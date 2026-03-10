@@ -8,100 +8,108 @@
 {% block content %}
 <div class="auth-wrapper">
     <div class="auth-card signup-card">
-
-        <h2>Create Account</h2>
-
-        {% if error %}
-        <div class="alert alert-danger py-2 mb-3" role="alert">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}
-        </div>
-        {% endif %}
-
-        <form method="post" class="signup-form">
-            {% csrf_token %}
-
-            <div class="mb-2 input-group">
-                <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                <input type="text" name="username" class="form-control" placeholder="Username" value="{{ signup_form_data.username|default:'' }}" required>
-            </div>
-
-            <div class="mb-2 input-group">
-                <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
-                <input
-                    type="password"
-                    id="signupPassword"
-                    name="password"
-                    class="form-control"
-                    placeholder="Password"
-                    minlength="8"
-                    autocomplete="new-password"
-                    required
-                >
-                <button type="button" class="input-group-text password-toggle" data-password-toggle="signupPassword" aria-label="Show password">
-                    <i class="bi bi-eye"></i>
-                </button>
-            </div>
-
-            <div class="mb-2 input-group">
-                <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
-                <input
-                    type="password"
-                    id="signupConfirmPassword"
-                    name="confirm_password"
-                    class="form-control"
-                    placeholder="Confirm Password"
-                    minlength="8"
-                    autocomplete="new-password"
-                    required
-                >
-                <button type="button" class="input-group-text password-toggle" data-password-toggle="signupConfirmPassword" aria-label="Show password">
-                    <i class="bi bi-eye"></i>
-                </button>
-            </div>
-
-            <div class="mb-2 input-group">
-                <span class="input-group-text"><i class="bi bi-person"></i></span>
-                <input type="text" name="first_name" class="form-control" placeholder="First Name" value="{{ signup_form_data.first_name|default:'' }}" required>
-            </div>
-
-            <div class="mb-2 input-group">
-                <span class="input-group-text"><i class="bi bi-person"></i></span>
-                <input type="text" name="last_name" class="form-control" placeholder="Last Name" value="{{ signup_form_data.last_name|default:'' }}" required>
-            </div>
-
-            <div class="mb-3 signup-barangay-wrap">
-                <div class="input-group">
-                    <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
-                    <input
-                        type="text"
-                        name="address"
-                        id="signupBarangay"
-                        class="form-control"
-                        placeholder="Barangay"
-                        value="{{ signup_form_data.address|default:'' }}"
-                        autocomplete="off"
-                        required
-                        data-barangay-autocomplete="true"
-                        data-barangay-source-url="{% url 'user:barangay_list_api' %}"
-                        data-barangay-suggestions-id="signup-barangay-suggestions"
-                        data-barangay-strict="true"
-                    >
+        <div class="auth-shell">
+            <div class="auth-panel">
+                <div class="auth-panel-header">
+                    <span class="auth-kicker">Dog Adoption System</span>
+                    <h2>Create Account</h2>
                 </div>
-                <div id="signup-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
+
+                {% if error %}
+                <div class="alert alert-danger py-2 mb-3 auth-inline-alert" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}
+                </div>
+                {% endif %}
+
+                <form method="post" class="signup-form">
+                    {% csrf_token %}
+
+                    <div class="mb-2 input-group">
+                        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                        <input type="text" name="username" class="form-control" placeholder="Username" value="{{ signup_form_data.username|default:'' }}" required>
+                    </div>
+
+                    <div class="mb-2 input-group">
+                        <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+                        <input
+                            type="password"
+                            id="signupPassword"
+                            name="password"
+                            class="form-control"
+                            placeholder="Password"
+                            minlength="8"
+                            autocomplete="new-password"
+                            required
+                        >
+                        <button type="button" class="input-group-text password-toggle" data-password-toggle="signupPassword" aria-label="Show password">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+
+                    <div class="mb-2 input-group">
+                        <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
+                        <input
+                            type="password"
+                            id="signupConfirmPassword"
+                            name="confirm_password"
+                            class="form-control"
+                            placeholder="Confirm Password"
+                            minlength="8"
+                            autocomplete="new-password"
+                            required
+                        >
+                        <button type="button" class="input-group-text password-toggle" data-password-toggle="signupConfirmPassword" aria-label="Show password">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+
+                    <div class="mb-2 input-group">
+                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        <input type="text" name="first_name" class="form-control" placeholder="First Name" value="{{ signup_form_data.first_name|default:'' }}" required>
+                    </div>
+
+                    <div class="mb-2 input-group">
+                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        <input type="text" name="last_name" class="form-control" placeholder="Last Name" value="{{ signup_form_data.last_name|default:'' }}" required>
+                    </div>
+
+                    <div class="mb-3 signup-barangay-wrap">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                            <input
+                                type="text"
+                                name="address"
+                                id="signupBarangay"
+                                class="form-control"
+                                placeholder="Barangay"
+                                value="{{ signup_form_data.address|default:'' }}"
+                                autocomplete="off"
+                                required
+                                data-barangay-autocomplete="true"
+                                data-barangay-source-url="{% url 'user:barangay_list_api' %}"
+                                data-barangay-suggestions-id="signup-barangay-suggestions"
+                                data-barangay-strict="true"
+                            >
+                        </div>
+                        <div id="signup-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
+                    </div>
+
+                    <button type="submit" class="login-btn w-100 py-2">
+                        Next
+                    </button>
+                </form>
+
+                <div class="mt-3 text-center">
+                    <a href="{% url 'user:login' %}">
+                        Already have an account? Log in
+                    </a>
+                </div>
             </div>
 
-            <button type="submit" class="login-btn w-100 py-2">
-                Next
-            </button>
-
-        </form>
-
-        <div class="mt-3 text-center">
-            <a href="{% url 'user:login' %}">
-                Already have an account? Log in
-            </a>
+            <div class="auth-illustration" aria-hidden="true">
+                <img src="{% static 'images/doglogin.png' %}" alt="" class="auth-illustration-image">
+            </div>
         </div>
-
     </div>
 </div>
 

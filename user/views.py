@@ -15,6 +15,7 @@ import json
 import base64
 import hashlib
 import random
+import secrets
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
 from django.conf import settings
@@ -487,7 +488,7 @@ def _normalized_feed_query(raw_query):
 def _feed_cache_key(prefix, query, feed_token=""):
     query_hash = hashlib.md5(query.encode("utf-8")).hexdigest() if query else "all"
     token_hash = hashlib.md5(feed_token.encode("utf-8")).hexdigest() if feed_token else "default"
-    return f"user_home:{prefix}:v3:{query_hash}:{token_hash}"
+    return f"user_home:{prefix}:v4:{query_hash}:{token_hash}"
 
 
 def _normalized_feed_token(raw_token):
@@ -495,12 +496,16 @@ def _normalized_feed_token(raw_token):
 
 
 def _fresh_feed_token():
-    refresh_seed = f"{timezone.now().timestamp()}:{random.random()}"
-    return hashlib.md5(refresh_seed.encode("utf-8")).hexdigest()[:16]
+    return secrets.token_hex(8)
 
 
 def _redirect_to_user_home_with_fresh_feed():
     return redirect(f"{reverse('user:user_home')}?feed_token={_fresh_feed_token()}")
+
+
+def _feed_rng(seed_key):
+    seed_hash = hashlib.md5(seed_key.encode("utf-8")).hexdigest()
+    return random.Random(int(seed_hash, 16))
 
 
 def _sample_recent_ids_with_cache(cache_key, base_qs, candidate_limit, sample_limit):
@@ -511,12 +516,13 @@ def _sample_recent_ids_with_cache(cache_key, base_qs, candidate_limit, sample_li
     candidate_ids = list(
         base_qs.order_by("-created_at").values_list("id", flat=True)[:candidate_limit]
     )
+    rng = _feed_rng(cache_key)
     if len(candidate_ids) > sample_limit:
-        sampled_ids = random.sample(candidate_ids, sample_limit)
+        sampled_ids = rng.sample(candidate_ids, sample_limit)
     else:
-        sampled_ids = candidate_ids
+        sampled_ids = list(candidate_ids)
 
-    random.shuffle(sampled_ids)
+    rng.shuffle(sampled_ids)
     cache.set(cache_key, sampled_ids, FEED_CACHE_TTL_SECONDS)
     return sampled_ids
 
@@ -526,12 +532,13 @@ def _sample_ids_with_cache(cache_key, candidate_ids, sample_limit):
     if cached_ids is not None:
         return cached_ids
 
+    rng = _feed_rng(cache_key)
     if len(candidate_ids) > sample_limit:
-        sampled_ids = random.sample(candidate_ids, sample_limit)
+        sampled_ids = rng.sample(candidate_ids, sample_limit)
     else:
-        sampled_ids = candidate_ids
+        sampled_ids = list(candidate_ids)
 
-    random.shuffle(sampled_ids)
+    rng.shuffle(sampled_ids)
     cache.set(cache_key, sampled_ids, FEED_CACHE_TTL_SECONDS)
     return sampled_ids
 
@@ -609,7 +616,8 @@ def _build_random_home_rows(query, feed_token="", dogs_only=False):
     mixed_rows.extend({"id": ann_id, "feed_type": "announcement"} for ann_id in announcement_ids)
     mixed_rows.extend({"id": user_id, "feed_type": "user"} for user_id in user_ids)
     mixed_rows.extend({"id": missing_id, "feed_type": "missing"} for missing_id in missing_ids)
-    random.shuffle(mixed_rows)
+    # Seeded shuffling keeps pagination stable for one browsing session without DB-level random ordering.
+    _feed_rng(mixed_cache_key).shuffle(mixed_rows)
     cache.set(mixed_cache_key, mixed_rows, FEED_CACHE_TTL_SECONDS)
     return mixed_rows
 
@@ -908,7 +916,7 @@ def _build_user_home_context(
     adoption_form = adoption_form or UserAdoptionPostForm()
     missing_form = missing_form or MissingDogPostForm()
     query = _normalized_feed_query(request.GET.get("q"))
-    feed_token = _normalized_feed_token(request.GET.get("feed_token"))
+    feed_token = _normalized_feed_token(request.GET.get("feed_token")) or _fresh_feed_token()
     page_number = request.GET.get("page", 1)
     show_dogs_only = request.user.is_authenticated and not request.user.is_staff
     mixed_rows = _build_random_home_rows(query, feed_token=feed_token, dogs_only=show_dogs_only)
@@ -1104,17 +1112,6 @@ def user_home(request):
         )
         if created:
             return _redirect_to_user_home_with_fresh_feed()
-
-    query = _normalized_feed_query(request.GET.get("q"))
-    if request.GET.get("refresh") == "1":
-        refresh_seed = f"{query}:{timezone.now().timestamp()}:{random.random()}"
-        refresh_token = hashlib.md5(refresh_seed.encode("utf-8")).hexdigest()[:16]
-        params = request.GET.copy()
-        params.pop("refresh", None)
-        params["feed_token"] = refresh_token
-        params["page"] = "1"
-        target = reverse("user:user_home")
-        return redirect(f"{target}?{params.urlencode()}")
 
     return render(request, "home/user_home.html", _build_user_home_context(
         request,

@@ -150,6 +150,58 @@ class UserPostCreationFlowTests(TestCase):
         )
 
 
+class UserHomeFeedTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.owner = User.objects.create_user(
+            username="feed_owner",
+            password="secret123",
+        )
+        for index in range(14):
+            UserAdoptionPost.objects.create(
+                owner=self.owner,
+                dog_name=f"Dog {index}",
+                description=f"Friendly dog {index}",
+                location="Barangay 1",
+                status="available",
+            )
+
+    def test_home_feed_removes_refresh_button_and_emits_feed_token(self):
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        feed_token = response.context["feed_token"]
+        self.assertTrue(feed_token)
+        self.assertNotContains(response, "Refresh Feed")
+        self.assertNotContains(response, "refresh=1")
+        self.assertContains(response, f'feed_token" value="{feed_token}"')
+        self.assertContains(response, f"feed_token={feed_token}")
+
+    def test_load_more_uses_same_feed_token_without_reshuffling_seen_posts(self):
+        first_response = self.client.get(reverse("user:user_home"))
+        feed_token = first_response.context["feed_token"]
+        first_page_posts = {
+            (item["post_type"], item["post"].id)
+            for item in first_response.context["posts"]
+        }
+
+        second_response = self.client.get(
+            reverse("user:user_home"),
+            {"feed_token": feed_token, "page": 2},
+        )
+
+        self.assertEqual(second_response.status_code, 200)
+        self.assertEqual(second_response.context["feed_token"], feed_token)
+        self.assertEqual(second_response.context["page_obj"].number, 2)
+
+        second_page_posts = {
+            (item["post_type"], item["post"].id)
+            for item in second_response.context["posts"]
+        }
+        self.assertTrue(second_page_posts)
+        self.assertFalse(first_page_posts.intersection(second_page_posts))
+
+
 class UserNotificationTests(TestCase):
     def setUp(self):
         cache.clear()

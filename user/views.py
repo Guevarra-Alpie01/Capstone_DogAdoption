@@ -20,7 +20,7 @@ from django.http import JsonResponse
 from django.core.files.base import ContentFile
 from django.conf import settings
 from django.core.cache import cache
-from datetime import timedelta
+from datetime import datetime, timedelta
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
 from django.urls import reverse
@@ -479,10 +479,47 @@ FEED_ADMIN_SAMPLE_LIMIT = 240
 FEED_ANNOUNCEMENT_SAMPLE_LIMIT = 70
 FEED_USER_SAMPLE_LIMIT = 90
 FEED_MISSING_SAMPLE_LIMIT = 70
+SEARCH_RESULTS_PER_PAGE = 12
+SEARCH_CANDIDATE_LIMIT = 240
+SEARCH_CACHE_TTL_SECONDS = 90
+SEARCH_MAX_QUERY_LENGTH = 80
+SEARCH_ROLE_CHOICES = {"all", "staff", "user"}
 
 
 def _normalized_feed_query(raw_query):
     return " ".join((raw_query or "").strip().split())
+
+
+def _normalized_search_query(raw_query):
+    return _normalized_feed_query(raw_query)[:SEARCH_MAX_QUERY_LENGTH]
+
+
+def _normalized_search_role(raw_role):
+    role = (raw_role or "all").strip().lower()
+    return role if role in SEARCH_ROLE_CHOICES else "all"
+
+
+def _parse_search_date_hint(raw_text):
+    value = (raw_text or "").strip()
+    if not value:
+        return None
+
+    parsed = parse_date(value)
+    if parsed:
+        return parsed
+
+    for fmt in ("%b %d, %Y", "%B %d, %Y", "%m/%d/%Y", "%m-%d-%Y"):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _pagination_query_without_page(querydict):
+    params = querydict.copy()
+    params.pop("page", None)
+    return params.urlencode()
 
 
 def _feed_cache_key(prefix, query, feed_token=""):
@@ -620,6 +657,288 @@ def _build_random_home_rows(query, feed_token="", dogs_only=False):
     _feed_rng(mixed_cache_key).shuffle(mixed_rows)
     cache.set(mixed_cache_key, mixed_rows, FEED_CACHE_TTL_SECONDS)
     return mixed_rows
+
+
+def _build_search_rows_cache_key(query, role_filter, date_from, date_to, dogs_only):
+    prefix = "search_dogs_only" if dogs_only else "search_mixed"
+    date_token = f"{date_from.isoformat() if date_from else 'none'}:{date_to.isoformat() if date_to else 'none'}"
+    return _feed_cache_key(f"{prefix}:{role_filter}:{date_token}", query)
+
+
+def _build_search_home_rows(query, role_filter, date_from, date_to, dogs_only=False):
+    has_filters = bool(query or role_filter != "all" or date_from or date_to)
+    if not has_filters:
+        return []
+
+    cache_key = _build_search_rows_cache_key(query, role_filter, date_from, date_to, dogs_only)
+    cached_rows = cache.get(cache_key)
+    if cached_rows is not None:
+        return cached_rows
+
+    accepted_post_ids = PostRequest.objects.filter(
+        status="accepted",
+        request_type__in=["claim", "adopt"],
+    ).values("post_id")
+
+    admin_qs = Post.objects.exclude(status__in=["reunited", "adopted"]).exclude(id__in=accepted_post_ids)
+    announcement_qs = DogAnnouncement.objects.all()
+    user_qs = UserAdoptionPost.objects.filter(status="available")
+    missing_qs = MissingDogPost.objects.filter(status="missing")
+
+    if role_filter == "staff":
+        admin_qs = admin_qs.filter(user__is_staff=True)
+        announcement_qs = announcement_qs.filter(created_by__is_staff=True)
+        user_qs = user_qs.filter(owner__is_staff=True)
+        missing_qs = missing_qs.filter(owner__is_staff=True)
+    elif role_filter == "user":
+        admin_qs = admin_qs.filter(user__is_staff=False)
+        announcement_qs = announcement_qs.filter(created_by__is_staff=False)
+        user_qs = user_qs.filter(owner__is_staff=False)
+        missing_qs = missing_qs.filter(owner__is_staff=False)
+
+    query_date = _parse_search_date_hint(query)
+    if query:
+        admin_filters = (
+            Q(caption__icontains=query)
+            | Q(location__icontains=query)
+            | Q(status__icontains=query)
+            | Q(user__username__icontains=query)
+            | Q(user__first_name__icontains=query)
+            | Q(user__last_name__icontains=query)
+        )
+        announcement_filters = (
+            Q(title__icontains=query)
+            | Q(content__icontains=query)
+            | Q(category__icontains=query)
+            | Q(created_by__username__icontains=query)
+            | Q(created_by__first_name__icontains=query)
+            | Q(created_by__last_name__icontains=query)
+        )
+        user_filters = (
+            Q(dog_name__icontains=query)
+            | Q(description__icontains=query)
+            | Q(location__icontains=query)
+            | Q(owner__username__icontains=query)
+            | Q(owner__first_name__icontains=query)
+            | Q(owner__last_name__icontains=query)
+        )
+        missing_filters = (
+            Q(dog_name__icontains=query)
+            | Q(description__icontains=query)
+            | Q(location__icontains=query)
+            | Q(owner__username__icontains=query)
+            | Q(owner__first_name__icontains=query)
+            | Q(owner__last_name__icontains=query)
+        )
+
+        if query_date:
+            admin_filters |= Q(created_at__date=query_date) | Q(rescued_date=query_date)
+            announcement_filters |= Q(created_at__date=query_date)
+            user_filters |= Q(created_at__date=query_date)
+            missing_filters |= Q(created_at__date=query_date) | Q(date_lost=query_date)
+
+        admin_qs = admin_qs.filter(admin_filters)
+        announcement_qs = announcement_qs.filter(announcement_filters)
+        user_qs = user_qs.filter(user_filters)
+        missing_qs = missing_qs.filter(missing_filters)
+
+    if date_from:
+        admin_qs = admin_qs.filter(
+            Q(created_at__date__gte=date_from) | Q(rescued_date__gte=date_from)
+        )
+        announcement_qs = announcement_qs.filter(created_at__date__gte=date_from)
+        user_qs = user_qs.filter(created_at__date__gte=date_from)
+        missing_qs = missing_qs.filter(
+            Q(created_at__date__gte=date_from) | Q(date_lost__gte=date_from)
+        )
+    if date_to:
+        admin_qs = admin_qs.filter(
+            Q(created_at__date__lte=date_to) | Q(rescued_date__lte=date_to)
+        )
+        announcement_qs = announcement_qs.filter(created_at__date__lte=date_to)
+        user_qs = user_qs.filter(created_at__date__lte=date_to)
+        missing_qs = missing_qs.filter(
+            Q(created_at__date__lte=date_to) | Q(date_lost__lte=date_to)
+        )
+
+    admin_rows = list(
+        admin_qs.order_by("-created_at").values("id", "created_at")[:SEARCH_CANDIDATE_LIMIT]
+    )
+    announcement_rows = []
+    if not dogs_only:
+        announcement_rows = list(
+            announcement_qs.order_by("-created_at").values("id", "created_at")[:SEARCH_CANDIDATE_LIMIT]
+        )
+    user_rows = list(
+        user_qs.order_by("-created_at").values("id", "created_at")[:SEARCH_CANDIDATE_LIMIT]
+    )
+    missing_rows = list(
+        missing_qs.order_by("-created_at").values("id", "created_at")[:SEARCH_CANDIDATE_LIMIT]
+    )
+
+    rows = [{"id": row["id"], "feed_type": "admin", "created_at": row["created_at"]} for row in admin_rows]
+    rows.extend(
+        {"id": row["id"], "feed_type": "announcement", "created_at": row["created_at"]}
+        for row in announcement_rows
+    )
+    rows.extend(
+        {"id": row["id"], "feed_type": "user", "created_at": row["created_at"]}
+        for row in user_rows
+    )
+    rows.extend(
+        {"id": row["id"], "feed_type": "missing", "created_at": row["created_at"]}
+        for row in missing_rows
+    )
+    rows.sort(key=lambda row: (row["created_at"], row["id"]), reverse=True)
+    cache.set(cache_key, rows, SEARCH_CACHE_TTL_SECONDS)
+    return rows
+
+
+def _hydrate_home_feed_items(request, feed_rows):
+    ids_by_type = {
+        "admin": [row["id"] for row in feed_rows if row["feed_type"] == "admin"],
+        "announcement": [row["id"] for row in feed_rows if row["feed_type"] == "announcement"],
+        "user": [row["id"] for row in feed_rows if row["feed_type"] == "user"],
+        "missing": [row["id"] for row in feed_rows if row["feed_type"] == "missing"],
+    }
+
+    admin_map = {
+        post.id: post
+        for post in Post.objects.select_related(
+            "user", "user__profile"
+        ).prefetch_related("images").filter(id__in=ids_by_type["admin"])
+    }
+    announcement_user_reaction_subquery = AnnouncementReaction.objects.filter(
+        announcement_id=OuterRef("pk"),
+        user_id=getattr(request.user, "id", None),
+    )
+    announcement_map = {
+        post.id: post
+        for post in DogAnnouncement.objects.select_related(
+            "created_by", "created_by__profile"
+        ).annotate(
+            reaction_count=Count("reactions", distinct=True),
+            user_reacted=Exists(announcement_user_reaction_subquery),
+        ).prefetch_related("images").filter(id__in=ids_by_type["announcement"])
+    }
+    user_map = {
+        post.id: post
+        for post in UserAdoptionPost.objects.select_related(
+            "owner", "owner__profile"
+        ).prefetch_related("images").filter(id__in=ids_by_type["user"])
+    }
+    missing_map = {
+        post.id: post
+        for post in MissingDogPost.objects.select_related(
+            "owner", "owner__profile"
+        ).filter(id__in=ids_by_type["missing"])
+    }
+
+    combined_posts = []
+    default_admin_avatar_url = static("images/officialseal.webp")
+    for row in feed_rows:
+        post_type = row["feed_type"]
+        post_id = row["id"]
+
+        if post_type == "admin":
+            p = admin_map.get(post_id)
+            if not p:
+                continue
+            post_images = list(p.images.all())
+            main_image = post_images[0] if post_images else None
+            image_count = len(post_images)
+
+            phase, days, hours, minutes = _post_phase_payload(p)
+            is_open_for_adoption = phase in ["claim", "adopt"]
+
+            deadline = None
+            if phase == "claim":
+                deadline = p.claim_deadline()
+            elif phase == "adopt":
+                deadline = p.adoption_deadline()
+
+            combined_posts.append({
+                "post": p,
+                "post_type": "admin",
+                "author_avatar_url": _profile_image_url_or_default(
+                    p.user, default_admin_avatar_url
+                ),
+                "days_left": days,
+                "hours_left": hours,
+                "minutes_left": minutes,
+                "is_open_for_adoption": is_open_for_adoption,
+                "phase": phase,
+                "posted_label": _format_posted_label(p.created_at),
+                "deadline_iso": deadline.isoformat() if deadline else "",
+                "image_count": image_count,
+                "main_image": main_image,
+            })
+            continue
+
+        if post_type == "announcement":
+            p = announcement_map.get(post_id)
+            if not p:
+                continue
+            announcement_images = list(p.images.all())
+            first_image_url = announcement_images[0].image.url if announcement_images else ""
+            main_image_url = first_image_url or (p.background_image.url if p.background_image else "")
+
+            combined_posts.append({
+                "post": p,
+                "post_type": "announcement",
+                "author_avatar_url": _profile_image_url_or_default(
+                    p.created_by, default_admin_avatar_url
+                ),
+                "content_display": _clean_announcement_text_for_display(p.content),
+                "posted_label": _format_posted_label(p.created_at),
+                "main_image_url": main_image_url,
+                "image_count": len(announcement_images),
+                "reaction_count": getattr(p, "reaction_count", 0),
+                "user_reacted": bool(getattr(p, "user_reacted", False)),
+                "share_url": request.build_absolute_uri(
+                    reverse("user:announcement_share_preview", args=[p.id])
+                ),
+            })
+            continue
+
+        if post_type == "user":
+            p = user_map.get(post_id)
+            if not p:
+                continue
+            post_images = list(p.images.all())
+            main_image = post_images[0] if post_images else None
+
+            combined_posts.append({
+                "post": p,
+                "post_type": "user",
+                "days_left": 0,
+                "hours_left": 0,
+                "minutes_left": 0,
+                "is_open_for_adoption": False,
+                "phase": "closed",
+                "posted_label": _format_posted_label(p.created_at),
+                "image_count": len(post_images),
+                "main_image": main_image,
+            })
+            continue
+
+        p = missing_map.get(post_id)
+        if not p:
+            continue
+        combined_posts.append({
+            "post": p,
+            "post_type": "missing",
+            "days_left": 0,
+            "hours_left": 0,
+            "minutes_left": 0,
+            "is_open_for_adoption": False,
+            "phase": "closed",
+            "posted_label": _format_posted_label(p.created_at),
+            "image_count": 1 if p.image else 0,
+            "main_image": None,
+        })
+
+    return combined_posts
 
 
 def _is_valid_capture_reason(reason):
@@ -916,6 +1235,9 @@ def _build_user_home_context(
     adoption_form = adoption_form or UserAdoptionPostForm()
     missing_form = missing_form or MissingDogPostForm()
     query = _normalized_feed_query(request.GET.get("q"))
+    role_filter = _normalized_search_role(request.GET.get("role"))
+    date_from_value = (request.GET.get("date_from") or "").strip()
+    date_to_value = (request.GET.get("date_to") or "").strip()
     feed_token = _normalized_feed_token(request.GET.get("feed_token")) or _fresh_feed_token()
     page_number = request.GET.get("page", 1)
     show_dogs_only = request.user.is_authenticated and not request.user.is_staff
@@ -924,159 +1246,26 @@ def _build_user_home_context(
     paginator = Paginator(mixed_rows, FEED_POSTS_PER_PAGE)
     page_obj = paginator.get_page(page_number)
     feed_rows = list(page_obj.object_list)
-
-    ids_by_type = {
-        "admin": [row["id"] for row in feed_rows if row["feed_type"] == "admin"],
-        "announcement": [row["id"] for row in feed_rows if row["feed_type"] == "announcement"],
-        "user": [row["id"] for row in feed_rows if row["feed_type"] == "user"],
-        "missing": [row["id"] for row in feed_rows if row["feed_type"] == "missing"],
-    }
-
-    admin_map = {
-        post.id: post
-        for post in Post.objects.select_related(
-            "user", "user__profile"
-        ).prefetch_related("images").filter(id__in=ids_by_type["admin"])
-    }
-    announcement_user_reaction_subquery = AnnouncementReaction.objects.filter(
-        announcement_id=OuterRef("pk"),
-        user_id=request.user.id,
-    )
-    announcement_map = {
-        post.id: post
-        for post in DogAnnouncement.objects.select_related(
-            "created_by", "created_by__profile"
-        ).annotate(
-            reaction_count=Count("reactions", distinct=True),
-            user_reacted=Exists(announcement_user_reaction_subquery),
-        ).prefetch_related("images").filter(id__in=ids_by_type["announcement"])
-    }
-    user_map = {
-        post.id: post
-        for post in UserAdoptionPost.objects.select_related(
-            "owner", "owner__profile"
-        ).prefetch_related("images").filter(id__in=ids_by_type["user"])
-    }
-    missing_map = {
-        post.id: post
-        for post in MissingDogPost.objects.select_related(
-            "owner", "owner__profile"
-        ).filter(id__in=ids_by_type["missing"])
-    }
-
-    combined_posts = []
-    default_admin_avatar_url = static("images/officialseal.webp")
-    for row in feed_rows:
-        post_type = row["feed_type"]
-        post_id = row["id"]
-
-        if post_type == "admin":
-            p = admin_map.get(post_id)
-            if not p:
-                continue
-            post_images = list(p.images.all())
-            main_image = post_images[0] if post_images else None
-            image_count = len(post_images)
-
-            phase, days, hours, minutes = _post_phase_payload(p)
-            is_open_for_adoption = phase in ["claim", "adopt"]
-
-            deadline = None
-            if phase == "claim":
-                deadline = p.claim_deadline()
-            elif phase == "adopt":
-                deadline = p.adoption_deadline()
-
-            combined_posts.append({
-                "post": p,
-                "post_type": "admin",
-                "author_avatar_url": _profile_image_url_or_default(
-                    p.user, default_admin_avatar_url
-                ),
-                "days_left": days,
-                "hours_left": hours,
-                "minutes_left": minutes,
-                "is_open_for_adoption": is_open_for_adoption,
-                "phase": phase,
-                "posted_label": _format_posted_label(p.created_at),
-                "deadline_iso": deadline.isoformat() if deadline else "",
-                "image_count": image_count,
-                "main_image": main_image,
-            })
-            continue
-
-        if post_type == "announcement":
-            p = announcement_map.get(post_id)
-            if not p:
-                continue
-            announcement_images = list(p.images.all())
-            first_image_url = announcement_images[0].image.url if announcement_images else ""
-            main_image_url = first_image_url or (p.background_image.url if p.background_image else "")
-
-            combined_posts.append({
-                "post": p,
-                "post_type": "announcement",
-                "author_avatar_url": _profile_image_url_or_default(
-                    p.created_by, default_admin_avatar_url
-                ),
-                "content_display": _clean_announcement_text_for_display(p.content),
-                "posted_label": _format_posted_label(p.created_at),
-                "main_image_url": main_image_url,
-                "image_count": len(announcement_images),
-                "reaction_count": getattr(p, "reaction_count", 0),
-                "user_reacted": bool(getattr(p, "user_reacted", False)),
-                "share_url": request.build_absolute_uri(
-                    reverse("user:announcement_share_preview", args=[p.id])
-                ),
-            })
-            continue
-
-        if post_type == "user":
-            p = user_map.get(post_id)
-            if not p:
-                continue
-            post_images = list(p.images.all())
-            main_image = post_images[0] if post_images else None
-
-            combined_posts.append({
-                "post": p,
-                "post_type": "user",
-                "days_left": 0,
-                "hours_left": 0,
-                "minutes_left": 0,
-                "is_open_for_adoption": False,
-                "phase": "closed",
-                "posted_label": _format_posted_label(p.created_at),
-                "image_count": len(post_images),
-                "main_image": main_image,
-            })
-            continue
-
-        p = missing_map.get(post_id)
-        if not p:
-            continue
-        combined_posts.append({
-            "post": p,
-            "post_type": "missing",
-            "days_left": 0,
-            "hours_left": 0,
-            "minutes_left": 0,
-            "is_open_for_adoption": False,
-            "phase": "closed",
-            "posted_label": _format_posted_label(p.created_at),
-            "image_count": 1 if p.image else 0,
-            "main_image": None,
-        })
+    combined_posts = _hydrate_home_feed_items(request, feed_rows)
+    pagination_params = request.GET.copy()
+    pagination_params["feed_token"] = feed_token
+    pagination_params.pop("page", None)
 
     return {
         "posts": combined_posts,
         "page_obj": page_obj,
         "query": query,
         "feed_token": feed_token,
+        "pagination_query": pagination_params.urlencode(),
+        "role_filter": role_filter,
+        "date_from_value": date_from_value,
+        "date_to_value": date_to_value,
         "selected_type": selected_type,
         "adoption_form": adoption_form,
         "missing_form": missing_form,
         "open_create_modal": open_create_modal,
+        "search_mode": False,
+        "empty_message": "No feed items available yet.",
     }
 
 
@@ -1120,6 +1309,55 @@ def user_home(request):
         missing_form=missing_form,
         open_create_modal=open_create_modal,
     ))
+
+
+def home_search(request):
+    if request.user.is_authenticated and request.user.is_staff:
+        return redirect("dogadoption_admin:post_list")
+
+    query = _normalized_search_query(request.GET.get("q"))
+    role_filter = _normalized_search_role(request.GET.get("role"))
+    raw_date_from = (request.GET.get("date_from") or "").strip()
+    raw_date_to = (request.GET.get("date_to") or "").strip()
+    date_from = parse_date(raw_date_from) if raw_date_from else None
+    date_to = parse_date(raw_date_to) if raw_date_to else None
+    if date_from and date_to and date_from > date_to:
+        date_from, date_to = date_to, date_from
+
+    search_performed = bool(query or role_filter != "all" or date_from or date_to)
+    show_dogs_only = request.user.is_authenticated and not request.user.is_staff
+    search_rows = _build_search_home_rows(
+        query=query,
+        role_filter=role_filter,
+        date_from=date_from,
+        date_to=date_to,
+        dogs_only=show_dogs_only,
+    )
+
+    paginator = Paginator(search_rows, SEARCH_RESULTS_PER_PAGE)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+    posts = _hydrate_home_feed_items(request, list(page_obj.object_list))
+    result_count = len(search_rows)
+
+    if search_performed:
+        empty_message = "No results found. Try another keyword, date, or role filter."
+    else:
+        empty_message = "Enter a keyword, date, or role to begin searching."
+
+    context = {
+        "posts": posts,
+        "page_obj": page_obj,
+        "pagination_query": _pagination_query_without_page(request.GET),
+        "query": query,
+        "role_filter": role_filter,
+        "date_from_value": date_from.isoformat() if date_from else raw_date_from,
+        "date_to_value": date_to.isoformat() if date_to else raw_date_to,
+        "result_count": result_count,
+        "search_performed": search_performed,
+        "search_mode": True,
+        "empty_message": empty_message,
+    }
+    return render(request, "home/search_results.html", context)
 
 @user_only
 def create_post(request):

@@ -1,0 +1,426 @@
+<div id="sharePanel" class="share-panel" hidden>
+    <div class="share-panel-header">Share Panel</div>
+    <div class="share-options">
+        <button type="button" class="share-option" data-network="facebook">
+            <span class="share-logo share-facebook">f</span>
+            <span>Facebook</span>
+        </button>
+        <button type="button" class="share-option" data-network="messenger">
+            <span class="share-logo share-messenger">m</span>
+            <span>Messenger</span>
+        </button>
+        <button type="button" class="share-option" data-network="x">
+            <span class="share-logo share-x">x</span>
+            <span>Twitter/X</span>
+        </button>
+        <button type="button" class="share-option" data-network="instagram">
+            <span class="share-logo share-instagram">i</span>
+            <span>Instagram</span>
+        </button>
+    </div>
+    <label for="shareLinkInput" class="share-url-label">URL</label>
+    <div class="share-link-row">
+        <input id="shareLinkInput" type="text" readonly>
+        <button type="button" id="copyShareLinkBtn" class="btn btn-sm btn-warning">Copy Link</button>
+    </div>
+    <div id="sharePanelStatus" class="share-panel-status" aria-live="polite"></div>
+</div>
+<script>
+    function openFacebookShareUrl(webShareUrl) {
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        if (!isMobile) {
+            window.open(webShareUrl, "_blank", "noopener");
+            return;
+        }
+
+        const appShareUrl = "fb://facewebmodal/f?href=" + encodeURIComponent(webShareUrl);
+        let fallbackTimer = null;
+
+        function cancelFallbackOnAppOpen() {
+            if (document.hidden && fallbackTimer) {
+                clearTimeout(fallbackTimer);
+                fallbackTimer = null;
+                document.removeEventListener("visibilitychange", cancelFallbackOnAppOpen);
+            }
+        }
+
+        document.addEventListener("visibilitychange", cancelFallbackOnAppOpen);
+
+        fallbackTimer = setTimeout(() => {
+            document.removeEventListener("visibilitychange", cancelFallbackOnAppOpen);
+            window.location.href = webShareUrl;
+        }, 900);
+
+        window.location.href = appShareUrl;
+    }
+
+    function openFacebookShare(event, webShareUrl) {
+        event.preventDefault();
+        openFacebookShareUrl(webShareUrl);
+    }
+
+    let activeShareUrl = "";
+    let activeShareTrigger = null;
+
+    function setShareStatus(message) {
+        const statusEl = document.getElementById("sharePanelStatus");
+        if (!statusEl) return;
+        statusEl.textContent = message || "";
+    }
+
+    function openSharePanel(triggerEl, shareUrl) {
+        const panel = document.getElementById("sharePanel");
+        const input = document.getElementById("shareLinkInput");
+        if (!panel || !input) return;
+
+        activeShareUrl = shareUrl;
+        activeShareTrigger = triggerEl;
+        input.value = shareUrl;
+        panel.hidden = false;
+        positionSharePanel();
+        setShareStatus("");
+    }
+
+    function closeSharePanel() {
+        const panel = document.getElementById("sharePanel");
+        if (!panel) return;
+        panel.hidden = true;
+        activeShareUrl = "";
+        activeShareTrigger = null;
+        setShareStatus("");
+    }
+
+    function positionSharePanel() {
+        const panel = document.getElementById("sharePanel");
+        if (!panel || panel.hidden || !activeShareTrigger) return;
+
+        const isMobile = window.matchMedia("(max-width: 768px)").matches;
+        if (isMobile) {
+            // Keep panel above bottom navigation on small screens
+            panel.style.left = "10px";
+            panel.style.right = "10px";
+            panel.style.top = "auto";
+            panel.style.bottom = "74px";
+            return;
+        }
+
+        panel.style.right = "";
+        panel.style.bottom = "";
+        const triggerRect = activeShareTrigger.getBoundingClientRect();
+        const panelWidth = 320;
+        const margin = 12;
+        let left = triggerRect.right - panelWidth;
+        left = Math.max(margin, left);
+        left = Math.min(left, window.innerWidth - panelWidth - margin);
+        const top = Math.min(
+            triggerRect.bottom + 10,
+            window.innerHeight - panel.offsetHeight - margin
+        );
+
+        panel.style.left = `${left}px`;
+        panel.style.top = `${Math.max(margin, top)}px`;
+    }
+
+    async function copyShareLink() {
+        if (!activeShareUrl) return;
+        try {
+            await navigator.clipboard.writeText(activeShareUrl);
+            setShareStatus("Link copied.");
+        } catch (error) {
+            const input = document.getElementById("shareLinkInput");
+            if (!input) return;
+            input.focus();
+            input.select();
+            document.execCommand("copy");
+            setShareStatus("Link copied.");
+        }
+    }
+
+    function shareViaMessenger(url) {
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        if (!isMobile) {
+            copyShareLink();
+            window.open("https://www.messenger.com/", "_blank", "noopener");
+            setShareStatus("Link copied. Paste it in Messenger.");
+            return;
+        }
+
+        const messengerAppUrl = "fb-messenger://share/?link=" + encodeURIComponent(url);
+        const fallback = setTimeout(() => {
+            window.open("https://www.messenger.com/", "_blank", "noopener");
+            setShareStatus("Open Messenger and paste the copied link.");
+        }, 900);
+
+        document.addEventListener("visibilitychange", function onHide() {
+            if (document.hidden) {
+                clearTimeout(fallback);
+                document.removeEventListener("visibilitychange", onHide);
+            }
+        });
+
+        window.location.href = messengerAppUrl;
+    }
+
+    function initSharePanel() {
+        const panel = document.getElementById("sharePanel");
+        const openBtns = document.querySelectorAll(".js-open-share");
+        const optionBtns = document.querySelectorAll(".share-option[data-network]");
+        const copyBtn = document.getElementById("copyShareLinkBtn");
+
+        openBtns.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const shareUrl = btn.getAttribute("data-share-url");
+                if (!shareUrl) return;
+                openSharePanel(btn, shareUrl);
+            });
+        });
+
+        optionBtns.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                if (!activeShareUrl) return;
+                const network = btn.getAttribute("data-network");
+                const encodedUrl = encodeURIComponent(activeShareUrl);
+
+                if (network === "facebook") {
+                    openFacebookShareUrl(`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`);
+                    return;
+                }
+                if (network === "messenger") {
+                    shareViaMessenger(activeShareUrl);
+                    return;
+                }
+                if (network === "x") {
+                    window.open(`https://twitter.com/intent/tweet?url=${encodedUrl}`, "_blank", "noopener");
+                    return;
+                }
+                if (network === "instagram") {
+                    copyShareLink();
+                    window.open("https://www.instagram.com/", "_blank", "noopener");
+                    setShareStatus("Link copied. Paste it in Instagram.");
+                }
+            });
+        });
+
+        if (copyBtn) {
+            copyBtn.addEventListener("click", copyShareLink);
+        }
+
+        document.addEventListener("click", (event) => {
+            if (!panel || panel.hidden) return;
+            const clickedShareBtn = event.target.closest(".js-open-share");
+            const clickedInsidePanel = event.target.closest("#sharePanel");
+            if (!clickedShareBtn && !clickedInsidePanel) {
+                closeSharePanel();
+            }
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                closeSharePanel();
+            }
+        });
+
+        window.addEventListener("resize", positionSharePanel);
+        window.addEventListener("scroll", positionSharePanel, true);
+    }
+
+    function initAnnouncementPhotoViewers() {
+        document.querySelectorAll("[data-photo-viewer]").forEach((viewer) => {
+            const image = viewer.querySelector(".fb-photo-main");
+            const prevBtn = viewer.querySelector(".fb-photo-prev");
+            const nextBtn = viewer.querySelector(".fb-photo-next");
+            const slides = Array.from(
+                viewer.querySelectorAll(".fb-photo-sources [data-src]")
+            ).map((slide) => ({
+                src: slide.getAttribute("data-src"),
+                alt: slide.getAttribute("data-alt") || "Announcement photo",
+            }));
+
+            if (!image || !prevBtn || !nextBtn || !slides.length) return;
+
+            let index = 0;
+            const hasMultiple = slides.length > 1;
+
+            const render = () => {
+                const current = slides[index];
+                image.src = current.src;
+                image.alt = current.alt;
+                prevBtn.disabled = !hasMultiple;
+                nextBtn.disabled = !hasMultiple;
+            };
+
+            prevBtn.addEventListener("click", () => {
+                if (!hasMultiple) return;
+                index = (index - 1 + slides.length) % slides.length;
+                render();
+            });
+
+            nextBtn.addEventListener("click", () => {
+                if (!hasMultiple) return;
+                index = (index + 1) % slides.length;
+                render();
+            });
+
+            render();
+        });
+    }
+
+    function initAnnouncementCaptionToggles() {
+        document.querySelectorAll(".js-ann-caption").forEach((captionBlock) => {
+            const textEl = captionBlock.querySelector(".js-ann-caption-text");
+            const toggleBtn = captionBlock.querySelector(".js-ann-caption-toggle");
+            if (!textEl || !toggleBtn) return;
+
+            const card = captionBlock.closest(".home-announcement-card");
+            captionBlock.classList.remove("is-expanded");
+            if (card) {
+                card.classList.remove("is-expanded");
+            }
+
+            const hasOverflow = textEl.scrollHeight > textEl.clientHeight + 2;
+            toggleBtn.hidden = !hasOverflow;
+            if (!hasOverflow) return;
+
+            toggleBtn.textContent = "View more";
+            toggleBtn.addEventListener("click", () => {
+                const expand = !captionBlock.classList.contains("is-expanded");
+                captionBlock.classList.toggle("is-expanded", expand);
+                if (card) {
+                    card.classList.toggle("is-expanded", expand);
+                }
+                toggleBtn.textContent = expand ? "View less" : "View more";
+            });
+        });
+    }
+
+    function initAnnouncementReactions() {
+        document.querySelectorAll(".fb-action-form.js-react-form").forEach((form) => {
+            form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+
+                const button = form.querySelector(".js-react-btn");
+                const label = form.querySelector(".js-react-label");
+                const countNode = form.closest(".fb-card")?.querySelector(".js-reaction-count");
+                const payload = new FormData(form);
+
+                try {
+                    const response = await fetch(form.action, {
+                        method: "POST",
+                        headers: {
+                            "X-Requested-With": "XMLHttpRequest"
+                        },
+                        body: payload
+                    });
+
+                    if (!response.ok) {
+                        throw new Error("Request failed");
+                    }
+
+                    const data = await response.json();
+                    if (!data.ok) {
+                        throw new Error("Invalid response");
+                    }
+
+                    if (countNode) {
+                        countNode.textContent = String(data.reaction_count || 0);
+                    }
+
+                    if (button) {
+                        button.classList.toggle("is-active", !!data.reacted);
+                    }
+
+                    if (label) {
+                        label.textContent = data.reacted ? "Reacted" : "React";
+                    }
+                } catch (error) {
+                    form.submit();
+                }
+            });
+        });
+    }
+
+    function pad2(value) {
+        return String(value).padStart(2, "0");
+    }
+
+    function updateCountdown(card) {
+        const deadline = card.getAttribute("data-deadline");
+        if (!deadline) {
+            return;
+        }
+        const end = new Date(deadline);
+        const now = new Date();
+        let diff = end - now;
+        if (isNaN(end.getTime())) {
+            return;
+        }
+        if (diff < 0) {
+            diff = 0;
+        }
+
+        const totalSeconds = Math.floor(diff / 1000);
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+        const dayEl = card.querySelector('[data-unit="days"]');
+        const hourEl = card.querySelector('[data-unit="hours"]');
+        const minEl = card.querySelector('[data-unit="minutes"]');
+
+        if (dayEl) dayEl.textContent = pad2(days);
+        if (hourEl) hourEl.textContent = pad2(hours);
+        if (minEl) minEl.textContent = pad2(minutes);
+    }
+
+    function initCountdowns() {
+        const cards = document.querySelectorAll(".countdown-bar[data-deadline]");
+        cards.forEach(updateCountdown);
+        setInterval(() => {
+            cards.forEach(updateCountdown);
+        }, 1000 * 30);
+    }
+
+    function initCreatePostModal() {
+        const typeButtons = document.querySelectorAll("#homePostTypeToggle .js-post-type-btn");
+        const postTypeToggle = document.getElementById("homePostTypeToggle");
+        const adoptionFields = document.getElementById("homeAdoptionFields");
+        const missingFields = document.getElementById("homeMissingFields");
+        const postTypeInput = document.getElementById("homePostTypeInput");
+        const createPostModalEl = document.getElementById("createPostModal");
+
+        if (!adoptionFields || !missingFields || !postTypeInput) {
+            return;
+        }
+
+        function setType(type) {
+            const isMissing = type === "missing";
+            postTypeInput.value = isMissing ? "missing" : "adoption";
+            adoptionFields.style.display = isMissing ? "none" : "";
+            missingFields.style.display = isMissing ? "" : "none";
+            if (postTypeToggle) {
+                postTypeToggle.dataset.activeType = postTypeInput.value;
+            }
+        }
+
+        typeButtons.forEach((button) => {
+            button.addEventListener("click", () => {
+                setType(button.dataset.type || "adoption");
+            });
+        });
+        setType(postTypeInput.value);
+
+        if (createPostModalEl && createPostModalEl.dataset.openOnLoad === "1" && window.bootstrap) {
+            const createPostModal = new bootstrap.Modal(createPostModalEl);
+            createPostModal.show();
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        initAnnouncementPhotoViewers();
+        initAnnouncementCaptionToggles();
+        initAnnouncementReactions();
+        initCountdowns();
+        initSharePanel();
+        initCreatePostModal();
+    });
+</script>

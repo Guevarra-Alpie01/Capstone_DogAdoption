@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}">
+<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="home-content container search-results-page">
+    <div class="search-results-header">
+        <div class="search-results-copy">
+            <h2>Search Results</h2>
+            {% if search_performed %}
+                <p>{{ result_count }} result{{ result_count|pluralize }} found</p>
+            {% else %}
+                <p>Search by user name, dog name, date, and role filters.</p>
+            {% endif %}
+        </div>
+        <a href="{% url 'user:user_home' %}" class="btn btn-outline-secondary search-back-btn">
+            <i class="bi bi-arrow-left"></i>
+            <span>Back to Feed</span>
+        </a>
+    </div>
+
+    <form method="get" action="{% url 'user:home_search' %}" class="search-bar home-feed-search home-feed-search-advanced search-results-form">
+        <div class="input-group home-search-main-row">
+            <input
+                type="text"
+                name="q"
+                class="form-control"
+                placeholder="Search dog name, user name, keyword, or date"
+                value="{{ query }}"
+                maxlength="80"
+                aria-label="Search keyword"
+            >
+            <button class="btn search-submit-btn" type="submit" aria-label="Search">
+                <i class="bi bi-search"></i>
+            </button>
+        </div>
+        <div class="home-search-filter-row">
+            <label class="visually-hidden" for="searchResultsRole">Role</label>
+            <select id="searchResultsRole" name="role" class="form-select home-search-select">
+                <option value="all" {% if role_filter == 'all' %}selected{% endif %}>All users</option>
+                <option value="staff" {% if role_filter == 'staff' %}selected{% endif %}>Staff only</option>
+                <option value="user" {% if role_filter == 'user' %}selected{% endif %}>Normal users</option>
+            </select>
+            <label class="visually-hidden" for="searchResultsDateFrom">From Date</label>
+            <input id="searchResultsDateFrom" type="date" name="date_from" class="form-control home-search-date" value="{{ date_from_value }}">
+            <label class="visually-hidden" for="searchResultsDateTo">To Date</label>
+            <input id="searchResultsDateTo" type="date" name="date_to" class="form-control home-search-date" value="{{ date_to_value }}">
+        </div>
+    </form>
+
+    {% include 'home/_feed_cards.html' %}
+</div>
+{% include 'home/_feed_enhancements.html' %}
+{% endblock %}

@@ -20,6 +20,7 @@ urlpatterns = [
     
     #navigation links/ home  urls
     path('',views.user_home, name="user_home"),
+    path('search/', views.home_search, name='home_search'),
     path('post/create/', views.create_post, name='create_post'),
     path('user-adopt/<int:post_id>/', views.adopt_user_post, name='adopt_user_post'),
     path('user-adopt/requests/', views.user_adoption_requests, name='user_adoption_requests'),

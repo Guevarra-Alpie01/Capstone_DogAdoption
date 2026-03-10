@@ -1,0 +1,300 @@
+<div class="post-grid">
+{% for item in posts %}
+{% with post=item.post %}
+{% if item.post_type == 'announcement' %}
+<article class="fb-card home-announcement-card {% if post.background_image or post.images.all %}has-media{% else %}text-only{% endif %}">
+    <header class="fb-card-header">
+        <img src="{{ item.author_avatar_url }}" alt="Admin profile" class="fb-page-avatar">
+        <div class="fb-page-meta">
+            <h3 class="fb-page-name">{{ post.created_by.get_full_name|default:post.created_by.username }}</h3>
+            <div class="fb-post-meta">
+                <span>{{ item.posted_label }}</span>
+                <span class="fb-meta-dot">.</span>
+                <span>{{ post.get_category_display }}</span>
+            </div>
+        </div>
+    </header>
+
+    {% if post.background_image or post.images.all %}
+    <div class="fb-caption home-announcement-caption js-ann-caption">
+        <div class="js-ann-caption-text">{{ item.content_display|linebreaksbr }}</div>
+        <button type="button" class="ann-caption-toggle js-ann-caption-toggle" hidden>View more</button>
+    </div>
+    <div class="fb-photo-viewer" data-photo-viewer>
+        <img src="" class="fb-photo-main" alt="Announcement photo">
+        <button type="button" class="fb-photo-nav fb-photo-prev" aria-label="Previous photo">&lt;</button>
+        <button type="button" class="fb-photo-nav fb-photo-next" aria-label="Next photo">&gt;</button>
+        <div class="fb-photo-sources" hidden>
+            {% if post.background_image %}
+            <span data-src="{{ post.background_image.url }}" data-alt="{{ post.title }}"></span>
+            {% endif %}
+            {% for photo in post.images.all %}
+            <span data-src="{{ photo.image.url }}" data-alt="{{ post.title }} photo {{ forloop.counter }}"></span>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="announcement-text-stage">
+        <div class="announcement-text-card js-ann-caption">
+            <div class="announcement-text-content js-ann-caption-text">{{ item.content_display|linebreaksbr }}</div>
+            <button type="button" class="ann-caption-toggle js-ann-caption-toggle" hidden>View more</button>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="fb-social-row">
+        <div class="fb-like-count">
+            <span class="fb-like-badge"><i class="bi bi-hand-thumbs-up-fill"></i></span>
+            <span class="js-reaction-count">{{ item.reaction_count }}</span>
+        </div>
+    </div>
+
+    <div class="fb-action-row">
+        <form method="POST"
+              action="{% url 'user:announcement_react' post.id %}"
+              class="fb-action-form js-react-form">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button type="submit"
+                    class="fb-action-btn js-react-btn {% if item.user_reacted %}is-active{% endif %}">
+                <i class="bi bi-hand-thumbs-up"></i>
+                <span class="js-react-label">{% if item.user_reacted %}Reacted{% else %}React{% endif %}</span>
+            </button>
+        </form>
+
+        <a href="https://www.facebook.com/sharer/sharer.php?u={{ item.share_url|urlencode }}"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="fb-action-btn">
+            <i class="bi bi-share"></i>
+            <span>Share</span>
+        </a>
+    </div>
+</article>
+{% else %}
+<div class="card mb-4 shadow-sm post-card position-relative">
+    <div class="post-author">
+        {% if item.post_type == 'admin' %}
+            <img src="{{ item.author_avatar_url }}" class="author-avatar-img" alt="Admin profile">
+            <div class="author-meta">
+                <div class="author-row">
+                    <span class="author-name">Admin</span>
+                    <span class="author-badge">Staff</span>
+                </div>
+                <span class="author-time">{{ item.posted_label }}</span>
+            </div>
+        {% elif item.post_type == 'user' %}
+            {% if post.owner.profile.profile_image %}
+                <img src="{{ post.owner.profile.profile_image.url }}" class="author-avatar-img" alt="Author">
+            {% else %}
+                <div class="author-avatar">U</div>
+            {% endif %}
+            <div class="author-meta">
+                <div class="author-row">
+                    <span class="author-name">{{ post.owner.username }}</span>
+                </div>
+                <span class="author-time">{{ item.posted_label }}</span>
+            </div>
+        {% elif item.post_type == 'missing' %}
+            {% if post.owner.profile.profile_image %}
+                <img src="{{ post.owner.profile.profile_image.url }}" class="author-avatar-img" alt="Author">
+            {% else %}
+                <div class="author-avatar">U</div>
+            {% endif %}
+            <div class="author-meta">
+                <div class="author-row">
+                    <span class="author-name">{{ post.owner.username }}</span>
+                </div>
+                <span class="author-time">{{ item.posted_label }}</span>
+            </div>
+        {% endif %}
+    </div>
+
+    {% if item.post_type != 'missing' and item.image_count > 1 %}
+        <button class="btn btn-light view-all-badge"
+                type="button"
+                data-bs-toggle="modal"
+                data-bs-target="#postImages{{ item.post_type }}{{ post.id }}">
+            View all ({{ item.image_count }})
+        </button>
+    {% endif %}
+
+    {% if item.post_type == 'missing' %}
+        {% if post.image %}
+            <div class="media-wrap">
+                <img src="{{ post.image.url }}" class="card-img-top main-img">
+            </div>
+        {% endif %}
+    {% else %}
+        {% with item.main_image as main_image %}
+            {% if main_image %}
+                <div class="media-wrap">
+                    <img src="{{ main_image.image.url }}" class="card-img-top main-img">
+                </div>
+            {% endif %}
+        {% endwith %}
+    {% endif %}
+
+    <div class="card-body">
+        <div class="post-body-row {% if item.post_type == 'admin' and item.phase != 'closed' %}has-timer{% endif %}">
+            <div class="post-details">
+   
+        <p class="card-text">
+            {% if item.post_type == 'user' %}
+                {{ post.description }}
+            {% elif item.post_type == 'missing' %}
+                {{ post.description }}<br>
+                <strong>Lost On:</strong> {{ post.date_lost }} at {{ post.time_lost }}
+            {% else %}
+                {% if post.caption %}<strong>Name:</strong> {{ post.caption }}<br>{% endif %}
+                {% if post.location %}<strong>Rescue Location:</strong> {{ post.location }}<br>{% endif %}
+                <strong>Rescue Date:</strong>
+                {% if post.rescued_date %}
+                    {{ post.rescued_date|date:"M d, Y" }}
+                {% else %}
+                    {{ post.created_at|date:"M d, Y" }}
+                {% endif %}
+            {% endif %}
+        </p>
+
+        {% if post.location and item.post_type != 'admin' %}
+            <small class="text-muted">{{ post.location }}</small><br>
+        {% endif %}
+
+        {% if item.post_type == 'admin' and item.phase != 'closed' %}
+            </div>
+            <div class="post-timer">
+                <div class="countdown-bar" data-deadline="{{ item.deadline_iso }}">
+                    <div class="countdown-label">
+                        {% if item.phase == 'claim' %}
+                            Claim time left
+                        {% elif item.phase == 'adopt' %}
+                            Adoption time left
+                        {% endif %}
+                    </div>
+                    <div class="countdown-values">
+                        <div class="countdown-unit">
+                        <div class="countdown-number" data-unit="days">{{ item.days_left|default:0|stringformat:"02d" }}</div>
+                        <div class="countdown-text">Days</div>
+                    </div>
+                    <div class="countdown-unit">
+                        <div class="countdown-number" data-unit="hours">{{ item.hours_left|default:0|stringformat:"02d" }}</div>
+                        <div class="countdown-text">Hours</div>
+                    </div>
+                    <div class="countdown-unit">
+                        <div class="countdown-number" data-unit="minutes">{{ item.minutes_left|default:0|stringformat:"02d" }}</div>
+                        <div class="countdown-text">Minutes</div>
+                    </div>
+                </div>
+            </div>
+            </div>
+        {% else %}
+            </div>
+        {% endif %}
+        </div>
+
+        {% if item.post_type != 'missing' %}
+            {% if item.image_count > 1 %}
+                <div class="modal fade" id="postImages{{ item.post_type }}{{ post.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Post Images</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div id="carousel{{ item.post_type }}{{ post.id }}" class="carousel slide" data-bs-ride="carousel">
+                                    <div class="carousel-inner">
+                                        {% for image in post.images.all %}
+                                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                                <img src="{{ image.image.url }}" class="d-block w-100 modal-img" alt="Dog image">
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    <button class="carousel-control-prev" type="button" data-bs-target="#carousel{{ item.post_type }}{{ post.id }}" data-bs-slide="prev">
+                                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                        <span class="visually-hidden">Previous</span>
+                                    </button>
+                                    <button class="carousel-control-next" type="button" data-bs-target="#carousel{{ item.post_type }}{{ post.id }}" data-bs-slide="next">
+                                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                        <span class="visually-hidden">Next</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        {% endif %}
+
+        <div class="text-center mt-3">
+            {% if item.post_type == 'missing' %}
+                <span class="badge bg-danger fs-6 px-3 py-2">Missing Dog</span>
+
+            {% elif item.post_type == 'user' %}
+                {% if post.status == 'available' and request.user != post.owner %}
+                    <a href="{% url 'user:adopt_user_post' post.id %}" class="btn btn-success btn-sm">Request Adoption</a>
+                {% elif post.status == 'adopted' %}
+                    <span class="badge bg-secondary fs-6 px-3 py-2">Adopted</span>
+                {% endif %}
+                {% if request.user == post.owner %}
+                    <a href="{% url 'user:user_adoption_requests' %}" class="btn btn-outline-dark btn-sm ms-2">View Requests</a>
+                {% endif %}
+            {% else %}
+                {% if post.status == 'reunited' %}
+                    <span class="badge bg-success fs-6 px-3 py-2">Reunited with Owner</span>
+                {% elif post.status == 'adopted' %}
+                    <span class="badge bg-secondary fs-6 px-3 py-2">Adopted - No longer available</span>
+                {% else %}
+                    {% if item.phase == 'claim' %}
+                        <div class="d-flex justify-content-center gap-2 admin-actions">
+                            <a href="{% url 'user:claim_confirm' post.id %}" class="btn btn-success btn-sm action-btn action-claim">Claim</a>
+                            <button type="button"
+                               class="btn btn-outline-secondary btn-sm action-btn action-share js-open-share"
+                               data-share-url="{{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}">
+                                <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path d="M18 8a3 3 0 1 0-2.82-4H15a3 3 0 0 0 .16.95l-6.7 3.35a3 3 0 0 0-2.46-1.3 3 3 0 1 0 0 6c.88 0 1.67-.38 2.22-.97l6.96 3.48A3 3 0 0 0 15 16a3 3 0 1 0 .18-1.02l-6.98-3.49A3 3 0 0 0 9 10c0-.36-.06-.7-.18-1.02l6.97-3.48c.55.62 1.35 1 2.21 1z"></path>
+                                </svg>
+                                <span>Share</span>
+                               </button>
+                        </div>
+                    {% elif item.phase == 'adopt' %}
+                        <div class="d-flex justify-content-center gap-2 admin-actions">
+                            <a href="{% url 'user:adopt_confirm' post.id %}" class="btn btn-success btn-sm action-btn">Adopt</a>
+                            <button type="button"
+                               class="btn btn-outline-secondary btn-sm action-btn action-share js-open-share"
+                               data-share-url="{{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}">
+                                <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path d="M18 8a3 3 0 1 0-2.82-4H15a3 3 0 0 0 .16.95l-6.7 3.35a3 3 0 0 0-2.46-1.3 3 3 0 1 0 0 6c.88 0 1.67-.38 2.22-.97l6.96 3.48A3 3 0 0 0 15 16a3 3 0 1 0 .18-1.02l-6.98-3.49A3 3 0 0 0 9 10c0-.36-.06-.7-.18-1.02l6.97-3.48c.55.62 1.35 1 2.21 1z"></path>
+                                </svg>
+                                <span>Share</span>
+                               </button>
+                        </div>
+                    {% else %}
+                        <span class="badge bg-secondary fs-6 px-3 py-2">Window closed</span>
+                    {% endif %}
+                {% endif %}
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+{% endif %}
+{% endwith %}
+{% empty %}
+    {% if search_mode %}
+        {% include 'home/_search_empty_state.html' %}
+    {% else %}
+        <p class="text-center">{{ empty_message|default:"No feed items available yet." }}</p>
+    {% endif %}
+{% endfor %}
+</div>
+
+{% if page_obj.has_next %}
+<div class="text-center mt-3 mb-4">
+    <a class="btn btn-outline-secondary"
+       href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ page_obj.next_page_number }}">
+        Load more
+    </a>
+</div>
+{% endif %}

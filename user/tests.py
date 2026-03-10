@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -200,6 +202,118 @@ class UserHomeFeedTests(TestCase):
         }
         self.assertTrue(second_page_posts)
         self.assertFalse(first_page_posts.intersection(second_page_posts))
+
+
+class UserHomeSearchTests(TestCase):
+    GIF_BYTES = (
+        b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00"
+        b"\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00"
+        b"\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+    )
+
+    def setUp(self):
+        cache.clear()
+        self.staff = User.objects.create_user(
+            username="search_staff",
+            password="secret123",
+            is_staff=True,
+            first_name="Staff",
+            last_name="Account",
+        )
+        self.normal_user = User.objects.create_user(
+            username="pet_owner",
+            password="secret123",
+            first_name="Pet",
+            last_name="Owner",
+        )
+        self.search_date = timezone.localdate() - timedelta(days=2)
+
+        Post.objects.create(
+            user=self.staff,
+            caption="Riley",
+            location="Central",
+            status="rescued",
+            rescued_date=timezone.localdate(),
+        )
+        DogAnnouncement.objects.create(
+            title="Staff advisory",
+            content="Official rescue update",
+            created_by=self.staff,
+        )
+        self.user_post = UserAdoptionPost.objects.create(
+            owner=self.normal_user,
+            dog_name="Bingo",
+            description="Friendly rescue dog",
+            location="Barangay 2",
+            status="available",
+        )
+        self.missing_post = MissingDogPost.objects.create(
+            owner=self.normal_user,
+            dog_name="Comet",
+            description="Missing near market",
+            image=self._image_file("missing-search.gif"),
+            date_lost=self.search_date,
+            time_lost="08:30",
+            location="Market road",
+            status="missing",
+        )
+
+    def _image_file(self, name="search.gif"):
+        return SimpleUploadedFile(name, self.GIF_BYTES, content_type="image/gif")
+
+    def test_search_by_username_returns_posts_for_that_user(self):
+        response = self.client.get(reverse("user:home_search"), {"q": "pet_owner"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["search_performed"])
+        self.assertTrue(
+            any(
+                item["post_type"] in {"user", "missing"} and item["post"].owner_id == self.normal_user.id
+                for item in response.context["posts"]
+            )
+        )
+
+    def test_search_by_dog_name_returns_matching_dog_post(self):
+        response = self.client.get(reverse("user:home_search"), {"q": "Bingo"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            any(
+                item["post_type"] == "user" and item["post"].id == self.user_post.id
+                for item in response.context["posts"]
+            )
+        )
+
+    def test_role_filter_staff_excludes_normal_user_posts(self):
+        response = self.client.get(reverse("user:home_search"), {"role": "staff"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["search_performed"])
+        post_types = {item["post_type"] for item in response.context["posts"]}
+        self.assertTrue(post_types)
+        self.assertTrue(post_types.issubset({"admin", "announcement"}))
+
+    def test_search_by_date_keyword_matches_missing_date(self):
+        response = self.client.get(
+            reverse("user:home_search"),
+            {"q": self.search_date.isoformat()},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            any(
+                item["post_type"] == "missing" and item["post"].id == self.missing_post.id
+                for item in response.context["posts"]
+            )
+        )
+
+    def test_search_without_filters_shows_prompt_empty_state(self):
+        response = self.client.get(reverse("user:home_search"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["search_performed"])
+        self.assertEqual(response.context["result_count"], 0)
+        self.assertContains(response, "Enter a keyword, date, or role to begin searching.")
 
 
 class UserNotificationTests(TestCase):

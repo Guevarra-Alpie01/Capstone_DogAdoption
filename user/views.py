@@ -195,6 +195,12 @@ def _base_public_post_queryset():
     ).prefetch_related("images").order_by("-created_at")
 
 
+def _base_user_adoption_post_queryset():
+    return UserAdoptionPost.objects.select_related(
+        "owner", "owner__profile"
+    ).prefetch_related("images").order_by("-created_at")
+
+
 def _filter_public_posts(posts_qs, listing_mode, filter_type):
     now = timezone.now()
     post_table = Post._meta.db_table
@@ -267,63 +273,161 @@ def _filter_public_posts(posts_qs, listing_mode, filter_type):
     return posts_qs, filter_type
 
 
+def _filter_user_adoption_posts(posts_qs, filter_type):
+    allowed_filters = {"all", "ready_adopt", "adopted"}
+    if filter_type not in allowed_filters:
+        filter_type = "all"
+
+    if filter_type == "ready_adopt":
+        posts_qs = posts_qs.filter(status="available")
+    elif filter_type == "adopted":
+        posts_qs = posts_qs.filter(status="adopted")
+
+    return posts_qs, filter_type
+
+
 def _build_public_post_listing(request, listing_mode):
     filter_type = request.GET.get("filter", "all")
-    page_number = request.GET.get("page", 1)
-    posts_per_page = 12
     request_type = "claim" if listing_mode == "claim" else "adopt"
-
-    posts_qs, filter_type = _filter_public_posts(
-        _base_public_post_queryset(),
-        listing_mode,
-        filter_type,
-    )
-
-    paginator = Paginator(posts_qs, posts_per_page)
-    page_obj = paginator.get_page(page_number)
-    post_items = []
-    for post in page_obj.object_list:
-        post_images = list(post.images.all())
-        main_image = post_images[0] if post_images else None
-        phase, days, hours, minutes = _post_phase_payload(post)
-        post_items.append({
-            "post": post,
-            "phase": phase,
-            "days_left": days,
-            "hours_left": hours,
-            "minutes_left": minutes,
-            "main_image_url": main_image.image.url if main_image else "",
-        })
+    nav_tabs = [
+        {"key": "all", "label": "All"},
+        {"key": "ready_claim", "label": "Ready to Claim"},
+        {"key": "reunited", "label": "Reclaimed"},
+    ] if listing_mode == "claim" else [
+        {"key": "all", "label": "All"},
+        {"key": "ready_adopt", "label": "Ready to Adopt"},
+        {"key": "adopted", "label": "Adopted"},
+    ]
+    page_title = "Dogs for Claim" if listing_mode == "claim" else "Dogs for Adoption"
 
     if listing_mode == "claim":
-        nav_tabs = [
-            {"key": "all", "label": "All"},
-            {"key": "ready_claim", "label": "Ready to Claim"},
-            {"key": "reunited", "label": "Reclaimed"},
-        ]
-        page_title = "Dogs for Claim"
+        page_number = request.GET.get("page", 1)
+        posts_qs, filter_type = _filter_public_posts(
+            _base_public_post_queryset(),
+            listing_mode,
+            filter_type,
+        )
+        page_obj = Paginator(posts_qs, 12).get_page(page_number)
+        post_items = []
+        for post in page_obj.object_list:
+            post_images = list(post.images.all())
+            main_image = post_images[0] if post_images else None
+            phase, days, hours, minutes = _post_phase_payload(post)
+            post_items.append({
+                "post": post,
+                "phase": phase,
+                "days_left": days,
+                "hours_left": hours,
+                "minutes_left": minutes,
+                "main_image_url": main_image.image.url if main_image else "",
+            })
+
+        return {
+            "posts": post_items,
+            "current_filter": filter_type,
+            "page_obj": page_obj,
+            "listing_mode": listing_mode,
+            "nav_tabs": nav_tabs,
+            "page_title": page_title,
+            "status_page_url": reverse(_request_history_route_name(request_type)),
+            "status_page_label": "My Claim Requests",
+            "pending_request_count": PostRequest.objects.filter(
+                user=request.user,
+                request_type=request_type,
+                status="pending",
+            ).count(),
+        }
+
+    source_type = request.GET.get("source", "all")
+    source_tabs = [
+        {"key": "all", "label": "All Posts"},
+        {"key": "staff", "label": "Staff Posts"},
+        {"key": "user", "label": "User Posts"},
+    ]
+    if source_type not in {tab["key"] for tab in source_tabs}:
+        source_type = "all"
+
+    show_staff_posts = source_type in {"all", "staff"}
+    show_user_posts = source_type in {"all", "user"}
+    items_per_page = 6 if source_type == "all" else 12
+
+    staff_page_obj = None
+    staff_items = []
+    if show_staff_posts:
+        staff_page_number = request.GET.get("staff_page", 1)
+        staff_qs, filter_type = _filter_public_posts(
+            _base_public_post_queryset(),
+            listing_mode,
+            filter_type,
+        )
+        staff_page_obj = Paginator(staff_qs, items_per_page).get_page(staff_page_number)
+        for post in staff_page_obj.object_list:
+            post_images = list(post.images.all())
+            main_image = post_images[0] if post_images else None
+            phase, days, hours, minutes = _post_phase_payload(post)
+            staff_items.append({
+                "post": post,
+                "phase": phase,
+                "days_left": days,
+                "hours_left": hours,
+                "minutes_left": minutes,
+                "main_image_url": main_image.image.url if main_image else "",
+                "source_type": "staff",
+            })
     else:
-        nav_tabs = [
-            {"key": "all", "label": "All"},
-            {"key": "ready_adopt", "label": "Ready to Adopt"},
-            {"key": "adopted", "label": "Adopted"},
-        ]
-        page_title = "Dogs for Adoption"
+        _, filter_type = _filter_user_adoption_posts(
+            _base_user_adoption_post_queryset(),
+            filter_type,
+        )
+
+    user_page_obj = None
+    user_items = []
+    if show_user_posts:
+        user_page_number = request.GET.get("user_page", 1)
+        user_qs, filter_type = _filter_user_adoption_posts(
+            _base_user_adoption_post_queryset(),
+            filter_type,
+        )
+        user_page_obj = Paginator(user_qs, items_per_page).get_page(user_page_number)
+        for post in user_page_obj.object_list:
+            post_images = list(post.images.all())
+            main_image = post_images[0] if post_images else None
+            user_items.append({
+                "post": post,
+                "main_image_url": main_image.image.url if main_image else "",
+                "owner_name": post.owner.get_full_name() or post.owner.username,
+                "source_type": "user",
+            })
+
+    pending_request_count = (
+        PostRequest.objects.filter(
+            user=request.user,
+            request_type=request_type,
+            status="pending",
+        ).count()
+        + UserAdoptionRequest.objects.filter(
+            requester=request.user,
+            status="pending",
+        ).count()
+    )
 
     return {
-        "posts": post_items,
+        "posts": staff_items if source_type != "user" else user_items,
         "current_filter": filter_type,
-        "page_obj": page_obj,
         "listing_mode": listing_mode,
         "nav_tabs": nav_tabs,
         "page_title": page_title,
         "status_page_url": reverse(_request_history_route_name(request_type)),
-        "status_page_label": "My Claim Requests" if request_type == "claim" else "My Adoption Requests",
-        "pending_request_count": PostRequest.objects.filter(
-            user=request.user,
-            request_type=request_type,
-            status="pending",
-        ).count(),
+        "status_page_label": "My Adoption Requests",
+        "pending_request_count": pending_request_count,
+        "current_source": source_type,
+        "source_tabs": source_tabs,
+        "show_staff_posts": show_staff_posts,
+        "show_user_posts": show_user_posts,
+        "staff_posts": staff_items,
+        "staff_page_obj": staff_page_obj,
+        "user_posts": user_items,
+        "user_page_obj": user_page_obj,
     }
 
 
@@ -398,6 +502,15 @@ def _request_status_summary(items):
         "accepted": sum(1 for item in items if item.status == "accepted"),
         "rejected": sum(1 for item in items if item.status == "rejected"),
     }
+
+
+def _request_status_summary_from_qs(queryset, accepted_status="accepted", rejected_status="rejected"):
+    return queryset.aggregate(
+        total=Count("id"),
+        pending=Count("id", filter=Q(status="pending")),
+        accepted=Count("id", filter=Q(status=accepted_status)),
+        rejected=Count("id", filter=Q(status=rejected_status)),
+    )
 
 
 def _create_post_request_with_images(request, post, request_type, appointment_date):
@@ -1764,11 +1877,82 @@ def adopt_list(request):
 
 @user_only
 def adopt_status(request):
-    requests = list(_user_post_requests(request.user, "adopt"))
+    source_type = request.GET.get("source", "all")
+    if source_type not in {"all", "staff", "user"}:
+        source_type = "all"
+    status_filter = request.GET.get("status", "pending")
+    if status_filter not in {"total", "pending", "accepted", "rejected"}:
+        status_filter = "pending"
+
+    staff_requests_base_qs = _user_post_requests(request.user, "adopt")
+    user_requests_base_qs = UserAdoptionRequest.objects.filter(
+        requester=request.user,
+    ).select_related("post", "post__owner").order_by("-created_at")
+
+    staff_summary = _request_status_summary_from_qs(
+        staff_requests_base_qs,
+        accepted_status="accepted",
+        rejected_status="rejected",
+    )
+    user_summary = _request_status_summary_from_qs(
+        user_requests_base_qs,
+        accepted_status="approved",
+        rejected_status="rejected",
+    )
+
+    show_staff_requests = source_type in {"all", "staff"}
+    show_user_requests = source_type in {"all", "user"}
+    items_per_page = 8 if source_type == "all" else 16
+
+    if source_type == "staff":
+        summary = staff_summary
+    elif source_type == "user":
+        summary = user_summary
+    else:
+        summary = {
+            "total": staff_summary["total"] + user_summary["total"],
+            "pending": staff_summary["pending"] + user_summary["pending"],
+            "accepted": staff_summary["accepted"] + user_summary["accepted"],
+            "rejected": staff_summary["rejected"] + user_summary["rejected"],
+        }
+
+    staff_requests_qs = staff_requests_base_qs
+    user_requests_qs = user_requests_base_qs
+    if status_filter != "total":
+        if status_filter == "accepted":
+            staff_requests_qs = staff_requests_qs.filter(status="accepted")
+            user_requests_qs = user_requests_qs.filter(status="approved")
+        else:
+            staff_requests_qs = staff_requests_qs.filter(status=status_filter)
+            user_requests_qs = user_requests_qs.filter(status=status_filter)
+
+    staff_page_obj = None
+    staff_requests = []
+    if show_staff_requests:
+        staff_page = request.GET.get("staff_page", 1)
+        staff_page_obj = Paginator(staff_requests_qs, items_per_page).get_page(staff_page)
+        staff_requests = list(staff_page_obj.object_list)
+
+    user_page_obj = None
+    user_requests = []
+    if show_user_requests:
+        user_page = request.GET.get("user_page", 1)
+        user_page_obj = Paginator(user_requests_qs, items_per_page).get_page(user_page)
+        user_requests = list(user_page_obj.object_list)
+
     return render(request, 'adopt/adopt.html', {
-        'requests': requests,
-        'summary': _request_status_summary(requests),
+        'summary': summary,
         'browse_url': reverse("user:adopt_list"),
+        'current_source': source_type,
+        'current_status': status_filter,
+        'show_staff_requests': show_staff_requests,
+        'show_user_requests': show_user_requests,
+        'staff_requests': staff_requests,
+        'staff_page_obj': staff_page_obj,
+        'user_requests': user_requests,
+        'user_page_obj': user_page_obj,
+        'staff_summary': staff_summary,
+        'user_summary': user_summary,
     })
 
 @user_only
@@ -1983,11 +2167,26 @@ def announcement_comment(request, post_id):
 
 @user_only
 def my_claims(request):
-    claims = list(_user_post_requests(request.user, "claim"))
+    status_filter = request.GET.get("status", "pending")
+    if status_filter not in {"total", "pending", "accepted", "rejected"}:
+        status_filter = "pending"
+
+    claims_base_qs = _user_post_requests(request.user, "claim")
+    summary = _request_status_summary_from_qs(
+        claims_base_qs,
+        accepted_status="accepted",
+        rejected_status="rejected",
+    )
+
+    claims_qs = claims_base_qs if status_filter == "total" else claims_base_qs.filter(status=status_filter)
+    page_obj = Paginator(claims_qs, 10).get_page(request.GET.get("page", 1))
+    claims = list(page_obj.object_list)
 
     return render(request, 'claim/claim.html', {
         'claims': claims,
-        'summary': _request_status_summary(claims),
+        'summary': summary,
+        'current_status': status_filter,
+        'page_obj': page_obj,
         'browse_url': reverse("user:claim_list"),
     })
 

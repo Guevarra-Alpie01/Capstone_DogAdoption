@@ -62,6 +62,33 @@
         background: #fff;
     }
 
+    .request-tabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+    }
+
+    .request-tab-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        border: 1px solid #cbd5e1;
+        background: #fff;
+        color: #334155;
+        padding: 8px 14px;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 0.86rem;
+    }
+
+    .request-tab-link.is-active {
+        border-color: #2f5b27;
+        background: #ecfdf3;
+        color: #166534;
+    }
+
     .request-summary {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -70,10 +97,32 @@
     }
 
     .request-summary-card {
+        display: block;
         border: 1px solid #dbe3ef;
         border-radius: 14px;
         background: #fff;
         padding: 12px 14px;
+        text-decoration: none;
+        transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .request-summary-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+    }
+
+    .request-summary-card.is-active {
+        border-color: #1f6b4f;
+        background: linear-gradient(135deg, #d8f5e7 0%, #ecfdf3 100%);
+        box-shadow: 0 0 0 2px rgba(31, 107, 79, 0.16), 0 10px 18px rgba(31, 107, 79, 0.16);
+    }
+
+    .request-summary-card.is-active span {
+        color: #14532d;
+    }
+
+    .request-summary-card.is-active strong {
+        color: #14532d;
     }
 
     .request-summary-card span {
@@ -89,6 +138,32 @@
     .request-summary-card strong {
         font-size: 1.35rem;
         color: #0f172a;
+    }
+
+    .request-section {
+        margin-top: 18px;
+    }
+
+    .request-section-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .request-section-title {
+        margin: 0;
+        color: #0f172a;
+        font-size: 1.12rem;
+        font-weight: 800;
+    }
+
+    .request-section-meta {
+        margin: 0;
+        color: #64748b;
+        font-size: 0.84rem;
+        font-weight: 600;
     }
 
     .request-list {
@@ -194,6 +269,11 @@
         color: #475569;
     }
 
+    .request-load-more {
+        margin-top: 10px;
+        text-align: center;
+    }
+
     @media (max-width: 991.98px) {
         .request-summary {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -206,7 +286,8 @@
 
     @media (max-width: 575.98px) {
         .request-hero,
-        .request-card-head {
+        .request-card-head,
+        .request-section-head {
             flex-direction: column;
             align-items: flex-start;
         }
@@ -230,71 +311,149 @@
     <div class="request-hero">
         <div>
             <h1 class="request-title">My Adoption Requests</h1>
-            <p class="request-subtitle">Pending adoption requests stay here until the admin accepts or rejects them.</p>
+            <p class="request-subtitle">Track your adoption requests for staff and user posts in one place.</p>
         </div>
         <div class="request-actions">
-            <a href="{{ browse_url }}" class="request-link is-primary">Browse Dogs</a>
+            <a href="{{ browse_url }}" class="request-link is-primary">Browse Dogs for Adoption</a>
         </div>
+    </div>
+
+    <div class="request-tabs">
+        <a href="?source=all&status={{ current_status|default:'pending'|urlencode }}" class="request-tab-link {% if current_source == 'all' %}is-active{% endif %}">All Requests</a>
+        <a href="?source=staff&status={{ current_status|default:'pending'|urlencode }}" class="request-tab-link {% if current_source == 'staff' %}is-active{% endif %}">Staff Posts</a>
+        <a href="?source=user&status={{ current_status|default:'pending'|urlencode }}" class="request-tab-link {% if current_source == 'user' %}is-active{% endif %}">User Posts</a>
     </div>
 
     <div class="request-summary">
-        <div class="request-summary-card">
+        <a href="?source={{ current_source|default:'all'|urlencode }}&status=total" class="request-summary-card {% if current_status == 'total' %}is-active{% endif %}">
             <span>Total</span>
             <strong>{{ summary.total }}</strong>
-        </div>
-        <div class="request-summary-card">
+        </a>
+        <a href="?source={{ current_source|default:'all'|urlencode }}&status=pending" class="request-summary-card {% if current_status == 'pending' %}is-active{% endif %}">
             <span>Pending</span>
             <strong>{{ summary.pending }}</strong>
-        </div>
-        <div class="request-summary-card">
+        </a>
+        <a href="?source={{ current_source|default:'all'|urlencode }}&status=accepted" class="request-summary-card {% if current_status == 'accepted' %}is-active{% endif %}">
             <span>Accepted</span>
             <strong>{{ summary.accepted }}</strong>
-        </div>
-        <div class="request-summary-card">
+        </a>
+        <a href="?source={{ current_source|default:'all'|urlencode }}&status=rejected" class="request-summary-card {% if current_status == 'rejected' %}is-active{% endif %}">
             <span>Rejected</span>
             <strong>{{ summary.rejected }}</strong>
-        </div>
+        </a>
     </div>
 
-    <div class="request-list">
-        {% for req in requests %}
-        <article class="request-card">
-            <div class="request-card-head">
-                <div>
-                    <h2>{{ req.post.caption|default:"Untitled Post" }}</h2>
-                    {% if req.post.location %}
-                    <p class="request-meta">{{ req.post.location }}</p>
-                    {% endif %}
-                    <p class="request-meta">Submitted {{ req.created_at|date:"M d, Y" }}</p>
-                </div>
-                <span class="request-status {% if req.status == 'pending' %}is-pending{% elif req.status == 'accepted' %}is-accepted{% elif req.status == 'rejected' %}is-rejected{% endif %}">
-                    {{ req.get_status_display }}
-                </span>
-            </div>
-
-            <div class="request-grid">
-                <div class="request-grid-item">
-                    <span>Preferred Date</span>
-                    <strong>{{ req.appointment_date|date:"M d, Y"|default:"-" }}</strong>
-                </div>
-                <div class="request-grid-item">
-                    <span>Final Date</span>
-                    <strong>{{ req.scheduled_appointment_date|date:"M d, Y"|default:"-" }}</strong>
-                </div>
-                <div class="request-grid-item">
-                    <span>Status</span>
-                    <strong>{{ req.get_status_display }}</strong>
-                </div>
-            </div>
-        </article>
-        {% empty %}
-        <div class="request-empty">
-            <h3 class="mb-1">No adoption requests yet</h3>
-            <p class="mb-3">Your pending, accepted, and rejected adoption requests will appear here.</p>
-            <a href="{{ browse_url }}" class="request-link is-primary">Browse Dogs for Adoption</a>
+    {% if show_staff_requests %}
+    <section class="request-section">
+        <div class="request-section-head">
+            <h2 class="request-section-title">Staff Adoption Requests</h2>
+            <p class="request-section-meta">{{ staff_summary.total }} total</p>
         </div>
-        {% endfor %}
+        <div class="request-list">
+            {% for req in staff_requests %}
+            <article class="request-card">
+                <div class="request-card-head">
+                    <div>
+                        <h2>{{ req.post.caption|default:"Untitled Post" }}</h2>
+                        {% if req.post.location %}
+                        <p class="request-meta">{{ req.post.location }}</p>
+                        {% endif %}
+                        <p class="request-meta">Submitted {{ req.created_at|date:"M d, Y" }}</p>
+                    </div>
+                    <span class="request-status {% if req.status == 'pending' %}is-pending{% elif req.status == 'accepted' %}is-accepted{% elif req.status == 'rejected' %}is-rejected{% endif %}">
+                        {{ req.get_status_display }}
+                    </span>
+                </div>
+
+                <div class="request-grid">
+                    <div class="request-grid-item">
+                        <span>Source</span>
+                        <strong>Staff Post</strong>
+                    </div>
+                    <div class="request-grid-item">
+                        <span>Preferred Date</span>
+                        <strong>{{ req.appointment_date|date:"M d, Y"|default:"-" }}</strong>
+                    </div>
+                    <div class="request-grid-item">
+                        <span>Final Date</span>
+                        <strong>{{ req.scheduled_appointment_date|date:"M d, Y"|default:"-" }}</strong>
+                    </div>
+                </div>
+            </article>
+            {% empty %}
+            <div class="request-empty">
+                <h3 class="mb-1">No staff adoption requests yet</h3>
+                <p class="mb-3">Your requests for staff posts will appear here.</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% if staff_page_obj and staff_page_obj.has_next %}
+        <div class="request-load-more">
+            <a class="request-link is-secondary" href="?source={{ current_source|urlencode }}&status={{ current_status|default:'pending'|urlencode }}&staff_page={{ staff_page_obj.next_page_number }}{% if user_page_obj %}&user_page={{ user_page_obj.number }}{% endif %}">Load more staff requests</a>
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    {% if show_user_requests %}
+    <section class="request-section">
+        <div class="request-section-head">
+            <h2 class="request-section-title">User Adoption Requests</h2>
+            <p class="request-section-meta">{{ user_summary.total }} total</p>
+        </div>
+        <div class="request-list">
+            {% for req in user_requests %}
+            <article class="request-card">
+                <div class="request-card-head">
+                    <div>
+                        <h2>{{ req.post.dog_name|default:"Untitled Post" }}</h2>
+                        {% if req.post.location %}
+                        <p class="request-meta">{{ req.post.location }}</p>
+                        {% endif %}
+                        <p class="request-meta">Submitted {{ req.created_at|date:"M d, Y" }}</p>
+                    </div>
+                    <span class="request-status {% if req.status == 'pending' %}is-pending{% elif req.status == 'approved' %}is-accepted{% elif req.status == 'rejected' %}is-rejected{% endif %}">
+                        {{ req.get_status_display }}
+                    </span>
+                </div>
+
+                <div class="request-grid">
+                    <div class="request-grid-item">
+                        <span>Source</span>
+                        <strong>User Post</strong>
+                    </div>
+                    <div class="request-grid-item">
+                        <span>Post Owner</span>
+                        <strong>{{ req.post.owner.get_full_name|default:req.post.owner.username }}</strong>
+                    </div>
+                    <div class="request-grid-item">
+                        <span>Status</span>
+                        <strong>{{ req.get_status_display }}</strong>
+                    </div>
+                </div>
+            </article>
+            {% empty %}
+            <div class="request-empty">
+                <h3 class="mb-1">No user adoption requests yet</h3>
+                <p class="mb-3">Your requests for user posts will appear here.</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% if user_page_obj and user_page_obj.has_next %}
+        <div class="request-load-more">
+            <a class="request-link is-secondary" href="?source={{ current_source|urlencode }}&status={{ current_status|default:'pending'|urlencode }}{% if staff_page_obj %}&staff_page={{ staff_page_obj.number }}{% endif %}&user_page={{ user_page_obj.next_page_number }}">Load more user requests</a>
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    {% if summary.total == 0 %}
+    <div class="request-empty">
+        <h3 class="mb-1">No adoption requests yet</h3>
+        <p class="mb-3">Your pending, accepted, and rejected requests will appear here.</p>
+        <a href="{{ browse_url }}" class="request-link is-primary">Browse Dogs for Adoption</a>
     </div>
+    {% endif %}
 </section>
 
 {% endblock %}

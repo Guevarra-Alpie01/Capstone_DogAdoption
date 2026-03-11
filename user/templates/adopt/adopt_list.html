@@ -14,18 +14,33 @@
     .listing-toolbar-link {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 8px 14px;
+        gap: 10px;
+        padding: 10px 16px;
         border-radius: 999px;
-        background: #2f5b27;
+        background: linear-gradient(135deg, #1f5e4a 0%, #1d6b4a 100%);
         color: #fff;
         text-decoration: none;
         font-weight: 700;
+        box-shadow: 0 10px 22px rgba(21, 74, 57, 0.24);
+        letter-spacing: 0.01em;
     }
 
     .listing-toolbar-link:hover {
         color: #fff;
-        opacity: 0.95;
+        transform: translateY(-1px);
+        box-shadow: 0 12px 24px rgba(21, 74, 57, 0.28);
+    }
+
+    .listing-toolbar-icon {
+        width: 20px;
+        height: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .listing-toolbar-text {
+        line-height: 1;
     }
 
     .listing-toolbar-badge {
@@ -35,29 +50,244 @@
         align-items: center;
         justify-content: center;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.18);
+        background: #d42632;
+        border: 1px solid rgba(255, 255, 255, 0.45);
+        color: #fff;
         padding: 0 8px;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
+        font-weight: 800;
+    }
+
+    .source-nav {
+        margin-top: 8px;
+    }
+
+    .source-section {
+        margin-bottom: 20px;
+    }
+
+    .source-section-title {
+        margin: 14px 0 10px;
+        color: #1f2937;
+        font-size: 1.25rem;
+    }
+
+    .post-source-badge {
+        display: inline-block;
+        margin-bottom: 8px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        background: #eef2ff;
+        color: #1e3a8a;
+    }
+
+    .post-source-badge.is-user {
+        background: #ecfdf3;
+        color: #166534;
+    }
+
+    .btn-action.is-secondary {
+        background: #64748b;
+    }
+
+    .posts-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .posts-grid .post-card {
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px;
+        margin: 0;
+        height: 100%;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+    }
+
+    .posts-grid .post-card img {
+        width: 100%;
+        height: 170px;
+        object-fit: contain;
+        background: #f8fafc;
+    }
+
+    .posts-grid .post-details h3 {
+        margin-bottom: 6px;
+        font-size: 1.08rem;
+    }
+
+    .posts-grid .post-details p {
+        margin: 4px 0;
+    }
+
+    .posts-grid .btn-action {
+        display: table;
+        margin: 10px auto 0;
+    }
+
+    @media (max-width: 1199.98px) {
+        .posts-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 991.98px) {
+        .posts-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        .posts-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .posts-grid .post-card img {
+            height: 190px;
+        }
     }
 </style>
+{% if listing_mode != 'adopt' %}
 <div class="subtop-nav">
     {% for tab in nav_tabs %}
     <a href="?filter={{ tab.key }}" class="nav-item {% if current_filter == tab.key %}active{% endif %}">{{ tab.label }}</a>
     {% endfor %}
 </div>
+{% else %}
+<div class="subtop-nav source-nav">
+    <a href="?filter=all&source=all" class="nav-item {% if current_filter == 'all' and current_source == 'all' %}active{% endif %}">All Posts</a>
+    <a href="?filter={{ current_filter|urlencode }}&source=staff" class="nav-item {% if current_source == 'staff' %}active{% endif %}">Staff Posts</a>
+    <a href="?filter={{ current_filter|urlencode }}&source=user" class="nav-item {% if current_source == 'user' %}active{% endif %}">User Posts</a>
+    <a href="?filter=adopted&source={{ current_source|default:'all'|urlencode }}" class="nav-item {% if current_filter == 'adopted' %}active{% endif %}">Adopted</a>
+</div>
+{% endif %}
 <div class="listing-toolbar">
     <a href="{{ status_page_url }}" class="listing-toolbar-link">
-        <span>{{ status_page_label }}</span>
+        <span class="listing-toolbar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M7 4H17M7 12H17M7 20H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <circle cx="17.5" cy="19.5" r="3.5" stroke="currentColor" stroke-width="2"/>
+            </svg>
+        </span>
+        <span class="listing-toolbar-text">{{ status_page_label }}</span>
         <span class="listing-toolbar-badge">{{ pending_request_count }}</span>
     </a>
 </div>
 <h2>{{ page_title }}</h2>
-{% if posts %}
+{% if listing_mode == 'adopt' %}
+    {% if show_staff_posts %}
+    <section class="source-section">
+        <h3 class="source-section-title">Staff Adoption Posts</h3>
+        {% if staff_posts %}
+        <div class="posts-grid">
+        {% for item in staff_posts %}
+            {% with post=item.post %}
+            <div class="post-card">
+                {% if item.main_image_url %}
+                    <img src="{{ item.main_image_url }}" width="250" height="180" alt="{{ post.caption|default:'Dog image' }}">
+                {% endif %}
+
+                <div class="post-details">
+                    <span class="post-source-badge">Staff Post</span>
+                    <h3>{{ post.caption }}</h3>
+                    <p><strong>Location:</strong> {{ post.location }}</p>
+                    <p><strong>Status:</strong> {{ post.get_status_display }}</p>
+
+                    {% if item.phase == 'adopt' %}
+                        <span class="status-tag status-open">Ready to Adopt</span>
+                        <p>Adoption time left: {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m</p>
+                    {% elif post.status == 'adopted' %}
+                        <span class="status-tag status-closed">Adopted</span>
+                    {% else %}
+                        <span class="status-tag status-closed">Closed</span>
+                    {% endif %}
+
+                    <br>
+                    {% if item.phase == 'adopt' %}
+                        <a href="{% url 'user:adopt_confirm' post.id %}" class="btn-action">Adopt Dog</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endwith %}
+        {% endfor %}
+        </div>
+        {% if staff_page_obj and staff_page_obj.has_next %}
+        <div class="text-center mt-3 mb-4">
+            <a class="btn btn-outline-secondary"
+               href="?filter={{ current_filter|urlencode }}&source={{ current_source|urlencode }}&staff_page={{ staff_page_obj.next_page_number }}{% if user_page_obj %}&user_page={{ user_page_obj.number }}{% endif %}">
+                Load more staff posts
+            </a>
+        </div>
+        {% endif %}
+        {% else %}
+        <p style="padding: 16px 4px; color: #64748b; font-style: italic;">No staff adoption posts are available in this category.</p>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    {% if show_user_posts %}
+    <section class="source-section">
+        <h3 class="source-section-title">User Adoption Posts</h3>
+        {% if user_posts %}
+        <div class="posts-grid">
+        {% for item in user_posts %}
+            {% with post=item.post %}
+            <div class="post-card">
+                {% if item.main_image_url %}
+                    <img src="{{ item.main_image_url }}" width="250" height="180" alt="{{ post.dog_name|default:'Dog image' }}">
+                {% endif %}
+
+                <div class="post-details">
+                    <span class="post-source-badge is-user">User Post</span>
+                    <h3>{{ post.dog_name }}</h3>
+                    <p><strong>Location:</strong> {{ post.location }}</p>
+                    <p><strong>Posted by:</strong> {{ item.owner_name }}</p>
+
+                    {% if post.status == 'available' %}
+                        <span class="status-tag status-open">Ready to Adopt</span>
+                    {% else %}
+                        <span class="status-tag status-closed">Adopted</span>
+                    {% endif %}
+
+                    <br>
+                    {% if post.status == 'available' %}
+                        {% if post.owner_id == request.user.id %}
+                            <span class="btn-action is-secondary">This is your post</span>
+                        {% else %}
+                            <a href="{% url 'user:adopt_user_post' post.id %}" class="btn-action">Request Adoption</a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endwith %}
+        {% endfor %}
+        </div>
+        {% if user_page_obj and user_page_obj.has_next %}
+        <div class="text-center mt-3 mb-4">
+            <a class="btn btn-outline-secondary"
+               href="?filter={{ current_filter|urlencode }}&source={{ current_source|urlencode }}{% if staff_page_obj %}&staff_page={{ staff_page_obj.number }}{% endif %}&user_page={{ user_page_obj.next_page_number }}">
+                Load more user posts
+            </a>
+        </div>
+        {% endif %}
+        {% else %}
+        <p style="padding: 16px 4px; color: #64748b; font-style: italic;">No user adoption posts are available in this category.</p>
+        {% endif %}
+    </section>
+    {% endif %}
+{% elif posts %}
+    <div class="posts-grid">
     {% for item in posts %}
         {% with post=item.post %}
         <div class="post-card">
             {% if item.main_image_url %}
-                <img src="{{ item.main_image_url }}" width="250" height="180">
+                <img src="{{ item.main_image_url }}" width="250" height="180" alt="{{ post.caption|default:'Dog image' }}">
             {% endif %}
 
             <div class="post-details">
@@ -88,9 +318,9 @@
                 {% endif %}
             </div>
         </div>
-        <hr style="border: 0.5px solid #eee;">
         {% endwith %}
     {% endfor %}
+    </div>
     {% if page_obj.has_next %}
     <div class="text-center mt-3 mb-4">
         <a class="btn btn-outline-secondary"
@@ -100,6 +330,6 @@
     </div>
     {% endif %}
 {% else %}
-    <p style="padding: 40px; color: #999; font-style: italic;">No dogs found in this category.</p>
+    <p style="padding: 40px; color: #999; font-style: italic;">No dogs were found in this category.</p>
 {% endif %}
 {% endblock %}

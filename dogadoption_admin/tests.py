@@ -11,11 +11,14 @@ from django.utils import timezone
 from .models import (
     AdminNotification,
     Barangay,
+    Citation,
     DewormingTreatmentRecord,
     Dog,
     DogImage,
     DogAnnouncement,
     DogRegistration,
+    Penalty,
+    PenaltySection,
     Post,
     PostRequest,
     VaccinationRecord,
@@ -558,3 +561,136 @@ class RegistrationRecordOwnerBlockTests(TestCase):
         self.assertEqual(dogs[0].owner_name, "Joker Guevarra")
         self.assertEqual(dogs[1].owner_name, "Joker Guevarra")
         self.assertEqual(dogs[2].owner_name, "Argus Rafaela")
+
+
+class AdminUsersPageTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="admin_users_page",
+            password="secret123",
+            is_staff=True,
+        )
+        self.owner = User.objects.create_user(
+            username="owner_users_page",
+            password="secret123",
+            first_name="Owner",
+            last_name="Person",
+        )
+        self.staff_account = User.objects.create_user(
+            username="staff_should_hide",
+            password="secret123",
+            is_staff=True,
+        )
+        Profile.objects.create(
+            user=self.owner,
+            address="Bugay",
+            age=30,
+            consent_given=True,
+        )
+        Profile.objects.create(
+            user=self.staff_account,
+            address="Admin Office",
+            age=30,
+            consent_given=True,
+        )
+        claim_post = Post.objects.create(
+            user=self.admin,
+            caption="Claimable dog",
+            location="Bugay",
+            status="reunited",
+        )
+        PostRequest.objects.create(
+            post=claim_post,
+            user=self.owner,
+            request_type="claim",
+            status="accepted",
+        )
+        section = PenaltySection.objects.create(number=28)
+        penalty = Penalty.objects.create(
+            section=section,
+            number=1,
+            title="Rabies vaccination services fee",
+            description="Test penalty",
+            amount="50.00",
+            active=True,
+        )
+        Citation.objects.create(
+            owner=self.owner,
+            owner_first_name="Owner",
+            owner_last_name="Person",
+            owner_barangay="Bugay",
+            penalty=penalty,
+        )
+        self.client.force_login(self.admin)
+
+    def test_admin_users_page_counts_claims_and_citations_and_links_to_registration_profile(self):
+        response = self.client.get(reverse("dogadoption_admin:admin_users"))
+
+        self.assertEqual(response.status_code, 200)
+        users = list(response.context["users"])
+        self.assertEqual(len(users), 1)
+        self.assertEqual(users[0].id, self.owner.id)
+        self.assertEqual(users[0].calculated_violations, 2)
+        self.assertContains(
+            response,
+            reverse("dogadoption_admin:registration_owner_profile", args=[self.owner.id]),
+        )
+        self.assertNotContains(response, self.staff_account.username)
+
+
+class AdminEditProfileTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="admin_profile_old",
+            password="secret123",
+            first_name="Admin",
+            last_name="User",
+            is_staff=True,
+        )
+        Profile.objects.create(
+            user=self.admin,
+            address="Admin Office",
+            age=30,
+            consent_given=True,
+        )
+        self.client.force_login(self.admin)
+
+    def test_admin_profile_updates_username_and_password_only(self):
+        response = self.client.post(
+            reverse("dogadoption_admin:admin_edit_profile"),
+            {
+                "username": "admin_profile_new",
+                "current_password": "secret123",
+                "password": "newsecret123",
+                "confirm_password": "newsecret123",
+                "first_name": "Should",
+                "last_name": "NotChange",
+                "address": "Ignored",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.username, "admin_profile_new")
+        self.assertEqual(self.admin.first_name, "Admin")
+        self.assertEqual(self.admin.last_name, "User")
+        self.assertTrue(self.admin.check_password("newsecret123"))
+
+    def test_admin_profile_rejects_password_change_when_current_password_is_wrong(self):
+        response = self.client.post(
+            reverse("dogadoption_admin:admin_edit_profile"),
+            {
+                "username": "admin_profile_old",
+                "current_password": "wrongpass",
+                "password": "newsecret123",
+                "confirm_password": "newsecret123",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.username, "admin_profile_old")
+        self.assertTrue(self.admin.check_password("secret123"))
+        self.assertContains(response, "Current password is incorrect.")

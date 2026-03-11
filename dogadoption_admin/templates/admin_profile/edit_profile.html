@@ -1,80 +1,304 @@
 {% extends "admin_base.html" %}
 {% load static %}
 
+{% block extra_css %}
+<style>
+    .admin-profile-page {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 18px 0 32px;
+    }
+
+    .admin-profile-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+        gap: 20px;
+    }
+
+    .admin-profile-card {
+        border: 1px solid #d9e3ef;
+        border-radius: 24px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 250, 252, 1) 100%);
+        box-shadow: 0 14px 34px rgba(20, 35, 59, 0.08);
+        padding: 24px;
+    }
+
+    .admin-profile-header {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        margin-bottom: 20px;
+    }
+
+    .admin-profile-avatar {
+        width: 92px;
+        height: 92px;
+        border-radius: 24px;
+        overflow: hidden;
+        flex-shrink: 0;
+        border: 1px solid #c6d4e5;
+        background: #f1f5f9;
+    }
+
+    .admin-profile-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .admin-profile-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid #d9e3ef;
+        color: #1f4d8f;
+        background: #edf4ff;
+        font-size: 0.85rem;
+        font-weight: 700;
+    }
+
+    .admin-profile-title {
+        margin: 12px 0 4px;
+        color: #14233b;
+        font-size: 2rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+    }
+
+    .admin-profile-subtitle {
+        margin: 0;
+        color: #64748b;
+    }
+
+    .admin-profile-details {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .admin-profile-detail {
+        padding: 16px;
+        border: 1px solid #d9e3ef;
+        border-radius: 18px;
+        background: #ffffff;
+    }
+
+    .admin-profile-detail span {
+        display: block;
+        margin-bottom: 8px;
+        color: #64748b;
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .admin-profile-detail strong {
+        color: #14233b;
+        font-size: 1rem;
+        font-weight: 700;
+        word-break: break-word;
+    }
+
+    .admin-profile-edit-title {
+        margin: 0 0 6px;
+        color: #14233b;
+        font-size: 1.35rem;
+        font-weight: 800;
+    }
+
+    .admin-profile-edit-copy {
+        margin: 0 0 18px;
+        color: #64748b;
+        line-height: 1.6;
+    }
+
+    .admin-profile-form .form-label {
+        color: #14233b;
+        font-weight: 700;
+    }
+
+    .admin-profile-form .form-control {
+        min-height: 50px;
+        border: 1px solid #c6d4e5;
+        border-radius: 14px;
+        box-shadow: none;
+    }
+
+    .admin-profile-form .form-control:focus {
+        border-color: #2f66c9;
+        box-shadow: 0 0 0 4px rgba(47, 102, 201, 0.14);
+    }
+
+    .admin-profile-actions {
+        display: flex;
+        justify-content: center;
+        margin-top: 18px;
+    }
+
+    .admin-profile-save-btn {
+        min-width: 180px;
+        min-height: 50px;
+        border: 1px solid #225342;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #2e6d57 0%, #225342 100%);
+        color: #ffffff;
+        font-weight: 700;
+    }
+
+    @media (max-width: 900px) {
+        .admin-profile-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .admin-profile-header {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .admin-profile-details {
+            grid-template-columns: 1fr;
+        }
+
+        .admin-profile-actions {
+            justify-content: stretch;
+        }
+
+        .admin-profile-save-btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
+<div class="admin-profile-page">
+    <div class="admin-profile-grid">
+        <section class="admin-profile-card">
+            <div class="admin-profile-header">
+                <div class="admin-profile-avatar">
+                    {% if profile.profile_image %}
+                        <img src="{{ profile.profile_image.url }}" alt="{{ request.user.username }} profile image">
+                    {% else %}
+                        <img src="{% static 'images/default-user-image.jpg' %}" alt="Default profile image">
+                    {% endif %}
+                </div>
+                <div>
+                    <span class="admin-profile-kicker">Admin Profile</span>
+                    <h1 class="admin-profile-title">{{ request.user.get_full_name|default:request.user.username }}</h1>
+                    <p class="admin-profile-subtitle">@{{ request.user.username }}</p>
+                </div>
+            </div>
 
-        <div class="card shadow-sm">
-            <div class="card-body">
+            <div class="admin-profile-details">
+                <div class="admin-profile-detail">
+                    <span>Username</span>
+                    <strong>@{{ request.user.username }}</strong>
+                </div>
+                <div class="admin-profile-detail">
+                    <span>Role</span>
+                    <strong>Administrator</strong>
+                </div>
+                <div class="admin-profile-detail">
+                    <span>Name</span>
+                    <strong>{{ request.user.get_full_name|default:"Not set" }}</strong>
+                </div>
+                <div class="admin-profile-detail">
+                    <span>Date Joined</span>
+                    <strong>{{ request.user.date_joined|date:"M d, Y" }}</strong>
+                </div>
+            </div>
+        </section>
 
-                <h4 class="mb-4 text-center">Edit Admin Profile</h4>
+        <section class="admin-profile-card">
+            <h2 class="admin-profile-edit-title">Edit Login Details</h2>
+            <p class="admin-profile-edit-copy">
+                Only the username and password can be changed here.
+            </p>
 
-                <form method="POST" enctype="multipart/form-data">
-                    {% csrf_token %}
+            <form method="POST" class="admin-profile-form" id="admin-profile-form">
+                {% csrf_token %}
 
-                    <div class="text-center mb-4">
-                        <img src="{{ profile.profile_image.url }}"
-                             class="rounded-circle mb-2"
-                             width="120" height="120"
-                             style="object-fit: cover;">
-                        <div>
-                            <input type="file"
-                                   name="profile_image"
-                                   class="form-control form-control-sm">
-                        </div>
-                    </div>
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input
+                        type="text"
+                        name="username"
+                        id="username"
+                        class="form-control"
+                        value="{{ request.user.username }}"
+                        required
+                    >
+                </div>
 
-                    <div class="row mb-3">
-                        <div class="col">
-                            <label class="form-label">First Name</label>
-                            <input type="text"
-                                   name="first_name"
-                                   class="form-control"
-                                   value="{{ user.first_name }}">
-                        </div>
+                <div class="mb-3">
+                    <label for="current_password" class="form-label">Current Password</label>
+                    <input
+                        type="password"
+                        name="current_password"
+                        id="current_password"
+                        class="form-control"
+                        placeholder="Enter your current password first"
+                    >
+                </div>
 
-                        <div class="col">
-                            <label class="form-label">Last Name</label>
-                            <input type="text"
-                                   name="last_name"
-                                   class="form-control"
-                                   value="{{ user.last_name }}">
-                        </div>
-                    </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">New Password</label>
+                    <input
+                        type="password"
+                        name="password"
+                        id="password"
+                        class="form-control"
+                        placeholder="Leave blank to keep current password"
+                    >
+                </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Middle Initial</label>
-                        <input type="text"
-                               name="middle_initial"
-                               maxlength="1"
-                               class="form-control"
-                               value="{{ profile.middle_initial }}">
-                    </div>
+                <div class="mb-3">
+                    <label for="confirm_password" class="form-label">Confirm Password</label>
+                    <input
+                        type="password"
+                        name="confirm_password"
+                        id="confirm_password"
+                        class="form-control"
+                        placeholder="Repeat the new password"
+                    >
+                </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Address</label>
-                        <textarea name="address"
-                                  class="form-control"
-                                  rows="3">{{ profile.address }}</textarea>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="form-label">Age</label>
-                        <input type="number"
-                               name="age"
-                               class="form-control"
-                               value="{{ profile.age }}">
-                    </div>
-
-                    <button type="submit" class="btn btn-primary w-100">
+                <div class="admin-profile-actions">
+                    <button
+                        type="button"
+                        class="admin-profile-save-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#adminProfileConfirmModal"
+                    >
                         Save Changes
                     </button>
-                </form>
+                </div>
+            </form>
+        </section>
+    </div>
+</div>
 
+<div class="modal fade" id="adminProfileConfirmModal" tabindex="-1" aria-labelledby="adminProfileConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="adminProfileConfirmModalLabel">Confirm Profile Changes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Save the updated username and password changes now?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-success" form="admin-profile-form">Confirm Save</button>
             </div>
         </div>
-
     </div>
 </div>
 {% endblock %}

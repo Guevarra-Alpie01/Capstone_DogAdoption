@@ -10,12 +10,13 @@ from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth import logout
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q, Value
+from django.db.models import Count, F, Prefetch, Q, Value
 from django.db.models.functions import Concat, Lower, Trim, TruncDate
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -1644,10 +1645,19 @@ def announcement_delete(request, post_id):
 
 #++++++++++++++++++++++++++++ USER MANAGEMENT PAGE +++++++++++++++++++++++++++++++++++++
 def _admin_user_management_queryset():
-    return User.objects.select_related('profile').annotate(
-        calculated_violations=Count(
-            'postrequest',
-            filter=Q(postrequest__request_type='claim')
+    return (
+        User.objects.filter(is_staff=False)
+        .select_related('profile')
+        .annotate(
+            claim_violation_count=Count(
+                'postrequest',
+                filter=Q(postrequest__request_type='claim'),
+                distinct=True,
+            ),
+            citation_violation_count=Count('citation', distinct=True),
+        )
+        .annotate(
+            calculated_violations=F('claim_violation_count') + F('citation_violation_count')
         )
     )
 
@@ -1714,23 +1724,46 @@ def admin_edit_profile(request):
     )
 
     if request.method == "POST":
-        user.first_name = request.POST.get("first_name", "").strip()
-        user.last_name = request.POST.get("last_name", "").strip()
+        username = (request.POST.get("username") or "").strip()
+        current_password = request.POST.get("current_password") or ""
+        password = request.POST.get("password") or ""
+        confirm_password = request.POST.get("confirm_password") or ""
 
-        profile.middle_initial = request.POST.get("middle_initial", "").strip()
-        profile.address = request.POST.get("address", "").strip()
-        profile.age = request.POST.get("age") or profile.age
+        has_error = False
 
-        if request.FILES.get("profile_image"):
-            profile.profile_image = request.FILES["profile_image"]
+        if not username:
+            messages.error(request, "Username is required.")
+            has_error = True
+        elif User.objects.exclude(pk=user.pk).filter(username=username).exists():
+            messages.error(request, "That username is already in use.")
+            has_error = True
 
-        user.save()
-        profile.save()
-        messages.success(request, "Profile updated successfully.")
-        return redirect("dogadoption_admin:admin_edit_profile")
+        if password or confirm_password:
+            if not current_password:
+                messages.error(request, "Enter your current password first.")
+                has_error = True
+            elif not user.check_password(current_password):
+                messages.error(request, "Current password is incorrect.")
+                has_error = True
+            elif password != confirm_password:
+                messages.error(request, "Password confirmation does not match.")
+                has_error = True
+            elif len(password) < 8:
+                messages.error(request, "Password must be at least 8 characters.")
+                has_error = True
+
+        if not has_error:
+            user.username = username
+            if password:
+                user.set_password(password)
+            user.save()
+            if password:
+                update_session_auth_hash(request, user)
+            messages.success(request, "Admin profile updated successfully.")
+            return redirect("dogadoption_admin:admin_edit_profile")
 
     return render(request, "admin_profile/edit_profile.html", {
-        "profile": profile
+        "profile": profile,
     })
 
 

@@ -54,8 +54,53 @@ from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, Mi
 from .forms import MissingDogPostForm, UserAdoptionPostForm
 from .notification_utils import (
     USER_NOTIFICATIONS_SEEN_SESSION_KEY,
+    bump_user_home_feed_namespace,
+    get_user_home_feed_namespace,
     invalidate_user_notification_content,
 )
+
+ACTIVE_BARANGAY_LOOKUP_CACHE_KEY = "user_active_barangay_lookup"
+ACTIVE_BARANGAY_LOOKUP_CACHE_TTL_SECONDS = 300
+
+
+def _safe_media_url(file_field):
+    if not file_field:
+        return ""
+    try:
+        return file_field.url
+    except Exception:
+        return ""
+
+
+def _first_prefetched_image_url(images):
+    first_image = next(iter(images), None)
+    if not first_image:
+        return ""
+    return _safe_media_url(getattr(first_image, "image", None))
+
+
+def _build_registered_dog_payloads(dogs):
+    rows = []
+    for dog in dogs:
+        photo_urls = []
+        for image in dog.images.all():
+            image_url = _safe_media_url(getattr(image, "image", None))
+            if image_url:
+                photo_urls.append(image_url)
+        rows.append({
+            "id": dog.id,
+            "name": dog.name or "Unnamed Dog",
+            "species": dog.species or "Canine",
+            "sex_label": dog.get_sex_display() if dog.sex else "-",
+            "age": dog.age or "-",
+            "neutering_label": dog.get_neutering_status_display() if dog.neutering_status else "-",
+            "color": dog.color or "-",
+            "date_registered": dog.date_registered,
+            "location": dog.barangay or dog.owner_address or "",
+            "photo_urls": photo_urls,
+            "photo_count": len(photo_urls),
+        })
+    return rows
 def _build_profile_dashboard_context(profile_user):
     profile, _ = Profile.objects.get_or_create(
         user=profile_user,
@@ -87,8 +132,6 @@ def _build_profile_dashboard_context(profile_user):
     profile_posts = []
 
     for post in adoption_posts:
-        post_images = list(post.images.all())
-        first_image = post_images[0] if post_images else None
         profile_posts.append({
             "id": post.id,
             "post_type": "adoption",
@@ -99,7 +142,7 @@ def _build_profile_dashboard_context(profile_user):
             "status_label": post.get_status_display(),
             "posted_label": _format_posted_label(post.created_at),
             "created_at": post.created_at,
-            "image_url": first_image.image.url if first_image else "",
+            "image_url": _first_prefetched_image_url(post.images.all()),
         })
 
     for post in missing_posts:
@@ -113,7 +156,7 @@ def _build_profile_dashboard_context(profile_user):
             "status_label": post.get_status_display(),
             "posted_label": _format_posted_label(post.created_at),
             "created_at": post.created_at,
-            "image_url": post.image.url if post.image else "",
+            "image_url": _safe_media_url(post.image),
         })
 
     profile_posts.sort(key=lambda item: item["created_at"], reverse=True)
@@ -142,8 +185,6 @@ def _build_profile_dashboard_context(profile_user):
     adopted_posts = []
     for req in staff_adopt_requests:
         post = req.post
-        post_images = list(post.images.all())
-        first_image = post_images[0] if post_images else None
         adopted_posts.append({
             "id": post.id,
             "source": "staff",
@@ -152,13 +193,11 @@ def _build_profile_dashboard_context(profile_user):
             "location": post.location,
             "adopted_label": _format_posted_label(req.created_at),
             "created_at": req.created_at,
-            "image_url": first_image.image.url if first_image else "",
+            "image_url": _first_prefetched_image_url(post.images.all()),
         })
 
     for req in user_adopt_requests:
         post = req.post
-        post_images = list(post.images.all())
-        first_image = post_images[0] if post_images else None
         adopted_posts.append({
             "id": post.id,
             "source": "user",
@@ -167,7 +206,7 @@ def _build_profile_dashboard_context(profile_user):
             "location": post.location,
             "adopted_label": _format_posted_label(req.created_at),
             "created_at": req.created_at,
-            "image_url": first_image.image.url if first_image else "",
+            "image_url": _first_prefetched_image_url(post.images.all()),
             "owner_name": post.owner.get_full_name() or post.owner.username,
         })
 
@@ -198,22 +237,7 @@ def _build_profile_dashboard_context(profile_user):
         .order_by("-date_registered", "-id")[:registered_dogs_limit]
     )
     registered_dogs_total = Dog.objects.filter(owner_user=profile_user).count()
-    registered_dogs = []
-    for dog in registered_dogs_qs:
-        photo_urls = [image.image.url for image in dog.images.all()]
-        registered_dogs.append({
-            "id": dog.id,
-            "name": dog.name or "Unnamed Dog",
-            "species": dog.species or "Canine",
-            "sex_label": dog.get_sex_display() if dog.sex else "-",
-            "age": dog.age or "-",
-            "neutering_label": dog.get_neutering_status_display() if dog.neutering_status else "-",
-            "color": dog.color or "-",
-            "date_registered": dog.date_registered,
-            "location": dog.barangay or dog.owner_address or "",
-            "photo_urls": photo_urls,
-            "photo_count": len(photo_urls),
-        })
+    registered_dogs = _build_registered_dog_payloads(registered_dogs_qs)
 
     user_citations = (
         Citation.objects.filter(owner=profile_user)
@@ -338,10 +362,18 @@ def _resolve_barangay_name(value):
     normalized = _normalize_barangay(value)
     if not normalized:
         return ""
-    for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True):
-        if _normalize_barangay(name) == normalized:
-            return name
-    return ""
+    lookup = cache.get(ACTIVE_BARANGAY_LOOKUP_CACHE_KEY)
+    if lookup is None:
+        lookup = {
+            _normalize_barangay(name): name
+            for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True)
+        }
+        cache.set(
+            ACTIVE_BARANGAY_LOOKUP_CACHE_KEY,
+            lookup,
+            ACTIVE_BARANGAY_LOOKUP_CACHE_TTL_SECONDS,
+        )
+    return lookup.get(normalized, "")
 
 
 def _ensure_default_profile_image_exists():
@@ -372,10 +404,7 @@ def _ensure_default_profile_image_exists():
 def _profile_image_url_or_default(user, fallback_url):
     profile = getattr(user, "profile", None)
     image_field = getattr(profile, "profile_image", None)
-    try:
-        image_url = image_field.url if image_field else ""
-    except Exception:
-        image_url = ""
+    image_url = _safe_media_url(image_field)
     return image_url or fallback_url
 
 
@@ -544,8 +573,6 @@ def _build_public_post_listing(request, listing_mode):
         page_obj = Paginator(posts_qs, 12).get_page(page_number)
         post_items = []
         for post in page_obj.object_list:
-            post_images = list(post.images.all())
-            main_image = post_images[0] if post_images else None
             phase, days, hours, minutes = _post_phase_payload(post)
             post_items.append({
                 "post": post,
@@ -553,7 +580,7 @@ def _build_public_post_listing(request, listing_mode):
                 "days_left": days,
                 "hours_left": hours,
                 "minutes_left": minutes,
-                "main_image_url": main_image.image.url if main_image else "",
+                "main_image_url": _first_prefetched_image_url(post.images.all()),
             })
 
         return {
@@ -596,8 +623,6 @@ def _build_public_post_listing(request, listing_mode):
         )
         staff_page_obj = Paginator(staff_qs, items_per_page).get_page(staff_page_number)
         for post in staff_page_obj.object_list:
-            post_images = list(post.images.all())
-            main_image = post_images[0] if post_images else None
             phase, days, hours, minutes = _post_phase_payload(post)
             staff_items.append({
                 "post": post,
@@ -605,7 +630,7 @@ def _build_public_post_listing(request, listing_mode):
                 "days_left": days,
                 "hours_left": hours,
                 "minutes_left": minutes,
-                "main_image_url": main_image.image.url if main_image else "",
+                "main_image_url": _first_prefetched_image_url(post.images.all()),
                 "source_type": "staff",
             })
     else:
@@ -624,11 +649,9 @@ def _build_public_post_listing(request, listing_mode):
         )
         user_page_obj = Paginator(user_qs, items_per_page).get_page(user_page_number)
         for post in user_page_obj.object_list:
-            post_images = list(post.images.all())
-            main_image = post_images[0] if post_images else None
             user_items.append({
                 "post": post,
-                "main_image_url": main_image.image.url if main_image else "",
+                "main_image_url": _first_prefetched_image_url(post.images.all()),
                 "owner_name": post.owner.get_full_name() or post.owner.username,
                 "source_type": "user",
             })
@@ -683,6 +706,7 @@ def _handle_user_post_creation_submission(request, selected_type):
             post = missing_form.save(commit=False)
             post.owner = request.user
             post.save()
+            bump_user_home_feed_namespace()
             invalidate_user_notification_content()
             messages.success(request, "Missing dog post created successfully.")
             return True, adoption_form, missing_form
@@ -695,6 +719,7 @@ def _handle_user_post_creation_submission(request, selected_type):
         post.owner = request.user
         post.save()
         _create_user_adoption_images(request, post)
+        bump_user_home_feed_namespace()
         invalidate_user_notification_content()
         messages.success(request, "Adoption post created successfully.")
         return True, adoption_form, missing_form
@@ -850,9 +875,10 @@ def _pagination_query_without_page(querydict):
 
 
 def _feed_cache_key(prefix, query, feed_token=""):
+    namespace = get_user_home_feed_namespace()
     query_hash = hashlib.md5(query.encode("utf-8")).hexdigest() if query else "all"
     token_hash = hashlib.md5(feed_token.encode("utf-8")).hexdigest() if feed_token else "default"
-    return f"user_home:{prefix}:{FEED_CACHE_VERSION}:{query_hash}:{token_hash}"
+    return f"user_home:{prefix}:{FEED_CACHE_VERSION}:{namespace}:{query_hash}:{token_hash}"
 
 
 def _normalized_feed_token(raw_token):
@@ -1146,9 +1172,9 @@ def _hydrate_home_feed_items(request, feed_rows):
             p = admin_map.get(post_id)
             if not p:
                 continue
-            post_images = list(p.images.all())
-            main_image = post_images[0] if post_images else None
-            image_count = len(post_images)
+            image_queryset = p.images.all()
+            image_count = len(image_queryset)
+            main_image = next(iter(image_queryset), None)
 
             phase, days, hours, minutes = _post_phase_payload(p)
             is_open_for_adoption = phase in ["claim", "adopt"]
@@ -1181,9 +1207,9 @@ def _hydrate_home_feed_items(request, feed_rows):
             p = announcement_map.get(post_id)
             if not p:
                 continue
-            announcement_images = list(p.images.all())
-            first_image_url = announcement_images[0].image.url if announcement_images else ""
-            main_image_url = first_image_url or (p.background_image.url if p.background_image else "")
+            announcement_images = p.images.all()
+            first_image_url = _first_prefetched_image_url(announcement_images)
+            main_image_url = first_image_url or _safe_media_url(p.background_image)
 
             combined_posts.append({
                 "post": p,
@@ -1207,8 +1233,8 @@ def _hydrate_home_feed_items(request, feed_rows):
             p = user_map.get(post_id)
             if not p:
                 continue
-            post_images = list(p.images.all())
-            main_image = post_images[0] if post_images else None
+            post_images = p.images.all()
+            main_image = next(iter(post_images), None)
 
             combined_posts.append({
                 "post": p,
@@ -1679,6 +1705,7 @@ def user_adoption_request_action(request, req_id, action):
         ).exclude(id=req.id).update(status="rejected")
         req.post.status = "adopted"
         req.post.save(update_fields=["status"])
+        bump_user_home_feed_namespace()
         messages.success(request, "Adoption request accepted.")
     elif action == "decline":
         req.status = "rejected"
@@ -1694,6 +1721,7 @@ def delete_user_adoption_post(request, post_id):
     post = get_object_or_404(UserAdoptionPost, id=post_id, owner=request.user)
     dog_name = post.dog_name
     post.delete()
+    bump_user_home_feed_namespace()
     messages.success(request, f'Adoption post "{dog_name}" deleted.')
     return redirect("user:edit_profile")
 
@@ -1704,6 +1732,7 @@ def delete_missing_dog_post(request, post_id):
     post = get_object_or_404(MissingDogPost, id=post_id, owner=request.user)
     dog_name = post.dog_name
     post.delete()
+    bump_user_home_feed_namespace()
     messages.success(request, f'Missing dog post "{dog_name}" deleted.')
     return redirect("user:edit_profile")
 

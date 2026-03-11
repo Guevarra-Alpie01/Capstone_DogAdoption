@@ -58,6 +58,7 @@ from user.models import (
     Profile,
 )
 from user.notification_utils import (
+    bump_user_home_feed_namespace,
     invalidate_user_notification_content,
     invalidate_user_notification_payload,
     remember_request_reviewed_at,
@@ -104,6 +105,9 @@ CAT_BREED_KEYWORDS = {
     "turkish angora",
     "turkish van",
 }
+
+ACTIVE_BARANGAY_LOOKUP_CACHE_KEY = "dogadoption_admin_active_barangay_lookup"
+ACTIVE_BARANGAY_LOOKUP_CACHE_TTL_SECONDS = 300
 
 
 def _get_python_docx_document():
@@ -181,6 +185,62 @@ def _owner_initials(name):
     return f"{parts[0][:1]}{parts[-1][:1]}".upper()
 
 
+def _get_active_barangay_lookup():
+    lookup = cache.get(ACTIVE_BARANGAY_LOOKUP_CACHE_KEY)
+    if lookup is None:
+        lookup = {
+            _normalize_barangay(name): name
+            for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True)
+        }
+        cache.set(
+            ACTIVE_BARANGAY_LOOKUP_CACHE_KEY,
+            lookup,
+            ACTIVE_BARANGAY_LOOKUP_CACHE_TTL_SECONDS,
+        )
+    return lookup
+
+
+def _safe_media_url(file_field):
+    if not file_field:
+        return ""
+    try:
+        return file_field.url
+    except (AttributeError, ValueError):
+        return ""
+
+
+def _dog_image_prefetch():
+    return Prefetch(
+        "images",
+        queryset=DogImage.objects.only("id", "dog_id", "image").order_by("created_at", "id"),
+    )
+
+
+def _registered_dog_payload(dog):
+    photo_urls = []
+    for image in dog.images.all():
+        image_url = _safe_media_url(getattr(image, "image", None))
+        if image_url:
+            photo_urls.append(image_url)
+
+    return {
+        "id": dog.id,
+        "name": dog.name or "Unnamed Dog",
+        "species": dog.species or "Canine",
+        "sex_label": dog.get_sex_display() if dog.sex else "-",
+        "age": dog.age or "-",
+        "neutering_label": dog.get_neutering_status_display() if dog.neutering_status else "-",
+        "color": dog.color or "-",
+        "date_registered": dog.date_registered,
+        "location": dog.barangay or dog.owner_address or "",
+        "photo_urls": photo_urls,
+    }
+
+
+def _build_registered_dog_payloads(dogs):
+    return [_registered_dog_payload(dog) for dog in dogs]
+
+
 def _build_owner_profile_lookup(owner_names):
     normalized_names = {_normalize_person_name(name) for name in owner_names if name}
     if not normalized_names:
@@ -218,11 +278,7 @@ def _build_owner_profile_lookup(owner_names):
             continue
 
         profile = matches[0]
-        image_field = getattr(profile, "profile_image", None)
-        try:
-            image_url = image_field.url if image_field else ""
-        except (ValueError, AttributeError):
-            image_url = ""
+        image_url = _safe_media_url(getattr(profile, "profile_image", None))
         lookup[normalized_name] = {
             "image_url": image_url,
             "user_id": profile.user_id,
@@ -238,10 +294,7 @@ def _resolve_barangay_name(value):
     normalized = _normalize_barangay(value)
     if not normalized:
         return ""
-    for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True):
-        if _normalize_barangay(name) == normalized:
-            return name
-    return ""
+    return _get_active_barangay_lookup().get(normalized, "")
 
 
 #extracting barangays
@@ -540,13 +593,8 @@ def _enrich_capture_request_display(req):
     req.has_location = req.location_label != "No location"
     req.display_barangay = barangay
 
-    request_images = list(req.images.all())
-    if request_images:
-        image_url = request_images[0].image.url
-    elif req.image:
-        image_url = req.image.url
-    else:
-        image_url = ""
+    first_request_image = next(iter(req.images.all()), None)
+    image_url = _safe_media_url(getattr(first_request_image, "image", None)) or _safe_media_url(req.image)
     req.preview_image_url = image_url
 
 
@@ -882,6 +930,7 @@ def create_post(request):
             for image in request.FILES.getlist('images'):
                 PostImage.objects.create(post=post, image=image)
 
+            bump_user_home_feed_namespace()
             invalidate_user_notification_content()
             messages.success(request, "Post created successfully.", extra_tags="post_list")
             return redirect('dogadoption_admin:post_list')
@@ -926,6 +975,7 @@ def post_list(request):
                 for image in request.FILES.getlist('images'):
                     PostImage.objects.create(post=post, image=image)
 
+                bump_user_home_feed_namespace()
                 invalidate_user_notification_content()
                 messages.success(request, "Post created successfully.", extra_tags="post_list")
                 return redirect(reverse('dogadoption_admin:post_list'))
@@ -943,10 +993,7 @@ def post_list(request):
     ).annotate(
         claim_count=Count('requests', filter=Q(requests__request_type='claim')),
         adopt_count=Count('requests', filter=Q(requests__request_type='adopt')),
-    )
-
-    # Calculate days/hours/minutes left
-    all_enriched = []
+    ).order_by("-created_at")
 
     def format_posted_label(dt):
         if not dt:
@@ -965,6 +1012,11 @@ def post_list(request):
             days = max(int(delta.total_seconds() // 86400), 1)
             return f"{days}d"
         return dt.strftime("%b %d, %Y")
+
+    claim_posts = []
+    adoption_posts = []
+    reunited_posts = []
+    adopted_posts = []
 
     for p in base_qs:
         days = hours = minutes = 0
@@ -985,7 +1037,7 @@ def post_list(request):
         elif phase == 'adopt':
             deadline = p.adoption_deadline()
 
-        all_enriched.append({
+        item = {
             'post': p,
             'days_left': days,
             'hours_left': hours,
@@ -1003,15 +1055,15 @@ def post_list(request):
             'claim_requests': [],
             'adopt_requests': [],
             'primary_image_url': "",
-        })
-
-    # Sort by newest
-    all_enriched.sort(key=lambda x: x['post'].created_at, reverse=True)
-
-    claim_posts = [item for item in all_enriched if item['phase'] == 'claim']
-    adoption_posts = [item for item in all_enriched if item['phase'] == 'adopt']
-    reunited_posts = [item for item in all_enriched if item['post'].status == 'reunited']
-    adopted_posts = [item for item in all_enriched if item['post'].status == 'adopted']
+        }
+        if item['phase'] == 'claim':
+            claim_posts.append(item)
+        elif item['phase'] == 'adopt':
+            adoption_posts.append(item)
+        if item['post'].status == 'reunited':
+            reunited_posts.append(item)
+        elif item['post'].status == 'adopted':
+            adopted_posts.append(item)
 
     # Rank active cards by request volume (highest first). Stable sort keeps original
     # order for ties, so if equal request counts the earlier post stays first.
@@ -1100,13 +1152,9 @@ def post_list(request):
             )
             for profile in profiles:
                 profile_address_by_user_id[profile.user_id] = (profile.address or "").strip()
-                image_field = getattr(profile, "profile_image", None)
-                if not image_field:
-                    continue
-                try:
-                    profile_image_by_user_id[profile.user_id] = image_field.url
-                except (AttributeError, ValueError):
-                    continue
+                image_url = _safe_media_url(getattr(profile, "profile_image", None))
+                if image_url:
+                    profile_image_by_user_id[profile.user_id] = image_url
 
             face_auth_count_by_user_id = dict(
                 FaceImage.objects.filter(user_id__in=request_user_ids)
@@ -1128,10 +1176,9 @@ def post_list(request):
         for image in PostImage.objects.filter(post_id__in=paged_post_ids).only("post_id", "image").order_by("id"):
             if image.post_id in primary_image_by_post_id:
                 continue
-            try:
-                primary_image_by_post_id[image.post_id] = image.image.url
-            except (AttributeError, ValueError):
-                continue
+            image_url = _safe_media_url(image.image)
+            if image_url:
+                primary_image_by_post_id[image.post_id] = image_url
 
         for post_id, item in modal_posts_by_id.items():
             req_bucket = requests_by_post_id.get(post_id)
@@ -1270,6 +1317,7 @@ def update_request(request, req_id, action):
             elif req.request_type == 'adopt':
                 post.status = 'adopted'
             post.save(update_fields=['status'])
+            bump_user_home_feed_namespace()
 
             post.requests.filter(status='pending').exclude(id=req.id).update(
                 status='rejected',
@@ -1512,11 +1560,7 @@ def announcement_list(request):
     default_admin_avatar_url = static("images/officialseal.webp")
     for post in announcements:
         profile = getattr(post.created_by, "profile", None)
-        image_field = getattr(profile, "profile_image", None)
-        try:
-            image_url = image_field.url if image_field else ""
-        except Exception:
-            image_url = ""
+        image_url = _safe_media_url(getattr(profile, "profile_image", None))
         post.admin_profile_image_url = image_url or default_admin_avatar_url
 
     return render(request, 'admin_announcement/announcement.html', {
@@ -1572,6 +1616,7 @@ def announcement_create_form(request, category_slug):
         )
         for image in uploaded_images[1:]:
             DogAnnouncementImage.objects.create(announcement=post, image=image)
+        bump_user_home_feed_namespace()
         invalidate_user_notification_content()
         messages.success(request, f"{category_option['label']} post published.")
 
@@ -1602,6 +1647,7 @@ def announcement_edit(request, post_id):
             post.images.all().delete()
             for image in uploaded_images[1:]:
                 DogAnnouncementImage.objects.create(announcement=post, image=image)
+        bump_user_home_feed_namespace()
         invalidate_user_notification_content()
         messages.success(request, "Announcement updated.")
         return redirect("dogadoption_admin:admin_announcements")
@@ -1638,6 +1684,7 @@ def announcement_update_bucket(request, post_id):
 def announcement_delete(request, post_id):
     post = get_object_or_404(DogAnnouncement, id=post_id)
     post.delete()
+    bump_user_home_feed_namespace()
     invalidate_user_notification_content()
     messages.success(request, "Announcement deleted.")
 
@@ -1878,23 +1925,22 @@ def analytics_dashboard(request):
     adoption_claim_counts = defaultdict(int)
     adoption_claim_years = set()
     adoption_claim_requests = (
-        PostRequest.objects.select_related("post")
-        .filter(
+        PostRequest.objects.filter(
             status="accepted",
             request_type__in=["claim", "adopt"],
             post__status__in=["reunited", "adopted"],
         )
-        .only("request_type", "scheduled_appointment_date", "created_at", "post__status")
+        .values("request_type", "scheduled_appointment_date", "created_at")
         .order_by("scheduled_appointment_date", "created_at", "id")
     )
     for req in adoption_claim_requests:
-        activity_date = req.scheduled_appointment_date
-        if not activity_date and req.created_at:
-            activity_date = timezone.localtime(req.created_at).date()
+        activity_date = req["scheduled_appointment_date"]
+        if not activity_date and req["created_at"]:
+            activity_date = timezone.localtime(req["created_at"]).date()
         if not activity_date:
             continue
 
-        status_key = "claimed" if req.request_type == "claim" else "adopted"
+        status_key = "claimed" if req["request_type"] == "claim" else "adopted"
         adoption_claim_counts[(status_key, activity_date)] += 1
         adoption_claim_years.add(activity_date.year)
 
@@ -1986,33 +2032,35 @@ def analytics_dashboard(request):
     vaccination_barangay_events = []
     vaccination_years = set()
     vaccination_records = (
-        VaccinationRecord.objects.select_related("registration")
-        .exclude(registration__isnull=True)
+        VaccinationRecord.objects.exclude(registration__isnull=True)
+        .values(
+            "registration_id",
+            "registration__address",
+            "date",
+            "vaccine_expiry_date",
+            "vaccination_expiry_date",
+        )
     )
     for record in vaccination_records:
-        registration = record.registration
-        if not registration:
-            continue
-
-        barangay_name = _extract_barangay_from_address(registration.address) or "Unknown"
-        vaccination_date = record.date.isoformat() if record.date else ""
+        barangay_name = _extract_barangay_from_address(record["registration__address"]) or "Unknown"
+        vaccination_date = record["date"].isoformat() if record["date"] else ""
         vaccine_expiry_date = (
-            record.vaccine_expiry_date.isoformat() if record.vaccine_expiry_date else ""
+            record["vaccine_expiry_date"].isoformat() if record["vaccine_expiry_date"] else ""
         )
         dog_vaccination_expiry_date = (
-            record.vaccination_expiry_date.isoformat()
-            if record.vaccination_expiry_date else ""
+            record["vaccination_expiry_date"].isoformat()
+            if record["vaccination_expiry_date"] else ""
         )
 
-        if record.date:
-            vaccination_years.add(record.date.year)
-        if record.vaccine_expiry_date:
-            vaccination_years.add(record.vaccine_expiry_date.year)
-        if record.vaccination_expiry_date:
-            vaccination_years.add(record.vaccination_expiry_date.year)
+        if record["date"]:
+            vaccination_years.add(record["date"].year)
+        if record["vaccine_expiry_date"]:
+            vaccination_years.add(record["vaccine_expiry_date"].year)
+        if record["vaccination_expiry_date"]:
+            vaccination_years.add(record["vaccination_expiry_date"].year)
 
         vaccination_barangay_events.append({
-            "registration_id": record.registration_id,
+            "registration_id": record["registration_id"],
             "barangay": barangay_name,
             "vaccination_date": vaccination_date,
             "vaccine_expiry_date": vaccine_expiry_date,
@@ -2284,13 +2332,7 @@ def registration_record(request):
     if owner_user_ids:
         profiles = Profile.objects.filter(user_id__in=owner_user_ids).only("user_id", "profile_image")
         for profile in profiles:
-            image_field = getattr(profile, "profile_image", None)
-            if not image_field:
-                continue
-            try:
-                image_url = image_field.url
-            except (ValueError, AttributeError):
-                image_url = ""
+            image_url = _safe_media_url(getattr(profile, "profile_image", None))
             if image_url and profile.user_id not in owner_profile_by_user_id:
                 owner_profile_by_user_id[profile.user_id] = image_url
 
@@ -2422,10 +2464,7 @@ def registration_owner_profile(request, user_id):
 
         manual_owner_dogs_qs = (
             manual_owner_dogs_qs.prefetch_related(
-                Prefetch(
-                    "images",
-                    queryset=DogImage.objects.only("id", "dog_id", "image").order_by("created_at", "id"),
-                )
+                _dog_image_prefetch()
             )
             .only(
                 "id",
@@ -2467,33 +2506,7 @@ def registration_owner_profile(request, user_id):
         manual_profile.profile_image = SimpleNamespace(
             url=static("images/default-user-image.jpg")
         )
-
-        registered_dogs = []
-        for dog in manual_owner_dogs:
-            photo_urls = []
-            for image in dog.images.all():
-                image_field = getattr(image, "image", None)
-                if not image_field:
-                    continue
-                try:
-                    photo_urls.append(image_field.url)
-                except Exception:
-                    continue
-
-            registered_dogs.append(
-                {
-                    "id": dog.id,
-                    "name": dog.name or "Unnamed Dog",
-                    "species": dog.species or "Canine",
-                    "sex_label": dog.get_sex_display() if dog.sex else "-",
-                    "age": dog.age or "-",
-                    "neutering_label": dog.get_neutering_status_display() if dog.neutering_status else "-",
-                    "color": dog.color or "-",
-                    "date_registered": dog.date_registered,
-                    "location": dog.barangay or dog.owner_address or "",
-                    "photo_urls": photo_urls,
-                }
-            )
+        registered_dogs = _build_registered_dog_payloads(manual_owner_dogs)
 
         context = {
             "profile_user": manual_profile_user,
@@ -2517,10 +2530,7 @@ def registration_owner_profile(request, user_id):
     registered_dogs_qs = (
         Dog.objects.filter(owner_user=profile_user)
         .prefetch_related(
-            Prefetch(
-                "images",
-                queryset=DogImage.objects.only("id", "dog_id", "image").order_by("created_at", "id"),
-            )
+            _dog_image_prefetch()
         )
         .only(
             "id",
@@ -2536,32 +2546,7 @@ def registration_owner_profile(request, user_id):
         )
         .order_by("-date_registered", "-id")
     )
-    registered_dogs = []
-    for dog in registered_dogs_qs:
-        photo_urls = []
-        for image in dog.images.all():
-            image_field = getattr(image, "image", None)
-            if not image_field:
-                continue
-            try:
-                photo_urls.append(image_field.url)
-            except Exception:
-                continue
-
-        registered_dogs.append(
-            {
-                "id": dog.id,
-                "name": dog.name or "Unnamed Dog",
-                "species": dog.species or "Canine",
-                "sex_label": dog.get_sex_display() if dog.sex else "-",
-                "age": dog.age or "-",
-                "neutering_label": dog.get_neutering_status_display() if dog.neutering_status else "-",
-                "color": dog.color or "-",
-                "date_registered": dog.date_registered,
-                "location": dog.barangay or dog.owner_address or "",
-                "photo_urls": photo_urls,
-            }
-        )
+    registered_dogs = _build_registered_dog_payloads(registered_dogs_qs)
 
     face_images = FaceImage.objects.filter(user=profile_user).only("id", "image").order_by("-created_at", "-id")
 

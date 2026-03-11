@@ -27,10 +27,11 @@ USER_NOTIFICATIONS_ADMIN_POST_IDS_CACHE_KEY = "user_notifications_admin_post_ids
 USER_NOTIFICATIONS_ANNOUNCEMENT_IDS_CACHE_KEY = "user_notifications_announcement_ids_v1"
 USER_NOTIFICATIONS_COMMUNITY_POST_IDS_CACHE_KEY = "user_notifications_community_post_ids_v1"
 USER_NOTIFICATION_REVIEW_TIMESTAMP_TTL_SECONDS = 60 * 60 * 24 * 30
+USER_HOME_FEED_NAMESPACE_KEY = "user_home_feed_namespace_v1"
 
 
 def _current_version_token():
-    return str(int(timezone.now().timestamp()))
+    return timezone.now().strftime("%Y%m%d%H%M%S%f")
 
 
 def _get_version_token(cache_key):
@@ -100,6 +101,14 @@ def invalidate_user_notification_content():
         USER_NOTIFICATIONS_ANNOUNCEMENT_IDS_CACHE_KEY,
         USER_NOTIFICATIONS_COMMUNITY_POST_IDS_CACHE_KEY,
     ])
+
+
+def get_user_home_feed_namespace():
+    return _get_version_token(USER_HOME_FEED_NAMESPACE_KEY)
+
+
+def bump_user_home_feed_namespace():
+    cache.set(USER_HOME_FEED_NAMESPACE_KEY, _current_version_token(), None)
 
 
 def _sample_recent_ids_with_cache(cache_key, base_qs, candidate_limit, sample_limit):

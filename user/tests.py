@@ -372,6 +372,37 @@ class EditProfileViolationCountTests(TestCase):
         self.assertContains(response, "Total 2")
 
 
+class AdminUserProfilePreviewTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="admin_preview",
+            password="secret123",
+            is_staff=True,
+        )
+        self.target_user = User.objects.create_user(
+            username="target_profile",
+            password="secret123",
+            first_name="Target",
+            last_name="User",
+        )
+
+    def test_admin_can_open_user_side_profile_preview(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("user:admin_view_user_profile", args=[self.target_user.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Target User")
+        self.assertContains(response, "Posts")
+        self.assertContains(response, "Registered Dogs")
+
+    def test_non_admin_cannot_open_user_side_profile_preview(self):
+        self.client.force_login(self.target_user)
+        response = self.client.get(reverse("user:admin_view_user_profile", args=[self.target_user.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("user:login"), response.url)
+
+
 class UserHomeSearchTests(TestCase):
     GIF_BYTES = (
         b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00"

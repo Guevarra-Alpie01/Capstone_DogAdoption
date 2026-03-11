@@ -1,0 +1,232 @@
+{% extends "admin_base.html" %}
+{% load static %}
+
+{% block title %}Owner Profile Preview{% endblock %}
+
+{% block content %}
+<style>
+    .owner-preview-shell {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 24px 16px 40px;
+    }
+
+    .owner-preview-card,
+    .owner-preview-panel {
+        background: #fff;
+        border: 1px solid #d9e1ea;
+        border-radius: 18px;
+        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+    }
+
+    .owner-preview-card {
+        overflow: hidden;
+        margin-bottom: 24px;
+    }
+
+    .owner-preview-hero {
+        background: linear-gradient(135deg, #17324d, #285a6e 55%, #84a98c);
+        color: #fff;
+        padding: 28px;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .owner-preview-avatar,
+    .owner-preview-avatar-fallback {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        border: 3px solid rgba(255, 255, 255, 0.35);
+        object-fit: cover;
+        background: rgba(255, 255, 255, 0.18);
+    }
+
+    .owner-preview-avatar-fallback {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .owner-preview-hero h1 {
+        margin: 0 0 6px;
+        font-size: 2rem;
+    }
+
+    .owner-preview-hero p {
+        margin: 0;
+        opacity: 0.92;
+    }
+
+    .owner-preview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+    }
+
+    .owner-preview-panel {
+        padding: 22px;
+    }
+
+    .owner-preview-panel h2 {
+        margin: 0 0 14px;
+        font-size: 1.1rem;
+    }
+
+    .owner-preview-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 10px;
+    }
+
+    .owner-preview-list strong {
+        color: #17324d;
+    }
+
+    .owner-preview-face-grid,
+    .owner-preview-photo-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+        gap: 12px;
+    }
+
+    .owner-preview-face-grid img,
+    .owner-preview-photo-grid img {
+        width: 100%;
+        border-radius: 14px;
+        object-fit: cover;
+        aspect-ratio: 1 / 1;
+        border: 1px solid #d9e1ea;
+    }
+
+    .owner-preview-dogs {
+        margin-top: 24px;
+        display: grid;
+        gap: 18px;
+    }
+
+    .owner-preview-dog-card {
+        background: #fff;
+        border: 1px solid #d9e1ea;
+        border-radius: 18px;
+        padding: 22px;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+    }
+
+    .owner-preview-dog-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+    }
+
+    .owner-preview-dog-head h3 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+
+    .owner-preview-dog-meta {
+        margin: 0 0 14px;
+        color: #4b5563;
+    }
+
+    .owner-preview-empty {
+        margin: 0;
+        color: #6b7280;
+    }
+</style>
+
+<div class="owner-preview-shell">
+    <section class="owner-preview-card">
+        <div class="owner-preview-hero">
+            {% if profile.profile_image %}
+                <img src="{{ profile.profile_image.url }}" alt="{{ profile_user.get_full_name|default:profile_user.username }}" class="owner-preview-avatar">
+            {% else %}
+                <span class="owner-preview-avatar-fallback">
+                    {{ profile_user.first_name|default:profile_user.username|slice:":1" }}{{ profile_user.last_name|slice:":1" }}
+                </span>
+            {% endif %}
+            <div>
+                <h1>{{ profile_user.get_full_name|default:profile_user.username }}</h1>
+                <p>@{{ profile_user.username }}</p>
+                <p>Read-only owner preview for admin registration records.</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="owner-preview-grid">
+        <section class="owner-preview-panel">
+            <h2>Profile Details</h2>
+            <ul class="owner-preview-list">
+                <li><strong>First Name:</strong> {{ profile_user.first_name|default:"-" }}</li>
+                <li><strong>Last Name:</strong> {{ profile_user.last_name|default:"-" }}</li>
+                <li><strong>Middle Initial:</strong> {{ profile.middle_initial|default:"-" }}</li>
+                <li><strong>Age:</strong> {{ profile.age|default:"-" }}</li>
+                <li><strong>Phone:</strong> {{ profile.phone_number|default:"-" }}</li>
+                <li><strong>Address:</strong> {{ profile.address|default:"-" }}</li>
+                <li><strong>Facebook:</strong>
+                    {% if profile.facebook_url %}
+                        <a href="{{ profile.facebook_url }}" target="_blank" rel="noopener noreferrer">{{ profile.facebook_url }}</a>
+                    {% else %}
+                        -
+                    {% endif %}
+                </li>
+                <li><strong>Date Joined:</strong> {{ profile_user.date_joined|date:"M d, Y" }}</li>
+            </ul>
+        </section>
+
+        <section class="owner-preview-panel">
+            <h2>Face Authentication</h2>
+            {% if face_images %}
+                <div class="owner-preview-face-grid">
+                    {% for face in face_images %}
+                        <img src="{{ face.image.url }}" alt="Face authentication image {{ forloop.counter }}">
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="owner-preview-empty">No face authentication images uploaded.</p>
+            {% endif %}
+        </section>
+    </div>
+
+    <section class="owner-preview-panel" style="margin-top: 24px;">
+        <h2>Registered Pets ({{ registered_dogs_total }})</h2>
+        {% if registered_dogs %}
+            <div class="owner-preview-dogs">
+                {% for dog in registered_dogs %}
+                    <article class="owner-preview-dog-card">
+                        <div class="owner-preview-dog-head">
+                            <h3>{{ dog.name }}</h3>
+                            <span>Registered {{ dog.date_registered|date:"M d, Y" }}</span>
+                        </div>
+                        <p class="owner-preview-dog-meta">
+                            {{ dog.species }} | Sex: {{ dog.sex_label }} | Age: {{ dog.age }} | Neutering: {{ dog.neutering_label }} | Color: {{ dog.color }}
+                        </p>
+                        <p class="owner-preview-dog-meta"><strong>Location:</strong> {{ dog.location|default:"-" }}</p>
+                        {% if dog.photo_urls %}
+                            <div class="owner-preview-photo-grid">
+                                {% for photo_url in dog.photo_urls %}
+                                    <img src="{{ photo_url }}" alt="{{ dog.name }} registration photo {{ forloop.counter }}">
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="owner-preview-empty">No staff registration photo uploaded for this dog yet.</p>
+                        {% endif %}
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="owner-preview-empty">No registered pets linked to this user yet.</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

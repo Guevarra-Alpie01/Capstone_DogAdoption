@@ -170,19 +170,22 @@
                     <tr>
                         <td class="owner-profile-cell">
                             {% if dog.show_owner_fields %}
-                                <button
-                                    type="button"
+                                <a
                                     class="owner-profile-btn"
-                                    title="View dog photos"
-                                    data-dog-id="{{ dog.id }}"
-                                    data-photos-url="{% url 'dogadoption_admin:registration_dog_images_api' dog.id %}"
+                                    title="View owner profile"
+                                    {% if dog.owner_user_id %}
+                                        href="{% url 'dogadoption_admin:registration_owner_profile' dog.owner_user_id %}"
+                                    {% else %}
+                                        href="#"
+                                        aria-disabled="true"
+                                    {% endif %}
                                 >
                                     {% if dog.owner_profile_image_url %}
                                         <img src="{{ dog.owner_profile_image_url }}" alt="{{ dog.owner_name }} profile" class="owner-avatar">
                                     {% else %}
                                         <span class="owner-avatar owner-avatar-fallback">{{ dog.owner_initials }}</span>
                                     {% endif %}
-                                </button>
+                                </a>
                             {% endif %}
                         </td>
                         <td>{% if dog.owner_display_number %}{{ dog.owner_display_number }}{% endif %}</td>
@@ -233,17 +236,6 @@
             <div>S - Spaying</div>
             <div>No - Not castrated nor spayed</div>
         </div>
-    </div>
-</div>
-
-<div id="dog-photo-modal" class="dog-photo-modal" hidden>
-    <div class="dog-photo-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="dog-photo-modal-title">
-        <div class="dog-photo-modal-head">
-            <h3 id="dog-photo-modal-title">Registered Dog Photos</h3>
-            <button type="button" class="dog-photo-modal-close" id="dog-photo-modal-close" aria-label="Close">x</button>
-        </div>
-        <p class="dog-photo-modal-subtitle" id="dog-photo-modal-subtitle"></p>
-        <div class="dog-photo-grid" id="dog-photo-grid"></div>
     </div>
 </div>
 
@@ -372,100 +364,7 @@
     }
     toggleDateFilterInput();
 
-    (function () {
-        const modal = document.getElementById('dog-photo-modal');
-        const modalCloseBtn = document.getElementById('dog-photo-modal-close');
-        const modalSubtitle = document.getElementById('dog-photo-modal-subtitle');
-        const modalGrid = document.getElementById('dog-photo-grid');
-        const triggerButtons = document.querySelectorAll('.owner-profile-btn');
-
-        if (!modal || !modalCloseBtn || !modalSubtitle || !modalGrid || !triggerButtons.length) {
-            return;
-        }
-
-        function openModal() {
-            modal.hidden = false;
-            document.body.style.overflow = 'hidden';
-        }
-
-        function closeModal() {
-            modal.hidden = true;
-            document.body.style.overflow = '';
-            modalGrid.innerHTML = '';
-            modalSubtitle.textContent = '';
-        }
-
-        async function loadDogPhotos(photosUrl) {
-            const response = await fetch(photosUrl, {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            });
-            if (!response.ok) {
-                throw new Error('Failed to load photos.');
-            }
-            return response.json();
-        }
-
-        function renderPhotos(payload) {
-            const ownerName = payload.owner_name || 'Unknown owner';
-            const dogName = payload.dog_name || 'Unknown dog';
-            const photos = Array.isArray(payload.photos) ? payload.photos : [];
-
-            modalSubtitle.textContent = ownerName + ' - ' + dogName;
-            if (!photos.length) {
-                modalGrid.innerHTML = '<p class="dog-photo-empty">No uploaded photos for this registration.</p>';
-                return;
-            }
-
-            const fragment = document.createDocumentFragment();
-            photos.forEach((url, index) => {
-                const item = document.createElement('figure');
-                item.className = 'dog-photo-item';
-
-                const image = document.createElement('img');
-                image.src = url;
-                image.alt = 'Registered dog photo ' + (index + 1);
-                image.loading = 'lazy';
-                item.appendChild(image);
-
-                fragment.appendChild(item);
-            });
-            modalGrid.innerHTML = '';
-            modalGrid.appendChild(fragment);
-        }
-
-        triggerButtons.forEach((button) => {
-            button.addEventListener('click', async function () {
-                const photosUrl = button.getAttribute('data-photos-url');
-                if (!photosUrl) {
-                    return;
-                }
-
-                modalGrid.innerHTML = '<p class="dog-photo-empty">Loading photos...</p>';
-                modalSubtitle.textContent = 'Fetching registration photos...';
-                openModal();
-
-                try {
-                    const payload = await loadDogPhotos(photosUrl);
-                    renderPhotos(payload);
-                } catch (error) {
-                    modalGrid.innerHTML = '<p class="dog-photo-empty">Unable to load photos right now.</p>';
-                    modalSubtitle.textContent = '';
-                }
-            });
-        });
-
-        modalCloseBtn.addEventListener('click', closeModal);
-        modal.addEventListener('click', function (event) {
-            if (event.target === modal) {
-                closeModal();
-            }
-        });
-        document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape' && !modal.hidden) {
-                closeModal();
-            }
-        });
-    })();
 </script>
 
 {% endblock %}
+

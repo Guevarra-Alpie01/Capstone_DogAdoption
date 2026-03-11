@@ -2302,6 +2302,79 @@ def registration_record(request):
 
 
 @admin_required
+def registration_owner_profile(request, user_id):
+    profile_user = get_object_or_404(
+        User.objects.only("id", "username", "first_name", "last_name", "date_joined"),
+        pk=user_id,
+        is_staff=False,
+    )
+    profile, _ = Profile.objects.get_or_create(
+        user=profile_user,
+        defaults={"address": "", "age": 18, "consent_given": True},
+    )
+
+    registered_dogs_qs = (
+        Dog.objects.filter(owner_user=profile_user)
+        .prefetch_related(
+            Prefetch(
+                "images",
+                queryset=DogImage.objects.only("id", "dog_id", "image").order_by("created_at", "id"),
+            )
+        )
+        .only(
+            "id",
+            "name",
+            "species",
+            "sex",
+            "age",
+            "neutering_status",
+            "color",
+            "date_registered",
+            "owner_address",
+            "barangay",
+        )
+        .order_by("-date_registered", "-id")
+    )
+    registered_dogs = []
+    for dog in registered_dogs_qs:
+        photo_urls = []
+        for image in dog.images.all():
+            image_field = getattr(image, "image", None)
+            if not image_field:
+                continue
+            try:
+                photo_urls.append(image_field.url)
+            except Exception:
+                continue
+
+        registered_dogs.append(
+            {
+                "id": dog.id,
+                "name": dog.name or "Unnamed Dog",
+                "species": dog.species or "Canine",
+                "sex_label": dog.get_sex_display() if dog.sex else "-",
+                "age": dog.age or "-",
+                "neutering_label": dog.get_neutering_status_display() if dog.neutering_status else "-",
+                "color": dog.color or "-",
+                "date_registered": dog.date_registered,
+                "location": dog.barangay or dog.owner_address or "",
+                "photo_urls": photo_urls,
+            }
+        )
+
+    face_images = FaceImage.objects.filter(user=profile_user).only("id", "image").order_by("-created_at", "-id")
+
+    context = {
+        "profile_user": profile_user,
+        "profile": profile,
+        "registered_dogs": registered_dogs,
+        "registered_dogs_total": len(registered_dogs),
+        "face_images": face_images,
+    }
+    return render(request, "admin_user/profile_preview.html", context)
+
+
+@admin_required
 def barangay_list_api(request):
     cache_key = "active_barangay_names"
     barangays = cache.get(cache_key)
@@ -2364,32 +2437,6 @@ def registration_user_search_api(request):
 
     cache.set(cache_key, results, 60)
     return JsonResponse({"results": results})
-
-
-@admin_required
-def registration_dog_images_api(request, dog_id):
-    dog = get_object_or_404(
-        Dog.objects.select_related("owner_user").prefetch_related("images"),
-        pk=dog_id,
-    )
-    image_urls = []
-    for image_obj in dog.images.all():
-        image_field = getattr(image_obj, "image", None)
-        if not image_field:
-            continue
-        try:
-            image_urls.append(image_field.url)
-        except (ValueError, AttributeError):
-            continue
-
-    return JsonResponse(
-        {
-            "dog_id": dog.id,
-            "dog_name": dog.name or "",
-            "owner_name": dog.owner_name or "",
-            "photos": image_urls,
-        }
-    )
 
 
 @admin_required

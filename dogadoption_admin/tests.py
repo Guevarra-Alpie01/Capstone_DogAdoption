@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
@@ -10,6 +11,7 @@ from .models import (
     AdminNotification,
     DewormingTreatmentRecord,
     Dog,
+    DogImage,
     DogAnnouncement,
     DogRegistration,
     Post,
@@ -251,3 +253,86 @@ class AnalyticsDashboardTests(TestCase):
         self.assertEqual(chart["years"], [2026])
         self.assertIn({"barangay": "Bugay", "date": "2026-03-05"}, chart["events"])
         self.assertIn({"barangay": "San Jose", "date": "2026-02-12"}, chart["events"])
+
+
+class RegistrationOwnerProfileTests(TestCase):
+    GIF_BYTES = (
+        b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00"
+        b"\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00"
+        b"\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+    )
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="admin_registration_api",
+            password="secret123",
+            is_staff=True,
+        )
+        self.owner = User.objects.create_user(
+            username="owner_registered",
+            password="secret123",
+            first_name="Test",
+            last_name="User",
+        )
+        self.owner_dog_1 = Dog.objects.create(
+            date_registered=timezone.localdate(),
+            name="Polejames",
+            species="Canine",
+            sex="M",
+            age="1 yr",
+            neutering_status="S",
+            color="Red",
+            owner_name="Test User",
+            owner_user=self.owner,
+            owner_address="Bugay",
+            barangay="Bugay",
+        )
+        self.owner_dog_2 = Dog.objects.create(
+            date_registered=timezone.localdate(),
+            name="Jester",
+            species="Canine",
+            sex="M",
+            age="2 yrs",
+            neutering_status="C",
+            color="White",
+            owner_name="Test User",
+            owner_user=self.owner,
+            owner_address="Bugay",
+            barangay="Bugay",
+        )
+        DogImage.objects.create(
+            dog=self.owner_dog_1,
+            image=SimpleUploadedFile("dog1_a.gif", self.GIF_BYTES, content_type="image/gif"),
+        )
+        DogImage.objects.create(
+            dog=self.owner_dog_1,
+            image=SimpleUploadedFile("dog1_b.gif", self.GIF_BYTES, content_type="image/gif"),
+        )
+        DogImage.objects.create(
+            dog=self.owner_dog_2,
+            image=SimpleUploadedFile("dog2_a.gif", self.GIF_BYTES, content_type="image/gif"),
+        )
+
+        self.client.force_login(self.admin)
+
+    def test_registration_record_links_owner_avatar_to_profile_preview(self):
+        response = self.client.get(reverse("dogadoption_admin:registration_record"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse("dogadoption_admin:registration_owner_profile", args=[self.owner.id]),
+        )
+        self.assertNotContains(response, "Owner options")
+        self.assertNotContains(response, "View Registration Photos")
+
+    def test_registration_owner_profile_renders_read_only_preview(self):
+        response = self.client.get(
+            reverse("dogadoption_admin:registration_owner_profile", args=[self.owner.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Read-only owner preview")
+        self.assertContains(response, "Registered Pets (2)")
+        self.assertContains(response, "Polejames")
+        self.assertContains(response, "Jester")

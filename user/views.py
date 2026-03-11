@@ -7,6 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
 from django.db.models import Count, DateTimeField, Exists, OuterRef, Prefetch, Q
 from django.db import IntegrityError
 from django.db.models.expressions import RawSQL
@@ -54,6 +55,211 @@ from .notification_utils import (
     USER_NOTIFICATIONS_SEEN_SESSION_KEY,
     invalidate_user_notification_content,
 )
+def _build_profile_dashboard_context(profile_user):
+    profile, _ = Profile.objects.get_or_create(
+        user=profile_user,
+        defaults={
+            "address": "",
+            "age": 18,
+            "consent_given": True
+        }
+    )
+
+    recent_post_limit = 6
+    adoption_posts = list(
+        UserAdoptionPost.objects.filter(owner=profile_user)
+        .prefetch_related(
+            Prefetch(
+                "images",
+                queryset=UserAdoptionImage.objects.only("id", "post_id", "image").order_by("id"),
+            )
+        )
+        .only("id", "dog_name", "location", "status", "created_at")
+        .order_by("-created_at")[:recent_post_limit]
+    )
+    missing_posts = list(
+        MissingDogPost.objects.filter(owner=profile_user)
+        .only("id", "dog_name", "location", "status", "created_at", "image")
+        .order_by("-created_at")[:recent_post_limit]
+    )
+
+    profile_posts = []
+
+    for post in adoption_posts:
+        post_images = list(post.images.all())
+        first_image = post_images[0] if post_images else None
+        profile_posts.append({
+            "id": post.id,
+            "post_type": "adoption",
+            "post_type_label": "Adoption",
+            "title": post.dog_name,
+            "location": post.location,
+            "status_key": post.status,
+            "status_label": post.get_status_display(),
+            "posted_label": _format_posted_label(post.created_at),
+            "created_at": post.created_at,
+            "image_url": first_image.image.url if first_image else "",
+        })
+
+    for post in missing_posts:
+        profile_posts.append({
+            "id": post.id,
+            "post_type": "missing",
+            "post_type_label": "Missing",
+            "title": post.dog_name,
+            "location": post.location,
+            "status_key": post.status,
+            "status_label": post.get_status_display(),
+            "posted_label": _format_posted_label(post.created_at),
+            "created_at": post.created_at,
+            "image_url": post.image.url if post.image else "",
+        })
+
+    profile_posts.sort(key=lambda item: item["created_at"], reverse=True)
+    profile_posts = profile_posts[:recent_post_limit]
+
+    staff_adopt_requests = list(
+        PostRequest.objects.filter(
+            user=profile_user,
+            request_type="adopt",
+            status="accepted",
+        )
+        .select_related("post")
+        .prefetch_related("post__images")
+        .order_by("-created_at")[:recent_post_limit]
+    )
+    user_adopt_requests = list(
+        UserAdoptionRequest.objects.filter(
+            requester=profile_user,
+            status="approved",
+        )
+        .select_related("post", "post__owner")
+        .prefetch_related("post__images")
+        .order_by("-created_at")[:recent_post_limit]
+    )
+
+    adopted_posts = []
+    for req in staff_adopt_requests:
+        post = req.post
+        post_images = list(post.images.all())
+        first_image = post_images[0] if post_images else None
+        adopted_posts.append({
+            "id": post.id,
+            "source": "staff",
+            "source_label": "Staff Post",
+            "title": post.caption or "Untitled Post",
+            "location": post.location,
+            "adopted_label": _format_posted_label(req.created_at),
+            "created_at": req.created_at,
+            "image_url": first_image.image.url if first_image else "",
+        })
+
+    for req in user_adopt_requests:
+        post = req.post
+        post_images = list(post.images.all())
+        first_image = post_images[0] if post_images else None
+        adopted_posts.append({
+            "id": post.id,
+            "source": "user",
+            "source_label": "User Post",
+            "title": post.dog_name or "Untitled Post",
+            "location": post.location,
+            "adopted_label": _format_posted_label(req.created_at),
+            "created_at": req.created_at,
+            "image_url": first_image.image.url if first_image else "",
+            "owner_name": post.owner.get_full_name() or post.owner.username,
+        })
+
+    adopted_posts.sort(key=lambda item: item["created_at"], reverse=True)
+    adopted_posts = adopted_posts[:recent_post_limit]
+
+    registered_dogs_limit = 12
+    registered_dogs_qs = list(
+        Dog.objects.filter(owner_user=profile_user)
+        .prefetch_related(
+            Prefetch(
+                "images",
+                queryset=DogImage.objects.only("id", "dog_id", "image").order_by("created_at", "id"),
+            )
+        )
+        .only(
+            "id",
+            "name",
+            "species",
+            "sex",
+            "age",
+            "neutering_status",
+            "color",
+            "date_registered",
+            "owner_address",
+            "barangay",
+        )
+        .order_by("-date_registered", "-id")[:registered_dogs_limit]
+    )
+    registered_dogs_total = Dog.objects.filter(owner_user=profile_user).count()
+    registered_dogs = []
+    for dog in registered_dogs_qs:
+        photo_urls = [image.image.url for image in dog.images.all()]
+        registered_dogs.append({
+            "id": dog.id,
+            "name": dog.name or "Unnamed Dog",
+            "species": dog.species or "Canine",
+            "sex_label": dog.get_sex_display() if dog.sex else "-",
+            "age": dog.age or "-",
+            "neutering_label": dog.get_neutering_status_display() if dog.neutering_status else "-",
+            "color": dog.color or "-",
+            "date_registered": dog.date_registered,
+            "location": dog.barangay or dog.owner_address or "",
+            "photo_urls": photo_urls,
+            "photo_count": len(photo_urls),
+        })
+
+    user_citations = (
+        Citation.objects.filter(owner=profile_user)
+        .select_related("penalty", "penalty__section")
+        .prefetch_related("penalties", "penalties__section")
+        .order_by("-date_issued", "-id")
+    )
+    user_violation_count = 0
+    user_violation_records = []
+    for citation in user_citations:
+        penalties = list(citation.penalties.all())
+        if not penalties and citation.penalty_id:
+            penalties = [citation.penalty]
+
+        # Count citation tickets, not individual penalties, for the profile total.
+        user_violation_count += 1
+        violation_labels = [
+            f"Sec. {penalty.section.number} #{penalty.number} - {penalty.title}"
+            for penalty in penalties
+        ]
+        total_amount = sum((penalty.amount for penalty in penalties), 0)
+
+        user_violation_records.append(
+            {
+                "citation_id": citation.id,
+                "date_issued": citation.date_issued,
+                "violations": violation_labels,
+                "violation_count": len(penalties),
+                "total_amount": total_amount,
+                "remarks": (citation.remarks or "").strip(),
+            }
+        )
+
+    return {
+        "profile": profile,
+        "profile_posts": profile_posts,
+        "profile_posts_limit": recent_post_limit,
+        "adopted_posts": adopted_posts,
+        "adopted_posts_limit": recent_post_limit,
+        "registered_dogs": registered_dogs,
+        "registered_dogs_limit": registered_dogs_limit,
+        "registered_dogs_total": registered_dogs_total,
+        "user_violation_count": user_violation_count,
+        "user_violation_records": user_violation_records,
+    }
+
+
 # Decorator to allow only users
 
 
@@ -1113,13 +1319,9 @@ def signup_view(request):
 @user_only
 def edit_profile(request):
     user = request.user
-    profile, created = Profile.objects.get_or_create(
+    profile, _ = Profile.objects.get_or_create(
         user=user,
-        defaults={
-            "address": "",
-            "age": 18,
-            "consent_given": True
-        }
+        defaults={"address": "", "age": 18, "consent_given": True}
     )
 
     if request.method == "POST":
@@ -1148,199 +1350,21 @@ def edit_profile(request):
         messages.success(request, "Profile updated successfully")
         return redirect("user:edit_profile")
 
-    recent_post_limit = 6
-    adoption_posts = list(
-        UserAdoptionPost.objects.filter(owner=user)
-        .prefetch_related(
-            Prefetch(
-                "images",
-                queryset=UserAdoptionImage.objects.only("id", "post_id", "image").order_by("id"),
-            )
-        )
-        .only("id", "dog_name", "location", "status", "created_at")
-        .order_by("-created_at")[:recent_post_limit]
-    )
-    missing_posts = list(
-        MissingDogPost.objects.filter(owner=user)
-        .only("id", "dog_name", "location", "status", "created_at", "image")
-        .order_by("-created_at")[:recent_post_limit]
-    )
+    context = _build_profile_dashboard_context(user)
+    return render(request, "edit_profile.html", context)
 
-    profile_posts = []
 
-    for post in adoption_posts:
-        post_images = list(post.images.all())
-        first_image = post_images[0] if post_images else None
-        profile_posts.append({
-            "id": post.id,
-            "post_type": "adoption",
-            "post_type_label": "Adoption",
-            "title": post.dog_name,
-            "location": post.location,
-            "status_key": post.status,
-            "status_label": post.get_status_display(),
-            "posted_label": _format_posted_label(post.created_at),
-            "created_at": post.created_at,
-            "image_url": first_image.image.url if first_image else "",
-        })
-
-    for post in missing_posts:
-        profile_posts.append({
-            "id": post.id,
-            "post_type": "missing",
-            "post_type_label": "Missing",
-            "title": post.dog_name,
-            "location": post.location,
-            "status_key": post.status,
-            "status_label": post.get_status_display(),
-            "posted_label": _format_posted_label(post.created_at),
-            "created_at": post.created_at,
-            "image_url": post.image.url if post.image else "",
-        })
-
-    profile_posts.sort(key=lambda item: item["created_at"], reverse=True)
-    profile_posts = profile_posts[:recent_post_limit]
-
-    staff_adopt_requests = list(
-        PostRequest.objects.filter(
-            user=user,
-            request_type="adopt",
-            status="accepted",
-        )
-        .select_related("post")
-        .prefetch_related("post__images")
-        .order_by("-created_at")[:recent_post_limit]
-    )
-    user_adopt_requests = list(
-        UserAdoptionRequest.objects.filter(
-            requester=user,
-            status="approved",
-        )
-        .select_related("post", "post__owner")
-        .prefetch_related("post__images")
-        .order_by("-created_at")[:recent_post_limit]
-    )
-
-    adopted_posts = []
-    for req in staff_adopt_requests:
-        post = req.post
-        post_images = list(post.images.all())
-        first_image = post_images[0] if post_images else None
-        adopted_posts.append({
-            "id": post.id,
-            "source": "staff",
-            "source_label": "Staff Post",
-            "title": post.caption or "Untitled Post",
-            "location": post.location,
-            "adopted_label": _format_posted_label(req.created_at),
-            "created_at": req.created_at,
-            "image_url": first_image.image.url if first_image else "",
-        })
-
-    for req in user_adopt_requests:
-        post = req.post
-        post_images = list(post.images.all())
-        first_image = post_images[0] if post_images else None
-        adopted_posts.append({
-            "id": post.id,
-            "source": "user",
-            "source_label": "User Post",
-            "title": post.dog_name or "Untitled Post",
-            "location": post.location,
-            "adopted_label": _format_posted_label(req.created_at),
-            "created_at": req.created_at,
-            "image_url": first_image.image.url if first_image else "",
-            "owner_name": post.owner.get_full_name() or post.owner.username,
-        })
-
-    adopted_posts.sort(key=lambda item: item["created_at"], reverse=True)
-    adopted_posts = adopted_posts[:recent_post_limit]
-
-    registered_dogs_limit = 12
-    registered_dogs_qs = list(
-        Dog.objects.filter(owner_user=user)
-        .prefetch_related(
-            Prefetch(
-                "images",
-                queryset=DogImage.objects.only("id", "dog_id", "image").order_by("created_at", "id"),
-            )
-        )
-        .only(
-            "id",
-            "name",
-            "species",
-            "sex",
-            "age",
-            "neutering_status",
-            "color",
-            "date_registered",
-            "owner_address",
-            "barangay",
-        )
-        .order_by("-date_registered", "-id")[:registered_dogs_limit]
-    )
-    registered_dogs_total = Dog.objects.filter(owner_user=user).count()
-    registered_dogs = []
-    for dog in registered_dogs_qs:
-        photo_urls = [image.image.url for image in dog.images.all()]
-        registered_dogs.append({
-            "id": dog.id,
-            "name": dog.name or "Unnamed Dog",
-            "species": dog.species or "Canine",
-            "sex_label": dog.get_sex_display() if dog.sex else "-",
-            "age": dog.age or "-",
-            "neutering_label": dog.get_neutering_status_display() if dog.neutering_status else "-",
-            "color": dog.color or "-",
-            "date_registered": dog.date_registered,
-            "location": dog.barangay or dog.owner_address or "",
-            "photo_urls": photo_urls,
-            "photo_count": len(photo_urls),
-        })
-
-    user_citations = (
-        Citation.objects.filter(owner=user)
-        .select_related("penalty", "penalty__section")
-        .prefetch_related("penalties", "penalties__section")
-        .order_by("-date_issued", "-id")
-    )
-    user_violation_count = 0
-    user_violation_records = []
-    for citation in user_citations:
-        penalties = list(citation.penalties.all())
-        if not penalties and citation.penalty_id:
-            penalties = [citation.penalty]
-
-        # Count citation tickets, not individual penalties, for the profile total.
-        user_violation_count += 1
-        violation_labels = [
-            f"Sec. {penalty.section.number} #{penalty.number} - {penalty.title}"
-            for penalty in penalties
-        ]
-        total_amount = sum((penalty.amount for penalty in penalties), 0)
-
-        user_violation_records.append(
-            {
-                "citation_id": citation.id,
-                "date_issued": citation.date_issued,
-                "violations": violation_labels,
-                "violation_count": len(penalties),
-                "total_amount": total_amount,
-                "remarks": (citation.remarks or "").strip(),
-            }
-        )
-
-    return render(request, "edit_profile.html", {
-        "profile": profile,
-        "profile_posts": profile_posts,
-        "profile_posts_limit": recent_post_limit,
-        "adopted_posts": adopted_posts,
-        "adopted_posts_limit": recent_post_limit,
-        "registered_dogs": registered_dogs,
-        "registered_dogs_limit": registered_dogs_limit,
-        "registered_dogs_total": registered_dogs_total,
-        "user_violation_count": user_violation_count,
-        "user_violation_records": user_violation_records,
+@login_required
+def admin_view_user_profile(request, user_id):
+    if not request.user.is_staff:
+        return redirect("user:login")
+    profile_user = get_object_or_404(User, pk=user_id, is_staff=False)
+    context = _build_profile_dashboard_context(profile_user)
+    context.update({
+        "user": profile_user,
+        "preview_mode": True,
     })
+    return render(request, "edit_profile.html", context)
 
 
 @csrf_exempt

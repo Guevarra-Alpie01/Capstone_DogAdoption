@@ -1643,33 +1643,42 @@ def announcement_delete(request, post_id):
     return redirect("dogadoption_admin:admin_announcements")
 
 #++++++++++++++++++++++++++++ USER MANAGEMENT PAGE +++++++++++++++++++++++++++++++++++++
-@admin_required
-def admin_users(request):
-    query = request.GET.get('q', '')
-
-    users = User.objects.select_related('profile').annotate(
+def _admin_user_management_queryset():
+    return User.objects.select_related('profile').annotate(
         calculated_violations=Count(
             'postrequest',
             filter=Q(postrequest__request_type='claim')
         )
     )
 
+
+@admin_required
+def admin_users(request):
+    query = request.GET.get('q', '')
+
+    users = _admin_user_management_queryset()
+
     # Search functionality
     if query:
         users = users.filter(
             Q(first_name__icontains=query) |
-            Q(last_name__icontains=query)
+            Q(last_name__icontains=query) |
+            Q(username__icontains=query)
         )
 
-    users = users.order_by('-calculated_violations', 'first_name')
+    users = users.order_by('-calculated_violations', 'first_name', 'last_name', 'username')
 
     return render(request, 'admin_user/users.html', {
         'users': users,
-        'query': query
+        'query': query,
+        'user_count': users.count(),
     })
 
 def admin_user_detail(request, id):
-    user = get_object_or_404(User, id=id)
+    user = get_object_or_404(
+        _admin_user_management_queryset().prefetch_related('faceimage_set'),
+        id=id
+    )
     return render(request, 'admin_user/user_detail.html', {'user': user})
 
 def admin_user_search_results(request):
@@ -1678,15 +1687,16 @@ def admin_user_search_results(request):
     """
     query = request.GET.get('q', '')
 
-    results = User.objects.select_related('profile').filter(
+    results = _admin_user_management_queryset().filter(
         Q(first_name__icontains=query) |
         Q(last_name__icontains=query) |
         Q(username__icontains=query)
-    ).order_by('first_name')
+    ).order_by('-calculated_violations', 'first_name', 'last_name', 'username')
 
     context = {
         'results': results,
         'query': query,
+        'result_count': results.count(),
     }
 
     return render(request, 'admin_user/user_search_results.html', context)

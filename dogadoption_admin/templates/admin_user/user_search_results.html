@@ -2,49 +2,111 @@
 {% load static %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}">
 <link rel="stylesheet" href="{% static 'css/admin_user/admin_users.css' %}">
 {% endblock %}
 
 {% block content %}
+{% include 'admin_registration/registration_navigation.html' %}
 
-<h1 class="page-title">Search Results for "{{ query }}"</h1>
-
-<div class="user-container">
-    {% for user in results %}
-    <div class="user-card">
-
-        <div class="user-left">
-            <div class="user-avatar">
-                {% if user.profile.profile_image %}
-                    <img src="{{ user.profile.profile_image.url }}">
-                {% else %}
-                    <img src="{% static 'img/default_profile.png' %}">
-                {% endif %}
+<div class="registration-wrapper user-management-page">
+    <section class="form-card user-search-card">
+        <form method="GET" action="{% url 'dogadoption_admin:admin_user_search' %}" class="search-bar">
+            <label class="search-label" for="user-search-results-input">Search Users</label>
+            <div class="user-search-row">
+                <div class="search-input-wrap">
+                    <i class="bi bi-search search-input-icon" aria-hidden="true"></i>
+                    <input
+                        type="text"
+                        id="user-search-results-input"
+                        name="q"
+                        placeholder="Search by first name, last name, or username"
+                        value="{{ query }}"
+                    >
+                    {% if query %}
+                        <a href="{% url 'dogadoption_admin:admin_users' %}" class="search-clear-link" aria-label="Clear search">&times;</a>
+                    {% endif %}
+                </div>
+                <button type="submit" class="owner-search-btn user-search-btn">Search</button>
             </div>
+        </form>
+        <p class="search-helper">
+            {% if query %}
+                Showing matches for <strong>"{{ query }}"</strong>.
+            {% else %}
+                Enter a name or username to filter the user directory.
+            {% endif %}
+        </p>
+    </section>
 
-            <div class="user-info">
-                <h3>{{ user.first_name }} {{ user.last_name }}</h3>
-                <p class="brgy">
-                    {{ user.profile.address|default:"No Barangay Provided" }}
-                </p>
-            </div>
-        </div>
-
-        <div class="user-right">
-            <div class="violation-box">
-                <span>Violations</span>
-                <h2>{{ user.claim_violations }}</h2>
-            </div>
-
-            <a href="{% url 'dogadoption_admin:admin_user_detail' user.id %}" class="view-btn">
-                View More
+    <section class="record-panel user-list-shell">
+        <div class="user-list-toolbar">
+            <span class="record-chip">
+                <i class="bi bi-people" aria-hidden="true"></i>
+                {{ result_count }} result{{ result_count|pluralize }}
+            </span>
+            <a href="{% url 'dogadoption_admin:admin_users' %}" class="btn-secondary user-clear-filter">
+                <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                Back to All Users
             </a>
         </div>
 
-    </div>
-    {% empty %}
-        <p>No matching users found.</p>
-    {% endfor %}
+        <div class="user-container">
+            {% for user in results %}
+            <article class="user-card">
+                <div class="user-left">
+                    <a href="{% url 'dogadoption_admin:admin_user_detail' user.id %}" class="user-avatar" aria-label="Open {{ user.username }} profile">
+                        {% if user.profile.profile_image %}
+                            <img src="{{ user.profile.profile_image.url }}" alt="{{ user.username }} profile photo">
+                        {% else %}
+                            <img src="{% static 'images/default-user-image.jpg' %}" alt="Default profile photo">
+                        {% endif %}
+                    </a>
+
+                    <div class="user-info">
+                        <div class="user-title-row">
+                            <h3>
+                                {% if user.first_name or user.last_name %}
+                                    {{ user.first_name }} {{ user.last_name }}
+                                {% else %}
+                                    {{ user.username }}
+                                {% endif %}
+                            </h3>
+                            <span class="user-handle">@{{ user.username }}</span>
+                        </div>
+                        <div class="user-meta-grid">
+                            <div class="user-meta-item">
+                                <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+                                <span>{{ user.profile.address|default:"No address provided" }}</span>
+                            </div>
+                            <div class="user-meta-item">
+                                <i class="bi bi-calendar3" aria-hidden="true"></i>
+                                <span>Joined {{ user.date_joined|date:"M d, Y" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="user-right">
+                    <div class="violation-box {% if user.calculated_violations > 0 %}has-violations{% endif %}">
+                        <span>Violations</span>
+                        <h2>{{ user.calculated_violations|default:"0" }}</h2>
+                    </div>
+
+                    <a href="{% url 'dogadoption_admin:admin_user_detail' user.id %}" class="view-btn action-link">
+                        <i class="bi bi-person-badge" aria-hidden="true"></i>
+                        Open Profile
+                    </a>
+                </div>
+            </article>
+            {% empty %}
+                <div class="empty-state-card">
+                    <h3>No matching users found</h3>
+                    <p>Try another search term or go back to the full user directory.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
 </div>
 
 {% endblock %}

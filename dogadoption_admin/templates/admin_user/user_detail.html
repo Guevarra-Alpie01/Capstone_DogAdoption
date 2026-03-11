@@ -2,40 +2,131 @@
 {% load static %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}">
 <link rel="stylesheet" href="{% static 'css/admin_user/admin_users.css' %}">
 {% endblock %}
 
 {% block content %}
+{% include 'admin_registration/registration_navigation.html' %}
 
-<div class="detail-card">
-
-    <div class="detail-header">
-        <img src="{{ user.profile.profile_image.url }}" class="detail-avatar">
-        <div>
-            <h2>{{ user.first_name }} {{ user.last_name }}</h2>
-            <p>@{{ user.username }}</p>
+<div class="registration-wrapper user-management-page user-detail-page">
+    <section class="header-section user-detail-hero">
+        <div class="detail-identity">
+            <div class="detail-avatar">
+                {% if user.profile.profile_image %}
+                    <img src="{{ user.profile.profile_image.url }}" alt="{{ user.username }} profile photo">
+                {% else %}
+                    <img src="{% static 'images/default-user-image.jpg' %}" alt="Default profile photo">
+                {% endif %}
+            </div>
+            <div class="detail-copy">
+                <span class="record-chip">
+                    <i class="bi bi-person-badge-fill" aria-hidden="true"></i>
+                    User Profile
+                </span>
+                <h2>
+                    {% if user.first_name or user.last_name %}
+                        {{ user.first_name }} {{ user.last_name }}
+                    {% else %}
+                        {{ user.username }}
+                    {% endif %}
+                </h2>
+                <p>@{{ user.username }}</p>
+                <div class="detail-chip-row">
+                    <span class="detail-chip">
+                        <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+                        {{ user.profile.address|default:"No address provided" }}
+                    </span>
+                    <span class="detail-chip">
+                        <i class="bi bi-calendar3" aria-hidden="true"></i>
+                        Joined {{ user.date_joined|date:"M d, Y" }}
+                    </span>
+                </div>
+            </div>
         </div>
+
+        <div class="detail-side">
+            <div class="violation-box {% if user.calculated_violations > 0 %}has-violations{% endif %}">
+                <span>Violations</span>
+                <strong>{{ user.calculated_violations|default:"0" }}</strong>
+            </div>
+            <a href="{% url 'dogadoption_admin:admin_users' %}" class="btn-secondary user-back-btn">
+                <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                Back to Users
+            </a>
+        </div>
+    </section>
+
+    <div class="detail-layout">
+        <section class="form-card detail-section-card">
+            <div class="detail-section-heading">
+                <h3>Personal Information</h3>
+                <p>Basic identity and barangay details for this account.</p>
+            </div>
+            <div class="detail-info-grid">
+                <div class="detail-info-item">
+                    <span>First Name</span>
+                    <strong>{{ user.first_name|default:"-" }}</strong>
+                </div>
+                <div class="detail-info-item">
+                    <span>Last Name</span>
+                    <strong>{{ user.last_name|default:"-" }}</strong>
+                </div>
+                <div class="detail-info-item">
+                    <span>Middle Initial</span>
+                    <strong>{{ user.profile.middle_initial|default:"-" }}</strong>
+                </div>
+                <div class="detail-info-item">
+                    <span>Age</span>
+                    <strong>{{ user.profile.age|default:"-" }}</strong>
+                </div>
+            </div>
+        </section>
+
+        <section class="form-card detail-section-card">
+            <div class="detail-section-heading">
+                <h3>Account Summary</h3>
+                <p>Stored login and profile information linked to the user account.</p>
+            </div>
+            <div class="detail-info-grid">
+                <div class="detail-info-item">
+                    <span>Username</span>
+                    <strong>@{{ user.username }}</strong>
+                </div>
+                <div class="detail-info-item">
+                    <span>Date Joined</span>
+                    <strong>{{ user.date_joined|date:"M d, Y" }}</strong>
+                </div>
+                <div class="detail-info-item">
+                    <span>Address</span>
+                    <strong>{{ user.profile.address|default:"-" }}</strong>
+                </div>
+                <div class="detail-info-item">
+                    <span>Violation Count</span>
+                    <strong>{{ user.calculated_violations|default:"0" }}</strong>
+                </div>
+            </div>
+        </section>
     </div>
 
-    <div class="detail-section">
-        <h3>Personal Information</h3>
-        <p><strong>Middle Initial:</strong> {{ user.profile.middle_initial|default:"—" }}</p>
-        <p><strong>Age:</strong> {{ user.profile.age|default:"—" }}</p>
-        <p><strong>Address:</strong> {{ user.profile.address|default:"—" }}</p>
-        <p><strong>Date Joined:</strong> {{ user.date_joined|date:"M d, Y" }}</p>
-    </div>
-
-    <div class="detail-section">
-        <h3>Face Authentication Images</h3>
+    <section class="record-panel face-gallery-card">
+        <div class="detail-section-heading">
+            <h3>Face Authentication Images</h3>
+            <p>Saved face-auth photos associated with this user account.</p>
+        </div>
         <div class="face-grid">
             {% for face in user.faceimage_set.all %}
-                <img src="{{ face.image.url }}" class="face-img">
+                <a href="{{ face.image.url }}" class="face-image-card" target="_blank" rel="noopener">
+                    <img src="{{ face.image.url }}" alt="{{ user.username }} face image {{ forloop.counter }}">
+                </a>
             {% empty %}
-                <p>No face images uploaded.</p>
+                <div class="empty-state-card compact">
+                    <h3>No face images uploaded</h3>
+                    <p>This account does not have any saved face authentication images yet.</p>
+                </div>
             {% endfor %}
         </div>
-    </div>
-
+    </section>
 </div>
 
 {% endblock %}

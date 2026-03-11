@@ -1,12 +1,39 @@
+"""Administrative views for the dog adoption dashboard.
+
+The file is documented and separated by admin navigation groups so related
+features are easier to find and maintain.
+"""
+
+from collections import defaultdict
 from datetime import datetime, timedelta
 from decimal import Decimal
-from collections import defaultdict
+from functools import wraps
 import hashlib
 import io
 import json
 import re
 from types import SimpleNamespace
 from urllib.parse import urlencode
+
+try:
+    from docx import Document
+except ImportError:
+    Document = None
+
+try:
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+except ImportError:
+    Workbook = Alignment = Border = Font = PatternFill = Side = None
+
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import landscape, letter
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+except ImportError:
+    colors = landscape = letter = getSampleStyleSheet = Paragraph = None
+    SimpleDocTemplate = Spacer = Table = TableStyle = None
 
 from django.contrib import messages
 from django.contrib.auth import logout
@@ -64,6 +91,11 @@ from user.notification_utils import (
     remember_request_reviewed_at,
 )
 
+
+# =============================================================================
+# Shared imports, constants, and helper utilities
+# =============================================================================
+
 CAT_BREED_KEYWORDS = {
     "abyssinian",
     "american curl",
@@ -111,30 +143,23 @@ ACTIVE_BARANGAY_LOOKUP_CACHE_TTL_SECONDS = 300
 
 
 def _get_python_docx_document():
-    try:
-        from docx import Document
-    except ImportError as exc:
-        raise RuntimeError("python-docx is required for Word export.") from exc
+    """Return the Word export helper or raise a clear dependency error."""
+    if Document is None:
+        raise RuntimeError("python-docx is required for Word export.")
     return Document
 
 
 def _get_openpyxl_exports():
-    try:
-        from openpyxl import Workbook
-        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-    except ImportError as exc:
-        raise RuntimeError("openpyxl is required for Excel export.") from exc
+    """Return Excel export helpers or raise a clear dependency error."""
+    if Workbook is None:
+        raise RuntimeError("openpyxl is required for Excel export.")
     return Workbook, Alignment, Border, Font, PatternFill, Side
 
 
 def _get_reportlab_exports():
-    try:
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import landscape, letter
-        from reportlab.lib.styles import getSampleStyleSheet
-        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-    except ImportError as exc:
-        raise RuntimeError("reportlab is required for PDF export.") from exc
+    """Return PDF export helpers or raise a clear dependency error."""
+    if SimpleDocTemplate is None:
+        raise RuntimeError("reportlab is required for PDF export.")
     return colors, landscape, letter, getSampleStyleSheet, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 
@@ -888,36 +913,44 @@ def _validate_registration_images(uploaded_images):
     return ""
 
 
-# views.py
+# =============================================================================
+# Shared admin access and authentication helpers
+# =============================================================================
 
-
-# ADMIN-ONLY DECORATOR
 def admin_required(view_func):
+    """Limit a view to authenticated staff users."""
+
+    @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated or not request.user.is_staff:
             return redirect('user:login')
         return view_func(request, *args, **kwargs)
+
     return wrapper
 
-# AUTH VIEWS
 
 def admin_login(request):
+    """Reuse the main user login page for admin authentication."""
     return redirect('user:login')
 
 
 @login_required
 def admin_logout(request):
+    """Log the admin out and clear the dedicated admin session cookie."""
     logout(request)
     response = redirect('user:login')
     response.delete_cookie('admin_sessionid')
     return response
 
 
-# ===================       HOMEPAGE OF THE ADMIN        ===================
+# =============================================================================
+# Navigation 1/5: Home
+# Covers the Home sidebar link, including posts and adoption/claim review.
+# =============================================================================
 
-# CREATE POST
 @admin_required
 def create_post(request):
+    """Create a rescue post from the admin home screen."""
     if request.method == 'POST':
         post_form = PostForm(request.POST)
 
@@ -943,10 +976,9 @@ def create_post(request):
         'post_form': post_form
     })
 
-
-# POST LIST
 @admin_required
 def post_list(request):
+    """Render the post board and handle quick-create or appointment updates."""
     show_create_modal = False
     show_appointment_modal = request.method == "GET" and (
         request.GET.get("open_appointment", "").lower() in {"1", "true", "yes"}
@@ -1237,6 +1269,7 @@ def post_list(request):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def appointment_calendar(request):
+    """Maintain the shared appointment calendar used by post requests."""
     if request.method == 'POST':
         dates_raw = (request.POST.get('appointment_dates') or '').strip()
         if not _validate_and_save_global_appointment_dates(dates_raw, request.user):
@@ -1249,9 +1282,9 @@ def appointment_calendar(request):
         'appointment_dates': [d.strftime('%Y-%m-%d') for d in global_dates],
     })
 
-#   CLAIM REQUESTS
 @admin_required
 def claim_requests(request, post_id):
+    """List claim requests tied to a single rescued post."""
     return _render_post_request_list(
         request,
         post_id,
@@ -1259,10 +1292,9 @@ def claim_requests(request, post_id):
         "admin_claim/claim_requests.html",
     )
 
-
-# ADOPTION REQUESTS
 @admin_required
 def adoption_requests(request, post_id):
+    """List adoption requests tied to a single rescued post."""
     return _render_post_request_list(
         request,
         post_id,
@@ -1270,11 +1302,10 @@ def adoption_requests(request, post_id):
         "admin_adoption/adoption_request.html",
     )
 
-
-# ACCEPT / REJECT REQUEST
 @admin_required
 @require_POST
 def update_request(request, req_id, action):
+    """Accept or reject a claim/adoption request and update the related post."""
     action = (action or "").strip().lower()
 
     with transaction.atomic():
@@ -1333,12 +1364,14 @@ def update_request(request, req_id, action):
         invalidate_user_notification_payload(req.user_id)
 
     return _build_request_redirect_or_next(request, req)
+# =============================================================================
+# Navigation 2/5: Request
+# Covers capture-request operations and supporting request review tools.
+# =============================================================================
 
-
-
-# Authenticating users using face auth dashboard
 @admin_required
 def view_faceauth(request, user_id):
+    """Show a user's stored face images while reviewing their request data."""
     user = get_object_or_404(User, id=user_id)
 
     face_images = FaceImage.objects.filter(user=user).only("image", "created_at").order_by("-created_at")
@@ -1356,10 +1389,10 @@ def view_faceauth(request, user_id):
         'face_images': face_images,
     })
 
-#+++++++++++++++++++++ DOG CAPTURE REQUESTS  ++++++++++++++++++++++++++++=
 @admin_required
 @require_http_methods(["GET", "POST"])
 def admin_dog_capture_requests(request):
+    """Manage incoming dog-capture requests and catcher contact details."""
     if request.method == 'POST':
         action = request.POST.get('action')
 
@@ -1478,6 +1511,7 @@ def admin_dog_capture_requests(request):
 
 @admin_required
 def update_dog_capture_request(request, pk):
+    """Review, schedule, or close a single dog-capture request."""
     req = get_object_or_404(
         DogCaptureRequest.objects.select_related('requested_by', 'requested_by__profile').prefetch_related('images', 'landmark_images'),
         pk=pk
@@ -1547,10 +1581,14 @@ def update_dog_capture_request(request, pk):
         'req': req
     })
 
+# =============================================================================
+# Navigation 4/5: Announcement
+# Covers public admin announcements published to the user-facing app.
+# =============================================================================
 
-#  ++++++++++++++++++++++  ANNOUNCEMENTS PAGE   ++++++++++++++++++++++++++++++++++++++
 @admin_required
 def announcement_list(request):
+    """Render the announcement feed shown in the admin announcement module."""
     announcements_qs = (
         DogAnnouncement.objects.select_related('created_by', 'created_by__profile')
         .prefetch_related('images')
@@ -1568,15 +1606,16 @@ def announcement_list(request):
         'category_options': ANNOUNCEMENT_CATEGORY_OPTIONS,
     })
 
-#   -CREATING ANNOUNCEMENTS (CATEGORY PICKER)
 @admin_required
 def announcement_create(request):
+    """Redirect announcement creation back to the category picker view."""
     return redirect("dogadoption_admin:admin_announcements")
 
 
 @admin_required
 @require_http_methods(["GET", "POST"])
 def announcement_create_form(request, category_slug):
+    """Create an announcement for the selected category."""
     category_option = ANNOUNCEMENT_CATEGORY_BY_SLUG.get(category_slug)
     if not category_option:
         raise Http404("Announcement category not found.")
@@ -1626,6 +1665,7 @@ def announcement_create_form(request, category_slug):
 
 @admin_required
 def announcement_edit(request, post_id):
+    """Edit an existing announcement and optionally replace its images."""
     post = DogAnnouncement.objects.get(id=post_id)
 
     if request.method == "POST":
@@ -1660,6 +1700,7 @@ def announcement_edit(request, post_id):
 @admin_required
 @require_POST
 def announcement_update_bucket(request, post_id):
+    """Change which announcement bucket the post belongs to."""
     post = get_object_or_404(DogAnnouncement.objects.only("id", "display_bucket"), id=post_id)
     bucket = (request.POST.get("bucket") or "").strip().lower()
 
@@ -1682,6 +1723,7 @@ def announcement_update_bucket(request, post_id):
 @admin_required
 @require_POST
 def announcement_delete(request, post_id):
+    """Delete an announcement and invalidate related user-facing content."""
     post = get_object_or_404(DogAnnouncement, id=post_id)
     post.delete()
     bump_user_home_feed_namespace()
@@ -1690,8 +1732,13 @@ def announcement_delete(request, post_id):
 
     return redirect("dogadoption_admin:admin_announcements")
 
-#++++++++++++++++++++++++++++ USER MANAGEMENT PAGE +++++++++++++++++++++++++++++++++++++
+# =============================================================================
+# Shared admin utilities
+# Covers pages that support admin work but are not part of the five sidebar links.
+# =============================================================================
+
 def _admin_user_management_queryset():
+    """Build the base queryset used by the admin user-management screens."""
     return (
         User.objects.filter(is_staff=False)
         .select_related('profile')
@@ -1711,6 +1758,7 @@ def _admin_user_management_queryset():
 
 @admin_required
 def admin_users(request):
+    """List non-staff users together with their violation counts."""
     query = request.GET.get('q', '')
 
     users = _admin_user_management_queryset()
@@ -1732,6 +1780,7 @@ def admin_users(request):
     })
 
 def admin_user_detail(request, id):
+    """Show the full admin-side detail page for a selected user."""
     user = get_object_or_404(
         _admin_user_management_queryset().prefetch_related('faceimage_set'),
         id=id
@@ -1739,9 +1788,7 @@ def admin_user_detail(request, id):
     return render(request, 'admin_user/user_detail.html', {'user': user})
 
 def admin_user_search_results(request):
-    """
-    Separate template for search results
-    """
+    """Render the standalone search-results partial for user management."""
     query = request.GET.get('q', '')
 
     results = _admin_user_management_queryset().filter(
@@ -1760,6 +1807,7 @@ def admin_user_search_results(request):
 
 @admin_required
 def admin_edit_profile(request):
+    """Allow the current admin to update username and password settings."""
     user = request.user
     profile, created = Profile.objects.get_or_create(
         user=user,
@@ -1816,6 +1864,7 @@ def admin_edit_profile(request):
 
 @admin_required
 def admin_notifications(request):
+    """Display admin notifications and support marking all as read."""
     if sync_expiry_notifications():
         cache.delete(ADMIN_NOTIFICATIONS_CACHE_KEY)
 
@@ -1835,6 +1884,7 @@ def admin_notifications(request):
 @admin_required
 @require_POST
 def mark_notification_read(request, pk):
+    """Mark one admin notification as read and follow its target link."""
     notif = get_object_or_404(AdminNotification, pk=pk)
     notif.is_read = True
     notif.save(update_fields=["is_read"])
@@ -1842,10 +1892,14 @@ def mark_notification_read(request, pk):
     target = notif.url or "dogadoption_admin:admin_notifications"
     return redirect(target)
 
+# =============================================================================
+# Navigation 5/5: Analytics
+# Covers the analytics dashboard linked from the admin sidebar.
+# =============================================================================
 
-# ++++++++++++++++++++++++++++ Analytics Dashboard ++++++++++++++++++++++++++++++++++++++++++++++++
 @admin_required
 def analytics_dashboard(request):
+    """Build and cache the admin analytics dashboard context."""
     cached_context = cache.get(ANALYTICS_DASHBOARD_CACHE_KEY)
     if cached_context is not None:
         return render(request, "admin_analytics/dashboard.html", cached_context)
@@ -2129,11 +2183,17 @@ def analytics_dashboard(request):
     )
     return render(request, "admin_analytics/dashboard.html", context)
 
-#+++++++++++++++++++++++++++++  ADMIN REGISTRATION  +++++++++++++++++++++++++++++++++++++++++
+# =============================================================================
+# Navigation 3/5: Register
+# Covers registration, vaccination records, certificate exports, and citations.
+# =============================================================================
 
-
+# ---------------------------------------------------------------------------
+# Register link 1/5: Registration
+# ---------------------------------------------------------------------------
 @admin_required
 def register_dogs(request):
+    """Register a new dog record from the admin registration form."""
     def _registration_error(text):
         messages.error(request, text, extra_tags="registration")
 
@@ -2277,8 +2337,12 @@ def register_dogs(request):
 
 
 
+# ---------------------------------------------------------------------------
+# Register link 2/5: Registration List
+# ---------------------------------------------------------------------------
 @admin_required
 def registration_record(request):
+    """Render the grouped registration list with owner-level presentation data."""
     selected_barangay_raw = request.GET.get('barangay', '').strip()
     selected_barangay = _resolve_barangay_name(selected_barangay_raw) if selected_barangay_raw else ''
     date_filter_type = (request.GET.get('date_filter_type') or 'all').strip().lower()
@@ -2327,6 +2391,7 @@ def registration_record(request):
     ).order_by("date_registered", "id")
     )
 
+    # Attach owner profile details so the template can link records back to owners.
     owner_user_ids = {dog.owner_user_id for dog in dogs if dog.owner_user_id}
     owner_profile_by_user_id = {}
     if owner_user_ids:
@@ -2383,6 +2448,7 @@ def registration_record(request):
             owner_sort_order[owner_key] = owner_row_number
             owner_numbers[owner_key] = owner_row_number
 
+    # Keep registration rows grouped by owner while preserving date order inside each group.
     dogs.sort(
         key=lambda dog: (
             owner_sort_order.get(owner_keys_by_dog_id.get(dog.id), 10**9),
@@ -2450,6 +2516,7 @@ def registration_record(request):
 
 @admin_required
 def registration_owner_profile(request, user_id):
+    """Show the profile preview used when drilling into a registration owner."""
     if int(user_id) <= 0:
         owner_key = _normalize_person_name(request.GET.get("owner_key"))
         owner_name = " ".join((request.GET.get("owner_name") or "").split()).strip()
@@ -2562,6 +2629,7 @@ def registration_owner_profile(request, user_id):
 
 @admin_required
 def barangay_list_api(request):
+    """Return active barangay names for registration autocomplete widgets."""
     cache_key = "active_barangay_names"
     barangays = cache.get(cache_key)
     if barangays is None:
@@ -2572,6 +2640,7 @@ def barangay_list_api(request):
 
 @admin_required
 def registration_user_search_api(request):
+    """Search non-staff users to prefill registration owner details."""
     query = " ".join((request.GET.get("q") or "").split()).strip()
     if len(query) < 2:
         return JsonResponse({"results": []})
@@ -2627,6 +2696,7 @@ def registration_user_search_api(request):
 
 @admin_required
 def download_registration(request, file_type):
+    """Export the filtered registration list as Excel or PDF."""
     selected_barangay_raw = request.GET.get('barangay', None)
     selected_barangay = _resolve_barangay_name(selected_barangay_raw) if selected_barangay_raw else None
     date_filter_type = (request.GET.get('date_filter_type') or 'all').strip().lower()
@@ -2649,7 +2719,7 @@ def download_registration(request, file_type):
     dogs = dogs.order_by("date_registered", "id")
     selected_barangay_label = selected_barangay or "All Barangays"
 
-    # ================= EXCEL =================
+    # Build the Excel layout used by barangay-level registration reports.
     if file_type == 'excel':
         Workbook, Alignment, Border, Font, PatternFill, Side = _get_openpyxl_exports()
         wb = Workbook()
@@ -2754,7 +2824,7 @@ def download_registration(request, file_type):
         wb.save(response)
         return response
 
-    # ================= PDF =================
+    # Build the PDF layout used by barangay-level registration reports.
     elif file_type == 'pdf':
         colors, landscape, letter, getSampleStyleSheet, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle = _get_reportlab_exports()
         buffer = io.BytesIO()
@@ -2854,11 +2924,14 @@ def download_registration(request, file_type):
         return response
 
     return HttpResponse("Invalid file type.", status=400)
-#certification for dogs views.py
 
 
+# ---------------------------------------------------------------------------
+# Register link 3/5: Vaccination
+# ---------------------------------------------------------------------------
 @admin_required
 def med_record(request, registration_id):
+    """Maintain vaccination and deworming records for one registration."""
     registration = DogRegistration.objects.get(id=registration_id)
 
     vaccinations = VaccinationRecord.objects.filter(
@@ -2985,6 +3058,7 @@ def med_record(request, registration_id):
 
 @admin_required
 def dog_certificate(request):
+    """Create the base vaccination certificate registration before medical entry."""
     settings = CertificateSettings.objects.first()
 
     if request.method == "POST":
@@ -3076,8 +3150,12 @@ def dog_certificate(request):
 
     return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
 
+# ---------------------------------------------------------------------------
+# Register link 4/5: Vaccination List
+# ---------------------------------------------------------------------------
 @admin_required
 def certificate_print(request, pk):
+    """Render a printable certificate for one registration."""
     registration = get_object_or_404(DogRegistration, pk=pk)
 
     vaccinations = VaccinationRecord.objects.filter(
@@ -3104,6 +3182,7 @@ def certificate_print(request, pk):
 
 @admin_required
 def certificate_list(request):
+    """Show issued vaccination certificates and expiry tracking by barangay."""
     today = timezone.localdate()
     barangay_names = list(
         Barangay.objects.filter(is_active=True)
@@ -3187,6 +3266,7 @@ def certificate_list(request):
 
 @admin_required
 def export_certificates_pdf(request):
+    """Export the certificate list as a compact PDF table."""
     _, _, _, _, _, SimpleDocTemplate, _, Table, _ = _get_reportlab_exports()
     certificates = DogRegistration.objects.all().order_by('-date_registered')
 
@@ -3210,6 +3290,7 @@ def export_certificates_pdf(request):
 
 @admin_required
 def export_certificates_word(request):
+    """Export the certificate list as a Word document."""
     Document = _get_python_docx_document()
     certificates = DogRegistration.objects.all().order_by('-date_registered')
 
@@ -3236,6 +3317,7 @@ def export_certificates_word(request):
 
 @admin_required
 def export_certificates_excel(request):
+    """Export the certificate list as an Excel workbook."""
     Workbook, _, _, _, _, _ = _get_openpyxl_exports()
     certificates = DogRegistration.objects.all().order_by('-date_registered')
 
@@ -3261,6 +3343,7 @@ def export_certificates_excel(request):
 
 @admin_required
 def bulk_certificate_print(request):
+    """Render multiple printable certificates from the selected list rows."""
     if request.method == "POST":
         selected_ids = [int(pk) for pk in request.POST.getlist("selected_ids") if str(pk).isdigit()]
 
@@ -3307,8 +3390,11 @@ def bulk_certificate_print(request):
     return redirect("dogadoption_admin:certificate_list")
 
 
-# Penalty and Citation  form
+# ---------------------------------------------------------------------------
+# Register link 5/5: Citation
+# ---------------------------------------------------------------------------
 def citation_create(request):
+    """Create a citation and show the latest citation activity summary."""
     form = CitationForm(request.POST or None)
     latest_citation = Citation.objects.order_by('-id').first()
     citations_qs = Citation.objects.select_related('owner', 'penalty') \
@@ -3384,6 +3470,7 @@ def citation_create(request):
     })
 
 def citation_print(request, pk):
+    """Render the printable citation view for a single citation record."""
     citation = get_object_or_404(Citation, pk=pk)
     selected_penalties = list(citation.penalties.all().select_related('section').order_by('section__number', 'number'))
     if not selected_penalties and citation.penalty_id:
@@ -3426,10 +3513,8 @@ def citation_print(request, pk):
         'receipt_no': receipt_no,
     })
 
-
-
-
 def penalty_manager(request):
+    """Manage penalty sections and penalty items used by citations."""
     editing_penalty = None
     edit_penalty_id = request.GET.get('edit_penalty')
     if str(edit_penalty_id).isdigit():

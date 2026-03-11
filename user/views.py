@@ -23,6 +23,7 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 from django.core.cache import cache
 from datetime import timedelta
+from functools import wraps
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
 from django.urls import reverse
@@ -30,8 +31,9 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.templatetags.static import static
 from django.utils.html import strip_tags
 
-#MODELS FROM ADMIN APP 
+# Shared models from the admin app
 from dogadoption_admin.models import (
+    AdminNotification,
     AnnouncementComment,
     AnnouncementReaction,
     Barangay,
@@ -46,11 +48,11 @@ from dogadoption_admin.models import (
 )
 from dogadoption_admin.context_processors import ADMIN_NOTIFICATIONS_CACHE_KEY
 
-#MODELS FROM USER APP
+# Models from the user app
 from .models import Profile, DogCaptureRequest, DogCaptureRequestImage, DogCaptureRequestLandmarkImage, FaceImage, ClaimImage
 from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, MissingDogPost
 
-#FORMS.PY 
+# Forms and notification helpers
 from .forms import MissingDogPostForm, UserAdoptionPostForm
 from .notification_utils import (
     USER_NOTIFICATIONS_SEEN_SESSION_KEY,
@@ -59,11 +61,19 @@ from .notification_utils import (
     invalidate_user_notification_content,
 )
 
+# Administrative and user models above are shared across multiple public flows.
+# The view module is grouped below by shared helpers and user navigation links.
+
+# =============================================================================
+# Shared imports, constants, and helper utilities
+# =============================================================================
+
 ACTIVE_BARANGAY_LOOKUP_CACHE_KEY = "user_active_barangay_lookup"
 ACTIVE_BARANGAY_LOOKUP_CACHE_TTL_SECONDS = 300
 
 
 def _safe_media_url(file_field):
+    """Return a file URL safely when an optional image/file is present."""
     if not file_field:
         return ""
     try:
@@ -73,6 +83,7 @@ def _safe_media_url(file_field):
 
 
 def _first_prefetched_image_url(images):
+    """Read the first prefetched image URL from a related image collection."""
     first_image = next(iter(images), None)
     if not first_image:
         return ""
@@ -80,6 +91,7 @@ def _first_prefetched_image_url(images):
 
 
 def _build_registered_dog_payloads(dogs):
+    """Convert registered dog rows into template-friendly profile cards."""
     rows = []
     for dog in dogs:
         photo_urls = []
@@ -101,7 +113,10 @@ def _build_registered_dog_payloads(dogs):
             "photo_count": len(photo_urls),
         })
     return rows
+
+
 def _build_profile_dashboard_context(profile_user):
+    """Build the profile page context used by user and admin preview modes."""
     profile, _ = Profile.objects.get_or_create(
         user=profile_user,
         defaults={
@@ -284,22 +299,26 @@ def _build_profile_dashboard_context(profile_user):
         "user_violation_records": user_violation_records,
     }
 
+# =============================================================================
+# Shared authentication, onboarding, and profile utilities
+# =============================================================================
 
-# Decorator to allow only users
-
-
-# USER-ONLY DECORATOR
 def user_only(view_func):
+    """Allow only authenticated non-staff users to access a view."""
+
+    @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('user:login')
         if request.user.is_staff:
             return redirect('dogadoption_admin:post_list')  # admin goes to admin dashboard
         return view_func(request, *args, **kwargs)
+
     return wrapper
 
-# User Authentication through log in 
+
 def login_view(request):
+    """Authenticate a user and redirect staff accounts to the admin app."""
     if request.user.is_authenticated:
         if request.user.is_staff:
             return redirect("dogadoption_admin:post_list")
@@ -334,6 +353,7 @@ def login_view(request):
 
 
 def logout_view(request):
+    """Log out the current session and clear any admin session cookie."""
     logout(request)
     response = redirect("user:login")
     response.delete_cookie("admin_sessionid")
@@ -343,13 +363,12 @@ def logout_view(request):
 @require_POST
 @user_only
 def mark_notifications_seen(request):
+    """Mark the latest user notifications as seen for the current session."""
     request.session[USER_NOTIFICATIONS_SEEN_SESSION_KEY] = timezone.now().isoformat()
     request.session.modified = True
     return JsonResponse({"ok": True, "unread_count": 0})
 
 
-
-# Sign up for users
 def _clean_barangay(value):
     return " ".join((value or "").split()).strip()
 
@@ -359,6 +378,7 @@ def _normalize_barangay(value):
 
 
 def _resolve_barangay_name(value):
+    """Resolve free-text barangay input against the active barangay list."""
     normalized = _normalize_barangay(value)
     if not normalized:
         return ""
@@ -377,6 +397,7 @@ def _resolve_barangay_name(value):
 
 
 def _ensure_default_profile_image_exists():
+    """Copy the default profile image into media storage when needed."""
     default_relative_path = "profile_images/default-user-image.jpg"
     target_path = os.path.join(settings.MEDIA_ROOT, default_relative_path)
     if os.path.exists(target_path):
@@ -402,6 +423,7 @@ def _ensure_default_profile_image_exists():
 
 
 def _profile_image_url_or_default(user, fallback_url):
+    """Return a profile image URL or a static fallback for display cards."""
     profile = getattr(user, "profile", None)
     image_field = getattr(profile, "profile_image", None)
     image_url = _safe_media_url(image_field)
@@ -409,6 +431,7 @@ def _profile_image_url_or_default(user, fallback_url):
 
 
 def _clean_announcement_text_for_display(raw_html):
+    """Strip announcement HTML down to clean display text."""
     text = strip_tags(raw_html or "").replace("\xa0", " ")
     lines = text.splitlines()
     cleaned_lines = [line.lstrip() for line in lines]
@@ -416,6 +439,7 @@ def _clean_announcement_text_for_display(raw_html):
 
 
 def _format_posted_label(dt):
+    """Render a compact relative time label for feed-style timestamps."""
     if not dt:
         return ""
     now = timezone.now()
@@ -550,6 +574,7 @@ def _filter_user_adoption_posts(posts_qs, filter_type):
 
 
 def _build_public_post_listing(request, listing_mode):
+    """Build listing data for the public claim/adopt browse screens."""
     filter_type = request.GET.get("filter", "all")
     request_type = "claim" if listing_mode == "claim" else "adopt"
     nav_tabs = [
@@ -697,6 +722,7 @@ def _create_user_adoption_images(request, post):
 
 
 def _handle_user_post_creation_submission(request, selected_type):
+    """Create a user adoption or missing-dog post from the submitted form."""
     adoption_form = UserAdoptionPostForm()
     missing_form = MissingDogPostForm()
 
@@ -736,6 +762,7 @@ def _get_available_appointment_dates():
 
 
 def _render_confirm_page(request, template_name, post, available_dates, request_type=None):
+    """Render a reusable confirmation page for claim/adoption requests."""
     cancel_url = reverse(_public_listing_route_name(request_type)) if request_type else reverse("user:user_home")
     status_url = reverse(_request_history_route_name(request_type)) if request_type else reverse("user:user_home")
     return render(request, template_name, {
@@ -795,6 +822,7 @@ def _handle_confirm_request(
     duplicate_message,
     success_message,
 ):
+    """Handle request confirmation flows for claim and adoption actions."""
     post = get_object_or_404(Post, id=post_id)
     available_dates = _get_available_appointment_dates()
     history_url = _request_history_route_name(request_type)
@@ -1282,12 +1310,15 @@ def _group_capture_requests_by_status(requests):
     }
 
 
+# Shared onboarding and profile endpoints
 def barangay_list_api(request):
+    """Return active barangay names for signup and request autocomplete."""
     barangays = list(Barangay.objects.filter(is_active=True).values_list("name", flat=True))
     return JsonResponse({"barangays": barangays})
 
 
 def signup_view(request):
+    """Handle the first step of signup before face-auth enrollment."""
     if request.user.is_authenticated:
         if request.user.is_staff:
             return redirect("dogadoption_admin:post_list")
@@ -1367,9 +1398,9 @@ def signup_view(request):
 
     return _render_home_with_auth_modal(request, "signup")
 
-#editing users profileS
 @user_only
 def edit_profile(request):
+    """Let the signed-in user update profile details and profile photo."""
     user = request.user
     profile, _ = Profile.objects.get_or_create(
         user=user,
@@ -1408,6 +1439,7 @@ def edit_profile(request):
 
 @login_required
 def admin_view_user_profile(request, user_id):
+    """Let staff preview a user profile using the same profile template."""
     if not request.user.is_staff:
         return redirect("user:login")
     profile_user = get_object_or_404(User, pk=user_id, is_staff=False)
@@ -1421,14 +1453,14 @@ def admin_view_user_profile(request, user_id):
 
 @csrf_exempt
 def face_auth(request):
+    """Render the face-auth capture step during signup."""
     if "signup_data" not in request.session:
         return redirect("user:signup")
     return render(request, "face_auth.html")
 
-#Save Face Images
-
 @csrf_exempt
 def save_face(request):
+    """Persist captured signup face images into temporary storage."""
     if request.method != "POST":
         return JsonResponse({"status": "error"}, status=400)
 
@@ -1458,10 +1490,8 @@ def save_face(request):
     request.session["face_images_files"] = saved_files
     return JsonResponse({"status": "ok"})
 
-
-
-# Signup Complete
 def signup_complete(request):
+    """Create the user account after signup and face-auth capture succeed."""
     if "signup_data" not in request.session or "face_images_files" not in request.session:
         return redirect("user:signup")
 
@@ -1504,7 +1534,11 @@ def signup_complete(request):
     messages.success(request, "Account created successfully. Please log in.")
     return redirect("user:login")
 
-# USER HOME VIEW
+# =============================================================================
+# Navigation 1/5: Home
+# Covers the public feed, search, user-created posts, and related post actions.
+# =============================================================================
+
 def _build_user_home_context(
     request,
     *,
@@ -1545,6 +1579,7 @@ def _build_user_home_context(
 
 
 def _render_home_with_auth_modal(request, auth_modal, **extra_context):
+    """Render the home feed while forcing a login or signup modal state."""
     context = _build_user_home_context(request)
     context.update({
         "auth_modal": auth_modal,
@@ -1554,6 +1589,7 @@ def _render_home_with_auth_modal(request, auth_modal, **extra_context):
 
 
 def user_home(request):
+    """Render the mixed public feed and handle quick post creation from home."""
     # Redirect staff to admin dashboard
     if request.user.is_authenticated and request.user.is_staff:
         return redirect('dogadoption_admin:post_list')
@@ -1587,6 +1623,7 @@ def user_home(request):
 
 
 def home_search(request):
+    """Search the public home feed across staff and user-created posts."""
     if request.user.is_authenticated and request.user.is_staff:
         return redirect("dogadoption_admin:post_list")
 
@@ -1622,6 +1659,7 @@ def home_search(request):
 
 @user_only
 def create_post(request):
+    """Render the standalone create-post page for signed-in users."""
     selected_type = request.GET.get("type", "adoption")
     if request.method == "POST":
         selected_type = request.POST.get("post_type", "adoption")
@@ -1646,6 +1684,7 @@ def create_post(request):
 
 @user_only
 def adopt_user_post(request, post_id):
+    """Submit an adoption request for a user-created adoption post."""
     post = get_object_or_404(UserAdoptionPost, id=post_id)
 
     if post.owner == request.user:
@@ -1680,6 +1719,7 @@ def adopt_user_post(request, post_id):
 
 @user_only
 def user_adoption_requests(request):
+    """List requests received on adoption posts owned by the current user."""
     requests = UserAdoptionRequest.objects.filter(
         post__owner=request.user
     ).select_related("post", "requester", "requester__profile").order_by("-created_at")
@@ -1691,6 +1731,7 @@ def user_adoption_requests(request):
 
 @user_only
 def user_adoption_request_action(request, req_id, action):
+    """Accept or decline an incoming request on a user-created adoption post."""
     req = get_object_or_404(
         UserAdoptionRequest,
         id=req_id,
@@ -1718,6 +1759,7 @@ def user_adoption_request_action(request, req_id, action):
 @require_POST
 @user_only
 def delete_user_adoption_post(request, post_id):
+    """Delete one of the current user's adoption posts."""
     post = get_object_or_404(UserAdoptionPost, id=post_id, owner=request.user)
     dog_name = post.dog_name
     post.delete()
@@ -1729,6 +1771,7 @@ def delete_user_adoption_post(request, post_id):
 @require_POST
 @user_only
 def delete_missing_dog_post(request, post_id):
+    """Delete one of the current user's missing-dog posts."""
     post = get_object_or_404(MissingDogPost, id=post_id, owner=request.user)
     dog_name = post.dog_name
     post.delete()
@@ -1736,18 +1779,21 @@ def delete_missing_dog_post(request, post_id):
     messages.success(request, f'Missing dog post "{dog_name}" deleted.')
     return redirect("user:edit_profile")
 
-
-
-# VIEW FOR FACEBOOK SHARED LINK PREVIEW
 @user_only
 def post_detail(request, post_id):
+    """Render a post detail page used by shared or linked home posts."""
     post = get_object_or_404(Post, id=post_id)
     return render(request, 'home/post_detail.html', {'post': post})
 
 
-#USER REQUEST PAGE 
+# =============================================================================
+# Navigation 2/5: Request
+# Covers dog-capture request submission, editing, and deletion.
+# =============================================================================
+
 @user_only
 def request_dog_capture(request):
+    """Create and list dog-capture requests for the current user."""
     if request.method == 'POST':
         uploaded_images = list(request.FILES.getlist('images'))
         legacy_image = request.FILES.get('image')
@@ -1849,7 +1895,6 @@ def request_dog_capture(request):
         if first_saved_image:
             new_req.image = first_saved_image
             new_req.save(update_fields=['image'])
-        from dogadoption_admin.models import AdminNotification
         AdminNotification.objects.create(
             title="New dog capture request",
             message=f"{request.user.username} submitted a request.",
@@ -1909,6 +1954,7 @@ def request_dog_capture(request):
 @user_only
 @require_POST
 def edit_dog_capture_request(request, req_id):
+    """Edit a pending dog-capture request submitted by the current user."""
     req = get_object_or_404(
         DogCaptureRequest,
         id=req_id,
@@ -2044,6 +2090,7 @@ def edit_dog_capture_request(request, req_id):
 @user_only
 @require_POST
 def delete_dog_capture_request(request, req_id):
+    """Delete a pending dog-capture request owned by the current user."""
     req = get_object_or_404(
         DogCaptureRequest,
         id=req_id,
@@ -2060,21 +2107,29 @@ def delete_dog_capture_request(request, req_id):
     return redirect('user:dog_capture_request')
 
 
-#CLAIM PAGE 
+# =============================================================================
+# Navigation 3/5: Claim
+# Covers claim browsing, claim history, and claim confirmation.
+# =============================================================================
+
 @user_only
 def claim(request):
+    """Render the claim dashboard shell."""
     return render(request, 'claim/claim.html')
 
+# =============================================================================
+# Navigation 5/5: Adopt
+# Covers adoption browsing, adoption status, and adoption confirmation.
+# =============================================================================
 
-
-
-#ADOPTION PAGE
 @user_only
 def adopt_list(request):
+    """Browse dogs that are available for adoption."""
     return render(request, "adopt/adopt_list.html", _build_public_post_listing(request, "adopt"))
 
 @user_only
 def adopt_status(request):
+    """Show the current user's adoption request history and statuses."""
     source_type = request.GET.get("source", "all")
     if source_type not in {"all", "staff", "user"}:
         source_type = "all"
@@ -2155,6 +2210,7 @@ def adopt_status(request):
 
 @user_only
 def adopt_confirm(request, post_id):
+    """Confirm and submit an adoption request for a staff-managed post."""
     return _handle_confirm_request(
         request=request,
         post_id=post_id,
@@ -2165,11 +2221,14 @@ def adopt_confirm(request, post_id):
         duplicate_message="You already submitted an adoption request.",
         success_message="Adoption request submitted successfully! ðŸ¾",
     )
-
-
+# =============================================================================
+# Navigation 4/5: Announcement
+# Covers announcement browsing, details, reactions, comments, and sharing.
+# =============================================================================
 
 @user_only
 def announcement_list(request):
+    """Render the public announcement feed grouped by display bucket."""
     user_reaction_subquery = AnnouncementReaction.objects.filter(
         announcement_id=OuterRef("pk"),
         user_id=request.user.id,
@@ -2222,6 +2281,7 @@ def announcement_list(request):
 
 @user_only
 def announcement_detail(request, post_id):
+    """Render a detailed announcement view with reactions and share data."""
     user_reaction_subquery = AnnouncementReaction.objects.filter(
         announcement_id=OuterRef("pk"),
         user_id=request.user.id,
@@ -2259,6 +2319,7 @@ def announcement_detail(request, post_id):
 @user_only
 @require_POST
 def announcement_react(request, post_id):
+    """Toggle the current user's reaction on an announcement."""
     post = get_object_or_404(DogAnnouncement.objects.only("id"), id=post_id)
 
     existing_reaction = AnnouncementReaction.objects.filter(
@@ -2300,6 +2361,7 @@ def announcement_react(request, post_id):
 
 
 def announcement_share_preview(request, post_id):
+    """Render metadata-friendly announcement content for social sharing."""
     post = get_object_or_404(
         DogAnnouncement.objects.select_related("created_by").prefetch_related(
             Prefetch(
@@ -2348,6 +2410,7 @@ def announcement_share_preview(request, post_id):
 
 @user_only
 def announcement_comment(request, post_id):
+    """Create a comment on an announcement and return to the previous page."""
     if request.method == "POST":
         AnnouncementComment.objects.create(
             announcement_id=post_id,
@@ -2361,10 +2424,10 @@ def announcement_comment(request, post_id):
         next_url = reverse('user:announcement_list')
     return redirect(next_url)
 
-#CLAIM PAGE
-
+# Navigation 3/5: Claim continued
 @user_only
 def my_claims(request):
+    """Show the current user's submitted claim requests and their statuses."""
     status_filter = request.GET.get("status", "pending")
     if status_filter not in {"total", "pending", "accepted", "rejected"}:
         status_filter = "pending"
@@ -2391,11 +2454,13 @@ def my_claims(request):
 
 @user_only
 def claim_list(request):
+    """Browse dogs that are still available to be claimed."""
     return render(request, "adopt/adopt_list.html", _build_public_post_listing(request, "claim"))
 
 
 @user_only
 def claim_confirm(request, post_id):
+    """Confirm and submit a claim request for a staff-managed post."""
     return _handle_confirm_request(
         request=request,
         post_id=post_id,

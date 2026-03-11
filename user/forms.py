@@ -41,6 +41,8 @@ class MissingDogPostForm(forms.ModelForm):
             'date_lost',
             'time_lost',
             'location',
+            'contact_phone_number',
+            'contact_facebook_url',
         ]
         widgets = {
             "dog_name": forms.TextInput(attrs={
@@ -67,5 +69,13 @@ class MissingDogPostForm(forms.ModelForm):
             "location": forms.TextInput(attrs={
                 "class": "form-control",
                 "placeholder": "Exact location where the dog was last seen",
+            }),
+            "contact_phone_number": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "Optional phone number for contact",
+            }),
+            "contact_facebook_url": forms.URLInput(attrs={
+                "class": "form-control",
+                "placeholder": "Optional Facebook profile link",
             }),
         }

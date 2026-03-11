@@ -6,7 +6,16 @@ from django.urls import reverse
 
 from django.utils import timezone
 
-from dogadoption_admin.models import DogAnnouncement, Post, PostRequest
+from dogadoption_admin.models import (
+    Citation,
+    Dog,
+    DogAnnouncement,
+    DogImage,
+    Penalty,
+    PenaltySection,
+    Post,
+    PostRequest,
+)
 from user.notification_utils import remember_request_reviewed_at
 from user.models import MissingDogPost, Profile, UserAdoptionPost, UserAdoptionRequest
 
@@ -238,6 +247,129 @@ class UserHomeFeedTests(TestCase):
         }
         self.assertTrue(second_page_posts)
         self.assertFalse(first_page_posts.intersection(second_page_posts))
+
+    def test_load_more_remains_available_on_deeper_pages_for_large_feeds(self):
+        for index in range(14, 180):
+            UserAdoptionPost.objects.create(
+                owner=self.owner,
+                dog_name=f"Extra Dog {index}",
+                description=f"Friendly extra dog {index}",
+                location="Barangay 1",
+                status="available",
+            )
+
+        first_response = self.client.get(reverse("user:user_home"))
+        feed_token = first_response.context["feed_token"]
+        self.assertTrue(first_response.context["page_obj"].has_next())
+
+        deep_response = self.client.get(
+            reverse("user:user_home"),
+            {"feed_token": feed_token, "page": 10},
+        )
+
+        self.assertEqual(deep_response.status_code, 200)
+        self.assertEqual(deep_response.context["page_obj"].number, 10)
+        self.assertTrue(deep_response.context["posts"])
+        self.assertTrue(deep_response.context["page_obj"].has_next())
+
+
+class EditProfileRegisteredDogsTests(TestCase):
+    GIF_BYTES = (
+        b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00"
+        b"\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00"
+        b"\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+    )
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="profile_user",
+            password="secret123",
+            first_name="Jester",
+            last_name="Santiago",
+        )
+        self.other_user = User.objects.create_user(
+            username="other_owner",
+            password="secret123",
+        )
+        self.client.force_login(self.user)
+
+    def _image_file(self, name="registered.gif"):
+        return SimpleUploadedFile(name, self.GIF_BYTES, content_type="image/gif")
+
+    def test_edit_profile_shows_registered_dogs_linked_to_user(self):
+        dog = Dog.objects.create(
+            date_registered=timezone.localdate(),
+            name="Rocket",
+            species="Canine",
+            sex="M",
+            age="2 yrs",
+            neutering_status="No",
+            color="Brown",
+            owner_name="Jester Santiago",
+            owner_user=self.user,
+            barangay="Bugay",
+        )
+        DogImage.objects.create(dog=dog, image=self._image_file())
+
+        Dog.objects.create(
+            date_registered=timezone.localdate(),
+            name="Other Dog",
+            species="Canine",
+            sex="F",
+            age="1 yr",
+            neutering_status="S",
+            color="Black",
+            owner_name="Another Owner",
+            owner_user=self.other_user,
+            barangay="Banga",
+        )
+
+        response = self.client.get(reverse("user:edit_profile"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Registered Dogs (1)")
+        self.assertContains(response, "Rocket")
+        self.assertNotContains(response, "Other Dog")
+        self.assertEqual(response.context["registered_dogs_total"], 1)
+        self.assertEqual(len(response.context["registered_dogs"]), 1)
+        self.assertEqual(response.context["registered_dogs"][0]["photo_count"], 1)
+
+
+class EditProfileViolationCountTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="violation_user",
+            password="secret123",
+        )
+        self.client.force_login(self.user)
+
+        section = PenaltySection.objects.create(number=28)
+        penalty_1 = Penalty.objects.create(
+            section=section,
+            number=1,
+            title="Rabies vaccination services fee",
+            amount="100.00",
+        )
+        penalty_2 = Penalty.objects.create(
+            section=section,
+            number=2,
+            title="Lodging fee",
+            amount="150.00",
+        )
+
+        citation_1 = Citation.objects.create(owner=self.user, penalty=penalty_1)
+        citation_1.penalties.add(penalty_1, penalty_2)
+
+        citation_2 = Citation.objects.create(owner=self.user, penalty=penalty_2)
+        citation_2.penalties.add(penalty_2)
+
+    def test_violation_total_counts_citation_tickets_not_penalties(self):
+        response = self.client.get(reverse("user:edit_profile"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["user_violation_count"], 2)
+        self.assertContains(response, "Violations (2)")
+        self.assertContains(response, "Total 2")
 
 
 class UserHomeSearchTests(TestCase):

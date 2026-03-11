@@ -34,8 +34,10 @@ from dogadoption_admin.models import (
     AnnouncementReaction,
     Barangay,
     Citation,
+    Dog,
     DogAnnouncement,
     DogAnnouncementImage,
+    DogImage,
     GlobalAppointmentDate,
     Post,
     PostRequest,
@@ -584,15 +586,17 @@ def _user_post_requests(user, request_type):
 
 
 FEED_CACHE_TTL_SECONDS = 90
+FEED_CACHE_VERSION = "v5"
 FEED_POSTS_PER_PAGE = 12
 FEED_ADMIN_CANDIDATE_LIMIT = 700
 FEED_ANNOUNCEMENT_CANDIDATE_LIMIT = 300
 FEED_USER_CANDIDATE_LIMIT = 400
 FEED_MISSING_CANDIDATE_LIMIT = 300
-FEED_ADMIN_SAMPLE_LIMIT = 240
-FEED_ANNOUNCEMENT_SAMPLE_LIMIT = 70
-FEED_USER_SAMPLE_LIMIT = 90
-FEED_MISSING_SAMPLE_LIMIT = 70
+# Keep full candidate windows so pagination can continue for larger feeds.
+FEED_ADMIN_SAMPLE_LIMIT = FEED_ADMIN_CANDIDATE_LIMIT
+FEED_ANNOUNCEMENT_SAMPLE_LIMIT = FEED_ANNOUNCEMENT_CANDIDATE_LIMIT
+FEED_USER_SAMPLE_LIMIT = FEED_USER_CANDIDATE_LIMIT
+FEED_MISSING_SAMPLE_LIMIT = FEED_MISSING_CANDIDATE_LIMIT
 SEARCH_RESULTS_PER_PAGE = 12
 SEARCH_CANDIDATE_LIMIT = 240
 SEARCH_CACHE_TTL_SECONDS = 90
@@ -616,7 +620,7 @@ def _pagination_query_without_page(querydict):
 def _feed_cache_key(prefix, query, feed_token=""):
     query_hash = hashlib.md5(query.encode("utf-8")).hexdigest() if query else "all"
     token_hash = hashlib.md5(feed_token.encode("utf-8")).hexdigest() if feed_token else "default"
-    return f"user_home:{prefix}:v4:{query_hash}:{token_hash}"
+    return f"user_home:{prefix}:{FEED_CACHE_VERSION}:{query_hash}:{token_hash}"
 
 
 def _normalized_feed_token(raw_token):
@@ -671,12 +675,11 @@ def _sample_ids_with_cache(cache_key, candidate_ids, sample_limit):
     return sampled_ids
 
 
-def _build_random_home_rows(query, feed_token="", dogs_only=False):
-    feed_scope = "dogs_only" if dogs_only else "mixed"
-    mixed_cache_key = _feed_cache_key(f"{feed_scope}_rows", query, feed_token)
-    cached_rows = cache.get(mixed_cache_key)
-    if cached_rows is not None:
-        return cached_rows
+def _active_admin_candidate_ids_with_cache(query):
+    cache_key = _feed_cache_key("active_admin_candidate_ids", query)
+    cached_ids = cache.get(cache_key)
+    if cached_ids is not None:
+        return cached_ids
 
     accepted_post_ids = PostRequest.objects.filter(
         status="accepted",
@@ -684,16 +687,34 @@ def _build_random_home_rows(query, feed_token="", dogs_only=False):
     ).values("post_id")
 
     admin_qs = Post.objects.exclude(status__in=["reunited", "adopted"]).exclude(id__in=accepted_post_ids)
-    announcement_qs = DogAnnouncement.objects.all()
-    user_qs = UserAdoptionPost.objects.filter(status="available")
-    missing_qs = MissingDogPost.objects.filter(status="missing")
-
     if query:
         admin_qs = admin_qs.filter(
             Q(caption__icontains=query)
             | Q(location__icontains=query)
             | Q(status__icontains=query)
         )
+
+    admin_candidates = list(admin_qs.order_by("-created_at")[:FEED_ADMIN_CANDIDATE_LIMIT])
+    active_ids = [
+        post.id for post in admin_candidates if post.current_phase() in {"claim", "adopt"}
+    ]
+    cache.set(cache_key, active_ids, FEED_CACHE_TTL_SECONDS)
+    return active_ids
+
+
+def _build_random_home_rows(query, feed_token="", dogs_only=False):
+    feed_scope = "dogs_only" if dogs_only else "mixed"
+    mixed_cache_key = _feed_cache_key(f"{feed_scope}_rows", query, feed_token)
+    cached_rows = cache.get(mixed_cache_key)
+    if cached_rows is not None:
+        return cached_rows
+
+    active_admin_candidate_ids = _active_admin_candidate_ids_with_cache(query)
+    announcement_qs = DogAnnouncement.objects.all()
+    user_qs = UserAdoptionPost.objects.filter(status="available")
+    missing_qs = MissingDogPost.objects.filter(status="missing")
+
+    if query:
         announcement_qs = announcement_qs.filter(
             Q(title__icontains=query)
             | Q(content__icontains=query)
@@ -710,31 +731,27 @@ def _build_random_home_rows(query, feed_token="", dogs_only=False):
             | Q(location__icontains=query)
         )
 
-    admin_candidates = list(admin_qs.order_by("-created_at")[:FEED_ADMIN_CANDIDATE_LIMIT])
-    active_admin_candidate_ids = [
-        post.id for post in admin_candidates if post.current_phase() in {"claim", "adopt"}
-    ]
     admin_ids = _sample_ids_with_cache(
-        _feed_cache_key(f"{feed_scope}_admin_ids", query, feed_token),
+        _feed_cache_key(f"{feed_scope}_admin_ids", query),
         active_admin_candidate_ids,
         sample_limit=FEED_ADMIN_SAMPLE_LIMIT,
     )
     announcement_ids = []
     if not dogs_only:
         announcement_ids = _sample_recent_ids_with_cache(
-            _feed_cache_key(f"{feed_scope}_announcement_ids", query, feed_token),
+            _feed_cache_key(f"{feed_scope}_announcement_ids", query),
             announcement_qs,
             candidate_limit=FEED_ANNOUNCEMENT_CANDIDATE_LIMIT,
             sample_limit=FEED_ANNOUNCEMENT_SAMPLE_LIMIT,
         )
     user_ids = _sample_recent_ids_with_cache(
-        _feed_cache_key(f"{feed_scope}_user_ids", query, feed_token),
+        _feed_cache_key(f"{feed_scope}_user_ids", query),
         user_qs,
         candidate_limit=FEED_USER_CANDIDATE_LIMIT,
         sample_limit=FEED_USER_SAMPLE_LIMIT,
     )
     missing_ids = _sample_recent_ids_with_cache(
-        _feed_cache_key(f"{feed_scope}_missing_ids", query, feed_token),
+        _feed_cache_key(f"{feed_scope}_missing_ids", query),
         missing_qs,
         candidate_limit=FEED_MISSING_CANDIDATE_LIMIT,
         sample_limit=FEED_MISSING_SAMPLE_LIMIT,
@@ -1120,7 +1137,6 @@ def edit_profile(request):
         user.first_name = request.POST.get("first_name", "").strip()
         user.last_name = request.POST.get("last_name", "").strip()
 
-        profile.middle_initial = request.POST.get("middle_initial", "").strip()
         profile.address = request.POST.get("address", "").strip()
         profile.age = request.POST.get("age") or profile.age
         profile.phone_number = request.POST.get("phone_number", "").strip()
@@ -1185,6 +1201,102 @@ def edit_profile(request):
     profile_posts.sort(key=lambda item: item["created_at"], reverse=True)
     profile_posts = profile_posts[:recent_post_limit]
 
+    staff_adopt_requests = list(
+        PostRequest.objects.filter(
+            user=user,
+            request_type="adopt",
+            status="accepted",
+        )
+        .select_related("post")
+        .prefetch_related("post__images")
+        .order_by("-created_at")[:recent_post_limit]
+    )
+    user_adopt_requests = list(
+        UserAdoptionRequest.objects.filter(
+            requester=user,
+            status="approved",
+        )
+        .select_related("post", "post__owner")
+        .prefetch_related("post__images")
+        .order_by("-created_at")[:recent_post_limit]
+    )
+
+    adopted_posts = []
+    for req in staff_adopt_requests:
+        post = req.post
+        post_images = list(post.images.all())
+        first_image = post_images[0] if post_images else None
+        adopted_posts.append({
+            "id": post.id,
+            "source": "staff",
+            "source_label": "Staff Post",
+            "title": post.caption or "Untitled Post",
+            "location": post.location,
+            "adopted_label": _format_posted_label(req.created_at),
+            "created_at": req.created_at,
+            "image_url": first_image.image.url if first_image else "",
+        })
+
+    for req in user_adopt_requests:
+        post = req.post
+        post_images = list(post.images.all())
+        first_image = post_images[0] if post_images else None
+        adopted_posts.append({
+            "id": post.id,
+            "source": "user",
+            "source_label": "User Post",
+            "title": post.dog_name or "Untitled Post",
+            "location": post.location,
+            "adopted_label": _format_posted_label(req.created_at),
+            "created_at": req.created_at,
+            "image_url": first_image.image.url if first_image else "",
+            "owner_name": post.owner.get_full_name() or post.owner.username,
+        })
+
+    adopted_posts.sort(key=lambda item: item["created_at"], reverse=True)
+    adopted_posts = adopted_posts[:recent_post_limit]
+
+    registered_dogs_limit = 12
+    registered_dogs_qs = list(
+        Dog.objects.filter(owner_user=user)
+        .prefetch_related(
+            Prefetch(
+                "images",
+                queryset=DogImage.objects.only("id", "dog_id", "image").order_by("created_at", "id"),
+            )
+        )
+        .only(
+            "id",
+            "name",
+            "species",
+            "sex",
+            "age",
+            "neutering_status",
+            "color",
+            "date_registered",
+            "owner_address",
+            "barangay",
+        )
+        .order_by("-date_registered", "-id")[:registered_dogs_limit]
+    )
+    registered_dogs_total = Dog.objects.filter(owner_user=user).count()
+    registered_dogs = []
+    for dog in registered_dogs_qs:
+        photo_urls = [image.image.url for image in dog.images.all()]
+        registered_dogs.append({
+            "id": dog.id,
+            "name": dog.name or "Unnamed Dog",
+            "species": dog.species or "Canine",
+            "sex_label": dog.get_sex_display() if dog.sex else "-",
+            "age": dog.age or "-",
+            "neutering_label": dog.get_neutering_status_display() if dog.neutering_status else "-",
+            "color": dog.color or "-",
+            "date_registered": dog.date_registered,
+            "location": dog.barangay or dog.owner_address or "",
+            "photo_urls": photo_urls,
+            "photo_count": len(photo_urls),
+        })
+
     user_citations = (
         Citation.objects.filter(owner=user)
         .select_related("penalty", "penalty__section")
@@ -1198,7 +1310,8 @@ def edit_profile(request):
         if not penalties and citation.penalty_id:
             penalties = [citation.penalty]
 
-        user_violation_count += len(penalties)
+        # Count citation tickets, not individual penalties, for the profile total.
+        user_violation_count += 1
         violation_labels = [
             f"Sec. {penalty.section.number} #{penalty.number} - {penalty.title}"
             for penalty in penalties
@@ -1220,6 +1333,11 @@ def edit_profile(request):
         "profile": profile,
         "profile_posts": profile_posts,
         "profile_posts_limit": recent_post_limit,
+        "adopted_posts": adopted_posts,
+        "adopted_posts_limit": recent_post_limit,
+        "registered_dogs": registered_dogs,
+        "registered_dogs_limit": registered_dogs_limit,
+        "registered_dogs_total": registered_dogs_total,
         "user_violation_count": user_violation_count,
         "user_violation_records": user_violation_records,
     })

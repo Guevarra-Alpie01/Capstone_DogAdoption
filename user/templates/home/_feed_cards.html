@@ -72,7 +72,7 @@
     </div>
 </article>
 {% else %}
-<div class="card mb-4 shadow-sm post-card position-relative">
+<div class="card mb-4 shadow-sm post-card position-relative {% if item.post_type == 'missing' %}missing-feed-card{% endif %}">
     <div class="post-author">
         {% if item.post_type == 'admin' %}
             <img src="{{ item.author_avatar_url }}" class="author-avatar-img" alt="Admin profile">
@@ -139,12 +139,29 @@
         <div class="post-body-row {% if item.post_type == 'admin' and item.phase != 'closed' %}has-timer{% endif %}">
             <div class="post-details">
    
-        <p class="card-text">
+        {% if item.post_type == 'missing' %}
+            <div class="missing-post-shell">
+                <h3 class="missing-post-name">{{ post.dog_name|default:"Unknown Dog" }}</h3>
+                <p class="missing-post-description">{{ post.description|default:"No description provided." }}</p>
+                <ul class="missing-post-meta" role="list">
+                    <li><span>Date Lost:</span> {{ post.date_lost|date:"M d, Y" }}</li>
+                    <li><span>Time Lost:</span> {{ post.time_lost|time:"g:i A" }}</li>
+                    <li><span>Last Seen:</span> {{ post.location|default:"-" }}</li>
+                    {% if post.contact_phone_number %}
+                    <li><span>Contact Number:</span> {{ post.contact_phone_number }}</li>
+                    {% endif %}
+                    {% if post.contact_facebook_url %}
+                    <li>
+                        <span>Facebook:</span>
+                        <a href="{{ post.contact_facebook_url }}" target="_blank" rel="noopener" class="missing-post-link">{{ post.contact_facebook_url }}</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        {% else %}
+            <p class="card-text">
             {% if item.post_type == 'user' %}
                 {{ post.description }}
-            {% elif item.post_type == 'missing' %}
-                {{ post.description }}<br>
-                <strong>Lost On:</strong> {{ post.date_lost }} at {{ post.time_lost }}
             {% else %}
                 {% if post.caption %}<strong>Name:</strong> {{ post.caption }}<br>{% endif %}
                 {% if post.location %}<strong>Rescue Location:</strong> {{ post.location }}<br>{% endif %}
@@ -155,9 +172,10 @@
                     {{ post.created_at|date:"M d, Y" }}
                 {% endif %}
             {% endif %}
-        </p>
+            </p>
+        {% endif %}
 
-        {% if post.location and item.post_type != 'admin' %}
+        {% if post.location and item.post_type != 'admin' and item.post_type != 'missing' %}
             <small class="text-muted">{{ post.location }}</small><br>
         {% endif %}
 

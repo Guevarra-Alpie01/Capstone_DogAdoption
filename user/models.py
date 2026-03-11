@@ -260,6 +260,8 @@ class MissingDogPost(models.Model):
     time_lost = models.TimeField()
 
     location = models.CharField(max_length=255)
+    contact_phone_number = models.CharField(max_length=20, blank=True)
+    contact_facebook_url = models.URLField(blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 

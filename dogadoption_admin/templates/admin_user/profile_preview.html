@@ -11,6 +11,32 @@
         padding: 24px 16px 40px;
     }
 
+    .owner-preview-topbar {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 10px;
+    }
+
+    .owner-preview-escape-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        border: 1px solid #cfd7e3;
+        background: rgba(15, 23, 42, 0.9);
+        color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.2);
+    }
+
+    .owner-preview-escape-btn:hover,
+    .owner-preview-escape-btn:focus {
+        color: #ffffff;
+        background: #0f172a;
+    }
+
     .owner-preview-card,
     .owner-preview-panel {
         background: #fff;
@@ -104,6 +130,7 @@
         object-fit: cover;
         aspect-ratio: 1 / 1;
         border: 1px solid #d9e1ea;
+        cursor: zoom-in;
     }
 
     .owner-preview-dogs {
@@ -143,9 +170,51 @@
         margin: 0;
         color: #6b7280;
     }
+
+    .owner-photo-modal .modal-content {
+        border: 0;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #0b1220;
+    }
+
+    .owner-photo-modal .modal-header {
+        background: #0b1220;
+        color: #e2e8f0;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .owner-photo-modal .btn-close {
+        filter: invert(1) grayscale(100%);
+    }
+
+    .owner-photo-modal-body {
+        margin: 0;
+        padding: 0;
+        min-height: 240px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #020617;
+    }
+
+    .owner-photo-modal-image {
+        display: block;
+        max-width: 100%;
+        max-height: 82vh;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+    }
 </style>
 
 <div class="owner-preview-shell">
+    <div class="owner-preview-topbar">
+        <a href="#" id="ownerPreviewEscapeBtn" class="owner-preview-escape-btn" aria-label="Close profile preview">
+            <i class="bi bi-x-lg"></i>
+        </a>
+    </div>
+
     <section class="owner-preview-card">
         <div class="owner-preview-hero">
             {% if profile.profile_image %}
@@ -189,7 +258,7 @@
             {% if face_images %}
                 <div class="owner-preview-face-grid">
                     {% for face in face_images %}
-                        <img src="{{ face.image.url }}" alt="Face authentication image {{ forloop.counter }}">
+                        <img src="{{ face.image.url }}" alt="Face authentication image {{ forloop.counter }}" class="js-owner-preview-photo">
                     {% endfor %}
                 </div>
             {% else %}
@@ -215,7 +284,7 @@
                         {% if dog.photo_urls %}
                             <div class="owner-preview-photo-grid">
                                 {% for photo_url in dog.photo_urls %}
-                                    <img src="{{ photo_url }}" alt="{{ dog.name }} registration photo {{ forloop.counter }}">
+                                    <img src="{{ photo_url }}" alt="{{ dog.name }} registration photo {{ forloop.counter }}" class="js-owner-preview-photo">
                                 {% endfor %}
                             </div>
                         {% else %}
@@ -229,4 +298,60 @@
         {% endif %}
     </section>
 </div>
+
+<div class="modal fade owner-photo-modal" id="ownerPhotoViewerModal" tabindex="-1" aria-labelledby="ownerPhotoViewerTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ownerPhotoViewerTitle">Photo viewer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <figure class="owner-photo-modal-body">
+                <img id="ownerPhotoViewerImage" class="owner-photo-modal-image" src="" alt="Preview photo">
+            </figure>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const closeBtn = document.getElementById("ownerPreviewEscapeBtn");
+        const previewPhotos = document.querySelectorAll(".js-owner-preview-photo");
+        const viewerModalElement = document.getElementById("ownerPhotoViewerModal");
+        const viewerImage = document.getElementById("ownerPhotoViewerImage");
+        const viewerTitle = document.getElementById("ownerPhotoViewerTitle");
+        const viewerModal = viewerModalElement && typeof bootstrap !== "undefined"
+            ? new bootstrap.Modal(viewerModalElement)
+            : null;
+
+        function handleClose(event) {
+            event.preventDefault();
+            if (window.history.length > 1) {
+                window.history.back();
+                return;
+            }
+            window.location.href = "{% url 'dogadoption_admin:registration_record' %}";
+        }
+
+        if (closeBtn) {
+            closeBtn.addEventListener("click", handleClose);
+        }
+
+        previewPhotos.forEach(function (img) {
+            img.addEventListener("click", function () {
+                if (!viewerModal || !viewerImage) {
+                    return;
+                }
+                const source = img.getAttribute("src") || "";
+                const alt = img.getAttribute("alt") || "Preview photo";
+                viewerImage.setAttribute("src", source);
+                viewerImage.setAttribute("alt", alt);
+                if (viewerTitle) {
+                    viewerTitle.textContent = alt;
+                }
+                viewerModal.show();
+            });
+        });
+    })();
+</script>
 {% endblock %}

@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import re
+from types import SimpleNamespace
 from urllib.parse import urlencode
 
 from django.contrib import messages
@@ -197,20 +198,34 @@ def _build_owner_profile_lookup(owner_names):
                 )
             )
         )
-        .filter(owner_full_name_norm__in=normalized_names)
+        .filter(
+            owner_full_name_norm__in=normalized_names,
+            user__is_active=True,
+            user__is_staff=False,
+        )
     )
 
-    lookup = {}
+    grouped_profiles = defaultdict(list)
     for profile in profiles:
-        image_field = getattr(profile, "profile_image", None)
-        if not image_field:
+        grouped_profiles[profile.owner_full_name_norm].append(profile)
+
+    lookup = {}
+    for normalized_name, matches in grouped_profiles.items():
+        # Duplicate-name user accounts are ambiguous, so do not attach
+        # a manual registration row to any specific profile in that case.
+        if len(matches) != 1:
             continue
+
+        profile = matches[0]
+        image_field = getattr(profile, "profile_image", None)
         try:
-            image_url = image_field.url
+            image_url = image_field.url if image_field else ""
         except (ValueError, AttributeError):
             image_url = ""
-        if image_url and profile.owner_full_name_norm not in lookup:
-            lookup[profile.owner_full_name_norm] = image_url
+        lookup[normalized_name] = {
+            "image_url": image_url,
+            "user_id": profile.user_id,
+        }
     return lookup
 
 
@@ -346,19 +361,6 @@ def _resolve_registration_owner_identity(owner_first_name, owner_last_name, owne
             .first()
         )
 
-    if not resolved_owner_user and owner_name_key:
-        resolved_owner_user = (
-            User.objects.filter(
-                is_active=True,
-                is_staff=False,
-                first_name__iexact=first,
-                last_name__iexact=last,
-            )
-            .order_by("id")
-            .only("id", "first_name", "last_name")
-            .first()
-        )
-
     canonical_first = resolved_owner_user.first_name if resolved_owner_user else first
     canonical_last = resolved_owner_user.last_name if resolved_owner_user else last
     canonical_owner_name = _build_owner_full_name(canonical_first, canonical_last)
@@ -381,6 +383,20 @@ def _build_owner_limit_query(owner_name_key, owner_name, owner_user=None):
         owner_query |= Q(owner_user=owner_user)
 
     return owner_query
+
+
+def _build_registration_record_owner_key(dog, matched_owner_user_id=None):
+    owner_user_id = getattr(dog, "owner_user_id", None) or matched_owner_user_id
+    if owner_user_id:
+        return f"user:{owner_user_id}"
+
+    normalized_owner = _normalize_person_name(
+        getattr(dog, "owner_name_key", "") or getattr(dog, "owner_name", "")
+    )
+    if normalized_owner:
+        return f"name:{normalized_owner}"
+
+    return f"dog:{getattr(dog, 'id', 'unknown')}"
 
 
 def _format_cert_date(value):
@@ -2203,7 +2219,8 @@ def registration_record(request):
         filter_year,
     )
 
-    dogs = dogs.select_related("owner_user").only(
+    dogs = list(
+        dogs.select_related("owner_user").only(
         "id",
         "date_registered",
         "name",
@@ -2213,13 +2230,11 @@ def registration_record(request):
         "neutering_status",
         "color",
         "owner_name",
+        "owner_name_key",
         "owner_address",
         "owner_user_id",
     ).order_by("date_registered", "id")
-    page_number = (request.GET.get("page") or "1").strip()
-    paginator = Paginator(dogs, 100)
-    page_obj = paginator.get_page(page_number)
-    dogs = list(page_obj.object_list)
+    )
 
     owner_user_ids = {dog.owner_user_id for dog in dogs if dog.owner_user_id}
     owner_profile_by_user_id = {}
@@ -2239,27 +2254,74 @@ def registration_record(request):
     names_without_user_profile = [
         dog.owner_name
         for dog in dogs
-        if dog.owner_name and not owner_profile_by_user_id.get(dog.owner_user_id)
+        if dog.owner_name and not dog.owner_user_id
     ]
     owner_profile_lookup = _build_owner_profile_lookup(names_without_user_profile)
-    seen_owner_keys = set()
+    default_owner_profile_image_url = static("images/default-user-image.jpg")
+    owner_numbers = {}
+    owner_keys_by_dog_id = {}
+    owner_sort_order = {}
     owner_row_number = 0
     for dog in dogs:
         normalized_owner = _normalize_person_name(dog.owner_name)
-        owner_key = normalized_owner or f"dog-{dog.id}"
+        matched_owner_profile = (
+            owner_profile_lookup.get(normalized_owner, {})
+            if not dog.owner_user_id
+            else {}
+        )
+        matched_owner_user_id = matched_owner_profile.get("user_id")
+        owner_key = _build_registration_record_owner_key(dog, matched_owner_user_id)
         dog.owner_profile_image_url = (
             owner_profile_by_user_id.get(dog.owner_user_id)
-            or owner_profile_lookup.get(normalized_owner, "")
+            or matched_owner_profile.get("image_url", "")
+            or default_owner_profile_image_url
         )
+        dog.owner_profile_user_id = dog.owner_user_id or matched_owner_user_id
+        if dog.owner_profile_user_id:
+            dog.owner_profile_url = reverse(
+                "dogadoption_admin:registration_owner_profile",
+                args=[dog.owner_profile_user_id],
+            )
+        else:
+            manual_params = {
+                "owner_key": dog.owner_name_key or normalized_owner,
+                "owner_name": dog.owner_name or "",
+            }
+            dog.owner_profile_url = (
+                f"{reverse('dogadoption_admin:registration_owner_profile', args=[0])}"
+                f"?{urlencode(manual_params)}"
+            )
         dog.owner_initials = _owner_initials(dog.owner_name)
-        if owner_key in seen_owner_keys:
+        owner_keys_by_dog_id[dog.id] = owner_key
+        if owner_key not in owner_sort_order:
+            owner_row_number += 1
+            owner_sort_order[owner_key] = owner_row_number
+            owner_numbers[owner_key] = owner_row_number
+
+    dogs.sort(
+        key=lambda dog: (
+            owner_sort_order.get(owner_keys_by_dog_id.get(dog.id), 10**9),
+            dog.date_registered or datetime.min.date(),
+            dog.id,
+        )
+    )
+
+    page_number = (request.GET.get("page") or "1").strip()
+    paginator = Paginator(dogs, 100)
+    page_obj = paginator.get_page(page_number)
+    dogs = list(page_obj.object_list)
+
+    previous_owner_key = None
+    for dog in dogs:
+        owner_key = owner_keys_by_dog_id.get(dog.id, f"dog:{dog.id}")
+        owner_number = owner_numbers.get(owner_key, "")
+        if owner_key == previous_owner_key:
             dog.owner_display_number = ""
             dog.show_owner_fields = False
         else:
-            owner_row_number += 1
-            dog.owner_display_number = owner_row_number
+            dog.owner_display_number = owner_number
             dog.show_owner_fields = True
-            seen_owner_keys.add(owner_key)
+        previous_owner_key = owner_key
 
     available_years = cache.get("registration_record_available_years")
     if available_years is None:
@@ -2303,6 +2365,102 @@ def registration_record(request):
 
 @admin_required
 def registration_owner_profile(request, user_id):
+    if int(user_id) <= 0:
+        owner_key = _normalize_person_name(request.GET.get("owner_key"))
+        owner_name = " ".join((request.GET.get("owner_name") or "").split()).strip()
+
+        manual_owner_dogs_qs = Dog.objects.all()
+        if owner_key:
+            manual_owner_dogs_qs = manual_owner_dogs_qs.filter(owner_name_key=owner_key)
+        elif owner_name:
+            manual_owner_dogs_qs = manual_owner_dogs_qs.filter(owner_name__iexact=owner_name)
+        else:
+            raise Http404("Owner not found.")
+
+        manual_owner_dogs_qs = (
+            manual_owner_dogs_qs.prefetch_related(
+                Prefetch(
+                    "images",
+                    queryset=DogImage.objects.only("id", "dog_id", "image").order_by("created_at", "id"),
+                )
+            )
+            .only(
+                "id",
+                "name",
+                "species",
+                "sex",
+                "age",
+                "neutering_status",
+                "color",
+                "date_registered",
+                "owner_name",
+                "owner_address",
+                "barangay",
+            )
+            .order_by("-date_registered", "-id")
+        )
+        manual_owner_dogs = list(manual_owner_dogs_qs)
+        if not manual_owner_dogs:
+            raise Http404("Owner not found.")
+
+        resolved_owner_name = (
+            owner_name
+            or manual_owner_dogs[0].owner_name
+            or "Manual Owner"
+        )
+        owner_name_parts = [part for part in resolved_owner_name.split() if part]
+        manual_profile_user = User(
+            username=owner_key or "manual-owner",
+            first_name=owner_name_parts[0] if owner_name_parts else resolved_owner_name,
+            last_name=" ".join(owner_name_parts[1:]) if len(owner_name_parts) > 1 else "",
+        )
+        manual_profile = Profile(
+            user=manual_profile_user,
+            middle_initial="",
+            address=manual_owner_dogs[0].owner_address or "",
+            age=None,
+            consent_given=True,
+        )
+        manual_profile.profile_image = SimpleNamespace(
+            url=static("images/default-user-image.jpg")
+        )
+
+        registered_dogs = []
+        for dog in manual_owner_dogs:
+            photo_urls = []
+            for image in dog.images.all():
+                image_field = getattr(image, "image", None)
+                if not image_field:
+                    continue
+                try:
+                    photo_urls.append(image_field.url)
+                except Exception:
+                    continue
+
+            registered_dogs.append(
+                {
+                    "id": dog.id,
+                    "name": dog.name or "Unnamed Dog",
+                    "species": dog.species or "Canine",
+                    "sex_label": dog.get_sex_display() if dog.sex else "-",
+                    "age": dog.age or "-",
+                    "neutering_label": dog.get_neutering_status_display() if dog.neutering_status else "-",
+                    "color": dog.color or "-",
+                    "date_registered": dog.date_registered,
+                    "location": dog.barangay or dog.owner_address or "",
+                    "photo_urls": photo_urls,
+                }
+            )
+
+        context = {
+            "profile_user": manual_profile_user,
+            "profile": manual_profile,
+            "registered_dogs": registered_dogs,
+            "registered_dogs_total": len(registered_dogs),
+            "face_images": [],
+        }
+        return render(request, "admin_user/profile_preview.html", context)
+
     profile_user = get_object_or_404(
         User.objects.only("id", "username", "first_name", "last_name", "date_joined"),
         pk=user_id,

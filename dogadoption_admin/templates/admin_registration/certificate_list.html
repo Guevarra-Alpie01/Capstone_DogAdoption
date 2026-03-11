@@ -13,20 +13,23 @@
 <div id="certificate-list-page" class="registration-wrapper certificate-list-page">
     <section class="side-card combined-record-card">
         <div class="combined-record-head">
-            <form method="get" class="medical-record-filter medical-record-search-form" id="certificate-list-search-form">
-                <input
-                    type="text"
-                    name="barangay"
-                    id="certificate-list-barangay"
-                    class="medical-record-filter-input"
-                    placeholder="Search other..."
-                    value="{{ selected_barangay|default:'' }}"
-                    autocomplete="off"
-                    enterkeyhint="search"
-                    data-barangay-autocomplete="true"
-                    data-barangay-source-url="{% url 'dogadoption_admin:barangay_list_api' %}"
-                    data-barangay-suggestions-id="certificate-list-suggestions"
-                >
+            <form method="get" action="{% url 'dogadoption_admin:certificate_list' %}" class="medical-record-filter medical-record-search-form" id="certificate-list-search-form">
+                <div class="search-input-wrap">
+                    <input
+                        type="text"
+                        name="barangay"
+                        id="certificate-list-barangay"
+                        class="medical-record-filter-input"
+                        placeholder="Search other..."
+                        value="{{ selected_barangay|default:'' }}"
+                        autocomplete="off"
+                        enterkeyhint="search"
+                        data-barangay-autocomplete="true"
+                        data-barangay-source-url="{% url 'dogadoption_admin:barangay_list_api' %}"
+                        data-barangay-suggestions-id="certificate-list-suggestions"
+                    >
+                    <button type="button" id="certificate-list-search-clear" class="search-clear-btn" aria-label="Clear search">&times;</button>
+                </div>
                 <button type="submit" class="medical-record-filter-btn" data-barangay-search-target="certificate-list-barangay">
                     <i class="fas fa-search" aria-hidden="true"></i>
                     Search
@@ -295,9 +298,21 @@ function initMedicalRecordFilter(root) {
         return;
     }
 
+    const input = filterForm.querySelector('#certificate-list-barangay');
+    const clearBtn = filterForm.querySelector('#certificate-list-search-clear');
+    const suggestions = filterForm.querySelector('#certificate-list-suggestions');
+    const baseAction = filterForm.getAttribute('action') || window.location.pathname;
+
+    const toggleClearButton = () => {
+        if (!input || !clearBtn) {
+            return;
+        }
+        clearBtn.style.display = input.value.trim() ? 'inline-flex' : 'none';
+    };
+
     filterForm.addEventListener('submit', function(event) {
         event.preventDefault();
-        const url = new URL(filterForm.action || window.location.href, window.location.origin);
+        const url = new URL(baseAction, window.location.origin);
         const formData = new FormData(filterForm);
         const params = new URLSearchParams();
 
@@ -310,6 +325,23 @@ function initMedicalRecordFilter(root) {
         url.search = params.toString();
         updateCertificatePage(url.toString());
     });
+
+    if (input && clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            input.value = '';
+            if (suggestions) {
+                suggestions.innerHTML = '';
+                suggestions.style.display = 'none';
+            }
+            toggleClearButton();
+
+            const url = new URL(baseAction, window.location.origin);
+            updateCertificatePage(url.toString());
+        });
+
+        input.addEventListener('input', toggleClearButton);
+        toggleClearButton();
+    }
 }
 
 function initCertificateListPage() {

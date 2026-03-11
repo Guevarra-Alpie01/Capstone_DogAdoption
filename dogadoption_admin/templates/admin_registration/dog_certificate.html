@@ -11,23 +11,20 @@
 {% include 'admin_registration/registration_navigation.html' %}
 
 <div class="registration-wrapper registration-form-page dog-certificate-page">
-    <div class="header-section">
-        <h2>National Rabies Prevention and Control Program</h2>
-        <h3>Rabies Free Visayas Project</h3>
-        <p class="sub-header">Dog Vaccination Certificate</p>
-    </div>
-
     <div class="owner-search-panel">
         <div class="field-group owner-search-group">
             <div class="owner-search-anchor">
                 <div class="owner-search-row">
-                    <input
-                        type="text"
-                        id="certificate-owner-search"
-                        placeholder="Search by first name, last name, or username"
-                        autocomplete="off"
-                        data-user-search-url="{% url 'dogadoption_admin:registration_user_search_api' %}"
-                    >
+                    <div class="owner-search-input-wrap">
+                        <input
+                            type="text"
+                            id="certificate-owner-search"
+                            placeholder="Search by first name, last name, or username"
+                            autocomplete="off"
+                            data-user-search-url="{% url 'dogadoption_admin:registration_user_search_api' %}"
+                        >
+                        <button type="button" id="certificate-owner-search-clear" class="owner-search-clear" aria-label="Clear owner search">&times;</button>
+                    </div>
                     <button type="button" id="certificate-owner-search-btn" class="owner-search-btn" aria-label="Search user">
                         <i class="bi bi-search" aria-hidden="true"></i>
                     </button>
@@ -185,13 +182,14 @@
 <script>
     (function () {
         const searchInput = document.getElementById('certificate-owner-search');
+        const clearBtn = document.getElementById('certificate-owner-search-clear');
         const searchBtn = document.getElementById('certificate-owner-search-btn');
         const suggestionsBox = document.getElementById('certificate-owner-suggestions');
         const ownerFirstName = document.getElementById('owner_first_name');
         const ownerLastName = document.getElementById('owner_last_name');
         const barangayInput = document.getElementById('barangay');
 
-        if (!searchInput || !searchBtn || !suggestionsBox || !ownerFirstName || !ownerLastName || !barangayInput) {
+        if (!searchInput || !clearBtn || !searchBtn || !suggestionsBox || !ownerFirstName || !ownerLastName || !barangayInput) {
             return;
         }
 
@@ -205,6 +203,16 @@
         function clearSuggestions() {
             suggestionsBox.innerHTML = '';
             suggestionsBox.style.display = 'none';
+        }
+
+        function clearAutofilledOwnerFields() {
+            ownerFirstName.value = '';
+            ownerLastName.value = '';
+            barangayInput.value = '';
+        }
+
+        function toggleClearButton() {
+            clearBtn.style.display = searchInput.value.trim() ? 'inline-flex' : 'none';
         }
 
         function renderSuggestions(results) {
@@ -285,8 +293,16 @@
 
         searchBtn.addEventListener('click', runSearch);
         searchInput.addEventListener('input', function () {
+            toggleClearButton();
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(runSearch, 200);
+        });
+        clearBtn.addEventListener('click', function () {
+            searchInput.value = '';
+            clearAutofilledOwnerFields();
+            clearSuggestions();
+            toggleClearButton();
+            searchInput.focus();
         });
         searchInput.addEventListener('keydown', function (event) {
             if (event.key === 'Enter') {
@@ -302,6 +318,7 @@
                 clearSuggestions();
             }
         });
+        toggleClearButton();
     })();
 
     const breedList = [

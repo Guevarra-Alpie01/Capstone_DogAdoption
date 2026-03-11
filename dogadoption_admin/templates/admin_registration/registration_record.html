@@ -15,18 +15,21 @@
       
 
         <form method="get" action="{% url 'dogadoption_admin:registration_record' %}" class="record-search-form" id="registration-record-search-form">
-            <input
-                type="text"
-                name="barangay"
-                id="registration-record-barangay"
-                placeholder="Search other..."
-                value="{{ selected_barangay|default:'' }}"
-                autocomplete="off"
-                enterkeyhint="search"
-                data-barangay-autocomplete="true"
-                data-barangay-source-url="{% url 'dogadoption_admin:barangay_list_api' %}"
-                data-barangay-suggestions-id="registration-record-suggestions"
-            >
+            <div class="search-input-wrap">
+                <input
+                    type="text"
+                    name="barangay"
+                    id="registration-record-barangay"
+                    placeholder="Search other..."
+                    value="{{ selected_barangay|default:'' }}"
+                    autocomplete="off"
+                    enterkeyhint="search"
+                    data-barangay-autocomplete="true"
+                    data-barangay-source-url="{% url 'dogadoption_admin:barangay_list_api' %}"
+                    data-barangay-suggestions-id="registration-record-suggestions"
+                >
+                <button type="button" id="registration-record-search-clear" class="record-search-clear-btn" aria-label="Clear search">&times;</button>
+            </div>
             {% if date_filter_type == 'day' and filter_date %}
                 <input type="hidden" name="date_filter_type" value="day">
                 <input type="hidden" name="filter_date" value="{{ filter_date }}">
@@ -173,12 +176,7 @@
                                 <a
                                     class="owner-profile-btn"
                                     title="View owner profile"
-                                    {% if dog.owner_user_id %}
-                                        href="{% url 'dogadoption_admin:registration_owner_profile' dog.owner_user_id %}"
-                                    {% else %}
-                                        href="#"
-                                        aria-disabled="true"
-                                    {% endif %}
+                                    href="{{ dog.owner_profile_url }}"
                                 >
                                     {% if dog.owner_profile_image_url %}
                                         <img src="{{ dog.owner_profile_image_url }}" alt="{{ dog.owner_name }} profile" class="owner-avatar">
@@ -363,6 +361,48 @@
         dateFilterTypeEl.addEventListener('change', toggleDateFilterInput);
     }
     toggleDateFilterInput();
+
+    (function () {
+        const form = document.getElementById('registration-record-search-form');
+        const input = document.getElementById('registration-record-barangay');
+        const clearBtn = document.getElementById('registration-record-search-clear');
+        const suggestions = document.getElementById('registration-record-suggestions');
+        if (!form || !input || !clearBtn) {
+            return;
+        }
+
+        const toggleClearButton = () => {
+            clearBtn.style.display = input.value.trim() ? 'inline-flex' : 'none';
+        };
+
+        clearBtn.addEventListener('click', function () {
+            input.value = '';
+            if (suggestions) {
+                suggestions.innerHTML = '';
+                suggestions.style.display = 'none';
+            }
+            toggleClearButton();
+
+            const url = new URL(form.action || window.location.href, window.location.origin);
+            const formData = new FormData(form);
+            const params = new URLSearchParams();
+
+            formData.forEach((value, key) => {
+                if (key === 'barangay') {
+                    return;
+                }
+                if (value) {
+                    params.set(key, value);
+                }
+            });
+
+            url.search = params.toString();
+            window.location.href = url.toString();
+        });
+
+        input.addEventListener('input', toggleClearButton);
+        toggleClearButton();
+    })();
 
 </script>
 

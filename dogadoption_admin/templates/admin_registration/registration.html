@@ -12,23 +12,20 @@
 {% include 'admin_registration/registration_navigation.html' %}
 
 <div class="registration-wrapper registration-form-page">
-    <div class="header-section">
-        <h2>National Rabies Prevention and Control Program</h2>
-        <h3>Rabies Free Visayas Project</h3>
-        <p class="sub-header">Dog Registry and Vaccination Record</p>
-    </div>
-
     <div class="owner-search-panel">
         <div class="field-group owner-search-group">
             <div class="owner-search-anchor">
                 <div class="owner-search-row">
-                    <input
-                        type="text"
-                        id="registration-owner-search"
-                        placeholder="Search by first name, last name, or username"
-                        autocomplete="off"
-                        data-user-search-url="{% url 'dogadoption_admin:registration_user_search_api' %}"
-                    >
+                    <div class="owner-search-input-wrap">
+                        <input
+                            type="text"
+                            id="registration-owner-search"
+                            placeholder="Search by first name, last name, or username"
+                            autocomplete="off"
+                            data-user-search-url="{% url 'dogadoption_admin:registration_user_search_api' %}"
+                        >
+                        <button type="button" id="registration-owner-search-clear" class="owner-search-clear" aria-label="Clear owner search">&times;</button>
+                    </div>
                     <button type="button" id="registration-owner-search-btn" class="owner-search-btn" aria-label="Search user">
                         <i class="bi bi-search" aria-hidden="true"></i>
                     </button>
@@ -177,9 +174,28 @@
             </div>
 
             <div class="form-actions">
-                <button type="submit" class="submit-btn registration-submit-btn">Save Registration Record</button>
+                <button type="button" class="submit-btn registration-submit-btn" id="open-registration-confirm-modal">
+                    Save Registration Record
+                </button>
             </div>
         </form>
+    </div>
+</div>
+<div class="modal fade" id="registrationConfirmModal" tabindex="-1" aria-labelledby="registrationConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="registrationConfirmModalLabel">Confirm Registration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Save this registration record now?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Review</button>
+                <button type="submit" class="btn btn-success" form="registration-form">Confirm Save</button>
+            </div>
+        </div>
     </div>
 </div>
 <div class="photo-option-modal" id="photo-option-modal" hidden>
@@ -228,6 +244,7 @@
 <script>
     (function () {
         const searchInput = document.getElementById('registration-owner-search');
+        const clearBtn = document.getElementById('registration-owner-search-clear');
         const searchBtn = document.getElementById('registration-owner-search-btn');
         const suggestionsBox = document.getElementById('registration-owner-suggestions');
         const ownerFirstName = document.getElementById('owner_first_name');
@@ -235,7 +252,7 @@
         const ownerUserIdInput = document.getElementById('owner_user_id');
         const barangayInput = document.getElementById('barangay');
 
-        if (!searchInput || !searchBtn || !suggestionsBox || !ownerFirstName || !ownerLastName || !ownerUserIdInput || !barangayInput) {
+        if (!searchInput || !clearBtn || !searchBtn || !suggestionsBox || !ownerFirstName || !ownerLastName || !ownerUserIdInput || !barangayInput) {
             return;
         }
 
@@ -249,6 +266,10 @@
         function clearSuggestions() {
             suggestionsBox.innerHTML = '';
             suggestionsBox.style.display = 'none';
+        }
+
+        function toggleClearButton() {
+            clearBtn.style.display = searchInput.value.trim() ? 'inline-flex' : 'none';
         }
 
         function clearOwnerUserSelection() {
@@ -333,8 +354,16 @@
         searchBtn.addEventListener('click', runSearch);
         searchInput.addEventListener('input', function () {
             clearOwnerUserSelection();
+            toggleClearButton();
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(runSearch, 200);
+        });
+        clearBtn.addEventListener('click', function () {
+            searchInput.value = '';
+            clearOwnerUserSelection();
+            clearSuggestions();
+            toggleClearButton();
+            searchInput.focus();
         });
         ownerFirstName.addEventListener('input', clearOwnerUserSelection);
         ownerLastName.addEventListener('input', clearOwnerUserSelection);
@@ -352,6 +381,7 @@
                 clearSuggestions();
             }
         });
+        toggleClearButton();
     })();
 </script>
 <script>
@@ -683,6 +713,43 @@
         window.addEventListener('beforeunload', closeCameraModal);
         updatePhotoCount();
         updateCameraSaveButton();
+    })();
+</script>
+<script>
+    (function () {
+        const form = document.getElementById('registration-form');
+        const openConfirmBtn = document.getElementById('open-registration-confirm-modal');
+        const confirmModalElement = document.getElementById('registrationConfirmModal');
+        const confirmModal = confirmModalElement && typeof bootstrap !== 'undefined'
+            ? new bootstrap.Modal(confirmModalElement)
+            : null;
+
+        if (!form || !openConfirmBtn) {
+            return;
+        }
+
+        openConfirmBtn.addEventListener('click', function () {
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            if (confirmModal) {
+                confirmModal.show();
+                return;
+            }
+
+            const shouldSave = window.confirm('Save this registration record now?');
+            if (!shouldSave) {
+                return;
+            }
+
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+                return;
+            }
+            form.submit();
+        });
     })();
 </script>
 {% endblock %}

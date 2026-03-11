@@ -17,6 +17,7 @@ import base64
 import hashlib
 import random
 import secrets
+import shutil
 from django.http import JsonResponse
 from django.core.files.base import ContentFile
 from django.conf import settings
@@ -341,6 +342,31 @@ def _resolve_barangay_name(value):
         if _normalize_barangay(name) == normalized:
             return name
     return ""
+
+
+def _ensure_default_profile_image_exists():
+    default_relative_path = "profile_images/default-user-image.jpg"
+    target_path = os.path.join(settings.MEDIA_ROOT, default_relative_path)
+    if os.path.exists(target_path):
+        return default_relative_path
+
+    source_path = os.path.join(
+        settings.BASE_DIR,
+        "user",
+        "static",
+        "images",
+        "default-user-image.jpg",
+    )
+    if not os.path.exists(source_path):
+        return default_relative_path
+
+    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+    try:
+        shutil.copyfile(source_path, target_path)
+    except OSError:
+        pass
+
+    return default_relative_path
 
 
 def _profile_image_url_or_default(user, fallback_url):
@@ -1430,7 +1456,8 @@ def signup_complete(request):
         middle_initial=data.get("middle_initial", ""),
         address=data.get("address", ""),
         age=data.get("age", 18),
-        consent_given=True
+        consent_given=True,
+        profile_image=_ensure_default_profile_image_exists(),
     )
 
     # Move temp images into FaceImage model

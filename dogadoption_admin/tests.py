@@ -3,12 +3,14 @@ from datetime import datetime
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth.models import User
+from django.templatetags.static import static
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
 from .models import (
     AdminNotification,
+    Barangay,
     DewormingTreatmentRecord,
     Dog,
     DogImage,
@@ -18,6 +20,7 @@ from .models import (
     PostRequest,
     VaccinationRecord,
 )
+from user.models import Profile
 
 
 class AnnouncementBucketUpdateTests(TestCase):
@@ -336,3 +339,222 @@ class RegistrationOwnerProfileTests(TestCase):
         self.assertContains(response, "Registered Pets (2)")
         self.assertContains(response, "Polejames")
         self.assertContains(response, "Jester")
+
+
+class RegistrationDuplicateOwnerTests(TestCase):
+    GIF_BYTES = (
+        b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00"
+        b"\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00"
+        b"\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+    )
+
+    def setUp(self):
+        cache.clear()
+        self.admin = User.objects.create_user(
+            username="admin_duplicate_registration",
+            password="secret123",
+            is_staff=True,
+        )
+        self.primary_owner = User.objects.create_user(
+            username="joker_original",
+            password="secret123",
+            first_name="Joker",
+            last_name="Guevarra",
+        )
+        self.duplicate_owner = User.objects.create_user(
+            username="joker_new",
+            password="secret123",
+            first_name="Joker",
+            last_name="Guevarra",
+        )
+        self.barangay, _ = Barangay.objects.get_or_create(
+            name="Bugay",
+            defaults={"is_active": True},
+        )
+        Profile.objects.create(
+            user=self.primary_owner,
+            address="Bugay",
+            age=25,
+            consent_given=True,
+            profile_image=SimpleUploadedFile(
+                "joker.gif",
+                self.GIF_BYTES,
+                content_type="image/gif",
+            ),
+        )
+        self.client.force_login(self.admin)
+
+    def test_register_dogs_does_not_guess_owner_when_duplicate_name_is_typed_manually(self):
+        response = self.client.post(
+            reverse("dogadoption_admin:register_dogs"),
+            {
+                "barangay": self.barangay.name,
+                "date": timezone.localdate().isoformat(),
+                "name": "Brownie",
+                "species": "Canine",
+                "sex": "M",
+                "age_value": "2",
+                "age_unit": "years",
+                "neutering": "No",
+                "color": "Black",
+                "owner_first_name": "Joker",
+                "owner_last_name": "Guevarra",
+                "owner_user_id": "",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        dog = Dog.objects.get(name="Brownie")
+        self.assertEqual(dog.owner_name, "Joker Guevarra")
+        self.assertIsNone(dog.owner_user)
+
+    def test_registration_record_keeps_duplicate_name_accounts_in_separate_owner_rows(self):
+        Dog.objects.create(
+            date_registered=timezone.localdate(),
+            name="Alpha",
+            species="Canine",
+            sex="M",
+            age="1 yr",
+            neutering_status="No",
+            color="Brown",
+            owner_name="Joker Guevarra",
+            owner_name_key="joker guevarra",
+            owner_user=self.primary_owner,
+            owner_address="Bugay",
+            barangay=self.barangay.name,
+        )
+        Dog.objects.create(
+            date_registered=timezone.localdate(),
+            name="Beta",
+            species="Canine",
+            sex="F",
+            age="2 yrs",
+            neutering_status="C",
+            color="White",
+            owner_name="Joker Guevarra",
+            owner_name_key="joker guevarra",
+            owner_user=self.primary_owner,
+            owner_address="Bugay",
+            barangay=self.barangay.name,
+        )
+        Dog.objects.create(
+            date_registered=timezone.localdate(),
+            name="Gamma",
+            species="Canine",
+            sex="M",
+            age="3 yrs",
+            neutering_status="S",
+            color="Black",
+            owner_name="Joker Guevarra",
+            owner_name_key="joker guevarra",
+            owner_user=self.duplicate_owner,
+            owner_address="Bugay",
+            barangay=self.barangay.name,
+        )
+
+        response = self.client.get(reverse("dogadoption_admin:registration_record"))
+
+        self.assertEqual(response.status_code, 200)
+        dogs = response.context["dogs"]
+        self.assertEqual([dog.name for dog in dogs], ["Alpha", "Beta", "Gamma"])
+        self.assertTrue(dogs[0].show_owner_fields)
+        self.assertFalse(dogs[1].show_owner_fields)
+        self.assertTrue(dogs[2].show_owner_fields)
+        self.assertEqual(dogs[0].owner_profile_user_id, self.primary_owner.id)
+        self.assertEqual(dogs[2].owner_profile_user_id, self.duplicate_owner.id)
+        self.assertEqual(
+            dogs[2].owner_profile_image_url,
+            static("images/default-user-image.jpg"),
+        )
+        self.assertNotEqual(dogs[0].owner_profile_image_url, dogs[2].owner_profile_image_url)
+        self.assertContains(
+            response,
+            reverse("dogadoption_admin:registration_owner_profile", args=[self.primary_owner.id]),
+        )
+        self.assertContains(
+            response,
+            reverse("dogadoption_admin:registration_owner_profile", args=[self.duplicate_owner.id]),
+        )
+
+
+class RegistrationRecordOwnerBlockTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.admin = User.objects.create_user(
+            username="admin_owner_blocks",
+            password="secret123",
+            is_staff=True,
+        )
+        self.joker = User.objects.create_user(
+            username="joker_block",
+            password="secret123",
+            first_name="Joker",
+            last_name="Guevarra",
+        )
+        self.argus = User.objects.create_user(
+            username="argus_block",
+            password="secret123",
+            first_name="Argus",
+            last_name="Rafaela",
+        )
+        self.client.force_login(self.admin)
+
+    def test_registration_record_shows_owner_fields_again_when_same_owner_reappears_later(self):
+        Dog.objects.create(
+            date_registered=timezone.datetime(2026, 3, 10).date(),
+            name="joker-first",
+            species="Canine",
+            sex="M",
+            age="2 yrs",
+            neutering_status="No",
+            color="Black",
+            owner_name="Joker Guevarra",
+            owner_name_key="joker guevarra",
+            owner_user=self.joker,
+            owner_address="Sample 1",
+            barangay="Bugay",
+        )
+        Dog.objects.create(
+            date_registered=timezone.datetime(2026, 3, 10).date(),
+            name="argus-only",
+            species="Canine",
+            sex="M",
+            age="1 yr",
+            neutering_status="C",
+            color="Red",
+            owner_name="Argus Rafaela",
+            owner_name_key="argus rafaela",
+            owner_user=self.argus,
+            owner_address="Kalumboyan",
+            barangay="Kalumboyan",
+        )
+        Dog.objects.create(
+            date_registered=timezone.datetime(2026, 3, 11).date(),
+            name="joker-second",
+            species="Canine",
+            sex="M",
+            age="10 yrs",
+            neutering_status="No",
+            color="White",
+            owner_name="Joker Guevarra",
+            owner_name_key="joker guevarra",
+            owner_user=self.joker,
+            owner_address="Sample 1",
+            barangay="Bugay",
+        )
+
+        response = self.client.get(reverse("dogadoption_admin:registration_record"))
+
+        self.assertEqual(response.status_code, 200)
+        dogs = response.context["dogs"]
+        self.assertEqual([dog.name for dog in dogs], ["joker-first", "joker-second", "argus-only"])
+        self.assertTrue(dogs[0].show_owner_fields)
+        self.assertFalse(dogs[1].show_owner_fields)
+        self.assertTrue(dogs[2].show_owner_fields)
+        self.assertEqual(dogs[0].owner_display_number, 1)
+        self.assertEqual(dogs[1].owner_display_number, "")
+        self.assertEqual(dogs[2].owner_display_number, 2)
+        self.assertEqual(dogs[0].owner_name, "Joker Guevarra")
+        self.assertEqual(dogs[1].owner_name, "Joker Guevarra")
+        self.assertEqual(dogs[2].owner_name, "Argus Rafaela")

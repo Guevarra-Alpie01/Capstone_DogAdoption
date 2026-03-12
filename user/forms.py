@@ -14,11 +14,14 @@ class UserAdoptionPostForm(forms.ModelForm):
 
     class Meta:
         model = UserAdoptionPost
-        fields = ['dog_name', 'description', 'location']
+        fields = ['dog_name', 'gender', 'description', 'location']
         widgets = {
             "dog_name": forms.TextInput(attrs={
                 "class": "form-control",
                 "placeholder": "e.g., Brownie",
+            }),
+            "gender": forms.Select(attrs={
+                "class": "form-select",
             }),
             "description": forms.Textarea(attrs={
                 "class": "form-control",
@@ -30,6 +33,14 @@ class UserAdoptionPostForm(forms.ModelForm):
                 "placeholder": "Barangay, street, or landmark",
             }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["gender"].required = True
+        self.fields["gender"].choices = [
+            ("", "Select gender"),
+            *UserAdoptionPost.GENDER_CHOICES,
+        ]
 
 class MissingDogPostForm(forms.ModelForm):
     class Meta:

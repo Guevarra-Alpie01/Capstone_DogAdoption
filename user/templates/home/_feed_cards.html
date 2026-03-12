@@ -159,10 +159,23 @@
                 </ul>
             </div>
         {% else %}
-            <p class="card-text">
             {% if item.post_type == 'user' %}
-                {{ post.description }}
+            <div class="user-adoption-copy">
+                {% if post.dog_name %}
+                <strong>Name:</strong> {{ post.dog_name }}<br>
+                {% endif %}
+                {% if post.gender %}
+                <strong>Gender:</strong> {{ post.get_gender_display }}<br>
+                {% endif %}
+                {% if post.description %}
+                <strong>Description:</strong> {{ post.description }}<br>
+                {% endif %}
+                {% if post.location %}
+                <strong>Location:</strong> {{ post.location }}
+                {% endif %}
+            </div>
             {% else %}
+            <p class="card-text">
                 {% if post.caption %}<strong>Name:</strong> {{ post.caption }}<br>{% endif %}
                 {% if post.location %}<strong>Rescue Location:</strong> {{ post.location }}<br>{% endif %}
                 <strong>Rescue Date:</strong>
@@ -171,11 +184,11 @@
                 {% else %}
                     {{ post.created_at|date:"M d, Y" }}
                 {% endif %}
-            {% endif %}
             </p>
+            {% endif %}
         {% endif %}
 
-        {% if post.location and item.post_type != 'admin' and item.post_type != 'missing' %}
+        {% if post.location and item.post_type != 'admin' and item.post_type != 'missing' and item.post_type != 'user' %}
             <small class="text-muted">{{ post.location }}</small><br>
         {% endif %}
 

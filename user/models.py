@@ -167,6 +167,11 @@ class ClaimImage(models.Model):
 
 #user post for adoption 
 class UserAdoptionPost(models.Model):
+    GENDER_CHOICES = [
+        ("male", "Male"),
+        ("female", "Female"),
+    ]
+
     STATUS_CHOICES = [
         ('available', 'Available'),
         ('adopted', 'Adopted'),
@@ -179,6 +184,7 @@ class UserAdoptionPost(models.Model):
     )
 
     dog_name = models.CharField(max_length=100)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, default="")
     description = models.TextField()
     location = models.CharField(max_length=255)
     status = models.CharField(

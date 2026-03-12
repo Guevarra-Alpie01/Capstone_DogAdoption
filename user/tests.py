@@ -110,6 +110,7 @@ class UserPostCreationFlowTests(TestCase):
                 "home_create_post": "1",
                 "post_type": "adoption",
                 "adoption-dog_name": "Brownie",
+                "adoption-gender": "female",
                 "adoption-description": "Friendly dog ready for adoption.",
                 "adoption-location": "Barangay 1",
                 "adoption-main_image": self._image_file(),
@@ -120,6 +121,7 @@ class UserPostCreationFlowTests(TestCase):
         self.assertIn("feed_token=", response["Location"])
         self.assertTrue(UserAdoptionPost.objects.filter(dog_name="Brownie", owner=self.user).exists())
         created_post = UserAdoptionPost.objects.get(dog_name="Brownie", owner=self.user)
+        self.assertEqual(created_post.gender, "female")
         self.assertEqual(created_post.images.count(), 1)
 
         follow_response = self.client.get(response["Location"])

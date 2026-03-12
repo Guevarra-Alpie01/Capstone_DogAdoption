@@ -1453,18 +1453,43 @@ def edit_profile(request):
     return render(request, "edit_profile.html", context)
 
 
+def _render_profile_preview(request, profile_user, *, back_url="", back_label="Back"):
+    """Render the shared user profile dashboard in read-only preview mode."""
+    context = _build_profile_dashboard_context(profile_user)
+    context.update({
+        "user": profile_user,
+        "preview_mode": True,
+        "preview_back_url": back_url,
+        "preview_back_label": back_label,
+    })
+    return render(request, "edit_profile.html", context)
+
+
 @login_required
 def admin_view_user_profile(request, user_id):
     """Let staff preview a user profile using the same profile template."""
     if not request.user.is_staff:
         return redirect("user:login")
     profile_user = get_object_or_404(User, pk=user_id, is_staff=False)
-    context = _build_profile_dashboard_context(profile_user)
-    context.update({
-        "user": profile_user,
-        "preview_mode": True,
-    })
-    return render(request, "edit_profile.html", context)
+    return _render_profile_preview(request, profile_user)
+
+
+@user_only
+def view_requester_profile(request, user_id):
+    """Let a post owner preview a requester profile without edit access."""
+    profile_user = get_object_or_404(
+        User.objects.filter(
+            is_staff=False,
+            adoption_requests__post__owner=request.user,
+        ).distinct(),
+        pk=user_id,
+    )
+    return _render_profile_preview(
+        request,
+        profile_user,
+        back_url=reverse("user:user_adoption_requests"),
+        back_label="Back to Requests",
+    )
 
 
 @csrf_exempt

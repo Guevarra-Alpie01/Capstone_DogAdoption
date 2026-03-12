@@ -19,6 +19,7 @@ urlpatterns = [
     path('barangays/', views.barangay_list_api, name="barangay_list_api"),
     path("profile/edit/", views.edit_profile, name="edit_profile"),
     path("profile/view/<int:user_id>/", views.admin_view_user_profile, name="admin_view_user_profile"),
+    path("profile/requester/<int:user_id>/", views.view_requester_profile, name="view_requester_profile"),
     path("profile/posts/adoption/<int:post_id>/delete/", views.delete_user_adoption_post, name="delete_user_adoption_post"),
     path("profile/posts/missing/<int:post_id>/delete/", views.delete_missing_dog_post, name="delete_missing_dog_post"),
 

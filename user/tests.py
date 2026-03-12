@@ -167,6 +167,7 @@ class UserToUserAdoptionRequestFlowTests(TestCase):
     def setUp(self):
         self.owner = User.objects.create_user(username="owner_user", password="secret123")
         self.requester = User.objects.create_user(username="requester_user", password="secret123")
+        self.other_user = User.objects.create_user(username="other_user", password="secret123")
         Profile.objects.create(
             user=self.requester,
             address="Test Address",
@@ -198,6 +199,43 @@ class UserToUserAdoptionRequestFlowTests(TestCase):
         self.assertEqual(response.url, reverse("user:user_home"))
         self.assertTrue(
             UserAdoptionRequest.objects.filter(post=self.post, requester=self.requester).exists()
+        )
+
+    def test_post_owner_can_open_requester_profile_in_view_only_mode(self):
+        UserAdoptionRequest.objects.create(post=self.post, requester=self.requester)
+        self.client.force_login(self.owner)
+
+        response = self.client.get(
+            reverse("user:view_requester_profile", args=[self.requester.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "edit_profile.html")
+        self.assertContains(response, "requester_user")
+        self.assertContains(response, "View-only profile")
+        self.assertContains(response, "Back to Requests")
+        self.assertNotContains(response, "Edit Profile")
+
+    def test_unrelated_user_cannot_open_requester_profile_preview(self):
+        UserAdoptionRequest.objects.create(post=self.post, requester=self.requester)
+        self.client.force_login(self.other_user)
+
+        response = self.client.get(
+            reverse("user:view_requester_profile", args=[self.requester.id])
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_request_list_includes_view_profile_link(self):
+        UserAdoptionRequest.objects.create(post=self.post, requester=self.requester)
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse("user:user_adoption_requests"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse("user:view_requester_profile", args=[self.requester.id]),
         )
 
 

@@ -1014,9 +1014,21 @@
                             <div class="profile-name-line">
                                 <h1>{{ user.get_full_name|default:user.username }}</h1>
                             </div>
+                            {% if preview_mode %}
+                            <div class="profile-meta-line">
+                                <span><i class="bi bi-eye-fill"></i> View-only profile</span>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
-                    {% if not preview_mode %}
+                    {% if preview_mode and preview_back_url %}
+                    <div class="profile-header-action">
+                        <a href="{{ preview_back_url }}" class="profile-edit-btn">
+                            <i class="bi bi-arrow-left"></i>
+                            <span>{{ preview_back_label|default:"Back" }}</span>
+                        </a>
+                    </div>
+                    {% elif not preview_mode %}
                     <div class="profile-header-action">
                         <button type="button" class="profile-edit-btn" data-bs-toggle="modal" data-bs-target="#editProfileModal">
                             <i class="bi bi-pencil-square"></i>

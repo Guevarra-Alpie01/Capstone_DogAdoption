@@ -19,24 +19,42 @@
 
             <hr>
 
-            <div>
-                <strong>Requester:</strong>
-                {{ req.requester.first_name }} {{ req.requester.last_name }}
-                ({{ req.requester.username }})
-            </div>
-            <div>
-                <strong>Phone:</strong>
-                {{ req.requester.profile.phone_number|default:"-" }}
-            </div>
-            <div>
-                <strong>Facebook:</strong>
-                {% if req.requester.profile.facebook_url %}
-                    <a href="{{ req.requester.profile.facebook_url }}" target="_blank">
-                        {{ req.requester.profile.facebook_url }}
-                    </a>
-                {% else %}
-                    -
-                {% endif %}
+            <div class="d-flex flex-wrap gap-3 align-items-start">
+                <img
+                    src="{{ req.requester.profile.profile_image.url }}"
+                    alt="{{ req.requester.username }} profile"
+                    class="rounded-circle border"
+                    style="width: 72px; height: 72px; object-fit: cover;"
+                >
+
+                <div class="flex-grow-1">
+                    <div>
+                        <strong>Requester:</strong>
+                        {{ req.requester.get_full_name|default:req.requester.username }}
+                        {% if req.requester.get_full_name %}
+                            ({{ req.requester.username }})
+                        {% endif %}
+                    </div>
+                    <div>
+                        <strong>Phone:</strong>
+                        {{ req.requester.profile.phone_number|default:"-" }}
+                    </div>
+                    <div>
+                        <strong>Facebook:</strong>
+                        {% if req.requester.profile.facebook_url %}
+                            <a href="{{ req.requester.profile.facebook_url }}" target="_blank" rel="noopener noreferrer">
+                                {{ req.requester.profile.facebook_url }}
+                            </a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                    <div class="mt-3">
+                        <a href="{% url 'user:view_requester_profile' req.requester.id %}" class="btn btn-outline-secondary btn-sm">
+                            View Profile
+                        </a>
+                    </div>
+                </div>
             </div>
 
             {% if req.status == 'pending' %}

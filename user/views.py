@@ -714,20 +714,33 @@ def _build_public_post_listing(request, listing_mode):
 
 
 def _create_user_adoption_images(request, post):
-    main_image = request.FILES.get("main_image")
+    main_image = request.FILES.get("adoption-main_image") or request.FILES.get("main_image")
     if main_image:
         UserAdoptionImage.objects.create(post=post, image=main_image)
-    for img in request.FILES.getlist("extra_images"):
+    extra_images = request.FILES.getlist("extra_images")
+    if not extra_images:
+        extra_images = request.FILES.getlist("adoption-extra_images")
+    for img in extra_images:
         UserAdoptionImage.objects.create(post=post, image=img)
+
+
+def _build_user_adoption_post_form(*args, **kwargs):
+    """Return the adoption-post form with a stable prefix for shared pages."""
+    return UserAdoptionPostForm(*args, prefix="adoption", **kwargs)
+
+
+def _build_missing_dog_post_form(*args, **kwargs):
+    """Return the missing-dog form with a stable prefix for shared pages."""
+    return MissingDogPostForm(*args, prefix="missing", **kwargs)
 
 
 def _handle_user_post_creation_submission(request, selected_type):
     """Create a user adoption or missing-dog post from the submitted form."""
-    adoption_form = UserAdoptionPostForm()
-    missing_form = MissingDogPostForm()
+    adoption_form = _build_user_adoption_post_form()
+    missing_form = _build_missing_dog_post_form()
 
     if selected_type == "missing":
-        missing_form = MissingDogPostForm(request.POST, request.FILES)
+        missing_form = _build_missing_dog_post_form(request.POST, request.FILES)
         if missing_form.is_valid():
             post = missing_form.save(commit=False)
             post.owner = request.user
@@ -739,7 +752,7 @@ def _handle_user_post_creation_submission(request, selected_type):
         messages.error(request, "Missing dog post was not saved. Check the required fields and try again.")
         return False, adoption_form, missing_form
 
-    adoption_form = UserAdoptionPostForm(request.POST, request.FILES)
+    adoption_form = _build_user_adoption_post_form(request.POST, request.FILES)
     if adoption_form.is_valid():
         post = adoption_form.save(commit=False)
         post.owner = request.user
@@ -1181,6 +1194,8 @@ def _hydrate_home_feed_items(request, feed_rows):
         post.id: post
         for post in UserAdoptionPost.objects.select_related(
             "owner", "owner__profile"
+        ).annotate(
+            request_count=Count("requests", distinct=True),
         ).prefetch_related("images").filter(id__in=ids_by_type["user"])
     }
     missing_map = {
@@ -1275,6 +1290,7 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "posted_label": _format_posted_label(p.created_at),
                 "image_count": len(post_images),
                 "main_image": main_image,
+                "request_count": getattr(p, "request_count", 0),
             })
             continue
 
@@ -1595,8 +1611,8 @@ def user_home(request):
         return redirect('dogadoption_admin:post_list')
 
     selected_type = request.GET.get("type", "adoption")
-    adoption_form = UserAdoptionPostForm()
-    missing_form = MissingDogPostForm()
+    adoption_form = _build_user_adoption_post_form()
+    missing_form = _build_missing_dog_post_form()
     open_create_modal = False
 
     if request.method == "POST" and request.POST.get("home_create_post") == "1":
@@ -1664,8 +1680,8 @@ def create_post(request):
     if request.method == "POST":
         selected_type = request.POST.get("post_type", "adoption")
 
-    adoption_form = UserAdoptionPostForm()
-    missing_form = MissingDogPostForm()
+    adoption_form = _build_user_adoption_post_form()
+    missing_form = _build_missing_dog_post_form()
 
     if request.method == "POST":
         created, adoption_form, missing_form = _handle_user_post_creation_submission(

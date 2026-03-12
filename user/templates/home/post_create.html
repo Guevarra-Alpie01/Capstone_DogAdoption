@@ -141,11 +141,25 @@
         const missingFields = document.getElementById("missingFields");
         const postTypeInput = document.getElementById("postTypeInput");
 
+        function setPanelDisabled(panel, disabled) {
+            if (!panel) {
+                return;
+            }
+            panel.querySelectorAll("input, select, textarea, button").forEach((field) => {
+                if (field.type === "hidden") {
+                    return;
+                }
+                field.disabled = disabled;
+            });
+        }
+
         function setType(type) {
             const isMissing = type === "missing";
             postTypeInput.value = isMissing ? "missing" : "adoption";
             adoptionFields.style.display = isMissing ? "none" : "";
             missingFields.style.display = isMissing ? "" : "none";
+            setPanelDisabled(adoptionFields, isMissing);
+            setPanelDisabled(missingFields, !isMissing);
             if (postTypeToggle) {
                 postTypeToggle.dataset.activeType = postTypeInput.value;
             }

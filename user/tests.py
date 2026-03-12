@@ -109,16 +109,18 @@ class UserPostCreationFlowTests(TestCase):
             {
                 "home_create_post": "1",
                 "post_type": "adoption",
-                "dog_name": "Brownie",
-                "description": "Friendly dog ready for adoption.",
-                "location": "Barangay 1",
-                "main_image": self._image_file(),
+                "adoption-dog_name": "Brownie",
+                "adoption-description": "Friendly dog ready for adoption.",
+                "adoption-location": "Barangay 1",
+                "adoption-main_image": self._image_file(),
             },
         )
 
         self.assertEqual(response.status_code, 302)
         self.assertIn("feed_token=", response["Location"])
         self.assertTrue(UserAdoptionPost.objects.filter(dog_name="Brownie", owner=self.user).exists())
+        created_post = UserAdoptionPost.objects.get(dog_name="Brownie", owner=self.user)
+        self.assertEqual(created_post.images.count(), 1)
 
         follow_response = self.client.get(response["Location"])
         self.assertEqual(follow_response.status_code, 200)
@@ -136,12 +138,12 @@ class UserPostCreationFlowTests(TestCase):
             reverse("user:create_post"),
             {
                 "post_type": "missing",
-                "dog_name": "Max",
-                "description": "Last seen near the plaza.",
-                "image": self._image_file("missing.gif"),
-                "date_lost": "2026-03-08",
-                "time_lost": "09:30",
-                "location": "Town Plaza",
+                "missing-dog_name": "Max",
+                "missing-description": "Last seen near the plaza.",
+                "missing-image": self._image_file("missing.gif"),
+                "missing-date_lost": "2026-03-08",
+                "missing-time_lost": "09:30",
+                "missing-location": "Town Plaza",
             },
         )
 
@@ -247,6 +249,37 @@ class UserHomeFeedTests(TestCase):
         }
         self.assertTrue(second_page_posts)
         self.assertFalse(first_page_posts.intersection(second_page_posts))
+
+    def test_owner_does_not_see_view_requests_button_when_post_has_no_requests(self):
+        post = UserAdoptionPost.objects.filter(owner=self.owner).first()
+        UserAdoptionPost.objects.exclude(id=post.id).delete()
+        cache.clear()
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "View Requests")
+
+    def test_owner_sees_view_requests_button_when_post_has_requests(self):
+        requester = User.objects.create_user(
+            username="requester_for_feed",
+            password="secret123",
+        )
+        post = UserAdoptionPost.objects.filter(owner=self.owner).first()
+        UserAdoptionRequest.objects.create(
+            post=post,
+            requester=requester,
+            status="pending",
+        )
+        UserAdoptionPost.objects.exclude(id=post.id).delete()
+        cache.clear()
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "View Requests")
 
     def test_load_more_remains_available_on_deeper_pages_for_large_feeds(self):
         for index in range(14, 180):

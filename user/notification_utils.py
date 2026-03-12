@@ -7,11 +7,12 @@ from django.utils import timezone
 from django.utils.html import strip_tags
 
 from dogadoption_admin.models import DogAnnouncement, Post, PostRequest
-from user.models import UserAdoptionPost
+from user.models import UserAdoptionPost, UserAdoptionRequest
 
 
 USER_NOTIFICATIONS_CACHE_TTL_SECONDS = 20
 USER_NOTIFICATIONS_MAX_ITEMS = 8
+USER_NOTIFICATIONS_INCOMING_REQUEST_LIMIT = 4
 USER_NOTIFICATIONS_ACCEPTED_LIMIT = 4
 USER_NOTIFICATIONS_ADMIN_POST_CANDIDATE_LIMIT = 80
 USER_NOTIFICATIONS_ADMIN_POST_SAMPLE_LIMIT = 2
@@ -192,6 +193,39 @@ def _build_request_acceptance_items(user):
     return items
 
 
+def _build_incoming_user_request_items(user):
+    requests = list(
+        UserAdoptionRequest.objects.filter(
+            post__owner_id=user.id,
+            status="pending",
+        )
+        .select_related("post", "requester")
+        .only(
+            "id",
+            "created_at",
+            "post_id",
+            "post__dog_name",
+            "requester_id",
+            "requester__username",
+        )
+        .order_by("-created_at")[:USER_NOTIFICATIONS_INCOMING_REQUEST_LIMIT]
+    )
+
+    items = []
+    for req in requests:
+        dog_name = (req.post.dog_name or "this dog").strip() or "this dog"
+        items.append({
+            "key": f"incoming-user-request-{req.id}",
+            "kind": "incoming_user_request",
+            "title": "New adoption request",
+            "message": f"{req.requester.username} wants to adopt {dog_name}.",
+            "url": reverse("user:user_adoption_requests"),
+            "created_at": req.created_at,
+            "created_label": _format_notification_time(req.created_at),
+        })
+    return items
+
+
 def _build_announcement_items():
     announcement_ids = _sample_recent_ids_with_cache(
         USER_NOTIFICATIONS_ANNOUNCEMENT_IDS_CACHE_KEY,
@@ -303,6 +337,7 @@ def build_user_notification_payload(user):
     items = []
     seen_keys = set()
     for bucket in (
+        _build_incoming_user_request_items(user),
         _build_request_acceptance_items(user),
         _build_announcement_items(),
         _build_admin_post_items(),

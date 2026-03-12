@@ -84,26 +84,26 @@
                 <span class="author-time">{{ item.posted_label }}</span>
             </div>
         {% elif item.post_type == 'user' %}
-            {% if post.owner.profile.profile_image %}
-                <img src="{{ post.owner.profile.profile_image.url }}" class="author-avatar-img" alt="Author">
-            {% else %}
-                <div class="author-avatar">U</div>
-            {% endif %}
+            <a href="{{ item.author_profile_url }}">
+                <img src="{{ item.author_avatar_url }}" class="author-avatar-img" alt="{{ item.author_name }} profile">
+            </a>
             <div class="author-meta">
                 <div class="author-row">
-                    <span class="author-name">{{ post.owner.username }}</span>
+                    <a href="{{ item.author_profile_url }}" class="text-decoration-none text-reset">
+                        <span class="author-name">{{ item.author_name }}</span>
+                    </a>
                 </div>
                 <span class="author-time">{{ item.posted_label }}</span>
             </div>
         {% elif item.post_type == 'missing' %}
-            {% if post.owner.profile.profile_image %}
-                <img src="{{ post.owner.profile.profile_image.url }}" class="author-avatar-img" alt="Author">
-            {% else %}
-                <div class="author-avatar">U</div>
-            {% endif %}
+            <a href="{{ item.author_profile_url }}">
+                <img src="{{ item.author_avatar_url }}" class="author-avatar-img" alt="{{ item.author_name }} profile">
+            </a>
             <div class="author-meta">
                 <div class="author-row">
-                    <span class="author-name">{{ post.owner.username }}</span>
+                    <a href="{{ item.author_profile_url }}" class="text-decoration-none text-reset">
+                        <span class="author-name">{{ item.author_name }}</span>
+                    </a>
                 </div>
                 <span class="author-time">{{ item.posted_label }}</span>
             </div>
@@ -270,7 +270,7 @@
                     <span class="badge bg-secondary fs-6 px-3 py-2">Adopted</span>
                 {% endif %}
                 {% if request.user == post.owner and item.request_count %}
-                    <a href="{% url 'user:user_adoption_requests' %}" class="btn btn-outline-dark btn-sm ms-2">View Requests</a>
+                    <a href="{{ item.owner_request_url }}" class="btn btn-outline-dark btn-sm ms-2">Requests ({{ item.request_count }})</a>
                 {% endif %}
             {% else %}
                 {% if post.status == 'reunited' %}

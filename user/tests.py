@@ -5,6 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from django.utils import timezone
+from urllib.parse import urlencode
 
 from dogadoption_admin.models import (
     Citation,
@@ -201,30 +202,62 @@ class UserToUserAdoptionRequestFlowTests(TestCase):
             UserAdoptionRequest.objects.filter(post=self.post, requester=self.requester).exists()
         )
 
-    def test_post_owner_can_open_requester_profile_in_view_only_mode(self):
+    def test_post_adopt_user_post_allows_blank_phone_and_facebook(self):
+        profile = self.requester.profile
+        profile.phone_number = ""
+        profile.facebook_url = ""
+        profile.save(update_fields=["phone_number", "facebook_url"])
+
+        response = self.client.post(reverse("user:adopt_user_post", args=[self.post.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("user:user_home"))
+        self.assertTrue(
+            UserAdoptionRequest.objects.filter(post=self.post, requester=self.requester).exists()
+        )
+
+    def test_authenticated_user_can_open_public_profile_preview_without_switching_accounts(self):
         UserAdoptionRequest.objects.create(post=self.post, requester=self.requester)
         self.client.force_login(self.owner)
 
         response = self.client.get(
-            reverse("user:view_requester_profile", args=[self.requester.id])
+            reverse("user:view_user_profile", args=[self.requester.id])
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "edit_profile.html")
         self.assertContains(response, "requester_user")
         self.assertContains(response, "View-only profile")
-        self.assertContains(response, "Back to Requests")
+        self.assertEqual(response.context["profile_user"], self.requester)
+        self.assertEqual(response.wsgi_request.user, self.owner)
         self.assertNotContains(response, "Edit Profile")
 
-    def test_unrelated_user_cannot_open_requester_profile_preview(self):
+    def test_public_profile_preview_keeps_contact_placeholders(self):
+        profile = self.requester.profile
+        profile.phone_number = ""
+        profile.facebook_url = ""
+        profile.save(update_fields=["phone_number", "facebook_url"])
+        UserAdoptionRequest.objects.create(post=self.post, requester=self.requester)
+        self.client.force_login(self.owner)
+
+        response = self.client.get(
+            reverse("user:view_user_profile", args=[self.requester.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No phone number added")
+        self.assertContains(response, "No Facebook profile added")
+
+    def test_unrelated_user_can_open_public_profile_preview(self):
         UserAdoptionRequest.objects.create(post=self.post, requester=self.requester)
         self.client.force_login(self.other_user)
 
         response = self.client.get(
-            reverse("user:view_requester_profile", args=[self.requester.id])
+            reverse("user:view_user_profile", args=[self.requester.id])
         )
 
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "requester_user")
 
     def test_request_list_includes_view_profile_link(self):
         UserAdoptionRequest.objects.create(post=self.post, requester=self.requester)
@@ -235,8 +268,38 @@ class UserToUserAdoptionRequestFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            reverse("user:view_requester_profile", args=[self.requester.id]),
+            reverse("user:view_user_profile", args=[self.requester.id]),
         )
+
+    def test_post_owner_profile_shows_inline_requests_on_the_post(self):
+        UserAdoptionRequest.objects.create(post=self.post, requester=self.requester)
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse("user:edit_profile"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Requests (1)")
+        self.assertContains(response, "@requester_user wants to adopt")
+        self.assertContains(response, reverse("user:view_user_profile", args=[self.requester.id]))
+        self.assertContains(response, "profile-post-menu-trigger")
+        self.assertContains(response, "profile-post-request-toggle")
+        self.assertContains(response, "Delete post")
+        post_item = next(item for item in response.context["profile_posts"] if item["id"] == self.post.id)
+        self.assertEqual(post_item["request_count"], 1)
+        self.assertEqual(len(post_item["requests"]), 1)
+        self.assertEqual(response.context["incoming_requests_total"], 1)
+
+    def test_request_action_can_return_to_profile_post_panel(self):
+        adoption_request = UserAdoptionRequest.objects.create(post=self.post, requester=self.requester)
+        self.client.force_login(self.owner)
+        next_url = f"{reverse('user:edit_profile')}#post-requests-{self.post.id}"
+
+        response = self.client.get(
+            f"{reverse('user:user_adoption_request_action', args=[adoption_request.id, 'accept'])}?{urlencode({'next': next_url})}"
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, next_url)
 
 
 class UserHomeFeedTests(TestCase):
@@ -290,7 +353,7 @@ class UserHomeFeedTests(TestCase):
         self.assertTrue(second_page_posts)
         self.assertFalse(first_page_posts.intersection(second_page_posts))
 
-    def test_owner_does_not_see_view_requests_button_when_post_has_no_requests(self):
+    def test_owner_does_not_see_post_request_button_when_post_has_no_requests(self):
         post = UserAdoptionPost.objects.filter(owner=self.owner).first()
         UserAdoptionPost.objects.exclude(id=post.id).delete()
         cache.clear()
@@ -299,9 +362,9 @@ class UserHomeFeedTests(TestCase):
         response = self.client.get(reverse("user:user_home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, "View Requests")
+        self.assertNotContains(response, "Requests (")
 
-    def test_owner_sees_view_requests_button_when_post_has_requests(self):
+    def test_owner_sees_post_request_button_when_post_has_requests(self):
         requester = User.objects.create_user(
             username="requester_for_feed",
             password="secret123",
@@ -319,7 +382,17 @@ class UserHomeFeedTests(TestCase):
         response = self.client.get(reverse("user:user_home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "View Requests")
+        self.assertContains(response, f"Requests ({post.requests.count()})")
+
+    def test_feed_author_name_links_to_public_profile_preview(self):
+        post = UserAdoptionPost.objects.filter(owner=self.owner).first()
+        UserAdoptionPost.objects.exclude(id=post.id).delete()
+        cache.clear()
+
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("user:view_user_profile", args=[self.owner.id]))
 
     def test_load_more_remains_available_on_deeper_pages_for_large_feeds(self):
         for index in range(14, 180):
@@ -618,6 +691,39 @@ class UserNotificationTests(TestCase):
         self.assertTrue(any(item["kind"] == "admin_post" and str(rescued_post.id) in item["url"] for item in notifications))
         self.assertTrue(any(item["kind"] == "community_post" and community_post.owner.username in item["message"] for item in notifications))
         self.assertEqual(accepted_request.scheduled_appointment_date, None)
+
+    def test_notification_context_includes_incoming_user_request_for_post_owner(self):
+        owned_post = UserAdoptionPost.objects.create(
+            owner=self.user,
+            dog_name="Buddy",
+            description="Friendly dog",
+            location="Barangay 4",
+            status="available",
+        )
+        Profile.objects.create(
+            user=self.other_user,
+            address="Barangay 2",
+            age=24,
+            consent_given=True,
+        )
+
+        self.client.get(reverse("user:edit_profile"))
+        self.client.force_login(self.other_user)
+        self.client.post(reverse("user:adopt_user_post", args=[owned_post.id]))
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("user:edit_profile"))
+
+        self.assertEqual(response.status_code, 200)
+        notifications = response.context["user_latest_notifications"]
+        self.assertTrue(
+            any(
+                item["kind"] == "incoming_user_request"
+                and item["url"] == reverse("user:user_adoption_requests")
+                for item in notifications
+            )
+        )
+        self.assertGreaterEqual(response.context["user_unread_notifications"], 1)
 
     def test_mark_notifications_seen_clears_unread_count(self):
         rescued_post = Post.objects.create(

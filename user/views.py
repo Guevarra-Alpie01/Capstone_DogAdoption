@@ -30,6 +30,7 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.templatetags.static import static
 from django.utils.html import strip_tags
+from urllib.parse import urlencode
 
 # Shared models from the admin app
 from dogadoption_admin.models import (
@@ -59,6 +60,7 @@ from .notification_utils import (
     bump_user_home_feed_namespace,
     get_user_home_feed_namespace,
     invalidate_user_notification_content,
+    invalidate_user_notification_payload,
 )
 
 # Administrative and user models above are shared across multiple public flows.
@@ -88,6 +90,53 @@ def _first_prefetched_image_url(images):
     if not first_image:
         return ""
     return _safe_media_url(getattr(first_image, "image", None))
+
+
+def _build_user_profile_url(user_id, *, next_url="", back_label="Back"):
+    """Build a read-only profile preview URL for a user account."""
+    profile_url = reverse("user:view_user_profile", args=[user_id])
+    query_params = {}
+    if next_url:
+        query_params["next"] = next_url
+        if back_label:
+            query_params["label"] = back_label
+    if not query_params:
+        return profile_url
+    return f"{profile_url}?{urlencode(query_params)}"
+
+
+def _build_profile_destination_url(request, user_id, *, next_url="", back_label="Back"):
+    """Route profile links to self-edit, public preview, or admin preview."""
+    if request.user.is_authenticated and request.user.is_staff:
+        return reverse("user:admin_view_user_profile", args=[user_id])
+    if request.user.is_authenticated and request.user.id == user_id:
+        return reverse("user:edit_profile")
+    return _build_user_profile_url(
+        user_id,
+        next_url=next_url,
+        back_label=back_label,
+    )
+
+
+def _safe_preview_back_url(request, raw_url):
+    """Accept only local preview return URLs."""
+    if not raw_url:
+        return ""
+    if url_has_allowed_host_and_scheme(
+        raw_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return raw_url
+    return ""
+
+
+def _build_request_action_url(request_id, action, *, next_url=""):
+    """Build request action links with an optional safe return URL."""
+    action_url = reverse("user:user_adoption_request_action", args=[request_id, action])
+    if not next_url:
+        return action_url
+    return f"{action_url}?{urlencode({'next': next_url})}"
 
 
 def _build_registered_dog_payloads(dogs):
@@ -127,13 +176,32 @@ def _build_profile_dashboard_context(profile_user):
     )
 
     recent_post_limit = 6
+    default_profile_avatar_url = static("images/default-user-image.jpg")
     adoption_posts = list(
         UserAdoptionPost.objects.filter(owner=profile_user)
         .prefetch_related(
             Prefetch(
                 "images",
                 queryset=UserAdoptionImage.objects.only("id", "post_id", "image").order_by("id"),
-            )
+            ),
+            Prefetch(
+                "requests",
+                queryset=UserAdoptionRequest.objects.select_related(
+                    "requester", "requester__profile"
+                ).only(
+                    "id",
+                    "status",
+                    "created_at",
+                    "post_id",
+                    "requester_id",
+                    "requester__username",
+                    "requester__first_name",
+                    "requester__last_name",
+                    "requester__profile__profile_image",
+                    "requester__profile__phone_number",
+                    "requester__profile__facebook_url",
+                ).order_by("-created_at"),
+            ),
         )
         .only("id", "dog_name", "location", "status", "created_at")
         .order_by("-created_at")[:recent_post_limit]
@@ -147,6 +215,42 @@ def _build_profile_dashboard_context(profile_user):
     profile_posts = []
 
     for post in adoption_posts:
+        request_items = []
+        request_panel_id = f"post-requests-{post.id}"
+        request_return_url = f"{reverse('user:edit_profile')}#{request_panel_id}"
+        for adoption_request in post.requests.all():
+            requester = adoption_request.requester
+            requester_profile = getattr(requester, "profile", None)
+            request_items.append({
+                "id": adoption_request.id,
+                "requester_name": requester.get_full_name() or requester.username,
+                "requester_username": requester.username,
+                "requester_avatar_url": _profile_image_url_or_default(
+                    requester,
+                    default_profile_avatar_url,
+                ),
+                "requester_profile_url": _build_user_profile_url(
+                    requester.id,
+                    next_url=request_return_url,
+                    back_label="Back to Profile",
+                ),
+                "phone_number": getattr(requester_profile, "phone_number", ""),
+                "facebook_url": getattr(requester_profile, "facebook_url", ""),
+                "status_key": adoption_request.status,
+                "status_label": adoption_request.get_status_display(),
+                "created_label": _format_posted_label(adoption_request.created_at),
+                "accept_url": _build_request_action_url(
+                    adoption_request.id,
+                    "accept",
+                    next_url=request_return_url,
+                ),
+                "decline_url": _build_request_action_url(
+                    adoption_request.id,
+                    "decline",
+                    next_url=request_return_url,
+                ),
+            })
+
         profile_posts.append({
             "id": post.id,
             "post_type": "adoption",
@@ -158,6 +262,12 @@ def _build_profile_dashboard_context(profile_user):
             "posted_label": _format_posted_label(post.created_at),
             "created_at": post.created_at,
             "image_url": _first_prefetched_image_url(post.images.all()),
+            "request_count": len(request_items),
+            "pending_request_count": sum(
+                1 for item in request_items if item["status_key"] == "pending"
+            ),
+            "requests": request_items,
+            "request_panel_id": request_panel_id,
         })
 
     for post in missing_posts:
@@ -172,6 +282,10 @@ def _build_profile_dashboard_context(profile_user):
             "posted_label": _format_posted_label(post.created_at),
             "created_at": post.created_at,
             "image_url": _safe_media_url(post.image),
+            "request_count": 0,
+            "pending_request_count": 0,
+            "requests": [],
+            "request_panel_id": "",
         })
 
     profile_posts.sort(key=lambda item: item["created_at"], reverse=True)
@@ -223,10 +337,52 @@ def _build_profile_dashboard_context(profile_user):
             "created_at": req.created_at,
             "image_url": _first_prefetched_image_url(post.images.all()),
             "owner_name": post.owner.get_full_name() or post.owner.username,
+            "owner_profile_url": _build_user_profile_url(post.owner_id),
         })
 
     adopted_posts.sort(key=lambda item: item["created_at"], reverse=True)
     adopted_posts = adopted_posts[:recent_post_limit]
+
+    incoming_requests_limit = 6
+    incoming_requests_qs = list(
+        UserAdoptionRequest.objects.filter(post__owner=profile_user)
+        .select_related("post", "requester", "requester__profile")
+        .only(
+            "id",
+            "status",
+            "created_at",
+            "post_id",
+            "post__dog_name",
+            "requester_id",
+            "requester__username",
+            "requester__first_name",
+            "requester__last_name",
+            "requester__profile__profile_image",
+        )
+        .order_by("-created_at")[:incoming_requests_limit]
+    )
+    incoming_requests_total = UserAdoptionRequest.objects.filter(post__owner=profile_user).count()
+    incoming_requests = []
+    for adoption_request in incoming_requests_qs:
+        requester = adoption_request.requester
+        incoming_requests.append({
+            "id": adoption_request.id,
+            "dog_name": adoption_request.post.dog_name,
+            "requester_name": requester.get_full_name() or requester.username,
+            "requester_username": requester.username,
+            "requester_avatar_url": _profile_image_url_or_default(
+                requester,
+                default_profile_avatar_url,
+            ),
+            "requester_profile_url": _build_user_profile_url(
+                adoption_request.requester_id,
+                next_url=reverse("user:user_adoption_requests"),
+                back_label="Back to Requests",
+            ),
+            "status_key": adoption_request.status,
+            "status_label": adoption_request.get_status_display(),
+            "created_label": _format_posted_label(adoption_request.created_at),
+        })
 
     registered_dogs_limit = 12
     registered_dogs_qs = list(
@@ -287,11 +443,15 @@ def _build_profile_dashboard_context(profile_user):
         )
 
     return {
+        "profile_user": profile_user,
         "profile": profile,
         "profile_posts": profile_posts,
         "profile_posts_limit": recent_post_limit,
         "adopted_posts": adopted_posts,
         "adopted_posts_limit": recent_post_limit,
+        "incoming_requests": incoming_requests,
+        "incoming_requests_limit": incoming_requests_limit,
+        "incoming_requests_total": incoming_requests_total,
         "registered_dogs": registered_dogs,
         "registered_dogs_limit": registered_dogs_limit,
         "registered_dogs_total": registered_dogs_total,
@@ -678,6 +838,12 @@ def _build_public_post_listing(request, listing_mode):
                 "post": post,
                 "main_image_url": _first_prefetched_image_url(post.images.all()),
                 "owner_name": post.owner.get_full_name() or post.owner.username,
+                "owner_profile_url": _build_profile_destination_url(
+                    request,
+                    post.owner_id,
+                    next_url=request.get_full_path(),
+                    back_label="Back to Adoption List",
+                ),
                 "source_type": "user",
             })
 
@@ -1207,6 +1373,10 @@ def _hydrate_home_feed_items(request, feed_rows):
 
     combined_posts = []
     default_admin_avatar_url = static("images/officialseal.webp")
+    default_profile_avatar_url = static("images/default-user-image.jpg")
+    current_url_name = getattr(getattr(request, "resolver_match", None), "url_name", "")
+    profile_back_label = "Back to Search" if current_url_name == "home_search" else "Back to Feed"
+    profile_return_url = request.get_full_path()
     for row in feed_rows:
         post_type = row["feed_type"]
         post_id = row["id"]
@@ -1278,6 +1448,12 @@ def _hydrate_home_feed_items(request, feed_rows):
                 continue
             post_images = p.images.all()
             main_image = next(iter(post_images), None)
+            profile_url = _build_profile_destination_url(
+                request,
+                p.owner_id,
+                next_url=profile_return_url,
+                back_label=profile_back_label,
+            )
 
             combined_posts.append({
                 "post": p,
@@ -1291,12 +1467,25 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "image_count": len(post_images),
                 "main_image": main_image,
                 "request_count": getattr(p, "request_count", 0),
+                "author_name": p.owner.get_full_name() or p.owner.username,
+                "author_avatar_url": _profile_image_url_or_default(
+                    p.owner,
+                    default_profile_avatar_url,
+                ),
+                "author_profile_url": profile_url,
+                "owner_request_url": f"{reverse('user:edit_profile')}#post-requests-{p.id}",
             })
             continue
 
         p = missing_map.get(post_id)
         if not p:
             continue
+        profile_url = _build_profile_destination_url(
+            request,
+            p.owner_id,
+            next_url=profile_return_url,
+            back_label=profile_back_label,
+        )
         combined_posts.append({
             "post": p,
             "post_type": "missing",
@@ -1308,6 +1497,12 @@ def _hydrate_home_feed_items(request, feed_rows):
             "posted_label": _format_posted_label(p.created_at),
             "image_count": 1 if p.image else 0,
             "main_image": None,
+            "author_name": p.owner.get_full_name() or p.owner.username,
+            "author_avatar_url": _profile_image_url_or_default(
+                p.owner,
+                default_profile_avatar_url,
+            ),
+            "author_profile_url": profile_url,
         })
 
     return combined_posts
@@ -1449,15 +1644,13 @@ def edit_profile(request):
         messages.success(request, "Profile updated successfully")
         return redirect("user:edit_profile")
 
-    context = _build_profile_dashboard_context(user)
-    return render(request, "edit_profile.html", context)
+    return render(request, "edit_profile.html", _build_profile_dashboard_context(user))
 
 
 def _render_profile_preview(request, profile_user, *, back_url="", back_label="Back"):
     """Render the shared user profile dashboard in read-only preview mode."""
     context = _build_profile_dashboard_context(profile_user)
     context.update({
-        "user": profile_user,
         "preview_mode": True,
         "preview_back_url": back_url,
         "preview_back_label": back_label,
@@ -1472,6 +1665,25 @@ def admin_view_user_profile(request, user_id):
         return redirect("user:login")
     profile_user = get_object_or_404(User, pk=user_id, is_staff=False)
     return _render_profile_preview(request, profile_user)
+
+
+@login_required
+def view_user_profile(request, user_id):
+    """Render a read-only profile preview for any non-staff user."""
+    if request.user.is_staff:
+        return redirect("user:admin_view_user_profile", user_id=user_id)
+    if request.user.id == user_id:
+        return redirect("user:edit_profile")
+
+    profile_user = get_object_or_404(User, pk=user_id, is_staff=False)
+    back_url = _safe_preview_back_url(request, request.GET.get("next", ""))
+    back_label = (request.GET.get("label") or "Back").strip()[:48] or "Back"
+    return _render_profile_preview(
+        request,
+        profile_user,
+        back_url=back_url,
+        back_label=back_label,
+    )
 
 
 @user_only
@@ -1736,11 +1948,6 @@ def adopt_user_post(request, post_id):
         messages.warning(request, "This dog is no longer available.")
         return redirect("user:user_home")
 
-    profile = Profile.objects.filter(user=request.user).first()
-    if not profile or not profile.phone_number or not profile.facebook_url:
-        messages.warning(request, "Please add your phone number and Facebook profile before requesting adoption.")
-        return redirect("user:edit_profile")
-
     if request.method == "POST":
         _, created = UserAdoptionRequest.objects.get_or_create(
             post=post,
@@ -1748,6 +1955,7 @@ def adopt_user_post(request, post_id):
         )
 
         if created:
+            invalidate_user_notification_payload(post.owner_id)
             messages.success(request, "Adoption request submitted successfully.")
         else:
             messages.info(request, "You already submitted an adoption request for this post.")
@@ -1788,12 +1996,17 @@ def user_adoption_request_action(request, req_id, action):
         req.post.status = "adopted"
         req.post.save(update_fields=["status"])
         bump_user_home_feed_namespace()
+        invalidate_user_notification_payload(request.user.id)
         messages.success(request, "Adoption request accepted.")
     elif action == "decline":
         req.status = "rejected"
         req.save(update_fields=["status"])
+        invalidate_user_notification_payload(request.user.id)
         messages.info(request, "Adoption request declined.")
 
+    next_url = _safe_preview_back_url(request, request.GET.get("next", ""))
+    if next_url:
+        return redirect(next_url)
     return redirect("user:user_adoption_requests")
 
 

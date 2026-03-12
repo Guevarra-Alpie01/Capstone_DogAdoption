@@ -37,12 +37,25 @@
                     >
                         {% csrf_token %}
                         <input type="hidden" name="form_type" value="create_post">
+                        <div class="form-hero">
+                            <span class="form-hero-kicker">Bayawan Vet</span>
+                            <h2>Create Adoption Post</h2>
+                            <p>Use the official Bayawan Vet theme to publish a rescue post with clear dog details and claim timing.</p>
+                        </div>
                         <div class="form-grid">
                             <div class="form-group full">
                                 <label for="{{ post_form.caption.id_for_label }}">Dog Name</label>
                                 {{ post_form.caption }}
                                 {% if post_form.caption.errors %}
                                     <div class="text-danger small mt-1">{{ post_form.caption.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="form-group">
+                                <label for="{{ post_form.gender.id_for_label }}">Gender <span class="field-optional">(Optional)</span></label>
+                                {{ post_form.gender }}
+                                {% if post_form.gender.errors %}
+                                    <div class="text-danger small mt-1">{{ post_form.gender.errors|join:", " }}</div>
                                 {% endif %}
                             </div>
 
@@ -421,6 +434,7 @@
                     {% endif %}
                     <div class="detail-grid">
                         <div><strong>Rescued Date:</strong> {{ post.rescued_date|date:"M d, Y"|default:"-" }}</div>
+                        <div><strong>Gender:</strong> {{ post.get_gender_display|default:"-" }}</div>
                         <div><strong>Barangay:</strong> {{ post.location|default:"-" }}</div>
                         <div><strong>Status:</strong> {{ post.get_status_display }}</div>
                         <div><strong>Time Left:</strong> {{ item.time_left_label }}</div>

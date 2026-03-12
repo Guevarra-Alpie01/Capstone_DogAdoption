@@ -15,6 +15,12 @@ class PostForm(forms.ModelForm):
         widget=forms.DateInput(attrs={'type': 'date'})
     )
 
+    gender = forms.ChoiceField(
+        required=False,
+        choices=[("", "Gender (Optional)"), *Post.GENDER_CHOICES],
+        widget=forms.Select(),
+    )
+
     location = forms.CharField(
         required=False,
         widget=forms.TextInput(attrs={
@@ -41,10 +47,24 @@ class PostForm(forms.ModelForm):
         model = Post
         fields = [
             'caption',
+            'gender',
             'location',
             'rescued_date',
             'claim_days',
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name, css_class in {
+            "caption": "form-control",
+            "gender": "form-select",
+            "location": "form-control",
+            "rescued_date": "form-control",
+            "claim_days": "form-control",
+        }.items():
+            existing = self.fields[field_name].widget.attrs.get("class", "")
+            merged = f"{existing} {css_class}".strip()
+            self.fields[field_name].widget.attrs["class"] = merged
 
     def clean_location(self):
         value = " ".join((self.cleaned_data.get("location") or "").split()).strip()

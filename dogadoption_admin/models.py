@@ -8,6 +8,10 @@ from django.utils import timezone
 
 class Post(models.Model):
     ADOPTION_DAYS = 3
+    GENDER_CHOICES = [
+        ("male", "Male"),
+        ("female", "Female"),
+    ]
 
     STATUS_CHOICES = [
         ('rescued', 'Rescued'),
@@ -18,6 +22,7 @@ class Post(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     caption = models.TextField()
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, default="")
     location = models.CharField(max_length=255, blank=True, null=True)
 
     status = models.CharField(

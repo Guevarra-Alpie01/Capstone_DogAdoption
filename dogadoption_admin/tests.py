@@ -8,6 +8,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from .forms import PostForm
 from .models import (
     AdminNotification,
     Barangay,
@@ -479,6 +480,59 @@ class RegistrationDuplicateOwnerTests(TestCase):
             response,
             reverse("dogadoption_admin:registration_owner_profile", args=[self.duplicate_owner.id]),
         )
+
+
+class AdminPostGenderTests(TestCase):
+    GIF_BYTES = (
+        b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00"
+        b"\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00"
+        b"\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+    )
+
+    def setUp(self):
+        cache.clear()
+        self.admin = User.objects.create_user(
+            username="admin_post_gender",
+            password="secret123",
+            is_staff=True,
+        )
+        Barangay.objects.get_or_create(name="Bugay", defaults={"is_active": True})
+        self.client.force_login(self.admin)
+
+    def _image_file(self, name="dog.gif"):
+        return SimpleUploadedFile(name, self.GIF_BYTES, content_type="image/gif")
+
+    def test_post_form_allows_optional_gender(self):
+        form = PostForm(
+            data={
+                "caption": "Rescued dog",
+                "gender": "",
+                "location": "Bugay",
+                "rescued_date": timezone.localdate().isoformat(),
+                "claim_days": 3,
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_admin_can_create_post_with_gender(self):
+        response = self.client.post(
+            reverse("dogadoption_admin:post_list"),
+            {
+                "form_type": "create_post",
+                "caption": "Bantay",
+                "gender": "male",
+                "location": "Bugay",
+                "rescued_date": timezone.localdate().isoformat(),
+                "claim_days": 3,
+                "images": self._image_file(),
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        created_post = Post.objects.get(caption="Bantay")
+        self.assertEqual(created_post.gender, "male")
 
 
 class RegistrationRecordOwnerBlockTests(TestCase):

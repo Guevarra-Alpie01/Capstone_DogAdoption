@@ -1017,6 +1017,7 @@ def post_list(request):
     base_qs = Post.objects.only(
         'id',
         'caption',
+        'gender',
         'location',
         'status',
         'rescued_date',

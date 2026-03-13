@@ -18,7 +18,14 @@ from dogadoption_admin.models import (
     PostRequest,
 )
 from user.notification_utils import remember_request_reviewed_at
-from user.models import MissingDogPost, Profile, UserAdoptionPost, UserAdoptionRequest
+from user.models import (
+    DogCaptureRequest,
+    DogCaptureRequestImage,
+    MissingDogPost,
+    Profile,
+    UserAdoptionPost,
+    UserAdoptionRequest,
+)
 
 
 class AnnouncementListBucketTests(TestCase):
@@ -753,3 +760,73 @@ class UserNotificationTests(TestCase):
 
         second_response = self.client.get(reverse("user:my_claims"))
         self.assertEqual(second_response.context["user_unread_notifications"], 0)
+
+
+class DogCaptureRequestFlowTests(TestCase):
+    GIF_BYTES = (
+        b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00"
+        b"\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00"
+        b"\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+    )
+    ONE_PIXEL_PNG_DATA_URL = (
+        "data:image/png;base64,"
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ncW0AAAAASUVORK5CYII="
+    )
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="camera_requester",
+            password="secret123",
+        )
+        self.client.force_login(self.user)
+
+    def _image_file(self, name="camera-upload.gif"):
+        return SimpleUploadedFile(name, self.GIF_BYTES, content_type="image/gif")
+
+    def _exact_location_payload(self):
+        return {
+            "reason": "stray",
+            "description": "Dog seen near the market road.",
+            "location_mode": "exact",
+            "latitude": "9.123456",
+            "longitude": "122.654321",
+        }
+
+    def test_request_dog_capture_accepts_uploaded_mobile_camera_file(self):
+        response = self.client.post(
+            reverse("user:dog_capture_request"),
+            {
+                **self._exact_location_payload(),
+                "images": self._image_file("rear-camera.gif"),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(DogCaptureRequest.objects.filter(requested_by=self.user).count(), 1)
+
+        capture_request = DogCaptureRequest.objects.get(requested_by=self.user)
+        self.assertEqual(capture_request.images.count(), 1)
+        self.assertTrue(capture_request.image.name)
+        self.assertTrue(
+            DogCaptureRequestImage.objects.filter(request=capture_request).exists()
+        )
+
+    def test_request_dog_capture_accepts_multiple_base64_camera_captures(self):
+        response = self.client.post(
+            reverse("user:dog_capture_request"),
+            {
+                **self._exact_location_payload(),
+                "captured_image": [
+                    self.ONE_PIXEL_PNG_DATA_URL,
+                    self.ONE_PIXEL_PNG_DATA_URL,
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(DogCaptureRequest.objects.filter(requested_by=self.user).count(), 1)
+
+        capture_request = DogCaptureRequest.objects.get(requested_by=self.user)
+        self.assertEqual(capture_request.images.count(), 2)
+        self.assertTrue(capture_request.image.name.endswith(".png"))

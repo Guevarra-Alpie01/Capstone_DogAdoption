@@ -1,4 +1,4 @@
-﻿from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.password_validation import validate_password
@@ -14,6 +14,7 @@ from django.db.models.expressions import RawSQL
 import os
 import json
 import base64
+import binascii
 import hashlib
 import random
 import secrets
@@ -2053,8 +2054,55 @@ def request_dog_capture(request):
         legacy_image = request.FILES.get('image')
         if legacy_image:
             uploaded_images.append(legacy_image)
-        captured_image = request.POST.get('captured_image')
-        reason = (request.POST.get('reason') or '').strip()
+        captured_images = [
+            payload
+            for payload in request.POST.getlist('captured_image')
+            if payload and ';base64,' in payload
+        ]
+        if not captured_images:
+            captured_image = request.POST.get('captured_image')
+            if captured_image and ';base64,' in captured_image:
+                captured_images = [captured_image]
+
+        # Step 2: contact details
+        facebook_url = (request.POST.get('facebook_url') or '').strip()
+        phone_number = (request.POST.get('phone_number') or '').strip()
+
+        # Basic server-side validation to mirror frontend constraints.
+        if phone_number:
+            import re
+            if not re.fullmatch(r"[0-9+\-\s()]{7,20}", phone_number):
+                messages.error(request, "Please enter a valid phone number (7–20 digits, spaces, +, - or parentheses).")
+                return redirect('user:dog_capture_request')
+
+        if facebook_url and not facebook_url.lower().startswith(("http://", "https://")):
+            messages.error(request, "Please enter a valid Facebook profile link starting with http:// or https://.")
+            return redirect('user:dog_capture_request')
+
+        # Persist updated contact info on the user's profile without clearing existing data
+        # when the new values are blank.
+        try:
+            profile = request.user.profile
+        except Profile.DoesNotExist:
+            profile = Profile.objects.create(
+                user=request.user,
+                address="",
+                age=18,
+                consent_given=True,
+            )
+
+        profile_fields_to_update = []
+        if phone_number:
+            profile.phone_number = phone_number
+            profile_fields_to_update.append("phone_number")
+        if facebook_url:
+            profile.facebook_url = facebook_url
+            profile_fields_to_update.append("facebook_url")
+        if profile_fields_to_update:
+            profile.save(update_fields=profile_fields_to_update)
+
+        # Keep a valid capture reason internally while removing the visible selector in the UI.
+        reason = (request.POST.get('reason') or 'stray').strip()
         description = (request.POST.get('description') or '').strip()
         location_mode = (request.POST.get('location_mode') or 'exact').strip().lower()
         if location_mode not in {'exact', 'manual'}:
@@ -2069,10 +2117,24 @@ def request_dog_capture(request):
         latitude_raw = (request.POST.get('latitude') or '').strip()
         longitude_raw = (request.POST.get('longitude') or '').strip()
 
-        if not uploaded_images and captured_image and ';base64,' in captured_image:
-            _, imgstr = captured_image.split(';base64,', 1)
-            filename = f"capture_{request.user.id}_{int(timezone.now().timestamp())}.png"
-            uploaded_images = [ContentFile(base64.b64decode(imgstr), name=filename)]
+        if captured_images:
+            timestamp = int(timezone.now().timestamp())
+            for index, captured_image in enumerate(captured_images, start=1):
+                try:
+                    header, imgstr = captured_image.split(';base64,', 1)
+                    if 'image/jpeg' in header or 'image/jpg' in header:
+                        extension = 'jpg'
+                    elif 'image/webp' in header:
+                        extension = 'webp'
+                    else:
+                        extension = 'png'
+                    filename = f"capture_{request.user.id}_{timestamp}_{index}.{extension}"
+                    uploaded_images.append(
+                        ContentFile(base64.b64decode(imgstr), name=filename)
+                    )
+                except (ValueError, binascii.Error):
+                    messages.error(request, "One of the captured photos could not be processed. Please try again.")
+                    return redirect('user:dog_capture_request')
 
         if not _is_valid_capture_reason(reason):
             messages.error(request, "Please select a valid reason.")
@@ -2185,6 +2247,15 @@ def request_dog_capture(request):
     declined_page_obj, declined_requests = _paginate_status("declined", "declined_page")
     captured_page_obj, captured_requests = _paginate_status("captured", "captured_page")
 
+    # Pre-fill Step 2 contact fields from the user's profile for a smoother UX.
+    try:
+        profile = request.user.profile
+    except Profile.DoesNotExist:
+        profile = None
+
+    initial_phone_number = (profile.phone_number or "").strip() if profile and profile.phone_number else ""
+    initial_facebook_url = (profile.facebook_url or "").strip() if profile and profile.facebook_url else ""
+
     return render(request, 'user_request/request.html', {
         'requests': bool(status_totals),
         'accepted_requests': accepted_requests,
@@ -2200,6 +2271,8 @@ def request_dog_capture(request):
         'declined_total': status_totals.get("declined", 0),
         'captured_total': status_totals.get("captured", 0),
         'active_status_tab': active_status_tab,
+        'initial_phone_number': initial_phone_number,
+        'initial_facebook_url': initial_facebook_url,
     })
 
 

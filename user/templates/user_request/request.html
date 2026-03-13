@@ -43,36 +43,52 @@
                 </div>
 
                 <div id="cameraSection" class="media-section" style="display:none;">
-                    <video id="video" autoplay playsinline></video>
+                    <video id="video" class="camera-preview" autoplay playsinline muted></video>
+                    <p id="cameraStatus" class="helper-text camera-status" aria-live="polite">
+                        Rear camera selected. Open camera to begin.
+                    </p>
                     <div class="form-actions mt-2">
                         <button type="button" class="btn-primary" id="startCameraBtn">Open Camera</button>
-                        <button type="button" class="btn-primary" id="captureBtn">Capture</button>
+                        <button type="button" class="btn-secondary" id="switchCameraBtn">Use Front Camera</button>
+                        <button type="button" class="btn-secondary" id="stopCameraBtn" disabled>Stop Camera</button>
+                        <button type="button" class="btn-primary" id="captureBtn" disabled>Capture</button>
                     </div>
                     <canvas id="canvas" style="display:none;"></canvas>
-                    <input type="hidden" name="captured_image" id="capturedImage">
-                    <img id="capturedPreview" class="captured-preview" alt="Captured preview" style="display:none;">
+                    <div id="capturedImageFields" class="photo-input-hidden" aria-hidden="true"></div>
                 </div>
             </div>
 
             <div class="step-panel" data-step="2" style="display:none;">
-                <h3>Step 2: Reason</h3>
+                <h3>Step 2: Contact Details</h3>
                 <div class="form-group">
-                    <label>Reason for Capture</label>
-                    <select name="reason" id="reasonField" required>
-                        <option value="">-- Select --</option>
-                        <option value="biting">Dog is biting people</option>
-                        <option value="aggressive">Dog is aggressive</option>
-                        <option value="injured">Dog is injured</option>
-                        <option value="sick">Dog looks sick</option>
-                        <option value="stray">Stray dog</option>
-                        <option value="other">Other</option>
-                    </select>
+                    <label for="facebookUrlField">Facebook Profile Link (optional)</label>
+                    <input
+                        type="url"
+                        id="facebookUrlField"
+                        name="facebook_url"
+                        placeholder="https://facebook.com/your.profile"
+                        value="{{ initial_facebook_url }}"
+                        pattern="https?://.*"
+                    >
                 </div>
 
                 <div class="form-group">
-                    <label>Additional Details</label>
-                    <textarea name="description" placeholder="Describe the dog, behavior, landmarks, and situation."></textarea>
+                    <label for="phoneNumberField">Phone Number</label>
+                    <input
+                        type="tel"
+                        id="phoneNumberField"
+                        name="phone_number"
+                        placeholder="e.g. 09171234567"
+                        value="{{ initial_phone_number }}"
+                        inputmode="tel"
+                        pattern="[0-9+\\-\\s()]{7,20}"
+                        required
+                    >
+                    <small class="helper-text">Use a number where the rabies control team can reach you quickly.</small>
                 </div>
+
+                <input type="hidden" name="reason" value="stray">
+                <input type="hidden" name="description" value="">
             </div>
 
             <div class="step-panel" data-step="3" style="display:none;">
@@ -105,7 +121,7 @@
                             autocomplete="off"
                             required
                             data-barangay-autocomplete="true"
-                            data-barangay-source-url="/user/barangays/"
+                            data-barangay-source-url="{% url 'user:barangay_list_api' %}"
                             data-barangay-suggestions-id="request-barangay-suggestions"
                             data-barangay-strict="true"
                         >
@@ -270,7 +286,7 @@
 <script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 <script>
 let currentStep = 1;
-let stream;
+let stream = null;
 let map;
 let marker;
 
@@ -286,6 +302,8 @@ const stepDots = document.querySelectorAll('.step-dot');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const submitBtn = document.getElementById('submitBtn');
+const phoneNumberField = document.getElementById('phoneNumberField');
+const facebookUrlField = document.getElementById('facebookUrlField');
 
 function setStep(step) {
     currentStep = step;
@@ -314,8 +332,8 @@ function setStep(step) {
 
 function validateStep(step) {
     if (step === 1) {
-        const hasUpload = document.getElementById('imageInput').files.length > 0;
-        const hasCapture = document.getElementById('capturedImage').value.trim() !== '';
+        const hasUpload = selectedUploadFiles.length > 0;
+        const hasCapture = capturedImages.length > 0;
         if (!hasUpload && !hasCapture) {
             alert('Please upload a photo or capture one using camera.');
             return false;
@@ -323,10 +341,23 @@ function validateStep(step) {
     }
 
     if (step === 2) {
-        const reason = document.getElementById('reasonField').value;
-        if (!reason) {
-            alert('Please select a reason.');
+        if (!phoneNumberField || !phoneNumberField.value.trim()) {
+            alert('Please enter your phone number so the rabies control team can contact you.');
             return false;
+        }
+        const phoneValue = phoneNumberField.value.trim();
+        const phonePattern = /^[0-9+\-\s()]{7,20}$/;
+        if (!phonePattern.test(phoneValue)) {
+            alert('Please enter a valid phone number (7–20 digits, spaces, +, - or parentheses).');
+            return false;
+        }
+
+        if (facebookUrlField && facebookUrlField.value.trim()) {
+            const fbValue = facebookUrlField.value.trim();
+            if (!/^https?:\/\//i.test(fbValue)) {
+                alert('Please enter a valid Facebook profile link starting with http:// or https://.');
+                return false;
+            }
         }
     }
 
@@ -351,12 +382,37 @@ const cameraModeBtn = document.getElementById('cameraModeBtn');
 const imageInput = document.getElementById('imageInput');
 const photoSummaryTray = document.getElementById('photoSummaryTray');
 const photoSummaryList = document.getElementById('photoSummaryList');
-const capturedPreview = document.getElementById('capturedPreview');
-const capturedImageInput = document.getElementById('capturedImage');
+const capturedImageFields = document.getElementById('capturedImageFields');
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const startCameraBtn = document.getElementById('startCameraBtn');
+const switchCameraBtn = document.getElementById('switchCameraBtn');
+const stopCameraBtn = document.getElementById('stopCameraBtn');
+const captureBtn = document.getElementById('captureBtn');
+const cameraStatus = document.getElementById('cameraStatus');
 const canMutateFileList = typeof DataTransfer !== 'undefined';
+const isLikelyMobileDevice = Boolean(
+    (navigator.userAgentData && navigator.userAgentData.mobile) ||
+    /android|iphone|ipad|ipod/i.test(navigator.userAgent || '') ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+);
 let selectedUploadFiles = [];
+let preferredFacingMode = 'environment';
+let activeFacingMode = '';
+let availableVideoInputCount = 0;
+let capturedImages = [];
+let mirrorCompensation = false;
 
-function openImagePicker() {
+function openImagePicker(options = {}) {
+    const useNativeCamera = options.useNativeCamera === true;
+    if (useNativeCamera) {
+        imageInput.setAttribute('capture', preferredFacingMode);
+        imageInput.removeAttribute('multiple');
+    } else {
+        imageInput.removeAttribute('capture');
+        imageInput.setAttribute('multiple', '');
+    }
+
     try {
         if (typeof imageInput.showPicker === 'function') {
             imageInput.showPicker();
@@ -366,6 +422,90 @@ function openImagePicker() {
         // Fallback to click when showPicker is not allowed.
     }
     imageInput.click();
+}
+
+function cameraFacingLabel(mode = activeFacingMode || preferredFacingMode) {
+    return mode === 'user' ? 'front' : 'rear';
+}
+
+function nextFacingMode() {
+    return preferredFacingMode === 'environment' ? 'user' : 'environment';
+}
+
+function updateCameraStatus(message) {
+    if (!cameraStatus) return;
+    cameraStatus.textContent = message;
+}
+
+function updateSwitchCameraButton() {
+    if (!switchCameraBtn) return;
+    switchCameraBtn.textContent = nextFacingMode() === 'user' ? 'Use Front Camera' : 'Use Rear Camera';
+}
+
+function applyMirrorCompensation() {
+    mirrorCompensation = activeFacingMode === 'user';
+    video.classList.toggle('camera-preview--mirror-fix', mirrorCompensation);
+}
+
+function fileIdentity(file) {
+    return [file.name, file.size, file.lastModified].join('::');
+}
+
+function mergeSelectedFiles(nextFiles) {
+    if (!Array.isArray(nextFiles) || !nextFiles.length) {
+        return;
+    }
+
+    if (!canMutateFileList) {
+        selectedUploadFiles = nextFiles;
+        return;
+    }
+
+    const seen = new Set(selectedUploadFiles.map(fileIdentity));
+    nextFiles.forEach((file) => {
+        const key = fileIdentity(file);
+        if (!seen.has(key)) {
+            selectedUploadFiles.push(file);
+            seen.add(key);
+        }
+    });
+}
+
+function updateCameraButtons() {
+    const isStreaming = !!stream;
+    const canSwitch = isLikelyMobileDevice || availableVideoInputCount > 1;
+
+    if (startCameraBtn) {
+        startCameraBtn.textContent = isStreaming ? 'Restart Camera' : 'Open Camera';
+    }
+    if (stopCameraBtn) {
+        stopCameraBtn.disabled = !isStreaming;
+    }
+    if (captureBtn) {
+        captureBtn.disabled = !isStreaming;
+    }
+    if (switchCameraBtn) {
+        switchCameraBtn.disabled = !canSwitch;
+    }
+    updateSwitchCameraButton();
+}
+
+async function refreshAvailableVideoInputs() {
+    if (!(navigator.mediaDevices && typeof navigator.mediaDevices.enumerateDevices === 'function')) {
+        availableVideoInputCount = isLikelyMobileDevice ? 2 : 0;
+        updateCameraButtons();
+        return;
+    }
+
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devices.filter((device) => device.kind === 'videoinput');
+        availableVideoInputCount = videoInputs.length || (isLikelyMobileDevice ? 2 : 0);
+    } catch (error) {
+        availableVideoInputCount = isLikelyMobileDevice ? 2 : availableVideoInputCount;
+    }
+
+    updateCameraButtons();
 }
 
 function syncImageInputFiles() {
@@ -379,6 +519,18 @@ function syncImageInputFiles() {
     const transfer = new DataTransfer();
     selectedUploadFiles.forEach((file) => transfer.items.add(file));
     imageInput.files = transfer.files;
+}
+
+function syncCapturedImageFields() {
+    if (!capturedImageFields) return;
+    capturedImageFields.innerHTML = '';
+    capturedImages.forEach((imageData) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'captured_image';
+        input.value = imageData;
+        capturedImageFields.appendChild(input);
+    });
 }
 
 function buildPhotoSummaryCard(label, src, onRemove) {
@@ -428,15 +580,14 @@ function renderPhotoSummary() {
         photoSummaryList.appendChild(summaryCard.card);
     });
 
-    if (capturedImageInput.value.trim()) {
-        const summaryCard = buildPhotoSummaryCard('Capture', capturedImageInput.value, () => {
-            capturedImageInput.value = '';
-            capturedPreview.style.display = 'none';
-            capturedPreview.removeAttribute('src');
+    capturedImages.forEach((imageData, index) => {
+        const summaryCard = buildPhotoSummaryCard('Capture', imageData, () => {
+            capturedImages.splice(index, 1);
+            syncCapturedImageFields();
             renderPhotoSummary();
         });
         photoSummaryList.appendChild(summaryCard.card);
-    }
+    });
 
     photoSummaryTray.classList.toggle('is-visible', photoSummaryList.childElementCount > 0);
 }
@@ -478,15 +629,14 @@ uploadModeBtn.addEventListener('click', () => {
 cameraModeBtn.addEventListener('click', () => {
     cameraSection.style.display = 'block';
     closePhotoModeModal();
+    updateCameraStatus(`${cameraFacingLabel(preferredFacingMode).replace(/^./, (char) => char.toUpperCase())} camera selected. Open camera to begin.`);
+    updateCameraButtons();
 });
 
 imageInput.addEventListener('change', () => {
-    selectedUploadFiles = Array.from(imageInput.files || []);
-    if (selectedUploadFiles.length > 0) {
-        capturedImageInput.value = '';
-        capturedPreview.style.display = 'none';
-        capturedPreview.removeAttribute('src');
-    }
+    imageInput.removeAttribute('capture');
+    imageInput.setAttribute('multiple', '');
+    mergeSelectedFiles(Array.from(imageInput.files || []));
     syncImageInputFiles();
     renderPhotoSummary();
 });
@@ -496,6 +646,12 @@ function stopCamera() {
         stream.getTracks().forEach(track => track.stop());
         stream = null;
     }
+    activeFacingMode = '';
+    mirrorCompensation = false;
+    video.classList.remove('camera-preview--mirror-fix');
+    video.srcObject = null;
+    updateCameraStatus(`${cameraFacingLabel(preferredFacingMode).replace(/^./, (char) => char.toUpperCase())} camera selected. Open camera to begin.`);
+    updateCameraButtons();
 }
 
 function hasCameraApi() {
@@ -504,45 +660,129 @@ function hasCameraApi() {
 
 function cameraHelpMessage() {
     if (!window.isSecureContext) {
-        return 'Camera requires a secure connection (HTTPS). You are on HTTP/LAN. Use HTTPS, or use Upload Photo to open phone camera.';
+        return 'Camera preview requires a secure connection (HTTPS). The page can still use your phone camera through the browser file picker.';
     }
     if (!hasCameraApi()) {
-        return 'Camera API is not available in this browser. Use Upload Photo instead.';
+        return 'Live camera preview is not available in this browser. The page can still use your phone camera through the browser file picker.';
     }
     return 'Unable to open camera. Check browser camera permission and try again.';
 }
 
-document.getElementById('startCameraBtn').addEventListener('click', async () => {
+async function requestCameraStream(facingMode) {
+    const attempts = [];
+    const resolutionPrefs = {
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+    };
+
+    if (facingMode) {
+        attempts.push({
+            video: {
+                facingMode: { exact: facingMode },
+                ...resolutionPrefs
+            },
+            audio: false
+        });
+        attempts.push({
+            video: {
+                facingMode: { ideal: facingMode },
+                ...resolutionPrefs
+            },
+            audio: false
+        });
+    }
+
+    attempts.push({ video: resolutionPrefs, audio: false });
+    attempts.push({ video: true, audio: false });
+
+    let lastError = null;
+    for (const constraints of attempts) {
+        try {
+            return await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (error) {
+            lastError = error;
+        }
+    }
+
+    throw lastError;
+}
+
+function openNativeCameraFallback() {
+    stopCamera();
+    cameraSection.style.display = 'none';
+    updateCameraStatus(`${cameraFacingLabel(preferredFacingMode).replace(/^./, (char) => char.toUpperCase())} phone camera will open in your browser picker.`);
+    openImagePicker({ useNativeCamera: true });
+}
+
+async function startCameraPreview() {
     if (!hasCameraApi() || !window.isSecureContext) {
+        if (isLikelyMobileDevice) {
+            openNativeCameraFallback();
+            return;
+        }
         alert(cameraHelpMessage());
         return;
     }
 
+    stopCamera();
+    updateCameraStatus(`Opening ${cameraFacingLabel(preferredFacingMode)} camera...`);
+
     try {
-        const constraints = {
-            video: {
-                facingMode: { ideal: 'environment' },
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
-            audio: false
-        };
+        stream = await requestCameraStream(preferredFacingMode);
+        video.srcObject = stream;
 
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-        document.getElementById('video').srcObject = stream;
-    } catch (e) {
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-            document.getElementById('video').srcObject = stream;
-        } catch (fallbackError) {
-            alert(cameraHelpMessage());
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack && typeof videoTrack.getSettings === 'function'
+            ? videoTrack.getSettings()
+            : {};
+
+        activeFacingMode = settings.facingMode || preferredFacingMode;
+        preferredFacingMode = activeFacingMode;
+        applyMirrorCompensation();
+        await refreshAvailableVideoInputs();
+
+        if (video.readyState < 1) {
+            await new Promise((resolve) => {
+                video.onloadedmetadata = () => resolve();
+            });
         }
-    }
-});
+        if (typeof video.play === 'function') {
+            await video.play().catch(() => {});
+        }
 
-document.getElementById('captureBtn').addEventListener('click', () => {
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
+        const statusLabel = cameraFacingLabel(activeFacingMode);
+        const statusPrefix = statusLabel.replace(/^./, (char) => char.toUpperCase());
+        updateCameraStatus(`${statusPrefix} camera is live.`);
+        updateCameraButtons();
+    } catch (error) {
+        if (isLikelyMobileDevice) {
+            openNativeCameraFallback();
+            return;
+        }
+        updateCameraStatus('Unable to open camera.');
+        alert(cameraHelpMessage());
+    }
+}
+
+function toggleCameraFacingMode() {
+    preferredFacingMode = nextFacingMode();
+    const nextLabel = cameraFacingLabel(preferredFacingMode).replace(/^./, (char) => char.toUpperCase());
+    updateSwitchCameraButton();
+
+    if (stream) {
+        startCameraPreview();
+        return;
+    }
+
+    updateCameraStatus(`${nextLabel} camera selected. Open camera to begin.`);
+    updateCameraButtons();
+}
+
+startCameraBtn.addEventListener('click', startCameraPreview);
+switchCameraBtn.addEventListener('click', toggleCameraFacingMode);
+stopCameraBtn.addEventListener('click', stopCamera);
+
+captureBtn.addEventListener('click', () => {
     if (!video.videoWidth) {
         alert('Open camera first before capturing.');
         return;
@@ -551,18 +791,25 @@ document.getElementById('captureBtn').addEventListener('click', () => {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const context = canvas.getContext('2d');
-    context.drawImage(video, 0, 0);
+    if (mirrorCompensation) {
+        context.save();
+        context.translate(canvas.width, 0);
+        context.scale(-1, 1);
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        context.restore();
+    } else {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    }
 
-    const imageData = canvas.toDataURL('image/png');
-    capturedImageInput.value = imageData;
-    selectedUploadFiles = [];
-    imageInput.value = '';
-    syncImageInputFiles();
+    const imageData = canvas.toDataURL('image/jpeg', 0.92);
+    capturedImages.push(imageData);
+    syncCapturedImageFields();
     renderPhotoSummary();
-
-    capturedPreview.src = imageData;
-    capturedPreview.style.display = 'block';
 });
+
+window.addEventListener('beforeunload', stopCamera);
+refreshAvailableVideoInputs();
+updateCameraButtons();
 
 const locationModeInputs = document.querySelectorAll('input[name="location_mode"]');
 const exactLocationBox = document.getElementById('exactLocationBox');

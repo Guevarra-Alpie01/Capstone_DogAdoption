@@ -9,31 +9,91 @@
 {% block content %}
 <div class="container">
 
-    <div class="card">
-        <h2>Request Dog Capture</h2>
+    <div class="card request-wizard-card">
+        <div class="request-hero">
+            <div class="request-hero-copy">
+                <span class="request-eyebrow">Dog Capture Request</span>
+                <h2>Report a dog quickly and clearly</h2>
+                <p class="request-hero-text">
+                    Add a clear photo, a reachable Philippine mobile number, and the exact area so the rabies control team can respond faster.
+                </p>
+            </div>
+            <div class="request-hero-side">
+                <div class="request-hero-pill">
+                    <i class="bi bi-shield-check" aria-hidden="true"></i>
+                    <span>Your phone number is used only for request follow-up.</span>
+                </div>
+                <div class="request-hero-pill">
+                    <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+                    <span>All 28 active barangays are loaded from the system.</span>
+                </div>
+            </div>
+        </div>
 
-        <div class="step-indicator">
-            <div class="step-dot active" data-step-dot="1">1</div>
-            <div class="step-dot" data-step-dot="2">2</div>
-            <div class="step-dot" data-step-dot="3">3</div>
+        <div class="step-indicator" aria-label="Request progress">
+            <div class="step-dot active" data-step-dot="1">
+                <span class="step-dot-number">1</span>
+                <span class="step-dot-label">Photo</span>
+            </div>
+            <div class="step-dot" data-step-dot="2">
+                <span class="step-dot-number">2</span>
+                <span class="step-dot-label">Contact</span>
+            </div>
+            <div class="step-dot" data-step-dot="3">
+                <span class="step-dot-number">3</span>
+                <span class="step-dot-label">Location</span>
+            </div>
         </div>
 
         <form method="POST" enctype="multipart/form-data" class="capture-form" id="captureForm">
             {% csrf_token %}
 
             <div class="step-panel" data-step="1">
-                <h3>Step 1: Photo</h3>
+                <div class="step-panel-header">
+                    <div class="step-panel-icon">
+                        <i class="bi bi-camera-fill" aria-hidden="true"></i>
+                    </div>
+                    <div>
+                        <p class="step-kicker">Step 1</p>
+                        <h3>Add a clear dog photo</h3>
+                        <p class="step-description">
+                            Use your phone camera or upload existing photos. You can add more than one image if needed.
+                        </p>
+                    </div>
+                </div>
+
                 <div class="capture-choice">
-                    <button type="button" class="btn-secondary capture-action-btn" id="openPhotoModeBtn">Add Dog Photo</button>
+                    <button type="button" class="btn-secondary capture-action-btn" id="openPhotoModeBtn">
+                        <i class="bi bi-images" aria-hidden="true"></i>
+                        <span>Add Dog Photo</span>
+                    </button>
+                    <button type="button" class="btn-primary capture-action-btn" id="openNativeCameraBtn">
+                        <i class="bi bi-phone" aria-hidden="true"></i>
+                        <span>Use Phone Camera</span>
+                    </button>
                 </div>
 
                 <div id="photoModeModal" class="photo-mode-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="photoModeTitle">
                     <div class="photo-mode-sheet">
-                        <h4 id="photoModeTitle">Add Dog Photo</h4>
+                        <div class="photo-mode-head">
+                            <h4 id="photoModeTitle">Choose photo source</h4>
+                            <button type="button" class="photo-mode-close" id="closePhotoModeBtn" aria-label="Close photo options">
+                                <i class="bi bi-x-lg" aria-hidden="true"></i>
+                            </button>
+                        </div>
                         <div class="photo-mode-actions">
-                            <button type="button" class="photo-option-btn upload" id="uploadModeBtn">Upload Photo</button>
-                            <button type="button" class="photo-option-btn camera" id="cameraModeBtn">Take Picture</button>
-                            <button type="button" class="photo-option-btn cancel" id="closePhotoModeBtn">Cancel</button>
+                            <button type="button" class="photo-option-btn upload" id="uploadModeBtn">
+                                <i class="bi bi-upload" aria-hidden="true"></i>
+                                <span>Upload Photo</span>
+                            </button>
+                            <button type="button" class="photo-option-btn camera" id="cameraModeBtn">
+                                <i class="bi bi-camera-fill" aria-hidden="true"></i>
+                                <span>Take Picture</span>
+                            </button>
+                            <button type="button" class="photo-option-btn cancel" id="cancelPhotoModeBtn">
+                                <i class="bi bi-x-circle" aria-hidden="true"></i>
+                                <span>Cancel</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -42,133 +102,253 @@
                     <input type="file" name="images" id="imageInput" class="photo-input-hidden" accept="image/*" multiple>
                 </div>
 
-                <div id="cameraSection" class="media-section" style="display:none;">
-                    <video id="video" class="camera-preview" autoplay playsinline muted></video>
+                <div id="cameraSection" class="camera-shell" hidden>
+                    <div class="camera-preview-shell">
+                        <video id="video" class="camera-preview" autoplay playsinline muted></video>
+                        <div class="camera-preview-overlay" aria-hidden="true">
+                            <span>Keep the dog centered in the frame</span>
+                        </div>
+                    </div>
                     <p id="cameraStatus" class="helper-text camera-status" aria-live="polite">
                         Rear camera selected. Open camera to begin.
                     </p>
-                    <div class="form-actions mt-2">
-                        <button type="button" class="btn-primary" id="startCameraBtn">Open Camera</button>
-                        <button type="button" class="btn-secondary" id="switchCameraBtn">Use Front Camera</button>
-                        <button type="button" class="btn-secondary" id="stopCameraBtn" disabled>Stop Camera</button>
-                        <button type="button" class="btn-primary" id="captureBtn" disabled>Capture</button>
+                    <div class="camera-action-grid">
+                        <button type="button" class="btn-primary" id="startCameraBtn">
+                            <i class="bi bi-play-circle" aria-hidden="true"></i>
+                            <span>Open Camera</span>
+                        </button>
+                        <button type="button" class="btn-secondary" id="switchCameraBtn">
+                            <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                            <span>Use Front Camera</span>
+                        </button>
+                        <button type="button" class="btn-secondary" id="stopCameraBtn" disabled>
+                            <i class="bi bi-stop-circle" aria-hidden="true"></i>
+                            <span>Stop Camera</span>
+                        </button>
+                        <button type="button" class="btn-primary" id="captureBtn" disabled>
+                            <i class="bi bi-camera" aria-hidden="true"></i>
+                            <span>Capture Photo</span>
+                        </button>
                     </div>
-                    <canvas id="canvas" style="display:none;"></canvas>
+                    <canvas id="canvas" class="photo-input-hidden" aria-hidden="true"></canvas>
                     <div id="capturedImageFields" class="photo-input-hidden" aria-hidden="true"></div>
+                </div>
+
+                <div id="photoSummaryTray" class="photo-summary-tray" aria-live="polite">
+                    <p class="photo-summary-title">Selected Photos</p>
+                    <div id="photoSummaryList" class="photo-summary-list"></div>
                 </div>
             </div>
 
-            <div class="step-panel" data-step="2" style="display:none;">
-                <h3>Step 2: Contact Details</h3>
-                <div class="form-group">
-                    <label for="facebookUrlField">Facebook Profile Link (optional)</label>
-                    <input
-                        type="url"
-                        id="facebookUrlField"
-                        name="facebook_url"
-                        placeholder="https://facebook.com/your.profile"
-                        value="{{ initial_facebook_url }}"
-                        pattern="https?://.*"
-                    >
+            <div class="step-panel" data-step="2" hidden>
+                <div class="step-panel-header">
+                    <div class="step-panel-icon">
+                        <i class="bi bi-telephone-fill" aria-hidden="true"></i>
+                    </div>
+                    <div>
+                        <p class="step-kicker">Step 2</p>
+                        <h3>Share your contact number</h3>
+                        <p class="step-description">
+                            Enter a Philippine mobile number that the team can call or text for updates.
+                        </p>
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="phoneNumberField">Phone Number</label>
-                    <input
-                        type="tel"
-                        id="phoneNumberField"
-                        name="phone_number"
-                        placeholder="e.g. 09171234567"
-                        value="{{ initial_phone_number }}"
-                        inputmode="tel"
-                        pattern="[0-9+\\-\\s()]{7,20}"
-                        required
-                    >
-                    <small class="helper-text">Use a number where the rabies control team can reach you quickly.</small>
+                <div class="step-detail-grid">
+                    <div class="form-group">
+                        <label for="phoneNumberField">Phone Number</label>
+                        <div class="input-with-icon phone-input-wrap">
+                            <span class="input-icon">
+                                <i class="bi bi-telephone" aria-hidden="true"></i>
+                            </span>
+                            <input
+                                type="tel"
+                                id="phoneNumberField"
+                                name="phone_number"
+                                placeholder="+63 917 123 4567"
+                                value="{{ initial_phone_number }}"
+                                inputmode="tel"
+                                autocomplete="tel"
+                                required
+                            >
+                        </div>
+                        <small class="helper-text">
+                            Accepted formats: 0917 123 4567, 9171234567, or +63 917 123 4567.
+                        </small>
+                    </div>
+
+                    <div class="info-card">
+                        <div class="info-card-icon">
+                            <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+                        </div>
+                        <div>
+                            <strong>Quick reminder</strong>
+                            <p>We removed the Facebook field here so your request can be completed faster on mobile.</p>
+                        </div>
+                    </div>
                 </div>
 
                 <input type="hidden" name="reason" value="stray">
                 <input type="hidden" name="description" value="">
             </div>
 
-            <div class="step-panel" data-step="3" style="display:none;">
-                <h3>Step 3: Location</h3>
-
-                <div class="location-mode">
-                    <label><input type="radio" name="location_mode" value="exact" checked> Use Exact Location</label>
-                    <label><input type="radio" name="location_mode" value="manual"> Enter Full Address Manually</label>
+            <div class="step-panel" data-step="3" hidden>
+                <div class="step-panel-header">
+                    <div class="step-panel-icon">
+                        <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+                    </div>
+                    <div>
+                        <p class="step-kicker">Step 3</p>
+                        <h3>Set the location</h3>
+                        <p class="step-description">
+                            Choose exact GPS if possible. If not, enter the barangay and optional purok or sitio details.
+                        </p>
+                    </div>
                 </div>
 
-                <div id="exactLocationBox">
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" id="getLocationBtn">Use Exact GPS Location</button>
+                <div class="location-mode">
+                    <label class="location-mode-card">
+                        <input type="radio" name="location_mode" value="exact" checked>
+                        <span class="location-mode-icon"><i class="bi bi-crosshair" aria-hidden="true"></i></span>
+                        <span class="location-mode-copy">
+                            <strong>Use Exact Location</strong>
+                            <small>Best for faster routing and mapping.</small>
+                        </span>
+                    </label>
+                    <label class="location-mode-card">
+                        <input type="radio" name="location_mode" value="manual">
+                        <span class="location-mode-icon"><i class="bi bi-house-door-fill" aria-hidden="true"></i></span>
+                        <span class="location-mode-copy">
+                            <strong>Enter Barangay Manually</strong>
+                            <small>Use this when GPS is unavailable.</small>
+                        </span>
+                    </label>
+                </div>
+
+                <div id="exactLocationBox" class="location-card">
+                    <div class="location-card-head">
+                        <div>
+                            <h4>Exact GPS location</h4>
+                            <p>Allow location access, then confirm the map pin.</p>
+                        </div>
+                        <button type="button" class="btn-secondary" id="getLocationBtn">
+                            <i class="bi bi-crosshair2" aria-hidden="true"></i>
+                            <span>Use Exact GPS Location</span>
+                        </button>
                     </div>
                     <p id="gpsStatus" class="helper-text">Waiting for location...</p>
                     <div id="requestMap"></div>
                     <input type="hidden" name="latitude" id="latitude">
                     <input type="hidden" name="longitude" id="longitude">
+                    <input type="hidden" name="city" id="cityField" value="{{ default_manual_city }}">
                 </div>
 
-                <div id="manualLocationBox" style="display:none;">
-                    <div class="form-group barangay-autocomplete-wrap">
-                        <label>Barangay</label>
-                        <input
-                            type="text"
-                            id="barangayField"
-                            name="barangay"
-                            value=""
-                            placeholder="Enter Barangay"
-                            autocomplete="off"
-                            required
-                            data-barangay-autocomplete="true"
-                            data-barangay-source-url="{% url 'user:barangay_list_api' %}"
-                            data-barangay-suggestions-id="request-barangay-suggestions"
-                            data-barangay-strict="true"
-                        >
-                        <div id="request-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
+                <div id="manualLocationBox" class="location-card" hidden>
+                    <div class="manual-location-grid">
+                        <div class="form-group">
+                            <label for="manualFullAddressField">Purok / Sitio or nearby landmark details</label>
+                            <div class="input-with-icon textarea-with-icon">
+                                <span class="input-icon">
+                                    <i class="bi bi-signpost-2-fill" aria-hidden="true"></i>
+                                </span>
+                                <textarea
+                                    name="manual_full_address"
+                                    id="manualFullAddressField"
+                                    rows="3"
+                                    placeholder="Optional: Purok 3, Sitio Riverside, near the barangay hall"
+                                ></textarea>
+                            </div>
+                            <small class="helper-text">Optional, but helpful when the dog is hard to locate inside the barangay.</small>
+                        </div>
+
+                        <div class="form-group barangay-autocomplete-wrap">
+                            <label for="barangayField">Barangay</label>
+                            <div class="input-with-icon">
+                                <span class="input-icon">
+                                    <i class="bi bi-pin-map-fill" aria-hidden="true"></i>
+                                </span>
+                                <input
+                                    type="text"
+                                    id="barangayField"
+                                    name="barangay"
+                                    value=""
+                                    placeholder="Select barangay"
+                                    autocomplete="off"
+                                    required
+                                    data-barangay-autocomplete="true"
+                                    data-barangay-source-url="{% url 'user:barangay_list_api' %}"
+                                    data-barangay-suggestions-id="request-barangay-suggestions"
+                                    data-barangay-strict="true"
+                                >
+                            </div>
+                            <div id="request-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
+                            <small class="helper-text">Required. Start typing or tap one of the barangays below.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>City / Municipality</label>
+                            <div class="readonly-field">
+                                <i class="bi bi-buildings-fill" aria-hidden="true"></i>
+                                <span>{{ default_manual_city }}</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group manual-landmark-upload-group">
+                            <label for="locationLandmarkImageField">Nearest highway / crossing / landmark photo(s)</label>
+                            <div class="input-with-icon file-input-wrap">
+                                <span class="input-icon">
+                                    <i class="bi bi-image-fill" aria-hidden="true"></i>
+                                </span>
+                                <input
+                                    type="file"
+                                    name="location_landmark_image"
+                                    id="locationLandmarkImageField"
+                                    accept="image/*"
+                                    multiple
+                                >
+                            </div>
+                            <small class="upload-hint">Upload one or more clear photos so the team can locate the exact area faster.</small>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>City / Municipality</label>
-                        <input type="text" name="city" id="cityField" placeholder="City / Municipality">
-                    </div>
-                    <div class="form-group manual-full-address-group">
-                        <label>Full Address</label>
-                        <textarea
-                            name="manual_full_address"
-                            id="manualFullAddressField"
-                            rows="3"
-                            placeholder="House No., Street, Purok/Sitio, Barangay, City/Municipality, Province"
-                        ></textarea>
-                    </div>
-                    <div class="form-group manual-landmark-upload-group">
-                        <label>Nearest Highway / Crossing / Landmark Photo(s)</label>
-                        <input
-                            type="file"
-                            name="location_landmark_image"
-                            id="locationLandmarkImageField"
-                            accept="image/*"
-                            multiple
-                        >
-                        <small class="upload-hint">Upload one or more clear photos so the rabies control team can locate your exact area faster.</small>
+
+                    <div class="barangay-chip-shell">
+                        <div class="barangay-chip-head">
+                            <strong>Quick-select barangays</strong>
+                            <span>{{ default_barangays|length }} active barangays</span>
+                        </div>
+                        <div class="barangay-chip-list">
+                            {% for barangay_name in default_barangays %}
+                                <button type="button" class="barangay-chip" data-barangay-choice="{{ barangay_name }}">{{ barangay_name }}</button>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <div id="photoSummaryTray" class="photo-summary-tray" aria-live="polite">
-                <p class="photo-summary-title">Selected Photos</p>
-                <div id="photoSummaryList" class="photo-summary-list"></div>
             </div>
 
             <div class="wizard-actions">
-                <button type="button" class="btn-secondary" id="prevBtn" style="display:none;">Back</button>
-                <button type="button" class="btn-primary" id="nextBtn">Next</button>
-                <button type="submit" class="btn-primary" id="submitBtn" style="display:none;">Submit Request</button>
+                <button type="button" class="btn-secondary" id="prevBtn" hidden>
+                    <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                    <span>Back</span>
+                </button>
+                <button type="button" class="btn-primary" id="nextBtn">
+                    <span>Next</span>
+                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                </button>
+                <button type="submit" class="btn-primary" id="submitBtn" hidden>
+                    <i class="bi bi-send-fill" aria-hidden="true"></i>
+                    <span>Submit Request</span>
+                </button>
             </div>
         </form>
     </div>
 
     <div class="card my-requests-card">
-        <h2>My Requests</h2>
+        <div class="request-section-head">
+            <div>
+                <span class="request-eyebrow">Tracking</span>
+                <h2>My Requests</h2>
+            </div>
+        </div>
 
         <div class="requests-breadcrumb" aria-label="My request statuses">
             <button type="button" class="status-crumb scheduled {% if active_status_tab == 'scheduled' %}is-active{% endif %}" data-status-tab="scheduled" aria-pressed="{% if active_status_tab == 'scheduled' %}true{% else %}false{% endif %}">
@@ -198,7 +378,7 @@
                     <p class="request-group-empty">No scheduled requests.</p>
                 {% endfor %}
                 {% if accepted_page_obj.has_previous or accepted_page_obj.has_next %}
-                <div class="d-flex justify-content-between align-items-center mt-2">
+                <div class="request-pagination">
                     <a class="btn btn-sm btn-outline-secondary {% if not accepted_page_obj.has_previous %}disabled{% endif %}"
                        href="?status_tab=scheduled&scheduled_page={% if accepted_page_obj.has_previous %}{{ accepted_page_obj.previous_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
                         Previous
@@ -220,7 +400,7 @@
                     <p class="request-group-empty">No pending requests.</p>
                 {% endfor %}
                 {% if pending_page_obj.has_previous or pending_page_obj.has_next %}
-                <div class="d-flex justify-content-between align-items-center mt-2">
+                <div class="request-pagination">
                     <a class="btn btn-sm btn-outline-secondary {% if not pending_page_obj.has_previous %}disabled{% endif %}"
                        href="?status_tab=pending&scheduled_page={{ accepted_page_obj.number }}&pending_page={% if pending_page_obj.has_previous %}{{ pending_page_obj.previous_page_number }}{% else %}{{ pending_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
                         Previous
@@ -242,7 +422,7 @@
                     <p class="request-group-empty">No declined requests.</p>
                 {% endfor %}
                 {% if declined_page_obj.has_previous or declined_page_obj.has_next %}
-                <div class="d-flex justify-content-between align-items-center mt-2">
+                <div class="request-pagination">
                     <a class="btn btn-sm btn-outline-secondary {% if not declined_page_obj.has_previous %}disabled{% endif %}"
                        href="?status_tab=declined&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={% if declined_page_obj.has_previous %}{{ declined_page_obj.previous_page_number }}{% else %}{{ declined_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}">
                         Previous
@@ -264,7 +444,7 @@
                     <p class="request-group-empty">No captured requests yet.</p>
                 {% endfor %}
                 {% if captured_page_obj.has_previous or captured_page_obj.has_next %}
-                <div class="d-flex justify-content-between align-items-center mt-2">
+                <div class="request-pagination">
                     <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_previous %}disabled{% endif %}"
                        href="?status_tab=captured&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={% if captured_page_obj.has_previous %}{{ captured_page_obj.previous_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}">
                         Previous
@@ -303,30 +483,71 @@ const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const submitBtn = document.getElementById('submitBtn');
 const phoneNumberField = document.getElementById('phoneNumberField');
-const facebookUrlField = document.getElementById('facebookUrlField');
+const defaultRequestCity = "{{ default_manual_city|escapejs }}";
+const captureForm = document.getElementById('captureForm');
+const barangayField = document.getElementById('barangayField');
+const cityField = document.getElementById('cityField');
+const manualFullAddressField = document.getElementById('manualFullAddressField');
+const locationLandmarkImageField = document.getElementById('locationLandmarkImageField');
+
+function normalizePhoneForSubmit(value) {
+    const digits = (value || '').replace(/\D/g, '');
+    if (/^639\d{9}$/.test(digits)) return `+${digits}`;
+    if (/^09\d{9}$/.test(digits)) return `+63${digits.slice(1)}`;
+    if (/^9\d{9}$/.test(digits)) return `+63${digits}`;
+    return '';
+}
+
+function formatPhoneForDisplay(value) {
+    const normalized = normalizePhoneForSubmit(value);
+    if (!normalized) {
+        return (value || '').trim();
+    }
+    const local = normalized.slice(3);
+    return `+63 ${local.slice(0, 3)} ${local.slice(3, 6)} ${local.slice(6)}`;
+}
+
+function primePhoneField() {
+    if (!phoneNumberField) return;
+    const formatted = formatPhoneForDisplay(phoneNumberField.value);
+    phoneNumberField.value = formatted || '+63 ';
+}
+
+function validatePhoneField() {
+    const normalized = normalizePhoneForSubmit(phoneNumberField?.value || '');
+    if (!normalized) {
+        alert('Please enter a valid Philippine mobile number such as 0917 123 4567 or +63 917 123 4567.');
+        phoneNumberField?.focus();
+        return false;
+    }
+    phoneNumberField.value = formatPhoneForDisplay(normalized);
+    return true;
+}
 
 function setStep(step) {
     currentStep = step;
-    stepPanels.forEach(panel => {
-        panel.style.display = Number(panel.dataset.step) === step ? 'block' : 'none';
+    stepPanels.forEach((panel) => {
+        panel.hidden = Number(panel.dataset.step) !== step;
     });
 
-    stepDots.forEach(dot => {
-        dot.classList.toggle('active', Number(dot.dataset.stepDot) === step);
+    stepDots.forEach((dot) => {
+        const dotStep = Number(dot.dataset.stepDot);
+        dot.classList.toggle('active', dotStep === step);
+        dot.classList.toggle('complete', dotStep < step);
     });
 
-    prevBtn.style.display = step > 1 ? 'inline-block' : 'none';
-    nextBtn.style.display = step < 3 ? 'inline-block' : 'none';
-    submitBtn.style.display = step === 3 ? 'inline-block' : 'none';
+    prevBtn.hidden = step <= 1;
+    nextBtn.hidden = step >= 3;
+    submitBtn.hidden = step !== 3;
 
     if (step === 3) {
-        setTimeout(() => {
+        window.setTimeout(() => {
             if (!map) {
                 map = L.map('requestMap').setView([9.2000, 122.8500], 13);
                 addRealisticLayers(map);
             }
             map.invalidateSize();
-        }, 120);
+        }, 140);
     }
 }
 
@@ -335,50 +556,54 @@ function validateStep(step) {
         const hasUpload = selectedUploadFiles.length > 0;
         const hasCapture = capturedImages.length > 0;
         if (!hasUpload && !hasCapture) {
-            alert('Please upload a photo or capture one using camera.');
+            alert('Please upload a photo or capture one using your camera first.');
             return false;
         }
     }
 
     if (step === 2) {
-        if (!phoneNumberField || !phoneNumberField.value.trim()) {
-            alert('Please enter your phone number so the rabies control team can contact you.');
-            return false;
-        }
-        const phoneValue = phoneNumberField.value.trim();
-        const phonePattern = /^[0-9+\-\s()]{7,20}$/;
-        if (!phonePattern.test(phoneValue)) {
-            alert('Please enter a valid phone number (7–20 digits, spaces, +, - or parentheses).');
-            return false;
-        }
-
-        if (facebookUrlField && facebookUrlField.value.trim()) {
-            const fbValue = facebookUrlField.value.trim();
-            if (!/^https?:\/\//i.test(fbValue)) {
-                alert('Please enter a valid Facebook profile link starting with http:// or https://.');
-                return false;
-            }
-        }
+        return validatePhoneField();
     }
 
     return true;
 }
 
-nextBtn.addEventListener('click', () => {
+nextBtn?.addEventListener('click', () => {
     if (!validateStep(currentStep)) return;
     if (currentStep < 3) setStep(currentStep + 1);
 });
 
-prevBtn.addEventListener('click', () => {
+prevBtn?.addEventListener('click', () => {
     if (currentStep > 1) setStep(currentStep - 1);
+});
+
+phoneNumberField?.addEventListener('focus', () => {
+    if (!phoneNumberField.value.trim()) {
+        phoneNumberField.value = '+63 ';
+    }
+});
+
+phoneNumberField?.addEventListener('blur', () => {
+    const formatted = formatPhoneForDisplay(phoneNumberField.value);
+    phoneNumberField.value = formatted || '+63 ';
+});
+
+document.querySelectorAll('[data-barangay-choice]').forEach((button) => {
+    button.addEventListener('click', () => {
+        barangayField.value = button.dataset.barangayChoice || '';
+        barangayField.setCustomValidity('');
+        barangayField.focus();
+    });
 });
 
 const cameraSection = document.getElementById('cameraSection');
 const photoModeModal = document.getElementById('photoModeModal');
 const openPhotoModeBtn = document.getElementById('openPhotoModeBtn');
 const closePhotoModeBtn = document.getElementById('closePhotoModeBtn');
+const cancelPhotoModeBtn = document.getElementById('cancelPhotoModeBtn');
 const uploadModeBtn = document.getElementById('uploadModeBtn');
 const cameraModeBtn = document.getElementById('cameraModeBtn');
+const openNativeCameraBtn = document.getElementById('openNativeCameraBtn');
 const imageInput = document.getElementById('imageInput');
 const photoSummaryTray = document.getElementById('photoSummaryTray');
 const photoSummaryList = document.getElementById('photoSummaryList');
@@ -402,6 +627,12 @@ let activeFacingMode = '';
 let availableVideoInputCount = 0;
 let capturedImages = [];
 let mirrorCompensation = false;
+
+function showCameraSection(visible) {
+    if (!cameraSection) return;
+    cameraSection.hidden = !visible;
+    cameraSection.classList.toggle('is-visible', visible);
+}
 
 function openImagePicker(options = {}) {
     const useNativeCamera = options.useNativeCamera === true;
@@ -439,7 +670,7 @@ function updateCameraStatus(message) {
 
 function updateSwitchCameraButton() {
     if (!switchCameraBtn) return;
-    switchCameraBtn.textContent = nextFacingMode() === 'user' ? 'Use Front Camera' : 'Use Rear Camera';
+    switchCameraBtn.querySelector('span').textContent = nextFacingMode() === 'user' ? 'Use Front Camera' : 'Use Rear Camera';
 }
 
 function applyMirrorCompensation() {
@@ -476,7 +707,7 @@ function updateCameraButtons() {
     const canSwitch = isLikelyMobileDevice || availableVideoInputCount > 1;
 
     if (startCameraBtn) {
-        startCameraBtn.textContent = isStreaming ? 'Restart Camera' : 'Open Camera';
+        startCameraBtn.querySelector('span').textContent = isStreaming ? 'Restart Camera' : 'Open Camera';
     }
     if (stopCameraBtn) {
         stopCameraBtn.disabled = !isStreaming;
@@ -541,7 +772,7 @@ function buildPhotoSummaryCard(label, src, onRemove) {
     removeBtn.type = 'button';
     removeBtn.className = 'photo-summary-remove';
     removeBtn.setAttribute('aria-label', `Remove ${label} photo`);
-    removeBtn.textContent = 'X';
+    removeBtn.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
     removeBtn.addEventListener('click', onRemove);
 
     const image = document.createElement('img');
@@ -606,6 +837,8 @@ function closePhotoModeModal() {
 
 openPhotoModeBtn?.addEventListener('click', openPhotoModeModal);
 closePhotoModeBtn?.addEventListener('click', closePhotoModeModal);
+cancelPhotoModeBtn?.addEventListener('click', closePhotoModeModal);
+openNativeCameraBtn?.addEventListener('click', () => openImagePicker({ useNativeCamera: true }));
 
 photoModeModal?.addEventListener('click', (event) => {
     if (event.target === photoModeModal) {
@@ -620,14 +853,14 @@ document.addEventListener('keydown', (event) => {
 });
 
 uploadModeBtn.addEventListener('click', () => {
-    cameraSection.style.display = 'none';
+    showCameraSection(false);
     stopCamera();
     closePhotoModeModal();
     openImagePicker();
 });
 
 cameraModeBtn.addEventListener('click', () => {
-    cameraSection.style.display = 'block';
+    showCameraSection(true);
     closePhotoModeModal();
     updateCameraStatus(`${cameraFacingLabel(preferredFacingMode).replace(/^./, (char) => char.toUpperCase())} camera selected. Open camera to begin.`);
     updateCameraButtons();
@@ -643,7 +876,7 @@ imageInput.addEventListener('change', () => {
 
 function stopCamera() {
     if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
         stream = null;
     }
     activeFacingMode = '';
@@ -660,19 +893,19 @@ function hasCameraApi() {
 
 function cameraHelpMessage() {
     if (!window.isSecureContext) {
-        return 'Camera preview requires a secure connection (HTTPS). The page can still use your phone camera through the browser file picker.';
+        return 'Camera preview requires a secure connection (HTTPS). You can still use your phone camera through the browser file picker.';
     }
     if (!hasCameraApi()) {
-        return 'Live camera preview is not available in this browser. The page can still use your phone camera through the browser file picker.';
+        return 'Live camera preview is not available in this browser. You can still use your phone camera through the browser file picker.';
     }
-    return 'Unable to open camera. Check browser camera permission and try again.';
+    return 'Unable to open the camera. Check browser camera permission and try again.';
 }
 
 async function requestCameraStream(facingMode) {
     const attempts = [];
     const resolutionPrefs = {
         width: { ideal: 1280 },
-        height: { ideal: 720 }
+        height: { ideal: 960 }
     };
 
     if (facingMode) {
@@ -709,7 +942,7 @@ async function requestCameraStream(facingMode) {
 
 function openNativeCameraFallback() {
     stopCamera();
-    cameraSection.style.display = 'none';
+    showCameraSection(false);
     updateCameraStatus(`${cameraFacingLabel(preferredFacingMode).replace(/^./, (char) => char.toUpperCase())} phone camera will open in your browser picker.`);
     openImagePicker({ useNativeCamera: true });
 }
@@ -724,6 +957,7 @@ async function startCameraPreview() {
         return;
     }
 
+    showCameraSection(true);
     stopCamera();
     updateCameraStatus(`Opening ${cameraFacingLabel(preferredFacingMode)} camera...`);
 
@@ -778,13 +1012,13 @@ function toggleCameraFacingMode() {
     updateCameraButtons();
 }
 
-startCameraBtn.addEventListener('click', startCameraPreview);
-switchCameraBtn.addEventListener('click', toggleCameraFacingMode);
-stopCameraBtn.addEventListener('click', stopCamera);
+startCameraBtn?.addEventListener('click', startCameraPreview);
+switchCameraBtn?.addEventListener('click', toggleCameraFacingMode);
+stopCameraBtn?.addEventListener('click', stopCamera);
 
-captureBtn.addEventListener('click', () => {
+captureBtn?.addEventListener('click', () => {
     if (!video.videoWidth) {
-        alert('Open camera first before capturing.');
+        alert('Open the camera first before capturing.');
         return;
     }
 
@@ -805,6 +1039,7 @@ captureBtn.addEventListener('click', () => {
     capturedImages.push(imageData);
     syncCapturedImageFields();
     renderPhotoSummary();
+    updateCameraStatus('Photo captured. You can take another photo or continue to the next step.');
 });
 
 window.addEventListener('beforeunload', stopCamera);
@@ -814,22 +1049,18 @@ updateCameraButtons();
 const locationModeInputs = document.querySelectorAll('input[name="location_mode"]');
 const exactLocationBox = document.getElementById('exactLocationBox');
 const manualLocationBox = document.getElementById('manualLocationBox');
-const barangayField = document.getElementById('barangayField');
-const cityField = document.getElementById('cityField');
-const manualFullAddressField = document.getElementById('manualFullAddressField');
-const locationLandmarkImageField = document.getElementById('locationLandmarkImageField');
 
 function applyCreateLocationMode() {
-    const mode = document.querySelector('input[name="location_mode"]:checked').value;
+    const mode = document.querySelector('input[name="location_mode"]:checked')?.value || 'exact';
     const isExact = mode === 'exact';
 
-    exactLocationBox.style.display = isExact ? 'block' : 'none';
-    manualLocationBox.style.display = isExact ? 'none' : 'block';
+    exactLocationBox.hidden = !isExact;
+    manualLocationBox.hidden = isExact;
 
     if (barangayField) barangayField.required = !isExact;
-    if (cityField) cityField.required = false;
-    if (manualFullAddressField) manualFullAddressField.required = !isExact;
+    if (manualFullAddressField) manualFullAddressField.required = false;
     if (locationLandmarkImageField) locationLandmarkImageField.required = !isExact;
+    if (cityField && !cityField.value.trim()) cityField.value = defaultRequestCity;
 }
 
 locationModeInputs.forEach(input => {
@@ -856,7 +1087,7 @@ async function resolveAddressFromCoords(lat, lng) {
         address.town ||
         address.municipality ||
         address.county ||
-        '';
+        defaultRequestCity;
 
     return { barangay, city };
 }
@@ -865,7 +1096,7 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
     const status = document.getElementById('gpsStatus');
 
     if (!navigator.geolocation) {
-        alert('Geolocation is not supported on this device/browser.');
+        alert('Geolocation is not supported on this device or browser.');
         return;
     }
 
@@ -888,7 +1119,7 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
                 status.textContent = `Location captured: ${label}`;
             }
         } catch (e) {
-            // Keep coordinate capture even when reverse geocoding is unavailable.
+            cityField.value = cityField.value || defaultRequestCity;
         }
 
         if (!map) {
@@ -910,25 +1141,35 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
     });
 });
 
-document.getElementById('captureForm').addEventListener('submit', (e) => {
-    const mode = document.querySelector('input[name="location_mode"]:checked').value;
+captureForm?.addEventListener('submit', (e) => {
+    if (!validatePhoneField()) {
+        e.preventDefault();
+        return;
+    }
+
+    phoneNumberField.value = normalizePhoneForSubmit(phoneNumberField.value);
+
+    const mode = document.querySelector('input[name="location_mode"]:checked')?.value || 'exact';
     if (mode === 'exact') {
         const lat = document.getElementById('latitude').value;
         const lng = document.getElementById('longitude').value;
         if (!lat || !lng) {
             e.preventDefault();
-            alert('Please capture exact location first.');
+            alert('Please capture the exact GPS location first.');
         }
+        cityField.value = cityField.value || defaultRequestCity;
     } else {
-        if (!manualFullAddressField.value.trim()) {
+        if (!barangayField.value.trim()) {
             e.preventDefault();
-            alert('Please enter your full manual address.');
+            alert('Please select a barangay for the manual location.');
+            barangayField.focus();
             return;
         }
         if (!locationLandmarkImageField.files.length) {
             e.preventDefault();
-            alert('Please upload a landmark/highway/crossing image.');
+            alert('Please upload at least one nearby landmark or crossing photo.');
         }
+        cityField.value = cityField.value || defaultRequestCity;
     }
 });
 
@@ -952,8 +1193,10 @@ document.querySelectorAll('.request-edit-toggle').forEach((button) => {
         const target = document.querySelector(button.dataset.target);
         if (target) {
             target.style.display = 'block';
-            // Sync visible fields and required flags when edit panel is opened.
             applyRequestEditLocationMode(target);
+            if (window.initBarangayAutocomplete) {
+                window.initBarangayAutocomplete(target);
+            }
         }
     });
 });
@@ -967,7 +1210,6 @@ document.querySelectorAll('.request-edit-cancel').forEach((button) => {
 
 function applyRequestEditLocationMode(form) {
     if (!form) return;
-    // Toggle which location section is editable inside the request edit modal.
     const exactRadio = form.querySelector('input[name="edit_location_mode"][value="exact"]');
     const manualBox = form.querySelector('[data-edit-manual-box]');
     const exactBox = form.querySelector('[data-edit-exact-box]');
@@ -986,16 +1228,15 @@ function applyRequestEditLocationMode(form) {
 
     if (latitudeInput) latitudeInput.required = isExact;
     if (longitudeInput) longitudeInput.required = isExact;
-    if (barangayInput) barangayInput.required = false;
-    if (cityInput) cityInput.required = false;
-    if (manualFullAddressInput) manualFullAddressInput.required = !isExact;
+    if (barangayInput) barangayInput.required = !isExact;
+    if (manualFullAddressInput) manualFullAddressInput.required = false;
+    if (cityInput && !cityInput.value.trim()) cityInput.value = defaultRequestCity;
     if (landmarkInput) landmarkInput.required = !isExact && !hasExistingLandmark && !hasUploadedLandmark;
 }
 
 document.querySelectorAll('.request-edit-form').forEach((form) => {
     const modeRadios = form.querySelectorAll('input[name="edit_location_mode"]');
     modeRadios.forEach((radio) => {
-        // Live switch between Manual Address and Exact GPS inputs.
         radio.addEventListener('change', () => applyRequestEditLocationMode(form));
     });
     const landmarkInput = form.querySelector('input[name="location_landmark_image"]');
@@ -1081,6 +1322,11 @@ initRequestStatusFilter();
 applyCreateLocationMode();
 setStep(1);
 renderPhotoSummary();
+primePhoneField();
+if (window.initBarangayAutocomplete) {
+    window.initBarangayAutocomplete(document);
+}
 </script>
 
 {% endblock %}
+

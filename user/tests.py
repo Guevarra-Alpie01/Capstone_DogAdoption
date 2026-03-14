@@ -8,6 +8,7 @@ from django.utils import timezone
 from urllib.parse import urlencode
 
 from dogadoption_admin.models import (
+    Barangay,
     Citation,
     Dog,
     DogAnnouncement,
@@ -779,6 +780,10 @@ class DogCaptureRequestFlowTests(TestCase):
             username="camera_requester",
             password="secret123",
         )
+        Barangay.objects.get_or_create(
+            name="Bugay",
+            defaults={"is_active": True, "sort_order": 1},
+        )
         self.client.force_login(self.user)
 
     def _image_file(self, name="camera-upload.gif"):
@@ -788,6 +793,7 @@ class DogCaptureRequestFlowTests(TestCase):
         return {
             "reason": "stray",
             "description": "Dog seen near the market road.",
+            "phone_number": "0917 123 4567",
             "location_mode": "exact",
             "latitude": "9.123456",
             "longitude": "122.654321",
@@ -830,3 +836,52 @@ class DogCaptureRequestFlowTests(TestCase):
         capture_request = DogCaptureRequest.objects.get(requested_by=self.user)
         self.assertEqual(capture_request.images.count(), 2)
         self.assertTrue(capture_request.image.name.endswith(".png"))
+
+    def test_request_dog_capture_normalizes_ph_phone_number(self):
+        self.client.post(
+            reverse("user:dog_capture_request"),
+            {
+                **self._exact_location_payload(),
+                "images": self._image_file(),
+                "phone_number": "+63 917 123 4567",
+            },
+        )
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.profile.phone_number, "+639171234567")
+
+    def test_request_dog_capture_rejects_invalid_ph_phone_number(self):
+        response = self.client.post(
+            reverse("user:dog_capture_request"),
+            {
+                **self._exact_location_payload(),
+                "images": self._image_file(),
+                "phone_number": "555-1234",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(DogCaptureRequest.objects.filter(requested_by=self.user).count(), 0)
+        self.assertContains(response, "Please enter a valid Philippine mobile number")
+
+    def test_request_dog_capture_manual_location_requires_barangay_but_not_address_notes(self):
+        response = self.client.post(
+            reverse("user:dog_capture_request"),
+            {
+                "reason": "stray",
+                "description": "Dog stays near the chapel.",
+                "phone_number": "09171234567",
+                "location_mode": "manual",
+                "barangay": "Bugay",
+                "city": "",
+                "manual_full_address": "",
+                "location_landmark_image": self._image_file("manual-landmark.gif"),
+                "images": self._image_file("manual-dog.gif"),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        capture_request = DogCaptureRequest.objects.get(requested_by=self.user)
+        self.assertEqual(capture_request.barangay, "Bugay")
+        self.assertEqual(capture_request.city, "Bayawan City")
+        self.assertIsNone(capture_request.manual_full_address)

@@ -62,7 +62,8 @@
                 data-bs-target="#requestViewModal{{ req.id }}"
                 data-target="#requestEditForm{{ req.id }}"
             >
-                Edit
+                <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                <span>Edit</span>
             </button>
             <form
                 method="post"
@@ -71,12 +72,15 @@
                 onsubmit="return confirm('Delete this request?');"
             >
                 {% csrf_token %}
-                <button type="submit" class="btn-danger-inline request-card-action request-inline-stop">Delete</button>
+                <button type="submit" class="btn-danger-inline request-card-action request-inline-stop">
+                    <i class="bi bi-trash3" aria-hidden="true"></i>
+                    <span>Delete</span>
+                </button>
             </form>
         </div>
     {% endif %}
 
-    <p class="request-view-hint">Click to view details</p>
+    <p class="request-view-hint">Tap to view details and request history</p>
 </div>
 
 <div class="modal fade request-view-modal" id="requestViewModal{{ req.id }}" tabindex="-1" aria-hidden="true">
@@ -149,7 +153,7 @@
                         <p><strong>Details:</strong> {{ req.description }}</p>
                     {% endif %}
                     {% if req.manual_full_address %}
-                        <p><strong>Manual Address:</strong> {{ req.manual_full_address }}</p>
+                        <p><strong>Purok / Sitio / Notes:</strong> {{ req.manual_full_address }}</p>
                         {% if req.barangay or req.city %}
                             <p><strong>Area:</strong> {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}</p>
                         {% endif %}
@@ -254,18 +258,34 @@
                         <div class="request-edit-location-box" data-edit-manual-box>
                             <div class="form-group">
                                 <label for="editBarangay{{ req.id }}">Barangay</label>
-                                <input type="text" name="barangay" id="editBarangay{{ req.id }}" value="{{ req.barangay|default_if_none:'' }}">
+                                <input
+                                    type="text"
+                                    name="barangay"
+                                    id="editBarangay{{ req.id }}"
+                                    value="{{ req.barangay|default_if_none:'' }}"
+                                    autocomplete="off"
+                                    data-barangay-autocomplete="true"
+                                    data-barangay-source-url="{% url 'user:barangay_list_api' %}"
+                                    data-barangay-suggestions-id="edit-request-barangay-suggestions-{{ req.id }}"
+                                    data-barangay-strict="true"
+                                >
+                                <div id="edit-request-barangay-suggestions-{{ req.id }}" class="suggestions-box" style="display:none;"></div>
                             </div>
                             <div class="form-group">
-                                <label for="editCity{{ req.id }}">City / Municipality</label>
-                                <input type="text" name="city" id="editCity{{ req.id }}" value="{{ req.city|default_if_none:'' }}">
+                                <label>City / Municipality</label>
+                                <div class="readonly-field">
+                                    <i class="bi bi-buildings-fill" aria-hidden="true"></i>
+                                    <span>{{ req.city|default:default_manual_city }}</span>
+                                </div>
+                                <input type="hidden" name="city" id="editCity{{ req.id }}" value="{{ req.city|default:default_manual_city }}">
                             </div>
                             <div class="form-group request-edit-full-address">
-                                <label for="editManualAddress{{ req.id }}">Full Address</label>
+                                <label for="editManualAddress{{ req.id }}">Purok / Sitio or nearby landmark details</label>
                                 <textarea
                                     name="manual_full_address"
                                     id="editManualAddress{{ req.id }}"
                                     rows="3"
+                                    placeholder="Optional directions inside the barangay"
                                 >{{ req.manual_full_address|default_if_none:'' }}</textarea>
                             </div>
                             <div class="form-group request-edit-landmark-group">
@@ -332,8 +352,14 @@
                         </div>
 
                         <div class="request-edit-actions">
-                            <button type="submit" class="btn-primary">Save Changes</button>
-                            <button type="button" class="btn-secondary request-edit-cancel" data-target="#requestEditForm{{ req.id }}">Cancel</button>
+                            <button type="submit" class="btn-primary">
+                                <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                                <span>Save Changes</span>
+                            </button>
+                            <button type="button" class="btn-secondary request-edit-cancel" data-target="#requestEditForm{{ req.id }}">
+                                <i class="bi bi-x-circle" aria-hidden="true"></i>
+                                <span>Cancel</span>
+                            </button>
                         </div>
                     </form>
                 {% endif %}

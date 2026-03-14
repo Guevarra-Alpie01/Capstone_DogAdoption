@@ -73,6 +73,8 @@ from .notification_utils import (
 
 ACTIVE_BARANGAY_LOOKUP_CACHE_KEY = "user_active_barangay_lookup"
 ACTIVE_BARANGAY_LOOKUP_CACHE_TTL_SECONDS = 300
+DEFAULT_REQUEST_CITY = "Bayawan City"
+PHILIPPINES_COUNTRY_CODE = "+63"
 
 
 def _safe_media_url(file_field):
@@ -532,6 +534,25 @@ def mark_notifications_seen(request):
 
 def _clean_barangay(value):
     return " ".join((value or "").split()).strip()
+
+
+def _normalize_ph_phone_number(value):
+    digits = "".join(ch for ch in (value or "") if ch.isdigit())
+    if len(digits) == 12 and digits.startswith("639"):
+        return f"+{digits}"
+    if len(digits) == 11 and digits.startswith("09"):
+        return f"{PHILIPPINES_COUNTRY_CODE}{digits[1:]}"
+    if len(digits) == 10 and digits.startswith("9"):
+        return f"{PHILIPPINES_COUNTRY_CODE}{digits}"
+    return ""
+
+
+def _format_ph_phone_number(value):
+    normalized = _normalize_ph_phone_number(value)
+    if not normalized:
+        return _clean_barangay(value)
+    local_number = normalized[len(PHILIPPINES_COUNTRY_CODE):]
+    return f"{PHILIPPINES_COUNTRY_CODE} {local_number[:3]} {local_number[3:6]} {local_number[6:]}"
 
 
 def _normalize_barangay(value):
@@ -2065,22 +2086,18 @@ def request_dog_capture(request):
                 captured_images = [captured_image]
 
         # Step 2: contact details
-        facebook_url = (request.POST.get('facebook_url') or '').strip()
-        phone_number = (request.POST.get('phone_number') or '').strip()
+        phone_number = _normalize_ph_phone_number(request.POST.get('phone_number'))
 
         # Basic server-side validation to mirror frontend constraints.
-        if phone_number:
-            import re
-            if not re.fullmatch(r"[0-9+\-\s()]{7,20}", phone_number):
-                messages.error(request, "Please enter a valid phone number (7–20 digits, spaces, +, - or parentheses).")
-                return redirect('user:dog_capture_request')
-
-        if facebook_url and not facebook_url.lower().startswith(("http://", "https://")):
-            messages.error(request, "Please enter a valid Facebook profile link starting with http:// or https://.")
+        if not phone_number:
+            messages.error(
+                request,
+                "Please enter a valid Philippine mobile number, such as 0917 123 4567 or +63 917 123 4567.",
+            )
             return redirect('user:dog_capture_request')
 
-        # Persist updated contact info on the user's profile without clearing existing data
-        # when the new values are blank.
+
+        # Persist the latest contact number so staff can reach the requester quickly.
         try:
             profile = request.user.profile
         except Profile.DoesNotExist:
@@ -2092,12 +2109,8 @@ def request_dog_capture(request):
             )
 
         profile_fields_to_update = []
-        if phone_number:
-            profile.phone_number = phone_number
-            profile_fields_to_update.append("phone_number")
-        if facebook_url:
-            profile.facebook_url = facebook_url
-            profile_fields_to_update.append("facebook_url")
+        profile.phone_number = phone_number
+        profile_fields_to_update.append("phone_number")
         if profile_fields_to_update:
             profile.save(update_fields=profile_fields_to_update)
 
@@ -2141,8 +2154,9 @@ def request_dog_capture(request):
             return redirect('user:dog_capture_request')
 
         if location_mode == 'manual':
-            if not manual_full_address:
-                messages.error(request, "Please provide your full manual address.")
+            resolved_barangay = _resolve_barangay_name(barangay)
+            if not resolved_barangay:
+                messages.error(request, "Please choose a valid barangay from the list.")
                 return redirect('user:dog_capture_request')
             if not location_landmark_images:
                 messages.error(
@@ -2150,6 +2164,8 @@ def request_dog_capture(request):
                     "Please upload at least one landmark/highway/crossing image for manual address.",
                 )
                 return redirect('user:dog_capture_request')
+            barangay = resolved_barangay
+            city = city or DEFAULT_REQUEST_CITY
             latitude_value = None
             longitude_value = None
         else:
@@ -2178,6 +2194,7 @@ def request_dog_capture(request):
                 except Profile.DoesNotExist:
                     profile_barangay = ""
                 barangay = _resolve_barangay_name(profile_barangay) or profile_barangay
+            city = city or DEFAULT_REQUEST_CITY
 
         new_req = DogCaptureRequest.objects.create(
             requested_by=request.user,
@@ -2253,8 +2270,14 @@ def request_dog_capture(request):
     except Profile.DoesNotExist:
         profile = None
 
-    initial_phone_number = (profile.phone_number or "").strip() if profile and profile.phone_number else ""
-    initial_facebook_url = (profile.facebook_url or "").strip() if profile and profile.facebook_url else ""
+    initial_phone_number = (
+        _format_ph_phone_number(profile.phone_number)
+        if profile and profile.phone_number
+        else f"{PHILIPPINES_COUNTRY_CODE} "
+    )
+    default_barangays = list(
+        Barangay.objects.filter(is_active=True).values_list("name", flat=True)
+    )
 
     return render(request, 'user_request/request.html', {
         'requests': bool(status_totals),
@@ -2272,7 +2295,8 @@ def request_dog_capture(request):
         'captured_total': status_totals.get("captured", 0),
         'active_status_tab': active_status_tab,
         'initial_phone_number': initial_phone_number,
-        'initial_facebook_url': initial_facebook_url,
+        'default_manual_city': DEFAULT_REQUEST_CITY,
+        'default_barangays': default_barangays,
     })
 
 
@@ -2353,8 +2377,9 @@ def edit_dog_capture_request(request, req_id):
             landmark.image.delete(save=False)
         req.landmark_images.all().delete()
     else:
-        if not manual_full_address:
-            messages.error(request, "Please provide your full manual address.")
+        resolved_barangay = _resolve_barangay_name(barangay)
+        if not resolved_barangay:
+            messages.error(request, "Please choose a valid barangay from the list.")
             return redirect('user:dog_capture_request')
         remaining_extra_landmarks = req.landmark_images.exclude(id__in=remove_landmark_ids)
         primary_count = 1 if (req.location_landmark_image and not remove_primary_landmark) else 0
@@ -2368,7 +2393,9 @@ def edit_dog_capture_request(request, req_id):
 
         req.latitude = None
         req.longitude = None
-        req.manual_full_address = manual_full_address
+        req.manual_full_address = manual_full_address or None
+        barangay = resolved_barangay
+        city = city or DEFAULT_REQUEST_CITY
 
         if remove_primary_landmark and req.location_landmark_image:
             req.location_landmark_image.delete(save=False)

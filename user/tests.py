@@ -837,6 +837,17 @@ class DogCaptureRequestFlowTests(TestCase):
         self.assertEqual(capture_request.images.count(), 2)
         self.assertTrue(capture_request.image.name.endswith(".png"))
 
+    def test_request_dog_capture_allows_submission_without_photo(self):
+        response = self.client.post(
+            reverse("user:dog_capture_request"),
+            self._exact_location_payload(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        capture_request = DogCaptureRequest.objects.get(requested_by=self.user)
+        self.assertEqual(capture_request.images.count(), 0)
+        self.assertFalse(capture_request.image)
+
     def test_request_dog_capture_normalizes_ph_phone_number(self):
         self.client.post(
             reverse("user:dog_capture_request"),
@@ -864,7 +875,7 @@ class DogCaptureRequestFlowTests(TestCase):
         self.assertEqual(DogCaptureRequest.objects.filter(requested_by=self.user).count(), 0)
         self.assertContains(response, "Please enter a valid Philippine mobile number")
 
-    def test_request_dog_capture_manual_location_requires_barangay_but_not_address_notes(self):
+    def test_request_dog_capture_manual_location_requires_barangay_but_not_notes_or_landmark_photo(self):
         response = self.client.post(
             reverse("user:dog_capture_request"),
             {
@@ -873,10 +884,7 @@ class DogCaptureRequestFlowTests(TestCase):
                 "phone_number": "09171234567",
                 "location_mode": "manual",
                 "barangay": "Bugay",
-                "city": "",
                 "manual_full_address": "",
-                "location_landmark_image": self._image_file("manual-landmark.gif"),
-                "images": self._image_file("manual-dog.gif"),
             },
         )
 
@@ -885,3 +893,4 @@ class DogCaptureRequestFlowTests(TestCase):
         self.assertEqual(capture_request.barangay, "Bugay")
         self.assertEqual(capture_request.city, "Bayawan City")
         self.assertIsNone(capture_request.manual_full_address)
+        self.assertFalse(capture_request.location_landmark_image)

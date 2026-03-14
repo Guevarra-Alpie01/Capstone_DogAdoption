@@ -2122,7 +2122,7 @@ def request_dog_capture(request):
             location_mode = 'exact'
 
         barangay = _clean_barangay(request.POST.get('barangay'))
-        city = _clean_barangay(request.POST.get('city'))
+        city = _clean_barangay(request.POST.get('city')) or DEFAULT_REQUEST_CITY
         manual_full_address = " ".join(
             (request.POST.get('manual_full_address') or '').split()
         ).strip()
@@ -2158,14 +2158,7 @@ def request_dog_capture(request):
             if not resolved_barangay:
                 messages.error(request, "Please choose a valid barangay from the list.")
                 return redirect('user:dog_capture_request')
-            if not location_landmark_images:
-                messages.error(
-                    request,
-                    "Please upload at least one landmark/highway/crossing image for manual address.",
-                )
-                return redirect('user:dog_capture_request')
             barangay = resolved_barangay
-            city = city or DEFAULT_REQUEST_CITY
             latitude_value = None
             longitude_value = None
         else:
@@ -2194,8 +2187,6 @@ def request_dog_capture(request):
                 except Profile.DoesNotExist:
                     profile_barangay = ""
                 barangay = _resolve_barangay_name(profile_barangay) or profile_barangay
-            city = city or DEFAULT_REQUEST_CITY
-
         new_req = DogCaptureRequest.objects.create(
             requested_by=request.user,
             reason=reason,
@@ -2275,10 +2266,6 @@ def request_dog_capture(request):
         if profile and profile.phone_number
         else f"{PHILIPPINES_COUNTRY_CODE} "
     )
-    default_barangays = list(
-        Barangay.objects.filter(is_active=True).values_list("name", flat=True)
-    )
-
     return render(request, 'user_request/request.html', {
         'requests': bool(status_totals),
         'accepted_requests': accepted_requests,
@@ -2296,7 +2283,6 @@ def request_dog_capture(request):
         'active_status_tab': active_status_tab,
         'initial_phone_number': initial_phone_number,
         'default_manual_city': DEFAULT_REQUEST_CITY,
-        'default_barangays': default_barangays,
     })
 
 
@@ -2324,7 +2310,7 @@ def edit_dog_capture_request(request, req_id):
 
     description = (request.POST.get('description') or '').strip()
     barangay = _clean_barangay(request.POST.get('barangay'))
-    city = _clean_barangay(request.POST.get('city'))
+    city = _clean_barangay(request.POST.get('city')) or DEFAULT_REQUEST_CITY
     manual_full_address = " ".join(
         (request.POST.get('manual_full_address') or '').split()
     ).strip()
@@ -2381,21 +2367,10 @@ def edit_dog_capture_request(request, req_id):
         if not resolved_barangay:
             messages.error(request, "Please choose a valid barangay from the list.")
             return redirect('user:dog_capture_request')
-        remaining_extra_landmarks = req.landmark_images.exclude(id__in=remove_landmark_ids)
-        primary_count = 1 if (req.location_landmark_image and not remove_primary_landmark) else 0
-        has_existing_landmarks = bool(primary_count or remaining_extra_landmarks.exists())
-        if not has_existing_landmarks and not location_landmark_images:
-            messages.error(
-                request,
-                "Please upload at least one landmark/highway/crossing image for manual address.",
-            )
-            return redirect('user:dog_capture_request')
-
         req.latitude = None
         req.longitude = None
         req.manual_full_address = manual_full_address or None
         barangay = resolved_barangay
-        city = city or DEFAULT_REQUEST_CITY
 
         if remove_primary_landmark and req.location_landmark_image:
             req.location_landmark_image.delete(save=False)

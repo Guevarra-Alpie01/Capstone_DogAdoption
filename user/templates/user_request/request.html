@@ -15,7 +15,7 @@
                 <span class="request-eyebrow">Dog Capture Request</span>
                 <h2>Report a dog quickly and clearly</h2>
                 <p class="request-hero-text">
-                    Add a clear photo, a reachable Philippine mobile number, and the exact area so the rabies control team can respond faster.
+                    Add a photo if available, a reachable Philippine mobile number, and the exact area so the rabies control team can respond faster.
                 </p>
             </div>
             <div class="request-hero-side">
@@ -55,52 +55,28 @@
                     </div>
                     <div>
                         <p class="step-kicker">Step 1</p>
-                        <h3>Add a clear dog photo</h3>
+                        <h3>Add a dog photo if available</h3>
                         <p class="step-description">
-                            Use your phone camera or upload existing photos. You can add more than one image if needed.
+                            Upload an existing image or use your camera. Photos are optional, but they help the team verify the dog faster.
                         </p>
                     </div>
                 </div>
 
-                <div class="capture-choice">
-                    <button type="button" class="btn-secondary capture-action-btn" id="openPhotoModeBtn">
-                        <i class="bi bi-images" aria-hidden="true"></i>
-                        <span>Add Dog Photo</span>
+                <div class="capture-choice" role="group" aria-label="Photo options">
+                    <button type="button" class="btn-secondary capture-action-btn" id="openUploadPickerBtn">
+                        <i class="bi bi-upload" aria-hidden="true"></i>
+                        <span>Upload Photo</span>
                     </button>
-                    <button type="button" class="btn-primary capture-action-btn" id="openNativeCameraBtn">
-                        <i class="bi bi-phone" aria-hidden="true"></i>
-                        <span>Use Phone Camera</span>
+                    <button type="button" class="btn-primary capture-action-btn" id="openCameraExperienceBtn">
+                        <i class="bi bi-camera2" aria-hidden="true"></i>
+                        <span>Take Picture / Use Camera</span>
                     </button>
                 </div>
+                <p class="helper-text capture-helper-note">
+                    You can continue without a photo if needed, then add clear location details in the next steps.
+                </p>
 
-                <div id="photoModeModal" class="photo-mode-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="photoModeTitle">
-                    <div class="photo-mode-sheet">
-                        <div class="photo-mode-head">
-                            <h4 id="photoModeTitle">Choose photo source</h4>
-                            <button type="button" class="photo-mode-close" id="closePhotoModeBtn" aria-label="Close photo options">
-                                <i class="bi bi-x-lg" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                        <div class="photo-mode-actions">
-                            <button type="button" class="photo-option-btn upload" id="uploadModeBtn">
-                                <i class="bi bi-upload" aria-hidden="true"></i>
-                                <span>Upload Photo</span>
-                            </button>
-                            <button type="button" class="photo-option-btn camera" id="cameraModeBtn">
-                                <i class="bi bi-camera-fill" aria-hidden="true"></i>
-                                <span>Take Picture</span>
-                            </button>
-                            <button type="button" class="photo-option-btn cancel" id="cancelPhotoModeBtn">
-                                <i class="bi bi-x-circle" aria-hidden="true"></i>
-                                <span>Cancel</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="uploadSection" class="upload-input-shell" aria-hidden="true">
-                    <input type="file" name="images" id="imageInput" class="photo-input-hidden" accept="image/*" multiple>
-                </div>
+                <input type="file" name="images" id="imageInput" class="photo-input-hidden" accept="image/*" multiple>
 
                 <div id="cameraSection" class="camera-shell" hidden>
                     <div class="camera-preview-shell">
@@ -122,8 +98,8 @@
                             <span>Use Front Camera</span>
                         </button>
                         <button type="button" class="btn-secondary" id="stopCameraBtn" disabled>
-                            <i class="bi bi-stop-circle" aria-hidden="true"></i>
-                            <span>Stop Camera</span>
+                            <i class="bi bi-x-circle" aria-hidden="true"></i>
+                            <span>Close Camera</span>
                         </button>
                         <button type="button" class="btn-primary" id="captureBtn" disabled>
                             <i class="bi bi-camera" aria-hidden="true"></i>
@@ -154,7 +130,7 @@
                     </div>
                 </div>
 
-                <div class="step-detail-grid">
+                <div class="step-detail-stack">
                     <div class="form-group">
                         <label for="phoneNumberField">Phone Number</label>
                         <div class="input-with-icon phone-input-wrap">
@@ -175,16 +151,6 @@
                         <small class="helper-text">
                             Accepted formats: 0917 123 4567, 9171234567, or +63 917 123 4567.
                         </small>
-                    </div>
-
-                    <div class="info-card">
-                        <div class="info-card-icon">
-                            <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
-                        </div>
-                        <div>
-                            <strong>Quick reminder</strong>
-                            <p>We removed the Facebook field here so your request can be completed faster on mobile.</p>
-                        </div>
                     </div>
                 </div>
 
@@ -225,11 +191,11 @@
                     </label>
                 </div>
 
-                <div id="exactLocationBox" class="location-card">
-                    <div class="location-card-head">
-                        <div>
-                            <h4>Exact GPS location</h4>
-                            <p>Allow location access, then confirm the map pin.</p>
+                    <div id="exactLocationBox" class="location-card">
+                        <div class="location-card-head">
+                            <div>
+                                <h4>Exact GPS location</h4>
+                                <p>Allow location access, then confirm the map pin.</p>
                         </div>
                         <button type="button" class="btn-secondary" id="getLocationBtn">
                             <i class="bi bi-crosshair2" aria-hidden="true"></i>
@@ -240,13 +206,12 @@
                     <div id="requestMap"></div>
                     <input type="hidden" name="latitude" id="latitude">
                     <input type="hidden" name="longitude" id="longitude">
-                    <input type="hidden" name="city" id="cityField" value="{{ default_manual_city }}">
                 </div>
 
                 <div id="manualLocationBox" class="location-card" hidden>
-                    <div class="manual-location-grid">
+                    <div class="manual-location-stack">
                         <div class="form-group">
-                            <label for="manualFullAddressField">Purok / Sitio or nearby landmark details</label>
+                            <label for="manualFullAddressField">Purok / Sitio (optional)</label>
                             <div class="input-with-icon textarea-with-icon">
                                 <span class="input-icon">
                                     <i class="bi bi-signpost-2-fill" aria-hidden="true"></i>
@@ -282,19 +247,11 @@
                                 >
                             </div>
                             <div id="request-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
-                            <small class="helper-text">Required. Start typing or tap one of the barangays below.</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label>City / Municipality</label>
-                            <div class="readonly-field">
-                                <i class="bi bi-buildings-fill" aria-hidden="true"></i>
-                                <span>{{ default_manual_city }}</span>
-                            </div>
+                            <small class="helper-text">Required. Start typing to choose a barangay from the system list.</small>
                         </div>
 
                         <div class="form-group manual-landmark-upload-group">
-                            <label for="locationLandmarkImageField">Nearest highway / crossing / landmark photo(s)</label>
+                            <label for="locationLandmarkImageField">Nearby landmark photo(s) (optional)</label>
                             <div class="input-with-icon file-input-wrap">
                                 <span class="input-icon">
                                     <i class="bi bi-image-fill" aria-hidden="true"></i>
@@ -307,19 +264,7 @@
                                     multiple
                                 >
                             </div>
-                            <small class="upload-hint">Upload one or more clear photos so the team can locate the exact area faster.</small>
-                        </div>
-                    </div>
-
-                    <div class="barangay-chip-shell">
-                        <div class="barangay-chip-head">
-                            <strong>Quick-select barangays</strong>
-                            <span>{{ default_barangays|length }} active barangays</span>
-                        </div>
-                        <div class="barangay-chip-list">
-                            {% for barangay_name in default_barangays %}
-                                <button type="button" class="barangay-chip" data-barangay-choice="{{ barangay_name }}">{{ barangay_name }}</button>
-                            {% endfor %}
+                            <small class="upload-hint">Optional photo of a nearby crossing, store, or landmark that can help the team find the area.</small>
                         </div>
                     </div>
                 </div>
@@ -486,7 +431,6 @@ const phoneNumberField = document.getElementById('phoneNumberField');
 const defaultRequestCity = "{{ default_manual_city|escapejs }}";
 const captureForm = document.getElementById('captureForm');
 const barangayField = document.getElementById('barangayField');
-const cityField = document.getElementById('cityField');
 const manualFullAddressField = document.getElementById('manualFullAddressField');
 const locationLandmarkImageField = document.getElementById('locationLandmarkImageField');
 
@@ -552,15 +496,6 @@ function setStep(step) {
 }
 
 function validateStep(step) {
-    if (step === 1) {
-        const hasUpload = selectedUploadFiles.length > 0;
-        const hasCapture = capturedImages.length > 0;
-        if (!hasUpload && !hasCapture) {
-            alert('Please upload a photo or capture one using your camera first.');
-            return false;
-        }
-    }
-
     if (step === 2) {
         return validatePhoneField();
     }
@@ -588,22 +523,9 @@ phoneNumberField?.addEventListener('blur', () => {
     phoneNumberField.value = formatted || '+63 ';
 });
 
-document.querySelectorAll('[data-barangay-choice]').forEach((button) => {
-    button.addEventListener('click', () => {
-        barangayField.value = button.dataset.barangayChoice || '';
-        barangayField.setCustomValidity('');
-        barangayField.focus();
-    });
-});
-
 const cameraSection = document.getElementById('cameraSection');
-const photoModeModal = document.getElementById('photoModeModal');
-const openPhotoModeBtn = document.getElementById('openPhotoModeBtn');
-const closePhotoModeBtn = document.getElementById('closePhotoModeBtn');
-const cancelPhotoModeBtn = document.getElementById('cancelPhotoModeBtn');
-const uploadModeBtn = document.getElementById('uploadModeBtn');
-const cameraModeBtn = document.getElementById('cameraModeBtn');
-const openNativeCameraBtn = document.getElementById('openNativeCameraBtn');
+const openUploadPickerBtn = document.getElementById('openUploadPickerBtn');
+const openCameraExperienceBtn = document.getElementById('openCameraExperienceBtn');
 const imageInput = document.getElementById('imageInput');
 const photoSummaryTray = document.getElementById('photoSummaryTray');
 const photoSummaryList = document.getElementById('photoSummaryList');
@@ -823,49 +745,6 @@ function renderPhotoSummary() {
     photoSummaryTray.classList.toggle('is-visible', photoSummaryList.childElementCount > 0);
 }
 
-function openPhotoModeModal() {
-    if (!photoModeModal) return;
-    photoModeModal.classList.add('is-open');
-    photoModeModal.setAttribute('aria-hidden', 'false');
-}
-
-function closePhotoModeModal() {
-    if (!photoModeModal) return;
-    photoModeModal.classList.remove('is-open');
-    photoModeModal.setAttribute('aria-hidden', 'true');
-}
-
-openPhotoModeBtn?.addEventListener('click', openPhotoModeModal);
-closePhotoModeBtn?.addEventListener('click', closePhotoModeModal);
-cancelPhotoModeBtn?.addEventListener('click', closePhotoModeModal);
-openNativeCameraBtn?.addEventListener('click', () => openImagePicker({ useNativeCamera: true }));
-
-photoModeModal?.addEventListener('click', (event) => {
-    if (event.target === photoModeModal) {
-        closePhotoModeModal();
-    }
-});
-
-document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && photoModeModal?.classList.contains('is-open')) {
-        closePhotoModeModal();
-    }
-});
-
-uploadModeBtn.addEventListener('click', () => {
-    showCameraSection(false);
-    stopCamera();
-    closePhotoModeModal();
-    openImagePicker();
-});
-
-cameraModeBtn.addEventListener('click', () => {
-    showCameraSection(true);
-    closePhotoModeModal();
-    updateCameraStatus(`${cameraFacingLabel(preferredFacingMode).replace(/^./, (char) => char.toUpperCase())} camera selected. Open camera to begin.`);
-    updateCameraButtons();
-});
-
 imageInput.addEventListener('change', () => {
     imageInput.removeAttribute('capture');
     imageInput.setAttribute('multiple', '');
@@ -874,7 +753,17 @@ imageInput.addEventListener('change', () => {
     renderPhotoSummary();
 });
 
-function stopCamera() {
+openUploadPickerBtn?.addEventListener('click', () => {
+    stopCamera({ hideSection: true });
+    openImagePicker();
+});
+
+openCameraExperienceBtn?.addEventListener('click', () => {
+    startCameraPreview();
+});
+
+function stopCamera(options = {}) {
+    const hideSection = options.hideSection === true;
     if (stream) {
         stream.getTracks().forEach((track) => track.stop());
         stream = null;
@@ -885,6 +774,9 @@ function stopCamera() {
     video.srcObject = null;
     updateCameraStatus(`${cameraFacingLabel(preferredFacingMode).replace(/^./, (char) => char.toUpperCase())} camera selected. Open camera to begin.`);
     updateCameraButtons();
+    if (hideSection) {
+        showCameraSection(false);
+    }
 }
 
 function hasCameraApi() {
@@ -941,8 +833,7 @@ async function requestCameraStream(facingMode) {
 }
 
 function openNativeCameraFallback() {
-    stopCamera();
-    showCameraSection(false);
+    stopCamera({ hideSection: true });
     updateCameraStatus(`${cameraFacingLabel(preferredFacingMode).replace(/^./, (char) => char.toUpperCase())} phone camera will open in your browser picker.`);
     openImagePicker({ useNativeCamera: true });
 }
@@ -1014,7 +905,7 @@ function toggleCameraFacingMode() {
 
 startCameraBtn?.addEventListener('click', startCameraPreview);
 switchCameraBtn?.addEventListener('click', toggleCameraFacingMode);
-stopCameraBtn?.addEventListener('click', stopCamera);
+stopCameraBtn?.addEventListener('click', () => stopCamera({ hideSection: true }));
 
 captureBtn?.addEventListener('click', () => {
     if (!video.videoWidth) {
@@ -1059,8 +950,7 @@ function applyCreateLocationMode() {
 
     if (barangayField) barangayField.required = !isExact;
     if (manualFullAddressField) manualFullAddressField.required = false;
-    if (locationLandmarkImageField) locationLandmarkImageField.required = !isExact;
-    if (cityField && !cityField.value.trim()) cityField.value = defaultRequestCity;
+    if (locationLandmarkImageField) locationLandmarkImageField.required = false;
 }
 
 locationModeInputs.forEach(input => {
@@ -1112,14 +1002,13 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
         try {
             const resolved = await resolveAddressFromCoords(lat, lng);
             if (resolved.barangay) barangayField.value = resolved.barangay;
-            if (resolved.city) cityField.value = resolved.city;
 
             const label = [resolved.barangay, resolved.city].filter(Boolean).join(', ');
             if (label) {
                 status.textContent = `Location captured: ${label}`;
             }
         } catch (e) {
-            cityField.value = cityField.value || defaultRequestCity;
+            // Keep the captured coordinates even if address lookup is unavailable.
         }
 
         if (!map) {
@@ -1157,7 +1046,6 @@ captureForm?.addEventListener('submit', (e) => {
             e.preventDefault();
             alert('Please capture the exact GPS location first.');
         }
-        cityField.value = cityField.value || defaultRequestCity;
     } else {
         if (!barangayField.value.trim()) {
             e.preventDefault();
@@ -1165,11 +1053,6 @@ captureForm?.addEventListener('submit', (e) => {
             barangayField.focus();
             return;
         }
-        if (!locationLandmarkImageField.files.length) {
-            e.preventDefault();
-            alert('Please upload at least one nearby landmark or crossing photo.');
-        }
-        cityField.value = cityField.value || defaultRequestCity;
     }
 });
 
@@ -1214,14 +1097,10 @@ function applyRequestEditLocationMode(form) {
     const manualBox = form.querySelector('[data-edit-manual-box]');
     const exactBox = form.querySelector('[data-edit-exact-box]');
     const barangayInput = form.querySelector('input[name="barangay"]');
-    const cityInput = form.querySelector('input[name="city"]');
     const manualFullAddressInput = form.querySelector('textarea[name="manual_full_address"]');
-    const landmarkInput = form.querySelector('input[name="location_landmark_image"]');
     const latitudeInput = form.querySelector('input[name="latitude"]');
     const longitudeInput = form.querySelector('input[name="longitude"]');
     const isExact = !!(exactRadio && exactRadio.checked);
-    const hasExistingLandmark = landmarkInput?.dataset.hasExistingLandmark === 'true';
-    const hasUploadedLandmark = !!(landmarkInput && landmarkInput.files && landmarkInput.files.length);
 
     if (manualBox) manualBox.style.display = isExact ? 'none' : 'grid';
     if (exactBox) exactBox.style.display = isExact ? 'grid' : 'none';
@@ -1230,8 +1109,6 @@ function applyRequestEditLocationMode(form) {
     if (longitudeInput) longitudeInput.required = isExact;
     if (barangayInput) barangayInput.required = !isExact;
     if (manualFullAddressInput) manualFullAddressInput.required = false;
-    if (cityInput && !cityInput.value.trim()) cityInput.value = defaultRequestCity;
-    if (landmarkInput) landmarkInput.required = !isExact && !hasExistingLandmark && !hasUploadedLandmark;
 }
 
 document.querySelectorAll('.request-edit-form').forEach((form) => {
@@ -1239,8 +1116,6 @@ document.querySelectorAll('.request-edit-form').forEach((form) => {
     modeRadios.forEach((radio) => {
         radio.addEventListener('change', () => applyRequestEditLocationMode(form));
     });
-    const landmarkInput = form.querySelector('input[name="location_landmark_image"]');
-    landmarkInput?.addEventListener('change', () => applyRequestEditLocationMode(form));
     applyRequestEditLocationMode(form);
 });
 

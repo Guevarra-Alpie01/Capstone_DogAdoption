@@ -111,11 +111,11 @@ class DogCaptureRequest(models.Model):
 
     @property
     def needs_location_details(self):
-        return self.request_type == "capture" and self.submission_type == "online"
+        return self.submission_type == "online"
 
     @property
     def uses_appointment_date(self):
-        return self.request_type == "capture" and self.submission_type == "walk_in"
+        return self.submission_type == "walk_in"
 
     def __str__(self):
         return f"{self.requested_by} - {self.get_request_type_display()} ({self.status})"

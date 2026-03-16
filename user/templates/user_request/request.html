@@ -144,13 +144,12 @@
                         <p class="step-kicker">Step 2</p>
                         <h3>Choose how the request will be submitted</h3>
                         <p class="step-description">
-                            Dog capture requests need a submission type. Dog surrender requests will show a quick summary here before you continue to the final details step.
+                            Choose whether this request will be handled as a walk-in office request or submitted online.
                         </p>
                     </div>
                 </div>
 
-                <div id="captureSubmissionPanel">
-                    <div class="request-choice-grid" role="radiogroup" aria-label="Capture submission type">
+                <div class="request-choice-grid" role="radiogroup" aria-label="Submission type">
                         <label class="request-choice-card">
                             <input type="radio" name="submission_type" value="walk_in">
                             <span class="request-choice-icon"><i class="bi bi-building" aria-hidden="true"></i></span>
@@ -167,33 +166,8 @@
                                 <small>Submit online and share the dog’s location so the dog catcher can be dispatched.</small>
                             </span>
                         </label>
-                    </div>
                 </div>
 
-                <div id="surrenderSubmissionPanel" class="location-card request-flow-note" hidden>
-                    <div class="location-card-head">
-                        <div>
-                            <h4>Dog surrender request selected</h4>
-                            <p>No submission type is needed for surrender requests.</p>
-                        </div>
-                    </div>
-                    <div class="request-flow-summary">
-                        <div class="info-card">
-                            <span class="info-card-icon"><i class="bi bi-check2-circle" aria-hidden="true"></i></span>
-                            <div>
-                                <strong>Step 2 is already complete</strong>
-                                <p class="request-flow-note-text">You can continue to Step 3 without choosing walk-in or online submission.</p>
-                            </div>
-                        </div>
-                        <div class="info-card">
-                            <span class="info-card-icon"><i class="bi bi-telephone-outbound-fill" aria-hidden="true"></i></span>
-                            <div>
-                                <strong>Next, add your contact details</strong>
-                                <p class="request-flow-note-text">The shelter team will use your phone number and any notes you provide to follow up about the surrender.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <div class="step-panel" data-step="3" hidden>
@@ -270,7 +244,7 @@
                         <div class="location-card-head">
                             <div>
                                 <h4>Exact GPS location</h4>
-                                <p>Allow location access, then confirm the map pin so the dog catcher can find the reported dog.</p>
+                                <p>Allow location access, then confirm the map pin so the shelter team can find the dog or pickup point.</p>
                             </div>
                             <button type="button" class="btn-secondary" id="getLocationBtn">
                                 <i class="bi bi-crosshair2" aria-hidden="true"></i>
@@ -542,8 +516,6 @@ const defaultRequestCity = "{{ default_manual_city|escapejs }}";
 const captureForm = document.getElementById('captureForm');
 const requestTypeInputs = document.querySelectorAll('input[name="request_type"]');
 const submissionTypeInputs = document.querySelectorAll('input[name="submission_type"]');
-const captureSubmissionPanel = document.getElementById('captureSubmissionPanel');
-const surrenderSubmissionPanel = document.getElementById('surrenderSubmissionPanel');
 const walkInDetailsSection = document.getElementById('walkInDetailsSection');
 const onlineDetailsSection = document.getElementById('onlineDetailsSection');
 const surrenderDetailsSection = document.getElementById('surrenderDetailsSection');
@@ -586,17 +558,14 @@ function primePhoneField() {
 
 function syncSubmitButtonState() {
     if (!submitBtn) return;
-    const requestType = getSelectedRequestType();
-    const submissionType = requestType === 'capture' ? getSelectedSubmissionType() : '';
+    const submissionType = getSelectedSubmissionType();
 
     let disabled = false;
     if (currentStep === 3) {
-        if (requestType === 'capture') {
-            if (!submissionType) {
-                disabled = true;
-            } else if (submissionType === 'walk_in') {
-                disabled = !appointmentDateField?.value;
-            }
+        if (!submissionType) {
+            disabled = true;
+        } else if (submissionType === 'walk_in') {
+            disabled = !appointmentDateField?.value;
         }
     }
     submitBtn.disabled = disabled;
@@ -623,13 +592,11 @@ function ensureRequestMapReady() {
 
 function syncRequestFlowUI() {
     const requestType = getSelectedRequestType();
-    const submissionType = requestType === 'capture' ? getSelectedSubmissionType() : '';
+    const submissionType = getSelectedSubmissionType();
     const isCapture = requestType === 'capture';
-    const isWalkIn = isCapture && submissionType === 'walk_in';
-    const isOnline = isCapture && submissionType === 'online';
+    const isWalkIn = submissionType === 'walk_in';
+    const isOnline = submissionType === 'online';
 
-    if (captureSubmissionPanel) captureSubmissionPanel.hidden = !isCapture;
-    if (surrenderSubmissionPanel) surrenderSubmissionPanel.hidden = isCapture;
     if (walkInDetailsSection) walkInDetailsSection.hidden = !isWalkIn;
     if (onlineDetailsSection) onlineDetailsSection.hidden = !isOnline;
     if (surrenderDetailsSection) surrenderDetailsSection.hidden = isCapture;
@@ -650,6 +617,10 @@ function syncRequestFlowUI() {
 }
 
 function setStep(step) {
+    const previousStep = currentStep;
+    if (previousStep === 1 && step !== 1) {
+        stopCamera({ hideSection: true });
+    }
     currentStep = step;
     stepPanels.forEach((panel) => {
         panel.hidden = Number(panel.dataset.step) !== step;
@@ -669,8 +640,8 @@ function setStep(step) {
 
 function validateStep(step) {
     if (step === 2) {
-        if (getSelectedRequestType() === 'capture' && !getSelectedSubmissionType()) {
-            alert('Please choose whether this dog capture request will be walk-in or online.');
+        if (!getSelectedSubmissionType()) {
+            alert('Please choose whether this request will be walk-in or online.');
             return false;
         }
         return true;
@@ -706,14 +677,7 @@ phoneNumberField?.addEventListener('input', () => {
 });
 
 requestTypeInputs.forEach((input) => {
-    input.addEventListener('change', () => {
-        if (getSelectedRequestType() !== 'capture') {
-            submissionTypeInputs.forEach((radio) => {
-                radio.checked = false;
-            });
-        }
-        syncRequestFlowUI();
-    });
+    input.addEventListener('change', syncRequestFlowUI);
 });
 
 submissionTypeInputs.forEach((input) => {
@@ -1143,7 +1107,7 @@ const manualLocationBox = document.getElementById('manualLocationBox');
 
 function applyCreateLocationMode() {
     const mode = document.querySelector('input[name="location_mode"]:checked')?.value || 'exact';
-    const isOnline = getSelectedRequestType() === 'capture' && getSelectedSubmissionType() === 'online';
+    const isOnline = getSelectedSubmissionType() === 'online';
     const isExact = mode === 'exact';
 
     exactLocationBox.hidden = !isOnline || !isExact;
@@ -1242,24 +1206,23 @@ captureForm?.addEventListener('submit', (e) => {
 
     phoneNumberField.value = normalizePhoneForSubmit(phoneNumberField.value);
 
-    const requestType = getSelectedRequestType();
     const submissionType = getSelectedSubmissionType();
 
-    if (requestType === 'capture' && !submissionType) {
+    if (!submissionType) {
         e.preventDefault();
-        alert('Please choose whether this dog capture request will be walk-in or online.');
+        alert('Please choose whether this request will be walk-in or online.');
         return;
     }
 
-    if (requestType === 'capture' && submissionType === 'walk_in') {
+    if (submissionType === 'walk_in') {
         if (!appointmentDateField?.value) {
             e.preventDefault();
-            alert('Please select an available appointment date for the walk-in request.');
+            alert('Please select an available appointment date for this walk-in request.');
         }
         return;
     }
 
-    if (requestType === 'capture' && submissionType === 'online') {
+    if (submissionType === 'online') {
         const mode = document.querySelector('input[name="location_mode"]:checked')?.value || 'exact';
         if (mode === 'exact') {
             const lat = document.getElementById('latitude').value;
@@ -1326,17 +1289,14 @@ function applyRequestEditLocationMode(form) {
     const latitudeInput = form.querySelector('input[name="latitude"]');
     const longitudeInput = form.querySelector('input[name="longitude"]');
     const requestType = requestTypeSelect?.value || 'capture';
-    const submissionType = requestType === 'capture' ? (submissionTypeSelect?.value || '') : '';
-    const isOnline = requestType === 'capture' && submissionType === 'online';
-    const isWalkIn = requestType === 'capture' && submissionType === 'walk_in';
+    const submissionType = submissionTypeSelect?.value || '';
+    const isOnline = submissionType === 'online';
+    const isWalkIn = submissionType === 'walk_in';
     const isExact = !!(exactRadio && exactRadio.checked);
 
     if (submissionTypeSelect) {
-        submissionTypeSelect.disabled = requestType !== 'capture';
-        submissionTypeSelect.required = requestType === 'capture';
-        if (requestType !== 'capture') {
-            submissionTypeSelect.value = '';
-        }
+        submissionTypeSelect.disabled = false;
+        submissionTypeSelect.required = true;
     }
 
     if (appointmentBox) appointmentBox.style.display = isWalkIn ? 'block' : 'none';

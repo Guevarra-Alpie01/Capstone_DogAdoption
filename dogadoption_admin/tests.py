@@ -801,3 +801,21 @@ class AdminDogRequestTemplateTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Request Dog Surrender")
         self.assertContains(response, "No dispatch location is required")
+
+    def test_admin_request_update_page_renders_online_surrender_location(self):
+        surrender_request = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="surrender",
+            submission_type="online",
+            reason="stray",
+            latitude="9.123456",
+            longitude="122.654321",
+        )
+
+        response = self.client.get(
+            reverse("dogadoption_admin:update_dog_capture_request", args=[surrender_request.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Request Dog Surrender")
+        self.assertContains(response, "View in Google Maps")

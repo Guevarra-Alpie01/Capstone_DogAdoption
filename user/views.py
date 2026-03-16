@@ -597,9 +597,6 @@ def _derive_dog_request_submission_type(
     longitude_raw="",
     barangay="",
 ):
-    if request_type != "capture":
-        return ""
-
     submission_type = _normalize_dog_request_submission_type(raw_submission_type)
     if submission_type:
         return submission_type
@@ -2168,15 +2165,15 @@ def request_dog_capture(request):
             barangay=request.POST.get('barangay'),
         )
 
-        if request_type == 'capture' and not submission_type:
-            messages.error(request, "Please choose how you want to submit the dog capture request.")
+        if not submission_type:
+            messages.error(request, "Please choose how you want to submit this request.")
             return redirect('user:dog_capture_request')
 
         preferred_appointment_date = None
-        if request_type == 'capture' and submission_type == 'walk_in':
+        if submission_type == 'walk_in':
             preferred_appointment_date = parse_date(appointment_date_raw) if appointment_date_raw else None
             if not preferred_appointment_date:
-                messages.error(request, "Please select an available appointment date for the walk-in request.")
+                messages.error(request, "Please select an available appointment date for this walk-in request.")
                 return redirect('user:dog_capture_request')
             if not available_dates.filter(appointment_date=preferred_appointment_date).exists():
                 messages.error(request, "Selected appointment date is not available.")
@@ -2212,7 +2209,7 @@ def request_dog_capture(request):
                     messages.error(request, "One of the captured photos could not be processed. Please try again.")
                     return redirect('user:dog_capture_request')
 
-        if request_type == 'capture' and submission_type == 'online' and location_mode == 'manual':
+        if submission_type == 'online' and location_mode == 'manual':
             resolved_barangay = _resolve_barangay_name(barangay)
             if not resolved_barangay:
                 messages.error(request, "Please choose a valid barangay from the list.")
@@ -2220,7 +2217,7 @@ def request_dog_capture(request):
             barangay = resolved_barangay
             latitude_value = None
             longitude_value = None
-        elif request_type == 'capture' and submission_type == 'online':
+        elif submission_type == 'online':
             if not latitude_raw or not longitude_raw:
                 messages.error(request, "Please capture your exact GPS location first.")
                 return redirect('user:dog_capture_request')
@@ -2416,22 +2413,22 @@ def edit_dog_capture_request(request, req_id):
         barangay=barangay,
     )
 
-    if request_type == 'capture' and not submission_type:
-        messages.error(request, "Please choose how you want to submit the dog capture request.")
+    if not submission_type:
+        messages.error(request, "Please choose how you want to submit this request.")
         return redirect('user:dog_capture_request')
 
     preferred_appointment_date = None
-    if request_type == 'capture' and submission_type == 'walk_in':
+    if submission_type == 'walk_in':
         preferred_appointment_date = parse_date(appointment_date_raw) if appointment_date_raw else None
         if not preferred_appointment_date:
-            messages.error(request, "Please select an available appointment date for the walk-in request.")
+            messages.error(request, "Please select an available appointment date for this walk-in request.")
             return redirect('user:dog_capture_request')
         if not available_dates.filter(appointment_date=preferred_appointment_date).exists():
             messages.error(request, "Selected appointment date is not available.")
             return redirect('user:dog_capture_request')
 
     # Exact mode stores GPS coordinates; manual mode stores full manual address.
-    if request_type == 'capture' and submission_type == 'online' and location_mode == 'exact':
+    if submission_type == 'online' and location_mode == 'exact':
         if not latitude_raw or not longitude_raw:
             messages.error(request, "Please provide both latitude and longitude.")
             return redirect('user:dog_capture_request')
@@ -2456,7 +2453,7 @@ def edit_dog_capture_request(request, req_id):
         for landmark in req.landmark_images.all():
             landmark.image.delete(save=False)
         req.landmark_images.all().delete()
-    elif request_type == 'capture' and submission_type == 'online':
+    elif submission_type == 'online':
         resolved_barangay = _resolve_barangay_name(barangay)
         if not resolved_barangay:
             messages.error(request, "Please choose a valid barangay from the list.")

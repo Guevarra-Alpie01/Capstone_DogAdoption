@@ -120,7 +120,7 @@
 
             <div class="info-block">
                 <span class="label">Location</span>
-                {% if req.request_type == 'capture' and req.submission_type == 'online' %}
+                {% if req.submission_type == 'online' %}
                     {% if req.latitude and req.longitude %}
                         <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank" class="map-link-btn">
                             View in Google Maps
@@ -136,14 +136,14 @@
                     {% else %}
                         <p><em>No location provided.</em></p>
                     {% endif %}
-                {% elif req.request_type == 'capture' and req.submission_type == 'walk_in' %}
+                {% elif req.submission_type == 'walk_in' %}
                     <p><em>This is a walk-in office request.</em></p>
                 {% elif req.request_type == 'surrender' %}
                     <p><em>This is a dog surrender request. No dispatch location is required.</em></p>
                 {% else %}
                     <p><em>No location provided.</em></p>
                 {% endif %}
-                {% if req.request_type == 'capture' and req.submission_type == 'online' %}
+                {% if req.submission_type == 'online' %}
                     {% with extra_landmarks=req.landmark_images.all %}
                         {% if req.location_landmark_image or extra_landmarks %}
                             <div class="request-landmark-image">

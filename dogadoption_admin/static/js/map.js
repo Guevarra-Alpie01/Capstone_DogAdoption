@@ -188,3 +188,210 @@
         btn.addEventListener('click', () => activate(btn.dataset.tab));
     });
 })();
+
+(function () {
+    function parseJsonScript(id) {
+        const node = document.getElementById(id);
+        if (!node) return [];
+        try {
+            return JSON.parse(node.textContent || '[]');
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function initSingleSelectCalendar(config) {
+        const availableDates = parseJsonScript('accepted-calendar-dates-data');
+        const availableSet = new Set(availableDates);
+        const daysContainer = document.getElementById(config.daysId);
+        const weekdaysContainer = document.getElementById(config.weekdaysId);
+        const monthLabel = document.getElementById(config.monthLabelId);
+        const prevBtn = document.getElementById(config.prevId);
+        const nextBtn = document.getElementById(config.nextId);
+        const hiddenInput = document.getElementById(config.inputId);
+        const statusEl = document.getElementById(config.statusId);
+        const onSelect = typeof config.onSelect === 'function' ? config.onSelect : null;
+
+        if (!daysContainer || !weekdaysContainer || !monthLabel || !prevBtn || !nextBtn || !hiddenInput) {
+            return null;
+        }
+
+        const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        let selectedDate = hiddenInput.value || '';
+        let currentMonth = (() => {
+            const anchor = selectedDate || availableDates[0] || '';
+            if (anchor) {
+                const [year, month] = anchor.split('-').map(Number);
+                return new Date(year, (month || 1) - 1, 1);
+            }
+            return new Date(today.getFullYear(), today.getMonth(), 1);
+        })();
+
+        function formatIso(dateObj) {
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function renderStatus() {
+            if (!statusEl) return;
+            if (!selectedDate) {
+                statusEl.textContent = config.emptyLabel || 'No date selected yet.';
+                return;
+            }
+            const selectedObj = new Date(`${selectedDate}T00:00:00`);
+            statusEl.textContent = `${config.selectedPrefix || 'Selected date'}: ${selectedObj.toLocaleDateString(undefined, {
+                month: 'short',
+                day: '2-digit',
+                year: 'numeric',
+            })}`;
+        }
+
+        weekdaysContainer.innerHTML = weekdays
+            .map((day) => `<div class="weekday">${day}</div>`)
+            .join('');
+
+        function renderMonth() {
+            const year = currentMonth.getFullYear();
+            const month = currentMonth.getMonth();
+            const firstDay = new Date(year, month, 1);
+            const startWeekday = firstDay.getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            monthLabel.textContent = currentMonth.toLocaleDateString(undefined, {
+                month: 'long',
+                year: 'numeric',
+            });
+
+            let html = '';
+            for (let i = 0; i < startWeekday; i++) {
+                html += '<button type="button" class="day-cell empty" disabled></button>';
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateObj = new Date(year, month, day);
+                dateObj.setHours(0, 0, 0, 0);
+                const iso = formatIso(dateObj);
+                const isPast = dateObj < today;
+                const isAvailable = availableSet.has(iso);
+                const isSelected = selectedDate && iso === selectedDate;
+                const classes = [
+                    'day-cell',
+                    isAvailable ? 'available' : '',
+                    isSelected ? 'selected' : '',
+                    !isAvailable || isPast ? 'disabled' : '',
+                ].join(' ').trim();
+
+                html += `<button type="button" class="${classes}" data-date="${iso}" ${!isAvailable || isPast ? 'disabled' : ''}>${day}</button>`;
+            }
+
+            daysContainer.innerHTML = html;
+            daysContainer.querySelectorAll('.day-cell[data-date]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    selectedDate = btn.getAttribute('data-date') || '';
+                    hiddenInput.value = selectedDate;
+                    renderStatus();
+                    renderMonth();
+                    if (onSelect) onSelect(selectedDate);
+                });
+            });
+        }
+
+        prevBtn.addEventListener('click', () => {
+            currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+            renderMonth();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+            renderMonth();
+        });
+
+        renderStatus();
+        renderMonth();
+
+        return {
+            setDate(dateValue) {
+                selectedDate = dateValue || '';
+                hiddenInput.value = selectedDate;
+                if (selectedDate) {
+                    const [year, month] = selectedDate.split('-').map(Number);
+                    currentMonth = new Date(year, (month || 1) - 1, 1);
+                }
+                renderStatus();
+                renderMonth();
+            },
+        };
+    }
+
+    const acceptedSelectAll = document.getElementById('accepted_select_all');
+    const acceptedCheckboxes = Array.from(document.querySelectorAll('.accepted-row-checkbox'));
+    if (acceptedSelectAll && acceptedCheckboxes.length) {
+        acceptedSelectAll.addEventListener('change', () => {
+            acceptedCheckboxes.forEach((checkbox) => {
+                checkbox.checked = acceptedSelectAll.checked;
+            });
+        });
+
+        acceptedCheckboxes.forEach((checkbox) => {
+            checkbox.addEventListener('change', () => {
+                acceptedSelectAll.checked = acceptedCheckboxes.every((item) => item.checked);
+            });
+        });
+    }
+
+    const acceptedCalendarPanel = document.getElementById('acceptedCalendarPanel');
+    const acceptedCalendarToggle = document.getElementById('acceptedCalendarToggle');
+    const acceptedCalendarForm = document.getElementById('acceptedCalendarFilterForm');
+    initSingleSelectCalendar({
+        daysId: 'accepted_days',
+        weekdaysId: 'accepted_weekdays',
+        monthLabelId: 'accepted_month_label',
+        prevId: 'accepted_calendar_prev',
+        nextId: 'accepted_calendar_next',
+        inputId: 'accepted_calendar_date_input',
+        onSelect() {
+            if (acceptedCalendarForm) acceptedCalendarForm.submit();
+        },
+    });
+
+    acceptedCalendarToggle?.addEventListener('click', () => {
+        if (!acceptedCalendarPanel) return;
+        acceptedCalendarPanel.hidden = !acceptedCalendarPanel.hidden;
+    });
+
+    const rescheduleModalEl = document.getElementById('rescheduleRequestModal');
+    const rescheduleRequestId = document.getElementById('reschedule_request_id');
+    const rescheduleRequestTitle = document.getElementById('reschedule_request_title');
+    const rescheduleCalendar = initSingleSelectCalendar({
+        daysId: 'reschedule_days',
+        weekdaysId: 'reschedule_weekdays',
+        monthLabelId: 'reschedule_month_label',
+        prevId: 'reschedule_calendar_prev',
+        nextId: 'reschedule_calendar_next',
+        inputId: 'reschedule_date_input',
+        statusId: 'reschedule_selection_status',
+        emptyLabel: 'No new date selected yet.',
+        selectedPrefix: 'Selected new schedule',
+    });
+
+    document.querySelectorAll('.js-open-reschedule').forEach((button) => {
+        button.addEventListener('click', () => {
+            if (!rescheduleModalEl || !window.bootstrap || !window.bootstrap.Modal) return;
+            const requestId = button.getAttribute('data-request-id') || '';
+            const requesterName = button.getAttribute('data-requester-name') || 'this request';
+            const currentDate = button.getAttribute('data-current-date') || '';
+            if (rescheduleRequestId) rescheduleRequestId.value = requestId;
+            if (rescheduleRequestTitle) {
+                rescheduleRequestTitle.textContent = `Choose a new appointment date for ${requesterName}.`;
+            }
+            if (rescheduleCalendar) {
+                rescheduleCalendar.setDate(currentDate);
+            }
+            window.bootstrap.Modal.getOrCreateInstance(rescheduleModalEl).show();
+        });
+    });
+})();

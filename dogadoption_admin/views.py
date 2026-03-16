@@ -1394,10 +1394,87 @@ def view_faceauth(request, user_id):
 @require_http_methods(["GET", "POST"])
 def admin_dog_capture_requests(request):
     """Manage incoming dog-capture requests and catcher contact details."""
+    def _redirect_to_requests(default_tab="pending"):
+        next_url = (request.POST.get("next") or "").strip()
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            return redirect(next_url)
+
+        return redirect(f"{reverse('dogadoption_admin:requests')}?tab={default_tab}")
+
     if request.method == 'POST':
         action = request.POST.get('action')
 
-        if action == 'add_contact':
+        if action == 'bulk_mark_captured':
+            selected_ids = [
+                int(value)
+                for value in request.POST.getlist('selected_request_ids')
+                if str(value).isdigit()
+            ]
+            scheduled_qs = DogCaptureRequest.objects.filter(
+                id__in=selected_ids,
+                status='accepted',
+            )
+            updated_count = scheduled_qs.count()
+            if updated_count:
+                scheduled_qs.update(
+                    status='captured',
+                    assigned_admin=request.user,
+                    captured_at=timezone.now(),
+                    notification_scheduled_for=None,
+                    notification_sent_at=None,
+                )
+                messages.success(request, f"{updated_count} scheduled request(s) marked as done.")
+            else:
+                messages.warning(request, "Select at least one scheduled request to mark as done.")
+
+            return _redirect_to_requests("accepted")
+
+        elif action == 'reschedule_single':
+            request_id = request.POST.get('request_id')
+            req = DogCaptureRequest.objects.filter(
+                id=request_id,
+                status='accepted',
+            ).select_related('requested_by', 'requested_by__profile').first()
+            if not req:
+                messages.error(request, "Scheduled request not found.")
+                return _redirect_to_requests("accepted")
+
+            scheduled_raw = (request.POST.get('scheduled_date') or '').strip()
+            scheduled_date = parse_date(scheduled_raw) if scheduled_raw else None
+            if not scheduled_date:
+                messages.error(request, "Please select an available appointment date.")
+                return _redirect_to_requests("accepted")
+
+            is_available = GlobalAppointmentDate.objects.filter(
+                appointment_date=scheduled_date,
+                is_active=True,
+            ).exists()
+            if not is_available:
+                messages.error(request, "Selected appointment date is not in the active admin schedule.")
+                return _redirect_to_requests("accepted")
+
+            scheduled_time = (
+                timezone.localtime(req.scheduled_date).time().replace(second=0, microsecond=0)
+                if req.scheduled_date
+                else time(hour=9, minute=0)
+            )
+            req.scheduled_date = timezone.make_aware(
+                datetime.combine(scheduled_date, scheduled_time),
+                timezone.get_current_timezone(),
+            )
+            req.assigned_admin = request.user
+            req.notification_scheduled_for = None
+            req.notification_sent_at = None
+            req.save(update_fields=['scheduled_date', 'assigned_admin', 'notification_scheduled_for', 'notification_sent_at'])
+
+            messages.success(request, "Scheduled request updated.")
+            return _redirect_to_requests("accepted")
+
+        elif action == 'add_contact':
             name = (request.POST.get('contact_name') or '').strip()
             phone = (request.POST.get('contact_phone') or '').strip()
             if phone:
@@ -1424,7 +1501,7 @@ def admin_dog_capture_requests(request):
             DogCatcherContact.objects.filter(id=contact_id).delete()
             messages.success(request, "Contact removed.")
 
-        return redirect('dogadoption_admin:requests')
+        return _redirect_to_requests()
 
     rows_per_page = 10
     valid_tabs = {"pending", "accepted", "captured", "declined"}
@@ -1453,15 +1530,51 @@ def admin_dog_capture_requests(request):
     pending_page_obj, pending_requests, pending_total = _paginate_status(
         "pending", "pending_page"
     )
-    accepted_page_obj, accepted_requests, accepted_total = _paginate_status(
-        "accepted", "accepted_page"
-    )
     captured_page_obj, captured_requests, captured_total = _paginate_status(
         "captured", "captured_page"
     )
     declined_page_obj, declined_requests, declined_total = _paginate_status(
         "declined", "declined_page"
     )
+
+    accepted_date_raw = (request.GET.get("accepted_date") or "").strip()
+    accepted_date_filter = parse_date(accepted_date_raw) if accepted_date_raw else None
+    accepted_qs = base_qs.filter(status='accepted')
+    accepted_total = accepted_qs.count()
+    accepted_requests_sorted = list(accepted_qs)
+    today = timezone.localdate()
+
+    for req in accepted_requests_sorted:
+        _enrich_capture_request_display(req)
+
+    def _accepted_sort_key(req):
+        scheduled_dt = timezone.localtime(req.scheduled_date) if req.scheduled_date else None
+        scheduled_day = scheduled_dt.date() if scheduled_dt else (today + timedelta(days=36500))
+        future_first_flag = 0 if scheduled_day >= today else 1
+        walk_in_last_flag = 1 if req.submission_type == 'walk_in' else 0
+        barangay_key = (req.display_barangay or '').strip().lower()
+        location_key = (req.location_label or '').strip().lower()
+        return (
+            future_first_flag,
+            scheduled_day,
+            walk_in_last_flag,
+            barangay_key or location_key,
+            location_key,
+            req.created_at,
+        )
+
+    accepted_requests_sorted.sort(key=_accepted_sort_key)
+    if accepted_date_filter:
+        accepted_requests_sorted = [
+            req for req in accepted_requests_sorted
+            if req.scheduled_date and timezone.localtime(req.scheduled_date).date() == accepted_date_filter
+        ]
+
+    accepted_page_obj = Paginator(accepted_requests_sorted, rows_per_page).get_page(
+        request.GET.get("accepted_page", 1)
+    )
+    accepted_requests = list(accepted_page_obj.object_list)
+    accepted_filtered_total = len(accepted_requests_sorted)
 
     default_map_profile_image_url = static("images/default-user-image.jpg")
     map_points_qs = list(
@@ -1503,6 +1616,7 @@ def admin_dog_capture_requests(request):
             'profile_image_url': profile_image_url or default_map_profile_image_url,
         })
 
+    available_appointment_dates = _get_available_appointment_dates()
     return render(request, 'admin_request/request.html', {
         'requests': bool(pending_total or accepted_total or captured_total or declined_total),
         'pending_requests': pending_requests,
@@ -1517,9 +1631,15 @@ def admin_dog_capture_requests(request):
         'accepted_total': accepted_total,
         'captured_total': captured_total,
         'declined_total': declined_total,
+        'accepted_filtered_total': accepted_filtered_total,
+        'accepted_selected_date_iso': accepted_date_filter.isoformat() if accepted_date_filter else '',
+        'accepted_selected_date_display': accepted_date_filter.strftime('%b %d, %Y') if accepted_date_filter else '',
+        'accepted_date_qs': f"&accepted_date={accepted_date_filter.isoformat()}" if accepted_date_filter else '',
+        'accepted_calendar_dates': [slot.appointment_date.strftime('%Y-%m-%d') for slot in available_appointment_dates],
         'active_tab': active_tab,
         'map_points': map_points,
         'contacts': DogCatcherContact.objects.all(),
+        'requests_return_to': request.get_full_path(),
     })
 
 @admin_required

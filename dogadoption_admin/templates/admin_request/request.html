@@ -80,13 +80,71 @@
             </div>
 
             <div class="tab-panel {% if active_tab == 'accepted' %}is-active{% endif %}" data-panel="accepted" role="tabpanel">
+                <div class="scheduled-toolbar">
+                    <div class="scheduled-toolbar-main">
+                        <button type="button" class="btn-ghost scheduled-calendar-toggle" id="acceptedCalendarToggle">
+                            Calendar Schedule View
+                        </button>
+                        {% if accepted_selected_date_display %}
+                            <div class="scheduled-filter-pill">
+                                Showing schedules for {{ accepted_selected_date_display }}
+                            </div>
+                            <a href="?tab=accepted&pending_page={{ pending_page_obj.number }}&accepted_page=1&captured_page={{ captured_page_obj.number }}&declined_page={{ declined_page_obj.number }}" class="btn-ghost btn-sm">Clear Date</a>
+                        {% else %}
+                            <div class="scheduled-filter-pill muted">
+                                Showing all scheduled requests
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="scheduled-toolbar-meta">
+                        Visible scheduled requests: {{ accepted_filtered_total }}
+                    </div>
+                </div>
+
+                <div class="scheduled-calendar-panel" id="acceptedCalendarPanel" {% if not accepted_selected_date_iso %}hidden{% endif %}>
+                    <form method="get" class="scheduled-calendar-form" id="acceptedCalendarFilterForm">
+                        <input type="hidden" name="tab" value="accepted">
+                        <input type="hidden" name="pending_page" value="{{ pending_page_obj.number }}">
+                        <input type="hidden" name="accepted_page" value="1">
+                        <input type="hidden" name="captured_page" value="{{ captured_page_obj.number }}">
+                        <input type="hidden" name="declined_page" value="{{ declined_page_obj.number }}">
+                        <input type="hidden" name="accepted_date" id="accepted_calendar_date_input" value="{{ accepted_selected_date_iso }}">
+                        <div class="calendar-panel-head">
+                            <h4>Filter Scheduled Requests by Appointment Date</h4>
+                            <small>Click one active appointment date to show all schedules set for that day.</small>
+                        </div>
+                        <div class="calendar-toolbar">
+                            <button type="button" class="calendar-nav-btn" id="accepted_calendar_prev" aria-label="Previous month">&lt;</button>
+                            <strong id="accepted_month_label"></strong>
+                            <button type="button" class="calendar-nav-btn" id="accepted_calendar_next" aria-label="Next month">&gt;</button>
+                        </div>
+                        <div class="calendar-weekdays" id="accepted_weekdays"></div>
+                        <div class="calendar-days" id="accepted_days"></div>
+                    </form>
+                </div>
+
+                <form method="post" class="scheduled-bulk-form" id="scheduledBulkForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="bulk_mark_captured">
+                    <input type="hidden" name="next" value="{{ requests_return_to }}">
+                    <div class="scheduled-bulk-actions">
+                        <label class="select-all-toggle" for="accepted_select_all">
+                            <input type="checkbox" id="accepted_select_all">
+                            <span>Select all visible schedules</span>
+                        </label>
+                        <button type="submit" class="btn-primary btn-sm">Mass Mark as Done</button>
+                    </div>
+
                 <div class="table-card">
                     <table class="request-table">
                         <thead>
                             <tr>
+                                <th class="checkbox-col">
+                                    <span class="sr-only">Select request</span>
+                                </th>
+                                <th>Scheduled</th>
                                 <th>User</th>
                                 <th>Location</th>
-                                <th>Scheduled</th>
                                 <th>Status</th>
                                 <th>Action</th>
                             </tr>
@@ -94,57 +152,64 @@
                         <tbody>
                             {% for req in accepted_requests %}
                                 <tr>
-                                     <td class="cell-user" data-label="User">
-                                         <div class="user-main">{{ req.requested_by.username }}</div>
-                                         <div class="user-sub">{{ req.requester_full_name }}</div>
-                                         <div class="user-sub">{{ req.requester_phone }}</div>
-                                         <div class="user-sub">{{ req.get_request_type_display }}</div>
-                                         {% if req.submission_type %}
-                                             <div class="user-sub">{{ req.get_submission_type_display }}</div>
+                                     <td class="checkbox-col" data-label="Select">
+                                         <input type="checkbox" name="selected_request_ids" value="{{ req.id }}" class="accepted-row-checkbox">
+                                     </td>
+                                     <td data-label="Scheduled">
+                                         {% if req.scheduled_date %}
+                                             <div class="schedule-main">{{ req.scheduled_date|date:"M d, Y" }}</div>
+                                             <div class="schedule-sub">{{ req.scheduled_date|date:"h:i A" }}</div>
+                                         {% else %}
+                                             <span class="muted">Not set</span>
                                          {% endif %}
                                      </td>
+                                     <td class="cell-user" data-label="User">
+                                         <div class="user-main">{{ req.requester_full_name }}</div>
+                                     </td>
                                      <td data-label="Location">
-                                         {% if req.submission_type == 'online' and req.latitude and req.longitude %}
-                                             <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
+                                          {% if req.submission_type == 'online' and req.latitude and req.longitude %}
+                                              <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
                                          {% elif req.submission_type == 'online' and req.has_location %}
                                              {{ req.location_label }}
                                          {% elif req.submission_type == 'walk_in' %}
                                              <span class="muted">Walk-in office request</span>
                                          {% elif req.request_type == 'surrender' %}
                                              <span class="muted">Shelter surrender request</span>
-                                         {% else %}
-                                             <span class="muted">No location</span>
-                                         {% endif %}
+                                          {% else %}
+                                              <span class="muted">No location</span>
+                                          {% endif %}
+                                      </td>
+                                     <td data-label="Status"><span class="status-pill accepted">Scheduled</span></td>
+                                     <td data-label="Action">
+                                        <button
+                                            type="button"
+                                            class="btn-ghost btn-sm js-open-reschedule"
+                                            data-request-id="{{ req.id }}"
+                                            data-requester-name="{{ req.requester_full_name }}"
+                                            data-current-date="{% if req.scheduled_date %}{{ req.scheduled_date|date:'Y-m-d' }}{% endif %}"
+                                        >
+                                            Update
+                                        </button>
                                      </td>
-                                    <td data-label="Scheduled">
-                                        {% if req.scheduled_date %}
-                                            {{ req.scheduled_date|date:"M d, Y h:i A" }}
-                                        {% else %}
-                                            <span class="muted">Not set</span>
-                                        {% endif %}
-                                    </td>
-                                    <td data-label="Status"><span class="status-pill accepted">Scheduled</span></td>
-                                    <td data-label="Action">
-                                        <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-ghost btn-sm">Update / Mark Done</a>
-                                    </td>
                                 </tr>
                             {% empty %}
                                 <tr>
-                                    <td colspan="5" class="muted">No scheduled requests.</td>
+                                    <td colspan="6" class="muted">No scheduled requests.</td>
                                 </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
+                </form>
                 {% if accepted_page_obj.has_previous or accepted_page_obj.has_next %}
                 <div class="d-flex justify-content-between align-items-center mt-2">
                     <a class="btn btn-sm btn-outline-secondary {% if not accepted_page_obj.has_previous %}disabled{% endif %}"
-                       href="?tab=accepted&pending_page={{ pending_page_obj.number }}&accepted_page={% if accepted_page_obj.has_previous %}{{ accepted_page_obj.previous_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}&declined_page={{ declined_page_obj.number }}">
+                       href="?tab=accepted&pending_page={{ pending_page_obj.number }}&accepted_page={% if accepted_page_obj.has_previous %}{{ accepted_page_obj.previous_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}&declined_page={{ declined_page_obj.number }}{{ accepted_date_qs }}">
                         Previous
                     </a>
                     <small>Page {{ accepted_page_obj.number }} of {{ accepted_page_obj.paginator.num_pages }}</small>
                     <a class="btn btn-sm btn-outline-secondary {% if not accepted_page_obj.has_next %}disabled{% endif %}"
-                       href="?tab=accepted&pending_page={{ pending_page_obj.number }}&accepted_page={% if accepted_page_obj.has_next %}{{ accepted_page_obj.next_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}&declined_page={{ declined_page_obj.number }}">
+                       href="?tab=accepted&pending_page={{ pending_page_obj.number }}&accepted_page={% if accepted_page_obj.has_next %}{{ accepted_page_obj.next_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}&declined_page={{ declined_page_obj.number }}{{ accepted_date_qs }}">
                         Next
                     </a>
                 </div>
@@ -311,7 +376,43 @@
         <p id="mapEmptyState" class="empty-map" style="display:none;">No pending online requests with map locations are available right now.</p>
         {{ map_points|json_script:"map-points-data" }}
     </div>
+
+    <div class="modal fade" id="rescheduleRequestModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content scheduled-modal">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reschedule Request</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" id="rescheduleRequestForm">
+                    <div class="modal-body">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="reschedule_single">
+                        <input type="hidden" name="request_id" id="reschedule_request_id">
+                        <input type="hidden" name="scheduled_date" id="reschedule_date_input">
+                        <input type="hidden" name="next" value="{{ requests_return_to }}">
+                        <p class="reschedule-title" id="reschedule_request_title">Choose a new appointment date.</p>
+                        <div class="schedule-selection-status" id="reschedule_selection_status">No new date selected yet.</div>
+                        <div class="scheduled-calendar-panel modal-calendar-panel">
+                            <div class="calendar-toolbar">
+                                <button type="button" class="calendar-nav-btn" id="reschedule_calendar_prev" aria-label="Previous month">&lt;</button>
+                                <strong id="reschedule_month_label"></strong>
+                                <button type="button" class="calendar-nav-btn" id="reschedule_calendar_next" aria-label="Next month">&gt;</button>
+                            </div>
+                            <div class="calendar-weekdays" id="reschedule_weekdays"></div>
+                            <div class="calendar-days" id="reschedule_days"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer justify-content-between">
+                        <button type="button" class="btn-ghost" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Schedule</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
+{{ accepted_calendar_dates|json_script:"accepted-calendar-dates-data" }}
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{% static 'js/map.js' %}"></script>

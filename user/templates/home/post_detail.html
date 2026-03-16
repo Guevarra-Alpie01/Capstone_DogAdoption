@@ -1,30 +1,86 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block content %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/post_detail.css' %}">
+{% endblock %}
 
+{% block content %}
 {% with post.images.first as main_image %}
-<!-- Open Graph Meta Tags for Facebook Preview -->
-<meta property="og:title" content="🐕 Dog for Adoption">
+<meta property="og:title" content="Dog Update | Bayawan Vet">
 <meta property="og:description" content="{{ post.caption }}">
 <meta property="og:url" content="{{ request.build_absolute_uri }}">
 {% if main_image %}
 <meta property="og:image" content="{{ main_image.image.url }}">
 {% endif %}
-{% endwith %}
 
-<div class="container mt-4">
-    <div class="card shadow-sm">
-        {% if main_image %}
-            <img src="{{ main_image.image.url }}" class="card-img-top">
-        {% endif %}
-        <div class="card-body">
-            <h4>🐶 Dog Update</h4>
-            <p>{{ post.caption }}</p>
-            <p><strong>📍 Location:</strong> {{ post.location }}</p>
-            <p><small>Posted on {{ post.created_at|date:"M d, Y H:i" }}</small></p>
+{% with phase=post.current_phase %}
+<div class="post-detail-page">
+    <article class="post-detail-card">
+        <a href="{% url 'user:user_home' %}" class="post-detail-back-link">Back to feed</a>
+
+        <div class="post-detail-grid{% if not main_image %} is-text-only{% endif %}">
+            <section class="post-detail-media-panel">
+                {% if main_image %}
+                <div class="post-detail-image-frame">
+                    <img src="{{ main_image.image.url }}" alt="Dog update image" class="post-detail-image">
+                </div>
+                {% else %}
+                <div class="post-detail-empty-media">
+                    <span>No photo was uploaded for this update.</span>
+                </div>
+                {% endif %}
+            </section>
+
+            <section class="post-detail-copy-panel">
+                <span class="post-detail-kicker">Dog Update</span>
+                <h1 class="post-detail-title">{{ post.get_status_display }} case update</h1>
+
+                <div class="post-detail-pills">
+                    <span class="post-detail-pill">{{ post.get_status_display }}</span>
+                    <span class="post-detail-pill is-secondary">
+                        {% if phase == 'claim' %}
+                        Owner claim period
+                        {% elif phase == 'adopt' %}
+                        Adoption phase
+                        {% else %}
+                        Closed
+                        {% endif %}
+                    </span>
+                </div>
+
+                <section class="post-detail-section">
+                    <h2>Summary</h2>
+                    <p>{{ post.caption|default:"No additional details were provided for this update." }}</p>
+                </section>
+
+                <section class="post-detail-section">
+                    <h2>Post Information</h2>
+                    <dl class="post-detail-meta-list">
+                        <div class="post-detail-meta-row">
+                            <dt>Posted by</dt>
+                            <dd>{{ post.user.get_full_name|default:post.user.username }}</dd>
+                        </div>
+                        <div class="post-detail-meta-row">
+                            <dt>Location</dt>
+                            <dd>{{ post.location|default:"Location not provided." }}</dd>
+                        </div>
+                        <div class="post-detail-meta-row">
+                            <dt>Posted on</dt>
+                            <dd>{{ post.created_at|date:"M d, Y h:i A" }}</dd>
+                        </div>
+                        {% if post.rescued_date %}
+                        <div class="post-detail-meta-row">
+                            <dt>Rescued date</dt>
+                            <dd>{{ post.rescued_date|date:"M d, Y" }}</dd>
+                        </div>
+                        {% endif %}
+                    </dl>
+                </section>
+            </section>
         </div>
-    </div>
+    </article>
 </div>
-
+{% endwith %}
+{% endwith %}
 {% endblock %}

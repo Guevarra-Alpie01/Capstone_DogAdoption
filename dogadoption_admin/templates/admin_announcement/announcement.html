@@ -6,7 +6,6 @@
 
 <div class="announcement-header announcement-header-education">
     <div class="announcement-header-copy">
-        <span class="announcement-header-kicker">Education Campaign</span>
         <h2>Admin Announcement Board</h2>
     </div>
 
@@ -73,9 +72,24 @@
     </div>
 </div>
 
-<div class="education-board-layout" data-layout="board">
+<div class="announcement-mobile-tabs" data-mobile-announcement-tabs aria-label="Announcement sections">
+    <button type="button" class="announcement-mobile-tab" data-mobile-announcement-tab="pinned" aria-pressed="false">
+        <span>Pinned</span>
+        <span class="announcement-mobile-tab-count" data-mobile-pin-count>0</span>
+    </button>
+    <button type="button" class="announcement-mobile-tab" data-mobile-announcement-tab="ordinary" aria-pressed="true">
+        <span>Main Feed</span>
+        <span class="announcement-mobile-tab-count" data-mobile-regular-count>0</span>
+    </button>
+    <button type="button" class="announcement-mobile-tab" data-mobile-announcement-tab="campaign" aria-pressed="false">
+        <span>Campaign</span>
+        <span class="announcement-mobile-tab-count" data-mobile-campaign-count>0</span>
+    </button>
+</div>
+
+<div class="education-board-layout" data-layout="board" data-mobile-announcement-board data-mobile-default="ordinary">
 <aside class="announcement-side-panel" aria-label="Announcement side panel">
-    <section class="announcement-column announcement-column-pinned">
+    <section class="announcement-column announcement-column-pinned" data-mobile-announcement-section="pinned">
         <div class="announcement-column-header">
             <div class="announcement-column-title-row">
                 <span class="announcement-column-kicker announcement-column-kicker-pinned">
@@ -93,12 +107,12 @@
         </div>
     </section>
 
-    <section class="announcement-column announcement-column-campaign">
+    <section class="announcement-column announcement-column-campaign" data-mobile-announcement-section="campaign">
         <div class="announcement-column-header">
             <div class="announcement-column-title-row">
                 <span class="announcement-column-kicker announcement-column-kicker-campaign">
                     <i class="bi bi-bookmark-star-fill"></i>
-                    <span>Education Campaign</span>
+                    <span>Campaign</span>
                 </span>
                 <span class="announcement-column-count announcement-column-count-campaign" data-campaign-count>0</span>
             </div>
@@ -106,13 +120,13 @@
         <div class="announcement-column-body announcement-campaign-column" data-campaign-column>
             <div class="announcement-column-empty" data-campaign-empty>
                 <i class="bi bi-bookmark-star"></i>
-                <span>No education campaign announcements selected yet.</span>
+                <span>No campaign announcements selected yet.</span>
             </div>
         </div>
     </section>
 </aside>
 
-<section class="announcement-column announcement-column-ordinary">
+<section class="announcement-column announcement-column-ordinary" data-mobile-announcement-section="ordinary">
     <div class="announcement-column-header">
         <div class="announcement-column-title-row">
             <span class="announcement-column-kicker announcement-column-kicker-ordinary">
@@ -142,8 +156,8 @@
                 class="post-campaign-btn"
                 data-campaign-toggle
                 aria-pressed="false"
-                aria-label="Move to Education Campaign column"
-                title="Move to Education Campaign column">
+                aria-label="Move to Campaign column"
+                title="Move to Campaign column">
             <i class="bi bi-bookmark-star"></i>
         </button>
         <button type="button"
@@ -204,7 +218,10 @@
         <form method="POST"
               action="{% url 'dogadoption_admin:announcement_delete' post.id %}"
               class="post-action-option-form"
-              onsubmit="return confirm('Delete this post? This cannot be undone.');">
+              data-confirm-modal
+              data-confirm-title="Confirm Delete"
+              data-confirm-message="Delete this post? This cannot be undone."
+              data-confirm-submit-label="Delete">
             {% csrf_token %}
             <button type="submit" class="post-action-option delete">
                 <i class="bi bi-trash3" aria-hidden="true"></i>
@@ -591,6 +608,9 @@
     const pinnedCount = document.querySelector('[data-pin-count]');
     const campaignCount = document.querySelector('[data-campaign-count]');
     const regularCount = document.querySelector('[data-regular-count]');
+    const mobilePinnedCount = document.querySelector('[data-mobile-pin-count]');
+    const mobileCampaignCount = document.querySelector('[data-mobile-campaign-count]');
+    const mobileRegularCount = document.querySelector('[data-mobile-regular-count]');
     const cards = Array.from(document.querySelectorAll('.post-card[data-post-id]'));
 
     if (!board || !pinnedColumn || !campaignColumn || !regularColumn || !cards.length) {
@@ -686,11 +706,11 @@
             campaignButton.setAttribute('aria-pressed', isCampaign ? 'true' : 'false');
             campaignButton.setAttribute(
                 'aria-label',
-                isCampaign ? 'Remove from Education Campaign column' : 'Move to Education Campaign column'
+                isCampaign ? 'Remove from Campaign column' : 'Move to Campaign column'
             );
             campaignButton.setAttribute(
                 'title',
-                isCampaign ? 'Remove from Education Campaign column' : 'Move to Education Campaign column'
+                isCampaign ? 'Remove from Campaign column' : 'Move to Campaign column'
             );
         }
 
@@ -723,16 +743,32 @@
     }
 
     function updateCounts() {
+        const pinnedItems = pinnedColumn.querySelectorAll('.post-card[data-post-id]').length;
+        const campaignItems = campaignColumn.querySelectorAll('.post-card[data-post-id]').length;
+        const regularItems = regularColumn.querySelectorAll('.post-card[data-post-id]').length;
+
         if (pinnedCount) {
-            pinnedCount.textContent = String(pinnedColumn.querySelectorAll('.post-card[data-post-id]').length);
+            pinnedCount.textContent = String(pinnedItems);
         }
 
         if (campaignCount) {
-            campaignCount.textContent = String(campaignColumn.querySelectorAll('.post-card[data-post-id]').length);
+            campaignCount.textContent = String(campaignItems);
         }
 
         if (regularCount) {
-            regularCount.textContent = String(regularColumn.querySelectorAll('.post-card[data-post-id]').length);
+            regularCount.textContent = String(regularItems);
+        }
+
+        if (mobilePinnedCount) {
+            mobilePinnedCount.textContent = String(pinnedItems);
+        }
+
+        if (mobileCampaignCount) {
+            mobileCampaignCount.textContent = String(campaignItems);
+        }
+
+        if (mobileRegularCount) {
+            mobileRegularCount.textContent = String(regularItems);
         }
     }
 
@@ -843,6 +879,60 @@
     board.setAttribute('data-layout', 'board');
     renderColumns();
     void syncLegacyLocalBuckets();
+})();
+</script>
+<script>
+(function () {
+    const board = document.querySelector('[data-mobile-announcement-board]');
+    const tabs = Array.from(document.querySelectorAll('[data-mobile-announcement-tab]'));
+    const sections = Array.from(document.querySelectorAll('[data-mobile-announcement-section]'));
+    const mobileQuery = window.matchMedia('(max-width: 767.98px)');
+
+    if (!board || !tabs.length || !sections.length) {
+        return;
+    }
+
+    function setActiveSection(sectionKey) {
+        board.dataset.mobileActive = sectionKey;
+
+        tabs.forEach((tab) => {
+            const isActive = tab.getAttribute('data-mobile-announcement-tab') === sectionKey;
+            tab.classList.toggle('is-active', isActive);
+            tab.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        sections.forEach((section) => {
+            const isActive = section.getAttribute('data-mobile-announcement-section') === sectionKey;
+            section.classList.toggle('is-mobile-active', isActive);
+            section.hidden = mobileQuery.matches ? !isActive : false;
+        });
+    }
+
+    function syncMobileSections() {
+        if (!mobileQuery.matches) {
+            sections.forEach((section) => {
+                section.hidden = false;
+                section.classList.remove('is-mobile-active');
+            });
+            return;
+        }
+
+        setActiveSection(board.dataset.mobileActive || board.dataset.mobileDefault || 'ordinary');
+    }
+
+    tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            setActiveSection(tab.getAttribute('data-mobile-announcement-tab') || 'ordinary');
+        });
+    });
+
+    if (typeof mobileQuery.addEventListener === 'function') {
+        mobileQuery.addEventListener('change', syncMobileSections);
+    } else if (typeof mobileQuery.addListener === 'function') {
+        mobileQuery.addListener(syncMobileSections);
+    }
+
+    syncMobileSections();
 })();
 </script>
 {% endblock %}

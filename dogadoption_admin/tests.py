@@ -783,8 +783,9 @@ class AdminDogRequestTemplateTests(TestCase):
         response = self.client.get(reverse("dogadoption_admin:requests"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Request Dog Capture")
-        self.assertContains(response, "Walk-in Request (Office)")
+        self.assertContains(response, "request_user")
+        self.assertContains(response, "+639171234567")
+        self.assertContains(response, "Contact Number")
         self.assertContains(response, "Walk-in office request")
 
     def test_admin_request_update_page_renders_surrender_request_details(self):
@@ -819,3 +820,41 @@ class AdminDogRequestTemplateTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Request Dog Surrender")
         self.assertContains(response, "View in Google Maps")
+
+    def test_admin_request_map_shows_only_pending_online_requests(self):
+        pending_request = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="capture",
+            submission_type="online",
+            reason="stray",
+            latitude="9.123456",
+            longitude="122.654321",
+        )
+        DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="surrender",
+            submission_type="online",
+            reason="stray",
+            status="accepted",
+            latitude="9.223456",
+            longitude="122.754321",
+        )
+        DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="capture",
+            submission_type="online",
+            reason="stray",
+            status="declined",
+            latitude="9.323456",
+            longitude="122.854321",
+        )
+
+        response = self.client.get(reverse("dogadoption_admin:requests"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Filter by scheduled date")
+        self.assertContains(response, "Dog Capture Requests")
+        self.assertContains(response, "Dog Surrender Requests")
+        self.assertEqual(len(response.context["map_points"]), 1)
+        self.assertEqual(response.context["map_points"][0]["id"], pending_request.id)
+        self.assertEqual(response.context["map_points"][0]["request_type_key"], "capture")

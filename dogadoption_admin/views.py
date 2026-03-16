@@ -1463,9 +1463,10 @@ def admin_dog_capture_requests(request):
         "declined", "declined_page"
     )
 
+    default_map_profile_image_url = static("images/default-user-image.jpg")
     map_points_qs = list(
         base_qs.filter(
-            status='accepted',
+            status='pending',
             latitude__isnull=False,
             longitude__isnull=False,
         )[:400]
@@ -1473,22 +1474,33 @@ def admin_dog_capture_requests(request):
     map_points = []
     for req in map_points_qs:
         _enrich_capture_request_display(req)
-        scheduled_iso = req.scheduled_date.date().isoformat() if req.scheduled_date else ''
-        scheduled_display = req.scheduled_date.strftime('%b %d, %Y %I:%M %p') if req.scheduled_date else ''
+        try:
+            profile = req.requested_by.profile
+        except Profile.DoesNotExist:
+            profile = None
+
+        profile_image_url = _safe_media_url(getattr(profile, "profile_image", None))
         map_points.append({
             'id': req.id,
             'user': req.requested_by.username,
+            'requester_name': req.requester_full_name,
+            'requester_phone': req.requester_phone,
+            'requester_address': req.requester_address,
+            'requester_facebook': req.requester_facebook,
             'reason': req.get_reason_display(),
             'status': req.get_status_display(),
             'status_key': req.status,
+            'request_type_key': req.request_type,
+            'request_type_label': req.get_request_type_display(),
+            'submission_type_key': req.submission_type or '',
+            'submission_type_label': req.get_submission_type_display() if req.submission_type else '',
             'lat': float(req.latitude),
             'lng': float(req.longitude),
             'created_at': req.created_at.strftime('%b %d, %Y %I:%M %p'),
-            'scheduled_date_iso': scheduled_iso,
-            'scheduled_date_display': scheduled_display,
             'barangay': req.display_barangay,
             'location_label': req.location_label,
             'image_url': req.preview_image_url,
+            'profile_image_url': profile_image_url or default_map_profile_image_url,
         })
 
     return render(request, 'admin_request/request.html', {

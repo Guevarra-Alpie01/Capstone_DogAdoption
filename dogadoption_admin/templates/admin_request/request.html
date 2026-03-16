@@ -12,17 +12,12 @@
 
      <div class="map-card">
         <h2>General Request Map</h2>
-
-        <div class="map-toolbar">
-            <label for="mapDateFilter">Filter by scheduled date</label>
-            <input type="date" id="mapDateFilter">
-            <button type="button" id="clearDateFilter" class="clear-filter-btn">Clear</button>
-        </div>
         <div class="map-legend">
-            <span><i class="legend-dot accepted"></i> Accepted Requests</span>
+            <span><i class="legend-dot capture"></i> Dog Capture Requests</span>
+            <span><i class="legend-dot surrender"></i> Dog Surrender Requests</span>
         </div>
         <div id="requests-map"></div>
-        <p id="mapEmptyState" class="empty-map" style="display:none;">No accepted requests in Bayawan City barangays match this date filter.</p>
+        <p id="mapEmptyState" class="empty-map" style="display:none;">No pending online requests with map locations are available right now.</p>
         {{ map_points|json_script:"map-points-data" }}
     </div>
 
@@ -43,7 +38,7 @@
                             <tr>
                                 <th>User</th>
                                 <th>Location</th>
-                                <th>Submitted</th>
+                                <th>Contact Number</th>
                                 <th>Status</th>
                                 <th>Action</th>
                             </tr>
@@ -52,13 +47,7 @@
                             {% for req in pending_requests %}
                                 <tr>
                                      <td class="cell-user" data-label="User">
-                                         <div class="user-main">{{ req.requested_by.username }}</div>
-                                         <div class="user-sub">{{ req.requester_full_name }}</div>
-                                         <div class="user-sub">{{ req.requester_phone }}</div>
-                                         <div class="user-sub">{{ req.get_request_type_display }}</div>
-                                         {% if req.submission_type %}
-                                             <div class="user-sub">{{ req.get_submission_type_display }}</div>
-                                         {% endif %}
+                                         <div class="user-main">{{ req.requester_full_name }}</div>
                                      </td>
                                      <td data-label="Location">
                                          {% if req.submission_type == 'online' and req.latitude and req.longitude %}
@@ -73,7 +62,7 @@
                                              <span class="muted">No location</span>
                                          {% endif %}
                                      </td>
-                                    <td data-label="Submitted">{{ req.created_at|date:"M d, Y h:i A" }}</td>
+                                    <td data-label="Contact Number">{{ req.requester_phone }}</td>
                                     <td data-label="Status"><span class="status-pill pending">Pending</span></td>
                                     <td data-label="Action">
                                         <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-primary btn-sm">Review</a>

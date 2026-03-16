@@ -2,10 +2,13 @@
     const dataEl = document.getElementById('map-points-data');
     if (!dataEl) return;
 
-    const points = JSON.parse(dataEl.textContent || '[]');
-    const acceptedPoints = points.filter(p => p.status_key === 'accepted');
-    const dateFilter = document.getElementById('mapDateFilter');
-    const clearDateFilter = document.getElementById('clearDateFilter');
+    const points = JSON.parse(dataEl.textContent || '[]').filter(
+        point =>
+            point &&
+            point.status_key === 'pending' &&
+            Number.isFinite(Number(point.lat)) &&
+            Number.isFinite(Number(point.lng))
+    );
     const emptyState = document.getElementById('mapEmptyState');
     const markersLayer = L.layerGroup();
     // Bayawan City center
@@ -52,36 +55,75 @@
             .replace(/'/g, '&#39;');
     }
 
-    function filteredPoints() {
-        const selectedDate = dateFilter?.value || '';
-        if (!selectedDate) return acceptedPoints;
-        return acceptedPoints.filter(
-            p => p.scheduled_date_iso && p.scheduled_date_iso === selectedDate
-        );
+    function requestTypeClass(point) {
+        return point.request_type_key === 'surrender'
+            ? 'request-map-marker--surrender'
+            : 'request-map-marker--capture';
     }
 
-    function groupByBarangay(pointsList) {
-        const grouped = new Map();
-        pointsList.forEach(point => {
-            const barangay = (point.barangay || '').trim();
-            const key = barangay ? barangay.toLowerCase() : `request-${point.id}`;
-            if (!grouped.has(key)) {
-                // One marker per barangay with request count shown in popup.
-                grouped.set(key, {
-                    barangay_label: point.location_label || 'Pinned location',
-                    lat: point.lat,
-                    lng: point.lng,
-                    requests: [],
-                });
-            }
-            grouped.get(key).requests.push(point);
-        });
-        return Array.from(grouped.values());
+    function requestTypeBadge(point) {
+        return point.request_type_key === 'surrender'
+            ? '<span class="request-map-marker-badge" aria-hidden="true">S</span>'
+            : '<span class="request-map-marker-badge" aria-hidden="true">C</span>';
+    }
+
+    function markerIconHtml(point) {
+        const avatarUrl = escapeHtml(point.profile_image_url || point.image_url || '');
+        const typeClass = requestTypeClass(point);
+
+        return `
+            <div class="request-map-marker ${typeClass}">
+                ${
+                    avatarUrl
+                        ? `<img src="${avatarUrl}" alt="${escapeHtml(point.requester_name || point.user)} profile">`
+                        : `<span class="request-map-marker-fallback">${escapeHtml((point.user || '?').charAt(0).toUpperCase())}</span>`
+                }
+                ${requestTypeBadge(point)}
+            </div>
+        `;
+    }
+
+    function popupHtml(point) {
+        const typeClass = point.request_type_key === 'surrender'
+            ? 'request-popup-pill request-popup-pill--surrender'
+            : 'request-popup-pill request-popup-pill--capture';
+        const requestImage = point.image_url
+            ? `<div class="request-popup-proof"><img src="${escapeHtml(point.image_url)}" alt="${escapeHtml(point.request_type_label)} proof"></div>`
+            : '';
+        const requesterName = escapeHtml(point.requester_name || point.user);
+        const username = escapeHtml(point.user);
+        const submission = escapeHtml(point.submission_type_label || 'Not specified');
+        const location = escapeHtml(point.location_label || 'Pinned location');
+        const phone = escapeHtml(point.requester_phone || 'No phone number');
+        const address = escapeHtml(point.requester_address || 'No address provided');
+        const reason = escapeHtml(point.reason || 'Not specified');
+        const createdAt = escapeHtml(point.created_at || '');
+
+        return `
+            <div class="request-popup-card">
+                <div class="request-popup-header">
+                    <img class="request-popup-avatar" src="${escapeHtml(point.profile_image_url || point.image_url || '')}" alt="${requesterName} profile">
+                    <div class="request-popup-title-block">
+                        <strong>${requesterName}</strong>
+                        <span>@${username}</span>
+                    </div>
+                </div>
+                <div class="${typeClass}">${escapeHtml(point.request_type_label || 'Request')}</div>
+                <div class="request-popup-row"><strong>Status:</strong> ${escapeHtml(point.status || 'Pending')}</div>
+                <div class="request-popup-row"><strong>Submission:</strong> ${submission}</div>
+                <div class="request-popup-row"><strong>Location:</strong> ${location}</div>
+                <div class="request-popup-row"><strong>Phone:</strong> ${phone}</div>
+                <div class="request-popup-row"><strong>Address:</strong> ${address}</div>
+                <div class="request-popup-row"><strong>Reason:</strong> ${reason}</div>
+                <div class="request-popup-row"><strong>Submitted:</strong> ${createdAt}</div>
+                ${requestImage}
+            </div>
+        `;
     }
 
     function renderMarkers() {
         markersLayer.clearLayers();
-        const visible = groupByBarangay(filteredPoints());
+        const visible = points;
 
         if (!visible.length) {
             emptyState.style.display = 'block';
@@ -91,41 +133,19 @@
         emptyState.style.display = 'none';
 
         const bounds = [];
-        visible.forEach(group => {
-            const sample = group.requests[0];
-            const markerImage = sample.image_url || '';
-            const scheduleLabel = sample.scheduled_date_display || 'Not set';
-            const popupRows = group.requests
-                .slice(0, 5)
-                .map(item => `#${item.id} - ${item.user}`)
-                .join('<br>');
-            const remaining = group.requests.length - 5;
-
-            const popup = [
-                `<strong>${group.barangay_label}</strong>`,
-                `Accepted requests: ${group.requests.length}`,
-                `Scheduled date: ${scheduleLabel}`,
-                popupRows,
-                remaining > 0 ? `+${remaining} more request(s)` : '',
-            ].join('<br>');
-
-            const markerIconHtml = markerImage
-                ? `<div class="request-map-marker has-image"><img src="${escapeHtml(markerImage)}" alt="Request image"></div>`
-                : '<div class="request-map-marker"></div>';
-
-            // Use image-based marker design with green fallback marker.
-            const marker = L.marker([group.lat, group.lng], {
+        visible.forEach(point => {
+            const marker = L.marker([point.lat, point.lng], {
                 icon: L.divIcon({
                     className: 'request-map-marker-wrap',
-                    html: markerIconHtml,
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 15],
-                    popupAnchor: [0, -14],
+                    html: markerIconHtml(point),
+                    iconSize: [42, 42],
+                    iconAnchor: [21, 21],
+                    popupAnchor: [0, -18],
                 }),
-            }).bindPopup(popup, { className: 'map-popup' });
+            }).bindPopup(popupHtml(point), { className: 'map-popup' });
 
             marker.addTo(markersLayer);
-            bounds.push([group.lat, group.lng]);
+            bounds.push([point.lat, point.lng]);
         });
 
         if (isInitialRender) {
@@ -140,14 +160,7 @@
         } else {
             map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 });
         }
-        
     }
-
-    dateFilter?.addEventListener('change', renderMarkers);
-    clearDateFilter?.addEventListener('click', () => {
-        if (dateFilter) dateFilter.value = '';
-        renderMarkers();
-    });
 
     map.on('zoomend', applyMarkerScale);
     mapToDefaultView();

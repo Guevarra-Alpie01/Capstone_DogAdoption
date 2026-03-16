@@ -676,9 +676,6 @@ const requestDialogTitle = document.getElementById('requestDialogTitle');
 const requestDialogMessage = document.getElementById('requestDialogMessage');
 const requestDialogCancelBtn = document.getElementById('requestDialogCancelBtn');
 const requestDialogConfirmBtn = document.getElementById('requestDialogConfirmBtn');
-const requestDialogModal = requestDialogModalEl && window.bootstrap
-    ? bootstrap.Modal.getOrCreateInstance(requestDialogModalEl)
-    : null;
 let requestDialogResolver = null;
 let requestDialogDismissValue = false;
 let allowConfirmedSubmit = false;
@@ -721,6 +718,13 @@ function getDialogIconMarkup(tone) {
     return '<i class="bi bi-info-circle-fill" aria-hidden="true"></i>';
 }
 
+function getRequestDialogModal() {
+    if (!requestDialogModalEl || !window.bootstrap || !bootstrap.Modal) {
+        return null;
+    }
+    return bootstrap.Modal.getOrCreateInstance(requestDialogModalEl);
+}
+
 function showRequestDialog(options = {}) {
     const {
         title = 'Notice',
@@ -730,6 +734,7 @@ function showRequestDialog(options = {}) {
         tone = 'info',
     } = options;
 
+    const requestDialogModal = getRequestDialogModal();
     if (!requestDialogModalEl || !requestDialogModal) {
         if (cancelText) {
             return Promise.resolve(window.confirm(message));
@@ -774,12 +779,12 @@ function showRequestNotice(message, options = {}) {
 
 requestDialogConfirmBtn?.addEventListener('click', () => {
     requestDialogDismissValue = true;
-    requestDialogModal?.hide();
+    getRequestDialogModal()?.hide();
 });
 
 requestDialogCancelBtn?.addEventListener('click', () => {
     requestDialogDismissValue = false;
-    requestDialogModal?.hide();
+    getRequestDialogModal()?.hide();
 });
 
 requestDialogModalEl?.addEventListener('hidden.bs.modal', () => {

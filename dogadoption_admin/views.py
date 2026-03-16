@@ -5,7 +5,7 @@ features are easier to find and maintain.
 """
 
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 from functools import wraps
 import hashlib
@@ -1539,15 +1539,29 @@ def update_dog_capture_request(request, pk):
             return redirect('dogadoption_admin:update_dog_capture_request', pk=req.id)
 
         if action == 'accept':
-            scheduled_raw = request.POST.get('scheduled_date')
-            scheduled_dt = parse_datetime(scheduled_raw) if scheduled_raw else None
-            if not scheduled_dt:
-                messages.error(request, "Scheduled capture date is required when accepting.")
+            scheduled_raw = (request.POST.get('scheduled_date') or '').strip()
+            scheduled_date = parse_date(scheduled_raw) if scheduled_raw else None
+            if not scheduled_date:
+                messages.error(request, "Please select an available appointment date.")
                 return redirect('dogadoption_admin:update_dog_capture_request', pk=req.id)
-            if scheduled_dt and timezone.is_naive(scheduled_dt):
-                scheduled_dt = timezone.make_aware(
-                    scheduled_dt, timezone.get_current_timezone()
-                )
+
+            is_available = GlobalAppointmentDate.objects.filter(
+                appointment_date=scheduled_date,
+                is_active=True,
+            ).exists()
+            if not is_available:
+                messages.error(request, "Selected appointment date is not in the active admin schedule.")
+                return redirect('dogadoption_admin:update_dog_capture_request', pk=req.id)
+
+            scheduled_time = (
+                timezone.localtime(req.scheduled_date).time().replace(second=0, microsecond=0)
+                if req.scheduled_date
+                else time(hour=9, minute=0)
+            )
+            scheduled_dt = timezone.make_aware(
+                datetime.combine(scheduled_date, scheduled_time),
+                timezone.get_current_timezone(),
+            )
             req.status = 'accepted'
             req.assigned_admin = request.user
             req.scheduled_date = scheduled_dt
@@ -1590,8 +1604,12 @@ def update_dog_capture_request(request, pk):
 
         return redirect('dogadoption_admin:requests')
 
+    available_dates = _get_available_appointment_dates()
     return render(request, 'admin_request/update_request.html', {
-        'req': req
+        'req': req,
+        'appointment_dates': [slot.appointment_date.strftime('%Y-%m-%d') for slot in available_dates],
+        'requested_appointment_date_iso': req.preferred_appointment_date.strftime('%Y-%m-%d') if req.preferred_appointment_date else '',
+        'scheduled_appointment_date_iso': timezone.localtime(req.scheduled_date).date().isoformat() if req.scheduled_date else '',
     })
 
 # =============================================================================

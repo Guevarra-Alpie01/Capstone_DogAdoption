@@ -28,10 +28,6 @@
                     <div class="meta-sub">@{{ req.requested_by.username }}</div>
                 </div>
                 <div class="meta-item">
-                    <span class="label">Date Submitted</span>
-                    <strong>{{ req.created_at|date:"M d, Y h:i A" }}</strong>
-                </div>
-                <div class="meta-item">
                     <span class="label">Request Type</span>
                     <strong>{{ req.get_request_type_display }}</strong>
                 </div>
@@ -209,14 +205,67 @@
             <form method="POST" class="admin-action-form">
                 {% csrf_token %}
 
+                <div class="schedule-summary">
+                    <div class="schedule-summary-card preferred">
+                        <span class="label">User Preferred Appointment</span>
+                        <strong>
+                            {% if req.preferred_appointment_date %}
+                                {{ req.preferred_appointment_date|date:"M d, Y" }}
+                            {% else %}
+                                No preferred date submitted
+                            {% endif %}
+                        </strong>
+                        <small>
+                            {% if req.preferred_appointment_date %}
+                                Review this requested date before assigning the final schedule.
+                            {% else %}
+                                The requester did not choose a preferred appointment date.
+                            {% endif %}
+                        </small>
+                    </div>
+                    {% if req.scheduled_date %}
+                        <div class="schedule-summary-card final">
+                            <span class="label">Current Final Schedule</span>
+                            <strong>{{ req.scheduled_date|date:"M d, Y h:i A" }}</strong>
+                            <small>This is the date currently assigned to the request.</small>
+                        </div>
+                    {% endif %}
+                </div>
+
                 <div class="input-group">
                     <label for="admin_message">Admin Message (Optional)</label>
                     <textarea id="admin_message" name="admin_message" placeholder="Provide notes for the user...">{{ req.admin_message|default_if_none:'' }}</textarea>
                 </div>
 
                 <div class="input-group">
-                    <label for="scheduled_date">Final Schedule (Required for Accept)</label>
-                    <input id="scheduled_date" type="datetime-local" name="scheduled_date" value="{{ req.scheduled_date|date:'Y-m-d\\TH:i' }}">
+                    <label for="scheduled_date">Final Appointment Schedule (Required for Accept)</label>
+                    <input id="scheduled_date" type="hidden" name="scheduled_date" value="{{ scheduled_appointment_date_iso }}">
+                    <section class="schedule-calendar-panel">
+                        <div class="calendar-panel-head">
+                            <h4>Choose from Active Appointment Dates</h4>
+                        </div>
+                        <div class="schedule-selection-status" id="schedule_selection_status">
+                            {% if req.scheduled_date %}
+                                Selected final schedule: {{ req.scheduled_date|date:"M d, Y" }}
+                            {% else %}
+                                No final schedule selected yet.
+                            {% endif %}
+                        </div>
+                        <div class="calendar-toolbar">
+                            <button type="button" class="calendar-nav-btn" id="schedule_calendar_prev" aria-label="Previous month">&lt;</button>
+                            <strong id="schedule_month_label"></strong>
+                            <button type="button" class="calendar-nav-btn" id="schedule_calendar_next" aria-label="Next month">&gt;</button>
+                        </div>
+                        <div class="calendar-weekdays" id="schedule_weekdays"></div>
+                        <div class="calendar-days" id="schedule_days"></div>
+                        <div class="calendar-helper-text">
+                            <span class="helper-chip helper-chip-available">Available</span>
+                            {% if req.preferred_appointment_date %}
+                                <span class="helper-chip helper-chip-preferred">User preferred</span>
+                            {% endif %}
+                            <span class="helper-chip helper-chip-selected">Selected final date</span>
+                        </div>
+                    </section>
                 </div>
 
                 <div class="form-actions">
@@ -236,6 +285,7 @@
         </div>
     </div>
 </div>
+{{ appointment_dates|json_script:"dog-request-appointment-dates" }}
 <script>
 (function () {
     const viewers = document.querySelectorAll('[data-image-viewer]');
@@ -267,6 +317,125 @@
             render();
         });
     });
+})();
+
+(function () {
+    const dataEl = document.getElementById('dog-request-appointment-dates');
+    const daysContainer = document.getElementById('schedule_days');
+    const weekdaysContainer = document.getElementById('schedule_weekdays');
+    const monthLabel = document.getElementById('schedule_month_label');
+    const prevBtn = document.getElementById('schedule_calendar_prev');
+    const nextBtn = document.getElementById('schedule_calendar_next');
+    const hiddenInput = document.getElementById('scheduled_date');
+    const selectionStatus = document.getElementById('schedule_selection_status');
+
+    if (!dataEl || !daysContainer || !weekdaysContainer || !monthLabel || !prevBtn || !nextBtn || !hiddenInput || !selectionStatus) {
+        return;
+    }
+
+    let availableDates = [];
+    try {
+        availableDates = JSON.parse(dataEl.textContent || '[]');
+    } catch (e) {
+        availableDates = [];
+    }
+
+    const availableSet = new Set(availableDates);
+    const preferredDate = '{{ requested_appointment_date_iso }}';
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let selectedDate = hiddenInput.value || '';
+    let currentMonth = (() => {
+        const anchor = selectedDate || preferredDate || availableDates[0] || '';
+        if (anchor) {
+            const [year, month] = anchor.split('-').map(Number);
+            return new Date(year, (month || 1) - 1, 1);
+        }
+        return new Date(today.getFullYear(), today.getMonth(), 1);
+    })();
+
+    function formatIso(dateObj) {
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function renderSelectionLabel() {
+        if (!selectedDate) {
+            selectionStatus.textContent = 'No final schedule selected yet.';
+            return;
+        }
+        const selectedObj = new Date(`${selectedDate}T00:00:00`);
+        selectionStatus.textContent = `Selected final schedule: ${selectedObj.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
+    }
+
+    weekdaysContainer.innerHTML = weekdays
+        .map((day) => `<div class="weekday">${day}</div>`)
+        .join('');
+
+    function renderMonth() {
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const startWeekday = firstDay.getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        monthLabel.textContent = currentMonth.toLocaleDateString(undefined, {
+            month: 'long',
+            year: 'numeric',
+        });
+
+        let html = '';
+        for (let i = 0; i < startWeekday; i++) {
+            html += '<button type="button" class="day-cell empty" disabled></button>';
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateObj = new Date(year, month, day);
+            dateObj.setHours(0, 0, 0, 0);
+            const iso = formatIso(dateObj);
+            const isPast = dateObj < today;
+            const isAvailable = availableSet.has(iso);
+            const isPreferred = preferredDate && iso === preferredDate;
+            const isSelected = selectedDate && iso === selectedDate;
+            const classes = [
+                'day-cell',
+                isAvailable ? 'available' : '',
+                isPreferred ? 'preferred' : '',
+                isSelected ? 'selected' : '',
+                !isAvailable || isPast ? 'disabled' : '',
+            ].join(' ').trim();
+
+            html += `<button type="button" class="${classes}" data-date="${iso}" ${!isAvailable || isPast ? 'disabled' : ''}>${day}</button>`;
+        }
+
+        daysContainer.innerHTML = html;
+
+        daysContainer.querySelectorAll('.day-cell[data-date]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                selectedDate = btn.getAttribute('data-date') || '';
+                hiddenInput.value = selectedDate;
+                renderSelectionLabel();
+                renderMonth();
+            });
+        });
+    }
+
+    prevBtn.addEventListener('click', () => {
+        currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+        renderMonth();
+    });
+
+    nextBtn.addEventListener('click', () => {
+        currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+        renderMonth();
+    });
+
+    renderSelectionLabel();
+    renderMonth();
 })();
 </script>
 {% endblock %}

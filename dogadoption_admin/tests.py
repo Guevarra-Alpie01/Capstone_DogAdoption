@@ -18,6 +18,7 @@ from .models import (
     DogImage,
     DogAnnouncement,
     DogRegistration,
+    GlobalAppointmentDate,
     Penalty,
     PenaltySection,
     Post,
@@ -802,6 +803,7 @@ class AdminDogRequestTemplateTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Request Dog Surrender")
         self.assertContains(response, "No dispatch location is required")
+        self.assertNotContains(response, "Date Submitted")
 
     def test_admin_request_update_page_renders_online_surrender_location(self):
         surrender_request = DogCaptureRequest.objects.create(
@@ -820,6 +822,59 @@ class AdminDogRequestTemplateTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Request Dog Surrender")
         self.assertContains(response, "View in Google Maps")
+
+    def test_admin_request_update_page_uses_shared_appointment_calendar(self):
+        preferred_date = timezone.localdate() + timedelta(days=2)
+        available_date = timezone.localdate() + timedelta(days=3)
+        GlobalAppointmentDate.objects.create(
+            appointment_date=available_date,
+            created_by=self.admin,
+        )
+        surrender_request = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="surrender",
+            submission_type="walk_in",
+            reason="stray",
+            preferred_appointment_date=preferred_date,
+        )
+
+        response = self.client.get(
+            reverse("dogadoption_admin:update_dog_capture_request", args=[surrender_request.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Choose from Active Appointment Dates")
+        self.assertContains(response, preferred_date.strftime("%b %d, %Y"))
+        self.assertContains(response, "dog-request-appointment-dates")
+
+    def test_admin_can_accept_request_with_active_calendar_date(self):
+        available_date = timezone.localdate() + timedelta(days=4)
+        GlobalAppointmentDate.objects.create(
+            appointment_date=available_date,
+            created_by=self.admin,
+        )
+        request_record = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="capture",
+            submission_type="walk_in",
+            reason="stray",
+        )
+
+        response = self.client.post(
+            reverse("dogadoption_admin:update_dog_capture_request", args=[request_record.id]),
+            {
+                "action": "accept",
+                "scheduled_date": available_date.isoformat(),
+                "admin_message": "Please come on the scheduled date.",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        request_record.refresh_from_db()
+        self.assertEqual(request_record.status, "accepted")
+        self.assertIsNotNone(request_record.scheduled_date)
+        self.assertEqual(timezone.localtime(request_record.scheduled_date).date(), available_date)
 
     def test_admin_request_map_shows_only_pending_online_requests(self):
         pending_request = DogCaptureRequest.objects.create(

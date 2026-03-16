@@ -578,6 +578,38 @@ def _resolve_barangay_name(value):
     return lookup.get(normalized, "")
 
 
+def _normalize_dog_request_type(value):
+    request_type = (value or "").strip().lower()
+    return request_type if request_type in {"capture", "surrender"} else "capture"
+
+
+def _normalize_dog_request_submission_type(value):
+    submission_type = (value or "").strip().lower()
+    return submission_type if submission_type in {"walk_in", "online"} else ""
+
+
+def _derive_dog_request_submission_type(
+    request_type,
+    raw_submission_type,
+    *,
+    appointment_date_raw="",
+    latitude_raw="",
+    longitude_raw="",
+    barangay="",
+):
+    submission_type = _normalize_dog_request_submission_type(raw_submission_type)
+    if submission_type:
+        return submission_type
+
+    if (appointment_date_raw or "").strip():
+        return "walk_in"
+
+    if (latitude_raw or "").strip() or (longitude_raw or "").strip() or _clean_barangay(barangay):
+        return "online"
+
+    return ""
+
+
 def _ensure_default_profile_image_exists():
     """Copy the default profile image into media storage when needed."""
     default_relative_path = "profile_images/default-user-image.jpg"
@@ -2070,6 +2102,7 @@ def post_detail(request, post_id):
 @user_only
 def request_dog_capture(request):
     """Create and list dog-capture requests for the current user."""
+    available_dates = _get_available_appointment_dates()
     if request.method == 'POST':
         uploaded_images = list(request.FILES.getlist('images'))
         legacy_image = request.FILES.get('image')
@@ -2087,6 +2120,8 @@ def request_dog_capture(request):
 
         # Step 2: contact details
         phone_number = _normalize_ph_phone_number(request.POST.get('phone_number'))
+        request_type = _normalize_dog_request_type(request.POST.get('request_type'))
+        appointment_date_raw = (request.POST.get('appointment_date') or '').strip()
 
         # Basic server-side validation to mirror frontend constraints.
         if not phone_number:
@@ -2116,7 +2151,34 @@ def request_dog_capture(request):
 
         # Keep a valid capture reason internally while removing the visible selector in the UI.
         reason = (request.POST.get('reason') or 'stray').strip()
+        if not _is_valid_capture_reason(reason):
+            reason = 'stray'
         description = (request.POST.get('description') or '').strip()
+        latitude_raw = (request.POST.get('latitude') or '').strip()
+        longitude_raw = (request.POST.get('longitude') or '').strip()
+        submission_type = _derive_dog_request_submission_type(
+            request_type,
+            request.POST.get('submission_type'),
+            appointment_date_raw=appointment_date_raw,
+            latitude_raw=latitude_raw,
+            longitude_raw=longitude_raw,
+            barangay=request.POST.get('barangay'),
+        )
+
+        if not submission_type:
+            messages.error(request, "Please choose how you want to submit this request.")
+            return redirect('user:dog_capture_request')
+
+        preferred_appointment_date = None
+        if submission_type == 'walk_in':
+            preferred_appointment_date = parse_date(appointment_date_raw) if appointment_date_raw else None
+            if not preferred_appointment_date:
+                messages.error(request, "Please select an available appointment date for this walk-in request.")
+                return redirect('user:dog_capture_request')
+            if not available_dates.filter(appointment_date=preferred_appointment_date).exists():
+                messages.error(request, "Selected appointment date is not available.")
+                return redirect('user:dog_capture_request')
+
         location_mode = (request.POST.get('location_mode') or 'exact').strip().lower()
         if location_mode not in {'exact', 'manual'}:
             location_mode = 'exact'
@@ -2127,8 +2189,6 @@ def request_dog_capture(request):
             (request.POST.get('manual_full_address') or '').split()
         ).strip()
         location_landmark_images = list(request.FILES.getlist('location_landmark_image'))
-        latitude_raw = (request.POST.get('latitude') or '').strip()
-        longitude_raw = (request.POST.get('longitude') or '').strip()
 
         if captured_images:
             timestamp = int(timezone.now().timestamp())
@@ -2149,11 +2209,14 @@ def request_dog_capture(request):
                     messages.error(request, "One of the captured photos could not be processed. Please try again.")
                     return redirect('user:dog_capture_request')
 
-        if not _is_valid_capture_reason(reason):
-            messages.error(request, "Please select a valid reason.")
+        if request_type == 'capture' and not uploaded_images:
+            messages.error(
+                request,
+                "Dog capture requests require a proof photo. Please upload or capture a clear photo of the dog or the barangay request letter.",
+            )
             return redirect('user:dog_capture_request')
 
-        if location_mode == 'manual':
+        if submission_type == 'online' and location_mode == 'manual':
             resolved_barangay = _resolve_barangay_name(barangay)
             if not resolved_barangay:
                 messages.error(request, "Please choose a valid barangay from the list.")
@@ -2161,7 +2224,7 @@ def request_dog_capture(request):
             barangay = resolved_barangay
             latitude_value = None
             longitude_value = None
-        else:
+        elif submission_type == 'online':
             if not latitude_raw or not longitude_raw:
                 messages.error(request, "Please capture your exact GPS location first.")
                 return redirect('user:dog_capture_request')
@@ -2187,8 +2250,18 @@ def request_dog_capture(request):
                 except Profile.DoesNotExist:
                     profile_barangay = ""
                 barangay = _resolve_barangay_name(profile_barangay) or profile_barangay
+        else:
+            barangay = None
+            city = None
+            manual_full_address = ""
+            location_landmark_images = []
+            latitude_value = None
+            longitude_value = None
         new_req = DogCaptureRequest.objects.create(
             requested_by=request.user,
+            request_type=request_type,
+            submission_type=submission_type or None,
+            preferred_appointment_date=preferred_appointment_date,
             reason=reason,
             description=description or None,
             latitude=latitude_value,
@@ -2220,8 +2293,8 @@ def request_dog_capture(request):
             new_req.image = first_saved_image
             new_req.save(update_fields=['image'])
         AdminNotification.objects.create(
-            title="New dog capture request",
-            message=f"{request.user.username} submitted a request.",
+            title=f"New {new_req.get_request_type_display().lower()}",
+            message=f"{request.user.username} submitted a {new_req.get_request_type_display().lower()}.",
             url="/vetadmin/dog-capture/requests/",
         )
         cache.delete(ADMIN_NOTIFICATIONS_CACHE_KEY)
@@ -2255,17 +2328,6 @@ def request_dog_capture(request):
     declined_page_obj, declined_requests = _paginate_status("declined", "declined_page")
     captured_page_obj, captured_requests = _paginate_status("captured", "captured_page")
 
-    # Pre-fill Step 2 contact fields from the user's profile for a smoother UX.
-    try:
-        profile = request.user.profile
-    except Profile.DoesNotExist:
-        profile = None
-
-    initial_phone_number = (
-        _format_ph_phone_number(profile.phone_number)
-        if profile and profile.phone_number
-        else f"{PHILIPPINES_COUNTRY_CODE} "
-    )
     return render(request, 'user_request/request.html', {
         'requests': bool(status_totals),
         'accepted_requests': accepted_requests,
@@ -2281,8 +2343,8 @@ def request_dog_capture(request):
         'declined_total': status_totals.get("declined", 0),
         'captured_total': status_totals.get("captured", 0),
         'active_status_tab': active_status_tab,
-        'initial_phone_number': initial_phone_number,
         'default_manual_city': DEFAULT_REQUEST_CITY,
+        'available_dates': available_dates,
     })
 
 
@@ -2303,12 +2365,12 @@ def edit_dog_capture_request(request, req_id):
         messages.warning(request, "Only pending requests can be edited.")
         return redirect('user:dog_capture_request')
 
-    reason = (request.POST.get('reason') or '').strip()
+    available_dates = _get_available_appointment_dates()
+    reason = (request.POST.get('reason') or req.reason or 'stray').strip()
     if not _is_valid_capture_reason(reason):
-        messages.error(request, "Please select a valid reason.")
-        return redirect('user:dog_capture_request')
-
+        reason = 'stray'
     description = (request.POST.get('description') or '').strip()
+    request_type = _normalize_dog_request_type(request.POST.get('request_type') or req.request_type)
     barangay = _clean_barangay(request.POST.get('barangay'))
     city = _clean_barangay(request.POST.get('city')) or DEFAULT_REQUEST_CITY
     manual_full_address = " ".join(
@@ -2336,8 +2398,32 @@ def edit_dog_capture_request(request, req_id):
     if location_mode not in {'exact', 'manual'}:
         location_mode = 'exact' if (latitude_raw or longitude_raw) else 'manual'
 
+    appointment_date_raw = (request.POST.get('appointment_date') or '').strip()
+    submission_type = _derive_dog_request_submission_type(
+        request_type,
+        request.POST.get('submission_type') or req.submission_type,
+        appointment_date_raw=appointment_date_raw,
+        latitude_raw=latitude_raw,
+        longitude_raw=longitude_raw,
+        barangay=barangay,
+    )
+
+    if not submission_type:
+        messages.error(request, "Please choose how you want to submit this request.")
+        return redirect('user:dog_capture_request')
+
+    preferred_appointment_date = None
+    if submission_type == 'walk_in':
+        preferred_appointment_date = parse_date(appointment_date_raw) if appointment_date_raw else None
+        if not preferred_appointment_date:
+            messages.error(request, "Please select an available appointment date for this walk-in request.")
+            return redirect('user:dog_capture_request')
+        if not available_dates.filter(appointment_date=preferred_appointment_date).exists():
+            messages.error(request, "Selected appointment date is not available.")
+            return redirect('user:dog_capture_request')
+
     # Exact mode stores GPS coordinates; manual mode stores full manual address.
-    if location_mode == 'exact':
+    if submission_type == 'online' and location_mode == 'exact':
         if not latitude_raw or not longitude_raw:
             messages.error(request, "Please provide both latitude and longitude.")
             return redirect('user:dog_capture_request')
@@ -2362,7 +2448,7 @@ def edit_dog_capture_request(request, req_id):
         for landmark in req.landmark_images.all():
             landmark.image.delete(save=False)
         req.landmark_images.all().delete()
-    else:
+    elif submission_type == 'online':
         resolved_barangay = _resolve_barangay_name(barangay)
         if not resolved_barangay:
             messages.error(request, "Please choose a valid barangay from the list.")
@@ -2394,13 +2480,33 @@ def edit_dog_capture_request(request, req_id):
                     request=req,
                     image=landmark_file,
                 )
+    else:
+        req.latitude = None
+        req.longitude = None
+        req.manual_full_address = None
+        req.barangay = None
+        req.city = None
+        if req.location_landmark_image:
+            req.location_landmark_image.delete(save=False)
+        req.location_landmark_image = None
+        for landmark in req.landmark_images.all():
+            landmark.image.delete(save=False)
+        req.landmark_images.all().delete()
+        city = None
+        barangay = None
 
+    req.request_type = request_type
+    req.submission_type = submission_type or None
+    req.preferred_appointment_date = preferred_appointment_date
     req.reason = reason
     req.description = description or None
     req.barangay = (_resolve_barangay_name(barangay) or barangay) if barangay else None
     req.city = city or None
     req.save(
         update_fields=[
+            'request_type',
+            'submission_type',
+            'preferred_appointment_date',
             'reason',
             'description',
             'barangay',

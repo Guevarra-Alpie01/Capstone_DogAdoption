@@ -14,37 +14,39 @@
 
     <div class="card request-wizard-card">
         <div class="request-hero">
-            <div class="request-hero-copy">
-                <span class="request-eyebrow">Dog Capture Request</span>
-                <h2>Report a dog quickly and clearly</h2>
-                <p class="request-hero-text">
-                    Add a photo if available, a reachable Philippine mobile number, and the exact area so the rabies control team can respond faster.
-                </p>
-            </div>
-            <div class="request-hero-side">
-                <div class="request-hero-pill">
-                    <i class="bi bi-shield-check" aria-hidden="true"></i>
-                    <span>Your phone number is used only for request follow-up.</span>
-                </div>
-                <div class="request-hero-pill">
-                    <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
-                    <span>All 28 active barangays are loaded from the system.</span>
-                </div>
-            </div>
+            <span class="request-eyebrow">Dog Request Form</span>
+            <button
+                type="button"
+                class="request-history-trigger"
+                data-bs-toggle="modal"
+                data-bs-target="#requestHistoryModal"
+                aria-label="Open request history"
+            >
+                <span class="request-history-trigger-icon">
+                    <i class="bi bi-clock-history" aria-hidden="true"></i>
+                </span>
+                <span class="request-history-trigger-copy">
+                    <strong>Tracking</strong>
+                    <small>Open your submitted requests</small>
+                </span>
+                <span class="request-history-trigger-count">
+                    {{ pending_total|add:accepted_total|add:declined_total|add:captured_total }}
+                </span>
+            </button>
         </div>
 
         <div class="step-indicator" aria-label="Request progress">
             <div class="step-dot active" data-step-dot="1">
                 <span class="step-dot-number">1</span>
-                <span class="step-dot-label">Photo</span>
+                <span class="step-dot-label">Request</span>
             </div>
             <div class="step-dot" data-step-dot="2">
                 <span class="step-dot-number">2</span>
-                <span class="step-dot-label">Contact</span>
+                <span class="step-dot-label">Submission</span>
             </div>
             <div class="step-dot" data-step-dot="3">
                 <span class="step-dot-number">3</span>
-                <span class="step-dot-label">Location</span>
+                <span class="step-dot-label">Details</span>
             </div>
         </div>
 
@@ -58,25 +60,44 @@
                     </div>
                     <div>
                         <p class="step-kicker">Step 1</p>
-                        <h3>Add a dog photo if available</h3>
-                        <p class="step-description">
-                            Upload an existing image or use your camera. Photos are optional, but they help the team verify the dog faster.
+                        <h3 id="step1Title">Select the request type and attach capture proof</h3>
+                        <p class="step-description" id="step1Description">
+                            For dog capture requests, upload or take a clear photo of the dog or a clear photo of the barangay letter requesting dog capture. A proof photo is required before you can continue.
                         </p>
                     </div>
+                </div>
+
+                <div class="request-choice-grid" role="radiogroup" aria-label="Request type">
+                    <label class="request-choice-card">
+                        <input type="radio" name="request_type" value="capture" checked>
+                        <span class="request-choice-icon"><i class="bi bi-megaphone-fill" aria-hidden="true"></i></span>
+                        <span class="request-choice-copy">
+                            <strong>Request Dog Capture</strong>
+                            <small id="captureRequestTypeHint">Upload proof such as a photo of the dog or the barangay letter requesting dog capture.</small>
+                        </span>
+                    </label>
+                    <label class="request-choice-card">
+                        <input type="radio" name="request_type" value="surrender">
+                        <span class="request-choice-icon"><i class="bi bi-house-heart-fill" aria-hidden="true"></i></span>
+                        <span class="request-choice-copy">
+                            <strong>Request Dog Surrender</strong>
+                            <small>The owner voluntarily surrenders their dog to the shelter.</small>
+                        </span>
+                    </label>
                 </div>
 
                 <div class="capture-choice" role="group" aria-label="Photo options">
                     <button type="button" class="btn-secondary capture-action-btn" id="openUploadPickerBtn">
                         <i class="bi bi-upload" aria-hidden="true"></i>
-                        <span>Upload Photo</span>
+                        <span id="uploadActionLabel">Upload Proof / Photo</span>
                     </button>
                     <button type="button" class="btn-primary capture-action-btn" id="openCameraExperienceBtn">
                         <i class="bi bi-camera2" aria-hidden="true"></i>
-                        <span>Take Picture / Use Camera</span>
+                        <span id="cameraActionLabel">Take Proof / Photo</span>
                     </button>
                 </div>
-                <p class="helper-text capture-helper-note">
-                    You can continue without a photo if needed, then add clear location details in the next steps.
+                <p class="helper-text capture-helper-note" id="step1HelperNote">
+                    Required for dog capture: attach a clear photo of the dog or a clear photo of the request letter from your barangay.
                 </p>
 
                 <input type="file" name="images" id="imageInput" class="photo-input-hidden" accept="image/*" multiple>
@@ -122,20 +143,49 @@
             <div class="step-panel" data-step="2" hidden>
                 <div class="step-panel-header">
                     <div class="step-panel-icon">
-                        <i class="bi bi-telephone-fill" aria-hidden="true"></i>
+                        <i class="bi bi-signpost-split-fill" aria-hidden="true"></i>
                     </div>
                     <div>
                         <p class="step-kicker">Step 2</p>
-                        <h3>Share your contact number</h3>
-                        <p class="step-description">
-                            Enter a Philippine mobile number that the team can call or text for updates.
-                        </p>
+                        <h3>Choose how the request will be submitted</h3>
+                    </div>
+                </div>
+
+                <div class="request-choice-grid" role="radiogroup" aria-label="Submission type">
+                        <label class="request-choice-card">
+                            <input type="radio" name="submission_type" value="walk_in">
+                            <span class="request-choice-icon"><i class="bi bi-building" aria-hidden="true"></i></span>
+                            <span class="request-choice-copy">
+                                <strong>Walk-in Request (Office)</strong>
+                                <small>Visit the office and choose an available appointment date to confirm the request.</small>
+                            </span>
+                        </label>
+                        <label class="request-choice-card">
+                            <input type="radio" name="submission_type" value="online">
+                            <span class="request-choice-icon"><i class="bi bi-broadcast-pin" aria-hidden="true"></i></span>
+                            <span class="request-choice-copy">
+                                <strong>Online Request</strong>
+                                <small>Submit online and share the dog’s location so the dog catcher can be dispatched.</small>
+                            </span>
+                        </label>
+                </div>
+
+            </div>
+
+            <div class="step-panel" data-step="3" hidden>
+                <div class="step-panel-header">
+                    <div class="step-panel-icon">
+                        <i class="bi bi-ui-checks-grid" aria-hidden="true"></i>
+                    </div>
+                    <div>
+                        <p class="step-kicker">Step 3</p>
+                        <h3>Contact information and request details</h3>
                     </div>
                 </div>
 
                 <div class="step-detail-stack">
                     <div class="form-group">
-                        <label for="phoneNumberField">Phone Number</label>
+                        <label for="phoneNumberField">Contact Number</label>
                         <div class="input-with-icon phone-input-wrap">
                             <span class="input-icon">
                                 <i class="bi bi-telephone" aria-hidden="true"></i>
@@ -145,9 +195,8 @@
                                 id="phoneNumberField"
                                 name="phone_number"
                                 placeholder="+63 917 123 4567"
-                                value="{{ initial_phone_number }}"
                                 inputmode="tel"
-                                autocomplete="tel"
+                                autocomplete="off"
                                 required
                             >
                         </div>
@@ -157,118 +206,142 @@
                     </div>
                 </div>
 
-                <input type="hidden" name="reason" value="stray">
-                <input type="hidden" name="description" value="">
-            </div>
-
-            <div class="step-panel" data-step="3" hidden>
-                <div class="step-panel-header">
-                    <div class="step-panel-icon">
-                        <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
-                    </div>
-                    <div>
-                        <p class="step-kicker">Step 3</p>
-                        <h3>Set the location</h3>
-                        <p class="step-description">
-                            Choose exact GPS if possible. If not, enter the barangay and optional purok or sitio details.
-                        </p>
+                <div id="walkInDetailsSection" class="request-detail-branch" hidden>
+                    <div class="location-card request-appointment-box">
+                        <div class="location-card-head">
+                            <div>
+                                <h4>Select Available Date</h4>
+                                <p>This uses the same appointment schedule managed by the admin.</p>
+                            </div>
+                        </div>
+                        {% include 'partials/appointment_picker.html' with submit_btn_id='submitBtn' %}
                     </div>
                 </div>
 
-                <div class="location-mode">
-                    <label class="location-mode-card">
-                        <input type="radio" name="location_mode" value="exact" checked>
-                        <span class="location-mode-icon"><i class="bi bi-crosshair" aria-hidden="true"></i></span>
-                        <span class="location-mode-copy">
-                            <strong>Use Exact Location</strong>
-                            <small>Best for faster routing and mapping.</small>
-                        </span>
-                    </label>
-                    <label class="location-mode-card">
-                        <input type="radio" name="location_mode" value="manual">
-                        <span class="location-mode-icon"><i class="bi bi-house-door-fill" aria-hidden="true"></i></span>
-                        <span class="location-mode-copy">
-                            <strong>Enter Barangay Manually</strong>
-                            <small>Use this when GPS is unavailable.</small>
-                        </span>
-                    </label>
-                </div>
+                <div id="onlineDetailsSection" class="request-detail-branch" hidden>
+                    <div class="location-mode">
+                        <label class="location-mode-card">
+                            <input type="radio" name="location_mode" value="exact" checked>
+                            <span class="location-mode-icon"><i class="bi bi-crosshair" aria-hidden="true"></i></span>
+                            <span class="location-mode-copy">
+                                <strong>GPS Location Tracking</strong>
+                                <small>Automatically detect the reported area.</small>
+                            </span>
+                        </label>
+                        <label class="location-mode-card">
+                            <input type="radio" name="location_mode" value="manual">
+                            <span class="location-mode-icon"><i class="bi bi-house-door-fill" aria-hidden="true"></i></span>
+                            <span class="location-mode-copy">
+                                <strong>Manual Barangay Selection</strong>
+                                <small>Use this if GPS is unavailable.</small>
+                            </span>
+                        </label>
+                    </div>
 
                     <div id="exactLocationBox" class="location-card">
                         <div class="location-card-head">
                             <div>
                                 <h4>Exact GPS location</h4>
-                                <p>Allow location access, then confirm the map pin.</p>
+                                <p>Allow location access, then confirm the map pin so the shelter team can find the dog or pickup point.</p>
+                            </div>
+                            <button type="button" class="btn-secondary" id="getLocationBtn">
+                                <i class="bi bi-crosshair2" aria-hidden="true"></i>
+                                <span>Use Exact GPS Location</span>
+                            </button>
                         </div>
-                        <button type="button" class="btn-secondary" id="getLocationBtn">
-                            <i class="bi bi-crosshair2" aria-hidden="true"></i>
-                            <span>Use Exact GPS Location</span>
-                        </button>
+                        <p id="gpsStatus" class="helper-text">Waiting for location...</p>
+                        <div id="requestMap"></div>
+                        <input type="hidden" name="latitude" id="latitude">
+                        <input type="hidden" name="longitude" id="longitude">
                     </div>
-                    <p id="gpsStatus" class="helper-text">Waiting for location...</p>
-                    <div id="requestMap"></div>
-                    <input type="hidden" name="latitude" id="latitude">
-                    <input type="hidden" name="longitude" id="longitude">
+
+                    <div id="manualLocationBox" class="location-card" hidden>
+                        <div class="manual-location-stack">
+                            <div class="form-group">
+                                <label for="manualFullAddressField">Purok / Sitio (optional)</label>
+                                <div class="input-with-icon textarea-with-icon">
+                                    <span class="input-icon">
+                                        <i class="bi bi-signpost-2-fill" aria-hidden="true"></i>
+                                    </span>
+                                    <textarea
+                                        name="manual_full_address"
+                                        id="manualFullAddressField"
+                                        rows="3"
+                                        placeholder="Optional: Purok 3, Sitio Riverside, near the barangay hall"
+                                    ></textarea>
+                                </div>
+                                <small class="helper-text">Optional, but helpful when the dog is hard to locate inside the barangay.</small>
+                            </div>
+
+                            <div class="form-group barangay-autocomplete-wrap">
+                                <label for="barangayField">Barangay</label>
+                                <div class="input-with-icon">
+                                    <span class="input-icon">
+                                        <i class="bi bi-pin-map-fill" aria-hidden="true"></i>
+                                    </span>
+                                    <input
+                                        type="text"
+                                        id="barangayField"
+                                        name="barangay"
+                                        value=""
+                                        placeholder="Select barangay"
+                                        autocomplete="off"
+                                        data-barangay-autocomplete="true"
+                                        data-barangay-source-url="{% url 'user:barangay_list_api' %}"
+                                        data-barangay-suggestions-id="request-barangay-suggestions"
+                                        data-barangay-strict="true"
+                                    >
+                                </div>
+                                <div id="request-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
+                                <small class="helper-text">Required. Start typing to choose a barangay from the system list.</small>
+                            </div>
+
+                            <div class="form-group manual-landmark-upload-group">
+                                <label for="locationLandmarkImageField">Nearby landmark photo(s) (optional)</label>
+                                <div class="input-with-icon file-input-wrap">
+                                    <span class="input-icon">
+                                        <i class="bi bi-image-fill" aria-hidden="true"></i>
+                                    </span>
+                                    <input
+                                        type="file"
+                                        name="location_landmark_image"
+                                        id="locationLandmarkImageField"
+                                        accept="image/*"
+                                        multiple
+                                    >
+                                </div>
+                                <small class="upload-hint">Optional photo of a nearby crossing, store, or landmark that can help the team find the area.</small>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div id="manualLocationBox" class="location-card" hidden>
-                    <div class="manual-location-stack">
+                <input type="hidden" name="reason" value="stray">
+
+                <div id="surrenderDetailsSection" class="request-detail-branch" hidden>
+                    <div class="location-card">
+                        <div class="location-card-head">
+                            <div>
+                                <h4>Dog surrender details</h4>
+                                <p>Share any important notes that can help the shelter team prepare for the surrender.</p>
+                            </div>
+                        </div>
                         <div class="form-group">
-                            <label for="manualFullAddressField">Purok / Sitio (optional)</label>
+                            <label for="surrenderDescriptionField">Surrender Notes (optional)</label>
                             <div class="input-with-icon textarea-with-icon">
                                 <span class="input-icon">
-                                    <i class="bi bi-signpost-2-fill" aria-hidden="true"></i>
+                                    <i class="bi bi-chat-left-text-fill" aria-hidden="true"></i>
                                 </span>
                                 <textarea
-                                    name="manual_full_address"
-                                    id="manualFullAddressField"
-                                    rows="3"
-                                    placeholder="Optional: Purok 3, Sitio Riverside, near the barangay hall"
+                                    name="description"
+                                    id="surrenderDescriptionField"
+                                    rows="4"
+                                    placeholder="Optional: Share why the dog is being surrendered or any important handling notes."
                                 ></textarea>
                             </div>
-                            <small class="helper-text">Optional, but helpful when the dog is hard to locate inside the barangay.</small>
+                            <small class="helper-text">This is optional, but it can help the shelter team prepare for follow-up.</small>
                         </div>
 
-                        <div class="form-group barangay-autocomplete-wrap">
-                            <label for="barangayField">Barangay</label>
-                            <div class="input-with-icon">
-                                <span class="input-icon">
-                                    <i class="bi bi-pin-map-fill" aria-hidden="true"></i>
-                                </span>
-                                <input
-                                    type="text"
-                                    id="barangayField"
-                                    name="barangay"
-                                    value=""
-                                    placeholder="Select barangay"
-                                    autocomplete="off"
-                                    required
-                                    data-barangay-autocomplete="true"
-                                    data-barangay-source-url="{% url 'user:barangay_list_api' %}"
-                                    data-barangay-suggestions-id="request-barangay-suggestions"
-                                    data-barangay-strict="true"
-                                >
-                            </div>
-                            <div id="request-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
-                            <small class="helper-text">Required. Start typing to choose a barangay from the system list.</small>
-                        </div>
-
-                        <div class="form-group manual-landmark-upload-group">
-                            <label for="locationLandmarkImageField">Nearby landmark photo(s) (optional)</label>
-                            <div class="input-with-icon file-input-wrap">
-                                <span class="input-icon">
-                                    <i class="bi bi-image-fill" aria-hidden="true"></i>
-                                </span>
-                                <input
-                                    type="file"
-                                    name="location_landmark_image"
-                                    id="locationLandmarkImageField"
-                                    accept="image/*"
-                                    multiple
-                                >
-                            </div>
-                            <small class="upload-hint">Optional photo of a nearby crossing, store, or landmark that can help the team find the area.</small>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -290,120 +363,155 @@
         </form>
     </div>
 
-    <div class="card my-requests-card">
-        <div class="request-section-head">
-            <div>
-                <span class="request-eyebrow">Tracking</span>
-                <h2>My Requests</h2>
+    <div class="modal fade request-history-modal" id="requestHistoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title">My Requests</h5>
+                        <p class="request-history-subtitle">Track the latest status of your submitted requests.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="request-history-content">
+                        <div class="request-section-head request-section-head--modal">
+                            <div>
+                                <span class="request-eyebrow">Tracking</span>
+                                <h2>My Requests</h2>
+                            </div>
+                        </div>
+
+                        <div class="requests-breadcrumb" aria-label="My request statuses">
+                            <button type="button" class="status-crumb scheduled {% if active_status_tab == 'scheduled' %}is-active{% endif %}" data-status-tab="scheduled" aria-pressed="{% if active_status_tab == 'scheduled' %}true{% else %}false{% endif %}">
+                                Scheduled
+                                <span class="status-crumb-count">{{ accepted_total }}</span>
+                            </button>
+                            <button type="button" class="status-crumb pending {% if active_status_tab == 'pending' %}is-active{% endif %}" data-status-tab="pending" aria-pressed="{% if active_status_tab == 'pending' %}true{% else %}false{% endif %}">
+                                Pending
+                                <span class="status-crumb-count">{{ pending_total }}</span>
+                            </button>
+                            <button type="button" class="status-crumb declined {% if active_status_tab == 'declined' %}is-active{% endif %}" data-status-tab="declined" aria-pressed="{% if active_status_tab == 'declined' %}true{% else %}false{% endif %}">
+                                Declined
+                                <span class="status-crumb-count">{{ declined_total }}</span>
+                            </button>
+                            <button type="button" class="status-crumb captured {% if active_status_tab == 'captured' %}is-active{% endif %}" data-status-tab="captured" aria-pressed="{% if active_status_tab == 'captured' %}true{% else %}false{% endif %}">
+                                Captured (Done)
+                                <span class="status-crumb-count">{{ captured_total }}</span>
+                            </button>
+                        </div>
+
+                        <div class="requests-scroll requests-scroll--modal">
+                            <div class="request-group status-panel {% if active_status_tab == 'scheduled' %}is-active{% endif %}" id="requests-scheduled" data-status-panel="scheduled">
+                                <h3 class="request-group-title">Scheduled</h3>
+                                {% for req in accepted_requests %}
+                                    {% include 'user_request/_request_item.html' with req=req %}
+                                {% empty %}
+                                    <p class="request-group-empty">No scheduled requests.</p>
+                                {% endfor %}
+                                {% if accepted_page_obj.has_previous or accepted_page_obj.has_next %}
+                                <div class="request-pagination">
+                                    <a class="btn btn-sm btn-outline-secondary {% if not accepted_page_obj.has_previous %}disabled{% endif %}"
+                                       href="?status_tab=scheduled&scheduled_page={% if accepted_page_obj.has_previous %}{{ accepted_page_obj.previous_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
+                                        Previous
+                                    </a>
+                                    <small>Page {{ accepted_page_obj.number }} of {{ accepted_page_obj.paginator.num_pages }}</small>
+                                    <a class="btn btn-sm btn-outline-secondary {% if not accepted_page_obj.has_next %}disabled{% endif %}"
+                                       href="?status_tab=scheduled&scheduled_page={% if accepted_page_obj.has_next %}{{ accepted_page_obj.next_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
+                                        Next
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="request-group status-panel {% if active_status_tab == 'pending' %}is-active{% endif %}" id="requests-pending" data-status-panel="pending">
+                                <h3 class="request-group-title">Pending</h3>
+                                {% for req in pending_requests %}
+                                    {% include 'user_request/_request_item.html' with req=req %}
+                                {% empty %}
+                                    <p class="request-group-empty">No pending requests.</p>
+                                {% endfor %}
+                                {% if pending_page_obj.has_previous or pending_page_obj.has_next %}
+                                <div class="request-pagination">
+                                    <a class="btn btn-sm btn-outline-secondary {% if not pending_page_obj.has_previous %}disabled{% endif %}"
+                                       href="?status_tab=pending&scheduled_page={{ accepted_page_obj.number }}&pending_page={% if pending_page_obj.has_previous %}{{ pending_page_obj.previous_page_number }}{% else %}{{ pending_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
+                                        Previous
+                                    </a>
+                                    <small>Page {{ pending_page_obj.number }} of {{ pending_page_obj.paginator.num_pages }}</small>
+                                    <a class="btn btn-sm btn-outline-secondary {% if not pending_page_obj.has_next %}disabled{% endif %}"
+                                       href="?status_tab=pending&scheduled_page={{ accepted_page_obj.number }}&pending_page={% if pending_page_obj.has_next %}{{ pending_page_obj.next_page_number }}{% else %}{{ pending_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
+                                        Next
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="request-group status-panel {% if active_status_tab == 'declined' %}is-active{% endif %}" id="requests-declined" data-status-panel="declined">
+                                <h3 class="request-group-title">Declined</h3>
+                                {% for req in declined_requests %}
+                                    {% include 'user_request/_request_item.html' with req=req %}
+                                {% empty %}
+                                    <p class="request-group-empty">No declined requests.</p>
+                                {% endfor %}
+                                {% if declined_page_obj.has_previous or declined_page_obj.has_next %}
+                                <div class="request-pagination">
+                                    <a class="btn btn-sm btn-outline-secondary {% if not declined_page_obj.has_previous %}disabled{% endif %}"
+                                       href="?status_tab=declined&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={% if declined_page_obj.has_previous %}{{ declined_page_obj.previous_page_number }}{% else %}{{ declined_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}">
+                                        Previous
+                                    </a>
+                                    <small>Page {{ declined_page_obj.number }} of {{ declined_page_obj.paginator.num_pages }}</small>
+                                    <a class="btn btn-sm btn-outline-secondary {% if not declined_page_obj.has_next %}disabled{% endif %}"
+                                       href="?status_tab=declined&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={% if declined_page_obj.has_next %}{{ declined_page_obj.next_page_number }}{% else %}{{ declined_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}">
+                                        Next
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="request-group status-panel {% if active_status_tab == 'captured' %}is-active{% endif %}" id="requests-captured" data-status-panel="captured">
+                                <h3 class="request-group-title">Captured (Done)</h3>
+                                {% for req in captured_requests %}
+                                    {% include 'user_request/_request_item.html' with req=req %}
+                                {% empty %}
+                                    <p class="request-group-empty">No captured requests yet.</p>
+                                {% endfor %}
+                                {% if captured_page_obj.has_previous or captured_page_obj.has_next %}
+                                <div class="request-pagination">
+                                    <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_previous %}disabled{% endif %}"
+                                       href="?status_tab=captured&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={% if captured_page_obj.has_previous %}{{ captured_page_obj.previous_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}">
+                                        Previous
+                                    </a>
+                                    <small>Page {{ captured_page_obj.number }} of {{ captured_page_obj.paginator.num_pages }}</small>
+                                    <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_next %}disabled{% endif %}"
+                                       href="?status_tab=captured&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={% if captured_page_obj.has_next %}{{ captured_page_obj.next_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}">
+                                        Next
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+    </div>
 
-        <div class="requests-breadcrumb" aria-label="My request statuses">
-            <button type="button" class="status-crumb scheduled {% if active_status_tab == 'scheduled' %}is-active{% endif %}" data-status-tab="scheduled" aria-pressed="{% if active_status_tab == 'scheduled' %}true{% else %}false{% endif %}">
-                Scheduled
-                <span class="status-crumb-count">{{ accepted_total }}</span>
-            </button>
-            <button type="button" class="status-crumb pending {% if active_status_tab == 'pending' %}is-active{% endif %}" data-status-tab="pending" aria-pressed="{% if active_status_tab == 'pending' %}true{% else %}false{% endif %}">
-                Pending
-                <span class="status-crumb-count">{{ pending_total }}</span>
-            </button>
-            <button type="button" class="status-crumb declined {% if active_status_tab == 'declined' %}is-active{% endif %}" data-status-tab="declined" aria-pressed="{% if active_status_tab == 'declined' %}true{% else %}false{% endif %}">
-                Declined
-                <span class="status-crumb-count">{{ declined_total }}</span>
-            </button>
-            <button type="button" class="status-crumb captured {% if active_status_tab == 'captured' %}is-active{% endif %}" data-status-tab="captured" aria-pressed="{% if active_status_tab == 'captured' %}true{% else %}false{% endif %}">
-                Captured (Done)
-                <span class="status-crumb-count">{{ captured_total }}</span>
-            </button>
-        </div>
-
-        <div class="requests-scroll">
-            <div class="request-group status-panel {% if active_status_tab == 'scheduled' %}is-active{% endif %}" id="requests-scheduled" data-status-panel="scheduled">
-                <h3 class="request-group-title">Scheduled</h3>
-                {% for req in accepted_requests %}
-                    {% include 'user_request/_request_item.html' with req=req %}
-                {% empty %}
-                    <p class="request-group-empty">No scheduled requests.</p>
-                {% endfor %}
-                {% if accepted_page_obj.has_previous or accepted_page_obj.has_next %}
-                <div class="request-pagination">
-                    <a class="btn btn-sm btn-outline-secondary {% if not accepted_page_obj.has_previous %}disabled{% endif %}"
-                       href="?status_tab=scheduled&scheduled_page={% if accepted_page_obj.has_previous %}{{ accepted_page_obj.previous_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
-                        Previous
-                    </a>
-                    <small>Page {{ accepted_page_obj.number }} of {{ accepted_page_obj.paginator.num_pages }}</small>
-                    <a class="btn btn-sm btn-outline-secondary {% if not accepted_page_obj.has_next %}disabled{% endif %}"
-                       href="?status_tab=scheduled&scheduled_page={% if accepted_page_obj.has_next %}{{ accepted_page_obj.next_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
-                        Next
-                    </a>
+    <div class="modal fade request-dialog-modal" id="requestDialogModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="request-dialog-shell" data-request-dialog-tone="info">
+                    <div class="request-dialog-icon" id="requestDialogIcon">
+                        <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+                    </div>
+                    <div class="request-dialog-copy">
+                        <h5 id="requestDialogTitle">Notice</h5>
+                        <p id="requestDialogMessage">Please review the details and try again.</p>
+                    </div>
+                    <div class="request-dialog-actions">
+                        <button type="button" class="btn-secondary" id="requestDialogCancelBtn">Cancel</button>
+                        <button type="button" class="btn-primary" id="requestDialogConfirmBtn">OK</button>
+                    </div>
                 </div>
-                {% endif %}
-            </div>
-
-            <div class="request-group status-panel {% if active_status_tab == 'pending' %}is-active{% endif %}" id="requests-pending" data-status-panel="pending">
-                <h3 class="request-group-title">Pending</h3>
-                {% for req in pending_requests %}
-                    {% include 'user_request/_request_item.html' with req=req %}
-                {% empty %}
-                    <p class="request-group-empty">No pending requests.</p>
-                {% endfor %}
-                {% if pending_page_obj.has_previous or pending_page_obj.has_next %}
-                <div class="request-pagination">
-                    <a class="btn btn-sm btn-outline-secondary {% if not pending_page_obj.has_previous %}disabled{% endif %}"
-                       href="?status_tab=pending&scheduled_page={{ accepted_page_obj.number }}&pending_page={% if pending_page_obj.has_previous %}{{ pending_page_obj.previous_page_number }}{% else %}{{ pending_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
-                        Previous
-                    </a>
-                    <small>Page {{ pending_page_obj.number }} of {{ pending_page_obj.paginator.num_pages }}</small>
-                    <a class="btn btn-sm btn-outline-secondary {% if not pending_page_obj.has_next %}disabled{% endif %}"
-                       href="?status_tab=pending&scheduled_page={{ accepted_page_obj.number }}&pending_page={% if pending_page_obj.has_next %}{{ pending_page_obj.next_page_number }}{% else %}{{ pending_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
-                        Next
-                    </a>
-                </div>
-                {% endif %}
-            </div>
-
-            <div class="request-group status-panel {% if active_status_tab == 'declined' %}is-active{% endif %}" id="requests-declined" data-status-panel="declined">
-                <h3 class="request-group-title">Declined</h3>
-                {% for req in declined_requests %}
-                    {% include 'user_request/_request_item.html' with req=req %}
-                {% empty %}
-                    <p class="request-group-empty">No declined requests.</p>
-                {% endfor %}
-                {% if declined_page_obj.has_previous or declined_page_obj.has_next %}
-                <div class="request-pagination">
-                    <a class="btn btn-sm btn-outline-secondary {% if not declined_page_obj.has_previous %}disabled{% endif %}"
-                       href="?status_tab=declined&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={% if declined_page_obj.has_previous %}{{ declined_page_obj.previous_page_number }}{% else %}{{ declined_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}">
-                        Previous
-                    </a>
-                    <small>Page {{ declined_page_obj.number }} of {{ declined_page_obj.paginator.num_pages }}</small>
-                    <a class="btn btn-sm btn-outline-secondary {% if not declined_page_obj.has_next %}disabled{% endif %}"
-                       href="?status_tab=declined&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={% if declined_page_obj.has_next %}{{ declined_page_obj.next_page_number }}{% else %}{{ declined_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}">
-                        Next
-                    </a>
-                </div>
-                {% endif %}
-            </div>
-
-            <div class="request-group status-panel {% if active_status_tab == 'captured' %}is-active{% endif %}" id="requests-captured" data-status-panel="captured">
-                <h3 class="request-group-title">Captured (Done)</h3>
-                {% for req in captured_requests %}
-                    {% include 'user_request/_request_item.html' with req=req %}
-                {% empty %}
-                    <p class="request-group-empty">No captured requests yet.</p>
-                {% endfor %}
-                {% if captured_page_obj.has_previous or captured_page_obj.has_next %}
-                <div class="request-pagination">
-                    <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_previous %}disabled{% endif %}"
-                       href="?status_tab=captured&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={% if captured_page_obj.has_previous %}{{ captured_page_obj.previous_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}">
-                        Previous
-                    </a>
-                    <small>Page {{ captured_page_obj.number }} of {{ captured_page_obj.paginator.num_pages }}</small>
-                    <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_next %}disabled{% endif %}"
-                       href="?status_tab=captured&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={% if captured_page_obj.has_next %}{{ captured_page_obj.next_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}">
-                        Next
-                    </a>
-                </div>
-                {% endif %}
             </div>
         </div>
     </div>
@@ -433,9 +541,66 @@ const submitBtn = document.getElementById('submitBtn');
 const phoneNumberField = document.getElementById('phoneNumberField');
 const defaultRequestCity = "{{ default_manual_city|escapejs }}";
 const captureForm = document.getElementById('captureForm');
+const requestTypeInputs = document.querySelectorAll('input[name="request_type"]');
+const submissionTypeInputs = document.querySelectorAll('input[name="submission_type"]');
+const walkInDetailsSection = document.getElementById('walkInDetailsSection');
+const onlineDetailsSection = document.getElementById('onlineDetailsSection');
+const surrenderDetailsSection = document.getElementById('surrenderDetailsSection');
+const requestHistoryModalEl = document.getElementById('requestHistoryModal');
+const appointmentDateField = document.getElementById('appointment_date');
 const barangayField = document.getElementById('barangayField');
 const manualFullAddressField = document.getElementById('manualFullAddressField');
 const locationLandmarkImageField = document.getElementById('locationLandmarkImageField');
+const surrenderDescriptionField = document.getElementById('surrenderDescriptionField');
+const step1Title = document.getElementById('step1Title');
+const step1Description = document.getElementById('step1Description');
+const step1HelperNote = document.getElementById('step1HelperNote');
+const uploadActionLabel = document.getElementById('uploadActionLabel');
+const cameraActionLabel = document.getElementById('cameraActionLabel');
+const requestDialogModalEl = document.getElementById('requestDialogModal');
+const requestDialogIcon = document.getElementById('requestDialogIcon');
+const requestDialogTitle = document.getElementById('requestDialogTitle');
+const requestDialogMessage = document.getElementById('requestDialogMessage');
+const requestDialogCancelBtn = document.getElementById('requestDialogCancelBtn');
+const requestDialogConfirmBtn = document.getElementById('requestDialogConfirmBtn');
+let requestDialogResolver = null;
+let requestDialogDismissValue = false;
+let allowConfirmedSubmit = false;
+
+function getSelectedRequestType() {
+    return document.querySelector('input[name="request_type"]:checked')?.value || 'capture';
+}
+
+function getSelectedSubmissionType() {
+    return document.querySelector('input[name="submission_type"]:checked')?.value || '';
+}
+
+function getRequestHistoryContentRoot() {
+    return requestHistoryModalEl?.querySelector('.request-history-content') || null;
+}
+
+function setRequestHistoryLoading(isLoading) {
+    const modalBody = requestHistoryModalEl?.querySelector('.modal-body');
+    if (!modalBody) return;
+    modalBody.classList.toggle('is-loading', isLoading);
+    modalBody.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+}
+
+let requestHistoryCurrentUrl = window.location.href;
+
+function updateRequestHistoryCurrentUrlParam(key, value) {
+    try {
+        const nextUrl = new URL(requestHistoryCurrentUrl, window.location.href);
+        if (value) {
+            nextUrl.searchParams.set(key, value);
+        } else {
+            nextUrl.searchParams.delete(key);
+        }
+        requestHistoryCurrentUrl = nextUrl.toString();
+    } catch (error) {
+        // Ignore URL parsing issues and keep the current value.
+    }
+}
 
 function normalizePhoneForSubmit(value) {
     const digits = (value || '').replace(/\D/g, '');
@@ -457,13 +622,114 @@ function formatPhoneForDisplay(value) {
 function primePhoneField() {
     if (!phoneNumberField) return;
     const formatted = formatPhoneForDisplay(phoneNumberField.value);
-    phoneNumberField.value = formatted || '+63 ';
+    phoneNumberField.value = formatted || '';
+}
+
+function getDialogIconMarkup(tone) {
+    if (tone === 'danger') return '<i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i>';
+    if (tone === 'warning') return '<i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>';
+    if (tone === 'success') return '<i class="bi bi-check-circle-fill" aria-hidden="true"></i>';
+    return '<i class="bi bi-info-circle-fill" aria-hidden="true"></i>';
+}
+
+function getRequestDialogModal() {
+    if (!requestDialogModalEl || !window.bootstrap || !bootstrap.Modal) {
+        return null;
+    }
+    return bootstrap.Modal.getOrCreateInstance(requestDialogModalEl);
+}
+
+function showRequestDialog(options = {}) {
+    const {
+        title = 'Notice',
+        message = 'Please review the information and try again.',
+        confirmText = 'OK',
+        cancelText = '',
+        tone = 'info',
+    } = options;
+
+    const requestDialogModal = getRequestDialogModal();
+    if (!requestDialogModalEl || !requestDialogModal) {
+        if (cancelText) {
+            return Promise.resolve(window.confirm(message));
+        }
+        window.alert(message);
+        return Promise.resolve(true);
+    }
+
+    if (requestDialogResolver) {
+        requestDialogResolver(false);
+        requestDialogResolver = null;
+    }
+
+    requestDialogDismissValue = cancelText ? false : true;
+    requestDialogModalEl.querySelector('.request-dialog-shell')?.setAttribute('data-request-dialog-tone', tone);
+    if (requestDialogIcon) requestDialogIcon.innerHTML = getDialogIconMarkup(tone);
+    if (requestDialogTitle) requestDialogTitle.textContent = title;
+    if (requestDialogMessage) requestDialogMessage.textContent = message;
+    if (requestDialogConfirmBtn) {
+        requestDialogConfirmBtn.textContent = confirmText;
+        requestDialogConfirmBtn.classList.toggle('request-dialog-confirm-danger', tone === 'danger');
+    }
+    if (requestDialogCancelBtn) {
+        requestDialogCancelBtn.textContent = cancelText || 'Cancel';
+        requestDialogCancelBtn.hidden = !cancelText;
+    }
+
+    return new Promise((resolve) => {
+        requestDialogResolver = resolve;
+        requestDialogModal.show();
+    });
+}
+
+function showRequestNotice(message, options = {}) {
+    return showRequestDialog({
+        title: options.title || 'Notice',
+        message,
+        tone: options.tone || 'warning',
+        confirmText: options.confirmText || 'OK',
+    });
+}
+
+requestDialogConfirmBtn?.addEventListener('click', () => {
+    requestDialogDismissValue = true;
+    getRequestDialogModal()?.hide();
+});
+
+requestDialogCancelBtn?.addEventListener('click', () => {
+    requestDialogDismissValue = false;
+    getRequestDialogModal()?.hide();
+});
+
+requestDialogModalEl?.addEventListener('hidden.bs.modal', () => {
+    if (!requestDialogResolver) return;
+    const resolve = requestDialogResolver;
+    requestDialogResolver = null;
+    resolve(requestDialogDismissValue);
+});
+
+function syncSubmitButtonState() {
+    if (!submitBtn) return;
+    const submissionType = getSelectedSubmissionType();
+
+    let disabled = false;
+    if (currentStep === 3) {
+        if (!submissionType) {
+            disabled = true;
+        } else if (submissionType === 'walk_in') {
+            disabled = !appointmentDateField?.value;
+        }
+    }
+    submitBtn.disabled = disabled;
 }
 
 function validatePhoneField() {
     const normalized = normalizePhoneForSubmit(phoneNumberField?.value || '');
     if (!normalized) {
-        alert('Please enter a valid Philippine mobile number such as 0917 123 4567 or +63 917 123 4567.');
+        showRequestNotice(
+            'Please enter a valid Philippine mobile number such as 0917 123 4567 or +63 917 123 4567.',
+            { title: 'Invalid Phone Number', tone: 'warning' }
+        );
         phoneNumberField?.focus();
         return false;
     }
@@ -471,7 +737,46 @@ function validatePhoneField() {
     return true;
 }
 
+function ensureRequestMapReady() {
+    if (!map) {
+        map = L.map('requestMap').setView([9.2000, 122.8500], 13);
+        addRealisticLayers(map);
+    }
+    map.invalidateSize();
+}
+
+function syncRequestFlowUI() {
+    const requestType = getSelectedRequestType();
+    const submissionType = getSelectedSubmissionType();
+    const isCapture = requestType === 'capture';
+    const isWalkIn = submissionType === 'walk_in';
+    const isOnline = submissionType === 'online';
+
+    syncStepOneContent();
+    if (walkInDetailsSection) walkInDetailsSection.hidden = !isWalkIn;
+    if (onlineDetailsSection) onlineDetailsSection.hidden = !isOnline;
+    if (surrenderDetailsSection) surrenderDetailsSection.hidden = isCapture;
+
+    if (appointmentDateField) {
+        appointmentDateField.required = isWalkIn;
+    }
+    if (surrenderDescriptionField) {
+        surrenderDescriptionField.disabled = isCapture;
+    }
+    syncSubmitButtonState();
+
+    if (isOnline && currentStep === 3) {
+        window.setTimeout(() => ensureRequestMapReady(), 140);
+    }
+
+    applyCreateLocationMode();
+}
+
 function setStep(step) {
+    const previousStep = currentStep;
+    if (previousStep === 1 && step !== 1) {
+        stopCamera({ hideSection: true });
+    }
     currentStep = step;
     stepPanels.forEach((panel) => {
         panel.hidden = Number(panel.dataset.step) !== step;
@@ -486,20 +791,33 @@ function setStep(step) {
     prevBtn.hidden = step <= 1;
     nextBtn.hidden = step >= 3;
     submitBtn.hidden = step !== 3;
-
-    if (step === 3) {
-        window.setTimeout(() => {
-            if (!map) {
-                map = L.map('requestMap').setView([9.2000, 122.8500], 13);
-                addRealisticLayers(map);
-            }
-            map.invalidateSize();
-        }, 140);
-    }
+    syncRequestFlowUI();
 }
 
 function validateStep(step) {
+    if (step === 1) {
+        if (getSelectedRequestType() === 'capture' && !hasAttachedStepOneProof()) {
+            showRequestNotice(
+                'Dog capture requests require a proof photo. Please upload or capture a clear photo of the dog or the barangay request letter before continuing.',
+                { title: 'Proof Photo Required', tone: 'warning' }
+            );
+            return false;
+        }
+        return true;
+    }
+
     if (step === 2) {
+        if (!getSelectedSubmissionType()) {
+            showRequestNotice(
+                'Please choose whether this request will be walk-in or online.',
+                { title: 'Submission Type Required', tone: 'warning' }
+            );
+            return false;
+        }
+        return true;
+    }
+
+    if (step === 3) {
         return validatePhoneField();
     }
 
@@ -515,16 +833,29 @@ prevBtn?.addEventListener('click', () => {
     if (currentStep > 1) setStep(currentStep - 1);
 });
 
-phoneNumberField?.addEventListener('focus', () => {
+phoneNumberField?.addEventListener('blur', () => {
     if (!phoneNumberField.value.trim()) {
-        phoneNumberField.value = '+63 ';
+        phoneNumberField.value = '';
+        return;
     }
+    const formatted = formatPhoneForDisplay(phoneNumberField.value);
+    phoneNumberField.value = formatted || phoneNumberField.value.trim();
 });
 
-phoneNumberField?.addEventListener('blur', () => {
-    const formatted = formatPhoneForDisplay(phoneNumberField.value);
-    phoneNumberField.value = formatted || '+63 ';
+phoneNumberField?.addEventListener('input', () => {
+    syncSubmitButtonState();
 });
+
+requestTypeInputs.forEach((input) => {
+    input.addEventListener('change', syncRequestFlowUI);
+});
+
+submissionTypeInputs.forEach((input) => {
+    input.addEventListener('change', syncRequestFlowUI);
+});
+
+appointmentDateField?.addEventListener('change', syncSubmitButtonState);
+document.addEventListener('appointment-picker:change', syncSubmitButtonState);
 
 const cameraSection = document.getElementById('cameraSection');
 const openUploadPickerBtn = document.getElementById('openUploadPickerBtn');
@@ -552,6 +883,36 @@ let activeFacingMode = '';
 let availableVideoInputCount = 0;
 let capturedImages = [];
 let mirrorCompensation = false;
+
+function hasAttachedStepOneProof() {
+    return selectedUploadFiles.length > 0 || capturedImages.length > 0;
+}
+
+function syncStepOneContent() {
+    const isCapture = getSelectedRequestType() === 'capture';
+
+    if (step1Title) {
+        step1Title.textContent = isCapture
+            ? 'Select the request type and attach capture proof'
+            : 'Select the request type and add a dog photo if available';
+    }
+    if (step1Description) {
+        step1Description.textContent = isCapture
+            ? 'For dog capture requests, upload or take a clear photo of the dog or a clear photo of the barangay letter requesting dog capture. A proof photo is required before you can continue.'
+            : 'For dog surrender requests, you may upload an existing image or use your camera. A photo is optional, but it helps the shelter team identify the dog faster.';
+    }
+    if (step1HelperNote) {
+        step1HelperNote.textContent = isCapture
+            ? 'Required for dog capture: attach a clear photo of the dog or a clear photo of the request letter from your barangay.'
+            : 'For dog surrender, a photo is optional but recommended when available.';
+    }
+    if (uploadActionLabel) {
+        uploadActionLabel.textContent = isCapture ? 'Upload Proof / Photo' : 'Upload Photo';
+    }
+    if (cameraActionLabel) {
+        cameraActionLabel.textContent = isCapture ? 'Take Proof / Photo' : 'Take Picture / Use Camera';
+    }
+}
 
 function showCameraSection(visible) {
     if (!cameraSection) return;
@@ -847,7 +1208,7 @@ async function startCameraPreview() {
             openNativeCameraFallback();
             return;
         }
-        alert(cameraHelpMessage());
+        await showRequestNotice(cameraHelpMessage(), { title: 'Camera Unavailable', tone: 'warning' });
         return;
     }
 
@@ -888,7 +1249,7 @@ async function startCameraPreview() {
             return;
         }
         updateCameraStatus('Unable to open camera.');
-        alert(cameraHelpMessage());
+        await showRequestNotice(cameraHelpMessage(), { title: 'Camera Unavailable', tone: 'warning' });
     }
 }
 
@@ -912,7 +1273,7 @@ stopCameraBtn?.addEventListener('click', () => stopCamera({ hideSection: true })
 
 captureBtn?.addEventListener('click', () => {
     if (!video.videoWidth) {
-        alert('Open the camera first before capturing.');
+        showRequestNotice('Open the camera first before capturing.', { title: 'Camera Not Ready', tone: 'warning' });
         return;
     }
 
@@ -946,12 +1307,13 @@ const manualLocationBox = document.getElementById('manualLocationBox');
 
 function applyCreateLocationMode() {
     const mode = document.querySelector('input[name="location_mode"]:checked')?.value || 'exact';
+    const isOnline = getSelectedSubmissionType() === 'online';
     const isExact = mode === 'exact';
 
-    exactLocationBox.hidden = !isExact;
-    manualLocationBox.hidden = isExact;
+    exactLocationBox.hidden = !isOnline || !isExact;
+    manualLocationBox.hidden = !isOnline || isExact;
 
-    if (barangayField) barangayField.required = !isExact;
+    if (barangayField) barangayField.required = isOnline && !isExact;
     if (manualFullAddressField) manualFullAddressField.required = false;
     if (locationLandmarkImageField) locationLandmarkImageField.required = false;
 }
@@ -959,6 +1321,9 @@ function applyCreateLocationMode() {
 locationModeInputs.forEach(input => {
     input.addEventListener('change', applyCreateLocationMode);
 });
+
+primePhoneField();
+syncRequestFlowUI();
 
 async function resolveAddressFromCoords(lat, lng) {
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`;
@@ -989,7 +1354,7 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
     const status = document.getElementById('gpsStatus');
 
     if (!navigator.geolocation) {
-        alert('Geolocation is not supported on this device or browser.');
+        await showRequestNotice('Geolocation is not supported on this device or browser.', { title: 'Location Unavailable', tone: 'warning' });
         return;
     }
 
@@ -1015,8 +1380,8 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
         }
 
         if (!map) {
-            map = L.map('requestMap').setView([lat, lng], 16);
-            addRealisticLayers(map);
+            ensureRequestMapReady();
+            map.setView([lat, lng], 16);
         } else {
             map.setView([lat, lng], 16);
         }
@@ -1025,7 +1390,7 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
         marker = L.marker([lat, lng]).addTo(map).bindPopup('Exact location').openPopup();
     }, () => {
         status.textContent = 'Unable to retrieve location. Please try again.';
-        alert('Unable to retrieve location.');
+        showRequestNotice('Unable to retrieve location.', { title: 'Location Error', tone: 'warning' });
     }, {
         enableHighAccuracy: true,
         timeout: 12000,
@@ -1033,69 +1398,202 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
     });
 });
 
-captureForm?.addEventListener('submit', (e) => {
-    if (!validatePhoneField()) {
-        e.preventDefault();
+captureForm?.addEventListener('submit', async (e) => {
+    if (allowConfirmedSubmit) {
+        allowConfirmedSubmit = false;
         return;
     }
 
-    phoneNumberField.value = normalizePhoneForSubmit(phoneNumberField.value);
+    e.preventDefault();
 
-    const mode = document.querySelector('input[name="location_mode"]:checked')?.value || 'exact';
-    if (mode === 'exact') {
-        const lat = document.getElementById('latitude').value;
-        const lng = document.getElementById('longitude').value;
-        if (!lat || !lng) {
-            e.preventDefault();
-            alert('Please capture the exact GPS location first.');
-        }
-    } else {
-        if (!barangayField.value.trim()) {
-            e.preventDefault();
-            alert('Please select a barangay for the manual location.');
+    if (!validatePhoneField()) {
+        return;
+    }
+
+    const submissionType = getSelectedSubmissionType();
+
+    if (!submissionType) {
+        showRequestNotice(
+            'Please choose whether this request will be walk-in or online.',
+            { title: 'Submission Type Required', tone: 'warning' }
+        );
+        return;
+    }
+
+    if (submissionType === 'walk_in' && !appointmentDateField?.value) {
+        showRequestNotice(
+            'Please select an available appointment date for this walk-in request.',
+            { title: 'Appointment Date Required', tone: 'warning' }
+        );
+        return;
+    }
+
+    if (submissionType === 'online') {
+        const mode = document.querySelector('input[name="location_mode"]:checked')?.value || 'exact';
+        if (mode === 'exact') {
+            const lat = document.getElementById('latitude').value;
+            const lng = document.getElementById('longitude').value;
+            if (!lat || !lng) {
+                showRequestNotice(
+                    'Please capture the exact GPS location first.',
+                    { title: 'GPS Location Required', tone: 'warning' }
+                );
+                return;
+            }
+        } else if (!barangayField.value.trim()) {
+            showRequestNotice(
+                'Please select a barangay for the manual location.',
+                { title: 'Barangay Required', tone: 'warning' }
+            );
             barangayField.focus();
             return;
         }
     }
-});
 
-document.querySelectorAll('.request-clickable').forEach((card) => {
-    card.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            card.click();
-        }
+    const confirmed = await showRequestDialog({
+        title: 'Confirm Submission',
+        message: 'Are you sure you want to submit this request?',
+        tone: 'info',
+        confirmText: 'Confirm Submission',
+        cancelText: 'Cancel',
     });
+    if (!confirmed) return;
+
+    phoneNumberField.value = normalizePhoneForSubmit(phoneNumberField.value);
+    allowConfirmedSubmit = true;
+    captureForm.requestSubmit();
 });
 
-document.querySelectorAll('.request-inline-stop').forEach((element) => {
-    const stopEvent = (e) => e.stopPropagation();
-    element.addEventListener('click', stopEvent);
-    element.addEventListener('keydown', stopEvent);
-});
-
-document.querySelectorAll('.request-edit-toggle').forEach((button) => {
-    button.addEventListener('click', () => {
-        const target = document.querySelector(button.dataset.target);
-        if (target) {
-            target.style.display = 'block';
-            applyRequestEditLocationMode(target);
-            if (window.initBarangayAutocomplete) {
-                window.initBarangayAutocomplete(target);
+function initRequestClickableCards(root = document) {
+    root.querySelectorAll('.request-clickable').forEach((card) => {
+        if (card.dataset.requestKeydownBound === '1') return;
+        card.dataset.requestKeydownBound = '1';
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                card.click();
             }
-        }
+        });
     });
-});
+}
 
-document.querySelectorAll('.request-edit-cancel').forEach((button) => {
-    button.addEventListener('click', () => {
-        const target = document.querySelector(button.dataset.target);
-        if (target) target.style.display = 'none';
+function mountRequestViewModals(root = document) {
+    root.querySelectorAll('.request-view-modal').forEach((modalEl) => {
+        if (!modalEl.id) return;
+        const existingModal = document.getElementById(modalEl.id);
+        if (existingModal && existingModal !== modalEl) {
+            existingModal.remove();
+        }
+        document.body.appendChild(modalEl);
     });
-});
+}
+
+function initRequestInlineStops(root = document) {
+    root.querySelectorAll('.request-inline-stop').forEach((element) => {
+        if (element.dataset.requestInlineStopBound === '1') return;
+        element.dataset.requestInlineStopBound = '1';
+        const stopEvent = (e) => e.stopPropagation();
+        element.addEventListener('click', stopEvent);
+        element.addEventListener('keydown', stopEvent);
+    });
+}
+
+function initRequestDeleteForms(root = document) {
+    root.querySelectorAll('[data-request-delete-form]').forEach((form) => {
+        if (form.dataset.requestDeleteBound === '1') return;
+        form.dataset.requestDeleteBound = '1';
+        form.addEventListener('submit', async (e) => {
+            if (form.dataset.deleteConfirmed === '1') {
+                form.dataset.deleteConfirmed = '0';
+                return;
+            }
+
+            e.preventDefault();
+            const confirmed = await showRequestDialog({
+                title: 'Delete Request?',
+                message: 'Are you sure you want to delete this request?',
+                tone: 'danger',
+                confirmText: 'Delete Request',
+                cancelText: 'Cancel',
+            });
+            if (!confirmed) return;
+
+            const insideTrackingModal = Boolean(requestHistoryModalEl?.contains(form));
+            if (!insideTrackingModal) {
+                form.dataset.deleteConfirmed = '1';
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    form.submit();
+                }
+                return;
+            }
+
+            const card = form.closest('.request-card');
+            const modalTarget = card?.dataset.bsTarget;
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                if (!response.ok) {
+                    throw new Error(`Delete request failed with status ${response.status}`);
+                }
+
+                if (modalTarget) {
+                    document.querySelector(modalTarget)?.remove();
+                }
+
+                await loadRequestHistoryPage(requestHistoryCurrentUrl);
+            } catch (error) {
+                await showRequestNotice(
+                    'Unable to delete this request right now. Please try again.',
+                    { title: 'Delete Failed', tone: 'warning' }
+                );
+            }
+        });
+    });
+}
+
+function initRequestEditToggles(root = document) {
+    root.querySelectorAll('.request-edit-toggle').forEach((button) => {
+        if (button.dataset.requestEditToggleBound === '1') return;
+        button.dataset.requestEditToggleBound = '1';
+        button.addEventListener('click', () => {
+            const target = document.querySelector(button.dataset.target);
+            if (target) {
+                target.style.display = 'block';
+                applyRequestEditLocationMode(target);
+                if (window.initBarangayAutocomplete) {
+                    window.initBarangayAutocomplete(target);
+                }
+            }
+        });
+    });
+}
+
+function initRequestEditCancels(root = document) {
+    root.querySelectorAll('.request-edit-cancel').forEach((button) => {
+        if (button.dataset.requestEditCancelBound === '1') return;
+        button.dataset.requestEditCancelBound = '1';
+        button.addEventListener('click', () => {
+            const target = document.querySelector(button.dataset.target);
+            if (target) target.style.display = 'none';
+        });
+    });
+}
 
 function applyRequestEditLocationMode(form) {
     if (!form) return;
+    const requestTypeSelect = form.querySelector('[data-edit-request-type]');
+    const submissionTypeSelect = form.querySelector('[data-edit-submission-type]');
+    const appointmentBox = form.querySelector('[data-edit-appointment-box]');
+    const appointmentInput = form.querySelector('select[name="appointment_date"]');
+    const locationModeGroup = form.querySelector('[data-edit-location-mode-group]');
     const exactRadio = form.querySelector('input[name="edit_location_mode"][value="exact"]');
     const manualBox = form.querySelector('[data-edit-manual-box]');
     const exactBox = form.querySelector('[data-edit-exact-box]');
@@ -1103,73 +1601,105 @@ function applyRequestEditLocationMode(form) {
     const manualFullAddressInput = form.querySelector('textarea[name="manual_full_address"]');
     const latitudeInput = form.querySelector('input[name="latitude"]');
     const longitudeInput = form.querySelector('input[name="longitude"]');
+    const requestType = requestTypeSelect?.value || 'capture';
+    const submissionType = submissionTypeSelect?.value || '';
+    const isOnline = submissionType === 'online';
+    const isWalkIn = submissionType === 'walk_in';
     const isExact = !!(exactRadio && exactRadio.checked);
 
-    if (manualBox) manualBox.style.display = isExact ? 'none' : 'grid';
-    if (exactBox) exactBox.style.display = isExact ? 'grid' : 'none';
+    if (submissionTypeSelect) {
+        submissionTypeSelect.disabled = false;
+        submissionTypeSelect.required = true;
+    }
 
-    if (latitudeInput) latitudeInput.required = isExact;
-    if (longitudeInput) longitudeInput.required = isExact;
-    if (barangayInput) barangayInput.required = !isExact;
+    if (appointmentBox) appointmentBox.style.display = isWalkIn ? 'block' : 'none';
+    if (appointmentInput) appointmentInput.required = isWalkIn;
+    if (locationModeGroup) locationModeGroup.style.display = isOnline ? 'grid' : 'none';
+
+    if (manualBox) manualBox.style.display = isOnline && !isExact ? 'grid' : 'none';
+    if (exactBox) exactBox.style.display = isOnline && isExact ? 'grid' : 'none';
+
+    if (latitudeInput) latitudeInput.required = isOnline && isExact;
+    if (longitudeInput) longitudeInput.required = isOnline && isExact;
+    if (barangayInput) barangayInput.required = isOnline && !isExact;
     if (manualFullAddressInput) manualFullAddressInput.required = false;
 }
 
-document.querySelectorAll('.request-edit-form').forEach((form) => {
-    const modeRadios = form.querySelectorAll('input[name="edit_location_mode"]');
-    modeRadios.forEach((radio) => {
-        radio.addEventListener('change', () => applyRequestEditLocationMode(form));
-    });
-    applyRequestEditLocationMode(form);
-});
+function initRequestEditForms(root = document) {
+    root.querySelectorAll('.request-edit-form').forEach((form) => {
+        if (form.dataset.requestEditFormBound === '1') {
+            applyRequestEditLocationMode(form);
+            return;
+        }
 
-document.querySelectorAll('.landmark-remove-check').forEach((checkbox) => {
-    const card = checkbox.closest('[data-edit-landmark-card]');
-    if (!card) return;
-
-    const syncState = () => {
-        card.classList.toggle('is-removed', checkbox.checked);
-    };
-    checkbox.addEventListener('change', syncState);
-    syncState();
-});
-
-document.querySelectorAll('[data-landmark-viewer]').forEach((viewer) => {
-    const images = Array.from(viewer.querySelectorAll('[data-landmark-image]'));
-    if (!images.length) return;
-
-    let currentIndex = Math.max(
-        0,
-        images.findIndex((img) => img.classList.contains('is-active'))
-    );
-    if (currentIndex < 0) currentIndex = 0;
-
-    const prevBtn = viewer.querySelector('[data-landmark-prev]');
-    const nextBtn = viewer.querySelector('[data-landmark-next]');
-    const counter = viewer.querySelector('[data-landmark-index]');
-
-    function renderLandmark() {
-        images.forEach((img, index) => {
-            img.classList.toggle('is-active', index === currentIndex);
+        form.dataset.requestEditFormBound = '1';
+        const modeRadios = form.querySelectorAll('input[name="edit_location_mode"]');
+        const requestTypeSelect = form.querySelector('[data-edit-request-type]');
+        const submissionTypeSelect = form.querySelector('[data-edit-submission-type]');
+        modeRadios.forEach((radio) => {
+            radio.addEventListener('change', () => applyRequestEditLocationMode(form));
         });
-        if (counter) counter.textContent = String(currentIndex + 1);
-    }
-
-    prevBtn?.addEventListener('click', () => {
-        currentIndex = (currentIndex - 1 + images.length) % images.length;
-        renderLandmark();
+        requestTypeSelect?.addEventListener('change', () => applyRequestEditLocationMode(form));
+        submissionTypeSelect?.addEventListener('change', () => applyRequestEditLocationMode(form));
+        applyRequestEditLocationMode(form);
     });
 
-    nextBtn?.addEventListener('click', () => {
-        currentIndex = (currentIndex + 1) % images.length;
+    root.querySelectorAll('.landmark-remove-check').forEach((checkbox) => {
+        if (checkbox.dataset.landmarkRemoveBound === '1') return;
+        checkbox.dataset.landmarkRemoveBound = '1';
+        const card = checkbox.closest('[data-edit-landmark-card]');
+        if (!card) return;
+
+        const syncState = () => {
+            card.classList.toggle('is-removed', checkbox.checked);
+        };
+        checkbox.addEventListener('change', syncState);
+        syncState();
+    });
+}
+
+function initLandmarkViewers(root = document) {
+    root.querySelectorAll('[data-landmark-viewer]').forEach((viewer) => {
+        if (viewer.dataset.landmarkViewerBound === '1') return;
+        viewer.dataset.landmarkViewerBound = '1';
+
+        const images = Array.from(viewer.querySelectorAll('[data-landmark-image]'));
+        if (!images.length) return;
+
+        let currentIndex = Math.max(
+            0,
+            images.findIndex((img) => img.classList.contains('is-active'))
+        );
+        if (currentIndex < 0) currentIndex = 0;
+
+        const prevBtn = viewer.querySelector('[data-landmark-prev]');
+        const nextBtn = viewer.querySelector('[data-landmark-next]');
+        const counter = viewer.querySelector('[data-landmark-index]');
+
+        function renderLandmark() {
+            images.forEach((img, index) => {
+                img.classList.toggle('is-active', index === currentIndex);
+            });
+            if (counter) counter.textContent = String(currentIndex + 1);
+        }
+
+        prevBtn?.addEventListener('click', () => {
+            currentIndex = (currentIndex - 1 + images.length) % images.length;
+            renderLandmark();
+        });
+
+        nextBtn?.addEventListener('click', () => {
+            currentIndex = (currentIndex + 1) % images.length;
+            renderLandmark();
+        });
+
         renderLandmark();
     });
+}
 
-    renderLandmark();
-});
-
-function initRequestStatusFilter() {
-    const statusTabs = Array.from(document.querySelectorAll('[data-status-tab]'));
-    const statusPanels = Array.from(document.querySelectorAll('[data-status-panel]'));
+function initRequestStatusFilter(root = getRequestHistoryContentRoot() || document) {
+    const statusTabs = Array.from(root.querySelectorAll('[data-status-tab]'));
+    const statusPanels = Array.from(root.querySelectorAll('[data-status-panel]'));
     if (!statusTabs.length || !statusPanels.length) return;
 
     function activateStatusPanel(statusKey) {
@@ -1187,16 +1717,83 @@ function initRequestStatusFilter() {
     }
 
     statusTabs.forEach((tab) => {
+        if (tab.dataset.requestStatusTabBound === '1') return;
+        tab.dataset.requestStatusTabBound = '1';
         tab.addEventListener('click', () => {
             activateStatusPanel(tab.dataset.statusTab);
+            updateRequestHistoryCurrentUrlParam('status_tab', tab.dataset.statusTab);
         });
     });
 
     const initialStatus = statusTabs.find((tab) => tab.classList.contains('is-active'))?.dataset.statusTab || statusTabs[0].dataset.statusTab;
+    updateRequestHistoryCurrentUrlParam('status_tab', initialStatus);
     activateStatusPanel(initialStatus);
 }
 
-initRequestStatusFilter();
+async function loadRequestHistoryPage(url) {
+    const currentContent = getRequestHistoryContentRoot();
+    if (!requestHistoryModalEl || !currentContent || !url) return;
+
+    setRequestHistoryLoading(true);
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        if (!response.ok) {
+            throw new Error(`Tracking request failed with status ${response.status}`);
+        }
+
+        const html = await response.text();
+        const parsed = new DOMParser().parseFromString(html, 'text/html');
+        const nextContent = parsed.querySelector('.request-history-content');
+        if (!nextContent) {
+            throw new Error('Tracking content was not found in the response.');
+        }
+
+        requestHistoryCurrentUrl = response.url || url;
+        currentContent.replaceWith(nextContent);
+        initRequestTrackingUI(nextContent);
+    } catch (error) {
+        await showRequestNotice(
+            'Unable to load more tracking results right now. Please try again.',
+            { title: 'Tracking Unavailable', tone: 'warning' }
+        );
+    } finally {
+        setRequestHistoryLoading(false);
+    }
+}
+
+function initRequestHistoryPagination() {
+    if (!requestHistoryModalEl || requestHistoryModalEl.dataset.requestPaginationBound === '1') return;
+    requestHistoryModalEl.dataset.requestPaginationBound = '1';
+
+    requestHistoryModalEl.addEventListener('click', (event) => {
+        const link = event.target.closest('.request-pagination a');
+        if (!link || !requestHistoryModalEl.contains(link)) return;
+
+        event.preventDefault();
+        if (link.classList.contains('disabled') || !link.href) return;
+        loadRequestHistoryPage(link.href);
+    });
+}
+
+function initRequestTrackingUI(root = getRequestHistoryContentRoot() || document) {
+    mountRequestViewModals(root);
+    initRequestClickableCards(root);
+    initRequestInlineStops(root);
+    initRequestDeleteForms(root);
+    initRequestEditToggles(root);
+    initRequestEditCancels(document);
+    initRequestEditForms(document);
+    initLandmarkViewers(document);
+    initRequestStatusFilter(root);
+}
+
+initRequestTrackingUI();
+initRequestHistoryPagination();
 applyCreateLocationMode();
 setStep(1);
 renderPhotoSummary();
@@ -1207,4 +1804,3 @@ if (window.initBarangayAutocomplete) {
 </script>
 
 {% endblock %}
-

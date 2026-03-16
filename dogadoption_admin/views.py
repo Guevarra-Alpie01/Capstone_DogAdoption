@@ -5,7 +5,7 @@ features are easier to find and maintain.
 """
 
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 from functools import wraps
 import hashlib
@@ -1463,9 +1463,10 @@ def admin_dog_capture_requests(request):
         "declined", "declined_page"
     )
 
+    default_map_profile_image_url = static("images/default-user-image.jpg")
     map_points_qs = list(
         base_qs.filter(
-            status='accepted',
+            status='pending',
             latitude__isnull=False,
             longitude__isnull=False,
         )[:400]
@@ -1473,22 +1474,33 @@ def admin_dog_capture_requests(request):
     map_points = []
     for req in map_points_qs:
         _enrich_capture_request_display(req)
-        scheduled_iso = req.scheduled_date.date().isoformat() if req.scheduled_date else ''
-        scheduled_display = req.scheduled_date.strftime('%b %d, %Y %I:%M %p') if req.scheduled_date else ''
+        try:
+            profile = req.requested_by.profile
+        except Profile.DoesNotExist:
+            profile = None
+
+        profile_image_url = _safe_media_url(getattr(profile, "profile_image", None))
         map_points.append({
             'id': req.id,
             'user': req.requested_by.username,
+            'requester_name': req.requester_full_name,
+            'requester_phone': req.requester_phone,
+            'requester_address': req.requester_address,
+            'requester_facebook': req.requester_facebook,
             'reason': req.get_reason_display(),
             'status': req.get_status_display(),
             'status_key': req.status,
+            'request_type_key': req.request_type,
+            'request_type_label': req.get_request_type_display(),
+            'submission_type_key': req.submission_type or '',
+            'submission_type_label': req.get_submission_type_display() if req.submission_type else '',
             'lat': float(req.latitude),
             'lng': float(req.longitude),
             'created_at': req.created_at.strftime('%b %d, %Y %I:%M %p'),
-            'scheduled_date_iso': scheduled_iso,
-            'scheduled_date_display': scheduled_display,
             'barangay': req.display_barangay,
             'location_label': req.location_label,
             'image_url': req.preview_image_url,
+            'profile_image_url': profile_image_url or default_map_profile_image_url,
         })
 
     return render(request, 'admin_request/request.html', {
@@ -1527,15 +1539,29 @@ def update_dog_capture_request(request, pk):
             return redirect('dogadoption_admin:update_dog_capture_request', pk=req.id)
 
         if action == 'accept':
-            scheduled_raw = request.POST.get('scheduled_date')
-            scheduled_dt = parse_datetime(scheduled_raw) if scheduled_raw else None
-            if not scheduled_dt:
-                messages.error(request, "Scheduled capture date is required when accepting.")
+            scheduled_raw = (request.POST.get('scheduled_date') or '').strip()
+            scheduled_date = parse_date(scheduled_raw) if scheduled_raw else None
+            if not scheduled_date:
+                messages.error(request, "Please select an available appointment date.")
                 return redirect('dogadoption_admin:update_dog_capture_request', pk=req.id)
-            if scheduled_dt and timezone.is_naive(scheduled_dt):
-                scheduled_dt = timezone.make_aware(
-                    scheduled_dt, timezone.get_current_timezone()
-                )
+
+            is_available = GlobalAppointmentDate.objects.filter(
+                appointment_date=scheduled_date,
+                is_active=True,
+            ).exists()
+            if not is_available:
+                messages.error(request, "Selected appointment date is not in the active admin schedule.")
+                return redirect('dogadoption_admin:update_dog_capture_request', pk=req.id)
+
+            scheduled_time = (
+                timezone.localtime(req.scheduled_date).time().replace(second=0, microsecond=0)
+                if req.scheduled_date
+                else time(hour=9, minute=0)
+            )
+            scheduled_dt = timezone.make_aware(
+                datetime.combine(scheduled_date, scheduled_time),
+                timezone.get_current_timezone(),
+            )
             req.status = 'accepted'
             req.assigned_admin = request.user
             req.scheduled_date = scheduled_dt
@@ -1578,8 +1604,12 @@ def update_dog_capture_request(request, pk):
 
         return redirect('dogadoption_admin:requests')
 
+    available_dates = _get_available_appointment_dates()
     return render(request, 'admin_request/update_request.html', {
-        'req': req
+        'req': req,
+        'appointment_dates': [slot.appointment_date.strftime('%Y-%m-%d') for slot in available_dates],
+        'requested_appointment_date_iso': req.preferred_appointment_date.strftime('%Y-%m-%d') if req.preferred_appointment_date else '',
+        'scheduled_appointment_date_iso': timezone.localtime(req.scheduled_date).date().isoformat() if req.scheduled_date else '',
     })
 
 # =============================================================================

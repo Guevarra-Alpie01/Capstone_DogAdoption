@@ -347,15 +347,24 @@ body {
     background: linear-gradient(180deg, #2759b3 0%, #163f75 100%);
     border-color: #163f75;
 }
-
 .map-legend {
     display: flex;
-    gap: 12px;
+    gap: 14px;
     flex-wrap: wrap;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     font-size: 13px;
     color: #334155;
     font-weight: 600;
+}
+
+.map-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: #f8fafc;
+    border: 1px solid #d9e2ee;
 }
 
 .legend-dot {
@@ -367,7 +376,9 @@ body {
     box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.85);
 }
 
-.legend-dot.accepted { background: #2e8b57; }
+.legend-dot.capture { background: #d97706; }
+
+.legend-dot.surrender { background: #2563eb; }
 
 #requests-map {
     height: 460px;
@@ -389,7 +400,7 @@ body {
 }
 
 .map-popup .leaflet-popup-content {
-    margin: 12px 14px;
+    margin: 0;
     line-height: 1.5;
     font-size: 14px;
     color: #334155;
@@ -813,32 +824,147 @@ body {
 }
 
 .request-map-marker {
-    width: 30px;
-    height: 30px;
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
-    border: 2px solid #237543;
-    background: #2e8b57;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 6px 10px rgba(15, 23, 42, 0.25);
+    border: 3px solid #b45309;
+    background: linear-gradient(145deg, #fbbf24, #d97706);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.92), 0 10px 18px rgba(15, 23, 42, 0.28);
     overflow: hidden;
     position: relative;
+    display: grid;
+    place-items: center;
     transform: scale(var(--request-marker-scale, 1));
     transform-origin: center center;
     transition: transform 140ms ease-out;
 }
 
-.request-map-marker.has-image img {
+.request-map-marker img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
 }
 
-.request-map-marker.has-image::after {
-    content: '';
+.request-map-marker--capture {
+    border-color: #b45309;
+    background: linear-gradient(145deg, #fbbf24, #d97706);
+}
+
+.request-map-marker--surrender {
+    border-color: #1d4ed8;
+    background: linear-gradient(145deg, #60a5fa, #2563eb);
+}
+
+.request-map-marker-fallback {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.request-map-marker-badge {
     position: absolute;
-    inset: 0;
-    background: rgba(34, 128, 67, 0.2);
-    pointer-events: none;
+    right: -2px;
+    bottom: -2px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #0f172a;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    box-shadow: 0 3px 8px rgba(15, 23, 42, 0.22);
+}
+
+.request-map-marker--capture .request-map-marker-badge {
+    background: #9a3412;
+}
+
+.request-map-marker--surrender .request-map-marker-badge {
+    background: #1e40af;
+}
+
+.request-popup-card {
+    width: min(280px, 70vw);
+    padding: 14px;
+}
+
+.request-popup-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.request-popup-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #dbe5f0;
+    background: #f8fafc;
+}
+
+.request-popup-title-block {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.request-popup-title-block strong {
+    color: #0f172a;
+    font-size: 15px;
+}
+
+.request-popup-title-block span {
+    color: #64748b;
+    font-size: 12px;
+}
+
+.request-popup-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+
+.request-popup-pill--capture {
+    background: #fff3e6;
+    color: #b45309;
+}
+
+.request-popup-pill--surrender {
+    background: #e8f1ff;
+    color: #1d4ed8;
+}
+
+.request-popup-row + .request-popup-row {
+    margin-top: 4px;
+}
+
+.request-popup-proof {
+    margin-top: 12px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #d8e1ec;
+    background: #f8fafc;
+}
+
+.request-popup-proof img {
+    width: 100%;
+    height: 132px;
+    object-fit: cover;
+    display: block;
 }
 
 .leaflet-control-zoom {
@@ -861,8 +987,7 @@ body {
         font-size: 27px;
     }
 
-    .map-card p,
-    .map-toolbar label {
+    .map-card p {
         font-size: 16px;
     }
 }

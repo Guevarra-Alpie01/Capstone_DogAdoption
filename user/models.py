@@ -25,6 +25,16 @@ class Profile(models.Model):
     
 #request dog capture
 class DogCaptureRequest(models.Model):
+    REQUEST_TYPE_CHOICES = (
+        ("capture", "Request Dog Capture"),
+        ("surrender", "Request Dog Surrender"),
+    )
+
+    SUBMISSION_TYPE_CHOICES = (
+        ("walk_in", "Walk-in Request (Office)"),
+        ("online", "Online Request"),
+    )
+
     REASON_LABELS = {
         'biting': 'Dog is biting people',
         'aggressive': 'Dog is aggressive',
@@ -47,6 +57,19 @@ class DogCaptureRequest(models.Model):
         null=True, blank=True,
         related_name='assigned_captures'
     )
+
+    request_type = models.CharField(
+        max_length=20,
+        choices=REQUEST_TYPE_CHOICES,
+        default="capture",
+    )
+    submission_type = models.CharField(
+        max_length=20,
+        choices=SUBMISSION_TYPE_CHOICES,
+        null=True,
+        blank=True,
+    )
+    preferred_appointment_date = models.DateField(null=True, blank=True)
 
     reason = models.CharField(max_length=50)
     description = models.TextField(blank=True, null=True)
@@ -86,8 +109,16 @@ class DogCaptureRequest(models.Model):
     def get_reason_display(self):
         return self.REASON_LABELS.get(self.reason, self.reason.replace('_', ' ').title() if self.reason else 'Unknown')
 
+    @property
+    def needs_location_details(self):
+        return self.submission_type == "online"
+
+    @property
+    def uses_appointment_date(self):
+        return self.submission_type == "walk_in"
+
     def __str__(self):
-        return f"{self.requested_by} - {self.reason} ({self.status})"
+        return f"{self.requested_by} - {self.get_request_type_display()} ({self.status})"
 
 
 class DogCaptureRequestImage(models.Model):

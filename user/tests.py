@@ -818,8 +818,10 @@ class DogCaptureRequestFlowTests(TestCase):
         self.assertContains(response, "Request Dog Surrender")
         self.assertContains(response, "Walk-in Request (Office)")
         self.assertContains(response, "Online Request")
+        self.assertContains(response, "attach capture proof")
+        self.assertContains(response, "barangay letter requesting dog capture")
         self.assertContains(response, "Choose how the request will be submitted")
-        self.assertContains(response, "Surrender Notes (optional)")
+        self.assertNotContains(response, "Report a dog quickly and clearly")
         self.assertEqual(response.context["initial_phone_number"], "")
 
     def test_request_dog_capture_accepts_uploaded_mobile_camera_file(self):
@@ -860,16 +862,16 @@ class DogCaptureRequestFlowTests(TestCase):
         self.assertEqual(capture_request.images.count(), 2)
         self.assertTrue(capture_request.image.name.endswith(".png"))
 
-    def test_request_dog_capture_allows_submission_without_photo(self):
+    def test_request_dog_capture_requires_proof_photo(self):
         response = self.client.post(
             reverse("user:dog_capture_request"),
             self._exact_location_payload(),
+            follow=True,
         )
 
         self.assertEqual(response.status_code, 200)
-        capture_request = DogCaptureRequest.objects.get(requested_by=self.user)
-        self.assertEqual(capture_request.images.count(), 0)
-        self.assertFalse(capture_request.image)
+        self.assertEqual(DogCaptureRequest.objects.filter(requested_by=self.user).count(), 0)
+        self.assertContains(response, "Dog capture requests require a proof photo.")
 
     def test_request_dog_capture_normalizes_ph_phone_number(self):
         self.client.post(
@@ -908,6 +910,7 @@ class DogCaptureRequestFlowTests(TestCase):
                 "location_mode": "manual",
                 "barangay": "Bugay",
                 "manual_full_address": "",
+                "images": self._image_file(),
             },
         )
 
@@ -928,6 +931,7 @@ class DogCaptureRequestFlowTests(TestCase):
                 "submission_type": "walk_in",
                 "phone_number": "09171234567",
                 "appointment_date": appointment_date.isoformat(),
+                "images": self._image_file(),
             },
         )
 
@@ -949,6 +953,7 @@ class DogCaptureRequestFlowTests(TestCase):
                 "submission_type": "walk_in",
                 "phone_number": "09171234567",
                 "appointment_date": unavailable_date.isoformat(),
+                "images": self._image_file(),
             },
             follow=True,
         )
@@ -963,6 +968,7 @@ class DogCaptureRequestFlowTests(TestCase):
                 **self._exact_location_payload(),
                 "request_type": "capture",
                 "submission_type": "online",
+                "images": self._image_file(),
             },
         )
 

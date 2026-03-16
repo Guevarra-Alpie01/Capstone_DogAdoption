@@ -2209,6 +2209,13 @@ def request_dog_capture(request):
                     messages.error(request, "One of the captured photos could not be processed. Please try again.")
                     return redirect('user:dog_capture_request')
 
+        if request_type == 'capture' and not uploaded_images:
+            messages.error(
+                request,
+                "Dog capture requests require a proof photo. Please upload or capture a clear photo of the dog or the barangay request letter.",
+            )
+            return redirect('user:dog_capture_request')
+
         if submission_type == 'online' and location_mode == 'manual':
             resolved_barangay = _resolve_barangay_name(barangay)
             if not resolved_barangay:

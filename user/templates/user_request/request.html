@@ -11,23 +11,7 @@
 
     <div class="card request-wizard-card">
         <div class="request-hero">
-            <div class="request-hero-copy">
-                <span class="request-eyebrow">Dog Request Form</span>
-                <h2>Report a dog quickly and clearly</h2>
-                <p class="request-hero-text">
-                    Choose whether this is a dog capture or dog surrender request, then provide the details the shelter team needs to respond faster.
-                </p>
-            </div>
-            <div class="request-hero-side">
-                <div class="request-hero-pill">
-                    <i class="bi bi-shield-check" aria-hidden="true"></i>
-                    <span>Your phone number is used only for request follow-up.</span>
-                </div>
-                <div class="request-hero-pill">
-                    <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
-                    <span>All 28 active barangays are loaded from the system.</span>
-                </div>
-            </div>
+            <span class="request-eyebrow">Dog Request Form</span>
         </div>
 
         <div class="step-indicator" aria-label="Request progress">
@@ -55,9 +39,9 @@
                     </div>
                     <div>
                         <p class="step-kicker">Step 1</p>
-                        <h3>Select the request type and add a dog photo if available</h3>
-                        <p class="step-description">
-                            Choose the request type first, then upload an existing image or use your camera. Photos are optional, but they help the team verify the dog faster.
+                        <h3 id="step1Title">Select the request type and attach capture proof</h3>
+                        <p class="step-description" id="step1Description">
+                            For dog capture requests, upload or take a clear photo of the dog or a clear photo of the barangay letter requesting dog capture. A proof photo is required before you can continue.
                         </p>
                     </div>
                 </div>
@@ -68,7 +52,7 @@
                         <span class="request-choice-icon"><i class="bi bi-megaphone-fill" aria-hidden="true"></i></span>
                         <span class="request-choice-copy">
                             <strong>Request Dog Capture</strong>
-                            <small>Report a dog that needs to be captured by the dog catcher.</small>
+                            <small id="captureRequestTypeHint">Upload proof such as a photo of the dog or the barangay letter requesting dog capture.</small>
                         </span>
                     </label>
                     <label class="request-choice-card">
@@ -84,15 +68,15 @@
                 <div class="capture-choice" role="group" aria-label="Photo options">
                     <button type="button" class="btn-secondary capture-action-btn" id="openUploadPickerBtn">
                         <i class="bi bi-upload" aria-hidden="true"></i>
-                        <span>Upload Photo</span>
+                        <span id="uploadActionLabel">Upload Proof / Photo</span>
                     </button>
                     <button type="button" class="btn-primary capture-action-btn" id="openCameraExperienceBtn">
                         <i class="bi bi-camera2" aria-hidden="true"></i>
-                        <span>Take Picture / Use Camera</span>
+                        <span id="cameraActionLabel">Take Proof / Photo</span>
                     </button>
                 </div>
-                <p class="helper-text capture-helper-note">
-                    You can continue without a photo if needed, then add clear location details in the next steps.
+                <p class="helper-text capture-helper-note" id="step1HelperNote">
+                    Required for dog capture: attach a clear photo of the dog or a clear photo of the request letter from your barangay.
                 </p>
 
                 <input type="file" name="images" id="imageInput" class="photo-input-hidden" accept="image/*" multiple>
@@ -524,6 +508,11 @@ const barangayField = document.getElementById('barangayField');
 const manualFullAddressField = document.getElementById('manualFullAddressField');
 const locationLandmarkImageField = document.getElementById('locationLandmarkImageField');
 const surrenderDescriptionField = document.getElementById('surrenderDescriptionField');
+const step1Title = document.getElementById('step1Title');
+const step1Description = document.getElementById('step1Description');
+const step1HelperNote = document.getElementById('step1HelperNote');
+const uploadActionLabel = document.getElementById('uploadActionLabel');
+const cameraActionLabel = document.getElementById('cameraActionLabel');
 
 function getSelectedRequestType() {
     return document.querySelector('input[name="request_type"]:checked')?.value || 'capture';
@@ -597,6 +586,7 @@ function syncRequestFlowUI() {
     const isWalkIn = submissionType === 'walk_in';
     const isOnline = submissionType === 'online';
 
+    syncStepOneContent();
     if (walkInDetailsSection) walkInDetailsSection.hidden = !isWalkIn;
     if (onlineDetailsSection) onlineDetailsSection.hidden = !isOnline;
     if (surrenderDetailsSection) surrenderDetailsSection.hidden = isCapture;
@@ -639,6 +629,14 @@ function setStep(step) {
 }
 
 function validateStep(step) {
+    if (step === 1) {
+        if (getSelectedRequestType() === 'capture' && !hasAttachedStepOneProof()) {
+            alert('Dog capture requests require a proof photo. Please upload or capture a clear photo of the dog or the barangay request letter before continuing.');
+            return false;
+        }
+        return true;
+    }
+
     if (step === 2) {
         if (!getSelectedSubmissionType()) {
             alert('Please choose whether this request will be walk-in or online.');
@@ -713,6 +711,36 @@ let activeFacingMode = '';
 let availableVideoInputCount = 0;
 let capturedImages = [];
 let mirrorCompensation = false;
+
+function hasAttachedStepOneProof() {
+    return selectedUploadFiles.length > 0 || capturedImages.length > 0;
+}
+
+function syncStepOneContent() {
+    const isCapture = getSelectedRequestType() === 'capture';
+
+    if (step1Title) {
+        step1Title.textContent = isCapture
+            ? 'Select the request type and attach capture proof'
+            : 'Select the request type and add a dog photo if available';
+    }
+    if (step1Description) {
+        step1Description.textContent = isCapture
+            ? 'For dog capture requests, upload or take a clear photo of the dog or a clear photo of the barangay letter requesting dog capture. A proof photo is required before you can continue.'
+            : 'For dog surrender requests, you may upload an existing image or use your camera. A photo is optional, but it helps the shelter team identify the dog faster.';
+    }
+    if (step1HelperNote) {
+        step1HelperNote.textContent = isCapture
+            ? 'Required for dog capture: attach a clear photo of the dog or a clear photo of the request letter from your barangay.'
+            : 'For dog surrender, a photo is optional but recommended when available.';
+    }
+    if (uploadActionLabel) {
+        uploadActionLabel.textContent = isCapture ? 'Upload Proof / Photo' : 'Upload Photo';
+    }
+    if (cameraActionLabel) {
+        cameraActionLabel.textContent = isCapture ? 'Take Proof / Photo' : 'Take Picture / Use Camera';
+    }
+}
 
 function showCameraSection(visible) {
     if (!cameraSection) return;

@@ -1474,6 +1474,57 @@ def admin_dog_capture_requests(request):
             messages.success(request, "Scheduled request updated.")
             return _redirect_to_requests("accepted")
 
+        elif action == 'bulk_reschedule':
+            selected_ids = [
+                int(value)
+                for value in request.POST.getlist('selected_request_ids')
+                if str(value).isdigit()
+            ]
+            scheduled_raw = (request.POST.get('scheduled_date') or '').strip()
+            scheduled_date = parse_date(scheduled_raw) if scheduled_raw else None
+            if not selected_ids:
+                messages.warning(request, "Select at least one scheduled request to update.")
+                return _redirect_to_requests("accepted")
+            if not scheduled_date:
+                messages.error(request, "Please select an available appointment date.")
+                return _redirect_to_requests("accepted")
+
+            is_available = GlobalAppointmentDate.objects.filter(
+                appointment_date=scheduled_date,
+                is_active=True,
+            ).exists()
+            if not is_available:
+                messages.error(request, "Selected appointment date is not in the active admin schedule.")
+                return _redirect_to_requests("accepted")
+
+            selected_requests = list(
+                DogCaptureRequest.objects.filter(
+                    id__in=selected_ids,
+                    status='accepted',
+                )
+            )
+            if not selected_requests:
+                messages.warning(request, "Selected scheduled requests were not found.")
+                return _redirect_to_requests("accepted")
+
+            for req in selected_requests:
+                scheduled_time = (
+                    timezone.localtime(req.scheduled_date).time().replace(second=0, microsecond=0)
+                    if req.scheduled_date
+                    else time(hour=9, minute=0)
+                )
+                req.scheduled_date = timezone.make_aware(
+                    datetime.combine(scheduled_date, scheduled_time),
+                    timezone.get_current_timezone(),
+                )
+                req.assigned_admin = request.user
+                req.notification_scheduled_for = None
+                req.notification_sent_at = None
+                req.save(update_fields=['scheduled_date', 'assigned_admin', 'notification_scheduled_for', 'notification_sent_at'])
+
+            messages.success(request, f"{len(selected_requests)} scheduled request(s) updated.")
+            return _redirect_to_requests("accepted")
+
         elif action == 'add_contact':
             name = (request.POST.get('contact_name') or '').strip()
             phone = (request.POST.get('contact_phone') or '').strip()

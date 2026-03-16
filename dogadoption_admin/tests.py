@@ -1001,6 +1001,49 @@ class AdminDogRequestTemplateTests(TestCase):
         request_record.refresh_from_db()
         self.assertEqual(timezone.localtime(request_record.scheduled_date).date(), new_date)
 
+    def test_bulk_reschedule_updates_all_selected_scheduled_requests(self):
+        original_date = timezone.localdate() + timedelta(days=2)
+        new_date = timezone.localdate() + timedelta(days=6)
+        GlobalAppointmentDate.objects.create(
+            appointment_date=new_date,
+            created_by=self.admin,
+        )
+        first_request = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="capture",
+            submission_type="online",
+            reason="stray",
+            status="accepted",
+            latitude="9.123456",
+            longitude="122.654321",
+            scheduled_date=timezone.make_aware(datetime.combine(original_date, time(hour=9))),
+        )
+        second_request = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="surrender",
+            submission_type="walk_in",
+            reason="stray",
+            status="accepted",
+            scheduled_date=timezone.make_aware(datetime.combine(original_date, time(hour=10))),
+        )
+
+        response = self.client.post(
+            reverse("dogadoption_admin:requests"),
+            {
+                "action": "bulk_reschedule",
+                "selected_request_ids": [str(first_request.id), str(second_request.id)],
+                "scheduled_date": new_date.isoformat(),
+                "next": reverse("dogadoption_admin:requests") + "?tab=accepted",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        first_request.refresh_from_db()
+        second_request.refresh_from_db()
+        self.assertEqual(timezone.localtime(first_request.scheduled_date).date(), new_date)
+        self.assertEqual(timezone.localtime(second_request.scheduled_date).date(), new_date)
+
     def test_admin_request_map_shows_only_pending_online_requests(self):
         pending_request = DogCaptureRequest.objects.create(
             requested_by=self.requester,

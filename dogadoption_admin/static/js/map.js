@@ -329,18 +329,32 @@
 
     const acceptedSelectAll = document.getElementById('accepted_select_all');
     const acceptedCheckboxes = Array.from(document.querySelectorAll('.accepted-row-checkbox'));
+    const bulkMarkDoneButton = document.getElementById('bulkMarkDoneButton');
+    const bulkUpdateButton = document.getElementById('bulkUpdateButton');
+
+    function syncBulkActionState() {
+        const selectedCount = acceptedCheckboxes.filter((item) => item.checked).length;
+        const hasSelection = selectedCount > 0;
+        if (bulkMarkDoneButton) bulkMarkDoneButton.disabled = !hasSelection;
+        if (bulkUpdateButton) bulkUpdateButton.disabled = !hasSelection;
+    }
+
     if (acceptedSelectAll && acceptedCheckboxes.length) {
         acceptedSelectAll.addEventListener('change', () => {
             acceptedCheckboxes.forEach((checkbox) => {
                 checkbox.checked = acceptedSelectAll.checked;
             });
+            syncBulkActionState();
         });
 
         acceptedCheckboxes.forEach((checkbox) => {
             checkbox.addEventListener('change', () => {
                 acceptedSelectAll.checked = acceptedCheckboxes.every((item) => item.checked);
+                syncBulkActionState();
             });
         });
+
+        syncBulkActionState();
     }
 
     const acceptedCalendarPanel = document.getElementById('acceptedCalendarPanel');
@@ -364,8 +378,11 @@
     });
 
     const rescheduleModalEl = document.getElementById('rescheduleRequestModal');
+    const rescheduleActionInput = document.getElementById('reschedule_action_input');
     const rescheduleRequestId = document.getElementById('reschedule_request_id');
     const rescheduleRequestTitle = document.getElementById('reschedule_request_title');
+    const rescheduleSelectedIdsContainer = document.getElementById('reschedule_selected_ids_container');
+    const bulkRescheduleButton = document.querySelector('.js-open-bulk-reschedule');
     const rescheduleCalendar = initSingleSelectCalendar({
         daysId: 'reschedule_days',
         weekdaysId: 'reschedule_weekdays',
@@ -378,13 +395,33 @@
         selectedPrefix: 'Selected new schedule',
     });
 
+    function resetRescheduleSelectionIds() {
+        if (rescheduleSelectedIdsContainer) {
+            rescheduleSelectedIdsContainer.innerHTML = '';
+        }
+    }
+
+    function appendSelectedRequestIds(ids) {
+        if (!rescheduleSelectedIdsContainer) return;
+        resetRescheduleSelectionIds();
+        ids.forEach((idValue) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_request_ids';
+            input.value = String(idValue);
+            rescheduleSelectedIdsContainer.appendChild(input);
+        });
+    }
+
     document.querySelectorAll('.js-open-reschedule').forEach((button) => {
         button.addEventListener('click', () => {
             if (!rescheduleModalEl || !window.bootstrap || !window.bootstrap.Modal) return;
             const requestId = button.getAttribute('data-request-id') || '';
             const requesterName = button.getAttribute('data-requester-name') || 'this request';
             const currentDate = button.getAttribute('data-current-date') || '';
+            if (rescheduleActionInput) rescheduleActionInput.value = 'reschedule_single';
             if (rescheduleRequestId) rescheduleRequestId.value = requestId;
+            resetRescheduleSelectionIds();
             if (rescheduleRequestTitle) {
                 rescheduleRequestTitle.textContent = `Choose a new appointment date for ${requesterName}.`;
             }
@@ -393,5 +430,25 @@
             }
             window.bootstrap.Modal.getOrCreateInstance(rescheduleModalEl).show();
         });
+    });
+
+    bulkRescheduleButton?.addEventListener('click', () => {
+        if (!rescheduleModalEl || !window.bootstrap || !window.bootstrap.Modal) return;
+        const selectedIds = acceptedCheckboxes
+            .filter((checkbox) => checkbox.checked)
+            .map((checkbox) => checkbox.value);
+        if (!selectedIds.length) {
+            return;
+        }
+        if (rescheduleActionInput) rescheduleActionInput.value = 'bulk_reschedule';
+        if (rescheduleRequestId) rescheduleRequestId.value = '';
+        appendSelectedRequestIds(selectedIds);
+        if (rescheduleRequestTitle) {
+            rescheduleRequestTitle.textContent = `Choose a new appointment date for ${selectedIds.length} selected schedule(s).`;
+        }
+        if (rescheduleCalendar) {
+            rescheduleCalendar.setDate('');
+        }
+        window.bootstrap.Modal.getOrCreateInstance(rescheduleModalEl).show();
     });
 })();

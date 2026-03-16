@@ -14,8 +14,8 @@
 
     <div class="page-head">
         <div>
-            <h1>Review Capture Request</h1>
-            <p>Validate request details, schedule the team, and mark done once capture is completed.</p>
+            <h1>Review Dog Request</h1>
+            <p>Validate the request details, set the final schedule, and close the record once the request has been completed.</p>
         </div>
     </div>
 
@@ -32,26 +32,39 @@
                     <strong>{{ req.created_at|date:"M d, Y h:i A" }}</strong>
                 </div>
                 <div class="meta-item">
-                    <span class="label">Reason</span>
-                    <strong>{{ req.get_reason_display }}</strong>
+                    <span class="label">Request Type</span>
+                    <strong>{{ req.get_request_type_display }}</strong>
                 </div>
                 <div class="meta-item">
                     <span class="label">Phone</span>
                     <strong>{{ req.requester_phone }}</strong>
                 </div>
+                {% if req.submission_type %}
+                    <div class="meta-item">
+                        <span class="label">Submission Type</span>
+                        <strong>{{ req.get_submission_type_display }}</strong>
+                    </div>
+                {% endif %}
                 <div class="meta-item">
                     <span class="label">Current Status</span>
                     <strong>
                         {% if req.status == 'accepted' %}
                             Scheduled
                         {% elif req.status == 'captured' %}
-                            Captured (Done)
+                            {% if req.request_type == 'surrender' %}Completed{% else %}Captured (Done){% endif %}
                         {% else %}
                             {{ req.get_status_display }}
                         {% endif %}
                     </strong>
                 </div>
             </div>
+
+            {% if req.preferred_appointment_date %}
+                <div class="info-block">
+                    <span class="label">Requested Appointment Date</span>
+                    <p>{{ req.preferred_appointment_date|date:"M d, Y" }}</p>
+                </div>
+            {% endif %}
 
             <div class="info-block">
                 <span class="label">Requester Address</span>
@@ -107,67 +120,77 @@
 
             <div class="info-block">
                 <span class="label">Location</span>
-                {% if req.latitude and req.longitude %}
-                    <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank" class="map-link-btn">
-                        View in Google Maps
-                    </a>
-                    <small class="coords">{{ req.latitude }}, {{ req.longitude }}</small>
-                {% elif req.manual_full_address or req.barangay or req.city %}
-                    {% if req.manual_full_address %}
-                        <p><strong>Full Address:</strong> {{ req.manual_full_address }}</p>
+                {% if req.request_type == 'capture' and req.submission_type == 'online' %}
+                    {% if req.latitude and req.longitude %}
+                        <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank" class="map-link-btn">
+                            View in Google Maps
+                        </a>
+                        <small class="coords">{{ req.latitude }}, {{ req.longitude }}</small>
+                    {% elif req.manual_full_address or req.barangay or req.city %}
+                        {% if req.manual_full_address %}
+                            <p><strong>Full Address:</strong> {{ req.manual_full_address }}</p>
+                        {% endif %}
+                        {% if req.barangay or req.city %}
+                            <p><strong>Area:</strong> {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}</p>
+                        {% endif %}
+                    {% else %}
+                        <p><em>No location provided.</em></p>
                     {% endif %}
-                    {% if req.barangay or req.city %}
-                        <p><strong>Area:</strong> {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}</p>
-                    {% endif %}
+                {% elif req.request_type == 'capture' and req.submission_type == 'walk_in' %}
+                    <p><em>This is a walk-in office request.</em></p>
+                {% elif req.request_type == 'surrender' %}
+                    <p><em>This is a dog surrender request. No dispatch location is required.</em></p>
                 {% else %}
                     <p><em>No location provided.</em></p>
                 {% endif %}
-                {% with extra_landmarks=req.landmark_images.all %}
-                    {% if req.location_landmark_image or extra_landmarks %}
-                        <div class="request-landmark-image">
-                            {% with extras_count=extra_landmarks|length %}
-                            <span class="label">Landmark / Highway / Crossing Photo{% if req.location_landmark_image and extras_count or extras_count > 1 %}s{% endif %}</span>
-                            <div class="request-image-viewer request-landmark-viewer" data-image-viewer>
-                                {% if req.location_landmark_image %}
-                                    <img
-                                        src="{{ req.location_landmark_image.url }}"
-                                        alt="Manual location landmark image 1"
-                                        class="viewer-image is-active"
-                                        data-viewer-image
-                                    >
-                                {% endif %}
-                                {% for landmark in extra_landmarks %}
-                                    <img
-                                        src="{{ landmark.image.url }}"
-                                        alt="Manual location landmark image {{ forloop.counter }}"
-                                        class="viewer-image {% if not req.location_landmark_image and forloop.first %}is-active{% endif %}"
-                                        data-viewer-image
-                                    >
-                                {% endfor %}
-                                {% if req.location_landmark_image and extras_count or extras_count > 1 %}
-                                    <button type="button" class="viewer-nav prev" data-viewer-prev aria-label="Previous image">&lt;</button>
-                                    <button type="button" class="viewer-nav next" data-viewer-next aria-label="Next image">&gt;</button>
-                                    <div class="viewer-counter">
-                                        <span data-viewer-index>1</span> /
-                                        {% if req.location_landmark_image %}
-                                            {{ extras_count|add:"1" }}
-                                        {% else %}
-                                            {{ extras_count }}
-                                        {% endif %}
-                                    </div>
-                                {% endif %}
+                {% if req.request_type == 'capture' and req.submission_type == 'online' %}
+                    {% with extra_landmarks=req.landmark_images.all %}
+                        {% if req.location_landmark_image or extra_landmarks %}
+                            <div class="request-landmark-image">
+                                {% with extras_count=extra_landmarks|length %}
+                                <span class="label">Landmark / Highway / Crossing Photo{% if req.location_landmark_image and extras_count or extras_count > 1 %}s{% endif %}</span>
+                                <div class="request-image-viewer request-landmark-viewer" data-image-viewer>
+                                    {% if req.location_landmark_image %}
+                                        <img
+                                            src="{{ req.location_landmark_image.url }}"
+                                            alt="Manual location landmark image 1"
+                                            class="viewer-image is-active"
+                                            data-viewer-image
+                                        >
+                                    {% endif %}
+                                    {% for landmark in extra_landmarks %}
+                                        <img
+                                            src="{{ landmark.image.url }}"
+                                            alt="Manual location landmark image {{ forloop.counter }}"
+                                            class="viewer-image {% if not req.location_landmark_image and forloop.first %}is-active{% endif %}"
+                                            data-viewer-image
+                                        >
+                                    {% endfor %}
+                                    {% if req.location_landmark_image and extras_count or extras_count > 1 %}
+                                        <button type="button" class="viewer-nav prev" data-viewer-prev aria-label="Previous image">&lt;</button>
+                                        <button type="button" class="viewer-nav next" data-viewer-next aria-label="Next image">&gt;</button>
+                                        <div class="viewer-counter">
+                                            <span data-viewer-index>1</span> /
+                                            {% if req.location_landmark_image %}
+                                                {{ extras_count|add:"1" }}
+                                            {% else %}
+                                                {{ extras_count }}
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                {% endwith %}
                             </div>
-                            {% endwith %}
-                        </div>
-                    {% endif %}
-                {% endwith %}
+                        {% endif %}
+                    {% endwith %}
+                {% endif %}
             </div>
 
             {% if req.status == 'captured' %}
                 <div class="info-block">
                     <span class="label">Capture Record</span>
                     <p>
-                        <strong>Captured On:</strong>
+                        <strong>{% if req.request_type == 'surrender' %}Completed On:{% else %}Captured On:{% endif %}</strong>
                         {% if req.captured_at %}
                             {{ req.captured_at|date:"M d, Y h:i A" }}
                         {% else %}
@@ -192,7 +215,7 @@
                 </div>
 
                 <div class="input-group">
-                    <label for="scheduled_date">Schedule Capture Date (Required for Accept)</label>
+                    <label for="scheduled_date">Final Schedule (Required for Accept)</label>
                     <input id="scheduled_date" type="datetime-local" name="scheduled_date" value="{{ req.scheduled_date|date:'Y-m-d\\TH:i' }}">
                 </div>
 
@@ -202,7 +225,7 @@
                             {% if req.status == 'accepted' %}Update Schedule{% else %}Accept and Schedule{% endif %}
                         </button>
                         {% if req.status == 'accepted' %}
-                            <button type="submit" name="action" value="mark_captured" class="btn-done">Mark as Captured (Done)</button>
+                            <button type="submit" name="action" value="mark_captured" class="btn-done">{% if req.request_type == 'surrender' %}Mark as Completed{% else %}Mark as Captured (Done){% endif %}</button>
                         {% endif %}
                         <button type="submit" name="action" value="decline" class="btn-decline">Decline Request</button>
                     {% else %}

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -24,7 +24,7 @@ from .models import (
     PostRequest,
     VaccinationRecord,
 )
-from user.models import Profile
+from user.models import DogCaptureRequest, Profile
 
 
 class AnnouncementBucketUpdateTests(TestCase):
@@ -748,3 +748,56 @@ class AdminEditProfileTests(TestCase):
         self.assertEqual(self.admin.username, "admin_profile_old")
         self.assertTrue(self.admin.check_password("secret123"))
         self.assertContains(response, "Current password is incorrect.")
+
+
+class AdminDogRequestTemplateTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="request_admin",
+            password="secret123",
+            is_staff=True,
+        )
+        self.requester = User.objects.create_user(
+            username="request_user",
+            password="secret123",
+        )
+        Profile.objects.create(
+            user=self.requester,
+            address="Bugay, Bayawan City",
+            age=25,
+            consent_given=True,
+            phone_number="+639171234567",
+        )
+        self.client.force_login(self.admin)
+
+    def test_admin_request_list_renders_walk_in_request_details(self):
+        appointment_date = timezone.localdate() + timedelta(days=1)
+        DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="capture",
+            submission_type="walk_in",
+            preferred_appointment_date=appointment_date,
+            reason="stray",
+        )
+
+        response = self.client.get(reverse("dogadoption_admin:requests"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Request Dog Capture")
+        self.assertContains(response, "Walk-in Request (Office)")
+        self.assertContains(response, "Walk-in office request")
+
+    def test_admin_request_update_page_renders_surrender_request_details(self):
+        surrender_request = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="surrender",
+            reason="stray",
+        )
+
+        response = self.client.get(
+            reverse("dogadoption_admin:update_dog_capture_request", args=[surrender_request.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Request Dog Surrender")
+        self.assertContains(response, "No dispatch location is required")

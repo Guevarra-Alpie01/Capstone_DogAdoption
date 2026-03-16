@@ -7,7 +7,7 @@
 
 <div class="container">
     <div class="page-head">
-        <h1>Dog Capture Requests</h1>
+        <h1>Dog Capture and Surrender Requests</h1>
     </div>
 
      <div class="map-card">
@@ -51,20 +51,28 @@
                         <tbody>
                             {% for req in pending_requests %}
                                 <tr>
-                                    <td class="cell-user" data-label="User">
-                                        <div class="user-main">{{ req.requested_by.username }}</div>
-                                        <div class="user-sub">{{ req.requester_full_name }}</div>
-                                        <div class="user-sub">{{ req.requester_phone }}</div>
-                                    </td>
-                                    <td data-label="Location">
-                                        {% if req.latitude and req.longitude %}
-                                            <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
-                                        {% elif req.has_location %}
-                                            {{ req.location_label }}
-                                        {% else %}
-                                            <span class="muted">No location</span>
-                                        {% endif %}
-                                    </td>
+                                     <td class="cell-user" data-label="User">
+                                         <div class="user-main">{{ req.requested_by.username }}</div>
+                                         <div class="user-sub">{{ req.requester_full_name }}</div>
+                                         <div class="user-sub">{{ req.requester_phone }}</div>
+                                         <div class="user-sub">{{ req.get_request_type_display }}</div>
+                                         {% if req.submission_type %}
+                                             <div class="user-sub">{{ req.get_submission_type_display }}</div>
+                                         {% endif %}
+                                     </td>
+                                     <td data-label="Location">
+                                         {% if req.request_type == 'capture' and req.submission_type == 'online' and req.latitude and req.longitude %}
+                                             <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
+                                         {% elif req.request_type == 'capture' and req.submission_type == 'online' and req.has_location %}
+                                             {{ req.location_label }}
+                                         {% elif req.request_type == 'capture' and req.submission_type == 'walk_in' %}
+                                             <span class="muted">Walk-in office request</span>
+                                         {% elif req.request_type == 'surrender' %}
+                                             <span class="muted">Shelter surrender request</span>
+                                         {% else %}
+                                             <span class="muted">No location</span>
+                                         {% endif %}
+                                     </td>
                                     <td data-label="Submitted">{{ req.created_at|date:"M d, Y h:i A" }}</td>
                                     <td data-label="Status"><span class="status-pill pending">Pending</span></td>
                                     <td data-label="Action">
@@ -109,20 +117,28 @@
                         <tbody>
                             {% for req in accepted_requests %}
                                 <tr>
-                                    <td class="cell-user" data-label="User">
-                                        <div class="user-main">{{ req.requested_by.username }}</div>
-                                        <div class="user-sub">{{ req.requester_full_name }}</div>
-                                        <div class="user-sub">{{ req.requester_phone }}</div>
-                                    </td>
-                                    <td data-label="Location">
-                                        {% if req.latitude and req.longitude %}
-                                            <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
-                                        {% elif req.has_location %}
-                                            {{ req.location_label }}
-                                        {% else %}
-                                            <span class="muted">No location</span>
-                                        {% endif %}
-                                    </td>
+                                     <td class="cell-user" data-label="User">
+                                         <div class="user-main">{{ req.requested_by.username }}</div>
+                                         <div class="user-sub">{{ req.requester_full_name }}</div>
+                                         <div class="user-sub">{{ req.requester_phone }}</div>
+                                         <div class="user-sub">{{ req.get_request_type_display }}</div>
+                                         {% if req.submission_type %}
+                                             <div class="user-sub">{{ req.get_submission_type_display }}</div>
+                                         {% endif %}
+                                     </td>
+                                     <td data-label="Location">
+                                         {% if req.request_type == 'capture' and req.submission_type == 'online' and req.latitude and req.longitude %}
+                                             <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
+                                         {% elif req.request_type == 'capture' and req.submission_type == 'online' and req.has_location %}
+                                             {{ req.location_label }}
+                                         {% elif req.request_type == 'capture' and req.submission_type == 'walk_in' %}
+                                             <span class="muted">Walk-in office request</span>
+                                         {% elif req.request_type == 'surrender' %}
+                                             <span class="muted">Shelter surrender request</span>
+                                         {% else %}
+                                             <span class="muted">No location</span>
+                                         {% endif %}
+                                     </td>
                                     <td data-label="Scheduled">
                                         {% if req.scheduled_date %}
                                             {{ req.scheduled_date|date:"M d, Y h:i A" }}
@@ -174,20 +190,28 @@
                         <tbody>
                             {% for req in captured_requests %}
                                 <tr>
-                                    <td class="cell-user" data-label="User">
-                                        <div class="user-main">{{ req.requested_by.username }}</div>
-                                        <div class="user-sub">{{ req.requester_full_name }}</div>
-                                        <div class="user-sub">{{ req.requester_phone }}</div>
-                                    </td>
-                                    <td data-label="Location">
-                                        {% if req.latitude and req.longitude %}
-                                            <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
-                                        {% elif req.has_location %}
-                                            {{ req.location_label }}
-                                        {% else %}
-                                            <span class="muted">No location</span>
-                                        {% endif %}
-                                    </td>
+                                     <td class="cell-user" data-label="User">
+                                         <div class="user-main">{{ req.requested_by.username }}</div>
+                                         <div class="user-sub">{{ req.requester_full_name }}</div>
+                                         <div class="user-sub">{{ req.requester_phone }}</div>
+                                         <div class="user-sub">{{ req.get_request_type_display }}</div>
+                                         {% if req.submission_type %}
+                                             <div class="user-sub">{{ req.get_submission_type_display }}</div>
+                                         {% endif %}
+                                     </td>
+                                     <td data-label="Location">
+                                         {% if req.request_type == 'capture' and req.submission_type == 'online' and req.latitude and req.longitude %}
+                                             <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
+                                         {% elif req.request_type == 'capture' and req.submission_type == 'online' and req.has_location %}
+                                             {{ req.location_label }}
+                                         {% elif req.request_type == 'capture' and req.submission_type == 'walk_in' %}
+                                             <span class="muted">Walk-in office request</span>
+                                         {% elif req.request_type == 'surrender' %}
+                                             <span class="muted">Shelter surrender request</span>
+                                         {% else %}
+                                             <span class="muted">No location</span>
+                                         {% endif %}
+                                     </td>
                                     <td data-label="Scheduled">
                                         {% if req.scheduled_date %}
                                             {{ req.scheduled_date|date:"M d, Y h:i A" }}
@@ -245,20 +269,28 @@
                         <tbody>
                             {% for req in declined_requests %}
                                 <tr>
-                                    <td class="cell-user" data-label="User">
-                                        <div class="user-main">{{ req.requested_by.username }}</div>
-                                        <div class="user-sub">{{ req.requester_full_name }}</div>
-                                        <div class="user-sub">{{ req.requester_phone }}</div>
-                                    </td>
-                                    <td data-label="Location">
-                                        {% if req.latitude and req.longitude %}
-                                            <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
-                                        {% elif req.has_location %}
-                                            {{ req.location_label }}
-                                        {% else %}
-                                            <span class="muted">No location</span>
-                                        {% endif %}
-                                    </td>
+                                     <td class="cell-user" data-label="User">
+                                         <div class="user-main">{{ req.requested_by.username }}</div>
+                                         <div class="user-sub">{{ req.requester_full_name }}</div>
+                                         <div class="user-sub">{{ req.requester_phone }}</div>
+                                         <div class="user-sub">{{ req.get_request_type_display }}</div>
+                                         {% if req.submission_type %}
+                                             <div class="user-sub">{{ req.get_submission_type_display }}</div>
+                                         {% endif %}
+                                     </td>
+                                     <td data-label="Location">
+                                         {% if req.request_type == 'capture' and req.submission_type == 'online' and req.latitude and req.longitude %}
+                                             <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
+                                         {% elif req.request_type == 'capture' and req.submission_type == 'online' and req.has_location %}
+                                             {{ req.location_label }}
+                                         {% elif req.request_type == 'capture' and req.submission_type == 'walk_in' %}
+                                             <span class="muted">Walk-in office request</span>
+                                         {% elif req.request_type == 'surrender' %}
+                                             <span class="muted">Shelter surrender request</span>
+                                         {% else %}
+                                             <span class="muted">No location</span>
+                                         {% endif %}
+                                     </td>
                                     <td data-label="Submitted">{{ req.created_at|date:"M d, Y h:i A" }}</td>
                                     <td data-label="Status"><span class="status-pill declined">Rejected</span></td>
                                     <td data-label="Action">

@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -13,6 +15,7 @@ from dogadoption_admin.models import (
     Dog,
     DogAnnouncement,
     DogImage,
+    GlobalAppointmentDate,
     Penalty,
     PenaltySection,
     Post,
@@ -799,6 +802,26 @@ class DogCaptureRequestFlowTests(TestCase):
             "longitude": "122.654321",
         }
 
+    def _available_appointment_date(self):
+        appointment_date = timezone.localdate() + timedelta(days=2)
+        GlobalAppointmentDate.objects.create(
+            appointment_date=appointment_date,
+            is_active=True,
+        )
+        return appointment_date
+
+    def test_capture_request_page_shows_request_type_and_submission_options(self):
+        response = self.client.get(reverse("user:dog_capture_request"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Request Dog Capture")
+        self.assertContains(response, "Request Dog Surrender")
+        self.assertContains(response, "Walk-in Request (Office)")
+        self.assertContains(response, "Online Request")
+        self.assertContains(response, "Step 2 is already complete")
+        self.assertContains(response, "Surrender Notes (optional)")
+        self.assertEqual(response.context["initial_phone_number"], "")
+
     def test_request_dog_capture_accepts_uploaded_mobile_camera_file(self):
         response = self.client.post(
             reverse("user:dog_capture_request"),
@@ -894,3 +917,76 @@ class DogCaptureRequestFlowTests(TestCase):
         self.assertEqual(capture_request.city, "Bayawan City")
         self.assertIsNone(capture_request.manual_full_address)
         self.assertFalse(capture_request.location_landmark_image)
+
+    def test_request_dog_capture_walk_in_uses_available_appointment_date(self):
+        appointment_date = self._available_appointment_date()
+
+        response = self.client.post(
+            reverse("user:dog_capture_request"),
+            {
+                "request_type": "capture",
+                "submission_type": "walk_in",
+                "phone_number": "09171234567",
+                "appointment_date": appointment_date.isoformat(),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        capture_request = DogCaptureRequest.objects.get(requested_by=self.user)
+        self.assertEqual(capture_request.request_type, "capture")
+        self.assertEqual(capture_request.submission_type, "walk_in")
+        self.assertEqual(capture_request.preferred_appointment_date, appointment_date)
+        self.assertIsNone(capture_request.latitude)
+        self.assertIsNone(capture_request.longitude)
+
+    def test_request_dog_capture_walk_in_rejects_unavailable_appointment_date(self):
+        unavailable_date = timezone.localdate() + timedelta(days=3)
+
+        response = self.client.post(
+            reverse("user:dog_capture_request"),
+            {
+                "request_type": "capture",
+                "submission_type": "walk_in",
+                "phone_number": "09171234567",
+                "appointment_date": unavailable_date.isoformat(),
+            },
+            follow=True,
+        )
+
+        self.assertEqual(DogCaptureRequest.objects.filter(requested_by=self.user).count(), 0)
+        self.assertContains(response, "Selected appointment date is not available.")
+
+    def test_request_dog_capture_online_saves_submission_type(self):
+        self.client.post(
+            reverse("user:dog_capture_request"),
+            {
+                **self._exact_location_payload(),
+                "request_type": "capture",
+                "submission_type": "online",
+            },
+        )
+
+        capture_request = DogCaptureRequest.objects.get(requested_by=self.user)
+        self.assertEqual(capture_request.request_type, "capture")
+        self.assertEqual(capture_request.submission_type, "online")
+        self.assertEqual(str(capture_request.latitude), "9.123456")
+        self.assertEqual(str(capture_request.longitude), "122.654321")
+
+    def test_request_dog_surrender_does_not_require_location(self):
+        response = self.client.post(
+            reverse("user:dog_capture_request"),
+            {
+                "request_type": "surrender",
+                "phone_number": "09171234567",
+                "description": "Owner can no longer care for the dog.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        capture_request = DogCaptureRequest.objects.get(requested_by=self.user)
+        self.assertEqual(capture_request.request_type, "surrender")
+        self.assertIsNone(capture_request.submission_type)
+        self.assertIsNone(capture_request.preferred_appointment_date)
+        self.assertIsNone(capture_request.latitude)
+        self.assertIsNone(capture_request.longitude)
+        self.assertIsNone(capture_request.barangay)

@@ -117,6 +117,10 @@
             if (submitBtn && availableDates.size > 0) {
                 submitBtn.disabled = !state.selectedDate;
             }
+            inputEl.dispatchEvent(new Event("change", { bubbles: true }));
+            document.dispatchEvent(new CustomEvent("appointment-picker:change", {
+                detail: { selectedDate: state.selectedDate }
+            }));
         }
 
         function render() {

@@ -12,6 +12,24 @@
     <div class="card request-wizard-card">
         <div class="request-hero">
             <span class="request-eyebrow">Dog Request Form</span>
+            <button
+                type="button"
+                class="request-history-trigger"
+                data-bs-toggle="modal"
+                data-bs-target="#requestHistoryModal"
+                aria-label="Open request history"
+            >
+                <span class="request-history-trigger-icon">
+                    <i class="bi bi-clock-history" aria-hidden="true"></i>
+                </span>
+                <span class="request-history-trigger-copy">
+                    <strong>Request History</strong>
+                    <small>Track your submitted requests</small>
+                </span>
+                <span class="request-history-trigger-count">
+                    {{ pending_total|add:accepted_total|add:declined_total|add:captured_total }}
+                </span>
+            </button>
         </div>
 
         <div class="step-indicator" aria-label="Request progress">
@@ -460,6 +478,158 @@
         </div>
     </div>
 
+    <div class="modal fade request-history-modal" id="requestHistoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title">Request History</h5>
+                        <p class="request-history-subtitle">Review the latest updates on your submitted requests.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="request-history-summary">
+                        <div class="history-status-card pending">
+                            <span class="history-status-label">Pending</span>
+                            <strong>{{ pending_total }}</strong>
+                        </div>
+                        <div class="history-status-card accepted">
+                            <span class="history-status-label">Approved</span>
+                            <strong>{{ accepted_total }}</strong>
+                        </div>
+                        <div class="history-status-card captured">
+                            <span class="history-status-label">Completed</span>
+                            <strong>{{ captured_total }}</strong>
+                        </div>
+                        <div class="history-status-card declined">
+                            <span class="history-status-label">Rejected</span>
+                            <strong>{{ declined_total }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="request-history-groups">
+                        <section class="history-group">
+                            <div class="history-group-head">
+                                <h6>Pending</h6>
+                                <span class="status-badge pending">Pending</span>
+                            </div>
+                            {% for req in pending_requests %}
+                                <article class="history-entry">
+                                    <div class="history-entry-main">
+                                        <strong>{{ req.get_request_type_display }}</strong>
+                                        <p>
+                                            Submitted {{ req.created_at|date:"M d, Y h:i A" }}
+                                            {% if req.submission_type %} - {{ req.get_submission_type_display }}{% endif %}
+                                        </p>
+                                    </div>
+                                    <span class="history-entry-meta">Awaiting review</span>
+                                </article>
+                            {% empty %}
+                                <p class="history-group-empty">No pending requests.</p>
+                            {% endfor %}
+                        </section>
+
+                        <section class="history-group">
+                            <div class="history-group-head">
+                                <h6>Approved</h6>
+                                <span class="status-badge accepted">Approved</span>
+                            </div>
+                            {% for req in accepted_requests %}
+                                <article class="history-entry">
+                                    <div class="history-entry-main">
+                                        <strong>{{ req.get_request_type_display }}</strong>
+                                        <p>
+                                            Submitted {{ req.created_at|date:"M d, Y h:i A" }}
+                                            {% if req.submission_type %} - {{ req.get_submission_type_display }}{% endif %}
+                                        </p>
+                                    </div>
+                                    <span class="history-entry-meta">
+                                        {% if req.scheduled_date %}
+                                            {{ req.scheduled_date|date:"M d, Y h:i A" }}
+                                        {% else %}
+                                            Approved
+                                        {% endif %}
+                                    </span>
+                                </article>
+                            {% empty %}
+                                <p class="history-group-empty">No approved requests.</p>
+                            {% endfor %}
+                        </section>
+
+                        <section class="history-group">
+                            <div class="history-group-head">
+                                <h6>Completed</h6>
+                                <span class="status-badge captured">Completed</span>
+                            </div>
+                            {% for req in captured_requests %}
+                                <article class="history-entry">
+                                    <div class="history-entry-main">
+                                        <strong>{{ req.get_request_type_display }}</strong>
+                                        <p>
+                                            Submitted {{ req.created_at|date:"M d, Y h:i A" }}
+                                            {% if req.submission_type %} - {{ req.get_submission_type_display }}{% endif %}
+                                        </p>
+                                    </div>
+                                    <span class="history-entry-meta">
+                                        {% if req.captured_at %}
+                                            {{ req.captured_at|date:"M d, Y h:i A" }}
+                                        {% else %}
+                                            Completed
+                                        {% endif %}
+                                    </span>
+                                </article>
+                            {% empty %}
+                                <p class="history-group-empty">No completed requests.</p>
+                            {% endfor %}
+                        </section>
+
+                        <section class="history-group">
+                            <div class="history-group-head">
+                                <h6>Rejected</h6>
+                                <span class="status-badge declined">Rejected</span>
+                            </div>
+                            {% for req in declined_requests %}
+                                <article class="history-entry">
+                                    <div class="history-entry-main">
+                                        <strong>{{ req.get_request_type_display }}</strong>
+                                        <p>
+                                            Submitted {{ req.created_at|date:"M d, Y h:i A" }}
+                                            {% if req.submission_type %} - {{ req.get_submission_type_display }}{% endif %}
+                                        </p>
+                                    </div>
+                                    <span class="history-entry-meta">Rejected</span>
+                                </article>
+                            {% empty %}
+                                <p class="history-group-empty">No rejected requests.</p>
+                            {% endfor %}
+                        </section>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade request-dialog-modal" id="requestDialogModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="request-dialog-shell" data-request-dialog-tone="info">
+                    <div class="request-dialog-icon" id="requestDialogIcon">
+                        <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+                    </div>
+                    <div class="request-dialog-copy">
+                        <h5 id="requestDialogTitle">Notice</h5>
+                        <p id="requestDialogMessage">Please review the details and try again.</p>
+                    </div>
+                    <div class="request-dialog-actions">
+                        <button type="button" class="btn-secondary" id="requestDialogCancelBtn">Cancel</button>
+                        <button type="button" class="btn-primary" id="requestDialogConfirmBtn">OK</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -500,6 +670,18 @@ const step1Description = document.getElementById('step1Description');
 const step1HelperNote = document.getElementById('step1HelperNote');
 const uploadActionLabel = document.getElementById('uploadActionLabel');
 const cameraActionLabel = document.getElementById('cameraActionLabel');
+const requestDialogModalEl = document.getElementById('requestDialogModal');
+const requestDialogIcon = document.getElementById('requestDialogIcon');
+const requestDialogTitle = document.getElementById('requestDialogTitle');
+const requestDialogMessage = document.getElementById('requestDialogMessage');
+const requestDialogCancelBtn = document.getElementById('requestDialogCancelBtn');
+const requestDialogConfirmBtn = document.getElementById('requestDialogConfirmBtn');
+const requestDialogModal = requestDialogModalEl && window.bootstrap
+    ? bootstrap.Modal.getOrCreateInstance(requestDialogModalEl)
+    : null;
+let requestDialogResolver = null;
+let requestDialogDismissValue = false;
+let allowConfirmedSubmit = false;
 
 function getSelectedRequestType() {
     return document.querySelector('input[name="request_type"]:checked')?.value || 'capture';
@@ -532,6 +714,81 @@ function primePhoneField() {
     phoneNumberField.value = formatted || '';
 }
 
+function getDialogIconMarkup(tone) {
+    if (tone === 'danger') return '<i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i>';
+    if (tone === 'warning') return '<i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>';
+    if (tone === 'success') return '<i class="bi bi-check-circle-fill" aria-hidden="true"></i>';
+    return '<i class="bi bi-info-circle-fill" aria-hidden="true"></i>';
+}
+
+function showRequestDialog(options = {}) {
+    const {
+        title = 'Notice',
+        message = 'Please review the information and try again.',
+        confirmText = 'OK',
+        cancelText = '',
+        tone = 'info',
+    } = options;
+
+    if (!requestDialogModalEl || !requestDialogModal) {
+        if (cancelText) {
+            return Promise.resolve(window.confirm(message));
+        }
+        window.alert(message);
+        return Promise.resolve(true);
+    }
+
+    if (requestDialogResolver) {
+        requestDialogResolver(false);
+        requestDialogResolver = null;
+    }
+
+    requestDialogDismissValue = cancelText ? false : true;
+    requestDialogModalEl.querySelector('.request-dialog-shell')?.setAttribute('data-request-dialog-tone', tone);
+    if (requestDialogIcon) requestDialogIcon.innerHTML = getDialogIconMarkup(tone);
+    if (requestDialogTitle) requestDialogTitle.textContent = title;
+    if (requestDialogMessage) requestDialogMessage.textContent = message;
+    if (requestDialogConfirmBtn) {
+        requestDialogConfirmBtn.textContent = confirmText;
+        requestDialogConfirmBtn.classList.toggle('request-dialog-confirm-danger', tone === 'danger');
+    }
+    if (requestDialogCancelBtn) {
+        requestDialogCancelBtn.textContent = cancelText || 'Cancel';
+        requestDialogCancelBtn.hidden = !cancelText;
+    }
+
+    return new Promise((resolve) => {
+        requestDialogResolver = resolve;
+        requestDialogModal.show();
+    });
+}
+
+function showRequestNotice(message, options = {}) {
+    return showRequestDialog({
+        title: options.title || 'Notice',
+        message,
+        tone: options.tone || 'warning',
+        confirmText: options.confirmText || 'OK',
+    });
+}
+
+requestDialogConfirmBtn?.addEventListener('click', () => {
+    requestDialogDismissValue = true;
+    requestDialogModal?.hide();
+});
+
+requestDialogCancelBtn?.addEventListener('click', () => {
+    requestDialogDismissValue = false;
+    requestDialogModal?.hide();
+});
+
+requestDialogModalEl?.addEventListener('hidden.bs.modal', () => {
+    if (!requestDialogResolver) return;
+    const resolve = requestDialogResolver;
+    requestDialogResolver = null;
+    resolve(requestDialogDismissValue);
+});
+
 function syncSubmitButtonState() {
     if (!submitBtn) return;
     const submissionType = getSelectedSubmissionType();
@@ -550,7 +807,10 @@ function syncSubmitButtonState() {
 function validatePhoneField() {
     const normalized = normalizePhoneForSubmit(phoneNumberField?.value || '');
     if (!normalized) {
-        alert('Please enter a valid Philippine mobile number such as 0917 123 4567 or +63 917 123 4567.');
+        showRequestNotice(
+            'Please enter a valid Philippine mobile number such as 0917 123 4567 or +63 917 123 4567.',
+            { title: 'Invalid Phone Number', tone: 'warning' }
+        );
         phoneNumberField?.focus();
         return false;
     }
@@ -618,7 +878,10 @@ function setStep(step) {
 function validateStep(step) {
     if (step === 1) {
         if (getSelectedRequestType() === 'capture' && !hasAttachedStepOneProof()) {
-            alert('Dog capture requests require a proof photo. Please upload or capture a clear photo of the dog or the barangay request letter before continuing.');
+            showRequestNotice(
+                'Dog capture requests require a proof photo. Please upload or capture a clear photo of the dog or the barangay request letter before continuing.',
+                { title: 'Proof Photo Required', tone: 'warning' }
+            );
             return false;
         }
         return true;
@@ -626,7 +889,10 @@ function validateStep(step) {
 
     if (step === 2) {
         if (!getSelectedSubmissionType()) {
-            alert('Please choose whether this request will be walk-in or online.');
+            showRequestNotice(
+                'Please choose whether this request will be walk-in or online.',
+                { title: 'Submission Type Required', tone: 'warning' }
+            );
             return false;
         }
         return true;
@@ -1023,7 +1289,7 @@ async function startCameraPreview() {
             openNativeCameraFallback();
             return;
         }
-        alert(cameraHelpMessage());
+        await showRequestNotice(cameraHelpMessage(), { title: 'Camera Unavailable', tone: 'warning' });
         return;
     }
 
@@ -1064,7 +1330,7 @@ async function startCameraPreview() {
             return;
         }
         updateCameraStatus('Unable to open camera.');
-        alert(cameraHelpMessage());
+        await showRequestNotice(cameraHelpMessage(), { title: 'Camera Unavailable', tone: 'warning' });
     }
 }
 
@@ -1088,7 +1354,7 @@ stopCameraBtn?.addEventListener('click', () => stopCamera({ hideSection: true })
 
 captureBtn?.addEventListener('click', () => {
     if (!video.videoWidth) {
-        alert('Open the camera first before capturing.');
+        showRequestNotice('Open the camera first before capturing.', { title: 'Camera Not Ready', tone: 'warning' });
         return;
     }
 
@@ -1169,7 +1435,7 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
     const status = document.getElementById('gpsStatus');
 
     if (!navigator.geolocation) {
-        alert('Geolocation is not supported on this device or browser.');
+        await showRequestNotice('Geolocation is not supported on this device or browser.', { title: 'Location Unavailable', tone: 'warning' });
         return;
     }
 
@@ -1205,7 +1471,7 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
         marker = L.marker([lat, lng]).addTo(map).bindPopup('Exact location').openPopup();
     }, () => {
         status.textContent = 'Unable to retrieve location. Please try again.';
-        alert('Unable to retrieve location.');
+        showRequestNotice('Unable to retrieve location.', { title: 'Location Error', tone: 'warning' });
     }, {
         enableHighAccuracy: true,
         timeout: 12000,
@@ -1213,27 +1479,33 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
     });
 });
 
-captureForm?.addEventListener('submit', (e) => {
-    if (!validatePhoneField()) {
-        e.preventDefault();
+captureForm?.addEventListener('submit', async (e) => {
+    if (allowConfirmedSubmit) {
+        allowConfirmedSubmit = false;
         return;
     }
 
-    phoneNumberField.value = normalizePhoneForSubmit(phoneNumberField.value);
+    e.preventDefault();
+
+    if (!validatePhoneField()) {
+        return;
+    }
 
     const submissionType = getSelectedSubmissionType();
 
     if (!submissionType) {
-        e.preventDefault();
-        alert('Please choose whether this request will be walk-in or online.');
+        showRequestNotice(
+            'Please choose whether this request will be walk-in or online.',
+            { title: 'Submission Type Required', tone: 'warning' }
+        );
         return;
     }
 
-    if (submissionType === 'walk_in') {
-        if (!appointmentDateField?.value) {
-            e.preventDefault();
-            alert('Please select an available appointment date for this walk-in request.');
-        }
+    if (submissionType === 'walk_in' && !appointmentDateField?.value) {
+        showRequestNotice(
+            'Please select an available appointment date for this walk-in request.',
+            { title: 'Appointment Date Required', tone: 'warning' }
+        );
         return;
     }
 
@@ -1243,15 +1515,34 @@ captureForm?.addEventListener('submit', (e) => {
             const lat = document.getElementById('latitude').value;
             const lng = document.getElementById('longitude').value;
             if (!lat || !lng) {
-                e.preventDefault();
-                alert('Please capture the exact GPS location first.');
+                showRequestNotice(
+                    'Please capture the exact GPS location first.',
+                    { title: 'GPS Location Required', tone: 'warning' }
+                );
+                return;
             }
         } else if (!barangayField.value.trim()) {
-            e.preventDefault();
-            alert('Please select a barangay for the manual location.');
+            showRequestNotice(
+                'Please select a barangay for the manual location.',
+                { title: 'Barangay Required', tone: 'warning' }
+            );
             barangayField.focus();
+            return;
         }
     }
+
+    const confirmed = await showRequestDialog({
+        title: 'Confirm Submission',
+        message: 'Are you sure you want to submit this request?',
+        tone: 'info',
+        confirmText: 'Confirm Submission',
+        cancelText: 'Cancel',
+    });
+    if (!confirmed) return;
+
+    phoneNumberField.value = normalizePhoneForSubmit(phoneNumberField.value);
+    allowConfirmedSubmit = true;
+    captureForm.requestSubmit();
 });
 
 document.querySelectorAll('.request-clickable').forEach((card) => {
@@ -1267,6 +1558,32 @@ document.querySelectorAll('.request-inline-stop').forEach((element) => {
     const stopEvent = (e) => e.stopPropagation();
     element.addEventListener('click', stopEvent);
     element.addEventListener('keydown', stopEvent);
+});
+
+document.querySelectorAll('[data-request-delete-form]').forEach((form) => {
+    form.addEventListener('submit', async (e) => {
+        if (form.dataset.deleteConfirmed === '1') {
+            form.dataset.deleteConfirmed = '0';
+            return;
+        }
+
+        e.preventDefault();
+        const confirmed = await showRequestDialog({
+            title: 'Delete Request?',
+            message: 'Are you sure you want to delete this request?',
+            tone: 'danger',
+            confirmText: 'Delete Request',
+            cancelText: 'Cancel',
+        });
+        if (!confirmed) return;
+
+        form.dataset.deleteConfirmed = '1';
+        if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+        } else {
+            form.submit();
+        }
+    });
 });
 
 document.querySelectorAll('.request-edit-toggle').forEach((button) => {
@@ -1424,4 +1741,3 @@ if (window.initBarangayAutocomplete) {
 </script>
 
 {% endblock %}
-

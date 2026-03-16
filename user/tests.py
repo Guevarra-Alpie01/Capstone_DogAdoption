@@ -821,6 +821,8 @@ class DogCaptureRequestFlowTests(TestCase):
         self.assertContains(response, "attach capture proof")
         self.assertContains(response, "barangay letter requesting dog capture")
         self.assertContains(response, "Choose how the request will be submitted")
+        self.assertContains(response, "Request History")
+        self.assertContains(response, 'id="requestDialogModal"', html=False)
         self.assertNotContains(response, "Report a dog quickly and clearly")
         self.assertContains(response, 'placeholder="+63 917 123 4567"', html=False)
         self.assertNotContains(response, 'value="+63')

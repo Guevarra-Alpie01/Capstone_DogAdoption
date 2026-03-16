@@ -1,129 +1,423 @@
-/* ======================================================
-   ADOPT LIST NAVIGATION (Matches Registration Theme)
-   ====================================================== */
-.subtop-nav {
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: flex-start;
-  gap: 20px;
-  padding: 0 15px;
-  border-bottom: 2px solid #ddd;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  background-color: #fff; /* Ensures visibility against background */
-}
-
-.subtop-nav::-webkit-scrollbar {
-  display: none;
-}
-
-.subtop-nav .nav-item {
-  text-decoration: none;
-  font-weight: 700;
-  font-size: 14px;
-  color: #888;
-  padding: 12px 0;
-  position: relative;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: color 0.2s ease;
-}
-
-.subtop-nav .nav-item.active {
-  color: #3b5e28; /* Using your signature green for the active tab */
-}
-
-.subtop-nav .nav-item::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: -2px;
-  width: 0%;
-  height: 3px;
-  background-color: #3b5e28; /* Signature green underline */
-  transition: width 0.3s ease;
-}
-
-.subtop-nav .nav-item.active::after {
-  width: 100%;
-}
-
-/* ======================================================
-   DOG POST CARDS
-   ====================================================== */
-.post-card {
+.adoption-list-page {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     gap: 20px;
-    padding: 20px;
-    background: #fff;
-    border-radius: 8px;
-    margin: 15px 0;
-    transition: transform 0.2s;
+    padding: 8px 0 28px;
+}
+
+.adoption-list-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    padding: 18px 24px;
+    border: 1px solid #d7e3f0;
+    border-radius: 24px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 250, 252, 0.98) 100%);
+    box-shadow: 0 18px 34px rgba(31, 78, 151, 0.08);
+}
+
+.adoption-list-copy {
+    max-width: 700px;
+}
+
+.adoption-list-title {
+    margin: 0;
+    color: #10243e;
+    font-size: clamp(2rem, 4vw, 2.6rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+}
+
+.adoption-list-page .listing-toolbar-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 240px;
+    padding: 14px 16px !important;
+    border: 1px solid #24543f !important;
+    border-radius: 18px !important;
+    background: linear-gradient(180deg, #2f6a53 0%, #24543f 100%) !important;
+    color: #ffffff !important;
+    text-decoration: none !important;
+    box-shadow: 0 16px 28px rgba(36, 84, 63, 0.18) !important;
+}
+
+.adoption-list-page .listing-toolbar-link:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 32px rgba(36, 84, 63, 0.22) !important;
+}
+
+.listing-toolbar-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.listing-toolbar-label {
+    font-size: 0.98rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.listing-toolbar-subtitle {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.82rem;
+}
+
+.listing-toolbar-badge {
+    min-width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    font-size: 0.92rem;
+    font-weight: 800;
+}
+
+.adoption-filter-shell {
+    padding: 8px;
+    border: 1px solid #d7e3f0;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 12px 24px rgba(31, 78, 151, 0.06);
+}
+
+.adoption-list-page .subtop-nav {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 10px;
+    padding: 0;
+    border: 0;
+    margin: 0;
+    background: transparent;
+    overflow-x: auto;
+}
+
+.adoption-list-page .subtop-nav .nav-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 10px 16px !important;
+    border: 1px solid transparent;
+    border-radius: 14px !important;
+    color: #5d6b7b !important;
+    background: transparent !important;
+    font-size: 0.94rem;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: all 0.16s ease;
+}
+
+.adoption-list-page .subtop-nav .nav-item::after {
+    display: none !important;
+}
+
+.adoption-list-page .subtop-nav .nav-item:hover {
+    color: #1f4d8f !important;
+    background: #eef4ff !important;
+    border-color: #c8d7f1;
+}
+
+.adoption-list-page .subtop-nav .nav-item.active {
+    color: #1f4d8f !important;
+    background: #edf4ff !important;
+    border-color: #bfd0ec;
+    box-shadow: inset 0 0 0 1px rgba(47, 102, 201, 0.06);
+}
+
+.adoption-list-results {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.post-card {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    gap: 22px;
+    padding: 22px;
+    border: 1px solid #dbe6f2;
+    border-radius: 24px;
+    background: #ffffff;
+    box-shadow: 0 18px 32px rgba(31, 78, 151, 0.07);
+}
+
+.post-card-media {
+    width: 100%;
+}
+
+.post-card img,
+.post-card-placeholder {
+    width: 100%;
+    height: 220px;
+    border-radius: 18px;
 }
 
 .post-card img {
-    border-radius: 10px;
+    display: block;
     object-fit: cover;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    border: 1px solid #d9e6f3;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
 }
 
-.post-card h3 {
-    margin-top: 0;
-    color: #3b5e28;
-    font-size: 1.4rem;
+.post-card-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: linear-gradient(145deg, #ecf4ff 0%, #d7e8ff 100%);
+    border: 1px dashed #9bbce7;
+    color: #1f4d8f;
 }
 
-.post-card p {
-    margin: 5px 0;
-    color: #555;
+.post-card-placeholder span {
+    font-size: 2.6rem;
+    font-weight: 800;
+    line-height: 1;
 }
 
-/* Status Badges */
-.status-tag {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: bold;
+.post-card-placeholder small {
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
 }
 
-.status-open { color: #2ecc71; background: #eafaf1; }
-.status-closed { color: #e74c3c; background: #fdedec; }
+.post-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+}
 
-/* ======================================================
-   BUTTONS (Matches Registration .btn-link)
-   ====================================================== */
-.btn-action {
-    display: inline-block;
-    padding: 10px 25px;
-    background: #198754;
-    color: #fff !important;
+.post-card-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.post-card-title-group {
+    min-width: 0;
+}
+
+.post-card-title {
+    margin: 0;
+    color: #10243e;
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+.post-card-subtitle {
+    margin: 6px 0 0;
+    color: #6a7888;
+    font-size: 0.94rem;
+}
+
+.adoption-list-page .status-tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 12px;
+    border: 1px solid transparent;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.adoption-list-page .status-open {
+    background: #edf9f2 !important;
+    color: #166534 !important;
+    border-color: #b6dec6 !important;
+}
+
+.adoption-list-page .status-closed {
+    background: #fff1f2 !important;
+    color: #b42318 !important;
+    border-color: #f0c0c5 !important;
+}
+
+.post-card-facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.post-fact {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 15px;
+    border: 1px solid #dfe7f0;
+    border-radius: 16px;
+    background: #f9fbfe;
+}
+
+.post-fact-highlight {
+    background: #edf9f2;
+    border-color: #bfe2ca;
+}
+
+.post-fact-label {
+    color: #6a7888;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.post-fact-value {
+    color: #10243e;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.post-card-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+}
+
+.adoption-list-page .btn-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+    padding: 0 22px !important;
+    border-radius: 14px !important;
+    font-size: 0.98rem;
+    font-weight: 800;
+    text-decoration: none !important;
+}
+
+.post-card-note {
+    margin: 0;
+    color: #5e6b79;
+    font-size: 0.92rem;
+    line-height: 1.6;
+}
+
+.post-card-note-muted {
+    color: #7a8795;
+}
+
+.adoption-list-more-wrap {
+    display: flex;
+    justify-content: center;
+    padding-top: 4px;
+}
+
+.adoption-list-more-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+    padding: 0 22px;
+    border: 1px solid #bed0ea;
+    border-radius: 14px;
+    background: #ffffff;
+    color: #1f4d8f;
+    font-weight: 800;
     text-decoration: none;
-    border-radius: 5px;
-    font-weight: 600;
-    margin-top: 15px;
-    border: none;
-    cursor: pointer;
-    transition: background 0.3s ease;
+    box-shadow: 0 12px 24px rgba(31, 78, 151, 0.08);
+    transition: all 0.16s ease;
 }
 
-.btn-action:hover {
-    background: #198754;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+.adoption-list-more-btn:hover {
+    color: #163f75;
+    border-color: #94b2df;
+    background: #f4f8ff;
+    transform: translateY(-1px);
 }
 
-/* Mobile Responsiveness */
-@media (max-width: 600px) {
-    .post-card {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
+.adoption-list-empty {
+    padding: 40px 24px;
+    border: 1px dashed #cbd9e8;
+    border-radius: 24px;
+    background: #ffffff;
+    text-align: center;
+    box-shadow: 0 14px 30px rgba(31, 78, 151, 0.06);
+}
+
+.adoption-list-empty h2 {
+    margin: 0 0 10px;
+    color: #10243e;
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+
+.adoption-list-empty p {
+    margin: 0;
+    color: #6a7888;
+}
+
+@media (max-width: 991.98px) {
+    .adoption-list-header {
+        grid-template-columns: 1fr;
+        align-items: stretch;
     }
-    .post-card img {
+
+    .adoption-list-page .listing-toolbar-link {
         width: 100%;
-        max-width: 300px;
+        justify-content: space-between;
+    }
+
+    .post-card {
+        grid-template-columns: 1fr;
+    }
+
+    .post-card-facts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767.98px) {
+    .adoption-list-page {
+        gap: 16px;
+    }
+
+    .adoption-list-header,
+    .post-card,
+    .adoption-list-empty {
+        padding: 18px;
+        border-radius: 20px;
+    }
+
+    .adoption-list-title {
+        font-size: 1.8rem;
+    }
+
+    .post-card-heading {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .post-card img,
+    .post-card-placeholder {
+        height: 210px;
+    }
+
+    .post-card-facts {
+        grid-template-columns: 1fr;
+    }
+
+    .post-card-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .adoption-list-page .btn-action,
+    .adoption-list-more-btn {
+        width: 100%;
     }
 }

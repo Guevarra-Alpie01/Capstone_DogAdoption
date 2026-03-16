@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="{% static 'css/auth_modal.css' %}">
     {% endif %}
     <link rel="stylesheet" href="{% static 'css/user_theme.css' %}">
+    <link rel="stylesheet" href="{% static 'css/notification_menu.css' %}">
 </head>
 
 <body>
@@ -59,29 +60,77 @@
                         {% endif %}
                     </a>
 
-                    <ul class="dropdown-menu dropdown-menu-end notification-dropdown">
-                        <li class="dropdown-header d-flex justify-content-between align-items-center">
-                            <span>Notifications</span>
-                            {% if user_unread_notifications %}
-                                <span class="badge text-bg-danger">{{ user_unread_notifications }}</span>
-                            {% endif %}
+                    <ul class="dropdown-menu dropdown-menu-end notification-dropdown user-notification-dropdown">
+                        <li class="notification-dropdown-head">
+                            <div class="notification-head-copy">
+                                <div class="notification-heading-row">
+                                    <h6>Notifications</h6>
+                                    {% if user_unread_notifications %}
+                                        <span class="notification-count-chip" data-notification-summary-count>{{ user_unread_notifications }} new</span>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </li>
                         {% for notification in user_latest_notifications %}
                             <li>
-                                <a class="dropdown-item notification-item {% if notification.is_unread %}unread{% endif %}" href="{{ notification.url }}">
-                                    <span class="notif-title">{{ notification.title }}</span>
-                                    <span class="notif-message">{{ notification.message }}</span>
-                                    <span class="notif-time">{{ notification.created_label }}</span>
+                                <a class="dropdown-item notification-item notification-item--{{ notification.kind }} {% if notification.is_unread %}unread{% endif %}" href="{{ notification.url }}">
+                                    <span class="notification-avatar notification-avatar--{{ notification.kind }}" aria-hidden="true">
+                                        {% if notification.kind == "accepted_request" %}
+                                            <i class="bi bi-check2-circle"></i>
+                                        {% elif notification.kind == "announcement" %}
+                                            <i class="bi bi-megaphone-fill"></i>
+                                        {% elif notification.kind == "admin_post" %}
+                                            <i class="bi bi-shield-check"></i>
+                                        {% elif notification.kind == "community_post" %}
+                                            <i class="bi bi-people-fill"></i>
+                                        {% else %}
+                                            <i class="bi bi-bell-fill"></i>
+                                        {% endif %}
+                                    </span>
+                                    <span class="notification-copy">
+                                        <span class="notification-row">
+                                            <span class="notification-tag">
+                                                {% if notification.kind == "accepted_request" %}
+                                                    Request update
+                                                {% elif notification.kind == "announcement" %}
+                                                    Official alert
+                                                {% elif notification.kind == "admin_post" %}
+                                                    Rescue post
+                                                {% elif notification.kind == "community_post" %}
+                                                    Community post
+                                                {% else %}
+                                                    Notification
+                                                {% endif %}
+                                            </span>
+                                            {% if notification.is_unread %}
+                                                <span class="notification-state" data-notification-state>New</span>
+                                            {% endif %}
+                                        </span>
+                                        <span class="notif-title">{{ notification.title }}</span>
+                                        <span class="notif-message">{{ notification.message }}</span>
+                                        <span class="notif-time">
+                                            <i class="bi bi-clock-history" aria-hidden="true"></i>
+                                            {{ notification.created_label }}
+                                        </span>
+                                    </span>
                                 </a>
                             </li>
                         {% empty %}
                             <li>
-                                <div class="dropdown-item-text small px-3 py-2">No notifications yet.</div>
+                                <div class="notification-empty">
+                                    <span class="notification-empty-icon" aria-hidden="true">
+                                        <i class="bi bi-bell-slash"></i>
+                                    </span>
+                                    <strong>Nothing new yet</strong>
+                                    <span>Updates from the city team and the community will appear here.</span>
+                                </div>
                             </li>
                         {% endfor %}
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item text-center small" href="{% url 'user:user_home' %}">Open feed</a>
+                        <li class="notification-dropdown-footer">
+                            <a class="dropdown-item notification-footer-link" href="{% url 'user:user_home' %}">
+                                Open activity feed
+                                <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+                            </a>
                         </li>
                     </ul>
                 </div>
@@ -173,6 +222,23 @@
     {% include 'partials/auth_modals.html' %}
 {% endif %}
 
+<div class="modal fade" id="sharedConfirmModal" tabindex="-1" aria-labelledby="sharedConfirmModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sharedConfirmModalTitle">Confirm Action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="sharedConfirmModalMessage">
+                Please confirm to continue.
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-primary btn-sm" id="sharedConfirmModalSubmit">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ================= MOBILE BOTTOM NAV ================= -->
 <nav class="navbar fixed-bottom d-lg-none border-top bg-white app-bottom-nav {% if not user.is_authenticated %}guest-bottom-nav{% endif %}">
     <div class="container-fluid justify-content-around">
@@ -259,8 +325,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (badge) {
                     badge.remove();
                 }
-                notificationDropdown.querySelectorAll('.dropdown-header .badge').forEach(function (headerBadge) {
-                    headerBadge.remove();
+                notificationDropdown.querySelectorAll('[data-notification-summary-count]').forEach(function (summaryBadge) {
+                    summaryBadge.remove();
+                });
+                notificationDropdown.querySelectorAll('.notification-item.unread').forEach(function (item) {
+                    item.classList.remove('unread');
+                });
+                notificationDropdown.querySelectorAll('[data-notification-state]').forEach(function (stateTag) {
+                    stateTag.remove();
                 });
             }).catch(function () {
                 // Ignore transient sync failures for the bell UI.
@@ -317,6 +389,112 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 {% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const confirmModalEl = document.getElementById('sharedConfirmModal');
+    const confirmTitleEl = document.getElementById('sharedConfirmModalTitle');
+    const confirmMessageEl = document.getElementById('sharedConfirmModalMessage');
+    const confirmSubmitBtn = document.getElementById('sharedConfirmModalSubmit');
+
+    if (!confirmModalEl || !confirmSubmitBtn || !window.bootstrap) {
+        return;
+    }
+
+    const confirmModal = bootstrap.Modal.getOrCreateInstance(confirmModalEl);
+    let pendingForm = null;
+    let pendingButton = null;
+
+    function openSharedConfirm(title, message, submitLabel) {
+        if (confirmTitleEl) {
+            confirmTitleEl.textContent = title || 'Confirm Action';
+        }
+        if (confirmMessageEl) {
+            confirmMessageEl.textContent = message || 'Please confirm to continue.';
+        }
+        confirmSubmitBtn.textContent = submitLabel || 'OK';
+        confirmModal.show();
+    }
+
+    document.querySelectorAll('form[data-confirm-modal]').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (form.dataset.confirmedSubmit === '1') {
+                form.dataset.confirmedSubmit = '0';
+                return;
+            }
+
+            event.preventDefault();
+            pendingForm = form;
+            pendingButton = null;
+            openSharedConfirm(
+                form.dataset.confirmTitle,
+                form.dataset.confirmMessage,
+                form.dataset.confirmSubmitLabel
+            );
+        });
+    });
+
+    document.querySelectorAll('[data-confirm-button]').forEach(function (button) {
+        button.addEventListener('click', function (event) {
+            if (button.dataset.confirmedClick === '1') {
+                button.dataset.confirmedClick = '0';
+                return;
+            }
+
+            event.preventDefault();
+            pendingForm = null;
+            pendingButton = button;
+            openSharedConfirm(
+                button.dataset.confirmTitle,
+                button.dataset.confirmMessage,
+                button.dataset.confirmSubmitLabel
+            );
+        });
+    });
+
+    confirmSubmitBtn.addEventListener('click', function () {
+        if (pendingButton) {
+            const buttonToSubmit = pendingButton;
+            const targetForm = buttonToSubmit.form;
+            pendingButton = null;
+            pendingForm = null;
+            buttonToSubmit.dataset.confirmedClick = '1';
+            confirmModal.hide();
+
+            if (targetForm && typeof targetForm.requestSubmit === 'function') {
+                targetForm.requestSubmit(buttonToSubmit);
+                return;
+            }
+
+            if (targetForm) {
+                targetForm.submit();
+            }
+            return;
+        }
+
+        if (!pendingForm) {
+            return;
+        }
+
+        const formToSubmit = pendingForm;
+        pendingForm = null;
+        formToSubmit.dataset.confirmedSubmit = '1';
+        confirmModal.hide();
+
+        if (typeof formToSubmit.requestSubmit === 'function') {
+            formToSubmit.requestSubmit();
+            return;
+        }
+
+        formToSubmit.submit();
+    });
+
+    confirmModalEl.addEventListener('hidden.bs.modal', function () {
+        pendingForm = null;
+        pendingButton = null;
+    });
+});
+</script>
 
 </body>
 </html>

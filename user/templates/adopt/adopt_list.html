@@ -4,102 +4,133 @@
 <link rel="stylesheet" href="{% static 'css/adopt_list.css' %}">
 {% endblock %}
 {% block content %}
-<style>
-    .listing-toolbar {
-        display: flex;
-        justify-content: flex-end;
-        margin: 12px 0 18px;
-    }
-
-    .listing-toolbar-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 14px;
-        border-radius: 999px;
-        background: #2f5b27;
-        color: #fff;
-        text-decoration: none;
-        font-weight: 700;
-    }
-
-    .listing-toolbar-link:hover {
-        color: #fff;
-        opacity: 0.95;
-    }
-
-    .listing-toolbar-badge {
-        min-width: 24px;
-        height: 24px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.18);
-        padding: 0 8px;
-        font-size: 0.8rem;
-    }
-</style>
-<div class="subtop-nav">
-    {% for tab in nav_tabs %}
-    <a href="?filter={{ tab.key }}" class="nav-item {% if current_filter == tab.key %}active{% endif %}">{{ tab.label }}</a>
-    {% endfor %}
-</div>
-<div class="listing-toolbar">
-    <a href="{{ status_page_url }}" class="listing-toolbar-link">
-        <span>{{ status_page_label }}</span>
-        <span class="listing-toolbar-badge">{{ pending_request_count }}</span>
-    </a>
-</div>
-<h2>{{ page_title }}</h2>
-{% if posts %}
-    {% for item in posts %}
-        {% with post=item.post %}
-        <div class="post-card">
-            {% if item.main_image_url %}
-                <img src="{{ item.main_image_url }}" width="250" height="180">
-            {% endif %}
-
-            <div class="post-details">
-                <h3>{{ post.caption }}</h3>
-                <p><strong>Location:</strong> {{ post.location }}</p>
-                <p><strong>Status:</strong> {{ post.get_status_display }}</p>
-
-                {% if listing_mode == 'claim' and item.phase == 'claim' %}
-                    <span class="status-tag status-open">Ready to Claim</span>
-                    <p>Claim time left: {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m</p>
-                {% elif listing_mode == 'adopt' and item.phase == 'adopt' %}
-                    <span class="status-tag status-open">Ready to Adopt</span>
-                    <p>Adoption time left: {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m</p>
-                {% elif post.status == 'reunited' %}
-                    <span class="status-tag status-closed">Reunited</span>
-                {% elif post.status == 'adopted' %}
-                    <span class="status-tag status-closed">Adopted</span>
-                {% else %}
-                    <span class="status-tag status-closed">Closed</span>
-                {% endif %}
-
-                <br>
-
-                {% if listing_mode == 'claim' and item.phase == 'claim' %}
-                    <a href="{% url 'user:claim_confirm' post.id %}" class="btn-action">Claim Dog</a>
-                {% elif listing_mode == 'adopt' and item.phase == 'adopt' %}
-                    <a href="{% url 'user:adopt_confirm' post.id %}" class="btn-action">Adopt Dog</a>
-                {% endif %}
-            </div>
+<div class="adoption-list-page">
+    <section class="adoption-list-header">
+        <div class="adoption-list-copy">
+            <h1 class="adoption-list-title">{{ page_title }}</h1>
         </div>
-        <hr style="border: 0.5px solid #eee;">
-        {% endwith %}
-    {% endfor %}
-    {% if page_obj.has_next %}
-    <div class="text-center mt-3 mb-4">
-        <a class="btn btn-outline-secondary"
-           href="?filter={{ current_filter|urlencode }}&page={{ page_obj.next_page_number }}">
-            Load more
+        <a href="{{ status_page_url }}" class="listing-toolbar-link">
+            <span class="listing-toolbar-copy">
+                <span class="listing-toolbar-label">{{ status_page_label }}</span>
+                <span class="listing-toolbar-subtitle">
+                    {% if pending_request_count %}
+                        {{ pending_request_count }} active request{{ pending_request_count|pluralize }}
+                    {% else %}
+                        No active requests
+                    {% endif %}
+                </span>
+            </span>
+            <span class="listing-toolbar-badge">{{ pending_request_count }}</span>
         </a>
-    </div>
+    </section>
+
+    <section class="adoption-filter-shell" aria-label="Listing filters">
+        <div class="subtop-nav">
+            {% for tab in nav_tabs %}
+            <a href="?filter={{ tab.key }}"
+               class="nav-item {% if current_filter == tab.key %}active{% endif %}"
+               {% if current_filter == tab.key %}aria-current="page"{% endif %}>
+                {{ tab.label }}
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+
+    {% if posts %}
+        <div class="adoption-list-results">
+            {% for item in posts %}
+                {% with post=item.post %}
+                <article class="post-card">
+                    <div class="post-card-media">
+                        {% if item.main_image_url %}
+                            <img src="{{ item.main_image_url }}"
+                                 alt="{{ post.caption|default:'Dog listing image' }}"
+                                 width="320"
+                                 height="220">
+                        {% else %}
+                            <div class="post-card-placeholder" aria-hidden="true">
+                                <span>{{ post.caption|default:"Dog"|slice:":1"|upper }}</span>
+                                <small>Dog photo</small>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="post-card-content">
+                        <div class="post-card-heading">
+                            <div class="post-card-title-group">
+                                <h2 class="post-card-title">{{ post.caption|default:"Unnamed dog" }}</h2>
+                                <p class="post-card-subtitle">
+                                    {% if listing_mode == 'claim' %}Claim listing{% else %}Adoption listing{% endif %}
+                                </p>
+                            </div>
+
+                            {% if listing_mode == 'claim' and item.phase == 'claim' %}
+                                <span class="status-tag status-open">Ready to Claim</span>
+                            {% elif listing_mode == 'adopt' and item.phase == 'adopt' %}
+                                <span class="status-tag status-open">Ready to Adopt</span>
+                            {% elif post.status == 'reunited' %}
+                                <span class="status-tag status-closed">Reunited</span>
+                            {% elif post.status == 'adopted' %}
+                                <span class="status-tag status-closed">Adopted</span>
+                            {% else %}
+                                <span class="status-tag status-closed">Closed</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="post-card-facts">
+                            <div class="post-fact">
+                                <span class="post-fact-label">Location</span>
+                                <span class="post-fact-value">{{ post.location|default:"Location not provided" }}</span>
+                            </div>
+
+                            <div class="post-fact">
+                                <span class="post-fact-label">Current status</span>
+                                <span class="post-fact-value">{{ post.get_status_display }}</span>
+                            </div>
+
+                            {% if listing_mode == 'claim' and item.phase == 'claim' %}
+                                <div class="post-fact post-fact-highlight">
+                                    <span class="post-fact-label">Claim window</span>
+                                    <span class="post-fact-value">{{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m left</span>
+                                </div>
+                            {% elif listing_mode == 'adopt' and item.phase == 'adopt' %}
+                                <div class="post-fact post-fact-highlight">
+                                    <span class="post-fact-label">Adoption window</span>
+                                    <span class="post-fact-value">{{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m left</span>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="post-card-footer">
+                            {% if listing_mode == 'claim' and item.phase == 'claim' %}
+                                <a href="{% url 'user:claim_confirm' post.id %}" class="btn-action">Claim Dog</a>
+                                <p class="post-card-note">Open the record to review the details before submitting your claim.</p>
+                            {% elif listing_mode == 'adopt' and item.phase == 'adopt' %}
+                                <a href="{% url 'user:adopt_confirm' post.id %}" class="btn-action">Adopt Dog</a>
+                                <p class="post-card-note">Open the record to review the details before sending your adoption request.</p>
+                            {% else %}
+                                <p class="post-card-note post-card-note-muted">This listing is already closed for new requests.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </article>
+                {% endwith %}
+            {% endfor %}
+        </div>
+
+        {% if page_obj.has_next %}
+        <div class="adoption-list-more-wrap">
+            <a class="adoption-list-more-btn"
+               href="?filter={{ current_filter|urlencode }}&page={{ page_obj.next_page_number }}">
+                Load more listings
+            </a>
+        </div>
+        {% endif %}
+    {% else %}
+        <div class="adoption-list-empty">
+            <h2>No dogs found</h2>
+            <p>Try another filter to see more records.</p>
+        </div>
     {% endif %}
-{% else %}
-    <p style="padding: 40px; color: #999; font-style: italic;">No dogs found in this category.</p>
-{% endif %}
+</div>
 {% endblock %}

@@ -6,36 +6,124 @@
 {% endblock %}
 
 {% block content %}
+<div class="detail-shell">
+    <a href="{% url 'dogadoption_admin:admin_users' %}" class="detail-back-link">
+        <i class="bi bi-arrow-left"></i>
+        <span>Back to users</span>
+    </a>
 
-<div class="detail-card">
+    <section class="detail-hero">
+        <div class="detail-hero-main">
+            <div class="detail-avatar-wrap">
+                {% if user.profile.profile_image %}
+                <img src="{{ user.profile.profile_image.url }}" alt="{{ user.get_full_name|default:user.username }}" class="detail-avatar">
+                {% else %}
+                <span class="detail-avatar-fallback">
+                    {{ user.first_name|default:user.username|slice:":1" }}{{ user.last_name|slice:":1" }}
+                </span>
+                {% endif %}
+            </div>
 
-    <div class="detail-header">
-        <img src="{{ user.profile.profile_image.url }}" class="detail-avatar">
-        <div>
-            <h2>{{ user.first_name }} {{ user.last_name }}</h2>
-            <p>@{{ user.username }}</p>
+            <div class="detail-hero-copy">
+                <div class="detail-kicker">User Profile</div>
+                <h1>{{ user.get_full_name|default:user.username }}</h1>
+                <p class="detail-username">@{{ user.username }}</p>
+
+                <div class="detail-badges">
+                    <span class="detail-badge">
+                        <i class="bi bi-calendar2-week-fill"></i>
+                        Joined {{ user.date_joined|date:"M d, Y" }}
+                    </span>
+                    <span class="detail-badge">
+                        <i class="bi bi-person-check-fill"></i>
+                        {% if user.is_active %}Active account{% else %}Inactive account{% endif %}
+                    </span>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <div class="detail-section">
-        <h3>Personal Information</h3>
-        <p><strong>Middle Initial:</strong> {{ user.profile.middle_initial|default:"—" }}</p>
-        <p><strong>Age:</strong> {{ user.profile.age|default:"—" }}</p>
-        <p><strong>Address:</strong> {{ user.profile.address|default:"—" }}</p>
-        <p><strong>Date Joined:</strong> {{ user.date_joined|date:"M d, Y" }}</p>
-    </div>
-
-    <div class="detail-section">
-        <h3>Face Authentication Images</h3>
-        <div class="face-grid">
-            {% for face in user.faceimage_set.all %}
-                <img src="{{ face.image.url }}" class="face-img">
-            {% empty %}
-                <p>No face images uploaded.</p>
-            {% endfor %}
+        <div class="detail-hero-stats">
+            <article class="detail-stat-card">
+                <span class="detail-stat-label">Face Images</span>
+                <strong>{{ user.faceimage_set.count }}</strong>
+            </article>
+            <article class="detail-stat-card">
+                <span class="detail-stat-label">Middle Initial</span>
+                <strong>{{ user.profile.middle_initial|default:"-" }}</strong>
+            </article>
+            <article class="detail-stat-card">
+                <span class="detail-stat-label">Age</span>
+                <strong>{{ user.profile.age|default:"-" }}</strong>
+            </article>
         </div>
-    </div>
+    </section>
 
+    <div class="detail-grid">
+        <section class="detail-panel">
+            <div class="detail-panel-head">
+                <span>
+                    <i class="bi bi-person-vcard-fill"></i>
+                    Personal Information
+                </span>
+            </div>
+
+            <dl class="detail-info-list">
+                <div class="detail-info-row">
+                    <dt>First Name</dt>
+                    <dd>{{ user.first_name|default:"-" }}</dd>
+                </div>
+                <div class="detail-info-row">
+                    <dt>Last Name</dt>
+                    <dd>{{ user.last_name|default:"-" }}</dd>
+                </div>
+                <div class="detail-info-row">
+                    <dt>Middle Initial</dt>
+                    <dd>{{ user.profile.middle_initial|default:"-" }}</dd>
+                </div>
+                <div class="detail-info-row">
+                    <dt>Username</dt>
+                    <dd>@{{ user.username }}</dd>
+                </div>
+                <div class="detail-info-row">
+                    <dt>Age</dt>
+                    <dd>{{ user.profile.age|default:"-" }}</dd>
+                </div>
+                <div class="detail-info-row">
+                    <dt>Address</dt>
+                    <dd>{{ user.profile.address|default:"No address provided." }}</dd>
+                </div>
+                <div class="detail-info-row">
+                    <dt>Date Joined</dt>
+                    <dd>{{ user.date_joined|date:"M d, Y" }}</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="detail-panel">
+            <div class="detail-panel-head is-split">
+                <span>
+                    <i class="bi bi-shield-lock-fill"></i>
+                    Face Authentication Images
+                </span>
+                <span class="detail-panel-caption">{{ user.faceimage_set.count }} uploaded</span>
+            </div>
+
+            {% if user.faceimage_set.all %}
+            <div class="detail-face-grid">
+                {% for face in user.faceimage_set.all %}
+                <figure class="detail-face-card">
+                    <img src="{{ face.image.url }}" alt="Face authentication image {{ forloop.counter }}" class="face-img">
+                    <figcaption>Image {{ forloop.counter }}</figcaption>
+                </figure>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="detail-empty-state">
+                <i class="bi bi-image"></i>
+                <p>No face images uploaded yet.</p>
+            </div>
+            {% endif %}
+        </section>
+    </div>
 </div>
-
 {% endblock %}

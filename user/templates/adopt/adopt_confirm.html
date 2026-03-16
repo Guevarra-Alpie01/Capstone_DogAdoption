@@ -1,55 +1,76 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/adopt_confirm.css' %}">
+{% endblock %}
 {% block content %}
+<div class="adoption-review-page">
+    <section class="adoption-review-shell">
+        <header class="adoption-review-header">
+            <div>
+                <span class="adoption-review-kicker">Adoption Request</span>
+                <h1 class="adoption-review-title">Adoption Review</h1>
+                <p class="adoption-review-intro">Check the dog details, choose one available appointment date, and send your request.</p>
+            </div>
+            <a href="{{ status_url }}" class="adoption-review-status-link">View My Adoption Requests</a>
+        </header>
 
-<div class="card shadow p-4">
+        <section class="adoption-review-section adoption-review-overview">
+            <div class="adoption-review-copy">
+                <h2 class="adoption-review-section-title">{{ post.caption|default:"Dog Listing" }}</h2>
+                <div class="adoption-review-meta">
+                    {% if post.location %}
+                        <div class="review-meta-card">
+                            <span class="review-meta-label">Location</span>
+                            <span class="review-meta-value">{{ post.location }}</span>
+                        </div>
+                    {% endif %}
 
-    <h3 class="mb-3">Adoption Review</h3>
+                    {% if post.rescued_date %}
+                        <div class="review-meta-card">
+                            <span class="review-meta-label">Rescued on</span>
+                            <span class="review-meta-value">{{ post.rescued_date|date:"M d, Y" }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
 
-    {% if post.location %}
-        <p><strong>Location:</strong> {{ post.location }}</p>
-    {% endif %}
+            {% if post.images.exists %}
+                <div class="adoption-review-gallery">
+                    <h3 class="adoption-review-subtitle">Dog Photos</h3>
+                    <div class="adoption-review-photos">
+                        {% for image in post.images.all %}
+                            <img src="{{ image.image.url }}"
+                                 alt="{{ post.caption|default:'Dog photo' }}"
+                                 width="112"
+                                 height="112">
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </section>
 
-    {% if post.rescued_date %}
-        <p><strong>Rescued on:</strong> {{ post.rescued_date|date:"M d, Y" }}</p>
-    {% endif %}
+        <section class="adoption-review-section adoption-review-schedule">
+            <h2 class="adoption-review-section-title">Preferred Appointment Date</h2>
+            <p class="adoption-review-section-note">Choose one available date to continue with your adoption request.</p>
 
-    {% if post.images.exists %}
-        <hr>
-        <h5>Dog Photos</h5>
-        <div class="d-flex gap-2 flex-wrap">
-            {% for image in post.images.all %}
-                <img src="{{ image.image.url }}"
-                     width="120"
-                     height="120"
-                     style="object-fit: cover; border-radius: 8px;">
-            {% endfor %}
-        </div>
-    {% endif %}
+            <form method="post" id="adoptForm" class="adoption-review-form">
+                {% csrf_token %}
+                <div class="adoption-review-picker">
+                    {% include "partials/appointment_picker.html" with submit_btn_id="confirm_btn" %}
+                </div>
 
-    <hr>
+                <div class="adoption-review-actions">
+                    <button type="submit" id="confirm_btn" class="btn btn-success adoption-review-btn" {% if not available_dates %}disabled{% endif %}>
+                        Confirm Request
+                    </button>
 
-    <form method="post" id="adoptForm">
-        {% csrf_token %}
-        <div class="mb-3">
-            {% include "partials/appointment_picker.html" with submit_btn_id="confirm_btn" %}
-        </div>
-
-        <div class="d-flex gap-2">
-            <button type="submit" id="confirm_btn" class="btn btn-success" {% if not available_dates %}disabled{% endif %}>
-                Confirm Adoption Request
-            </button>
-
-            <a href="{{ cancel_url }}" class="btn btn-cancel-action">
-                Cancel
-            </a>
-        </div>
-    </form>
-
-    <p class="text-muted mt-3 small">
-        After confirmation, your request will be reviewed by the admin.
-    </p>
-    <a href="{{ status_url }}" class="btn btn-outline-secondary btn-sm mt-2">View My Adoption Requests</a>
-
+                    <a href="{{ cancel_url }}" class="btn btn-cancel-action adoption-review-btn adoption-review-btn-cancel">
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </section>
+    </section>
 </div>
-
 {% endblock %}

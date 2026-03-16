@@ -6,9 +6,8 @@
 
 <div class="notification-page">
     <div class="notification-header">
-        <div>
+        <div class="notification-header-copy">
             <h2>Notifications</h2>
-            <p>System alerts and new requests.</p>
         </div>
         <form method="POST">
             {% csrf_token %}
@@ -17,27 +16,66 @@
         </form>
     </div>
 
-    <div class="notification-list">
-        {% for n in notifications %}
-            <div class="notification-card {% if not n.is_read %}unread{% endif %}">
-                <div class="notification-body">
-                    <div class="notification-title">{{ n.title }}</div>
-                    {% if n.message %}
-                        <div class="notification-message">{{ n.message }}</div>
-                    {% endif %}
-                    <div class="notification-time">{{ n.created_at|date:"M d, Y h:i A" }}</div>
-                </div>
-                <div class="notification-actions">
-                    <form method="POST" action="{% url 'dogadoption_admin:notification_read' n.id %}">
-                        {% csrf_token %}
-                        <button type="submit" class="open-btn">Open</button>
-                    </form>
-                </div>
-            </div>
-        {% empty %}
-            <p class="empty-state">No notifications yet.</p>
-        {% endfor %}
-    </div>
+    {% if notifications %}
+        <div class="notification-list">
+            {% for n in notifications %}
+                <article class="notification-card {% if not n.is_read %}unread{% endif %}">
+                    <div class="notification-body">
+                        <div class="notification-topline">
+                            <div class="notification-meta-group">
+                                <span class="notification-icon-shell {% if 'Vaccination' in n.title %}is-vaccine{% elif 'Medicine' in n.title %}is-medicine{% else %}is-general{% endif %}" aria-hidden="true">
+                                    {% if 'Vaccination' in n.title %}
+                                        <i class="bi bi-shield-plus"></i>
+                                    {% elif 'Medicine' in n.title %}
+                                        <i class="bi bi-capsule-pill"></i>
+                                    {% else %}
+                                        <i class="bi bi-bell-fill"></i>
+                                    {% endif %}
+                                </span>
+                                <span class="notification-type-pill">
+                                    {% if 'Vaccination' in n.title %}
+                                        Vaccination reminder
+                                    {% elif 'Medicine' in n.title %}
+                                        Medicine reminder
+                                    {% else %}
+                                        Admin alert
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {% if not n.is_read %}
+                                <span class="notification-state-pill">Unread</span>
+                            {% endif %}
+                        </div>
+                        <div class="notification-title">{{ n.title }}</div>
+                        {% if n.message %}
+                            <div class="notification-message">{{ n.message }}</div>
+                        {% endif %}
+                        <div class="notification-time">
+                            <i class="bi bi-clock-history" aria-hidden="true"></i>
+                            {{ n.created_at|date:"M d, Y h:i A" }}
+                        </div>
+                    </div>
+                    <div class="notification-actions">
+                        <form method="POST" action="{% url 'dogadoption_admin:notification_read' n.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="open-btn">
+                                Open alert
+                                <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                            </button>
+                        </form>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="notification-empty-state">
+            <span class="notification-empty-icon" aria-hidden="true">
+                <i class="bi bi-inbox"></i>
+            </span>
+            <h3>No notifications yet</h3>
+            <p>New medical reminders and request activity will show up here as soon as they are generated.</p>
+        </div>
+    {% endif %}
 </div>
 
 {% endblock %}

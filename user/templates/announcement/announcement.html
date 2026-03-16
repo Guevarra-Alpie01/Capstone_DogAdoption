@@ -9,11 +9,25 @@
 <div class="user-ann-board">
     <div class="user-ann-header">
         <h2 class="user-ann-title">Announcements</h2>
-        <p class="user-ann-subtitle">View pinned notices, education campaigns, and regular admin updates in separate sections.</p>
     </div>
 
-    <div class="user-ann-columns">
-        <section class="user-ann-column user-ann-column-pinned">
+    <div class="user-ann-mobile-tabs" data-user-mobile-announcement-tabs aria-label="Announcement sections">
+        <button type="button" class="user-ann-mobile-tab" data-user-mobile-announcement-tab="pinned" aria-pressed="false">
+            <span>Pinned</span>
+            <span class="user-ann-mobile-tab-count">{{ pinned_announcements|length }}</span>
+        </button>
+        <button type="button" class="user-ann-mobile-tab" data-user-mobile-announcement-tab="regular" aria-pressed="true">
+            <span>Main Feed</span>
+            <span class="user-ann-mobile-tab-count">{{ regular_announcements|length }}</span>
+        </button>
+        <button type="button" class="user-ann-mobile-tab" data-user-mobile-announcement-tab="campaign" aria-pressed="false">
+            <span>Campaign</span>
+            <span class="user-ann-mobile-tab-count">{{ campaign_announcements|length }}</span>
+        </button>
+    </div>
+
+    <div class="user-ann-columns" data-user-mobile-announcement-board data-user-mobile-default="regular">
+        <section class="user-ann-column user-ann-column-pinned" data-user-mobile-announcement-section="pinned">
             <div class="user-ann-column-header">
                 <div class="user-ann-column-title-row">
                     <span class="user-ann-kicker">
@@ -35,7 +49,7 @@
             </div>
         </section>
 
-        <section class="user-ann-column user-ann-column-regular">
+        <section class="user-ann-column user-ann-column-regular" data-user-mobile-announcement-section="regular">
             <div class="user-ann-column-header">
                 <div class="user-ann-column-title-row">
                     <span class="user-ann-kicker">
@@ -56,12 +70,12 @@
             </div>
         </section>
 
-        <section class="user-ann-column user-ann-column-education">
+        <section class="user-ann-column user-ann-column-education" data-user-mobile-announcement-section="campaign">
             <div class="user-ann-column-header">
                 <div class="user-ann-column-title-row">
                     <span class="user-ann-kicker">
                         <i class="bi bi-bookmark-star-fill"></i>
-                        <span>Education Campaign</span>
+                        <span>Campaign</span>
                     </span>
                     <span class="user-ann-count user-ann-count-education">{{ campaign_announcements|length }}</span>
                 </div>
@@ -72,7 +86,7 @@
                 {% empty %}
                 <div class="user-ann-empty">
                     <i class="bi bi-bookmark-star"></i>
-                    <span>No education campaign announcements yet.</span>
+                    <span>No campaign announcements yet.</span>
                 </div>
                 {% endfor %}
             </div>
@@ -162,6 +176,59 @@
             }
         });
     });
+
+    const board = document.querySelector('[data-user-mobile-announcement-board]');
+    const tabs = Array.from(document.querySelectorAll('[data-user-mobile-announcement-tab]'));
+    const sections = Array.from(document.querySelectorAll('[data-user-mobile-announcement-section]'));
+    const mobileQuery = window.matchMedia('(max-width: 767.98px)');
+
+    function setActiveSection(sectionKey) {
+        if (!board) return;
+
+        board.dataset.userMobileActive = sectionKey;
+
+        tabs.forEach((tab) => {
+            const isActive = tab.getAttribute('data-user-mobile-announcement-tab') === sectionKey;
+            tab.classList.toggle('is-active', isActive);
+            tab.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        sections.forEach((section) => {
+            const isActive = section.getAttribute('data-user-mobile-announcement-section') === sectionKey;
+            section.classList.toggle('is-mobile-active', isActive);
+            section.hidden = mobileQuery.matches ? !isActive : false;
+        });
+    }
+
+    function syncMobileSections() {
+        if (!board || !tabs.length || !sections.length) {
+            return;
+        }
+
+        if (!mobileQuery.matches) {
+            sections.forEach((section) => {
+                section.hidden = false;
+                section.classList.remove('is-mobile-active');
+            });
+            return;
+        }
+
+        setActiveSection(board.dataset.userMobileActive || board.dataset.userMobileDefault || 'regular');
+    }
+
+    tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            setActiveSection(tab.getAttribute('data-user-mobile-announcement-tab') || 'regular');
+        });
+    });
+
+    if (typeof mobileQuery.addEventListener === 'function') {
+        mobileQuery.addEventListener('change', syncMobileSections);
+    } else if (typeof mobileQuery.addListener === 'function') {
+        mobileQuery.addListener(syncMobileSections);
+    }
+
+    syncMobileSections();
 })();
 </script>
 {% endblock %}

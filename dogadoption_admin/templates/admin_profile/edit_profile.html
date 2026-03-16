@@ -1,80 +1,172 @@
 {% extends "admin_base.html" %}
 {% load static %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/admin_profile/edit_profile.css' %}">
+{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
+<form method="POST" enctype="multipart/form-data" class="admin-profile-page-shell">
+    {% csrf_token %}
 
-        <div class="card shadow-sm">
-            <div class="card-body">
+    <div class="admin-profile-card">
+        <div
+            class="admin-profile-cover"
+            {% if profile.profile_image %}
+            style="background-image: linear-gradient(180deg, rgba(10, 34, 61, 0.16), rgba(17, 24, 39, 0.58)), url('{{ profile.profile_image.url }}');"
+            {% endif %}
+        >
+            <div class="admin-profile-header-bar">
+                <div class="admin-profile-header-grid">
+                    <div class="admin-profile-identity">
+                        <div class="admin-profile-avatar-stack">
+                            {% if profile.profile_image %}
+                            <img src="{{ profile.profile_image.url }}" alt="{{ user.get_full_name|default:user.username }}">
+                            {% else %}
+                            <span class="admin-profile-avatar-fallback">
+                                {{ user.first_name|default:user.username|slice:":1" }}{{ user.last_name|slice:":1" }}
+                            </span>
+                            {% endif %}
 
-                <h4 class="mb-4 text-center">Edit Admin Profile</h4>
+                            <input id="adminProfilePhotoInput" type="file" name="profile_image" accept="image/*" hidden>
+                            <label for="adminProfilePhotoInput" class="admin-profile-avatar-edit" title="Choose a new profile photo">
+                                <i class="bi bi-camera-fill"></i>
+                            </label>
+                        </div>
 
-                <form method="POST" enctype="multipart/form-data">
-                    {% csrf_token %}
+                        <div class="admin-profile-title-block">
+                            <div class="admin-profile-name-line">
+                                <h1>{{ user.get_full_name|default:user.username }}</h1>
+                                <span class="admin-profile-role-badge">Administrator</span>
+                            </div>
 
-                    <div class="text-center mb-4">
-                        <img src="{{ profile.profile_image.url }}"
-                             class="rounded-circle mb-2"
-                             width="120" height="120"
-                             style="object-fit: cover;">
-                        <div>
-                            <input type="file"
-                                   name="profile_image"
-                                   class="form-control form-control-sm">
+                            <p class="admin-profile-handle">@{{ user.username }}</p>
+
+                            <div class="admin-profile-meta-line">
+                                <span>
+                                    <i class="bi bi-geo-alt-fill"></i>
+                                    {{ profile.address|default:"No address added yet" }}
+                                </span>
+                                <span>
+                                    <i class="bi bi-calendar2-week-fill"></i>
+                                    Age {{ profile.age|default:"-" }}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="row mb-3">
-                        <div class="col">
-                            <label class="form-label">First Name</label>
-                            <input type="text"
-                                   name="first_name"
-                                   class="form-control"
-                                   value="{{ user.first_name }}">
-                        </div>
-
-                        <div class="col">
-                            <label class="form-label">Last Name</label>
-                            <input type="text"
-                                   name="last_name"
-                                   class="form-control"
-                                   value="{{ user.last_name }}">
-                        </div>
+                    <div class="admin-profile-header-actions">
+                        <p class="admin-profile-photo-note">Choose a new photo, then save your changes.</p>
+                        <button type="submit" class="admin-profile-save-btn">
+                            <i class="bi bi-floppy-fill"></i>
+                            <span>Save Changes</span>
+                        </button>
                     </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Middle Initial</label>
-                        <input type="text"
-                               name="middle_initial"
-                               maxlength="1"
-                               class="form-control"
-                               value="{{ profile.middle_initial }}">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Address</label>
-                        <textarea name="address"
-                                  class="form-control"
-                                  rows="3">{{ profile.address }}</textarea>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="form-label">Age</label>
-                        <input type="number"
-                               name="age"
-                               class="form-control"
-                               value="{{ profile.age }}">
-                    </div>
-
-                    <button type="submit" class="btn btn-primary w-100">
-                        Save Changes
-                    </button>
-                </form>
-
+                </div>
             </div>
         </div>
 
+        <div class="admin-profile-section-bar">
+            <span class="admin-profile-section-pill is-active">Profile Details</span>
+            <span class="admin-profile-section-pill">Account Settings</span>
+        </div>
+
+        <div class="admin-profile-content-grid">
+            <section class="admin-profile-panel">
+                <div class="admin-profile-panel-header">
+                    <span>
+                        <i class="bi bi-person-vcard-fill"></i>
+                        Current profile
+                    </span>
+                </div>
+
+                <ul class="admin-profile-detail-list">
+                    <li>
+                        <i class="bi bi-person-badge-fill admin-profile-info-icon"></i>
+                        <div>
+                            <span class="admin-profile-detail-label">Full name</span>
+                            <strong>{{ user.first_name|default:"-" }} {{ profile.middle_initial|default:"" }} {{ user.last_name|default:"-" }}</strong>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="bi bi-at admin-profile-info-icon"></i>
+                        <div>
+                            <span class="admin-profile-detail-label">Username</span>
+                            <strong>@{{ user.username }}</strong>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="bi bi-shield-lock-fill admin-profile-info-icon"></i>
+                        <div>
+                            <span class="admin-profile-detail-label">Role</span>
+                            <strong>Admin account</strong>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="bi bi-calendar2-week-fill admin-profile-info-icon"></i>
+                        <div>
+                            <span class="admin-profile-detail-label">Age</span>
+                            <strong>{{ profile.age|default:"Not set" }}</strong>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="bi bi-geo-alt-fill admin-profile-info-icon"></i>
+                        <div>
+                            <span class="admin-profile-detail-label">Address</span>
+                            <strong>{{ profile.address|default:"No address added yet" }}</strong>
+                        </div>
+                    </li>
+                </ul>
+            </section>
+
+            <section class="admin-profile-panel">
+                <div class="admin-profile-panel-header is-split">
+                    <span>
+                        <i class="bi bi-pencil-square"></i>
+                        Edit profile
+                    </span>
+                    <span class="admin-profile-panel-caption">Only existing admin fields are editable here.</span>
+                </div>
+
+                <div class="admin-profile-form-grid">
+                    <div class="admin-profile-field">
+                        <label for="firstNameInput">First Name</label>
+                        <input id="firstNameInput" type="text" name="first_name" value="{{ user.first_name }}">
+                    </div>
+
+                    <div class="admin-profile-field">
+                        <label for="lastNameInput">Last Name</label>
+                        <input id="lastNameInput" type="text" name="last_name" value="{{ user.last_name }}">
+                    </div>
+
+                    <div class="admin-profile-field">
+                        <label for="middleInitialInput">Middle Initial</label>
+                        <input id="middleInitialInput" type="text" name="middle_initial" maxlength="1" value="{{ profile.middle_initial }}">
+                    </div>
+
+                    <div class="admin-profile-field">
+                        <label for="ageInput">Age</label>
+                        <input id="ageInput" type="number" name="age" min="0" value="{{ profile.age }}">
+                    </div>
+
+                    <div class="admin-profile-field is-full">
+                        <label for="addressInput">Address</label>
+                        <textarea id="addressInput" name="address" rows="4">{{ profile.address }}</textarea>
+                    </div>
+                </div>
+
+                <div class="admin-profile-form-actions">
+                    <label for="adminProfilePhotoInput" class="admin-profile-secondary-btn">
+                        <i class="bi bi-image-fill"></i>
+                        <span>Change Photo</span>
+                    </label>
+                    <button type="submit" class="admin-profile-save-btn">
+                        <i class="bi bi-floppy-fill"></i>
+                        <span>Save Changes</span>
+                    </button>
+                </div>
+            </section>
+        </div>
     </div>
-</div>
+</form>
 {% endblock %}

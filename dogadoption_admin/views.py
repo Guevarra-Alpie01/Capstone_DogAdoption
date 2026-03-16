@@ -1555,7 +1555,7 @@ def admin_dog_capture_requests(request):
         return _redirect_to_requests()
 
     rows_per_page = 10
-    valid_tabs = {"pending", "accepted", "captured", "declined"}
+    valid_tabs = {"pending", "accepted", "declined"}
     active_tab = (request.GET.get("tab") or "pending").strip().lower()
     if active_tab not in valid_tabs:
         active_tab = "pending"

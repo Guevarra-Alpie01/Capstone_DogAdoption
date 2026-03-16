@@ -1044,6 +1044,29 @@ class AdminDogRequestTemplateTests(TestCase):
         self.assertEqual(timezone.localtime(first_request.scheduled_date).date(), new_date)
         self.assertEqual(timezone.localtime(second_request.scheduled_date).date(), new_date)
 
+    def test_scheduled_requests_table_shows_phone_number_and_pagination(self):
+        scheduled_date = timezone.localdate() + timedelta(days=2)
+        for index in range(11):
+            DogCaptureRequest.objects.create(
+                requested_by=self.requester,
+                request_type="capture",
+                submission_type="online",
+                reason="stray",
+                barangay=f"Barangay {index}",
+                city="Bayawan City",
+                latitude=f"9.12{index:04d}"[:8],
+                longitude=f"122.65{index:04d}"[:10],
+                status="accepted",
+                scheduled_date=timezone.make_aware(datetime.combine(scheduled_date + timedelta(days=index), time(hour=9))),
+            )
+
+        response = self.client.get(reverse("dogadoption_admin:requests") + "?tab=accepted")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Phone Number")
+        self.assertContains(response, "+639171234567")
+        self.assertTrue(response.context["accepted_page_obj"].has_next())
+
     def test_admin_request_map_shows_only_pending_online_requests(self):
         pending_request = DogCaptureRequest.objects.create(
             requested_by=self.requester,

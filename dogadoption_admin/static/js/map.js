@@ -182,6 +182,7 @@
         panels.forEach(panel => {
             panel.classList.toggle('is-active', panel.dataset.panel === tabName);
         });
+
     }
 
     tabs.forEach(btn => {
@@ -329,12 +330,17 @@
 
     const acceptedSelectAll = document.getElementById('accepted_select_all');
     const acceptedCheckboxes = Array.from(document.querySelectorAll('.accepted-row-checkbox'));
+    const bulkPrintButton = document.getElementById('bulkPrintButton');
     const bulkMarkDoneButton = document.getElementById('bulkMarkDoneButton');
     const bulkUpdateButton = document.getElementById('bulkUpdateButton');
+    const scheduledPrintSheet = document.getElementById('scheduledPrintSheet');
+    const scheduledPrintMeta = document.getElementById('scheduledPrintMeta');
+    const scheduledPrintTableBody = document.getElementById('scheduledPrintTableBody');
 
     function syncBulkActionState() {
         const selectedCount = acceptedCheckboxes.filter((item) => item.checked).length;
         const hasSelection = selectedCount > 0;
+        if (bulkPrintButton) bulkPrintButton.disabled = !hasSelection;
         if (bulkMarkDoneButton) bulkMarkDoneButton.disabled = !hasSelection;
         if (bulkUpdateButton) bulkUpdateButton.disabled = !hasSelection;
     }
@@ -356,6 +362,53 @@
 
         syncBulkActionState();
     }
+
+    bulkPrintButton?.addEventListener('click', () => {
+        const selectedRows = acceptedCheckboxes
+            .filter((checkbox) => checkbox.checked)
+            .map((checkbox) => ({
+                schedule: checkbox.dataset.printSchedule || 'Not set',
+                user: checkbox.dataset.printUser || '',
+                location: checkbox.dataset.printLocation || 'No location',
+                phone: checkbox.dataset.printPhone || 'No phone number',
+            }));
+
+        if (!selectedRows.length) {
+            return;
+        }
+
+        if (!scheduledPrintSheet || !scheduledPrintTableBody) {
+            return;
+        }
+
+        scheduledPrintTableBody.innerHTML = '';
+
+        selectedRows.forEach((row) => {
+            const tableRow = document.createElement('tr');
+
+            [row.schedule, row.user, row.location, row.phone].forEach((value) => {
+                const cell = document.createElement('td');
+                cell.textContent = value;
+                tableRow.appendChild(cell);
+            });
+
+            scheduledPrintTableBody.appendChild(tableRow);
+        });
+
+        if (scheduledPrintMeta) {
+            const label = selectedRows.length === 1 ? '1 selected scheduled request' : `${selectedRows.length} selected scheduled requests`;
+            scheduledPrintMeta.textContent = label;
+        }
+
+        const handleAfterPrint = () => {
+            scheduledPrintSheet.setAttribute('aria-hidden', 'true');
+            window.removeEventListener('afterprint', handleAfterPrint);
+        };
+
+        scheduledPrintSheet.setAttribute('aria-hidden', 'false');
+        window.addEventListener('afterprint', handleAfterPrint);
+        window.print();
+    });
 
     const acceptedCalendarPanel = document.getElementById('acceptedCalendarPanel');
     const acceptedCalendarToggle = document.getElementById('acceptedCalendarToggle');

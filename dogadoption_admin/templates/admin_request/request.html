@@ -15,7 +15,6 @@
             <div class="tab-bar" role="tablist" aria-label="Request Status Tabs">
                 <button class="tab-btn {% if active_tab == 'pending' %}is-active{% endif %}" data-tab="pending" role="tab" aria-selected="{% if active_tab == 'pending' %}true{% else %}false{% endif %}">Pending Requests ({{ pending_total }})</button>
                 <button class="tab-btn {% if active_tab == 'accepted' %}is-active{% endif %}" data-tab="accepted" role="tab" aria-selected="{% if active_tab == 'accepted' %}true{% else %}false{% endif %}">Scheduled Requests ({{ accepted_total }})</button>
-                <button class="tab-btn {% if active_tab == 'captured' %}is-active{% endif %}" data-tab="captured" role="tab" aria-selected="{% if active_tab == 'captured' %}true{% else %}false{% endif %}">Captured Records ({{ captured_total }})</button>
                 <button class="tab-btn {% if active_tab == 'declined' %}is-active{% endif %}" data-tab="declined" role="tab" aria-selected="{% if active_tab == 'declined' %}true{% else %}false{% endif %}">Rejected Requests ({{ declined_total }})</button>
             </div>
 
@@ -132,6 +131,10 @@
                             <span>Select all visible schedules</span>
                         </label>
                         <div class="scheduled-bulk-buttons">
+                            <button type="button" class="btn-ghost btn-sm action-cta" id="bulkPrintButton" disabled>
+                                <i class="fas fa-print" aria-hidden="true"></i>
+                                <span>Print</span>
+                            </button>
                             <button type="submit" class="btn-primary btn-sm action-cta" name="action" value="bulk_mark_captured" id="bulkMarkDoneButton" disabled>
                                 <i class="fas fa-check-circle" aria-hidden="true"></i>
                                 <span>Mark as Done</span>
@@ -153,6 +156,7 @@
                                 <th>Scheduled</th>
                                 <th>User</th>
                                 <th>Location</th>
+                                <th>Phone Number</th>
                                 <th>Status</th>
                                 <th>Action</th>
                             </tr>
@@ -160,8 +164,17 @@
                         <tbody>
                             {% for req in accepted_requests %}
                                 <tr>
-                                     <td class="checkbox-col" data-label="Select">
-                                         <input type="checkbox" name="selected_request_ids" value="{{ req.id }}" class="accepted-row-checkbox">
+                                      <td class="checkbox-col" data-label="Select">
+                                         <input
+                                            type="checkbox"
+                                            name="selected_request_ids"
+                                            value="{{ req.id }}"
+                                            class="accepted-row-checkbox"
+                                            data-print-schedule="{% if req.scheduled_date %}{{ req.scheduled_date|date:'M d, Y h:i A' }}{% else %}Not set{% endif %}"
+                                            data-print-user="{{ req.requester_full_name }}"
+                                            data-print-phone="{{ req.requester_phone }}"
+                                            data-print-location="{% if req.submission_type == 'online' and req.latitude and req.longitude %}{{ req.location_label }}{% elif req.submission_type == 'online' and req.has_location %}{{ req.location_label }}{% elif req.submission_type == 'walk_in' %}Walk-in office request{% elif req.request_type == 'surrender' %}Shelter surrender request{% else %}No location{% endif %}"
+                                         >
                                      </td>
                                      <td data-label="Scheduled">
                                          {% if req.scheduled_date %}
@@ -184,9 +197,10 @@
                                          {% elif req.request_type == 'surrender' %}
                                              <span class="muted">Shelter surrender request</span>
                                           {% else %}
-                                              <span class="muted">No location</span>
-                                          {% endif %}
-                                      </td>
+                                               <span class="muted">No location</span>
+                                           {% endif %}
+                                       </td>
+                                     <td data-label="Phone Number">{{ req.requester_phone }}</td>
                                      <td data-label="Status"><span class="status-pill accepted">Scheduled</span></td>
                                      <td data-label="Action">
                                         <div class="row-action-group">
@@ -203,11 +217,11 @@
                                         </div>
                                      </td>
                                 </tr>
-                            {% empty %}
-                                <tr>
-                                    <td colspan="6" class="muted">No scheduled requests.</td>
-                                </tr>
-                            {% endfor %}
+                             {% empty %}
+                                 <tr>
+                                    <td colspan="7" class="muted">No scheduled requests.</td>
+                                 </tr>
+                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
@@ -221,86 +235,6 @@
                     <small>Page {{ accepted_page_obj.number }} of {{ accepted_page_obj.paginator.num_pages }}</small>
                     <a class="btn btn-sm btn-outline-secondary {% if not accepted_page_obj.has_next %}disabled{% endif %}"
                        href="?tab=accepted&pending_page={{ pending_page_obj.number }}&accepted_page={% if accepted_page_obj.has_next %}{{ accepted_page_obj.next_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}&declined_page={{ declined_page_obj.number }}{{ accepted_date_qs }}">
-                        Next
-                    </a>
-                </div>
-                {% endif %}
-            </div>
-
-            <div class="tab-panel {% if active_tab == 'captured' %}is-active{% endif %}" data-panel="captured" role="tabpanel">
-                <div class="table-card">
-                    <table class="request-table">
-                        <thead>
-                            <tr>
-                                <th>User</th>
-                                <th>Location</th>
-                                <th>Scheduled</th>
-                                <th>Captured</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for req in captured_requests %}
-                                <tr>
-                                     <td class="cell-user" data-label="User">
-                                         <div class="user-main">{{ req.requested_by.username }}</div>
-                                         <div class="user-sub">{{ req.requester_full_name }}</div>
-                                         <div class="user-sub">{{ req.requester_phone }}</div>
-                                         <div class="user-sub">{{ req.get_request_type_display }}</div>
-                                         {% if req.submission_type %}
-                                             <div class="user-sub">{{ req.get_submission_type_display }}</div>
-                                         {% endif %}
-                                     </td>
-                                     <td data-label="Location">
-                                         {% if req.submission_type == 'online' and req.latitude and req.longitude %}
-                                             <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
-                                         {% elif req.submission_type == 'online' and req.has_location %}
-                                             {{ req.location_label }}
-                                         {% elif req.submission_type == 'walk_in' %}
-                                             <span class="muted">Walk-in office request</span>
-                                         {% elif req.request_type == 'surrender' %}
-                                             <span class="muted">Shelter surrender request</span>
-                                         {% else %}
-                                             <span class="muted">No location</span>
-                                         {% endif %}
-                                     </td>
-                                    <td data-label="Scheduled">
-                                        {% if req.scheduled_date %}
-                                            {{ req.scheduled_date|date:"M d, Y h:i A" }}
-                                        {% else %}
-                                            <span class="muted">Not set</span>
-                                        {% endif %}
-                                    </td>
-                                    <td data-label="Captured">
-                                        {% if req.captured_at %}
-                                            {{ req.captured_at|date:"M d, Y h:i A" }}
-                                        {% else %}
-                                            <span class="muted">Done</span>
-                                        {% endif %}
-                                    </td>
-                                    <td data-label="Status"><span class="status-pill captured">Done</span></td>
-                                    <td data-label="Action">
-                                        <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-ghost btn-sm">View Record</a>
-                                    </td>
-                                </tr>
-                            {% empty %}
-                                <tr>
-                                    <td colspan="6" class="muted">No captured records yet.</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% if captured_page_obj.has_previous or captured_page_obj.has_next %}
-                <div class="d-flex justify-content-between align-items-center mt-2">
-                    <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_previous %}disabled{% endif %}"
-                       href="?tab=captured&pending_page={{ pending_page_obj.number }}&accepted_page={{ accepted_page_obj.number }}&captured_page={% if captured_page_obj.has_previous %}{{ captured_page_obj.previous_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}">
-                        Previous
-                    </a>
-                    <small>Page {{ captured_page_obj.number }} of {{ captured_page_obj.paginator.num_pages }}</small>
-                    <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_next %}disabled{% endif %}"
-                       href="?tab=captured&pending_page={{ pending_page_obj.number }}&accepted_page={{ accepted_page_obj.number }}&captured_page={% if captured_page_obj.has_next %}{{ captured_page_obj.next_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}">
                         Next
                     </a>
                 </div>
@@ -388,6 +322,90 @@
         {{ map_points|json_script:"map-points-data" }}
     </div>
 
+    <div class="captured-records-section">
+        <div class="captured-records-header">
+            <h2>Captured Records ({{ captured_total }})</h2>
+            <p>All completed dog capture and surrender requests are listed here.</p>
+        </div>
+        <div class="table-card">
+            <table class="request-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Location</th>
+                        <th>Scheduled</th>
+                        <th>Captured</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in captured_requests %}
+                        <tr>
+                             <td class="cell-user" data-label="User">
+                                 <div class="user-main">{{ req.requested_by.username }}</div>
+                                 <div class="user-sub">{{ req.requester_full_name }}</div>
+                                 <div class="user-sub">{{ req.requester_phone }}</div>
+                                 <div class="user-sub">{{ req.get_request_type_display }}</div>
+                                 {% if req.submission_type %}
+                                     <div class="user-sub">{{ req.get_submission_type_display }}</div>
+                                 {% endif %}
+                             </td>
+                             <td data-label="Location">
+                                 {% if req.submission_type == 'online' and req.latitude and req.longitude %}
+                                     <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
+                                 {% elif req.submission_type == 'online' and req.has_location %}
+                                     {{ req.location_label }}
+                                 {% elif req.submission_type == 'walk_in' %}
+                                     <span class="muted">Walk-in office request</span>
+                                 {% elif req.request_type == 'surrender' %}
+                                     <span class="muted">Shelter surrender request</span>
+                                 {% else %}
+                                     <span class="muted">No location</span>
+                                 {% endif %}
+                             </td>
+                            <td data-label="Scheduled">
+                                {% if req.scheduled_date %}
+                                    {{ req.scheduled_date|date:"M d, Y h:i A" }}
+                                {% else %}
+                                    <span class="muted">Not set</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Captured">
+                                {% if req.captured_at %}
+                                    {{ req.captured_at|date:"M d, Y h:i A" }}
+                                {% else %}
+                                    <span class="muted">Done</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Status"><span class="status-pill captured">Done</span></td>
+                            <td data-label="Action">
+                                <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-ghost btn-sm">View Record</a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="muted">No captured records yet.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if captured_page_obj.has_previous or captured_page_obj.has_next %}
+        <div class="d-flex justify-content-between align-items-center mt-2">
+            <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_previous %}disabled{% endif %}"
+               href="?tab={{ active_tab }}&pending_page={{ pending_page_obj.number }}&accepted_page={{ accepted_page_obj.number }}&captured_page={% if captured_page_obj.has_previous %}{{ captured_page_obj.previous_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}{{ accepted_date_qs }}">
+                Previous
+            </a>
+            <small>Page {{ captured_page_obj.number }} of {{ captured_page_obj.paginator.num_pages }}</small>
+            <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_next %}disabled{% endif %}"
+               href="?tab={{ active_tab }}&pending_page={{ pending_page_obj.number }}&accepted_page={{ accepted_page_obj.number }}&captured_page={% if captured_page_obj.has_next %}{{ captured_page_obj.next_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}{{ accepted_date_qs }}">
+                Next
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
     <div class="modal fade" id="rescheduleRequestModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content scheduled-modal">
@@ -426,6 +444,24 @@
             </div>
         </div>
     </div>
+
+    <section class="scheduled-print-sheet" id="scheduledPrintSheet" aria-hidden="true">
+        <div class="scheduled-print-sheet__header">
+            <h2>Scheduled Requests</h2>
+            <p id="scheduledPrintMeta">Selected scheduled requests</p>
+        </div>
+        <table class="scheduled-print-table" id="scheduledPrintTable">
+            <thead>
+                <tr>
+                    <th>Schedule</th>
+                    <th>User</th>
+                    <th>Location</th>
+                    <th>Phone Number</th>
+                </tr>
+            </thead>
+            <tbody id="scheduledPrintTableBody"></tbody>
+        </table>
+    </section>
 </div>
 {{ accepted_calendar_dates|json_script:"accepted-calendar-dates-data" }}
 

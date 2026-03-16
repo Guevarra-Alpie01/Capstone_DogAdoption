@@ -23,8 +23,8 @@
                     <i class="bi bi-clock-history" aria-hidden="true"></i>
                 </span>
                 <span class="request-history-trigger-copy">
-                    <strong>Request History</strong>
-                    <small>Track your submitted requests</small>
+                    <strong>Tracking</strong>
+                    <small>Open your submitted requests</small>
                 </span>
                 <span class="request-history-trigger-count">
                     {{ pending_total|add:accepted_total|add:declined_total|add:captured_total }}
@@ -360,250 +360,133 @@
         </form>
     </div>
 
-    <div class="card my-requests-card">
-        <div class="request-section-head">
-            <div>
-                <span class="request-eyebrow">Tracking</span>
-                <h2>My Requests</h2>
-            </div>
-        </div>
-
-        <div class="requests-breadcrumb" aria-label="My request statuses">
-            <button type="button" class="status-crumb scheduled {% if active_status_tab == 'scheduled' %}is-active{% endif %}" data-status-tab="scheduled" aria-pressed="{% if active_status_tab == 'scheduled' %}true{% else %}false{% endif %}">
-                Scheduled
-                <span class="status-crumb-count">{{ accepted_total }}</span>
-            </button>
-            <button type="button" class="status-crumb pending {% if active_status_tab == 'pending' %}is-active{% endif %}" data-status-tab="pending" aria-pressed="{% if active_status_tab == 'pending' %}true{% else %}false{% endif %}">
-                Pending
-                <span class="status-crumb-count">{{ pending_total }}</span>
-            </button>
-            <button type="button" class="status-crumb declined {% if active_status_tab == 'declined' %}is-active{% endif %}" data-status-tab="declined" aria-pressed="{% if active_status_tab == 'declined' %}true{% else %}false{% endif %}">
-                Declined
-                <span class="status-crumb-count">{{ declined_total }}</span>
-            </button>
-            <button type="button" class="status-crumb captured {% if active_status_tab == 'captured' %}is-active{% endif %}" data-status-tab="captured" aria-pressed="{% if active_status_tab == 'captured' %}true{% else %}false{% endif %}">
-                Captured (Done)
-                <span class="status-crumb-count">{{ captured_total }}</span>
-            </button>
-        </div>
-
-        <div class="requests-scroll">
-            <div class="request-group status-panel {% if active_status_tab == 'scheduled' %}is-active{% endif %}" id="requests-scheduled" data-status-panel="scheduled">
-                <h3 class="request-group-title">Scheduled</h3>
-                {% for req in accepted_requests %}
-                    {% include 'user_request/_request_item.html' with req=req %}
-                {% empty %}
-                    <p class="request-group-empty">No scheduled requests.</p>
-                {% endfor %}
-                {% if accepted_page_obj.has_previous or accepted_page_obj.has_next %}
-                <div class="request-pagination">
-                    <a class="btn btn-sm btn-outline-secondary {% if not accepted_page_obj.has_previous %}disabled{% endif %}"
-                       href="?status_tab=scheduled&scheduled_page={% if accepted_page_obj.has_previous %}{{ accepted_page_obj.previous_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
-                        Previous
-                    </a>
-                    <small>Page {{ accepted_page_obj.number }} of {{ accepted_page_obj.paginator.num_pages }}</small>
-                    <a class="btn btn-sm btn-outline-secondary {% if not accepted_page_obj.has_next %}disabled{% endif %}"
-                       href="?status_tab=scheduled&scheduled_page={% if accepted_page_obj.has_next %}{{ accepted_page_obj.next_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
-                        Next
-                    </a>
-                </div>
-                {% endif %}
-            </div>
-
-            <div class="request-group status-panel {% if active_status_tab == 'pending' %}is-active{% endif %}" id="requests-pending" data-status-panel="pending">
-                <h3 class="request-group-title">Pending</h3>
-                {% for req in pending_requests %}
-                    {% include 'user_request/_request_item.html' with req=req %}
-                {% empty %}
-                    <p class="request-group-empty">No pending requests.</p>
-                {% endfor %}
-                {% if pending_page_obj.has_previous or pending_page_obj.has_next %}
-                <div class="request-pagination">
-                    <a class="btn btn-sm btn-outline-secondary {% if not pending_page_obj.has_previous %}disabled{% endif %}"
-                       href="?status_tab=pending&scheduled_page={{ accepted_page_obj.number }}&pending_page={% if pending_page_obj.has_previous %}{{ pending_page_obj.previous_page_number }}{% else %}{{ pending_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
-                        Previous
-                    </a>
-                    <small>Page {{ pending_page_obj.number }} of {{ pending_page_obj.paginator.num_pages }}</small>
-                    <a class="btn btn-sm btn-outline-secondary {% if not pending_page_obj.has_next %}disabled{% endif %}"
-                       href="?status_tab=pending&scheduled_page={{ accepted_page_obj.number }}&pending_page={% if pending_page_obj.has_next %}{{ pending_page_obj.next_page_number }}{% else %}{{ pending_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
-                        Next
-                    </a>
-                </div>
-                {% endif %}
-            </div>
-
-            <div class="request-group status-panel {% if active_status_tab == 'declined' %}is-active{% endif %}" id="requests-declined" data-status-panel="declined">
-                <h3 class="request-group-title">Declined</h3>
-                {% for req in declined_requests %}
-                    {% include 'user_request/_request_item.html' with req=req %}
-                {% empty %}
-                    <p class="request-group-empty">No declined requests.</p>
-                {% endfor %}
-                {% if declined_page_obj.has_previous or declined_page_obj.has_next %}
-                <div class="request-pagination">
-                    <a class="btn btn-sm btn-outline-secondary {% if not declined_page_obj.has_previous %}disabled{% endif %}"
-                       href="?status_tab=declined&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={% if declined_page_obj.has_previous %}{{ declined_page_obj.previous_page_number }}{% else %}{{ declined_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}">
-                        Previous
-                    </a>
-                    <small>Page {{ declined_page_obj.number }} of {{ declined_page_obj.paginator.num_pages }}</small>
-                    <a class="btn btn-sm btn-outline-secondary {% if not declined_page_obj.has_next %}disabled{% endif %}"
-                       href="?status_tab=declined&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={% if declined_page_obj.has_next %}{{ declined_page_obj.next_page_number }}{% else %}{{ declined_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}">
-                        Next
-                    </a>
-                </div>
-                {% endif %}
-            </div>
-
-            <div class="request-group status-panel {% if active_status_tab == 'captured' %}is-active{% endif %}" id="requests-captured" data-status-panel="captured">
-                <h3 class="request-group-title">Captured (Done)</h3>
-                {% for req in captured_requests %}
-                    {% include 'user_request/_request_item.html' with req=req %}
-                {% empty %}
-                    <p class="request-group-empty">No captured requests yet.</p>
-                {% endfor %}
-                {% if captured_page_obj.has_previous or captured_page_obj.has_next %}
-                <div class="request-pagination">
-                    <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_previous %}disabled{% endif %}"
-                       href="?status_tab=captured&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={% if captured_page_obj.has_previous %}{{ captured_page_obj.previous_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}">
-                        Previous
-                    </a>
-                    <small>Page {{ captured_page_obj.number }} of {{ captured_page_obj.paginator.num_pages }}</small>
-                    <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_next %}disabled{% endif %}"
-                       href="?status_tab=captured&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={% if captured_page_obj.has_next %}{{ captured_page_obj.next_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}">
-                        Next
-                    </a>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
     <div class="modal fade request-history-modal" id="requestHistoryModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <div>
-                        <h5 class="modal-title">Request History</h5>
-                        <p class="request-history-subtitle">Review the latest updates on your submitted requests.</p>
+                        <h5 class="modal-title">My Requests</h5>
+                        <p class="request-history-subtitle">Track the latest status of your submitted requests.</p>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="request-history-summary">
-                        <div class="history-status-card pending">
-                            <span class="history-status-label">Pending</span>
-                            <strong>{{ pending_total }}</strong>
-                        </div>
-                        <div class="history-status-card accepted">
-                            <span class="history-status-label">Approved</span>
-                            <strong>{{ accepted_total }}</strong>
-                        </div>
-                        <div class="history-status-card captured">
-                            <span class="history-status-label">Completed</span>
-                            <strong>{{ captured_total }}</strong>
-                        </div>
-                        <div class="history-status-card declined">
-                            <span class="history-status-label">Rejected</span>
-                            <strong>{{ declined_total }}</strong>
-                        </div>
-                    </div>
-
-                    <div class="request-history-groups">
-                        <section class="history-group">
-                            <div class="history-group-head">
-                                <h6>Pending</h6>
-                                <span class="status-badge pending">Pending</span>
+                    <div class="request-history-content">
+                        <div class="request-section-head request-section-head--modal">
+                            <div>
+                                <span class="request-eyebrow">Tracking</span>
+                                <h2>My Requests</h2>
                             </div>
-                            {% for req in pending_requests %}
-                                <article class="history-entry">
-                                    <div class="history-entry-main">
-                                        <strong>{{ req.get_request_type_display }}</strong>
-                                        <p>
-                                            Submitted {{ req.created_at|date:"M d, Y h:i A" }}
-                                            {% if req.submission_type %} - {{ req.get_submission_type_display }}{% endif %}
-                                        </p>
-                                    </div>
-                                    <span class="history-entry-meta">Awaiting review</span>
-                                </article>
-                            {% empty %}
-                                <p class="history-group-empty">No pending requests.</p>
-                            {% endfor %}
-                        </section>
+                        </div>
 
-                        <section class="history-group">
-                            <div class="history-group-head">
-                                <h6>Approved</h6>
-                                <span class="status-badge accepted">Approved</span>
-                            </div>
-                            {% for req in accepted_requests %}
-                                <article class="history-entry">
-                                    <div class="history-entry-main">
-                                        <strong>{{ req.get_request_type_display }}</strong>
-                                        <p>
-                                            Submitted {{ req.created_at|date:"M d, Y h:i A" }}
-                                            {% if req.submission_type %} - {{ req.get_submission_type_display }}{% endif %}
-                                        </p>
-                                    </div>
-                                    <span class="history-entry-meta">
-                                        {% if req.scheduled_date %}
-                                            {{ req.scheduled_date|date:"M d, Y h:i A" }}
-                                        {% else %}
-                                            Approved
-                                        {% endif %}
-                                    </span>
-                                </article>
-                            {% empty %}
-                                <p class="history-group-empty">No approved requests.</p>
-                            {% endfor %}
-                        </section>
+                        <div class="requests-breadcrumb" aria-label="My request statuses">
+                            <button type="button" class="status-crumb scheduled {% if active_status_tab == 'scheduled' %}is-active{% endif %}" data-status-tab="scheduled" aria-pressed="{% if active_status_tab == 'scheduled' %}true{% else %}false{% endif %}">
+                                Scheduled
+                                <span class="status-crumb-count">{{ accepted_total }}</span>
+                            </button>
+                            <button type="button" class="status-crumb pending {% if active_status_tab == 'pending' %}is-active{% endif %}" data-status-tab="pending" aria-pressed="{% if active_status_tab == 'pending' %}true{% else %}false{% endif %}">
+                                Pending
+                                <span class="status-crumb-count">{{ pending_total }}</span>
+                            </button>
+                            <button type="button" class="status-crumb declined {% if active_status_tab == 'declined' %}is-active{% endif %}" data-status-tab="declined" aria-pressed="{% if active_status_tab == 'declined' %}true{% else %}false{% endif %}">
+                                Declined
+                                <span class="status-crumb-count">{{ declined_total }}</span>
+                            </button>
+                            <button type="button" class="status-crumb captured {% if active_status_tab == 'captured' %}is-active{% endif %}" data-status-tab="captured" aria-pressed="{% if active_status_tab == 'captured' %}true{% else %}false{% endif %}">
+                                Captured (Done)
+                                <span class="status-crumb-count">{{ captured_total }}</span>
+                            </button>
+                        </div>
 
-                        <section class="history-group">
-                            <div class="history-group-head">
-                                <h6>Completed</h6>
-                                <span class="status-badge captured">Completed</span>
+                        <div class="requests-scroll requests-scroll--modal">
+                            <div class="request-group status-panel {% if active_status_tab == 'scheduled' %}is-active{% endif %}" id="requests-scheduled" data-status-panel="scheduled">
+                                <h3 class="request-group-title">Scheduled</h3>
+                                {% for req in accepted_requests %}
+                                    {% include 'user_request/_request_item.html' with req=req %}
+                                {% empty %}
+                                    <p class="request-group-empty">No scheduled requests.</p>
+                                {% endfor %}
+                                {% if accepted_page_obj.has_previous or accepted_page_obj.has_next %}
+                                <div class="request-pagination">
+                                    <a class="btn btn-sm btn-outline-secondary {% if not accepted_page_obj.has_previous %}disabled{% endif %}"
+                                       href="?status_tab=scheduled&scheduled_page={% if accepted_page_obj.has_previous %}{{ accepted_page_obj.previous_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
+                                        Previous
+                                    </a>
+                                    <small>Page {{ accepted_page_obj.number }} of {{ accepted_page_obj.paginator.num_pages }}</small>
+                                    <a class="btn btn-sm btn-outline-secondary {% if not accepted_page_obj.has_next %}disabled{% endif %}"
+                                       href="?status_tab=scheduled&scheduled_page={% if accepted_page_obj.has_next %}{{ accepted_page_obj.next_page_number }}{% else %}{{ accepted_page_obj.number }}{% endif %}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
+                                        Next
+                                    </a>
+                                </div>
+                                {% endif %}
                             </div>
-                            {% for req in captured_requests %}
-                                <article class="history-entry">
-                                    <div class="history-entry-main">
-                                        <strong>{{ req.get_request_type_display }}</strong>
-                                        <p>
-                                            Submitted {{ req.created_at|date:"M d, Y h:i A" }}
-                                            {% if req.submission_type %} - {{ req.get_submission_type_display }}{% endif %}
-                                        </p>
-                                    </div>
-                                    <span class="history-entry-meta">
-                                        {% if req.captured_at %}
-                                            {{ req.captured_at|date:"M d, Y h:i A" }}
-                                        {% else %}
-                                            Completed
-                                        {% endif %}
-                                    </span>
-                                </article>
-                            {% empty %}
-                                <p class="history-group-empty">No completed requests.</p>
-                            {% endfor %}
-                        </section>
 
-                        <section class="history-group">
-                            <div class="history-group-head">
-                                <h6>Rejected</h6>
-                                <span class="status-badge declined">Rejected</span>
+                            <div class="request-group status-panel {% if active_status_tab == 'pending' %}is-active{% endif %}" id="requests-pending" data-status-panel="pending">
+                                <h3 class="request-group-title">Pending</h3>
+                                {% for req in pending_requests %}
+                                    {% include 'user_request/_request_item.html' with req=req %}
+                                {% empty %}
+                                    <p class="request-group-empty">No pending requests.</p>
+                                {% endfor %}
+                                {% if pending_page_obj.has_previous or pending_page_obj.has_next %}
+                                <div class="request-pagination">
+                                    <a class="btn btn-sm btn-outline-secondary {% if not pending_page_obj.has_previous %}disabled{% endif %}"
+                                       href="?status_tab=pending&scheduled_page={{ accepted_page_obj.number }}&pending_page={% if pending_page_obj.has_previous %}{{ pending_page_obj.previous_page_number }}{% else %}{{ pending_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
+                                        Previous
+                                    </a>
+                                    <small>Page {{ pending_page_obj.number }} of {{ pending_page_obj.paginator.num_pages }}</small>
+                                    <a class="btn btn-sm btn-outline-secondary {% if not pending_page_obj.has_next %}disabled{% endif %}"
+                                       href="?status_tab=pending&scheduled_page={{ accepted_page_obj.number }}&pending_page={% if pending_page_obj.has_next %}{{ pending_page_obj.next_page_number }}{% else %}{{ pending_page_obj.number }}{% endif %}&declined_page={{ declined_page_obj.number }}&captured_page={{ captured_page_obj.number }}">
+                                        Next
+                                    </a>
+                                </div>
+                                {% endif %}
                             </div>
-                            {% for req in declined_requests %}
-                                <article class="history-entry">
-                                    <div class="history-entry-main">
-                                        <strong>{{ req.get_request_type_display }}</strong>
-                                        <p>
-                                            Submitted {{ req.created_at|date:"M d, Y h:i A" }}
-                                            {% if req.submission_type %} - {{ req.get_submission_type_display }}{% endif %}
-                                        </p>
-                                    </div>
-                                    <span class="history-entry-meta">Rejected</span>
-                                </article>
-                            {% empty %}
-                                <p class="history-group-empty">No rejected requests.</p>
-                            {% endfor %}
-                        </section>
+
+                            <div class="request-group status-panel {% if active_status_tab == 'declined' %}is-active{% endif %}" id="requests-declined" data-status-panel="declined">
+                                <h3 class="request-group-title">Declined</h3>
+                                {% for req in declined_requests %}
+                                    {% include 'user_request/_request_item.html' with req=req %}
+                                {% empty %}
+                                    <p class="request-group-empty">No declined requests.</p>
+                                {% endfor %}
+                                {% if declined_page_obj.has_previous or declined_page_obj.has_next %}
+                                <div class="request-pagination">
+                                    <a class="btn btn-sm btn-outline-secondary {% if not declined_page_obj.has_previous %}disabled{% endif %}"
+                                       href="?status_tab=declined&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={% if declined_page_obj.has_previous %}{{ declined_page_obj.previous_page_number }}{% else %}{{ declined_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}">
+                                        Previous
+                                    </a>
+                                    <small>Page {{ declined_page_obj.number }} of {{ declined_page_obj.paginator.num_pages }}</small>
+                                    <a class="btn btn-sm btn-outline-secondary {% if not declined_page_obj.has_next %}disabled{% endif %}"
+                                       href="?status_tab=declined&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={% if declined_page_obj.has_next %}{{ declined_page_obj.next_page_number }}{% else %}{{ declined_page_obj.number }}{% endif %}&captured_page={{ captured_page_obj.number }}">
+                                        Next
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="request-group status-panel {% if active_status_tab == 'captured' %}is-active{% endif %}" id="requests-captured" data-status-panel="captured">
+                                <h3 class="request-group-title">Captured (Done)</h3>
+                                {% for req in captured_requests %}
+                                    {% include 'user_request/_request_item.html' with req=req %}
+                                {% empty %}
+                                    <p class="request-group-empty">No captured requests yet.</p>
+                                {% endfor %}
+                                {% if captured_page_obj.has_previous or captured_page_obj.has_next %}
+                                <div class="request-pagination">
+                                    <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_previous %}disabled{% endif %}"
+                                       href="?status_tab=captured&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={% if captured_page_obj.has_previous %}{{ captured_page_obj.previous_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}">
+                                        Previous
+                                    </a>
+                                    <small>Page {{ captured_page_obj.number }} of {{ captured_page_obj.paginator.num_pages }}</small>
+                                    <a class="btn btn-sm btn-outline-secondary {% if not captured_page_obj.has_next %}disabled{% endif %}"
+                                       href="?status_tab=captured&scheduled_page={{ accepted_page_obj.number }}&pending_page={{ pending_page_obj.number }}&declined_page={{ declined_page_obj.number }}&captured_page={% if captured_page_obj.has_next %}{{ captured_page_obj.next_page_number }}{% else %}{{ captured_page_obj.number }}{% endif %}">
+                                        Next
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

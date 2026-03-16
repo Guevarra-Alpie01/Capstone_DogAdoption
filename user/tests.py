@@ -822,7 +822,23 @@ class DogCaptureRequestFlowTests(TestCase):
         self.assertContains(response, "barangay letter requesting dog capture")
         self.assertContains(response, "Choose how the request will be submitted")
         self.assertNotContains(response, "Report a dog quickly and clearly")
-        self.assertEqual(response.context["initial_phone_number"], "")
+        self.assertContains(response, 'placeholder="+63 917 123 4567"', html=False)
+        self.assertNotContains(response, 'value="+63')
+
+    def test_capture_request_page_does_not_prefill_saved_phone_number(self):
+        Profile.objects.create(
+            user=self.user,
+            address="Bugay, Bayawan City",
+            age=25,
+            consent_given=True,
+            phone_number="+639551234567",
+        )
+
+        response = self.client.get(reverse("user:dog_capture_request"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "+63 955 123 4567")
+        self.assertNotContains(response, "+639551234567")
 
     def test_request_dog_capture_accepts_uploaded_mobile_camera_file(self):
         response = self.client.post(

@@ -2328,17 +2328,6 @@ def request_dog_capture(request):
     declined_page_obj, declined_requests = _paginate_status("declined", "declined_page")
     captured_page_obj, captured_requests = _paginate_status("captured", "captured_page")
 
-    # Pre-fill Step 2 contact fields from the user's profile for a smoother UX.
-    try:
-        profile = request.user.profile
-    except Profile.DoesNotExist:
-        profile = None
-
-    initial_phone_number = (
-        _format_ph_phone_number(profile.phone_number)
-        if profile and profile.phone_number
-        else ""
-    )
     return render(request, 'user_request/request.html', {
         'requests': bool(status_totals),
         'accepted_requests': accepted_requests,
@@ -2354,7 +2343,6 @@ def request_dog_capture(request):
         'declined_total': status_totals.get("declined", 0),
         'captured_total': status_totals.get("captured", 0),
         'active_status_tab': active_status_tab,
-        'initial_phone_number': initial_phone_number,
         'default_manual_city': DEFAULT_REQUEST_CITY,
         'available_dates': available_dates,
     })

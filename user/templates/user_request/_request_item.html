@@ -6,15 +6,46 @@
      aria-label="View request details">
     <div class="request-header">
         <strong>{{ req.get_request_type_display }}</strong>
-        <span class="status-badge {{ req.status }}">
-            {% if req.status == 'accepted' %}
-                Scheduled
-            {% elif req.status == 'captured' %}
-                {% if req.request_type == 'surrender' %}Completed{% else %}Captured{% endif %}
-            {% else %}
-                {{ req.get_status_display }}
+        <div class="request-header-tools">
+            {% if req.status == 'pending' %}
+                <button
+                    type="button"
+                    class="btn-secondary request-card-icon-btn request-edit-toggle request-inline-stop"
+                    data-bs-toggle="modal"
+                    data-bs-target="#requestViewModal{{ req.id }}"
+                    data-target="#requestEditForm{{ req.id }}"
+                    aria-label="Edit request"
+                    title="Edit request"
+                >
+                    <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                </button>
+                <form
+                    method="post"
+                    action="{% url 'user:delete_dog_capture_request' req.id %}"
+                    class="request-card-delete-form request-inline-stop"
+                    data-request-delete-form="true"
+                >
+                    {% csrf_token %}
+                    <button
+                        type="submit"
+                        class="btn-danger-inline request-card-icon-btn request-inline-stop"
+                        aria-label="Delete request"
+                        title="Delete request"
+                    >
+                        <i class="bi bi-trash3" aria-hidden="true"></i>
+                    </button>
+                </form>
             {% endif %}
-        </span>
+            <span class="status-badge {{ req.status }}">
+                {% if req.status == 'accepted' %}
+                    Scheduled
+                {% elif req.status == 'captured' %}
+                    {% if req.request_type == 'surrender' %}Completed{% else %}Captured{% endif %}
+                {% else %}
+                    {{ req.get_status_display }}
+                {% endif %}
+            </span>
+        </div>
     </div>
 
     {% if req.status == 'accepted' %}
@@ -67,33 +98,6 @@
         <p class="admin-note">
             <strong>Admin:</strong> {{ req.admin_message }}
         </p>
-    {% endif %}
-
-    {% if req.status == 'pending' %}
-        <div class="request-card-actions">
-            <button
-                type="button"
-                class="btn-secondary request-card-action request-edit-toggle"
-                data-bs-toggle="modal"
-                data-bs-target="#requestViewModal{{ req.id }}"
-                data-target="#requestEditForm{{ req.id }}"
-            >
-                <i class="bi bi-pencil-square" aria-hidden="true"></i>
-                <span>Edit</span>
-            </button>
-            <form
-                method="post"
-                action="{% url 'user:delete_dog_capture_request' req.id %}"
-                class="request-card-delete-form request-inline-stop"
-                data-request-delete-form="true"
-            >
-                {% csrf_token %}
-                <button type="submit" class="btn-danger-inline request-card-action request-inline-stop">
-                    <i class="bi bi-trash3" aria-hidden="true"></i>
-                    <span>Delete</span>
-                </button>
-            </form>
-        </div>
     {% endif %}
 
     <p class="request-view-hint">Tap to view details and request history</p>

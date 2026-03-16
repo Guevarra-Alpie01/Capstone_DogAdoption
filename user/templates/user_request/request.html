@@ -543,6 +543,7 @@ const submissionTypeInputs = document.querySelectorAll('input[name="submission_t
 const walkInDetailsSection = document.getElementById('walkInDetailsSection');
 const onlineDetailsSection = document.getElementById('onlineDetailsSection');
 const surrenderDetailsSection = document.getElementById('surrenderDetailsSection');
+const requestHistoryModalEl = document.getElementById('requestHistoryModal');
 const appointmentDateField = document.getElementById('appointment_date');
 const barangayField = document.getElementById('barangayField');
 const manualFullAddressField = document.getElementById('manualFullAddressField');
@@ -569,6 +570,33 @@ function getSelectedRequestType() {
 
 function getSelectedSubmissionType() {
     return document.querySelector('input[name="submission_type"]:checked')?.value || '';
+}
+
+function getRequestHistoryContentRoot() {
+    return requestHistoryModalEl?.querySelector('.request-history-content') || null;
+}
+
+function setRequestHistoryLoading(isLoading) {
+    const modalBody = requestHistoryModalEl?.querySelector('.modal-body');
+    if (!modalBody) return;
+    modalBody.classList.toggle('is-loading', isLoading);
+    modalBody.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+}
+
+let requestHistoryCurrentUrl = window.location.href;
+
+function updateRequestHistoryCurrentUrlParam(key, value) {
+    try {
+        const nextUrl = new URL(requestHistoryCurrentUrl, window.location.href);
+        if (value) {
+            nextUrl.searchParams.set(key, value);
+        } else {
+            nextUrl.searchParams.delete(key);
+        }
+        requestHistoryCurrentUrl = nextUrl.toString();
+    } catch (error) {
+        // Ignore URL parsing issues and keep the current value.
+    }
 }
 
 function normalizePhoneForSubmit(value) {
@@ -1433,66 +1461,128 @@ captureForm?.addEventListener('submit', async (e) => {
     captureForm.requestSubmit();
 });
 
-document.querySelectorAll('.request-clickable').forEach((card) => {
-    card.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            card.click();
-        }
-    });
-});
-
-document.querySelectorAll('.request-inline-stop').forEach((element) => {
-    const stopEvent = (e) => e.stopPropagation();
-    element.addEventListener('click', stopEvent);
-    element.addEventListener('keydown', stopEvent);
-});
-
-document.querySelectorAll('[data-request-delete-form]').forEach((form) => {
-    form.addEventListener('submit', async (e) => {
-        if (form.dataset.deleteConfirmed === '1') {
-            form.dataset.deleteConfirmed = '0';
-            return;
-        }
-
-        e.preventDefault();
-        const confirmed = await showRequestDialog({
-            title: 'Delete Request?',
-            message: 'Are you sure you want to delete this request?',
-            tone: 'danger',
-            confirmText: 'Delete Request',
-            cancelText: 'Cancel',
-        });
-        if (!confirmed) return;
-
-        form.dataset.deleteConfirmed = '1';
-        if (typeof form.requestSubmit === 'function') {
-            form.requestSubmit();
-        } else {
-            form.submit();
-        }
-    });
-});
-
-document.querySelectorAll('.request-edit-toggle').forEach((button) => {
-    button.addEventListener('click', () => {
-        const target = document.querySelector(button.dataset.target);
-        if (target) {
-            target.style.display = 'block';
-            applyRequestEditLocationMode(target);
-            if (window.initBarangayAutocomplete) {
-                window.initBarangayAutocomplete(target);
+function initRequestClickableCards(root = document) {
+    root.querySelectorAll('.request-clickable').forEach((card) => {
+        if (card.dataset.requestKeydownBound === '1') return;
+        card.dataset.requestKeydownBound = '1';
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                card.click();
             }
-        }
+        });
     });
-});
+}
 
-document.querySelectorAll('.request-edit-cancel').forEach((button) => {
-    button.addEventListener('click', () => {
-        const target = document.querySelector(button.dataset.target);
-        if (target) target.style.display = 'none';
+function mountRequestViewModals(root = document) {
+    root.querySelectorAll('.request-view-modal').forEach((modalEl) => {
+        if (!modalEl.id) return;
+        const existingModal = document.getElementById(modalEl.id);
+        if (existingModal && existingModal !== modalEl) {
+            existingModal.remove();
+        }
+        document.body.appendChild(modalEl);
     });
-});
+}
+
+function initRequestInlineStops(root = document) {
+    root.querySelectorAll('.request-inline-stop').forEach((element) => {
+        if (element.dataset.requestInlineStopBound === '1') return;
+        element.dataset.requestInlineStopBound = '1';
+        const stopEvent = (e) => e.stopPropagation();
+        element.addEventListener('click', stopEvent);
+        element.addEventListener('keydown', stopEvent);
+    });
+}
+
+function initRequestDeleteForms(root = document) {
+    root.querySelectorAll('[data-request-delete-form]').forEach((form) => {
+        if (form.dataset.requestDeleteBound === '1') return;
+        form.dataset.requestDeleteBound = '1';
+        form.addEventListener('submit', async (e) => {
+            if (form.dataset.deleteConfirmed === '1') {
+                form.dataset.deleteConfirmed = '0';
+                return;
+            }
+
+            e.preventDefault();
+            const confirmed = await showRequestDialog({
+                title: 'Delete Request?',
+                message: 'Are you sure you want to delete this request?',
+                tone: 'danger',
+                confirmText: 'Delete Request',
+                cancelText: 'Cancel',
+            });
+            if (!confirmed) return;
+
+            const insideTrackingModal = Boolean(requestHistoryModalEl?.contains(form));
+            if (!insideTrackingModal) {
+                form.dataset.deleteConfirmed = '1';
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    form.submit();
+                }
+                return;
+            }
+
+            const card = form.closest('.request-card');
+            const modalTarget = card?.dataset.bsTarget;
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                if (!response.ok) {
+                    throw new Error(`Delete request failed with status ${response.status}`);
+                }
+
+                if (modalTarget) {
+                    document.querySelector(modalTarget)?.remove();
+                }
+
+                await loadRequestHistoryPage(requestHistoryCurrentUrl);
+            } catch (error) {
+                await showRequestNotice(
+                    'Unable to delete this request right now. Please try again.',
+                    { title: 'Delete Failed', tone: 'warning' }
+                );
+            }
+        });
+    });
+}
+
+function initRequestEditToggles(root = document) {
+    root.querySelectorAll('.request-edit-toggle').forEach((button) => {
+        if (button.dataset.requestEditToggleBound === '1') return;
+        button.dataset.requestEditToggleBound = '1';
+        button.addEventListener('click', () => {
+            const target = document.querySelector(button.dataset.target);
+            if (target) {
+                target.style.display = 'block';
+                applyRequestEditLocationMode(target);
+                if (window.initBarangayAutocomplete) {
+                    window.initBarangayAutocomplete(target);
+                }
+            }
+        });
+    });
+}
+
+function initRequestEditCancels(root = document) {
+    root.querySelectorAll('.request-edit-cancel').forEach((button) => {
+        if (button.dataset.requestEditCancelBound === '1') return;
+        button.dataset.requestEditCancelBound = '1';
+        button.addEventListener('click', () => {
+            const target = document.querySelector(button.dataset.target);
+            if (target) target.style.display = 'none';
+        });
+    });
+}
 
 function applyRequestEditLocationMode(form) {
     if (!form) return;
@@ -1532,66 +1622,81 @@ function applyRequestEditLocationMode(form) {
     if (manualFullAddressInput) manualFullAddressInput.required = false;
 }
 
-document.querySelectorAll('.request-edit-form').forEach((form) => {
-    const modeRadios = form.querySelectorAll('input[name="edit_location_mode"]');
-    const requestTypeSelect = form.querySelector('[data-edit-request-type]');
-    const submissionTypeSelect = form.querySelector('[data-edit-submission-type]');
-    modeRadios.forEach((radio) => {
-        radio.addEventListener('change', () => applyRequestEditLocationMode(form));
-    });
-    requestTypeSelect?.addEventListener('change', () => applyRequestEditLocationMode(form));
-    submissionTypeSelect?.addEventListener('change', () => applyRequestEditLocationMode(form));
-    applyRequestEditLocationMode(form);
-});
+function initRequestEditForms(root = document) {
+    root.querySelectorAll('.request-edit-form').forEach((form) => {
+        if (form.dataset.requestEditFormBound === '1') {
+            applyRequestEditLocationMode(form);
+            return;
+        }
 
-document.querySelectorAll('.landmark-remove-check').forEach((checkbox) => {
-    const card = checkbox.closest('[data-edit-landmark-card]');
-    if (!card) return;
-
-    const syncState = () => {
-        card.classList.toggle('is-removed', checkbox.checked);
-    };
-    checkbox.addEventListener('change', syncState);
-    syncState();
-});
-
-document.querySelectorAll('[data-landmark-viewer]').forEach((viewer) => {
-    const images = Array.from(viewer.querySelectorAll('[data-landmark-image]'));
-    if (!images.length) return;
-
-    let currentIndex = Math.max(
-        0,
-        images.findIndex((img) => img.classList.contains('is-active'))
-    );
-    if (currentIndex < 0) currentIndex = 0;
-
-    const prevBtn = viewer.querySelector('[data-landmark-prev]');
-    const nextBtn = viewer.querySelector('[data-landmark-next]');
-    const counter = viewer.querySelector('[data-landmark-index]');
-
-    function renderLandmark() {
-        images.forEach((img, index) => {
-            img.classList.toggle('is-active', index === currentIndex);
+        form.dataset.requestEditFormBound = '1';
+        const modeRadios = form.querySelectorAll('input[name="edit_location_mode"]');
+        const requestTypeSelect = form.querySelector('[data-edit-request-type]');
+        const submissionTypeSelect = form.querySelector('[data-edit-submission-type]');
+        modeRadios.forEach((radio) => {
+            radio.addEventListener('change', () => applyRequestEditLocationMode(form));
         });
-        if (counter) counter.textContent = String(currentIndex + 1);
-    }
-
-    prevBtn?.addEventListener('click', () => {
-        currentIndex = (currentIndex - 1 + images.length) % images.length;
-        renderLandmark();
+        requestTypeSelect?.addEventListener('change', () => applyRequestEditLocationMode(form));
+        submissionTypeSelect?.addEventListener('change', () => applyRequestEditLocationMode(form));
+        applyRequestEditLocationMode(form);
     });
 
-    nextBtn?.addEventListener('click', () => {
-        currentIndex = (currentIndex + 1) % images.length;
+    root.querySelectorAll('.landmark-remove-check').forEach((checkbox) => {
+        if (checkbox.dataset.landmarkRemoveBound === '1') return;
+        checkbox.dataset.landmarkRemoveBound = '1';
+        const card = checkbox.closest('[data-edit-landmark-card]');
+        if (!card) return;
+
+        const syncState = () => {
+            card.classList.toggle('is-removed', checkbox.checked);
+        };
+        checkbox.addEventListener('change', syncState);
+        syncState();
+    });
+}
+
+function initLandmarkViewers(root = document) {
+    root.querySelectorAll('[data-landmark-viewer]').forEach((viewer) => {
+        if (viewer.dataset.landmarkViewerBound === '1') return;
+        viewer.dataset.landmarkViewerBound = '1';
+
+        const images = Array.from(viewer.querySelectorAll('[data-landmark-image]'));
+        if (!images.length) return;
+
+        let currentIndex = Math.max(
+            0,
+            images.findIndex((img) => img.classList.contains('is-active'))
+        );
+        if (currentIndex < 0) currentIndex = 0;
+
+        const prevBtn = viewer.querySelector('[data-landmark-prev]');
+        const nextBtn = viewer.querySelector('[data-landmark-next]');
+        const counter = viewer.querySelector('[data-landmark-index]');
+
+        function renderLandmark() {
+            images.forEach((img, index) => {
+                img.classList.toggle('is-active', index === currentIndex);
+            });
+            if (counter) counter.textContent = String(currentIndex + 1);
+        }
+
+        prevBtn?.addEventListener('click', () => {
+            currentIndex = (currentIndex - 1 + images.length) % images.length;
+            renderLandmark();
+        });
+
+        nextBtn?.addEventListener('click', () => {
+            currentIndex = (currentIndex + 1) % images.length;
+            renderLandmark();
+        });
+
         renderLandmark();
     });
+}
 
-    renderLandmark();
-});
-
-function initRequestStatusFilter() {
-    const statusTabs = Array.from(document.querySelectorAll('[data-status-tab]'));
-    const statusPanels = Array.from(document.querySelectorAll('[data-status-panel]'));
+function initRequestStatusFilter(root = getRequestHistoryContentRoot() || document) {
+    const statusTabs = Array.from(root.querySelectorAll('[data-status-tab]'));
+    const statusPanels = Array.from(root.querySelectorAll('[data-status-panel]'));
     if (!statusTabs.length || !statusPanels.length) return;
 
     function activateStatusPanel(statusKey) {
@@ -1609,16 +1714,83 @@ function initRequestStatusFilter() {
     }
 
     statusTabs.forEach((tab) => {
+        if (tab.dataset.requestStatusTabBound === '1') return;
+        tab.dataset.requestStatusTabBound = '1';
         tab.addEventListener('click', () => {
             activateStatusPanel(tab.dataset.statusTab);
+            updateRequestHistoryCurrentUrlParam('status_tab', tab.dataset.statusTab);
         });
     });
 
     const initialStatus = statusTabs.find((tab) => tab.classList.contains('is-active'))?.dataset.statusTab || statusTabs[0].dataset.statusTab;
+    updateRequestHistoryCurrentUrlParam('status_tab', initialStatus);
     activateStatusPanel(initialStatus);
 }
 
-initRequestStatusFilter();
+async function loadRequestHistoryPage(url) {
+    const currentContent = getRequestHistoryContentRoot();
+    if (!requestHistoryModalEl || !currentContent || !url) return;
+
+    setRequestHistoryLoading(true);
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        if (!response.ok) {
+            throw new Error(`Tracking request failed with status ${response.status}`);
+        }
+
+        const html = await response.text();
+        const parsed = new DOMParser().parseFromString(html, 'text/html');
+        const nextContent = parsed.querySelector('.request-history-content');
+        if (!nextContent) {
+            throw new Error('Tracking content was not found in the response.');
+        }
+
+        requestHistoryCurrentUrl = response.url || url;
+        currentContent.replaceWith(nextContent);
+        initRequestTrackingUI(nextContent);
+    } catch (error) {
+        await showRequestNotice(
+            'Unable to load more tracking results right now. Please try again.',
+            { title: 'Tracking Unavailable', tone: 'warning' }
+        );
+    } finally {
+        setRequestHistoryLoading(false);
+    }
+}
+
+function initRequestHistoryPagination() {
+    if (!requestHistoryModalEl || requestHistoryModalEl.dataset.requestPaginationBound === '1') return;
+    requestHistoryModalEl.dataset.requestPaginationBound = '1';
+
+    requestHistoryModalEl.addEventListener('click', (event) => {
+        const link = event.target.closest('.request-pagination a');
+        if (!link || !requestHistoryModalEl.contains(link)) return;
+
+        event.preventDefault();
+        if (link.classList.contains('disabled') || !link.href) return;
+        loadRequestHistoryPage(link.href);
+    });
+}
+
+function initRequestTrackingUI(root = getRequestHistoryContentRoot() || document) {
+    mountRequestViewModals(root);
+    initRequestClickableCards(root);
+    initRequestInlineStops(root);
+    initRequestDeleteForms(root);
+    initRequestEditToggles(root);
+    initRequestEditCancels(document);
+    initRequestEditForms(document);
+    initLandmarkViewers(document);
+    initRequestStatusFilter(root);
+}
+
+initRequestTrackingUI();
+initRequestHistoryPagination();
 applyCreateLocationMode();
 setStep(1);
 renderPhotoSummary();

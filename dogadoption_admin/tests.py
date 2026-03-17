@@ -12,6 +12,7 @@ from .forms import PostForm
 from .models import (
     AdminNotification,
     Barangay,
+    CertificateSettings,
     Citation,
     DewormingTreatmentRecord,
     Dog,
@@ -164,6 +165,78 @@ class AdminExpiryNotificationTests(TestCase):
         self.assertEqual(record.medicine_expiry_date, today)
         self.assertContains(response, "Medicine expires today")
         self.assertEqual(response.context["admin_unread_notifications"], 1)
+
+
+class CertificateRegistrationFlowTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.admin = User.objects.create_user(
+            username="admin_certificate_flow",
+            password="secret123",
+            is_staff=True,
+        )
+        self.owner = User.objects.create_user(
+            username="registered_owner",
+            password="secret123",
+            first_name="Maria",
+            last_name="Lopez",
+        )
+        Profile.objects.create(
+            user=self.owner,
+            address="Villareal, Bayawan City, Negros Oriental",
+            age=29,
+            consent_given=True,
+            phone_number="+639171234567",
+        )
+        Barangay.objects.get_or_create(name="Villareal", defaults={"is_active": True})
+        self.client.force_login(self.admin)
+
+    def _certificate_payload(self, **overrides):
+        payload = {
+            "reg_no": "2026",
+            "name_of_pet": "Bantay",
+            "breed": "Aspin",
+            "dob": "",
+            "sex": "M",
+            "status": "Intact",
+            "color_markings": "Brown",
+            "owner_first_name": "Maria",
+            "owner_last_name": "Lopez",
+            "barangay": "Villareal",
+            "contact_no": "0917 123 4567",
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_dog_certificate_generates_incrementing_registration_numbers(self):
+        first_response = self.client.post(
+            reverse("dogadoption_admin:dog_certificate"),
+            self._certificate_payload(name_of_pet="Bantay"),
+        )
+        second_response = self.client.post(
+            reverse("dogadoption_admin:dog_certificate"),
+            self._certificate_payload(name_of_pet="Brownie"),
+        )
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 302)
+        registrations = list(DogRegistration.objects.order_by("id"))
+        self.assertEqual([row.reg_no for row in registrations], ["CVET-2026-1", "CVET-2026-2"])
+        self.assertEqual(CertificateSettings.objects.get().reg_no, "CVET-2026")
+
+    def test_registration_user_search_api_returns_phone_number_for_autofill(self):
+        response = self.client.get(
+            reverse("dogadoption_admin:registration_user_search_api"),
+            {"q": "Maria"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        results = response.json()["results"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["full_name"], "Maria Lopez")
+        self.assertEqual(results[0]["barangay"], "Villareal")
+        self.assertEqual(results[0]["phone_number"], "+639171234567")
 
 
 class AnalyticsDashboardTests(TestCase):

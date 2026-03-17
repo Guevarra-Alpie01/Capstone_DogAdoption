@@ -188,6 +188,43 @@ def _format_breed_label(value):
     return cleaned
 
 
+def _normalize_certificate_series(value):
+    parts = [
+        re.sub(r"[^A-Za-z0-9]+", "", part).upper()
+        for part in re.split(r"[-/\s]+", (value or "").strip())
+    ]
+    parts = [part for part in parts if part]
+    if not parts:
+        return ""
+
+    if parts[0] != "CVET":
+        parts.insert(0, "CVET")
+
+    if len(parts) >= 3 and parts[-1].isdigit():
+        parts = parts[:-1]
+
+    return "-".join(parts)
+
+
+def _next_certificate_sequence(series_prefix):
+    pattern = re.compile(rf"^{re.escape(series_prefix)}-(\d+)$")
+    max_sequence = 0
+
+    for reg_no in DogRegistration.objects.filter(
+        reg_no__startswith=f"{series_prefix}-"
+    ).values_list("reg_no", flat=True):
+        match = pattern.match((reg_no or "").upper())
+        if match:
+            max_sequence = max(max_sequence, int(match.group(1)))
+
+    return max_sequence + 1
+
+
+def _build_certificate_registration_number(series_prefix):
+    next_sequence = _next_certificate_sequence(series_prefix)
+    return f"{series_prefix}-{next_sequence}"
+
+
 def _exclude_breed_from_chart(value):
     return _normalize_breed_key(value) == "mongril"
 
@@ -2873,6 +2910,7 @@ def registration_user_search_api(request):
         "last_name",
         "username",
         "profile__address",
+        "profile__phone_number",
     )[:12]
     results = []
     for row in rows:
@@ -2881,6 +2919,7 @@ def registration_user_search_api(request):
         username = (row.get("username") or "").strip()
         full_name = f"{first_name} {last_name}".strip()
         barangay = _extract_barangay_from_address(row.get("profile__address") or "")
+        phone_number = (row.get("profile__phone_number") or "").strip()
         results.append(
             {
                 "id": row["id"],
@@ -2889,6 +2928,7 @@ def registration_user_search_api(request):
                 "username": username,
                 "full_name": full_name or username,
                 "barangay": barangay,
+                "phone_number": phone_number,
             }
         )
 
@@ -3265,6 +3305,7 @@ def dog_certificate(request):
 
     if request.method == "POST":
         reg_no = (request.POST.get("reg_no") or "").strip()
+        series_prefix = _normalize_certificate_series(reg_no)
         breed = (request.POST.get("breed") or "").strip()
         dob_input = (request.POST.get("dob") or "").strip()
         dob_value = parse_date(dob_input) if dob_input else None
@@ -3280,8 +3321,8 @@ def dog_certificate(request):
         )
         status = (request.POST.get("status") or "").strip()
 
-        if not re.match(r"^[A-Za-z0-9][A-Za-z0-9\-/]*$", reg_no):
-            messages.error(request, "Registration Number can contain only letters, numbers, dash (-), or slash (/).")
+        if not series_prefix:
+            messages.error(request, "Please enter a valid registration series.")
             return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
 
         if not breed:
@@ -3326,26 +3367,32 @@ def dog_certificate(request):
 
         contact_no = f"+63{canonical_local[1:]}"
 
-        if settings:
-            if settings.reg_no != reg_no:
-                settings.reg_no = reg_no
-                settings.save()
-        else:
-            settings = CertificateSettings.objects.create(reg_no=reg_no)
+        with transaction.atomic():
+            settings = (
+                CertificateSettings.objects.select_for_update()
+                .order_by("id")
+                .first()
+            )
+            if settings:
+                if settings.reg_no != series_prefix:
+                    settings.reg_no = series_prefix
+                    settings.save(update_fields=["reg_no"])
+            else:
+                settings = CertificateSettings.objects.create(reg_no=series_prefix)
 
-        registration = DogRegistration.objects.create(
-            # Keep address format standardized: "<Barangay>, Bayawan City, Negros Oriental"
-            reg_no=settings.reg_no,
-            name_of_pet=request.POST.get('name_of_pet'),
-            breed=breed,
-            dob=dob_value,
-            color_markings=request.POST.get('color_markings'),
-            sex=request.POST.get('sex'),
-            status=status,
-            owner_name=owner_name,
-            address=f"{address_line}, {barangay}, Bayawan City, Negros Oriental" if address_line else f"{barangay}, Bayawan City, Negros Oriental",
-            contact_no=contact_no,
-        )
+            registration = DogRegistration.objects.create(
+                # Keep address format standardized: "<Barangay>, Bayawan City, Negros Oriental"
+                reg_no=_build_certificate_registration_number(settings.reg_no),
+                name_of_pet=request.POST.get('name_of_pet'),
+                breed=breed,
+                dob=dob_value,
+                color_markings=request.POST.get('color_markings'),
+                sex=request.POST.get('sex'),
+                status=status,
+                owner_name=owner_name,
+                address=f"{address_line}, {barangay}, Bayawan City, Negros Oriental" if address_line else f"{barangay}, Bayawan City, Negros Oriental",
+                contact_no=contact_no,
+            )
 
         #  Redirect to medical record with dog ID
         return redirect('dogadoption_admin:med_records', registration_id=registration.id)

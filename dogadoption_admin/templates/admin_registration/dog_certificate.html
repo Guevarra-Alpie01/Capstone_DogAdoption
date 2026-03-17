@@ -49,9 +49,9 @@
                     maxlength="50"
                     pattern="[A-Za-z0-9][-A-Za-z0-9/]*"
                     title="Use letters, numbers, dash (-), or slash (/)."
-                    placeholder="e.g., BRGY-2026-001A"
+                    placeholder="e.g., 2026 or CVET-2026"
                 >
-                <small class="certificate-field-hint">Once submitted, this is the permanent record ID.</small>
+                <small class="certificate-field-hint">Use the year or series prefix once. Saved certificates will auto-number like CVET-2026-1, CVET-2026-2, and so on.</small>
             </div>
 
             <div class="dog-info-section">
@@ -191,8 +191,9 @@
         const ownerFirstName = document.getElementById('owner_first_name');
         const ownerLastName = document.getElementById('owner_last_name');
         const barangayInput = document.getElementById('barangay');
+        const contactInput = document.getElementById('contact_no');
 
-        if (!searchInput || !clearBtn || !searchBtn || !suggestionsBox || !ownerFirstName || !ownerLastName || !barangayInput) {
+        if (!searchInput || !clearBtn || !searchBtn || !suggestionsBox || !ownerFirstName || !ownerLastName || !barangayInput || !contactInput) {
             return;
         }
 
@@ -212,6 +213,7 @@
             ownerFirstName.value = '';
             ownerLastName.value = '';
             barangayInput.value = '';
+            contactInput.value = '09';
         }
 
         function toggleClearButton() {
@@ -248,6 +250,9 @@
                     if (row.barangay) {
                         barangayInput.value = row.barangay;
                     }
+                    contactInput.value = row.phone_number
+                        ? formatContactNumber(row.phone_number)
+                        : '09';
                     searchInput.value = row.full_name || row.username || '';
                     clearSuggestions();
                 });

@@ -2125,9 +2125,10 @@ def admin_notifications(request):
 def mark_notification_read(request, pk):
     """Mark one admin notification as read and follow its target link."""
     notif = get_object_or_404(AdminNotification, pk=pk)
-    notif.is_read = True
-    notif.save(update_fields=["is_read"])
-    cache.delete(ADMIN_NOTIFICATIONS_CACHE_KEY)
+    if not notif.is_read:
+        notif.is_read = True
+        notif.save(update_fields=["is_read"])
+        cache.delete(ADMIN_NOTIFICATIONS_CACHE_KEY)
     target = notif.url or "dogadoption_admin:admin_notifications"
     return redirect(target)
 

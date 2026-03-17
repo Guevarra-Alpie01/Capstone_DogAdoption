@@ -1,10 +1,10 @@
+from urllib.parse import urlencode
+
 from django.urls import reverse
-from django.utils.dateparse import parse_datetime
-from django.utils import timezone
 
 from .notification_utils import (
-    USER_NOTIFICATIONS_SEEN_SESSION_KEY,
     build_user_notification_payload,
+    get_user_notification_read_keys,
 )
 
 
@@ -23,21 +23,22 @@ def user_notifications(request):
 
     try:
         payload = build_user_notification_payload(user)
-        last_seen_raw = request.session.get(USER_NOTIFICATIONS_SEEN_SESSION_KEY, "")
-        last_seen_at = parse_datetime(last_seen_raw) if last_seen_raw else None
-        if last_seen_at and timezone.is_naive(last_seen_at):
-            last_seen_at = timezone.make_aware(last_seen_at, timezone.get_current_timezone())
-
+        read_keys = get_user_notification_read_keys(request)
         notifications = []
         unread_count = 0
         for item in payload.get("items", []):
-            created_at = item.get("created_at")
-            is_unread = bool(created_at and (last_seen_at is None or created_at > last_seen_at))
+            notification_key = item.get("key", "")
+            target_url = item.get("url") or reverse("user:user_home")
+            is_unread = bool(notification_key and notification_key not in read_keys)
             if is_unread:
                 unread_count += 1
             notifications.append({
                 **item,
                 "is_unread": is_unread,
+                "open_url": "{}?{}".format(
+                    reverse("user:open_notification"),
+                    urlencode({"key": notification_key, "next": target_url}),
+                ),
             })
 
         return {

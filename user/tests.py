@@ -736,7 +736,7 @@ class UserNotificationTests(TestCase):
         )
         self.assertGreaterEqual(response.context["user_unread_notifications"], 1)
 
-    def test_mark_notifications_seen_clears_unread_count(self):
+    def test_opening_notification_marks_only_that_item_as_read(self):
         rescued_post = Post.objects.create(
             user=self.admin,
             caption="Accepted request post",
@@ -757,12 +757,43 @@ class UserNotificationTests(TestCase):
         remember_request_reviewed_at(accepted_request.id, timezone.now())
 
         first_response = self.client.get(reverse("user:my_claims"))
-        self.assertGreater(first_response.context["user_unread_notifications"], 0)
+        initial_unread_count = first_response.context["user_unread_notifications"]
+        self.assertGreaterEqual(initial_unread_count, 1)
+        notification = next(
+            item
+            for item in first_response.context["user_latest_notifications"]
+            if item["kind"] == "accepted_request"
+        )
+
+        open_response = self.client.get(notification["open_url"], follow=True)
+        self.assertEqual(open_response.status_code, 200)
+
+        second_response = self.client.get(reverse("user:my_claims"))
+        self.assertEqual(
+            second_response.context["user_unread_notifications"],
+            initial_unread_count - 1,
+        )
+        updated_notification = next(
+            item
+            for item in second_response.context["user_latest_notifications"]
+            if item["kind"] == "accepted_request"
+        )
+        self.assertFalse(updated_notification["is_unread"])
+
+    def test_mark_notifications_seen_clears_unread_count(self):
+        DogAnnouncement.objects.create(
+            title="Barangay drive",
+            content="Vaccination day is scheduled.",
+            created_by=self.admin,
+        )
+
+        first_response = self.client.get(reverse("user:announcement_list"))
+        self.assertEqual(first_response.context["user_unread_notifications"], 1)
 
         mark_response = self.client.post(reverse("user:mark_notifications_seen"))
         self.assertEqual(mark_response.status_code, 200)
 
-        second_response = self.client.get(reverse("user:my_claims"))
+        second_response = self.client.get(reverse("user:announcement_list"))
         self.assertEqual(second_response.context["user_unread_notifications"], 0)
 
 

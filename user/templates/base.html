@@ -106,7 +106,6 @@
                     <a href="#"
                        class="position-relative topbar-icon-btn nav-bell"
                        data-user-notification-toggle
-                       data-mark-seen-url="{{ user_notifications_seen_url }}"
                        data-unread-count="{{ user_unread_notifications }}"
                        data-bs-toggle="dropdown"
                        aria-expanded="false"
@@ -130,7 +129,7 @@
                         </li>
                         {% for notification in user_latest_notifications %}
                             <li>
-                                <a class="dropdown-item notification-item notification-item--{{ notification.kind }} {% if notification.is_unread %}unread{% endif %}" href="{{ notification.url }}">
+                                <a class="dropdown-item notification-item notification-item--{{ notification.kind }} {% if notification.is_unread %}unread{% endif %}" href="{{ notification.open_url }}">
                                     <span class="notification-avatar notification-avatar--{{ notification.kind }}" aria-hidden="true">
                                         {% if notification.kind == "accepted_request" %}
                                             <i class="bi bi-check2-circle"></i>
@@ -362,44 +361,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (notificationDropdown && notificationToggle) {
-        let markedSeen = false;
         notificationDropdown.addEventListener('shown.bs.dropdown', function () {
             const unreadCount = parseInt(notificationToggle.dataset.unreadCount || '0', 10);
-            const markSeenUrl = notificationToggle.dataset.markSeenUrl || '';
-            if (markedSeen || unreadCount < 1 || !markSeenUrl) {
-                return;
-            }
-
-            fetch(markSeenUrl, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            }).then(function (response) {
-                if (!response.ok) {
-                    return null;
-                }
-                return response.json();
-            }).then(function () {
-                markedSeen = true;
-                notificationToggle.dataset.unreadCount = '0';
-                const badge = notificationToggle.querySelector('[data-notification-badge]');
-                if (badge) {
-                    badge.remove();
-                }
-                notificationDropdown.querySelectorAll('[data-notification-summary-count]').forEach(function (summaryBadge) {
-                    summaryBadge.remove();
-                });
-                notificationDropdown.querySelectorAll('.notification-item.unread').forEach(function (item) {
-                    item.classList.remove('unread');
-                });
-                notificationDropdown.querySelectorAll('[data-notification-state]').forEach(function (stateTag) {
-                    stateTag.remove();
-                });
-            }).catch(function () {
-                // Ignore transient sync failures for the bell UI.
-            });
+            notificationToggle.setAttribute('aria-label', unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications');
         });
     }
 });

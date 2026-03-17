@@ -166,6 +166,24 @@ class AdminExpiryNotificationTests(TestCase):
         self.assertContains(response, "Medicine expires today")
         self.assertEqual(response.context["admin_unread_notifications"], 1)
 
+    def test_mark_notification_read_updates_unread_count(self):
+        notification = AdminNotification.objects.create(
+            title="Vaccination card expires today",
+            message="Buddy (REG-100) vaccination card expires today",
+            url=reverse("dogadoption_admin:admin_notifications"),
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("dogadoption_admin:notification_read", args=[notification.id]),
+            follow=True,
+        )
+
+        notification.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(notification.is_read)
+        self.assertEqual(response.context["admin_unread_notifications"], 0)
+
 
 class CertificateRegistrationFlowTests(TestCase):
     def setUp(self):

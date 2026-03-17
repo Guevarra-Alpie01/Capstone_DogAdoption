@@ -57,11 +57,13 @@ from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, Mi
 # Forms and notification helpers
 from .forms import MissingDogPostForm, UserAdoptionPostForm
 from .notification_utils import (
-    USER_NOTIFICATIONS_SEEN_SESSION_KEY,
+    build_user_notification_payload,
     bump_user_home_feed_namespace,
     get_user_home_feed_namespace,
     invalidate_user_notification_content,
     invalidate_user_notification_payload,
+    mark_user_notification_read,
+    mark_user_notifications_read,
 )
 
 # Administrative and user models above are shared across multiple public flows.
@@ -526,10 +528,43 @@ def logout_view(request):
 @require_POST
 @user_only
 def mark_notifications_seen(request):
-    """Mark the latest user notifications as seen for the current session."""
-    request.session[USER_NOTIFICATIONS_SEEN_SESSION_KEY] = timezone.now().isoformat()
-    request.session.modified = True
+    """Mark the latest user notifications as read for the current session."""
+    payload = build_user_notification_payload(request.user)
+    mark_user_notifications_read(
+        request,
+        [item.get("key", "") for item in payload.get("items", [])],
+    )
     return JsonResponse({"ok": True, "unread_count": 0})
+
+
+@user_only
+def open_notification(request):
+    """Mark one user notification as read, then continue to its destination."""
+    notification_key = (request.GET.get("key") or "").strip()
+    payload = build_user_notification_payload(request.user)
+    matching_item = next(
+        (
+            item for item in payload.get("items", [])
+            if item.get("key", "").strip() == notification_key
+        ),
+        None,
+    )
+
+    if matching_item and notification_key:
+        mark_user_notification_read(request, notification_key)
+
+    target = (
+        matching_item.get("url")
+        if matching_item and matching_item.get("url")
+        else request.GET.get("next", "")
+    )
+    if not url_has_allowed_host_and_scheme(
+        target,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        target = reverse("user:user_home")
+    return redirect(target)
 
 
 def _clean_barangay(value):

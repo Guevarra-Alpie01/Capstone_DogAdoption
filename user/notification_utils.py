@@ -21,6 +21,7 @@ USER_NOTIFICATIONS_ANNOUNCEMENT_SAMPLE_LIMIT = 2
 USER_NOTIFICATIONS_COMMUNITY_POST_CANDIDATE_LIMIT = 120
 USER_NOTIFICATIONS_COMMUNITY_POST_SAMPLE_LIMIT = 3
 USER_NOTIFICATIONS_SEEN_SESSION_KEY = "user_notifications_seen_at"
+USER_NOTIFICATIONS_READ_SESSION_KEY = "user_notifications_read_keys_v1"
 USER_NOTIFICATIONS_GLOBAL_VERSION_KEY = "user_notifications_global_version_v1"
 USER_NOTIFICATIONS_REQUEST_VERSION_KEY = "user_notifications_request_version_v1:{user_id}"
 USER_NOTIFICATION_REQUEST_REVIEW_TS_KEY = "user_notification_request_reviewed_at_v1:{request_id}"
@@ -28,6 +29,7 @@ USER_NOTIFICATIONS_ADMIN_POST_IDS_CACHE_KEY = "user_notifications_admin_post_ids
 USER_NOTIFICATIONS_ANNOUNCEMENT_IDS_CACHE_KEY = "user_notifications_announcement_ids_v1"
 USER_NOTIFICATIONS_COMMUNITY_POST_IDS_CACHE_KEY = "user_notifications_community_post_ids_v1"
 USER_NOTIFICATION_REVIEW_TIMESTAMP_TTL_SECONDS = 60 * 60 * 24 * 30
+USER_NOTIFICATIONS_MAX_READ_KEYS = 200
 USER_HOME_FEED_NAMESPACE_KEY = "user_home_feed_namespace_v1"
 
 
@@ -102,6 +104,60 @@ def invalidate_user_notification_content():
         USER_NOTIFICATIONS_ANNOUNCEMENT_IDS_CACHE_KEY,
         USER_NOTIFICATIONS_COMMUNITY_POST_IDS_CACHE_KEY,
     ])
+
+
+def _normalize_notification_read_keys(raw_value):
+    if not isinstance(raw_value, (list, tuple, set)):
+        return []
+
+    normalized = []
+    seen = set()
+    for key in raw_value:
+        if not isinstance(key, str):
+            continue
+        normalized_key = key.strip()
+        if not normalized_key or normalized_key in seen:
+            continue
+        seen.add(normalized_key)
+        normalized.append(normalized_key)
+    return normalized[:USER_NOTIFICATIONS_MAX_READ_KEYS]
+
+
+def get_user_notification_read_keys(request):
+    read_keys = _normalize_notification_read_keys(
+        request.session.get(USER_NOTIFICATIONS_READ_SESSION_KEY, [])
+    )
+    if read_keys != request.session.get(USER_NOTIFICATIONS_READ_SESSION_KEY, []):
+        request.session[USER_NOTIFICATIONS_READ_SESSION_KEY] = read_keys
+        request.session.modified = True
+    return set(read_keys)
+
+
+def mark_user_notifications_read(request, notification_keys):
+    normalized_existing = _normalize_notification_read_keys(
+        request.session.get(USER_NOTIFICATIONS_READ_SESSION_KEY, [])
+    )
+    existing_set = set(normalized_existing)
+
+    updated = list(normalized_existing)
+    for key in notification_keys:
+        if not isinstance(key, str):
+            continue
+        normalized_key = key.strip()
+        if not normalized_key or normalized_key in existing_set:
+            continue
+        updated.append(normalized_key)
+        existing_set.add(normalized_key)
+
+    updated = updated[-USER_NOTIFICATIONS_MAX_READ_KEYS:]
+    if updated != normalized_existing:
+        request.session[USER_NOTIFICATIONS_READ_SESSION_KEY] = updated
+        request.session.modified = True
+    return existing_set
+
+
+def mark_user_notification_read(request, notification_key):
+    return mark_user_notifications_read(request, [notification_key])
 
 
 def get_user_home_feed_namespace():

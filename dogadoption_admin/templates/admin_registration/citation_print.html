@@ -264,19 +264,19 @@
             citationReturnHandled = true;
 
             const returnUrl = resolveCitationReturnUrl();
-            let triedHistoryBack = false;
+            let usedHistoryBack = false;
 
             try {
                 const refUrl = document.referrer ? new URL(document.referrer) : null;
                 if (window.history.length > 1 && refUrl && refUrl.origin === window.location.origin) {
-                    triedHistoryBack = true;
+                    usedHistoryBack = true;
                     window.history.back();
                 }
             } catch (error) {
-                triedHistoryBack = false;
+                usedHistoryBack = false;
             }
 
-            if (triedHistoryBack) {
+            if (usedHistoryBack) {
                 window.setTimeout(() => {
                     if (window.location.href.includes('/citation/') && window.location.href.includes('/print/')) {
                         window.location.href = returnUrl;
@@ -285,7 +285,17 @@
                 return;
             }
 
-            window.location.href = returnUrl;
+            try {
+                window.close();
+            } catch (error) {
+                // Ignore close failures and fall back to same-tab navigation.
+            }
+
+            window.setTimeout(() => {
+                if (!window.closed) {
+                    window.location.href = returnUrl;
+                }
+            }, 200);
         }
 
         function wirePrintCloseHandlers() {

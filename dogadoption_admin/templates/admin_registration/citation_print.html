@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,6 +18,9 @@
             color: #101418;
             font-size: 11px;
             line-height: 1.35;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            forced-color-adjust: none;
         }
 
         .ticket {
@@ -28,27 +32,94 @@
             box-sizing: border-box;
         }
 
-        .center {
-            text-align: center;
+        .header {
+            display: grid;
+            gap: 5px;
         }
 
+        .header-top {
+            display: grid;
+            grid-template-columns: 30mm minmax(0, 1fr) 50mm;
+            gap: 5px;
+            align-items: start;
+            margin-top: 30px!important;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-top: 2px;
+        }
+
+        .header-brand img {
+    width: 30mm;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    filter: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    forced-color-adjust: none;
+    transform: translateY(-10mm);
+        }
+
+        .header-title-block {
+            min-width: 0;
+            text-align: center;
+            padding-top: 5px;
+        }
+
+        .header-office {
+            min-width: 0;
+            text-align: right;
+            font-size: 8.6px;
+            line-height: 1.22;
+            padding-top: 1px;
+            padding-right: 2mm;
+        }
+
+        .header-office .brand {
+            font-size: 9.4px;
+            letter-spacing: 0;
+            white-space: nowrap;
+        }
+
+       .header-note {
+    position: absolute;
+    top: 100px; /* adjust */
+    right: 43px;
+    width: 100%;
+    text-align: center;
+    font-size: 10px;
+}
         .brand {
-            font-size: 14px;
+            font-size: 11px;
             font-weight: 700;
             margin: 0;
             letter-spacing: 0.2px;
+            text-transform: uppercase;
         }
 
         .title {
-            margin: 2px 0 0;
-            font-size: 19px;
+            margin: 3px 0 0;
+            font-size: 18px;
             font-weight: 800;
             letter-spacing: 0.8px;
         }
 
         .subline {
-            margin: 2px 0 0;
-            font-size: 10px;
+            margin: 1px 0 0;
+            font-size: 9px;
+        }
+
+        .header-note p,
+        .header-office p {
+            margin: 0;
+        }
+
+        .header-office .subline {
+            white-space: nowrap;
         }
 
         .divider {
@@ -56,9 +127,17 @@
             margin: 8px 0;
         }
 
+        .meta-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 27mm;
+            gap: 8px;
+            align-items: start;
+        }
+
         .meta {
             display: grid;
             gap: 3px;
+            min-width: 0;
         }
 
         .label {
@@ -69,7 +148,7 @@
             border: 1px dashed #5b6470;
             border-radius: 4px;
             padding: 6px;
-            margin-top: 6px;
+            margin-top: 0;
         }
 
         .receipt-code {
@@ -146,12 +225,15 @@
 
         .footer {
             margin-top: 12px;
-            text-align: center;
             font-size: 10px;
         }
 
+        .footer-copy {
+            text-align: center;
+        }
+
         .signature-line {
-            margin: 8px auto 4px;
+            margin: 16px auto 4px;
             width: 80%;
             border-top: 1px solid #1f2937;
         }
@@ -162,7 +244,8 @@
         }
 
         .print-date {
-            margin-top: 6px;
+            margin-top: 10px;
+            text-align: left;
         }
 
         @media print {
@@ -182,27 +265,42 @@
 </head>
 <body onload="preparePrintTicket();">
     <div class="ticket">
-        <div class="center">
-            <p class="brand">Bayawan City Veterinary Office</p>
-            <p class="subline">City Ordinance No. 8</p>
-            <p class="title">CITATION TICKET</p>
-            <p class="subline">National Highway, Brgy. Villareal, Bayawan City</p>
+        <div class="header">
+            <div class="header-top">
+                <div class="header-brand">
+                    <img src="{% static 'images/bayawanharvest-removebg-preview.png' %}" alt="Bayawan Harvest">
+                </div>
+                <div class="header-title-block">
+                    <p class="title">CITATION TICKET</p>
+                </div>
+                <div class="header-office">
+                    <p class="brand">City Veterinary Office</p>
+                    <p class="subline">National Highway, Brgy. Villareal, Bayawan City</p>
+                    <p class="subline">Negros Oriental, 6221 Philippines</p>
+                </div>
+            </div>
+            <div class="header-note">
+                <p class="subline">City Ordinance No. 8 entitled, "Bayawan City Dog Domestic of 2022"</p>
+                <p>hereby charges you the following Fines and Penalties:</p>
+            </div>
         </div>
 
         <div class="divider"></div>
 
-        <div class="meta">
-            <div><span class="label">Citation No:</span> {{ citation.id }}</div>
-            <div><span class="label">Owner:</span> {{ owner_name }}</div>
-            <div><span class="label">Barangay:</span> {{ owner_barangay }}</div>
-            <div><span class="label">Address:</span> {{ owner_address }}</div>
-            <div><span class="label">Date Issued:</span> {{ citation.date_issued|date:"M d, Y h:i A" }}</div>
-            <div><span class="label">Selected Violations:</span> {{ selected_penalties|length }}</div>
-        </div>
+        <div class="meta-layout">
+            <div class="meta">
+                <div><span class="label">Citation No:</span> {{ citation.id }}</div>
+                <div><span class="label">Owner:</span> {{ owner_name }}</div>
+                <div><span class="label">Barangay:</span> {{ owner_barangay }}</div>
+                <div><span class="label">Address:</span> {{ owner_address }}</div>
+                <div><span class="label">Date Issued:</span> {{ citation.date_issued|date:"M d, Y h:i A" }}</div>
+                <div><span class="label">Selected Violations:</span> {{ selected_penalties|length }}</div>
+            </div>
 
-        <div class="receipt-box">
-            <div class="label">Receipt Reference (Unique)</div>
-            <div class="receipt-code">{{ receipt_no }}</div>
+            <div class="receipt-box">
+                <div class="label">Receipt Ref.</div>
+                <div class="receipt-code">{{ receipt_no }}</div>
+            </div>
         </div>
 
         <div class="divider"></div>
@@ -228,10 +326,12 @@
         </div>
 
         <div class="footer">
-            <div>By authority of the Office of the Veterinarian</div>
-            <div class="signature-line"></div>
-            <div class="leader-name">REYNALDO L. SOLAMILLO</div>
-            <div>Team Leader, Rabies/Dog Control</div>
+            <div class="footer-copy">
+                <div>By authority of the Office of the Veterinarian</div>
+                <div class="signature-line"></div>
+                <div class="leader-name">REYNALDO L. SOLAMILLO</div>
+                <div>Team Leader, Rabies/Dog Control</div>
+            </div>
             <div class="print-date">Printed On: <span id="printed-on">-</span></div>
         </div>
     </div>
@@ -264,19 +364,19 @@
             citationReturnHandled = true;
 
             const returnUrl = resolveCitationReturnUrl();
-            let triedHistoryBack = false;
+            let usedHistoryBack = false;
 
             try {
                 const refUrl = document.referrer ? new URL(document.referrer) : null;
                 if (window.history.length > 1 && refUrl && refUrl.origin === window.location.origin) {
-                    triedHistoryBack = true;
+                    usedHistoryBack = true;
                     window.history.back();
                 }
             } catch (error) {
-                triedHistoryBack = false;
+                usedHistoryBack = false;
             }
 
-            if (triedHistoryBack) {
+            if (usedHistoryBack) {
                 window.setTimeout(() => {
                     if (window.location.href.includes('/citation/') && window.location.href.includes('/print/')) {
                         window.location.href = returnUrl;
@@ -285,7 +385,17 @@
                 return;
             }
 
-            window.location.href = returnUrl;
+            try {
+                window.close();
+            } catch (error) {
+                // Ignore close failures and fall back to same-tab navigation.
+            }
+
+            window.setTimeout(() => {
+                if (!window.closed) {
+                    window.location.href = returnUrl;
+                }
+            }, 200);
         }
 
         function wirePrintCloseHandlers() {

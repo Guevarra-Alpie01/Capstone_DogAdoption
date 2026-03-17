@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -12,6 +12,7 @@ from .forms import PostForm
 from .models import (
     AdminNotification,
     Barangay,
+    CertificateSettings,
     Citation,
     DewormingTreatmentRecord,
     Dog,
@@ -164,6 +165,78 @@ class AdminExpiryNotificationTests(TestCase):
         self.assertEqual(record.medicine_expiry_date, today)
         self.assertContains(response, "Medicine expires today")
         self.assertEqual(response.context["admin_unread_notifications"], 1)
+
+
+class CertificateRegistrationFlowTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.admin = User.objects.create_user(
+            username="admin_certificate_flow",
+            password="secret123",
+            is_staff=True,
+        )
+        self.owner = User.objects.create_user(
+            username="registered_owner",
+            password="secret123",
+            first_name="Maria",
+            last_name="Lopez",
+        )
+        Profile.objects.create(
+            user=self.owner,
+            address="Villareal, Bayawan City, Negros Oriental",
+            age=29,
+            consent_given=True,
+            phone_number="+639171234567",
+        )
+        Barangay.objects.get_or_create(name="Villareal", defaults={"is_active": True})
+        self.client.force_login(self.admin)
+
+    def _certificate_payload(self, **overrides):
+        payload = {
+            "reg_no": "2026",
+            "name_of_pet": "Bantay",
+            "breed": "Aspin",
+            "dob": "",
+            "sex": "M",
+            "status": "Intact",
+            "color_markings": "Brown",
+            "owner_first_name": "Maria",
+            "owner_last_name": "Lopez",
+            "barangay": "Villareal",
+            "contact_no": "0917 123 4567",
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_dog_certificate_generates_incrementing_registration_numbers(self):
+        first_response = self.client.post(
+            reverse("dogadoption_admin:dog_certificate"),
+            self._certificate_payload(name_of_pet="Bantay"),
+        )
+        second_response = self.client.post(
+            reverse("dogadoption_admin:dog_certificate"),
+            self._certificate_payload(name_of_pet="Brownie"),
+        )
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 302)
+        registrations = list(DogRegistration.objects.order_by("id"))
+        self.assertEqual([row.reg_no for row in registrations], ["CVET-2026-1", "CVET-2026-2"])
+        self.assertEqual(CertificateSettings.objects.get().reg_no, "CVET-2026")
+
+    def test_registration_user_search_api_returns_phone_number_for_autofill(self):
+        response = self.client.get(
+            reverse("dogadoption_admin:registration_user_search_api"),
+            {"q": "Maria"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        results = response.json()["results"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["full_name"], "Maria Lopez")
+        self.assertEqual(results[0]["barangay"], "Villareal")
+        self.assertEqual(results[0]["phone_number"], "+639171234567")
 
 
 class AnalyticsDashboardTests(TestCase):
@@ -875,6 +948,197 @@ class AdminDogRequestTemplateTests(TestCase):
         self.assertEqual(request_record.status, "accepted")
         self.assertIsNotNone(request_record.scheduled_date)
         self.assertEqual(timezone.localtime(request_record.scheduled_date).date(), available_date)
+
+    def test_scheduled_requests_sort_by_date_then_barangay_before_walk_in(self):
+        first_date = timezone.localdate() + timedelta(days=1)
+        second_date = timezone.localdate() + timedelta(days=2)
+        past_date = timezone.localdate() - timedelta(days=1)
+
+        online_request = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="capture",
+            submission_type="online",
+            reason="stray",
+            barangay="Caranoche",
+            city="Bayawan City",
+            latitude="9.123456",
+            longitude="122.654321",
+            status="accepted",
+            scheduled_date=timezone.make_aware(datetime.combine(first_date, time(hour=9))),
+        )
+        walk_in_request = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="surrender",
+            submission_type="walk_in",
+            reason="stray",
+            status="accepted",
+            scheduled_date=timezone.make_aware(datetime.combine(first_date, time(hour=10))),
+        )
+        future_request = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="capture",
+            submission_type="online",
+            reason="stray",
+            barangay="Bangas",
+            city="Bayawan City",
+            latitude="9.223456",
+            longitude="122.754321",
+            status="accepted",
+            scheduled_date=timezone.make_aware(datetime.combine(second_date, time(hour=9))),
+        )
+        past_request = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="capture",
+            submission_type="walk_in",
+            reason="stray",
+            status="accepted",
+            scheduled_date=timezone.make_aware(datetime.combine(past_date, time(hour=9))),
+        )
+
+        response = self.client.get(reverse("dogadoption_admin:requests") + "?tab=accepted")
+
+        self.assertEqual(response.status_code, 200)
+        accepted_ids = [req.id for req in response.context["accepted_requests"]]
+        self.assertEqual(
+            accepted_ids[:4],
+            [online_request.id, walk_in_request.id, future_request.id, past_request.id],
+        )
+
+    def test_bulk_mark_done_moves_scheduled_requests_to_captured(self):
+        scheduled_date = timezone.localdate() + timedelta(days=2)
+        selected_request = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="capture",
+            submission_type="online",
+            reason="stray",
+            status="accepted",
+            latitude="9.123456",
+            longitude="122.654321",
+            scheduled_date=timezone.make_aware(datetime.combine(scheduled_date, time(hour=9))),
+        )
+        untouched_request = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="surrender",
+            submission_type="walk_in",
+            reason="stray",
+            status="accepted",
+            scheduled_date=timezone.make_aware(datetime.combine(scheduled_date, time(hour=10))),
+        )
+
+        response = self.client.post(
+            reverse("dogadoption_admin:requests"),
+            {
+                "action": "bulk_mark_captured",
+                "selected_request_ids": [str(selected_request.id)],
+                "next": reverse("dogadoption_admin:requests") + "?tab=accepted",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        selected_request.refresh_from_db()
+        untouched_request.refresh_from_db()
+        self.assertEqual(selected_request.status, "captured")
+        self.assertEqual(untouched_request.status, "accepted")
+
+    def test_reschedule_single_updates_scheduled_request_date(self):
+        original_date = timezone.localdate() + timedelta(days=2)
+        new_date = timezone.localdate() + timedelta(days=5)
+        GlobalAppointmentDate.objects.create(
+            appointment_date=new_date,
+            created_by=self.admin,
+        )
+        request_record = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="capture",
+            submission_type="online",
+            reason="stray",
+            status="accepted",
+            latitude="9.123456",
+            longitude="122.654321",
+            scheduled_date=timezone.make_aware(datetime.combine(original_date, time(hour=9))),
+        )
+
+        response = self.client.post(
+            reverse("dogadoption_admin:requests"),
+            {
+                "action": "reschedule_single",
+                "request_id": str(request_record.id),
+                "scheduled_date": new_date.isoformat(),
+                "next": reverse("dogadoption_admin:requests") + "?tab=accepted",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        request_record.refresh_from_db()
+        self.assertEqual(timezone.localtime(request_record.scheduled_date).date(), new_date)
+
+    def test_bulk_reschedule_updates_all_selected_scheduled_requests(self):
+        original_date = timezone.localdate() + timedelta(days=2)
+        new_date = timezone.localdate() + timedelta(days=6)
+        GlobalAppointmentDate.objects.create(
+            appointment_date=new_date,
+            created_by=self.admin,
+        )
+        first_request = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="capture",
+            submission_type="online",
+            reason="stray",
+            status="accepted",
+            latitude="9.123456",
+            longitude="122.654321",
+            scheduled_date=timezone.make_aware(datetime.combine(original_date, time(hour=9))),
+        )
+        second_request = DogCaptureRequest.objects.create(
+            requested_by=self.requester,
+            request_type="surrender",
+            submission_type="walk_in",
+            reason="stray",
+            status="accepted",
+            scheduled_date=timezone.make_aware(datetime.combine(original_date, time(hour=10))),
+        )
+
+        response = self.client.post(
+            reverse("dogadoption_admin:requests"),
+            {
+                "action": "bulk_reschedule",
+                "selected_request_ids": [str(first_request.id), str(second_request.id)],
+                "scheduled_date": new_date.isoformat(),
+                "next": reverse("dogadoption_admin:requests") + "?tab=accepted",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        first_request.refresh_from_db()
+        second_request.refresh_from_db()
+        self.assertEqual(timezone.localtime(first_request.scheduled_date).date(), new_date)
+        self.assertEqual(timezone.localtime(second_request.scheduled_date).date(), new_date)
+
+    def test_scheduled_requests_table_shows_phone_number_and_pagination(self):
+        scheduled_date = timezone.localdate() + timedelta(days=2)
+        for index in range(11):
+            DogCaptureRequest.objects.create(
+                requested_by=self.requester,
+                request_type="capture",
+                submission_type="online",
+                reason="stray",
+                barangay=f"Barangay {index}",
+                city="Bayawan City",
+                latitude=f"9.12{index:04d}"[:8],
+                longitude=f"122.65{index:04d}"[:10],
+                status="accepted",
+                scheduled_date=timezone.make_aware(datetime.combine(scheduled_date + timedelta(days=index), time(hour=9))),
+            )
+
+        response = self.client.get(reverse("dogadoption_admin:requests") + "?tab=accepted")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Phone Number")
+        self.assertContains(response, "+639171234567")
+        self.assertTrue(response.context["accepted_page_obj"].has_next())
 
     def test_admin_request_map_shows_only_pending_online_requests(self):
         pending_request = DogCaptureRequest.objects.create(

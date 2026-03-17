@@ -2,34 +2,48 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/face_auth.css' %}">
+<link rel="stylesheet" href="{% static 'css/face_auth.css' %}?v=20260317a">
 {% endblock %}
 
 {% block content %}
 <div class="face-wrapper">
-    <div class="face-card">
+    <div class="face-auth-card">
+        <div class="face-shell">
+            <section class="face-header">
+                <div class="face-meta">
+                    <div class="step-label" id="stepLabel">Step 1</div>
+                    <span id="stepCounter" class="step-counter">1 / 4</span>
+                </div>
 
-        <!-- STEP LABEL -->
-        <div class="step-label" id="stepLabel">STEP 1</div>
+                <h2 id="instructionTitle">Face Verification</h2>
+                <p id="instructionDesc">Center your face in the frame.</p>
+            </section>
 
-        <!-- MAIN INSTRUCTION -->
-        <h2 id="instructionTitle">Face Verification</h2>
-        <p id="instructionDesc">Position your face inside the circle</p>
-        <div id="liveHint" class="live-hint" role="status" aria-live="polite">
-            <span class="live-hint-icon" aria-hidden="true"><i class="bi bi-lightbulb-fill"></i></span>
-            <span class="live-hint-text-wrap">
-                <span class="live-hint-label">Camera Guidance</span>
-                <span id="liveHintText">Keep your face centered and hold still for auto-capture.</span>
-            </span>
+            <div class="face-progress" aria-label="Verification progress">
+                <div class="face-progress__track" aria-hidden="true">
+                    <span class="face-progress__dot is-active" data-step-indicator="0"></span>
+                    <span class="face-progress__dot" data-step-indicator="1"></span>
+                    <span class="face-progress__dot" data-step-indicator="2"></span>
+                    <span class="face-progress__dot" data-step-indicator="3"></span>
+                </div>
+            </div>
+
+            <div id="liveHint" class="live-hint" role="status" aria-live="polite">
+                <span class="live-hint-icon" aria-hidden="true"><i class="bi bi-lightbulb-fill"></i></span>
+                <span class="live-hint-text-wrap">
+                    <span class="live-hint-label">Guide</span>
+                    <span id="liveHintText">Center your face and hold still.</span>
+                </span>
+            </div>
+
+            <section class="camera-stage">
+                <div class="camera-circle">
+                    <div class="camera-circle__guide" aria-hidden="true"></div>
+                    <video id="video" autoplay playsinline></video>
+                </div>
+                <p id="status" class="capture-status">Waiting for auto-capture.</p>
+            </section>
         </div>
-
-        <!-- CAMERA CIRCLE -->
-        <div class="camera-circle">
-            <video id="video" autoplay playsinline></video>
-        </div>
-
-        <!-- STATUS -->
-        <p id="status"></p>
 
         <canvas id="canvas" style="display:none;"></canvas>
         <canvas id="analysisCanvas" style="display:none;"></canvas>
@@ -38,33 +52,23 @@
             {% csrf_token %}
         </form>
 
-        <!-- CONSENT SECTION (HIDDEN FIRST) -->
-            <div id="consentSection" class="consent-box" style="display:none;">
-                <h4>Terms and Conditions</h4>
+        <div id="consentSection" class="consent-box" style="display:none;">
+            <span class="consent-box__eyebrow">Finish signup</span>
+            <h4>One last confirmation</h4>
 
-                <p>
-                    By continuing with facial verification, you consent to the collection and use of your face images strictly for account security and identity verification in this platform.
-                </p>
+            <p>Your face images are used only for login and identity verification on this platform.</p>
 
-                <p>
-                    Access to your face images is limited to authorized administrators and will be handled in accordance with applicable data protection and privacy standards.
-                </p>
+            <p>They are limited to authorized admins and are not shown publicly or shared outside verification.</p>
 
-                <p>
-                    Your face images will not be publicly displayed, shared, or used for purposes outside secure authentication and verification.
-                </p>
+            <label class="consent-check">
+                <input type="checkbox" id="agreeCheckbox">
+                <span>I agree to the verification terms.</span>
+            </label>
 
-                <label class="consent-check">
-                    <input type="checkbox" id="agreeCheckbox">
-                    I have read and agree to the Terms and Conditions
-                </label>
-
-                <button id="completeSignupBtn" class="btn btn-success mt-3" disabled>
-                    Complete Signup
-                </button>
-            </div>
-
-
+            <button id="completeSignupBtn" class="btn btn-success mt-3" type="button" disabled>
+                Complete Signup
+            </button>
+        </div>
     </div>
 </div>
 
@@ -83,6 +87,8 @@ const liveHint = document.getElementById("liveHint");
 const liveHintText = document.getElementById("liveHintText");
 const cameraCircle = document.querySelector(".camera-circle");
 const analysisCanvas = document.getElementById("analysisCanvas");
+const stepCounter = document.getElementById("stepCounter");
+const stepIndicators = Array.from(document.querySelectorAll("[data-step-indicator]"));
 
 const consentSection = document.getElementById("consentSection");
 const agreeCheckbox = document.getElementById("agreeCheckbox");
@@ -112,10 +118,10 @@ const MOTION_THRESHOLD = 0.006;
    STEP CONFIG (GCASH STYLE)
 ====================== */
 const STEPS = [
-    { key: "LOOK_FORWARD", title: "Look Straight", desc: "Center your face inside the circle." },
-    { key: "TURN_LEFT", title: "Turn Left", desc: "Slowly turn your head to the left." },
-    { key: "TURN_RIGHT", title: "Turn Right", desc: "Slowly turn your head to the right." },
-    { key: "BLINK", title: "Blink", desc: "Blink naturally once." }
+    { key: "LOOK_FORWARD", title: "Look Straight", desc: "Center your face." },
+    { key: "TURN_LEFT", title: "Turn Left", desc: "Turn your head left." },
+    { key: "TURN_RIGHT", title: "Turn Right", desc: "Turn your head right." },
+    { key: "BLINK", title: "Blink", desc: "Blink once." }
 ];
 
 updateStepUI();
@@ -124,7 +130,24 @@ updateStepUI();
    UPDATE UI
 ====================== */
 function updateStepUI(){
-    stepLabel.innerText = `STEP ${step + 1}`;
+    const isComplete = step >= STEPS.length;
+
+    stepLabel.innerText = isComplete ? "Complete" : `Step ${step + 1}`;
+    if (stepCounter) {
+        stepCounter.innerText = isComplete
+            ? `${STEPS.length} / ${STEPS.length}`
+            : `${step + 1} / ${STEPS.length}`;
+    }
+
+    stepIndicators.forEach((indicator, index) => {
+        indicator.classList.toggle("is-complete", index < step);
+        indicator.classList.toggle("is-active", !isComplete && index === step);
+    });
+
+    if (isComplete) {
+        return;
+    }
+
     instructionTitle.innerText = STEPS[step].title;
     instructionDesc.innerText = STEPS[step].desc;
 }
@@ -184,7 +207,7 @@ function onResults(results) {
         resetStability();
         setCaptureState("idle");
         if (Date.now() - lastHintUpdateTime > 250) {
-            setLiveHint("No face detected. Move closer and center your face.", "warning");
+            setLiveHint("No face detected. Move closer.", "warning");
             lastHintUpdateTime = Date.now();
         }
         return;
@@ -212,13 +235,12 @@ function onResults(results) {
         setCaptureState("done");
         resetStability();
         step++;
+        updateStepUI();
         statusText.innerText = `Capture ${step}/${STEPS.length} complete.`;
 
         if (step >= STEPS.length) {
             statusText.innerText = "Face verification complete.";
             uploadImages();
-        } else {
-            updateStepUI();
         }
         return;
     }
@@ -227,7 +249,7 @@ function onResults(results) {
         resetHoldTimerOnly();
         setCaptureState("idle");
         if (Date.now() - lastHintUpdateTime > 250) {
-            setLiveHint("Hold still to capture a clear image.", "warning");
+            setLiveHint("Hold still.", "warning");
             lastHintUpdateTime = Date.now();
         }
         return;
@@ -237,7 +259,7 @@ function onResults(results) {
     stableFrames += 1;
     if (stableFrames < REQUIRED_STABLE_FRAMES) {
         if (Date.now() - lastHintUpdateTime > 250) {
-            setLiveHint("Almost ready. Keep still.", "info");
+            setLiveHint("Almost ready.", "info");
             lastHintUpdateTime = Date.now();
         }
         return;
@@ -250,7 +272,7 @@ function onResults(results) {
     const holdRemaining = STABLE_HOLD_MS - (Date.now() - holdStartTime);
     if (holdRemaining > 0) {
         if (Date.now() - lastHintUpdateTime > 250) {
-            setLiveHint(`Hold steady... ${Math.max(0.1, holdRemaining / 1000).toFixed(1)}s`, "info");
+            setLiveHint(`Hold still... ${Math.max(0.1, holdRemaining / 1000).toFixed(1)}s`, "info");
             lastHintUpdateTime = Date.now();
         }
         return;
@@ -261,13 +283,12 @@ function onResults(results) {
         setCaptureState("done");
         resetStability();
         step++;
+        updateStepUI();
         statusText.innerText = `Capture ${step}/${STEPS.length} complete.`;
 
         if (step >= STEPS.length) {
             statusText.innerText = "Face verification complete.";
             uploadImages();
-        } else {
-            updateStepUI();
         }
     }
 }
@@ -390,37 +411,37 @@ function evaluateReadiness(landmarks) {
         lowLightStreak += 1;
         // Grace mode for weak cameras: allow after sustained low-light frames.
         if (lowLightStreak < 30) {
-            return { ready: false, hint: "Too dark. Move to a brighter area or face the light.", type: "warning" };
+            return { ready: false, hint: "Too dark. Find better light.", type: "warning" };
         }
-        return { ready: true, hint: "Low light detected. Keep still for capture.", type: "warning" };
+        return { ready: true, hint: "Low light. Hold still.", type: "warning" };
     }
     lowLightStreak = 0;
     if (nose.y < 0.35) {
-        return { ready: false, hint: "Move your face a little downward.", type: "warning" };
+        return { ready: false, hint: "Move down a little.", type: "warning" };
     }
     if (nose.y > 0.7) {
-        return { ready: false, hint: "Move your face a little upward.", type: "warning" };
+        return { ready: false, hint: "Move up a little.", type: "warning" };
     }
     if (nose.x < 0.35) {
-        return { ready: false, hint: "Move your face slightly to the right.", type: "warning" };
+        return { ready: false, hint: "Move slightly right.", type: "warning" };
     }
     if (nose.x > 0.65) {
-        return { ready: false, hint: "Move your face slightly to the left.", type: "warning" };
+        return { ready: false, hint: "Move slightly left.", type: "warning" };
     }
 
     if (STEPS[step].key === "LOOK_FORWARD" && Math.abs(yaw) > 0.08) {
         return { ready: false, hint: "Look straight at the camera.", type: "warning" };
     }
     if (STEPS[step].key === "TURN_LEFT" && yaw <= 0.12) {
-        return { ready: false, hint: "Turn your head more to the left.", type: "warning" };
+        return { ready: false, hint: "Turn more left.", type: "warning" };
     }
     if (STEPS[step].key === "TURN_RIGHT" && yaw >= -0.12) {
-        return { ready: false, hint: "Turn your head more to the right.", type: "warning" };
+        return { ready: false, hint: "Turn more right.", type: "warning" };
     }
     if (STEPS[step].key === "BLINK") {
-        return { ready: true, hint: "Blink once to continue.", type: "info" };
+        return { ready: true, hint: "Blink once.", type: "info" };
     }
-    return { ready: true, hint: "Ready. Hold still while we capture automatically.", type: "success" };
+    return { ready: true, hint: "Ready. Hold still.", type: "success" };
 }
 
 /* ======================
@@ -470,13 +491,13 @@ function uploadImages() {
     .then(data => {
         if (data.status === "ok") {
             consentSection.style.display = "block";
-            statusText.innerText = "Review and accept the terms to complete signup.";
-            instructionTitle.innerText = "Verification Completed";
-            instructionDesc.innerText = "Your face images were captured successfully.";
-            setLiveHint("All required captures are complete.", "success");
+            statusText.innerText = "Review the terms to finish signup.";
+            instructionTitle.innerText = "Verification Done";
+            instructionDesc.innerText = "Your images were captured.";
+            setLiveHint("All captures are complete.", "success");
             liveHint.style.display = "none";
         } else {
-            statusText.innerText = "Face verification failed. Please try again.";
+            statusText.innerText = "Verification failed. Try again.";
         }
     });
 }

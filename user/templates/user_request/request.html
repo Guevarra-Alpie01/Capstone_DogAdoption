@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_request.css' %}">
+<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260317a">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
 
@@ -27,7 +27,7 @@
                 </span>
                 <span class="request-history-trigger-copy">
                     <strong>Tracking</strong>
-                    <small>Open your submitted requests</small>
+                    <small>View your requests</small>
                 </span>
                 <span class="request-history-trigger-count">
                     {{ pending_total|add:accepted_total|add:declined_total|add:captured_total }}
@@ -60,9 +60,9 @@
                     </div>
                     <div>
                         <p class="step-kicker">Step 1</p>
-                        <h3 id="step1Title">Select the request type and attach capture proof</h3>
+                        <h3 id="step1Title">Choose request type and add proof</h3>
                         <p class="step-description" id="step1Description">
-                            For dog capture requests, upload or take a clear photo of the dog or a clear photo of the barangay letter requesting dog capture. A proof photo is required before you can continue.
+                            For dog capture, upload a clear dog photo or barangay request letter. Proof is required to continue.
                         </p>
                     </div>
                 </div>
@@ -73,7 +73,7 @@
                         <span class="request-choice-icon"><i class="bi bi-megaphone-fill" aria-hidden="true"></i></span>
                         <span class="request-choice-copy">
                             <strong>Request Dog Capture</strong>
-                            <small id="captureRequestTypeHint">Upload proof such as a photo of the dog or the barangay letter requesting dog capture.</small>
+                            <small id="captureRequestTypeHint">Attach a dog photo or barangay request letter.</small>
                         </span>
                     </label>
                     <label class="request-choice-card">
@@ -81,7 +81,7 @@
                         <span class="request-choice-icon"><i class="bi bi-house-heart-fill" aria-hidden="true"></i></span>
                         <span class="request-choice-copy">
                             <strong>Request Dog Surrender</strong>
-                            <small>The owner voluntarily surrenders their dog to the shelter.</small>
+                            <small>Owner will surrender the dog to the shelter.</small>
                         </span>
                     </label>
                 </div>
@@ -89,15 +89,15 @@
                 <div class="capture-choice" role="group" aria-label="Photo options">
                     <button type="button" class="btn-secondary capture-action-btn" id="openUploadPickerBtn">
                         <i class="bi bi-upload" aria-hidden="true"></i>
-                        <span id="uploadActionLabel">Upload Proof / Photo</span>
+                        <span id="uploadActionLabel">Upload Proof</span>
                     </button>
                     <button type="button" class="btn-primary capture-action-btn" id="openCameraExperienceBtn">
                         <i class="bi bi-camera2" aria-hidden="true"></i>
-                        <span id="cameraActionLabel">Take Proof / Photo</span>
+                        <span id="cameraActionLabel">Take Proof</span>
                     </button>
                 </div>
                 <p class="helper-text capture-helper-note" id="step1HelperNote">
-                    Required for dog capture: attach a clear photo of the dog or a clear photo of the request letter from your barangay.
+                    Required for dog capture.
                 </p>
 
                 <input type="file" name="images" id="imageInput" class="photo-input-hidden" accept="image/*" multiple>
@@ -893,24 +893,24 @@ function syncStepOneContent() {
 
     if (step1Title) {
         step1Title.textContent = isCapture
-            ? 'Select the request type and attach capture proof'
-            : 'Select the request type and add a dog photo if available';
+            ? 'Choose request type and add proof'
+            : 'Choose request type and add a photo';
     }
     if (step1Description) {
         step1Description.textContent = isCapture
-            ? 'For dog capture requests, upload or take a clear photo of the dog or a clear photo of the barangay letter requesting dog capture. A proof photo is required before you can continue.'
-            : 'For dog surrender requests, you may upload an existing image or use your camera. A photo is optional, but it helps the shelter team identify the dog faster.';
+            ? 'For dog capture, upload a clear dog photo or barangay request letter. Proof is required to continue.'
+            : 'For surrender, a photo is optional but helpful.';
     }
     if (step1HelperNote) {
         step1HelperNote.textContent = isCapture
-            ? 'Required for dog capture: attach a clear photo of the dog or a clear photo of the request letter from your barangay.'
-            : 'For dog surrender, a photo is optional but recommended when available.';
+            ? 'Required for dog capture.'
+            : 'Photo is optional for surrender.';
     }
     if (uploadActionLabel) {
-        uploadActionLabel.textContent = isCapture ? 'Upload Proof / Photo' : 'Upload Photo';
+        uploadActionLabel.textContent = isCapture ? 'Upload Proof' : 'Upload Photo';
     }
     if (cameraActionLabel) {
-        cameraActionLabel.textContent = isCapture ? 'Take Proof / Photo' : 'Take Picture / Use Camera';
+        cameraActionLabel.textContent = isCapture ? 'Take Proof' : 'Take Photo';
     }
 }
 

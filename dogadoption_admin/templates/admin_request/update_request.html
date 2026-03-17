@@ -47,13 +47,6 @@
                 </div>
             </div>
 
-            {% if req.preferred_appointment_date %}
-                <div class="info-block">
-                    <span class="label">Requested Appointment Date</span>
-                    <p>{{ req.preferred_appointment_date|date:"M d, Y" }}</p>
-                </div>
-            {% endif %}
-
             <div class="info-block">
                 <span class="label">Requester Address</span>
                 <p>{{ req.requester_address }}</p>
@@ -193,54 +186,54 @@
         </div>
 
         <div class="card action-card">
-            <h2>Admin Action</h2>
+            <h2>Action</h2>
             <form method="POST" class="admin-action-form">
                 {% csrf_token %}
 
                 <div class="schedule-summary">
                     <div class="schedule-summary-card preferred">
-                        <span class="label">User Preferred Appointment</span>
+                        <span class="label">Preferred Date</span>
                         <strong>
                             {% if req.preferred_appointment_date %}
                                 {{ req.preferred_appointment_date|date:"M d, Y" }}
                             {% else %}
-                                No preferred date submitted
+                                No preferred date
                             {% endif %}
                         </strong>
                         <small>
                             {% if req.preferred_appointment_date %}
-                                Review this requested date before assigning the final schedule.
+                                User choice.
                             {% else %}
-                                The requester did not choose a preferred appointment date.
+                                No date chosen.
                             {% endif %}
                         </small>
                     </div>
                     {% if req.scheduled_date %}
                         <div class="schedule-summary-card final">
-                            <span class="label">Current Final Schedule</span>
+                            <span class="label">Final Schedule</span>
                             <strong>{{ req.scheduled_date|date:"M d, Y h:i A" }}</strong>
-                            <small>This is the date currently assigned to the request.</small>
+                            <small>Assigned date.</small>
                         </div>
                     {% endif %}
                 </div>
 
                 <div class="input-group">
-                    <label for="admin_message">Admin Message (Optional)</label>
-                    <textarea id="admin_message" name="admin_message" placeholder="Provide notes for the user...">{{ req.admin_message|default_if_none:'' }}</textarea>
+                    <label for="admin_message">Admin Note</label>
+                    <textarea id="admin_message" name="admin_message" placeholder="Optional note">{{ req.admin_message|default_if_none:'' }}</textarea>
                 </div>
 
                 <div class="input-group">
-                    <label for="scheduled_date">Final Appointment Schedule (Required for Accept)</label>
+                    <label for="scheduled_date">Final Schedule</label>
                     <input id="scheduled_date" type="hidden" name="scheduled_date" value="{{ scheduled_appointment_date_iso }}">
                     <section class="schedule-calendar-panel">
                         <div class="calendar-panel-head">
-                            <h4>Choose from Active Appointment Dates</h4>
+                            <h4>Pick a date</h4>
                         </div>
                         <div class="schedule-selection-status" id="schedule_selection_status">
                             {% if req.scheduled_date %}
-                                Selected final schedule: {{ req.scheduled_date|date:"M d, Y" }}
+                                Selected: {{ req.scheduled_date|date:"M d, Y" }}
                             {% else %}
-                                No final schedule selected yet.
+                                No date selected.
                             {% endif %}
                         </div>
                         <div class="calendar-toolbar">
@@ -251,11 +244,11 @@
                         <div class="calendar-weekdays" id="schedule_weekdays"></div>
                         <div class="calendar-days" id="schedule_days"></div>
                         <div class="calendar-helper-text">
-                            <span class="helper-chip helper-chip-available">Available</span>
+                            <span class="helper-chip helper-chip-available">Open</span>
                             {% if req.preferred_appointment_date %}
-                                <span class="helper-chip helper-chip-preferred">User preferred</span>
+                                <span class="helper-chip helper-chip-preferred">Preferred</span>
                             {% endif %}
-                            <span class="helper-chip helper-chip-selected">Selected final date</span>
+                            <span class="helper-chip helper-chip-selected">Selected</span>
                         </div>
                     </section>
                 </div>
@@ -263,14 +256,14 @@
                 <div class="form-actions">
                     {% if req.status != 'captured' %}
                         <button type="submit" name="action" value="accept" class="btn-accept">
-                            {% if req.status == 'accepted' %}Update Schedule{% else %}Accept and Schedule{% endif %}
+                            {% if req.status == 'accepted' %}Update Schedule{% else %}Accept Request{% endif %}
                         </button>
                         {% if req.status == 'accepted' %}
-                            <button type="submit" name="action" value="mark_captured" class="btn-done">{% if req.request_type == 'surrender' %}Mark as Completed{% else %}Mark as Captured (Done){% endif %}</button>
+                            <button type="submit" name="action" value="mark_captured" class="btn-done">{% if req.request_type == 'surrender' %}Mark Complete{% else %}Mark Captured{% endif %}</button>
                         {% endif %}
-                        <button type="submit" name="action" value="decline" class="btn-decline" data-confirm-button data-confirm-title="Confirm Decline" data-confirm-message="Decline this request?" data-confirm-submit-label="Decline">Decline Request</button>
+                        <button type="submit" name="action" value="decline" class="btn-decline" data-confirm-button data-confirm-title="Confirm Decline" data-confirm-message="Decline this request?" data-confirm-submit-label="Decline">Decline</button>
                     {% else %}
-                        <p class="captured-note">This request is already marked as captured. It is now a closed record.</p>
+                        <p class="captured-note">This request is closed.</p>
                     {% endif %}
                 </div>
             </form>
@@ -357,11 +350,11 @@
 
     function renderSelectionLabel() {
         if (!selectedDate) {
-            selectionStatus.textContent = 'No final schedule selected yet.';
+            selectionStatus.textContent = 'No date selected.';
             return;
         }
         const selectedObj = new Date(`${selectedDate}T00:00:00`);
-        selectionStatus.textContent = `Selected final schedule: ${selectedObj.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
+        selectionStatus.textContent = `Selected: ${selectedObj.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })}`;
     }
 
     weekdaysContainer.innerHTML = weekdays

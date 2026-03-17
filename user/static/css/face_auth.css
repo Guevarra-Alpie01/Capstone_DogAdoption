@@ -1,408 +1,424 @@
-/* =========================
-   GLOBAL OVERLAY BACKGROUND
-========================= */
-body {
-    background: linear-gradient(135deg, #0f1a13, #143b25);
-    margin: 0;
-    font-family: "Segoe UI", Tahoma, sans-serif;
-}
-
-body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background:
-        radial-gradient(circle at 15% 12%, rgba(34, 197, 94, 0.2), transparent 34%),
-        radial-gradient(circle at 88% 88%, rgba(22, 163, 74, 0.15), transparent 32%),
-        rgba(0, 0, 0, 0.45);
-    z-index: 0;
-}
-
-/* =========================
-   CENTER WRAPPER
-========================= */
 .face-wrapper {
-    min-height: calc(100vh - 80px);
+    --face-bg:
+        radial-gradient(circle at 16% 14%, rgba(76, 175, 108, 0.18), transparent 28%),
+        linear-gradient(135deg, #0f6a3b 0%, #0b5b32 58%, #084425 100%);
+    --face-border: rgba(227, 242, 231, 0.28);
+    --face-text: #ffffff;
+    --face-text-soft: rgba(240, 248, 243, 0.84);
+    --face-accent: #23884f;
+    --face-accent-strong: #1d7344;
+    --face-accent-soft: rgba(181, 240, 197, 0.16);
+    --face-warning: #fbbf24;
+    --face-warning-soft: rgba(217, 119, 6, 0.18);
+    --face-shadow: 0 24px 52px rgba(9, 28, 18, 0.34);
+    position: relative;
     display: flex;
     justify-content: center;
-    align-items: center;
-    padding: 25px;
+    padding: 10px 12px 0;
+}
+
+.face-wrapper::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 18% 16%, rgba(74, 162, 106, 0.18), transparent 30%),
+        radial-gradient(circle at 82% 84%, rgba(46, 109, 87, 0.14), transparent 24%);
+    pointer-events: none;
+}
+
+.face-wrapper .face-auth-card {
     position: relative;
     z-index: 1;
+    width: min(100%, 620px);
+    padding: 18px !important;
+    border-radius: 28px !important;
+    border: 1px solid var(--face-border) !important;
+    background: var(--face-bg) !important;
+    box-shadow: var(--face-shadow) !important;
+    overflow: hidden;
 }
 
-/* =========================
-   FACE CARD (DESKTOP DEFAULT)
-========================= */
-.face-card {
+.face-wrapper .face-auth-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
     background:
-        linear-gradient(180deg, rgba(12, 20, 14, 0.65), rgba(12, 20, 14, 0.55)),
-        url("../images/Adobe Express - file.png") center/cover no-repeat;
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    border-radius: 22px;
-    padding: 40px 35px;
-    width: 100%;
-    max-width: 480px;
-    text-align: center;
-    color: white;
-    box-shadow: 0 20px 45px rgba(0,0,0,0.35);
-    transition: all 0.3s ease;
+        radial-gradient(circle at top right, rgba(181, 240, 197, 0.12), transparent 34%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 44%);
+    pointer-events: none;
 }
 
-/* =========================
-   STEP BADGE
-========================= */
-.step-label {
-    display: inline-block;
-    background: #ecfdf3;
-    color: #166534;
-    font-weight: 700;
-    padding: 6px 18px;
-    border-radius: 30px;
-    font-size: 13px;
-    margin-bottom: 18px;
+.face-shell {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 14px;
 }
 
-/* =========================
-   TITLE + DESCRIPTION
-========================= */
-#instructionTitle {
-    font-size: 28px;
+.face-header {
+    display: grid;
+    gap: 10px;
+}
+
+.face-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.step-label,
+.step-counter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 0 14px;
+    border-radius: 999px;
+    font-size: 0.82rem;
     font-weight: 800;
-    margin-bottom: 6px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.step-label {
+    background: var(--face-accent-soft);
+    color: #a7f3d0;
+}
+
+.step-counter {
+    border: 1px solid rgba(227, 242, 231, 0.28);
+    color: rgba(247, 251, 248, 0.96);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+#instructionTitle {
+    margin: 0;
+    color: var(--face-text) !important;
+    font-size: clamp(1.7rem, 3vw, 2.4rem);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
 }
 
 #instructionDesc {
-    font-size: 15px;
-    opacity: 0.95;
-    margin-bottom: 8px;
+    margin: 0;
+    color: var(--face-text-soft) !important;
+    font-size: 0.94rem;
+    line-height: 1.45;
+}
+
+.face-progress {
+    padding: 12px 14px;
+    border-radius: 18px;
+    border: 1px solid rgba(227, 242, 231, 0.22);
+    background: rgba(236, 246, 239, 0.04);
+}
+
+.face-progress__track {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.face-progress__dot {
+    min-height: 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.face-progress__dot.is-active {
+    background: linear-gradient(90deg, rgba(181, 240, 197, 0.95), rgba(95, 198, 131, 0.95));
+    box-shadow: 0 0 0 3px rgba(181, 240, 197, 0.12);
+}
+
+.face-progress__dot.is-complete {
+    background: linear-gradient(90deg, #4fb06d, #2f8e55);
 }
 
 .live-hint {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    text-align: left;
-    margin: 0 auto 16px;
-    padding: 10px 12px;
-    border-radius: 12px;
-    max-width: 96%;
-    background: rgba(236, 253, 243, 0.17);
-    border: 1px solid rgba(187, 247, 208, 0.42);
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.2);
-}
-
-.live-hint.live-hint--info {
-    background: rgba(236, 253, 243, 0.17);
-    border-color: rgba(187, 247, 208, 0.42);
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    border: 1px solid rgba(227, 242, 231, 0.22);
+    background: rgba(236, 246, 239, 0.04);
 }
 
 .live-hint.live-hint--warning {
-    background: rgba(254, 243, 199, 0.2);
-    border-color: rgba(253, 230, 138, 0.55);
-}
-
-.live-hint.live-hint--warning .live-hint-icon {
-    background: #fef3c7;
-    color: #92400e;
-}
-
-.live-hint.live-hint--warning .live-hint-label {
-    color: #fde68a;
+    border-color: rgba(251, 191, 36, 0.36);
+    background: rgba(76, 47, 8, 0.36);
 }
 
 .live-hint.live-hint--success {
-    background: rgba(34, 197, 94, 0.22);
-    border-color: rgba(134, 239, 172, 0.6);
+    border-color: rgba(181, 240, 197, 0.32);
+    background: rgba(181, 240, 197, 0.08);
 }
 
 .live-hint-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 999px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 28px;
-    color: #14532d;
-    background: #dcfce7;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    border-radius: 12px;
+    color: rgba(247, 251, 248, 0.92);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.live-hint.live-hint--warning .live-hint-icon {
+    color: #fde68a;
+    background: var(--face-warning-soft);
 }
 
 .live-hint-text-wrap {
-    display: flex;
-    flex-direction: column;
+    display: grid;
     gap: 2px;
     min-width: 0;
 }
 
 .live-hint-label {
-    font-size: 0.74rem;
-    text-transform: uppercase;
-    letter-spacing: 0.7px;
+    color: rgba(181, 240, 197, 0.95);
+    font-size: 0.72rem;
     font-weight: 800;
-    color: #bbf7d0;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.live-hint.live-hint--warning .live-hint-label {
+    color: var(--face-warning);
 }
 
 #liveHintText {
+    color: var(--face-text) !important;
     font-size: 0.9rem;
     font-weight: 600;
-    color: #f8fafc;
-    line-height: 1.25;
+    line-height: 1.4;
 }
 
-/* =========================
-   CAMERA CIRCLE
-========================= */
+.camera-stage {
+    display: grid;
+    gap: 12px;
+    justify-items: center;
+    padding: 16px 14px 14px;
+    border-radius: 22px;
+    border: 1px solid rgba(227, 242, 231, 0.22);
+    background:
+        radial-gradient(circle at top, rgba(181, 240, 197, 0.08), rgba(181, 240, 197, 0) 42%),
+        rgba(236, 246, 239, 0.04);
+}
+
 .camera-circle {
-    width: 260px;
-    height: 260px;
+    width: min(100%, 280px);
+    aspect-ratio: 1;
+    position: relative;
     border-radius: 50%;
     overflow: hidden;
-    margin: 0 auto 20px;
-    border: 7px solid #f8fafc;
-    background: black;
-    box-shadow: 0 0 30px rgba(0,0,0,0.45);
-    position: relative;
-    isolation: isolate;
+    background: radial-gradient(circle at center, #203548 0%, #07131d 100%);
+    border: 7px solid rgba(255, 255, 255, 0.96);
+    box-shadow:
+        0 22px 36px rgba(9, 28, 18, 0.26),
+        0 0 0 8px rgba(181, 240, 197, 0.08);
 }
 
-/* Glow pulse ring */
 .camera-circle::after {
     content: "";
     position: absolute;
-    inset: 0;
+    inset: 14px;
     border-radius: 50%;
-    box-shadow: 0 0 20px rgba(255,255,255,0.4);
-    animation: pulse 2s infinite;
+    border: 1px dashed rgba(255, 255, 255, 0.42);
+    pointer-events: none;
 }
 
-.camera-circle::before {
-    content: "";
+.camera-circle__guide {
     position: absolute;
-    inset: -8px;
+    inset: 19%;
     border-radius: 50%;
-    background: conic-gradient(from 0deg, rgba(34, 197, 94, 0.95), rgba(16, 185, 129, 0.18), rgba(34, 197, 94, 0.95));
-    z-index: -1;
-    opacity: 0;
-    transform: rotate(0deg);
-    transition: opacity 0.2s ease;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    pointer-events: none;
 }
 
-.camera-circle.capture-prep::before {
-    opacity: 0.95;
-    animation: spinRing 1s linear infinite;
+.camera-circle.capture-prep {
+    animation: captureHalo 1.1s ease-in-out infinite;
 }
 
 .camera-circle.capture-done {
-    border-color: #86efac;
-    box-shadow: 0 0 0 6px rgba(134, 239, 172, 0.25), 0 0 30px rgba(0,0,0,0.45);
+    box-shadow:
+        0 22px 36px rgba(9, 28, 18, 0.26),
+        0 0 0 12px rgba(181, 240, 197, 0.16);
 }
 
-.camera-circle.capture-done::before {
-    opacity: 1;
-    animation: none;
-    background: conic-gradient(from 0deg, #22c55e, #bbf7d0, #22c55e);
+@keyframes captureHalo {
+    0% {
+        box-shadow:
+            0 22px 36px rgba(9, 28, 18, 0.26),
+            0 0 0 8px rgba(181, 240, 197, 0.08);
+    }
+    50% {
+        box-shadow:
+            0 24px 40px rgba(9, 28, 18, 0.3),
+            0 0 0 12px rgba(181, 240, 197, 0.16);
+    }
+    100% {
+        box-shadow:
+            0 22px 36px rgba(9, 28, 18, 0.26),
+            0 0 0 8px rgba(181, 240, 197, 0.08);
+    }
 }
 
-@keyframes pulse {
-    0%   { box-shadow: 0 0 10px rgba(255,255,255,0.3); }
-    50%  { box-shadow: 0 0 30px rgba(255,255,255,0.9); }
-    100% { box-shadow: 0 0 10px rgba(255,255,255,0.3); }
-}
-
-@keyframes spinRing {
-    to { transform: rotate(360deg); }
-}
-
-/* Mirror selfie camera */
 #video {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transform: scaleX(-1);
+    transform: scaleX(-1) scale(1.02);
 }
 
-/* =========================
-   STATUS TEXT
-========================= */
-#status {
-    font-size: 13px;
-    opacity: 0.95;
-    margin: 10px 0 12px;
-    color: #f1f5f9;
-}
-
-.next-step-btn {
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    background: #16a34a;
-    color: #ffffff;
-    border-radius: 999px;
-    padding: 10px 24px;
+.capture-status {
+    width: 100%;
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(227, 242, 231, 0.18);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(247, 251, 248, 0.94) !important;
+    font-size: 0.86rem;
     font-weight: 700;
-    min-width: 140px;
-    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.25);
-    transition: transform 0.2s ease, background-color 0.2s ease;
-}
-
-.next-step-btn:hover {
-    background: #15803d;
-    transform: translateY(-1px);
-}
-
-.next-step-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+    text-align: center;
+    line-height: 1.35;
 }
 
 .consent-box {
-    margin-top: 18px;
-    padding: 16px;
-    border-radius: 14px;
-    text-align: left;
-    background: rgba(7, 12, 9, 0.64);
-    border: 1px solid rgba(220, 252, 231, 0.24);
-    color: #f8fafc;
+    position: relative;
+    z-index: 1;
+    margin-top: 16px;
+    padding: 18px;
+    border-radius: 22px;
+    border: 1px solid rgba(227, 242, 231, 0.22);
+    background: rgba(236, 246, 239, 0.04);
+    box-shadow: 0 18px 34px rgba(9, 28, 18, 0.18);
+}
+
+.consent-box__eyebrow {
+    display: inline-flex;
+    margin-bottom: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--face-accent-soft);
+    color: #a7f3d0;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .consent-box h4 {
-    margin-bottom: 10px;
-    font-size: 1rem;
+    margin: 0 0 10px;
+    color: var(--face-text) !important;
+    font-size: 1.16rem;
     font-weight: 800;
-    color: #dcfce7;
 }
 
 .consent-box p {
-    font-size: 0.88rem;
-    line-height: 1.45;
-    margin-bottom: 10px;
-    color: #e2e8f0;
+    margin: 0 0 10px;
+    color: var(--face-text-soft) !important;
+    font-size: 0.9rem;
+    line-height: 1.5;
 }
 
 .consent-check {
     display: flex;
-    gap: 8px;
-    align-items: center;
-    font-size: 0.88rem;
-    color: #f8fafc;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 8px;
+    color: #e2e8f0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.45;
 }
 
 .consent-check input[type="checkbox"] {
-    margin: 0;
+    margin: 3px 0 0;
+    accent-color: var(--face-accent);
 }
 
-#completeSignupBtn {
+.face-wrapper #completeSignupBtn {
     width: 100%;
-    border-radius: 999px;
-    background: #16a34a;
-    border-color: #16a34a;
-    font-weight: 700;
+    min-height: 52px;
+    border-radius: 16px !important;
+    border: 1px solid var(--face-accent-strong) !important;
+    background: linear-gradient(180deg, #23884f 0%, #1d7344 100%) !important;
+    font-weight: 800;
+    box-shadow: 0 14px 26px rgba(29, 115, 68, 0.2) !important;
 }
 
-#completeSignupBtn:disabled {
-    background: #475569;
-    border-color: #475569;
+.face-wrapper #completeSignupBtn:disabled {
+    border-color: #64748b !important;
+    background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%) !important;
+    box-shadow: none !important;
 }
 
-/* =========================
-   DESKTOP ENHANCEMENTS
-========================= */
-@media (min-width: 992px) {
-    .face-card {
-        padding: 55px 45px;
-        max-width: 520px;
-    }
-
-    #instructionTitle {
-        font-size: 32px;
-    }
-
-    #instructionDesc {
-        font-size: 17px;
-    }
-
-    .camera-circle {
-        width: 280px;
-        height: 280px;
-    }
-}
-
-/* =========================
-   TABLET VIEW
-========================= */
-@media (max-width: 991px) {
-    .face-card {
-        max-width: 420px;
-        padding: 35px 25px;
-    }
-
-    .camera-circle {
-        width: 220px;
-        height: 220px;
-    }
-
-    #instructionTitle {
-        font-size: 24px;
-    }
-}
-
-/* =========================
-   MOBILE (GCASH STYLE)
-========================= */
 @media (max-width: 576px) {
-
-    body {
-        background: #254E1E;
-    }
-
     .face-wrapper {
-        padding: 15px;
-        align-items: center;
+        padding: 0;
     }
 
-    .face-card {
-        width: 100%;
-        max-width: 360px;
-        padding: 30px 20px 35px;
-        border-radius: 25px;
-        box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+    .face-wrapper .face-auth-card {
+        padding: 14px !important;
+        border-radius: 22px !important;
     }
 
-    .step-label {
-        font-size: 12px;
-        padding: 5px 16px;
+    .face-shell {
+        gap: 12px;
+    }
+
+    .step-label,
+    .step-counter {
+        min-height: 30px;
+        padding: 0 12px;
+        font-size: 0.74rem;
     }
 
     #instructionTitle {
-        font-size: 22px;
-        font-weight: 800;
+        font-size: 1.45rem;
     }
 
     #instructionDesc {
-        font-size: 14px;
-        margin-bottom: 18px;
+        font-size: 0.86rem;
+    }
+
+    .face-progress,
+    .live-hint,
+    .camera-stage,
+    .consent-box {
+        border-radius: 18px;
+    }
+
+    .face-progress {
+        padding: 10px 12px;
+    }
+
+    .camera-stage {
+        padding: 12px;
     }
 
     .camera-circle {
-        width: 200px;
-        height: 200px;
-        border: 6px solid white;
+        width: min(100%, 210px);
+        border-width: 6px;
+        box-shadow:
+            0 18px 28px rgba(15, 23, 42, 0.24),
+            0 0 0 6px rgba(88, 193, 152, 0.08);
     }
 
-    #status {
-        font-size: 12px;
-    }
-}
-
-/* =========================
-   VERY SMALL DEVICES
-========================= */
-@media (max-width: 380px) {
-    .camera-circle {
-        width: 170px;
-        height: 170px;
+    .camera-circle::after {
+        inset: 11px;
     }
 
-    #instructionTitle {
-        font-size: 20px;
+    .capture-status {
+        padding: 9px 10px;
+        font-size: 0.8rem;
     }
 }

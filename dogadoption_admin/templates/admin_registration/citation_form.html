@@ -19,9 +19,9 @@
             <button class="toolbar-btn" type="button" disabled>No Citation Yet</button>
         {% endif %}
 
-        <form class="quick-print" onsubmit="event.preventDefault(); quickPrintCitation();">
+        <form class="quick-print" method="get" action="{% url 'dogadoption_admin:citation_print_lookup' %}">
             <label for="citation-id">Quick Print by ID</label>
-            <input id="citation-id" type="number" min="1" placeholder="Citation ID" required>
+            <input id="citation-id" name="citation_id" type="number" min="1" placeholder="Citation ID" required>
             <button type="submit" class="toolbar-btn">Open Print</button>
         </form>
     </div>
@@ -244,14 +244,6 @@
 {{ owner_search_data|json_script:"citation-owner-data" }}
 
 <script>
-function quickPrintCitation() {
-    const field = document.getElementById('citation-id');
-    const citationId = (field.value || '').trim();
-    if (!citationId) return;
-    const base = "{% url 'dogadoption_admin:citation_print' 0 %}";
-    window.location.assign(base.replace('/0/', '/' + citationId + '/'));
-}
-
 function syncViolationSelectionUI() {
     const checks = document.querySelectorAll('.violation-check');
     checks.forEach((check) => {

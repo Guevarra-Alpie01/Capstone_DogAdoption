@@ -2132,6 +2132,28 @@ def mark_notification_read(request, pk):
     target = notif.url or "dogadoption_admin:admin_notifications"
     return redirect(target)
 
+
+@admin_required
+def citation_print_lookup(request):
+    """Resolve a numeric citation reference into its signed print URL."""
+    raw_citation_id = (request.GET.get("citation_id") or "").strip()
+    try:
+        citation_id = int(raw_citation_id)
+    except (TypeError, ValueError):
+        messages.error(request, "Enter a valid citation ID.")
+        return redirect("dogadoption_admin:citation_create")
+
+    if citation_id < 1:
+        messages.error(request, "Enter a valid citation ID.")
+        return redirect("dogadoption_admin:citation_create")
+
+    citation_exists = Citation.objects.filter(pk=citation_id).exists()
+    if not citation_exists:
+        messages.error(request, "Citation not found.")
+        return redirect("dogadoption_admin:citation_create")
+
+    return redirect("dogadoption_admin:citation_print", pk=citation_id)
+
 # =============================================================================
 # Navigation 5/5: Analytics
 # Covers the analytics dashboard linked from the admin sidebar.

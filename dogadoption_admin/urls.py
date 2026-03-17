@@ -14,14 +14,14 @@ urlpatterns = [
     # Navigation 1/5: Home
     path('post-list/', views.post_list, name='post_list'),
     path('create/', views.create_post, name='create_post'),
-    path('post/<int:post_id>/requests/', views.adoption_requests, name='adoption_requests'),
-    path('request/<int:req_id>/<str:action>/', views.update_request, name='update_request'),
-    path('posts/<int:post_id>/claims/', views.claim_requests, name='claim_requests'),
+    path('post/<adminpostid:post_id>/requests/', views.adoption_requests, name='adoption_requests'),
+    path('request/<adoptionreqid:req_id>/<str:action>/', views.update_request, name='update_request'),
+    path('posts/<adminpostid:post_id>/claims/', views.claim_requests, name='claim_requests'),
 
     # Navigation 2/5: Request
     path('dog-capture/requests/', views.admin_dog_capture_requests, name='requests'),
-    path('dog-capture/request/<int:pk>/update/', views.update_dog_capture_request, name='update_dog_capture_request'),
-    path('user/<int:user_id>/faceauth/', views.view_faceauth, name='view_faceauth'),
+    path('dog-capture/request/<captureid:pk>/update/', views.update_dog_capture_request, name='update_dog_capture_request'),
+    path('user/<userid:user_id>/faceauth/', views.view_faceauth, name='view_faceauth'),
 
     # Navigation 3/5: Register
     # Register link 1/5: Registration
@@ -30,16 +30,16 @@ urlpatterns = [
     path('registration/users/search/', views.registration_user_search_api, name='registration_user_search_api'),
 
     # Register link 2/5: Registration List
-    path('registration/profile/<int:user_id>/', views.registration_owner_profile, name='registration_owner_profile'),
+    path('registration/profile/<userid:user_id>/', views.registration_owner_profile, name='registration_owner_profile'),
     path('registration-record/', views.registration_record, name='registration_record'),
     path('registration_record/download/<str:file_type>/', views.download_registration, name='download_registration'),
 
     # Register link 3/5: Vaccination
-    path("med-records/<int:registration_id>/", views.med_record, name="med_records"),
+    path("med-records/<registrationid:registration_id>/", views.med_record, name="med_records"),
     path('dog-certificate/', views.dog_certificate, name='dog_certificate'),
 
     # Register link 4/5: Vaccination List
-    path('certificate/<int:pk>/', views.certificate_print, name='certificate_print'),
+    path('certificate/<registrationid:pk>/', views.certificate_print, name='certificate_print'),
     path('certificates/', views.certificate_list, name='certificate_list'),
     path('export/pdf/', views.export_certificates_pdf, name='export_certificates_pdf'),
     path('export/word/', views.export_certificates_word, name='export_certificates_word'),
@@ -47,8 +47,9 @@ urlpatterns = [
     path("certificates/bulk-print/", views.bulk_certificate_print, name="bulk_certificate_print"),
 
     # Register link 5/5: Citation
+    path('citation/lookup/', views.citation_print_lookup, name='citation_print_lookup'),
     path('citation/new/', views.citation_create, name='citation_create'),
-    path('citation/<int:pk>/print/', views.citation_print, name='citation_print'),
+    path('citation/<citationid:pk>/print/', views.citation_print, name='citation_print'),
     path('penalties/', views.penalty_manager, name='penalty_manage'),
 
     # Navigation 4/5: Announcement
@@ -59,19 +60,19 @@ urlpatterns = [
         views.announcement_create_form,
         name='announcement_create_form'
     ),
-    path('announcements/<int:post_id>/edit/', views.announcement_edit, name='announcement_edit'),
-    path('announcements/<int:post_id>/bucket/', views.announcement_update_bucket, name='announcement_update_bucket'),
-    path('announcements/<int:post_id>/delete/', views.announcement_delete, name='announcement_delete'),
+    path('announcements/<announcementid:post_id>/edit/', views.announcement_edit, name='announcement_edit'),
+    path('announcements/<announcementid:post_id>/bucket/', views.announcement_update_bucket, name='announcement_update_bucket'),
+    path('announcements/<announcementid:post_id>/delete/', views.announcement_delete, name='announcement_delete'),
 
     # Navigation 5/5: Analytics
     path('analytics/dashboard/', views.analytics_dashboard, name='analytics_dashboard'),
 
     # Shared admin utilities
     path('users/', views.admin_users, name='admin_users'),
-    path('admin/user/<int:id>/', views.admin_user_detail, name='admin_user_detail'),
+    path('admin/user/<userid:id>/', views.admin_user_detail, name='admin_user_detail'),
     path('users/search/', views.admin_user_search_results, name='admin_user_search'),
     path('profile/edit/', views.admin_edit_profile, name='admin_edit_profile'),
     path('notifications/', views.admin_notifications, name='admin_notifications'),
-    path('notifications/<int:pk>/read/', views.mark_notification_read, name='notification_read'),
+    path('notifications/<notificationid:pk>/read/', views.mark_notification_read, name='notification_read'),
 ]
 

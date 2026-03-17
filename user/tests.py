@@ -698,8 +698,20 @@ class UserNotificationTests(TestCase):
         notifications = response.context["user_latest_notifications"]
         self.assertGreaterEqual(response.context["user_unread_notifications"], 1)
         self.assertTrue(any(item["kind"] == "accepted_request" for item in notifications))
-        self.assertTrue(any(item["kind"] == "announcement" and str(announcement.id) in item["url"] for item in notifications))
-        self.assertTrue(any(item["kind"] == "admin_post" and str(rescued_post.id) in item["url"] for item in notifications))
+        self.assertTrue(
+            any(
+                item["kind"] == "announcement"
+                and item["url"] == reverse("user:announcement_detail", args=[announcement.id])
+                for item in notifications
+            )
+        )
+        self.assertTrue(
+            any(
+                item["kind"] == "admin_post"
+                and item["url"] == reverse("user:post_detail", args=[rescued_post.id])
+                for item in notifications
+            )
+        )
         self.assertTrue(any(item["kind"] == "community_post" and community_post.owner.username in item["message"] for item in notifications))
         self.assertEqual(accepted_request.scheduled_appointment_date, None)
 

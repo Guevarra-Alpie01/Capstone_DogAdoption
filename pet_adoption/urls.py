@@ -15,11 +15,34 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path,include
+from django.urls import include, path, register_converter
 from django.conf import settings
 from django.conf.urls.static import static
 from .import views
 from dogadoption_admin import views as admin_views
+from .path_converters import (
+    AdoptionRequestIDConverter,
+    AdminPostIDConverter,
+    AnnouncementIDConverter,
+    CitationIDConverter,
+    DogCaptureRequestIDConverter,
+    MissingDogPostIDConverter,
+    NotificationIDConverter,
+    RegistrationIDConverter,
+    UserAdoptionPostIDConverter,
+    UserIDConverter,
+)
+
+register_converter(UserIDConverter, "userid")
+register_converter(AdminPostIDConverter, "adminpostid")
+register_converter(AdoptionRequestIDConverter, "adoptionreqid")
+register_converter(UserAdoptionPostIDConverter, "useradoptpostid")
+register_converter(MissingDogPostIDConverter, "missingpostid")
+register_converter(DogCaptureRequestIDConverter, "captureid")
+register_converter(AnnouncementIDConverter, "announcementid")
+register_converter(RegistrationIDConverter, "registrationid")
+register_converter(CitationIDConverter, "citationid")
+register_converter(NotificationIDConverter, "notificationid")
 
 urlpatterns = [
     path('admin/', admin.site.urls),

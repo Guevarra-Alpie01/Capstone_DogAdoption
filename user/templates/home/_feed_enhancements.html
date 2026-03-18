@@ -1,3 +1,22 @@
+<div class="modal fade" id="feedAdoptionRequestModal" tabindex="-1" aria-labelledby="feedAdoptionRequestModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="feedAdoptionRequestModalLabel">Confirm Adoption Request</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2"><strong>Dog:</strong> <span id="feedAdoptionDogName">-</span></p>
+                <p class="mb-2"><strong>Posted by:</strong> <span id="feedAdoptionOwnerName">-</span></p>
+                <p class="mb-0"><strong>Location:</strong> <span id="feedAdoptionLocation">-</span></p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="feedAdoptionConfirmBtn">Confirm Request</button>
+            </div>
+        </div>
+    </div>
+</div>
 <div id="sharePanel" class="share-panel" hidden>
     <div class="share-panel-header">
         <div>
@@ -473,6 +492,81 @@
         }
     }
 
+    function initFeedAdoptionRequestModal() {
+        const modalEl = document.getElementById("feedAdoptionRequestModal");
+        const confirmBtn = document.getElementById("feedAdoptionConfirmBtn");
+        const dogNameEl = document.getElementById("feedAdoptionDogName");
+        const ownerNameEl = document.getElementById("feedAdoptionOwnerName");
+        const locationEl = document.getElementById("feedAdoptionLocation");
+        const openButtons = document.querySelectorAll(".js-open-adoption-request-modal");
+
+        if (!modalEl || !confirmBtn || !window.bootstrap || !openButtons.length) {
+            return;
+        }
+
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        let activeTrigger = null;
+        let activeRequestUrl = "";
+        const originalConfirmLabel = confirmBtn.textContent;
+
+        function setSubmitting(isSubmitting) {
+            confirmBtn.disabled = isSubmitting;
+            confirmBtn.textContent = isSubmitting ? "Submitting..." : originalConfirmLabel;
+        }
+
+        function markTriggerRequested(trigger, created) {
+            if (!trigger) return;
+            const badge = document.createElement("span");
+            badge.className = created
+                ? "badge bg-success fs-6 px-3 py-2"
+                : "badge bg-secondary fs-6 px-3 py-2";
+            badge.textContent = created ? "Request Sent" : "Already Requested";
+            trigger.replaceWith(badge);
+        }
+
+        openButtons.forEach((button) => {
+            button.addEventListener("click", () => {
+                activeTrigger = button;
+                activeRequestUrl = button.getAttribute("data-request-url") || "";
+                if (dogNameEl) dogNameEl.textContent = button.getAttribute("data-dog-name") || "-";
+                if (ownerNameEl) ownerNameEl.textContent = button.getAttribute("data-owner-name") || "-";
+                if (locationEl) locationEl.textContent = button.getAttribute("data-location") || "-";
+                setSubmitting(false);
+                modal.show();
+            });
+        });
+
+        confirmBtn.addEventListener("click", async () => {
+            if (!activeRequestUrl) return;
+
+            setSubmitting(true);
+            try {
+                const response = await fetch(activeRequestUrl, {
+                    method: "POST",
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-CSRFToken": typeof getCookie === "function" ? getCookie("csrftoken") : "",
+                    },
+                });
+                const data = await response.json();
+                if (!response.ok || !data.ok) {
+                    throw new Error((data && data.message) || "Request failed");
+                }
+                markTriggerRequested(activeTrigger, !!data.created);
+                modal.hide();
+            } catch (error) {
+                setSubmitting(false);
+                window.alert(error.message || "Unable to submit the adoption request right now.");
+            }
+        });
+
+        modalEl.addEventListener("hidden.bs.modal", () => {
+            activeTrigger = null;
+            activeRequestUrl = "";
+            setSubmitting(false);
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
         initAnnouncementPhotoViewers();
         initAnnouncementCaptionToggles();
@@ -480,5 +574,6 @@
         initCountdowns();
         initSharePanel();
         initCreatePostModal();
+        initFeedAdoptionRequestModal();
     });
 </script>

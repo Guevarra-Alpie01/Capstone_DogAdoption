@@ -1206,11 +1206,12 @@ def _pagination_query_without_page(querydict):
     return params.urlencode()
 
 
-def _feed_cache_key(prefix, query, feed_token=""):
+def _feed_cache_key(prefix, query, feed_token="", viewer_id=None):
     namespace = get_user_home_feed_namespace()
     query_hash = hashlib.md5(query.encode("utf-8")).hexdigest() if query else "all"
     token_hash = hashlib.md5(feed_token.encode("utf-8")).hexdigest() if feed_token else "default"
-    return f"user_home:{prefix}:{FEED_CACHE_VERSION}:{namespace}:{query_hash}:{token_hash}"
+    viewer_key = str(viewer_id) if viewer_id else "anon"
+    return f"user_home:{prefix}:{FEED_CACHE_VERSION}:{namespace}:{query_hash}:{token_hash}:{viewer_key}"
 
 
 def _normalized_feed_token(raw_token):
@@ -1292,9 +1293,14 @@ def _active_admin_candidate_ids_with_cache(query):
     return active_ids
 
 
-def _build_random_home_rows(query, feed_token="", dogs_only=False):
+def _build_random_home_rows(query, feed_token="", dogs_only=False, viewer_id=None):
     feed_scope = "dogs_only" if dogs_only else "mixed"
-    mixed_cache_key = _feed_cache_key(f"{feed_scope}_rows", query, feed_token)
+    mixed_cache_key = _feed_cache_key(
+        f"{feed_scope}_rows",
+        query,
+        feed_token,
+        viewer_id=viewer_id,
+    )
     cached_rows = cache.get(mixed_cache_key)
     if cached_rows is not None:
         return cached_rows
@@ -1303,6 +1309,9 @@ def _build_random_home_rows(query, feed_token="", dogs_only=False):
     announcement_qs = DogAnnouncement.objects.all()
     user_qs = UserAdoptionPost.objects.filter(status="available")
     missing_qs = MissingDogPost.objects.filter(status="missing")
+    if viewer_id:
+        user_qs = user_qs.exclude(owner_id=viewer_id)
+        missing_qs = missing_qs.exclude(owner_id=viewer_id)
 
     if query:
         announcement_qs = announcement_qs.filter(
@@ -1322,26 +1331,26 @@ def _build_random_home_rows(query, feed_token="", dogs_only=False):
         )
 
     admin_ids = _sample_ids_with_cache(
-        _feed_cache_key(f"{feed_scope}_admin_ids", query),
+        _feed_cache_key(f"{feed_scope}_admin_ids", query, viewer_id=viewer_id),
         active_admin_candidate_ids,
         sample_limit=FEED_ADMIN_SAMPLE_LIMIT,
     )
     announcement_ids = []
     if not dogs_only:
         announcement_ids = _sample_recent_ids_with_cache(
-            _feed_cache_key(f"{feed_scope}_announcement_ids", query),
+            _feed_cache_key(f"{feed_scope}_announcement_ids", query, viewer_id=viewer_id),
             announcement_qs,
             candidate_limit=FEED_ANNOUNCEMENT_CANDIDATE_LIMIT,
             sample_limit=FEED_ANNOUNCEMENT_SAMPLE_LIMIT,
         )
     user_ids = _sample_recent_ids_with_cache(
-        _feed_cache_key(f"{feed_scope}_user_ids", query),
+        _feed_cache_key(f"{feed_scope}_user_ids", query, viewer_id=viewer_id),
         user_qs,
         candidate_limit=FEED_USER_CANDIDATE_LIMIT,
         sample_limit=FEED_USER_SAMPLE_LIMIT,
     )
     missing_ids = _sample_recent_ids_with_cache(
-        _feed_cache_key(f"{feed_scope}_missing_ids", query),
+        _feed_cache_key(f"{feed_scope}_missing_ids", query, viewer_id=viewer_id),
         missing_qs,
         candidate_limit=FEED_MISSING_CANDIDATE_LIMIT,
         sample_limit=FEED_MISSING_SAMPLE_LIMIT,
@@ -1357,17 +1366,17 @@ def _build_random_home_rows(query, feed_token="", dogs_only=False):
     return mixed_rows
 
 
-def _build_search_rows_cache_key(query, dogs_only):
+def _build_search_rows_cache_key(query, dogs_only, viewer_id=None):
     prefix = "search_dogs_only" if dogs_only else "search_mixed"
-    return _feed_cache_key(f"{prefix}:keyword_only", query)
+    return _feed_cache_key(f"{prefix}:keyword_only", query, viewer_id=viewer_id)
 
 
-def _build_search_home_rows(query, dogs_only=False):
+def _build_search_home_rows(query, dogs_only=False, viewer_id=None):
     has_filters = bool(query)
     if not has_filters:
         return []
 
-    cache_key = _build_search_rows_cache_key(query, dogs_only)
+    cache_key = _build_search_rows_cache_key(query, dogs_only, viewer_id=viewer_id)
     cached_rows = cache.get(cache_key)
     if cached_rows is not None:
         return cached_rows
@@ -1381,6 +1390,9 @@ def _build_search_home_rows(query, dogs_only=False):
     announcement_qs = DogAnnouncement.objects.all()
     user_qs = UserAdoptionPost.objects.filter(status="available")
     missing_qs = MissingDogPost.objects.filter(status="missing")
+    if viewer_id:
+        user_qs = user_qs.exclude(owner_id=viewer_id)
+        missing_qs = missing_qs.exclude(owner_id=viewer_id)
 
     if query:
         admin_filters = (
@@ -1931,7 +1943,12 @@ def _build_user_home_context(
     feed_token = _normalized_feed_token(request.GET.get("feed_token")) or _fresh_feed_token()
     page_number = request.GET.get("page", 1)
     show_dogs_only = request.user.is_authenticated and not request.user.is_staff
-    mixed_rows = _build_random_home_rows(query, feed_token=feed_token, dogs_only=show_dogs_only)
+    mixed_rows = _build_random_home_rows(
+        query,
+        feed_token=feed_token,
+        dogs_only=show_dogs_only,
+        viewer_id=getattr(request.user, "id", None),
+    )
 
     paginator = Paginator(mixed_rows, FEED_POSTS_PER_PAGE)
     page_obj = paginator.get_page(page_number)
@@ -2011,6 +2028,7 @@ def home_search(request):
     search_rows = _build_search_home_rows(
         query=query,
         dogs_only=show_dogs_only,
+        viewer_id=getattr(request.user, "id", None),
     )
 
     paginator = Paginator(search_rows, SEARCH_RESULTS_PER_PAGE)
@@ -2064,13 +2082,20 @@ def create_post(request):
 def adopt_user_post(request, post_id):
     """Submit an adoption request for a user-created adoption post."""
     post = get_object_or_404(UserAdoptionPost, id=post_id)
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
     if post.owner == request.user:
-        messages.info(request, "You cannot request adoption for your own post.")
+        message = "You cannot request adoption for your own post."
+        if is_ajax:
+            return JsonResponse({"ok": False, "message": message}, status=400)
+        messages.info(request, message)
         return redirect('user:user_home')
 
     if post.status != "available":
-        messages.warning(request, "This dog is no longer available.")
+        message = "This dog is no longer available."
+        if is_ajax:
+            return JsonResponse({"ok": False, "message": message}, status=400)
+        messages.warning(request, message)
         return redirect("user:user_home")
 
     if request.method == "POST":
@@ -2081,9 +2106,15 @@ def adopt_user_post(request, post_id):
 
         if created:
             invalidate_user_notification_payload(post.owner_id)
-            messages.success(request, "Adoption request submitted successfully.")
+            message = "Adoption request submitted successfully."
+            if is_ajax:
+                return JsonResponse({"ok": True, "created": True, "message": message})
+            messages.success(request, message)
         else:
-            messages.info(request, "You already submitted an adoption request for this post.")
+            message = "You already submitted an adoption request for this post."
+            if is_ajax:
+                return JsonResponse({"ok": True, "created": False, "message": message})
+            messages.info(request, message)
         return redirect('user:user_home')
 
     return render(request, "adopt/adopt_user_confirm.html", {

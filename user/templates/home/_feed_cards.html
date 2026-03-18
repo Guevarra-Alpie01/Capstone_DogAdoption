@@ -265,7 +265,16 @@
 
             {% elif item.post_type == 'user' %}
                 {% if post.status == 'available' and request.user != post.owner %}
-                    <a href="{% url 'user:adopt_user_post' post.id %}" class="btn btn-success btn-sm">Request Adoption</a>
+                    <button
+                        type="button"
+                        class="btn btn-success btn-sm js-open-adoption-request-modal"
+                        data-request-url="{% url 'user:adopt_user_post' post.id %}"
+                        data-dog-name="{{ post.dog_name|default:'Unnamed Dog' }}"
+                        data-owner-name="{{ item.author_name|default:post.owner.username }}"
+                        data-location="{{ post.location|default:'-' }}"
+                    >
+                        Request Adoption
+                    </button>
                 {% elif post.status == 'adopted' %}
                     <span class="badge bg-secondary fs-6 px-3 py-2">Adopted</span>
                 {% endif %}

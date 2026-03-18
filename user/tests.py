@@ -213,6 +213,25 @@ class UserToUserAdoptionRequestFlowTests(TestCase):
             UserAdoptionRequest.objects.filter(post=self.post, requester=self.requester).exists()
         )
 
+    def test_ajax_post_adopt_user_post_returns_json_without_redirect(self):
+        response = self.client.post(
+            reverse("user:adopt_user_post", args=[self.post.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(
+            response.content,
+            {
+                "ok": True,
+                "created": True,
+                "message": "Adoption request submitted successfully.",
+            },
+        )
+        self.assertTrue(
+            UserAdoptionRequest.objects.filter(post=self.post, requester=self.requester).exists()
+        )
+
     def test_post_adopt_user_post_allows_blank_phone_and_facebook(self):
         profile = self.requester.profile
         profile.phone_number = ""
@@ -364,7 +383,7 @@ class UserHomeFeedTests(TestCase):
         self.assertTrue(second_page_posts)
         self.assertFalse(first_page_posts.intersection(second_page_posts))
 
-    def test_owner_does_not_see_post_request_button_when_post_has_no_requests(self):
+    def test_owner_does_not_see_own_post_in_home_feed_when_post_has_no_requests(self):
         post = UserAdoptionPost.objects.filter(owner=self.owner).first()
         UserAdoptionPost.objects.exclude(id=post.id).delete()
         cache.clear()
@@ -374,8 +393,14 @@ class UserHomeFeedTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Requests (")
+        self.assertFalse(
+            any(
+                item["post_type"] == "user" and item["post"].owner_id == self.owner.id
+                for item in response.context["posts"]
+            )
+        )
 
-    def test_owner_sees_post_request_button_when_post_has_requests(self):
+    def test_owner_does_not_see_own_post_in_home_feed_even_when_post_has_requests(self):
         requester = User.objects.create_user(
             username="requester_for_feed",
             password="secret123",
@@ -393,7 +418,12 @@ class UserHomeFeedTests(TestCase):
         response = self.client.get(reverse("user:user_home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, f"Requests ({post.requests.count()})")
+        self.assertFalse(
+            any(
+                item["post_type"] == "user" and item["post"].owner_id == self.owner.id
+                for item in response.context["posts"]
+            )
+        )
 
     def test_feed_author_name_links_to_public_profile_preview(self):
         post = UserAdoptionPost.objects.filter(owner=self.owner).first()
@@ -409,6 +439,19 @@ class UserHomeFeedTests(TestCase):
                 and item["author_profile_url"].startswith(
                     reverse("user:view_user_profile", args=[self.owner.id])
                 )
+                for item in response.context["posts"]
+            )
+        )
+
+    def test_home_feed_excludes_current_users_own_posts(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            any(
+                item["post_type"] == "user" and item["post"].owner_id == self.owner.id
                 for item in response.context["posts"]
             )
         )

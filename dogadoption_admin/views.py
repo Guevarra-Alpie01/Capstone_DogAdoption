@@ -43,8 +43,9 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Case, CharField, Count, DateField, F, IntegerField, Prefetch, Q, Value, When
+from django.db.models import Case, CharField, Count, DateField, DateTimeField, F, IntegerField, Prefetch, Q, Value, When
 from django.db.models.functions import Coalesce, Concat, Lower, Trim, TruncDate
+from django.db.models.expressions import RawSQL
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -1147,6 +1148,20 @@ def post_list(request):
 
     _set_post_form_barangay_source(post_form)
 
+    now = timezone.now()
+    post_table = Post._meta.db_table
+    claim_deadline_expr = RawSQL(
+        f"DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY)",
+        [],
+        output_field=DateTimeField(),
+    )
+    adopt_deadline_expr = RawSQL(
+        f"DATE_ADD(DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY), INTERVAL %s DAY)",
+        [Post.ADOPTION_DAYS],
+        output_field=DateTimeField(),
+    )
+    active_statuses = ["rescued", "under_care"]
+
     base_qs = Post.objects.only(
         'id',
         'caption',
@@ -1159,6 +1174,8 @@ def post_list(request):
     ).annotate(
         claim_count=Count('requests', filter=Q(requests__request_type='claim')),
         adopt_count=Count('requests', filter=Q(requests__request_type='adopt')),
+        claim_deadline_db=claim_deadline_expr,
+        adopt_deadline_db=adopt_deadline_expr,
     ).order_by("-created_at")
 
     def format_posted_label(dt):
@@ -1179,94 +1196,82 @@ def post_list(request):
             return f"{days}d"
         return dt.strftime("%b %d, %Y")
 
-    claim_posts = []
-    adoption_posts = []
-    reunited_posts = []
-    adopted_posts = []
+    rows_per_page = 10
 
-    for p in base_qs:
+    def _build_post_item(post, phase):
         days = hours = minutes = 0
-        phase = p.current_phase()
-        if phase in ['claim', 'adopt']:
-            diff = p.time_left()
-            total_seconds = max(int(diff.total_seconds()), 0)
+        deadline = None
+        if phase == 'claim':
+            deadline = getattr(post, "claim_deadline_db", None) or post.claim_deadline()
+        elif phase == 'adopt':
+            deadline = getattr(post, "adopt_deadline_db", None) or post.adoption_deadline()
 
+        if deadline and phase in {'claim', 'adopt'}:
+            total_seconds = max(int((deadline - now).total_seconds()), 0)
             days = total_seconds // 86400
             remainder = total_seconds % 86400
             hours = remainder // 3600
             remainder = remainder % 3600
             minutes = remainder // 60
 
-        deadline = None
-        if phase == 'claim':
-            deadline = p.claim_deadline()
-        elif phase == 'adopt':
-            deadline = p.adoption_deadline()
-
-        item = {
-            'post': p,
+        return {
+            'post': post,
             'days_left': days,
             'hours_left': hours,
             'minutes_left': minutes,
             'phase': phase,
-            'posted_label': format_posted_label(p.created_at),
+            'posted_label': format_posted_label(post.created_at),
             'deadline_iso': deadline.isoformat() if deadline else "",
             'time_left_label': (
                 f"{days:02d}d {hours:02d}h {minutes:02d}m"
                 if phase in ['claim', 'adopt']
                 else "No active time window"
             ),
-            'claim_request_count': int(getattr(p, "claim_count", 0) or 0),
-            'adopt_request_count': int(getattr(p, "adopt_count", 0) or 0),
+            'claim_request_count': int(getattr(post, "claim_count", 0) or 0),
+            'adopt_request_count': int(getattr(post, "adopt_count", 0) or 0),
             'claim_requests': [],
             'adopt_requests': [],
             'primary_image_url': "",
         }
-        if item['phase'] == 'claim':
-            claim_posts.append(item)
-        elif item['phase'] == 'adopt':
-            adoption_posts.append(item)
-        if item['post'].status == 'reunited':
-            reunited_posts.append(item)
-        elif item['post'].status == 'adopted':
-            adopted_posts.append(item)
 
-    # Rank active cards by request volume (highest first). Stable sort keeps original
-    # order for ties, so if equal request counts the earlier post stays first.
-    claim_posts = sorted(
-        claim_posts,
-        key=lambda item: item['claim_request_count'],
-        reverse=True,
-    )
-    adoption_posts = sorted(
-        adoption_posts,
-        key=lambda item: item['adopt_request_count'],
-        reverse=True,
-    )
-
-    claim_total = len(claim_posts)
-    adoption_total = len(adoption_posts)
-    reunited_total = len(reunited_posts)
-    adopted_total = len(adopted_posts)
-
-    rows_per_page = 10
-
-    def _paginate_status(items, page_param):
-        paginator = Paginator(items, rows_per_page)
+    def _paginate_status(qs, page_param, phase):
+        paginator = Paginator(qs, rows_per_page)
         page_obj = paginator.get_page(request.GET.get(page_param, 1))
-        return page_obj, list(page_obj.object_list)
+        return page_obj, [_build_post_item(post, phase) for post in page_obj.object_list]
 
     def _build_page_qs(page_param, page_num):
         params = request.GET.copy()
         params[page_param] = str(page_num)
         return params.urlencode()
 
+    claim_qs = (
+        base_qs.filter(
+            status__in=active_statuses,
+            claim_deadline_db__gte=now,
+        )
+        .order_by("-claim_count", "-created_at", "-id")
+    )
+    adoption_qs = (
+        base_qs.filter(
+            status__in=active_statuses,
+            claim_deadline_db__lt=now,
+            adopt_deadline_db__gte=now,
+        )
+        .order_by("-adopt_count", "-created_at", "-id")
+    )
+    reunited_qs = base_qs.filter(status='reunited').order_by("-created_at", "-id")
+    adopted_qs = base_qs.filter(status='adopted').order_by("-created_at", "-id")
+
+    claim_total = claim_qs.count()
+    adoption_total = adoption_qs.count()
+    reunited_total = reunited_qs.count()
+    adopted_total = adopted_qs.count()
     history_total = len(_get_cached_post_history_ids())
 
-    claim_page_obj, claim_posts = _paginate_status(claim_posts, "claim_page")
-    adoption_page_obj, adoption_posts = _paginate_status(adoption_posts, "adoption_page")
-    reunited_page_obj, reunited_posts = _paginate_status(reunited_posts, "reunited_page")
-    adopted_page_obj, adopted_posts = _paginate_status(adopted_posts, "adopted_page")
+    claim_page_obj, claim_posts = _paginate_status(claim_qs, "claim_page", "claim")
+    adoption_page_obj, adoption_posts = _paginate_status(adoption_qs, "adoption_page", "adopt")
+    reunited_page_obj, reunited_posts = _paginate_status(reunited_qs, "reunited_page", "closed")
+    adopted_page_obj, adopted_posts = _paginate_status(adopted_qs, "adopted_page", "closed")
 
     modal_posts_by_id = {}
     for item in claim_posts + adoption_posts + reunited_posts + adopted_posts:

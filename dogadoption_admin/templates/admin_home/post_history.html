@@ -1,0 +1,147 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/admin_home/post_history.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="history-page">
+    <div class="history-page-header">
+        <a href="{% url 'dogadoption_admin:post_list' %}" class="history-back-link">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i>
+            Back to Posted Dogs
+        </a>
+        <div>
+            <span class="history-page-kicker">Posted Dog Archive</span>
+            <h1 class="history-page-title">Unclaimed and Unadopted Dogs</h1>
+        </div>
+    </div>
+
+    <div class="history-page-summary">
+        <div class="history-summary-pill">
+            <strong>{{ history_total }}</strong>
+            <span>Archived post{{ history_total|pluralize }}</span>
+        </div>
+    </div>
+
+    <section class="history-page-card">
+        {% if history_posts %}
+            <div class="table-responsive">
+                <table class="table table-sm history-page-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Image</th>
+                            <th>Dog Name / Description</th>
+                            <th>Date Posted</th>
+                            <th>Status</th>
+                            <th>Closed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in history_posts %}
+                            <tr>
+                                <td>
+                                    {% if item.primary_image_url %}
+                                        <button
+                                            type="button"
+                                            class="history-image-trigger"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#historyImageModal"
+                                            data-image-src="{{ item.primary_image_url }}"
+                                            data-image-alt="{{ item.post.caption|default:'Dog photo' }}"
+                                        >
+                                            <img src="{{ item.primary_image_url }}" alt="{{ item.post.caption|default:'Dog photo' }}" class="history-thumb">
+                                            <span>View</span>
+                                        </button>
+                                    {% else %}
+                                        <div class="history-thumb-fallback">No image</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="history-copy-cell">
+                                        <strong>{{ item.post.caption|default:"Unnamed Dog" }}</strong>
+                                        <span>{{ item.post.location|default:"Location unavailable" }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="history-copy-cell">
+                                        <strong>{{ item.post.created_at|date:"M d, Y" }}</strong>
+                                        <span>{{ item.post.created_at|date:"g:i A" }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="history-status-cell">
+                                        <span class="history-status-badge history-status-{{ item.status_tone }}">{{ item.status_label }}</span>
+                                        <small>{{ item.base_status_label }}</small>
+                                    </div>
+                                </td>
+                                <td>{{ item.closed_date|date:"M d, Y"|default:"-" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if history_page_obj.paginator.num_pages > 1 %}
+            <div class="history-pagination">
+                {% if history_page_obj.has_previous %}
+                    <a href="?{{ history_prev_qs }}" class="history-page-btn">Prev</a>
+                {% else %}
+                    <span class="history-page-btn disabled">Prev</span>
+                {% endif %}
+                <span class="history-page-info">Page {{ history_page_obj.number }} of {{ history_page_obj.paginator.num_pages }}</span>
+                {% if history_page_obj.has_next %}
+                    <a href="?{{ history_next_qs }}" class="history-page-btn">Next</a>
+                {% else %}
+                    <span class="history-page-btn disabled">Next</span>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% else %}
+            <div class="history-empty-state">
+                <i class="fas fa-history" aria-hidden="true"></i>
+                <h3>No archived unresolved posts</h3>
+                <p>Posts will appear here once their claim and adoption windows close without being finalized.</p>
+            </div>
+        {% endif %}
+    </section>
+</section>
+
+<div class="modal fade" id="historyImageModal" tabindex="-1" aria-labelledby="historyImageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content history-image-modal">
+            <div class="modal-header">
+                <h5 class="modal-title" id="historyImageModalLabel">Posted Dog Image</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <img src="" alt="Posted dog image preview" id="historyImagePreview" class="history-image-preview">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const imageModal = document.getElementById("historyImageModal");
+        const imagePreview = document.getElementById("historyImagePreview");
+        if (!imageModal || !imagePreview) {
+            return;
+        }
+
+        imageModal.addEventListener("show.bs.modal", (event) => {
+            const trigger = event.relatedTarget;
+            if (!trigger) {
+                return;
+            }
+            imagePreview.src = trigger.getAttribute("data-image-src") || "";
+            imagePreview.alt = trigger.getAttribute("data-image-alt") || "Posted dog image preview";
+        });
+
+        imageModal.addEventListener("hidden.bs.modal", () => {
+            imagePreview.src = "";
+        });
+    });
+</script>
+{% endblock %}

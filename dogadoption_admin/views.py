@@ -124,6 +124,73 @@ POST_HISTORY_CACHE_TTL_SECONDS = 120
 # Shared imports, constants, and helper utilities
 # =============================================================================
 
+
+def _get_cached_post_history_ids():
+    history_candidate_ids = cache.get(POST_HISTORY_CACHE_KEY)
+    if history_candidate_ids is not None:
+        return history_candidate_ids
+
+    history_candidate_qs = (
+        Post.objects.filter(
+            status__in=["rescued", "under_care"],
+            created_at__lte=timezone.now() - timedelta(days=Post.ADOPTION_DAYS),
+        )
+        .only("id", "status", "created_at", "claim_days")
+        .order_by("-created_at")
+    )
+    history_candidate_ids = [
+        post.id
+        for post in history_candidate_qs
+        if post.is_expired()
+    ]
+    cache.set(
+        POST_HISTORY_CACHE_KEY,
+        history_candidate_ids,
+        POST_HISTORY_CACHE_TTL_SECONDS,
+    )
+    return history_candidate_ids
+
+
+def _build_post_history_page(request, page_param="page", rows_per_page=10):
+    history_candidate_ids = _get_cached_post_history_ids()
+    paginator = Paginator(history_candidate_ids, rows_per_page)
+    page_obj = paginator.get_page(request.GET.get(page_param, 1))
+    page_ids = list(page_obj.object_list)
+    history_posts = []
+
+    if page_ids:
+        post_map = {
+            post.id: post
+            for post in Post.objects.filter(id__in=page_ids)
+            .only("id", "caption", "location", "status", "created_at", "claim_days")
+        }
+        primary_image_by_post_id = {}
+        for image in PostImage.objects.filter(post_id__in=page_ids).only("post_id", "image").order_by("id"):
+            if image.post_id in primary_image_by_post_id:
+                continue
+            image_url = _safe_media_url(image.image)
+            if image_url:
+                primary_image_by_post_id[image.post_id] = image_url
+
+        for post_id in page_ids:
+            post = post_map.get(post_id)
+            if not post:
+                continue
+            history_posts.append({
+                "post": post,
+                "status_label": "Unresolved",
+                "status_tone": "warning",
+                "base_status_label": post.get_status_display(),
+                "closed_date": post.adoption_deadline(),
+                "primary_image_url": primary_image_by_post_id.get(post_id, ""),
+            })
+
+    return {
+        "history_total": len(history_candidate_ids),
+        "history_posts": history_posts,
+        "history_page_obj": page_obj,
+    }
+
 CAT_BREED_KEYWORDS = {
     "abyssinian",
     "american curl",
@@ -1048,10 +1115,6 @@ def post_list(request):
     show_appointment_modal = request.method == "GET" and (
         request.GET.get("open_appointment", "").lower() in {"1", "true", "yes"}
     )
-    show_history_modal = request.method == "GET" and (
-        request.GET.get("history", "").lower() in {"1", "true", "yes"}
-        or bool((request.GET.get("history_page") or "").strip())
-    )
     post_form = PostForm()
     if request.method == 'POST':
         form_type = (request.POST.get("form_type") or "").strip()
@@ -1198,50 +1261,7 @@ def post_list(request):
         params[page_param] = str(page_num)
         return params.urlencode()
 
-    history_candidate_ids = cache.get(POST_HISTORY_CACHE_KEY)
-    if history_candidate_ids is None:
-        history_candidate_qs = (
-            Post.objects.filter(
-                status__in=["rescued", "under_care"],
-                created_at__lte=timezone.now() - timedelta(days=Post.ADOPTION_DAYS),
-            )
-            .only("id", "caption", "status", "created_at", "claim_days")
-            .order_by("-created_at")
-        )
-        history_candidate_ids = [
-            post.id
-            for post in history_candidate_qs
-            if post.is_expired()
-        ]
-        cache.set(
-            POST_HISTORY_CACHE_KEY,
-            history_candidate_ids,
-            POST_HISTORY_CACHE_TTL_SECONDS,
-        )
-
-    history_total = len(history_candidate_ids)
-    history_paginator = Paginator(history_candidate_ids, rows_per_page)
-    history_page_obj = history_paginator.get_page(request.GET.get("history_page", 1))
-    history_posts = []
-    history_page_ids = list(history_page_obj.object_list)
-    if history_page_ids:
-        history_post_map = {
-            post.id: post
-            for post in Post.objects.filter(id__in=history_page_ids)
-            .only("id", "caption", "location", "status", "created_at", "claim_days")
-        }
-        for post_id in history_page_ids:
-            post = history_post_map.get(post_id)
-            if not post:
-                continue
-            history_posts.append({
-                "post": post,
-                "status_label": "Unresolved",
-                "status_tone": "warning",
-                "base_status_label": post.get_status_display(),
-                "posted_label": format_posted_label(post.created_at),
-                "closed_date": post.adoption_deadline(),
-            })
+    history_total = len(_get_cached_post_history_ids())
 
     claim_page_obj, claim_posts = _paginate_status(claim_posts, "claim_page")
     adoption_page_obj, adoption_posts = _paginate_status(adoption_posts, "adoption_page")
@@ -1379,12 +1399,25 @@ def post_list(request):
         'adopted_prev_qs': _build_page_qs("adopted_page", adopted_page_obj.previous_page_number()) if adopted_page_obj.has_previous() else "",
         'adopted_next_qs': _build_page_qs("adopted_page", adopted_page_obj.next_page_number()) if adopted_page_obj.has_next() else "",
         'history_total': history_total,
-        'history_posts': history_posts,
-        'history_page_obj': history_page_obj,
-        'history_prev_qs': _build_page_qs("history_page", history_page_obj.previous_page_number()) if history_page_obj.has_previous() else "",
-        'history_next_qs': _build_page_qs("history_page", history_page_obj.next_page_number()) if history_page_obj.has_next() else "",
-        'show_history_modal': show_history_modal,
         'return_to': request.get_full_path(),
+    })
+
+
+@admin_required
+def post_history(request):
+    """Show expired unresolved posts in a dedicated, paginated history page."""
+    history_context = _build_post_history_page(request, page_param="page", rows_per_page=10)
+    page_obj = history_context["history_page_obj"]
+
+    def _build_page_qs(page_num):
+        params = request.GET.copy()
+        params["page"] = str(page_num)
+        return params.urlencode()
+
+    return render(request, "admin_home/post_history.html", {
+        **history_context,
+        "history_prev_qs": _build_page_qs(page_obj.previous_page_number()) if page_obj.has_previous() else "",
+        "history_next_qs": _build_page_qs(page_obj.next_page_number()) if page_obj.has_next() else "",
     })
 
 

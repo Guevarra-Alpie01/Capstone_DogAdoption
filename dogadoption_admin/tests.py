@@ -692,12 +692,14 @@ class AdminPostHistoryTests(TestCase):
         )
         self._set_created_at(reunited_post, now - timedelta(days=12))
 
-        first_response = self.client.get(reverse("dogadoption_admin:post_list") + "?history=1")
-        second_response = self.client.get(reverse("dogadoption_admin:post_list") + "?history=1&history_page=2")
+        list_response = self.client.get(reverse("dogadoption_admin:post_list"))
+        first_response = self.client.get(reverse("dogadoption_admin:post_history"))
+        second_response = self.client.get(reverse("dogadoption_admin:post_history") + "?page=2")
 
+        self.assertEqual(list_response.status_code, 200)
         self.assertEqual(first_response.status_code, 200)
         self.assertEqual(second_response.status_code, 200)
-        self.assertTrue(first_response.context["show_history_modal"])
+        self.assertContains(list_response, reverse("dogadoption_admin:post_history"))
         self.assertEqual(first_response.context["history_total"], 12)
         self.assertEqual(len(first_response.context["history_posts"]), 10)
         self.assertEqual(len(second_response.context["history_posts"]), 2)
@@ -708,7 +710,7 @@ class AdminPostHistoryTests(TestCase):
             item["post"].caption for item in second_response.context["history_posts"]
         }
         self.assertContains(first_response, "Unclaimed and Unadopted Dogs")
-        self.assertContains(first_response, "History")
+        self.assertContains(first_response, "Posted Dog Archive")
         self.assertNotIn("Still Active", first_history_captions)
         self.assertNotIn("Already Adopted", first_history_captions)
         self.assertNotIn("Already Reclaimed", first_history_captions)

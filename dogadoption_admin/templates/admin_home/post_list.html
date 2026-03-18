@@ -13,7 +13,7 @@
             <i class="fas fa-calendar-alt me-2"></i> Set Appointment Date
         </button>
     </div>
-    <a href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}history=1" class="history-toolbar-btn" aria-label="View post history">
+    <a href="{% url 'dogadoption_admin:post_history' %}" class="history-toolbar-btn" aria-label="View post history">
         <span class="history-toolbar-icon">
             <i class="fas fa-history" aria-hidden="true"></i>
         </span>
@@ -173,89 +173,6 @@
                         </div>
                     </form>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade history-modal" id="postHistoryModal" tabindex="-1" aria-labelledby="postHistoryModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div>
-                    <span class="history-modal-kicker">Posted Dog History</span>
-                    <h5 class="modal-title" id="postHistoryModalLabel">Unclaimed and Unadopted Dogs</h5>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="history-summary-card">
-                    <div>
-                        <strong>{{ history_total }}</strong> archived post{{ history_total|pluralize }}
-                    </div>
-                    <p>Only posts with closed claim and adoption windows are shown here. Claimed and adopted dogs are excluded.</p>
-                </div>
-
-                {% if history_posts %}
-                    <div class="table-responsive">
-                        <table class="table table-sm history-table mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Dog Name / Description</th>
-                                    <th>Date Posted</th>
-                                    <th>Status</th>
-                                    <th>Closed</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in history_posts %}
-                                    <tr>
-                                        <td>
-                                            <div class="history-dog-cell">
-                                                <strong>{{ item.post.caption|default:"Unnamed Dog" }}</strong>
-                                                <span>{{ item.post.location|default:"Location unavailable" }}</span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="history-date-cell">
-                                                <strong>{{ item.post.created_at|date:"M d, Y" }}</strong>
-                                                <span>{{ item.posted_label }}</span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="history-status-cell">
-                                                <span class="history-status-badge history-status-{{ item.status_tone }}">{{ item.status_label }}</span>
-                                                <small>{{ item.base_status_label }}</small>
-                                            </div>
-                                        </td>
-                                        <td>{{ item.closed_date|date:"M d, Y"|default:"-" }}</td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% if history_page_obj.paginator.num_pages > 1 %}
-                    <div class="card-pagination history-pagination">
-                        {% if history_page_obj.has_previous %}
-                            <a href="?{{ history_prev_qs }}&history=1" class="card-page-btn">Prev</a>
-                        {% else %}
-                            <span class="card-page-btn disabled">Prev</span>
-                        {% endif %}
-                        <span class="card-page-info">Page {{ history_page_obj.number }} of {{ history_page_obj.paginator.num_pages }}</span>
-                        {% if history_page_obj.has_next %}
-                            <a href="?{{ history_next_qs }}&history=1" class="card-page-btn">Next</a>
-                        {% else %}
-                            <span class="card-page-btn disabled">Next</span>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                {% else %}
-                    <div class="history-empty-state">
-                        <i class="fas fa-history" aria-hidden="true"></i>
-                        <h6>No archived unresolved posts</h6>
-                        <p>Once a posted dog closes without being claimed or adopted, it will appear here.</p>
-                    </div>
-                {% endif %}
             </div>
         </div>
     </div>
@@ -911,7 +828,6 @@
 
         const createPostModalEl = document.getElementById("createPostModal");
         const appointmentModalEl = document.getElementById("appointmentDateModal");
-        const historyModalEl = document.getElementById("postHistoryModal");
         const claimDaysInput = document.getElementById("{{ post_form.claim_days.id_for_label }}");
         const form = document.getElementById("create-post-form");
         const appointmentFormEl = document.getElementById("appointmentForm");
@@ -922,7 +838,6 @@
         const claimDaysStorageKey = "admin_create_post_claim_days";
         const shouldOpenCreateModal = {{ show_create_modal|yesno:"true,false" }};
         const shouldOpenAppointmentModal = {{ show_appointment_modal|yesno:"true,false" }};
-        const shouldOpenHistoryModal = {{ show_history_modal|yesno:"true,false" }};
         let publishConfirmed = false;
         let appointmentConfirmed = false;
 
@@ -1027,13 +942,6 @@
 
         if (appointmentModalEl && shouldOpenAppointmentModal) {
             const modal = getBootstrapModal(appointmentModalEl);
-            if (modal) {
-                modal.show();
-            }
-        }
-
-        if (historyModalEl && shouldOpenHistoryModal) {
-            const modal = getBootstrapModal(historyModalEl);
             if (modal) {
                 modal.show();
             }

@@ -11,35 +11,37 @@
 
 <div class="registration-wrapper user-management-page">
     <section class="form-card user-search-card">
-        <form method="GET" action="{% url 'dogadoption_admin:admin_user_search' %}" class="search-bar">
-            <label class="search-label" for="user-directory-search">Search Users</label>
-            <div class="user-search-row">
-                <div class="search-input-wrap">
-                    <i class="bi bi-search search-input-icon" aria-hidden="true"></i>
-                    <input
-                        type="text"
-                        id="user-directory-search"
-                        name="q"
-                        placeholder="Search by first name, last name, or username"
-                        value="{{ query }}"
-                    >
-                    {% if query %}
-                        <a href="{% url 'dogadoption_admin:admin_users' %}" class="search-clear-link" aria-label="Clear search">&times;</a>
-                    {% endif %}
+        <div class="user-search-shell">
+            <form method="GET" action="{% url 'dogadoption_admin:admin_user_search' %}" class="search-bar">
+                <label class="search-label" for="user-directory-search">Search Users</label>
+                <div class="user-search-row">
+                    <div class="search-input-wrap">
+                        <i class="bi bi-search search-input-icon" aria-hidden="true"></i>
+                        <input
+                            type="text"
+                            id="user-directory-search"
+                            name="q"
+                            placeholder="Search by first name, last name, or username"
+                            value="{{ query }}"
+                        >
+                        {% if query %}
+                            <a href="{% url 'dogadoption_admin:admin_users' %}" class="search-clear-link" aria-label="Clear search">&times;</a>
+                        {% endif %}
+                    </div>
+                    <button type="submit" class="owner-search-btn user-search-btn">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        Search
+                    </button>
                 </div>
-                <button type="submit" class="owner-search-btn user-search-btn">
-                    <i class="bi bi-search" aria-hidden="true"></i>
-                    Search
-                </button>
-            </div>
-        </form>
-        <p class="search-helper">
-            {% if query %}
-                Showing results for <strong>"{{ query }}"</strong>.
-            {% else %}
-                Search by first name, last name, or username.
-            {% endif %}
-        </p>
+            </form>
+            <p class="search-helper">
+                {% if query %}
+                    Showing results for <strong>"{{ query }}"</strong>.
+                {% else %}
+                    Search by first name, last name, or username.
+                {% endif %}
+            </p>
+        </div>
     </section>
 
     <section class="record-panel user-list-shell">

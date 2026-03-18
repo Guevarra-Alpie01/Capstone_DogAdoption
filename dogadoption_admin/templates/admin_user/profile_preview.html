@@ -3,325 +3,17 @@
 
 {% block title %}Owner Profile Preview{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/admin_user/profile_preview.css' %}">
+{% endblock %}
+
 {% block content %}
-<style>
-    .owner-preview-shell {
-        max-width: 1120px;
-        margin: 0 auto;
-        padding: 24px 16px 40px;
-    }
-
-    .owner-preview-topbar {
-        display: flex;
-        justify-content: flex-end;
-        margin-bottom: 10px;
-    }
-
-    .owner-preview-escape-btn {
-        width: 40px;
-        height: 40px;
-        border-radius: 999px;
-        border: 1px solid #cfd7e3;
-        background: rgba(15, 23, 42, 0.9);
-        color: #ffffff;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        text-decoration: none;
-        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.2);
-    }
-
-    .owner-preview-escape-btn:hover,
-    .owner-preview-escape-btn:focus {
-        color: #ffffff;
-        background: #0f172a;
-    }
-
-    .owner-preview-card,
-    .owner-preview-panel {
-        background: #fff;
-        border: 1px solid #d9e1ea;
-        border-radius: 18px;
-        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
-    }
-
-    .owner-preview-card {
-        overflow: hidden;
-        margin-bottom: 24px;
-    }
-
-    .owner-preview-hero {
-        background: linear-gradient(135deg, #17324d, #285a6e 55%, #84a98c);
-        color: #fff;
-        padding: 28px;
-        display: flex;
-        gap: 20px;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-
-    .owner-preview-avatar-button {
-        flex: 0 0 auto;
-        width: 132px;
-        height: 132px;
-        padding: 0;
-        border: 0;
-        border-radius: 28px;
-        background: transparent;
-        box-shadow: none;
-        cursor: zoom-in;
-    }
-
-    .owner-preview-avatar-button:focus-visible {
-        outline: 3px solid rgba(255, 255, 255, 0.45);
-        outline-offset: 4px;
-    }
-
-    .owner-preview-avatar,
-    .owner-preview-avatar-fallback {
-        width: 100%;
-        height: 100%;
-        border-radius: 28px;
-        border: 3px solid rgba(255, 255, 255, 0.26);
-        object-fit: cover;
-        background: rgba(255, 255, 255, 0.18);
-    }
-
-    .owner-preview-avatar-fallback {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2.35rem;
-        font-weight: 700;
-        text-transform: uppercase;
-    }
-
-    .owner-preview-hero-copy {
-        min-width: 0;
-        display: grid;
-        gap: 4px;
-    }
-
-    .owner-preview-hero h1 {
-        margin: 0 0 6px;
-        font-size: 2rem;
-    }
-
-    .owner-preview-hero p {
-        margin: 0;
-        opacity: 0.92;
-    }
-
-    .owner-preview-overview-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 20px;
-    }
-
-    .owner-preview-panel {
-        padding: 22px;
-        min-height: 100%;
-    }
-
-    .owner-preview-overview-grid > .owner-preview-panel {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .owner-preview-panel h2 {
-        margin: 0 0 14px;
-        font-size: 1.1rem;
-    }
-
-    .owner-preview-list {
-        margin: 0;
-        padding: 0;
-        list-style: none;
-        display: grid;
-        gap: 10px;
-    }
-
-    .owner-preview-list li {
-        display: grid;
-        gap: 2px;
-    }
-
-    .owner-preview-list strong {
-        color: #17324d;
-    }
-
-    .owner-preview-violation-stack {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
-        margin-bottom: 16px;
-    }
-
-    .owner-preview-violation-stat {
-        padding: 16px 14px;
-        border-radius: 16px;
-        border: 1px solid #d9e1ea;
-        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-        text-align: center;
-    }
-
-    .owner-preview-violation-stat.total {
-        border-color: rgba(185, 28, 28, 0.16);
-        background: linear-gradient(180deg, #fff5f5 0%, #ffe7e7 100%);
-    }
-
-    .owner-preview-violation-stat span {
-        display: block;
-        margin-bottom: 6px;
-        color: #5b6c82;
-        font-size: 0.74rem;
-        font-weight: 800;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-    }
-
-    .owner-preview-violation-stat strong {
-        display: block;
-        color: #17324d;
-        font-size: 1.85rem;
-        font-weight: 800;
-        line-height: 1;
-    }
-
-    .owner-preview-violation-stat.total strong {
-        color: #b42318;
-    }
-
-    .owner-preview-violation-note {
-        margin: auto 0 0;
-        padding: 14px 16px;
-        border-radius: 16px;
-        background: #f8fbff;
-        color: #4b5563;
-        line-height: 1.55;
-    }
-
-    .owner-preview-face-grid,
-    .owner-preview-photo-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-        gap: 12px;
-    }
-
-    .owner-preview-face-grid img,
-    .owner-preview-photo-grid img {
-        width: 100%;
-        border-radius: 14px;
-        object-fit: cover;
-        aspect-ratio: 1 / 1;
-        border: 1px solid #d9e1ea;
-        cursor: zoom-in;
-    }
-
-    .owner-preview-dogs {
-        margin-top: 24px;
-        display: grid;
-        gap: 18px;
-    }
-
-    .owner-preview-dog-card {
-        background: #fff;
-        border: 1px solid #d9e1ea;
-        border-radius: 18px;
-        padding: 22px;
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
-    }
-
-    .owner-preview-dog-head {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        align-items: center;
-        flex-wrap: wrap;
-        margin-bottom: 12px;
-    }
-
-    .owner-preview-dog-head h3 {
-        margin: 0;
-        font-size: 1.2rem;
-    }
-
-    .owner-preview-dog-meta {
-        margin: 0 0 14px;
-        color: #4b5563;
-    }
-
-    .owner-preview-empty {
-        margin: 0;
-        color: #6b7280;
-    }
-
-    .owner-photo-modal .modal-content {
-        border: 0;
-        border-radius: 14px;
-        overflow: hidden;
-        background: #0b1220;
-    }
-
-    .owner-photo-modal .modal-header {
-        background: #0b1220;
-        color: #e2e8f0;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.25);
-    }
-
-    .owner-photo-modal .btn-close {
-        filter: invert(1) grayscale(100%);
-    }
-
-    .owner-photo-modal-body {
-        margin: 0;
-        padding: 0;
-        min-height: 240px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background: #020617;
-    }
-
-    .owner-photo-modal-image {
-        display: block;
-        max-width: 100%;
-        max-height: 82vh;
-        width: auto;
-        height: auto;
-        object-fit: contain;
-    }
-
-    @media (max-width: 767px) {
-        .owner-preview-hero {
-            padding: 22px;
-            align-items: flex-start;
-        }
-
-        .owner-preview-avatar-button {
-            width: 108px;
-            height: 108px;
-            border-radius: 24px;
-        }
-
-        .owner-preview-avatar,
-        .owner-preview-avatar-fallback {
-            border-radius: 24px;
-        }
-
-        .owner-preview-hero h1 {
-            font-size: 1.55rem;
-        }
-
-        .owner-preview-overview-grid,
-        .owner-preview-violation-stack {
-            grid-template-columns: 1fr;
-        }
-    }
-</style>
-
 <div class="owner-preview-shell">
     <div class="owner-preview-topbar">
+        <span class="owner-preview-topbar-note">
+            <i class="bi bi-eye-fill" aria-hidden="true"></i>
+            Read-only owner preview
+        </span>
         <a href="#" id="ownerPreviewEscapeBtn" class="owner-preview-escape-btn" aria-label="Close profile preview">
             <i class="bi bi-x-lg"></i>
         </a>
@@ -349,36 +41,98 @@
                     </span>
                 {% endif %}
             </button>
+
             <div class="owner-preview-hero-copy">
+                <span class="owner-preview-hero-eyebrow">Registration owner profile</span>
                 <h1>{{ profile_user.get_full_name|default:profile_user.username }}</h1>
-                <p>@{{ profile_user.username }}</p>
+                <p class="owner-preview-hero-handle">@{{ profile_user.username }}</p>
+
+                <div class="owner-preview-hero-badges">
+                    <span class="owner-preview-badge">
+                        <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
+                        {{ registered_dogs_total }} registered pets
+                    </span>
+                    <span class="owner-preview-badge">
+                        <i class="bi bi-shield-check" aria-hidden="true"></i>
+                        {{ face_images|length }} face images
+                    </span>
+                    <span class="owner-preview-badge">
+                        <i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i>
+                        {{ violation_summary.total|default:"0" }} violations
+                    </span>
+                </div>
             </div>
         </div>
     </section>
 
     <div class="owner-preview-overview-grid">
         <section class="owner-preview-panel">
-            <h2>Profile Details</h2>
-            <ul class="owner-preview-list">
-                <li><strong>First Name:</strong> {{ profile_user.first_name|default:"-" }}</li>
-                <li><strong>Last Name:</strong> {{ profile_user.last_name|default:"-" }}</li>
-                <li><strong>Middle Initial:</strong> {{ profile.middle_initial|default:"-" }}</li>
-                <li><strong>Age:</strong> {{ profile.age|default:"-" }}</li>
-                <li><strong>Phone:</strong> {{ profile.phone_number|default:"-" }}</li>
-                <li><strong>Address:</strong> {{ profile.address|default:"-" }}</li>
-                <li><strong>Facebook:</strong>
-                    {% if profile.facebook_url %}
-                        <a href="{{ profile.facebook_url }}" target="_blank" rel="noopener noreferrer">{{ profile.facebook_url }}</a>
-                    {% else %}
-                        -
-                    {% endif %}
-                </li>
-                <li><strong>Date Joined:</strong> {{ profile_user.date_joined|date:"M d, Y" }}</li>
-            </ul>
+            <div class="owner-preview-panel-head">
+                <div class="owner-preview-panel-heading">
+                    <span class="owner-preview-section-label">Profile</span>
+                    <h2>Profile Details</h2>
+                </div>
+            </div>
+
+            <dl class="owner-preview-list">
+                <div class="owner-preview-list-row">
+                    <dt>First Name</dt>
+                    <dd>{{ profile_user.first_name|default:"-" }}</dd>
+                </div>
+                <div class="owner-preview-list-row">
+                    <dt>Last Name</dt>
+                    <dd>{{ profile_user.last_name|default:"-" }}</dd>
+                </div>
+                <div class="owner-preview-list-row">
+                    <dt>Middle Initial</dt>
+                    <dd>{{ profile.middle_initial|default:"-" }}</dd>
+                </div>
+                <div class="owner-preview-list-row">
+                    <dt>Age</dt>
+                    <dd>{{ profile.age|default:"-" }}</dd>
+                </div>
+                <div class="owner-preview-list-row">
+                    <dt>Phone</dt>
+                    <dd>{{ profile.phone_number|default:"-" }}</dd>
+                </div>
+                <div class="owner-preview-list-row">
+                    <dt>Address</dt>
+                    <dd>{{ profile.address|default:"-" }}</dd>
+                </div>
+                <div class="owner-preview-list-row">
+                    <dt>Facebook</dt>
+                    <dd>
+                        {% if profile.facebook_url %}
+                            <a href="{{ profile.facebook_url }}" target="_blank" rel="noopener noreferrer">{{ profile.facebook_url }}</a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </dd>
+                </div>
+                <div class="owner-preview-list-row">
+                    <dt>Date Joined</dt>
+                    <dd>
+                        {% if profile_user.pk %}
+                            {{ profile_user.date_joined|date:"M d, Y" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </dd>
+                </div>
+            </dl>
         </section>
 
         <section class="owner-preview-panel">
-            <h2>Violations</h2>
+            <div class="owner-preview-panel-head">
+                <div class="owner-preview-panel-heading">
+                    <span class="owner-preview-section-label">Compliance</span>
+                    <h2>Violations</h2>
+                </div>
+                <span class="owner-preview-summary-chip {% if violation_summary.total %}is-alert{% endif %}">
+                    {{ violation_summary.total|default:"0" }} total
+                </span>
+            </div>
+
             <div class="owner-preview-violation-stack">
                 <article class="owner-preview-violation-stat total">
                     <span>Total</span>
@@ -393,39 +147,65 @@
                     <strong>{{ violation_summary.citations|default:"0" }}</strong>
                 </article>
             </div>
+
             <p class="owner-preview-violation-note">
-                This summary combines claim-related violations and issued citations linked to this owner profile.
+                <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+                <span>This summary combines claim-related violations and issued citations linked to this owner profile.</span>
             </p>
         </section>
     </div>
 
-    <section class="owner-preview-panel" style="margin-top: 24px;">
-        <h2>Face Authentication</h2>
-            {% if face_images %}
-                <div class="owner-preview-face-grid">
-                    {% for face in face_images %}
-                        <img src="{{ face.image.url }}" alt="Face authentication image {{ forloop.counter }}" class="js-owner-preview-photo">
-                    {% endfor %}
-                </div>
-            {% else %}
-                <p class="owner-preview-empty">No face authentication images uploaded.</p>
-            {% endif %}
+    <section class="owner-preview-panel owner-preview-section">
+        <div class="owner-preview-panel-head is-split">
+            <div class="owner-preview-panel-heading">
+                <span class="owner-preview-section-label">Security</span>
+                <h2>Face Authentication</h2>
+            </div>
+            <span class="owner-preview-panel-caption">{{ face_images|length }} uploaded</span>
+        </div>
+
+        {% if face_images %}
+            <div class="owner-preview-face-grid">
+                {% for face in face_images %}
+                    <img src="{{ face.image.url }}" alt="Face authentication image {{ forloop.counter }}" class="js-owner-preview-photo">
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="owner-preview-empty">No face authentication images uploaded.</p>
+        {% endif %}
     </section>
 
-    <section class="owner-preview-panel" style="margin-top: 24px;">
-        <h2>Registered Pets ({{ registered_dogs_total }})</h2>
+    <section class="owner-preview-panel owner-preview-section">
+        <div class="owner-preview-panel-head is-split">
+            <div class="owner-preview-panel-heading">
+                <span class="owner-preview-section-label">Registry</span>
+                <h2>Registered Pets ({{ registered_dogs_total }})</h2>
+            </div>
+            <span class="owner-preview-panel-caption">Staff-linked registrations for this owner</span>
+        </div>
+
         {% if registered_dogs %}
             <div class="owner-preview-dogs">
                 {% for dog in registered_dogs %}
                     <article class="owner-preview-dog-card">
                         <div class="owner-preview-dog-head">
                             <h3>{{ dog.name }}</h3>
-                            <span>Registered {{ dog.date_registered|date:"M d, Y" }}</span>
+                            <span class="owner-preview-dog-date">
+                                <i class="bi bi-calendar2-week" aria-hidden="true"></i>
+                                Registered {{ dog.date_registered|date:"M d, Y" }}
+                            </span>
                         </div>
-                        <p class="owner-preview-dog-meta">
-                            {{ dog.species }} | Sex: {{ dog.sex_label }} | Age: {{ dog.age }} | Neutering: {{ dog.neutering_label }} | Color: {{ dog.color }}
-                        </p>
-                        <p class="owner-preview-dog-meta"><strong>Location:</strong> {{ dog.location|default:"-" }}</p>
+
+                        <div class="owner-preview-dog-specs">
+                            <span>{{ dog.species }}</span>
+                            <span>Sex: {{ dog.sex_label }}</span>
+                            <span>Age: {{ dog.age }}</span>
+                            <span>Neutering: {{ dog.neutering_label }}</span>
+                            <span>Color: {{ dog.color }}</span>
+                        </div>
+
+                        <p class="owner-preview-dog-location"><strong>Location:</strong> {{ dog.location|default:"-" }}</p>
+
                         {% if dog.photo_urls %}
                             <div class="owner-preview-photo-grid">
                                 {% for photo_url in dog.photo_urls %}

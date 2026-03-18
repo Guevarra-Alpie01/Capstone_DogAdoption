@@ -223,6 +223,13 @@
             </button>
         </div>
         <div class="camera-capture-group" id="camera-capture-group">
+            <div class="camera-permission-notice" id="camera-permission-notice">
+                <div class="camera-permission-copy">
+                    <strong>Camera access is required</strong>
+                    <p>Allow camera access to use your device camera. On phones and tablets, the system will try to open the back camera first.</p>
+                </div>
+                <button type="button" class="camera-action-btn" id="request-camera-btn">Allow Camera Access</button>
+            </div>
             <div class="camera-control-row">
                 <button type="button" class="camera-action-btn" id="open-camera-btn">Open Camera</button>
                 <button type="button" class="camera-action-btn" id="take-photo-btn" disabled>Take Photo</button>
@@ -231,8 +238,8 @@
             <video id="camera-preview" class="camera-preview" autoplay playsinline muted></video>
             <canvas id="camera-canvas" class="camera-canvas" aria-hidden="true"></canvas>
             <div id="captured-photo-list" class="captured-photo-list"></div>
-            <small class="field-hint">
-                Camera view is corrected to avoid mirrored movement while capturing.
+            <small class="field-hint camera-status-text" id="camera-status-text">
+                Camera access has not been requested yet.
             </small>
         </div>
         <div class="camera-capture-footer">
@@ -420,6 +427,7 @@
         }
 
         const openBtn = document.getElementById('open-camera-btn');
+        const requestCameraBtn = document.getElementById('request-camera-btn');
         const takeBtn = document.getElementById('take-photo-btn');
         const closeBtn = document.getElementById('close-camera-btn');
         const saveBtn = document.getElementById('camera-save-btn');
@@ -428,14 +436,17 @@
         const photoList = document.getElementById('captured-photo-list');
         const capturedInput = document.getElementById('captured_camera_images');
         const form = document.getElementById('registration-form');
+        const permissionNotice = document.getElementById('camera-permission-notice');
+        const cameraStatusText = document.getElementById('camera-status-text');
 
         const supportsCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
         const supportsDataTransfer = typeof DataTransfer !== 'undefined';
         const capturedFiles = [];
         let stream = null;
         let mirrorCompensation = false;
+        let activeCameraLabel = '';
 
-        if (!saveBtn) {
+        if (!saveBtn || !requestCameraBtn || !permissionNotice || !cameraStatusText) {
             return;
         }
 
@@ -452,6 +463,10 @@
         function openCameraModal() {
             cameraCaptureModal.hidden = false;
             document.body.style.overflow = 'hidden';
+            togglePermissionNotice(!stream);
+            if (!stream) {
+                setCameraStatus('Camera access has not been requested yet.', 'neutral');
+            }
             updateCameraSaveButton();
         }
 
@@ -569,6 +584,15 @@
             openBtn.disabled = isStreaming;
         }
 
+        function togglePermissionNotice(show) {
+            permissionNotice.hidden = !show;
+        }
+
+        function setCameraStatus(message, tone) {
+            cameraStatusText.textContent = message;
+            cameraStatusText.dataset.tone = tone || 'neutral';
+        }
+
         function stopStream() {
             if (!stream) return;
             stream.getTracks().forEach(track => track.stop());
@@ -576,7 +600,10 @@
             preview.srcObject = null;
             preview.classList.remove('camera-preview--mirror-fix');
             mirrorCompensation = false;
+            activeCameraLabel = '';
             setButtons(false);
+            togglePermissionNotice(true);
+            setCameraStatus('Camera access has not been requested yet.', 'neutral');
         }
 
         function syncCapturedInput() {
@@ -626,6 +653,88 @@
             });
         }
 
+        async function requestVideoStream(videoConstraints) {
+            return navigator.mediaDevices.getUserMedia({
+                video: videoConstraints,
+                audio: false
+            });
+        }
+
+        async function getPreferredCameraStream() {
+            try {
+                return await requestVideoStream({ facingMode: { exact: 'environment' } });
+            } catch (error) {
+                if (error && error.name !== 'OverconstrainedError' && error.name !== 'NotFoundError') {
+                    throw error;
+                }
+            }
+
+            let fallbackStream = await requestVideoStream({ facingMode: { ideal: 'environment' } });
+            const activeTrack = fallbackStream.getVideoTracks()[0];
+            const facingMode = activeTrack && activeTrack.getSettings ? activeTrack.getSettings().facingMode : '';
+
+            if (facingMode === 'environment' || !navigator.mediaDevices.enumerateDevices) {
+                return fallbackStream;
+            }
+
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const rearCamera = devices.find((device) => {
+                    if (device.kind !== 'videoinput') {
+                        return false;
+                    }
+                    const label = (device.label || '').toLowerCase();
+                    return /back|rear|environment|world/.test(label);
+                });
+
+                if (!rearCamera || !rearCamera.deviceId) {
+                    return fallbackStream;
+                }
+
+                const currentDeviceId = activeTrack && activeTrack.getSettings ? activeTrack.getSettings().deviceId : '';
+                if (currentDeviceId && currentDeviceId === rearCamera.deviceId) {
+                    return fallbackStream;
+                }
+
+                fallbackStream.getTracks().forEach((track) => track.stop());
+                return await requestVideoStream({ deviceId: { exact: rearCamera.deviceId } });
+            } catch (error) {
+                return fallbackStream;
+            }
+        }
+
+        async function startCamera() {
+            if (!supportsCamera) {
+                mobileCameraInput.click();
+                return;
+            }
+
+            setCameraStatus('Requesting camera permission...', 'info');
+
+            try {
+                stream = await getPreferredCameraStream();
+                preview.srcObject = stream;
+                const videoTrack = stream.getVideoTracks()[0];
+                const settings = videoTrack && videoTrack.getSettings ? videoTrack.getSettings() : {};
+                const facingMode = settings.facingMode || '';
+                activeCameraLabel = (videoTrack && videoTrack.label) || '';
+                mirrorCompensation = !facingMode || facingMode === 'user';
+                preview.classList.toggle('camera-preview--mirror-fix', mirrorCompensation);
+                setButtons(true);
+                togglePermissionNotice(false);
+
+                if (facingMode === 'environment' || /back|rear|environment|world/i.test(activeCameraLabel)) {
+                    setCameraStatus('Rear camera is active and ready for capture.', 'success');
+                } else {
+                    setCameraStatus('Camera is active. This device provided the available camera feed.', 'info');
+                }
+            } catch (error) {
+                stopStream();
+                setCameraStatus('Camera access failed. Please allow permission and try again.', 'error');
+                alert('Camera access failed. Please check browser camera permission and try again.');
+            }
+        }
+
         openOptionsBtn.addEventListener('click', openOptionModal);
         closeOptionBtns.forEach((btn) => {
             btn.addEventListener('click', closeOptionModal);
@@ -645,7 +754,7 @@
             closeOptionModal();
             if (supportsCamera && supportsDataTransfer) {
                 openCameraModal();
-                openBtn.focus();
+                requestCameraBtn.focus();
             } else {
                 mobileCameraInput.click();
             }
@@ -664,25 +773,8 @@
         uploadInput.addEventListener('change', updatePhotoCount);
         mobileCameraInput.addEventListener('change', updatePhotoCount);
 
-        openBtn.addEventListener('click', async function () {
-            const allow = window.confirm('Allow camera access to take a photo for this registration?');
-            if (!allow) return;
-
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { ideal: 'environment' } },
-                    audio: false
-                });
-                preview.srcObject = stream;
-                const videoTrack = stream.getVideoTracks()[0];
-                const facingMode = videoTrack && videoTrack.getSettings ? videoTrack.getSettings().facingMode : '';
-                mirrorCompensation = !facingMode || facingMode === 'user';
-                preview.classList.toggle('camera-preview--mirror-fix', mirrorCompensation);
-                setButtons(true);
-            } catch (error) {
-                alert('Camera access failed. Please check browser camera permission and try again.');
-            }
-        });
+        requestCameraBtn.addEventListener('click', startCamera);
+        openBtn.addEventListener('click', startCamera);
 
         takeBtn.addEventListener('click', function () {
             if (!stream) return;
@@ -718,6 +810,8 @@
             form.addEventListener('submit', stopStream);
         }
         window.addEventListener('beforeunload', closeCameraModal);
+        togglePermissionNotice(true);
+        setCameraStatus('Camera access has not been requested yet.', 'neutral');
         updatePhotoCount();
         updateCameraSaveButton();
     })();

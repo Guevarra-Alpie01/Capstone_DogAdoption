@@ -60,6 +60,7 @@ from .notification_utils import (
     build_user_notification_payload,
     bump_user_home_feed_namespace,
     get_user_home_feed_namespace,
+    get_user_notification_read_keys,
     invalidate_user_notification_content,
     invalidate_user_notification_payload,
     mark_user_notification_read,
@@ -535,6 +536,41 @@ def mark_notifications_seen(request):
         [item.get("key", "") for item in payload.get("items", [])],
     )
     return JsonResponse({"ok": True, "unread_count": 0})
+
+
+def _build_user_notification_summary(request):
+    payload = build_user_notification_payload(request.user)
+    read_keys = get_user_notification_read_keys(request)
+    notifications = []
+    unread_count = 0
+    for item in payload.get("items", []):
+        notification_key = item.get("key", "")
+        target_url = item.get("url") or reverse("user:user_home")
+        is_unread = bool(notification_key and notification_key not in read_keys)
+        if is_unread:
+            unread_count += 1
+        notifications.append({
+            "kind": item.get("kind", "notification"),
+            "title": item.get("title", ""),
+            "message": item.get("message", ""),
+            "url": target_url,
+            "created_label": item.get("created_label", ""),
+            "is_unread": is_unread,
+            "open_url": "{}?{}".format(
+                reverse("user:open_notification"),
+                urlencode({"key": notification_key, "next": target_url}),
+            ),
+        })
+    return {
+        "unread_count": unread_count,
+        "notifications": notifications,
+    }
+
+
+@user_only
+def notification_summary(request):
+    """Return the current user's notification badge and dropdown data."""
+    return JsonResponse(_build_user_notification_summary(request))
 
 
 @user_only

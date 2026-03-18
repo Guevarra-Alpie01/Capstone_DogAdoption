@@ -1,6 +1,7 @@
 from datetime import datetime, time, timedelta
 
 from django.core.cache import cache
+from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth.models import User
 from django.templatetags.static import static
@@ -98,7 +99,7 @@ class AdminExpiryNotificationTests(TestCase):
             contact_no="09123456789",
         )
 
-    def test_admin_notifications_page_creates_today_expiry_alerts_without_duplicates(self):
+    def test_sync_admin_notifications_command_creates_today_expiry_alerts_without_duplicates(self):
         today = timezone.localdate()
         VaccinationRecord.objects.create(
             registration=self.registration,
@@ -121,8 +122,10 @@ class AdminExpiryNotificationTests(TestCase):
 
         self.client.force_login(self.admin)
         url = reverse("dogadoption_admin:admin_notifications")
+        call_command("sync_admin_notifications")
 
         first_response = self.client.get(url)
+        call_command("sync_admin_notifications")
         second_response = self.client.get(url)
 
         self.assertEqual(first_response.status_code, 200)
@@ -140,7 +143,8 @@ class AdminExpiryNotificationTests(TestCase):
             AdminNotification.objects.filter(event_key__startswith="medicine-expiry:").count(),
             1,
         )
-        self.assertEqual(first_response.context["admin_unread_notifications"], 2)
+        summary_response = self.client.get(reverse("dogadoption_admin:notification_summary"))
+        self.assertEqual(summary_response.json()["unread_count"], 2)
 
     def test_med_record_post_saves_medicine_expiry_date_and_surfaces_notification(self):
         today = timezone.localdate()
@@ -163,8 +167,14 @@ class AdminExpiryNotificationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         record = DewormingTreatmentRecord.objects.get(registration=self.registration)
         self.assertEqual(record.medicine_expiry_date, today)
-        self.assertContains(response, "Medicine expires today")
-        self.assertEqual(response.context["admin_unread_notifications"], 1)
+        summary_response = self.client.get(reverse("dogadoption_admin:notification_summary"))
+        self.assertEqual(summary_response.json()["unread_count"], 1)
+        self.assertTrue(
+            any(
+                item["title"] == "Medicine expires today"
+                for item in summary_response.json()["notifications"]
+            )
+        )
 
     def test_mark_notification_read_updates_unread_count(self):
         notification = AdminNotification.objects.create(
@@ -182,7 +192,8 @@ class AdminExpiryNotificationTests(TestCase):
         notification.refresh_from_db()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(notification.is_read)
-        self.assertEqual(response.context["admin_unread_notifications"], 0)
+        summary_response = self.client.get(reverse("dogadoption_admin:notification_summary"))
+        self.assertEqual(summary_response.json()["unread_count"], 0)
 
 
 class CertificateRegistrationFlowTests(TestCase):

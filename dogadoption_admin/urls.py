@@ -72,6 +72,7 @@ urlpatterns = [
     path('admin/user/<userid:id>/', views.admin_user_detail, name='admin_user_detail'),
     path('users/search/', views.admin_user_search_results, name='admin_user_search'),
     path('profile/edit/', views.admin_edit_profile, name='admin_edit_profile'),
+    path('notifications/summary/', views.notification_summary, name='notification_summary'),
     path('notifications/', views.admin_notifications, name='admin_notifications'),
     path('notifications/<notificationid:pk>/read/', views.mark_notification_read, name='notification_read'),
 ]

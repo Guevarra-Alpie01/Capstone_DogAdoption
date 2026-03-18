@@ -58,7 +58,10 @@ from django.views.decorators.http import require_http_methods, require_POST
 from .forms import CitationForm, PenaltyForm, PostForm, SectionForm
 from .admin_notification_utils import sync_expiry_notifications
 from .cache_utils import ANALYTICS_DASHBOARD_CACHE_KEY
-from .context_processors import ADMIN_NOTIFICATIONS_CACHE_KEY
+from .context_processors import (
+    ADMIN_NOTIFICATIONS_CACHE_KEY,
+    ADMIN_NOTIFICATIONS_CACHE_TTL_SECONDS,
+)
 from .models import (
     AdminNotification,
     Barangay,
@@ -84,6 +87,27 @@ from user.models import (
     FaceImage,
     Profile,
 )
+
+
+def _build_admin_notification_summary():
+    cached = cache.get(ADMIN_NOTIFICATIONS_CACHE_KEY)
+    if cached is not None:
+        return cached
+
+    payload = {
+        "admin_pending_capture_count": DogCaptureRequest.objects.filter(status="pending").count(),
+        "admin_unread_notifications": AdminNotification.objects.filter(is_read=False).count(),
+        "admin_latest_notifications": list(
+            AdminNotification.objects.order_by("-created_at")
+            .values("id", "title", "message", "created_at", "is_read")[:5]
+        ),
+    }
+    cache.set(
+        ADMIN_NOTIFICATIONS_CACHE_KEY,
+        payload,
+        ADMIN_NOTIFICATIONS_CACHE_TTL_SECONDS,
+    )
+    return payload
 from user.notification_utils import (
     bump_user_home_feed_namespace,
     invalidate_user_notification_content,
@@ -2104,9 +2128,6 @@ def admin_edit_profile(request):
 @admin_required
 def admin_notifications(request):
     """Display admin notifications and support marking all as read."""
-    if sync_expiry_notifications():
-        cache.delete(ADMIN_NOTIFICATIONS_CACHE_KEY)
-
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "mark_all_read":
@@ -2116,6 +2137,26 @@ def admin_notifications(request):
 
     notifications = AdminNotification.objects.all()
     return render(request, "admin_notifications/notifications.html", {
+        "notifications": notifications,
+    })
+
+
+@admin_required
+def notification_summary(request):
+    """Return the current admin notification badge and dropdown data."""
+    payload = _build_admin_notification_summary()
+    notifications = []
+    for item in payload.get("admin_latest_notifications", []):
+        notifications.append({
+            "id": item["id"],
+            "title": item["title"],
+            "message": item["message"],
+            "created_label": timezone.localtime(item["created_at"]).strftime("%b %d, %Y %I:%M %p"),
+            "is_read": item["is_read"],
+            "read_url": reverse("dogadoption_admin:notification_read", args=[item["id"]]),
+        })
+    return JsonResponse({
+        "unread_count": payload.get("admin_unread_notifications", 0),
         "notifications": notifications,
     })
 
@@ -3307,6 +3348,7 @@ def med_record(request, registration_id):
                 veterinarian=request.POST.get("dew_veterinarian"),
             )
 
+        sync_expiry_notifications()
         cache.delete(ADMIN_NOTIFICATIONS_CACHE_KEY)
         return redirect('dogadoption_admin:med_records', registration_id=registration.id)
 

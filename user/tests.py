@@ -403,7 +403,15 @@ class UserHomeFeedTests(TestCase):
         response = self.client.get(reverse("user:user_home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, reverse("user:view_user_profile", args=[self.owner.id]))
+        self.assertTrue(
+            any(
+                item["post_type"] == "user"
+                and item["author_profile_url"].startswith(
+                    reverse("user:view_user_profile", args=[self.owner.id])
+                )
+                for item in response.context["posts"]
+            )
+        )
 
     def test_load_more_remains_available_on_deeper_pages_for_large_feeds(self):
         for index in range(14, 180):
@@ -692,11 +700,12 @@ class UserNotificationTests(TestCase):
             status="available",
         )
 
-        response = self.client.get(reverse("user:adopt_status"))
+        response = self.client.get(reverse("user:notification_summary"))
 
         self.assertEqual(response.status_code, 200)
-        notifications = response.context["user_latest_notifications"]
-        self.assertGreaterEqual(response.context["user_unread_notifications"], 1)
+        payload = response.json()
+        notifications = payload["notifications"]
+        self.assertGreaterEqual(payload["unread_count"], 1)
         self.assertTrue(any(item["kind"] == "accepted_request" for item in notifications))
         self.assertTrue(
             any(
@@ -735,10 +744,11 @@ class UserNotificationTests(TestCase):
         self.client.post(reverse("user:adopt_user_post", args=[owned_post.id]))
         self.client.force_login(self.user)
 
-        response = self.client.get(reverse("user:edit_profile"))
+        response = self.client.get(reverse("user:notification_summary"))
 
         self.assertEqual(response.status_code, 200)
-        notifications = response.context["user_latest_notifications"]
+        payload = response.json()
+        notifications = payload["notifications"]
         self.assertTrue(
             any(
                 item["kind"] == "incoming_user_request"
@@ -746,7 +756,7 @@ class UserNotificationTests(TestCase):
                 for item in notifications
             )
         )
-        self.assertGreaterEqual(response.context["user_unread_notifications"], 1)
+        self.assertGreaterEqual(payload["unread_count"], 1)
 
     def test_opening_notification_marks_only_that_item_as_read(self):
         rescued_post = Post.objects.create(
@@ -768,26 +778,28 @@ class UserNotificationTests(TestCase):
         )
         remember_request_reviewed_at(accepted_request.id, timezone.now())
 
-        first_response = self.client.get(reverse("user:my_claims"))
-        initial_unread_count = first_response.context["user_unread_notifications"]
+        first_response = self.client.get(reverse("user:notification_summary"))
+        first_payload = first_response.json()
+        initial_unread_count = first_payload["unread_count"]
         self.assertGreaterEqual(initial_unread_count, 1)
         notification = next(
             item
-            for item in first_response.context["user_latest_notifications"]
+            for item in first_payload["notifications"]
             if item["kind"] == "accepted_request"
         )
 
         open_response = self.client.get(notification["open_url"], follow=True)
         self.assertEqual(open_response.status_code, 200)
 
-        second_response = self.client.get(reverse("user:my_claims"))
+        second_response = self.client.get(reverse("user:notification_summary"))
+        second_payload = second_response.json()
         self.assertEqual(
-            second_response.context["user_unread_notifications"],
+            second_payload["unread_count"],
             initial_unread_count - 1,
         )
         updated_notification = next(
             item
-            for item in second_response.context["user_latest_notifications"]
+            for item in second_payload["notifications"]
             if item["kind"] == "accepted_request"
         )
         self.assertFalse(updated_notification["is_unread"])
@@ -799,14 +811,14 @@ class UserNotificationTests(TestCase):
             created_by=self.admin,
         )
 
-        first_response = self.client.get(reverse("user:announcement_list"))
-        self.assertEqual(first_response.context["user_unread_notifications"], 1)
+        first_response = self.client.get(reverse("user:notification_summary"))
+        self.assertEqual(first_response.json()["unread_count"], 1)
 
         mark_response = self.client.post(reverse("user:mark_notifications_seen"))
         self.assertEqual(mark_response.status_code, 200)
 
-        second_response = self.client.get(reverse("user:announcement_list"))
-        self.assertEqual(second_response.context["user_unread_notifications"], 0)
+        second_response = self.client.get(reverse("user:notification_summary"))
+        self.assertEqual(second_response.json()["unread_count"], 0)
 
 
 class DogCaptureRequestFlowTests(TestCase):

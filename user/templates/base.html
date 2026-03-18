@@ -106,14 +106,12 @@
                     <a href="#"
                        class="position-relative topbar-icon-btn nav-bell"
                        data-user-notification-toggle
+                       data-summary-url="{{ user_notifications_summary_url }}"
                        data-unread-count="{{ user_unread_notifications }}"
                        data-bs-toggle="dropdown"
                        aria-expanded="false"
                        aria-label="Notifications">
                         <i class="bi bi-bell topbar-nav-icon"></i>
-                        {% if user_unread_notifications %}
-                            <span class="notification-badge" data-notification-badge>{{ user_unread_notifications }}</span>
-                        {% endif %}
                     </a>
 
                     <ul class="dropdown-menu dropdown-menu-end notification-dropdown user-notification-dropdown">
@@ -121,57 +119,11 @@
                             <div class="notification-head-copy">
                                 <div class="notification-heading-row">
                                     <h6>Notifications</h6>
-                                    {% if user_unread_notifications %}
-                                        <span class="notification-count-chip" data-notification-summary-count>{{ user_unread_notifications }} new</span>
-                                    {% endif %}
+                                    <span class="notification-count-chip" data-notification-summary-count hidden></span>
                                 </div>
                             </div>
                         </li>
-                        {% for notification in user_latest_notifications %}
-                            <li>
-                                <a class="dropdown-item notification-item notification-item--{{ notification.kind }} {% if notification.is_unread %}unread{% endif %}" href="{{ notification.open_url }}">
-                                    <span class="notification-avatar notification-avatar--{{ notification.kind }}" aria-hidden="true">
-                                        {% if notification.kind == "accepted_request" %}
-                                            <i class="bi bi-check2-circle"></i>
-                                        {% elif notification.kind == "announcement" %}
-                                            <i class="bi bi-megaphone-fill"></i>
-                                        {% elif notification.kind == "admin_post" %}
-                                            <i class="bi bi-shield-check"></i>
-                                        {% elif notification.kind == "community_post" %}
-                                            <i class="bi bi-people-fill"></i>
-                                        {% else %}
-                                            <i class="bi bi-bell-fill"></i>
-                                        {% endif %}
-                                    </span>
-                                    <span class="notification-copy">
-                                        <span class="notification-row">
-                                            <span class="notification-tag">
-                                                {% if notification.kind == "accepted_request" %}
-                                                    Request update
-                                                {% elif notification.kind == "announcement" %}
-                                                    Official alert
-                                                {% elif notification.kind == "admin_post" %}
-                                                    Rescue post
-                                                {% elif notification.kind == "community_post" %}
-                                                    Community post
-                                                {% else %}
-                                                    Notification
-                                                {% endif %}
-                                            </span>
-                                            {% if notification.is_unread %}
-                                                <span class="notification-state" data-notification-state>New</span>
-                                            {% endif %}
-                                        </span>
-                                        <span class="notif-title">{{ notification.title }}</span>
-                                        <span class="notif-message">{{ notification.message }}</span>
-                                        <span class="notif-time">
-                                            <i class="bi bi-clock-history" aria-hidden="true"></i>
-                                            {{ notification.created_label }}
-                                        </span>
-                                    </span>
-                                </a>
-                            </li>
-                        {% empty %}
+                        <div data-user-notification-list>
                             <li>
                                 <div class="notification-empty">
                                     <span class="notification-empty-icon" aria-hidden="true">
@@ -181,7 +133,7 @@
                                     <span>Updates from the city team and the community will appear here.</span>
                                 </div>
                             </li>
-                        {% endfor %}
+                        </div>
                         <li class="notification-dropdown-footer">
                             <a class="dropdown-item notification-footer-link" href="{% url 'user:user_home' %}">
                                 Open activity feed
@@ -361,6 +313,149 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (notificationDropdown && notificationToggle) {
+        const summaryUrl = notificationToggle.dataset.summaryUrl || '';
+        const notificationList = notificationDropdown.querySelector('[data-user-notification-list]');
+        const summaryBadge = notificationDropdown.querySelector('[data-notification-summary-count]');
+
+        function notificationMeta(kind) {
+            if (kind === 'accepted_request') return { icon: 'bi-check2-circle', tag: 'Request update' };
+            if (kind === 'announcement') return { icon: 'bi-megaphone-fill', tag: 'Official alert' };
+            if (kind === 'admin_post') return { icon: 'bi-shield-check', tag: 'Rescue post' };
+            if (kind === 'community_post') return { icon: 'bi-people-fill', tag: 'Community post' };
+            return { icon: 'bi-bell-fill', tag: 'Notification' };
+        }
+
+        function renderNotificationBadge(unreadCount) {
+            notificationToggle.dataset.unreadCount = String(unreadCount || 0);
+            let badge = notificationToggle.querySelector('[data-notification-badge]');
+            if (unreadCount > 0) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'notification-badge';
+                    badge.setAttribute('data-notification-badge', '');
+                    notificationToggle.appendChild(badge);
+                }
+                badge.textContent = String(unreadCount);
+                if (summaryBadge) {
+                    summaryBadge.hidden = false;
+                    summaryBadge.textContent = `${unreadCount} new`;
+                }
+            } else {
+                if (badge) {
+                    badge.remove();
+                }
+                if (summaryBadge) {
+                    summaryBadge.hidden = true;
+                    summaryBadge.textContent = '';
+                }
+            }
+        }
+
+        function renderEmptyState() {
+            if (!notificationList) {
+                return;
+            }
+            notificationList.innerHTML = `
+                            <li>
+                                <div class="notification-empty">
+                                    <span class="notification-empty-icon" aria-hidden="true">
+                                        <i class="bi bi-bell-slash"></i>
+                                    </span>
+                                    <strong>Nothing new yet</strong>
+                                    <span>Updates from the city team and the community will appear here.</span>
+                                </div>
+                            </li>`;
+        }
+
+        function renderNotifications(items) {
+            if (!notificationList) {
+                return;
+            }
+            notificationList.innerHTML = '';
+            if (!items.length) {
+                renderEmptyState();
+                return;
+            }
+
+            items.forEach(function (item) {
+                const meta = notificationMeta(item.kind);
+                const li = document.createElement('li');
+                const link = document.createElement('a');
+                link.className = `dropdown-item notification-item notification-item--${item.kind}${item.is_unread ? ' unread' : ''}`;
+                link.href = item.open_url;
+
+                const avatar = document.createElement('span');
+                avatar.className = `notification-avatar notification-avatar--${item.kind}`;
+                avatar.setAttribute('aria-hidden', 'true');
+                avatar.innerHTML = `<i class="bi ${meta.icon}"></i>`;
+
+                const copy = document.createElement('span');
+                copy.className = 'notification-copy';
+                const row = document.createElement('span');
+                row.className = 'notification-row';
+
+                const tag = document.createElement('span');
+                tag.className = 'notification-tag';
+                tag.textContent = meta.tag;
+                row.appendChild(tag);
+
+                if (item.is_unread) {
+                    const state = document.createElement('span');
+                    state.className = 'notification-state';
+                    state.textContent = 'New';
+                    row.appendChild(state);
+                }
+
+                const title = document.createElement('span');
+                title.className = 'notif-title';
+                title.textContent = item.title || '';
+
+                const message = document.createElement('span');
+                message.className = 'notif-message';
+                message.textContent = item.message || '';
+
+                const time = document.createElement('span');
+                time.className = 'notif-time';
+                time.innerHTML = '<i class="bi bi-clock-history" aria-hidden="true"></i> ';
+                time.appendChild(document.createTextNode(item.created_label || ''));
+
+                copy.appendChild(row);
+                copy.appendChild(title);
+                copy.appendChild(message);
+                copy.appendChild(time);
+                link.appendChild(avatar);
+                link.appendChild(copy);
+                li.appendChild(link);
+                notificationList.appendChild(li);
+            });
+        }
+
+        function loadNotificationSummary() {
+            if (!summaryUrl) {
+                return;
+            }
+            fetch(summaryUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            }).then(function (response) {
+                if (!response.ok) {
+                    return null;
+                }
+                return response.json();
+            }).then(function (payload) {
+                if (!payload) {
+                    return;
+                }
+                renderNotificationBadge(payload.unread_count || 0);
+                renderNotifications(payload.notifications || []);
+            }).catch(function () {
+                // Ignore transient navbar hydration failures.
+            });
+        }
+
+        loadNotificationSummary();
         notificationDropdown.addEventListener('shown.bs.dropdown', function () {
             const unreadCount = parseInt(notificationToggle.dataset.unreadCount || '0', 10);
             notificationToggle.setAttribute('aria-label', unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications');

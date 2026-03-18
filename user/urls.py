@@ -10,6 +10,7 @@ urlpatterns = [
     path('user-login/', views.login_view, name="login"),
     path('logout/', views.logout_view, name='logout'),
     path('notifications/open/', views.open_notification, name='open_notification'),
+    path('notifications/summary/', views.notification_summary, name='notification_summary'),
     path('notifications/seen/', views.mark_notifications_seen, name='mark_notifications_seen'),
     path('sign-up/', views.signup_view, name="signup"),
     path('signup/face-auth/', views.face_auth, name="face_auth"),

@@ -3734,6 +3734,7 @@ def citation_create(request):
     """Create a citation and show the latest citation activity summary."""
     form = CitationForm(request.POST or None)
     latest_citation = Citation.objects.order_by('-id').first()
+    today = timezone.localdate()
     citations_qs = Citation.objects.select_related('owner', 'penalty') \
         .prefetch_related('penalties', 'penalties__section') \
         .order_by('-id')[:10]
@@ -3776,6 +3777,31 @@ def citation_create(request):
             "barangay": _extract_barangay_from_address(row.get("profile__address") or ""),
         })
 
+    today_claim_requests = []
+    seen_today_request_users = set()
+    today_request_qs = (
+        PostRequest.objects.filter(
+            request_type="claim",
+            status="accepted",
+            scheduled_appointment_date=today,
+            user__is_staff=False,
+        )
+        .select_related("user", "user__profile")
+        .order_by("user__username", "id")
+    )
+    for req in today_request_qs:
+        if req.user_id in seen_today_request_users:
+            continue
+        seen_today_request_users.add(req.user_id)
+        owner_profile = getattr(req.user, "profile", None)
+        today_claim_requests.append({
+            "user_id": req.user_id,
+            "username": req.user.username or "",
+            "first_name": req.user.first_name or "",
+            "last_name": req.user.last_name or "",
+            "barangay": _extract_barangay_from_address(getattr(owner_profile, "address", "") or ""),
+        })
+
     if request.method == 'POST' and form.is_valid():
         selected_ids = request.POST.getlist('penalties')
         selected_penalties = list(Penalty.objects.filter(id__in=selected_ids, active=True).order_by('section__number', 'number'))
@@ -3803,6 +3829,8 @@ def citation_create(request):
         'citation_rows': citation_rows,
         'penalties': penalties,
         'owner_search_data': owner_search_data,
+        'today_claim_requests': today_claim_requests,
+        'today_claim_date': today,
         'selected_penalty_ids': [int(x) for x in request.POST.getlist('penalties') if str(x).isdigit()] if request.method == 'POST' else [],
     })
 

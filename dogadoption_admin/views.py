@@ -44,7 +44,7 @@ from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, F, Prefetch, Q, Value
-from django.db.models.functions import Concat, Lower, Trim, TruncDate
+from django.db.models.functions import Coalesce, Concat, Lower, Trim, TruncDate
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -2294,124 +2294,69 @@ def citation_print_lookup(request):
 # Covers the analytics dashboard linked from the admin sidebar.
 # =============================================================================
 
-@admin_required
-def analytics_dashboard(request):
-    """Build and cache the admin analytics dashboard context."""
-    cached_context = cache.get(ANALYTICS_DASHBOARD_CACHE_KEY)
-    if cached_context is not None:
-        return render(request, "admin_analytics/dashboard.html", cached_context)
 
-    total_users = User.objects.filter(is_staff=False).count()
-    total_posts = Post.objects.count()
-    total_capture_requests = DogCaptureRequest.objects.count()
-    total_registrations = DogRegistration.objects.count()
-
-    registered_owners = (
-        DogRegistration.objects.exclude(owner_name__isnull=True)
-        .exclude(owner_name__exact="")
-        .annotate(owner_name_normalized=Lower(Trim("owner_name")))
-        .values("owner_name_normalized")
-        .distinct()
-        .count()
-    )
-    adopted_dogs = Post.objects.filter(status="adopted").count()
-    claimed_dogs = Post.objects.filter(status="reunited").count()
-    vaccinated_dogs = (
-        VaccinationRecord.objects.exclude(registration__isnull=True)
-        .values("registration_id")
-        .distinct()
-        .count()
-    )
-    today = timezone.localdate()
-    expired_vaccinations = (
-        VaccinationRecord.objects.exclude(registration__isnull=True)
-        .filter(
-            Q(vaccine_expiry_date__lt=today) |
-            Q(vaccination_expiry_date__lt=today)
-        )
-        .values("registration_id")
-        .distinct()
-        .count()
-    )
-
-    post_status_totals = {
-        row["status"]: row["total"]
-        for row in Post.objects.values("status").annotate(total=Count("id"))
+def _build_choice_count_chart(rows, choices):
+    totals = {row["status"]: row["total"] for row in rows}
+    return {
+        "labels": [label for _, label in choices],
+        "data": [totals.get(key, 0) for key, _ in choices],
     }
-    post_status_labels = [label for _, label in Post.STATUS_CHOICES]
-    post_status_data = [post_status_totals.get(key, 0) for key, _ in Post.STATUS_CHOICES]
 
+
+def _build_request_status_chart():
     request_matrix = {}
     for row in PostRequest.objects.values("request_type", "status").annotate(total=Count("id")):
         request_matrix.setdefault(row["request_type"], {})[row["status"]] = row["total"]
 
-    request_type_labels = [label for _, label in PostRequest.REQUEST_TYPE_CHOICES]
-    request_types = [key for key, _ in PostRequest.REQUEST_TYPE_CHOICES]
-    request_statuses = [key for key, _ in PostRequest.STATUS_CHOICES]
     request_status_display = {
         "pending": "Pending",
         "accepted": "Accepted",
         "rejected": "Rejected",
     }
-    request_status_chart = {
-        "labels": request_type_labels,
+    request_types = [key for key, _ in PostRequest.REQUEST_TYPE_CHOICES]
+    return {
+        "labels": [label for _, label in PostRequest.REQUEST_TYPE_CHOICES],
         "datasets": [
             {
                 "label": request_status_display.get(status, status.title()),
-                "data": [request_matrix.get(rtype, {}).get(status, 0) for rtype in request_types],
+                "data": [request_matrix.get(request_type, {}).get(status, 0) for request_type in request_types],
             }
-            for status in request_statuses
+            for status, _ in PostRequest.STATUS_CHOICES
         ],
     }
 
-    capture_status_totals = {
-        row["status"]: row["total"]
-        for row in DogCaptureRequest.objects.values("status").annotate(total=Count("id"))
-    }
-    capture_status_labels = [label for _, label in DogCaptureRequest.STATUS_CHOICES]
-    capture_status_data = [
-        capture_status_totals.get(key, 0) for key, _ in DogCaptureRequest.STATUS_CHOICES
-    ]
 
-    adoption_claim_counts = defaultdict(int)
-    adoption_claim_years = set()
-    adoption_claim_requests = (
+def _build_adoption_claim_trend_chart():
+    rows = []
+    years = set()
+    trend_rows = (
         PostRequest.objects.filter(
             status="accepted",
             request_type__in=["claim", "adopt"],
             post__status__in=["reunited", "adopted"],
         )
-        .values("request_type", "scheduled_appointment_date", "created_at")
-        .order_by("scheduled_appointment_date", "created_at", "id")
+        .annotate(activity_date=Coalesce("scheduled_appointment_date", TruncDate("created_at")))
+        .exclude(activity_date__isnull=True)
+        .values("request_type", "activity_date")
+        .annotate(total=Count("id"))
+        .order_by("activity_date", "request_type")
     )
-    for req in adoption_claim_requests:
-        activity_date = req["scheduled_appointment_date"]
-        if not activity_date and req["created_at"]:
-            activity_date = timezone.localtime(req["created_at"]).date()
-        if not activity_date:
-            continue
-
-        status_key = "claimed" if req["request_type"] == "claim" else "adopted"
-        adoption_claim_counts[(status_key, activity_date)] += 1
-        adoption_claim_years.add(activity_date.year)
-
-    adoption_claim_trend_rows = [
-        {
-            "status": status_key,
+    for row in trend_rows:
+        activity_date = row["activity_date"]
+        rows.append({
+            "status": "claimed" if row["request_type"] == "claim" else "adopted",
             "date": activity_date.isoformat(),
-            "total": total,
-        }
-        for (status_key, activity_date), total in sorted(
-            adoption_claim_counts.items(),
-            key=lambda item: (item[0][1], item[0][0]),
-        )
-    ]
+            "total": row["total"],
+        })
+        years.add(activity_date.year)
 
-    adoption_claim_trend_chart = {
-        "rows": adoption_claim_trend_rows,
-        "years": sorted(adoption_claim_years),
+    return {
+        "rows": rows,
+        "years": sorted(years),
     }
 
+
+def _build_vaccination_breed_chart():
     vaccination_breed_counts = defaultdict(int)
     vaccination_breed_labels = {}
     vaccination_breed_years = set()
@@ -2427,9 +2372,7 @@ def analytics_dashboard(request):
         vaccination_date = row["date"]
         breed_raw = row["registration__breed"]
         breed_key = _normalize_breed_key(breed_raw)
-        if not vaccination_date or not breed_key:
-            continue
-        if _exclude_breed_from_chart(breed_raw):
+        if not vaccination_date or not breed_key or _exclude_breed_from_chart(breed_raw):
             continue
 
         breed_type = _classify_breed_type(breed_raw)
@@ -2438,51 +2381,56 @@ def analytics_dashboard(request):
         vaccination_breed_counts[(vaccination_date, breed_key, breed_type)] += row["total"]
         vaccination_breed_years.add(vaccination_date.year)
 
-    vaccination_breed_rows = []
+    rows = []
     for (vaccination_date, breed_key, breed_type), total in sorted(
         vaccination_breed_counts.items(),
         key=lambda item: (item[0][0], item[0][1], item[0][2]),
     ):
-        vaccination_breed_rows.append({
+        rows.append({
             "date": vaccination_date.isoformat(),
             "breed": vaccination_breed_labels[(breed_key, breed_type)],
             "animal_type": breed_type,
             "total": total,
         })
 
-    vaccination_breed_chart = {
-        "rows": vaccination_breed_rows,
+    return {
+        "rows": rows,
         "years": sorted(vaccination_breed_years),
     }
 
-    rescue_events = []
-    rescue_years = set()
-    for row in (
+
+def _build_rescue_barangay_trend_chart():
+    events = []
+    years = set()
+    rescue_rows = (
         Post.objects.exclude(location__isnull=True)
         .exclude(location__exact="")
-        .values("location", "rescued_date", "created_at")
-    ):
-        post_date = row["rescued_date"] or timezone.localtime(row["created_at"]).date()
-        if not post_date:
-            continue
+        .annotate(activity_date=Coalesce("rescued_date", TruncDate("created_at")))
+        .exclude(activity_date__isnull=True)
+        .values("location", "activity_date")
+        .order_by("activity_date", "location")
+    )
+    for row in rescue_rows:
         location = (row["location"] or "").strip()
         if not location:
             continue
-        barangay_name = _resolve_barangay_name(location) or location
-        rescue_events.append({
-            "barangay": barangay_name,
-            "date": post_date.isoformat(),
+        activity_date = row["activity_date"]
+        events.append({
+            "barangay": _resolve_barangay_name(location) or location,
+            "date": activity_date.isoformat(),
         })
-        rescue_years.add(post_date.year)
+        years.add(activity_date.year)
 
-    rescue_barangay_trend_chart = {
-        "events": rescue_events,
-        "years": sorted(rescue_years),
+    return {
+        "events": events,
+        "years": sorted(years),
     }
 
-    vaccination_barangay_events = []
-    vaccination_years = set()
-    vaccination_records = (
+
+def _build_vaccination_barangay_chart(today):
+    events = []
+    years = set()
+    for record in (
         VaccinationRecord.objects.exclude(registration__isnull=True)
         .values(
             "registration_id",
@@ -2491,41 +2439,35 @@ def analytics_dashboard(request):
             "vaccine_expiry_date",
             "vaccination_expiry_date",
         )
-    )
-    for record in vaccination_records:
-        barangay_name = _extract_barangay_from_address(record["registration__address"]) or "Unknown"
-        vaccination_date = record["date"].isoformat() if record["date"] else ""
-        vaccine_expiry_date = (
-            record["vaccine_expiry_date"].isoformat() if record["vaccine_expiry_date"] else ""
-        )
-        dog_vaccination_expiry_date = (
-            record["vaccination_expiry_date"].isoformat()
-            if record["vaccination_expiry_date"] else ""
-        )
-
+    ):
         if record["date"]:
-            vaccination_years.add(record["date"].year)
+            years.add(record["date"].year)
         if record["vaccine_expiry_date"]:
-            vaccination_years.add(record["vaccine_expiry_date"].year)
+            years.add(record["vaccine_expiry_date"].year)
         if record["vaccination_expiry_date"]:
-            vaccination_years.add(record["vaccination_expiry_date"].year)
+            years.add(record["vaccination_expiry_date"].year)
 
-        vaccination_barangay_events.append({
+        events.append({
             "registration_id": record["registration_id"],
-            "barangay": barangay_name,
-            "vaccination_date": vaccination_date,
-            "vaccine_expiry_date": vaccine_expiry_date,
-            "dog_vaccination_expiry_date": dog_vaccination_expiry_date,
+            "barangay": _extract_barangay_from_address(record["registration__address"]) or "Unknown",
+            "vaccination_date": record["date"].isoformat() if record["date"] else "",
+            "vaccine_expiry_date": record["vaccine_expiry_date"].isoformat() if record["vaccine_expiry_date"] else "",
+            "dog_vaccination_expiry_date": (
+                record["vaccination_expiry_date"].isoformat()
+                if record["vaccination_expiry_date"] else ""
+            ),
         })
 
-    vaccination_barangay_chart = {
-        "events": vaccination_barangay_events,
-        "years": sorted(vaccination_years),
+    return {
+        "events": events,
+        "years": sorted(years),
         "today": today.isoformat(),
     }
 
-    registered_barangay_events = []
-    registered_barangay_years = set()
+
+def _build_registered_barangay_chart():
+    events = []
+    years = set()
     for row in (
         Dog.objects.exclude(barangay__isnull=True)
         .exclude(barangay__exact="")
@@ -2537,42 +2479,70 @@ def analytics_dashboard(request):
         barangay_name = (row["barangay"] or "").strip()
         if not registration_date or not barangay_name:
             continue
-        registered_barangay_events.append({
+        events.append({
             "barangay": barangay_name,
             "date": registration_date.isoformat(),
         })
-        registered_barangay_years.add(registration_date.year)
+        years.add(registration_date.year)
 
-    barangay_chart = {
-        "events": registered_barangay_events,
-        "years": sorted(registered_barangay_years),
+    return {
+        "events": events,
+        "years": sorted(years),
     }
 
-    context = {
-        "registered_owners": registered_owners,
-        "adopted_dogs": adopted_dogs,
-        "claimed_dogs": claimed_dogs,
-        "vaccinated_dogs": vaccinated_dogs,
-        "expired_vaccinations": expired_vaccinations,
-        "total_users": total_users,
-        "total_posts": total_posts,
-        "total_capture_requests": total_capture_requests,
-        "total_registrations": total_registrations,
-        "post_status_chart": {
-            "labels": post_status_labels,
-            "data": post_status_data,
-        },
-        "request_status_chart": request_status_chart,
-        "capture_status_chart": {
-            "labels": capture_status_labels,
-            "data": capture_status_data,
-        },
-        "vaccination_breed_chart": vaccination_breed_chart,
-        "adoption_claim_trend_chart": adoption_claim_trend_chart,
-        "rescue_barangay_trend_chart": rescue_barangay_trend_chart,
-        "vaccination_barangay_chart": vaccination_barangay_chart,
-        "barangay_chart": barangay_chart,
+
+def _build_analytics_dashboard_context():
+    today = timezone.localdate()
+    vaccinated_registration_ids = VaccinationRecord.objects.exclude(registration__isnull=True)
+    return {
+        "registered_owners": (
+            DogRegistration.objects.exclude(owner_name__isnull=True)
+            .exclude(owner_name__exact="")
+            .annotate(owner_name_normalized=Lower(Trim("owner_name")))
+            .values("owner_name_normalized")
+            .distinct()
+            .count()
+        ),
+        "adopted_dogs": Post.objects.filter(status="adopted").count(),
+        "claimed_dogs": Post.objects.filter(status="reunited").count(),
+        "vaccinated_dogs": vaccinated_registration_ids.values("registration_id").distinct().count(),
+        "expired_vaccinations": (
+            vaccinated_registration_ids.filter(
+                Q(vaccine_expiry_date__lt=today) | Q(vaccination_expiry_date__lt=today)
+            )
+            .values("registration_id")
+            .distinct()
+            .count()
+        ),
+        "total_users": User.objects.filter(is_staff=False).count(),
+        "total_posts": Post.objects.count(),
+        "total_capture_requests": DogCaptureRequest.objects.count(),
+        "total_registrations": DogRegistration.objects.count(),
+        "post_status_chart": _build_choice_count_chart(
+            Post.objects.values("status").annotate(total=Count("id")),
+            Post.STATUS_CHOICES,
+        ),
+        "request_status_chart": _build_request_status_chart(),
+        "capture_status_chart": _build_choice_count_chart(
+            DogCaptureRequest.objects.values("status").annotate(total=Count("id")),
+            DogCaptureRequest.STATUS_CHOICES,
+        ),
+        "vaccination_breed_chart": _build_vaccination_breed_chart(),
+        "adoption_claim_trend_chart": _build_adoption_claim_trend_chart(),
+        "rescue_barangay_trend_chart": _build_rescue_barangay_trend_chart(),
+        "vaccination_barangay_chart": _build_vaccination_barangay_chart(today),
+        "barangay_chart": _build_registered_barangay_chart(),
     }
+
+
+@admin_required
+def analytics_dashboard(request):
+    """Build and cache the admin analytics dashboard context."""
+    cached_context = cache.get(ANALYTICS_DASHBOARD_CACHE_KEY)
+    if cached_context is not None:
+        return render(request, "admin_analytics/dashboard.html", cached_context)
+
+    context = _build_analytics_dashboard_context()
     cache.set(
         ANALYTICS_DASHBOARD_CACHE_KEY,
         context,

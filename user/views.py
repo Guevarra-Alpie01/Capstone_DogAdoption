@@ -46,6 +46,7 @@ from dogadoption_admin.models import (
     DogImage,
     GlobalAppointmentDate,
     Post,
+    PostImage,
     PostRequest,
 )
 from dogadoption_admin.context_processors import ADMIN_NOTIFICATIONS_CACHE_KEY
@@ -1266,29 +1267,55 @@ def _sample_ids_with_cache(cache_key, candidate_ids, sample_limit):
     return sampled_ids
 
 
-def _active_admin_candidate_ids_with_cache(query):
-    cache_key = _feed_cache_key("active_admin_candidate_ids", query)
-    cached_ids = cache.get(cache_key)
-    if cached_ids is not None:
-        return cached_ids
-
+def _active_admin_posts_queryset(query=""):
     accepted_post_ids = PostRequest.objects.filter(
         status="accepted",
         request_type__in=["claim", "adopt"],
     ).values("post_id")
-
-    admin_qs = Post.objects.exclude(status__in=["reunited", "adopted"]).exclude(id__in=accepted_post_ids)
+    post_table = Post._meta.db_table
+    claim_deadline_expr = RawSQL(
+        f"DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY)",
+        [],
+        output_field=DateTimeField(),
+    )
+    adopt_deadline_expr = RawSQL(
+        f"DATE_ADD(DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY), INTERVAL %s DAY)",
+        [Post.ADOPTION_DAYS],
+        output_field=DateTimeField(),
+    )
+    now = timezone.now()
+    admin_qs = (
+        Post.objects.exclude(status__in=["reunited", "adopted"])
+        .exclude(id__in=accepted_post_ids)
+        .annotate(
+            claim_deadline_db=claim_deadline_expr,
+            adopt_deadline_db=adopt_deadline_expr,
+        )
+        .filter(
+            Q(claim_deadline_db__gte=now)
+            | (Q(claim_deadline_db__lt=now) & Q(adopt_deadline_db__gte=now))
+        )
+    )
     if query:
         admin_qs = admin_qs.filter(
             Q(caption__icontains=query)
             | Q(location__icontains=query)
             | Q(status__icontains=query)
         )
+    return admin_qs
 
-    admin_candidates = list(admin_qs.order_by("-created_at")[:FEED_ADMIN_CANDIDATE_LIMIT])
-    active_ids = [
-        post.id for post in admin_candidates if post.current_phase() in {"claim", "adopt"}
-    ]
+
+def _active_admin_candidate_ids_with_cache(query):
+    cache_key = _feed_cache_key("active_admin_candidate_ids", query)
+    cached_ids = cache.get(cache_key)
+    if cached_ids is not None:
+        return cached_ids
+
+    active_ids = list(
+        _active_admin_posts_queryset(query)
+        .order_by("-created_at")
+        .values_list("id", flat=True)[:FEED_ADMIN_CANDIDATE_LIMIT]
+    )
     cache.set(cache_key, active_ids, FEED_CACHE_TTL_SECONDS)
     return active_ids
 
@@ -1381,12 +1408,7 @@ def _build_search_home_rows(query, dogs_only=False, viewer_id=None):
     if cached_rows is not None:
         return cached_rows
 
-    accepted_post_ids = PostRequest.objects.filter(
-        status="accepted",
-        request_type__in=["claim", "adopt"],
-    ).values("post_id")
-
-    admin_qs = Post.objects.exclude(status__in=["reunited", "adopted"]).exclude(id__in=accepted_post_ids)
+    admin_qs = _active_admin_posts_queryset(query)
     announcement_qs = DogAnnouncement.objects.all()
     user_qs = UserAdoptionPost.objects.filter(status="available")
     missing_qs = MissingDogPost.objects.filter(status="missing")
@@ -1395,14 +1417,6 @@ def _build_search_home_rows(query, dogs_only=False, viewer_id=None):
         missing_qs = missing_qs.exclude(owner_id=viewer_id)
 
     if query:
-        admin_filters = (
-            Q(caption__icontains=query)
-            | Q(location__icontains=query)
-            | Q(status__icontains=query)
-            | Q(user__username__icontains=query)
-            | Q(user__first_name__icontains=query)
-            | Q(user__last_name__icontains=query)
-        )
         announcement_filters = (
             Q(title__icontains=query)
             | Q(content__icontains=query)
@@ -1428,7 +1442,14 @@ def _build_search_home_rows(query, dogs_only=False, viewer_id=None):
             | Q(owner__last_name__icontains=query)
         )
 
-        admin_qs = admin_qs.filter(admin_filters)
+        admin_qs = admin_qs.filter(
+            Q(user__username__icontains=query)
+            | Q(user__first_name__icontains=query)
+            | Q(user__last_name__icontains=query)
+            | Q(caption__icontains=query)
+            | Q(location__icontains=query)
+            | Q(status__icontains=query)
+        )
         announcement_qs = announcement_qs.filter(announcement_filters)
         user_qs = user_qs.filter(user_filters)
         missing_qs = missing_qs.filter(missing_filters)
@@ -1478,7 +1499,18 @@ def _hydrate_home_feed_items(request, feed_rows):
         post.id: post
         for post in Post.objects.select_related(
             "user", "user__profile"
-        ).prefetch_related("images").filter(id__in=ids_by_type["admin"])
+        ).annotate(
+            image_count=Count("images", distinct=True),
+        ).only(
+            "id", "caption", "location", "status", "created_at", "claim_days",
+            "user__id", "user__username", "user__first_name", "user__last_name",
+            "user__profile__profile_image",
+        ).prefetch_related(
+            Prefetch(
+                "images",
+                queryset=PostImage.objects.only("id", "post_id", "image").order_by("id"),
+            )
+        ).filter(id__in=ids_by_type["admin"])
     }
     announcement_user_reaction_subquery = AnnouncementReaction.objects.filter(
         announcement_id=OuterRef("pk"),
@@ -1491,7 +1523,17 @@ def _hydrate_home_feed_items(request, feed_rows):
         ).annotate(
             reaction_count=Count("reactions", distinct=True),
             user_reacted=Exists(announcement_user_reaction_subquery),
-        ).prefetch_related("images").filter(id__in=ids_by_type["announcement"])
+            image_count=Count("images", distinct=True),
+        ).only(
+            "id", "title", "content", "created_at", "background_image",
+            "created_by__id", "created_by__username", "created_by__first_name",
+            "created_by__last_name", "created_by__profile__profile_image",
+        ).prefetch_related(
+            Prefetch(
+                "images",
+                queryset=DogAnnouncementImage.objects.only("id", "announcement_id", "image").order_by("id"),
+            )
+        ).filter(id__in=ids_by_type["announcement"])
     }
     user_map = {
         post.id: post
@@ -1499,7 +1541,13 @@ def _hydrate_home_feed_items(request, feed_rows):
             "owner", "owner__profile"
         ).annotate(
             request_count=Count("requests", distinct=True),
-        ).prefetch_related("images").filter(id__in=ids_by_type["user"])
+            image_count=Count("images", distinct=True),
+        ).prefetch_related(
+            Prefetch(
+                "images",
+                queryset=UserAdoptionImage.objects.only("id", "post_id", "image").order_by("id"),
+            )
+        ).filter(id__in=ids_by_type["user"])
     }
     missing_map = {
         post.id: post
@@ -1523,7 +1571,6 @@ def _hydrate_home_feed_items(request, feed_rows):
             if not p:
                 continue
             image_queryset = p.images.all()
-            image_count = len(image_queryset)
             main_image = next(iter(image_queryset), None)
 
             phase, days, hours, minutes = _post_phase_payload(p)
@@ -1548,7 +1595,7 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "phase": phase,
                 "posted_label": _format_posted_label(p.created_at),
                 "deadline_iso": deadline.isoformat() if deadline else "",
-                "image_count": image_count,
+                "image_count": getattr(p, "image_count", 0),
                 "main_image": main_image,
             })
             continue
@@ -1570,7 +1617,7 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "content_display": _clean_announcement_text_for_display(p.content),
                 "posted_label": _format_posted_label(p.created_at),
                 "main_image_url": main_image_url,
-                "image_count": len(announcement_images),
+                "image_count": getattr(p, "image_count", 0),
                 "reaction_count": getattr(p, "reaction_count", 0),
                 "user_reacted": bool(getattr(p, "user_reacted", False)),
                 "share_url": request.build_absolute_uri(
@@ -1601,7 +1648,7 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "is_open_for_adoption": False,
                 "phase": "closed",
                 "posted_label": _format_posted_label(p.created_at),
-                "image_count": len(post_images),
+                "image_count": getattr(p, "image_count", 0),
                 "main_image": main_image,
                 "request_count": getattr(p, "request_count", 0),
                 "author_name": p.owner.get_full_name() or p.owner.username,

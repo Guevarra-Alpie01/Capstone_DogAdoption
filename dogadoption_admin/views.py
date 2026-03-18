@@ -2733,36 +2733,31 @@ def register_dogs(request):
     })
 
 
-
-
-# ---------------------------------------------------------------------------
-# Register link 2/5: Registration List
-# ---------------------------------------------------------------------------
-@admin_required
-def registration_record(request):
-    """Render the grouped registration list with owner-level presentation data."""
-    selected_barangay_raw = request.GET.get('barangay', '').strip()
-    selected_barangay = _resolve_barangay_name(selected_barangay_raw) if selected_barangay_raw else ''
-    date_filter_type = (request.GET.get('date_filter_type') or 'all').strip().lower()
-    filter_date = (request.GET.get('filter_date') or '').strip()
-    filter_month = (request.GET.get('filter_month') or '').strip()
-    filter_year = (request.GET.get('filter_year') or '').strip()
-
-    if date_filter_type not in {'all', 'day', 'month', 'year'}:
-        date_filter_type = 'all'
-
+def _get_cached_registration_barangays():
     barangay_list_parsed = cache.get("registration_record_active_barangays")
     if barangay_list_parsed is None:
         barangay_list_parsed = list(
             Barangay.objects.filter(is_active=True).values_list('name', flat=True)
         )
         cache.set("registration_record_active_barangays", barangay_list_parsed, 300)
+    return barangay_list_parsed
 
+
+def _get_cached_registration_years():
+    available_years = cache.get("registration_record_available_years")
+    if available_years is None:
+        available_years = [
+            d.year for d in Dog.objects.exclude(date_registered__isnull=True)
+            .dates('date_registered', 'year', order='DESC')
+        ]
+        cache.set("registration_record_available_years", available_years, 300)
+    return available_years
+
+
+def _build_registration_record_queryset(selected_barangay, date_filter_type, filter_date, filter_month, filter_year):
     dogs = Dog.objects.all()
     if selected_barangay:
-        dogs = dogs.filter(
-            barangay__iexact=selected_barangay
-        )
+        dogs = dogs.filter(barangay__iexact=selected_barangay)
 
     dogs, date_filter_type, date_filter_label = _apply_registration_date_filter(
         dogs,
@@ -2771,25 +2766,26 @@ def registration_record(request):
         filter_month,
         filter_year,
     )
-
     dogs = list(
         dogs.select_related("owner_user").only(
-        "id",
-        "date_registered",
-        "name",
-        "species",
-        "sex",
-        "age",
-        "neutering_status",
-        "color",
-        "owner_name",
-        "owner_name_key",
-        "owner_address",
-        "owner_user_id",
-    ).order_by("date_registered", "id")
+            "id",
+            "date_registered",
+            "name",
+            "species",
+            "sex",
+            "age",
+            "neutering_status",
+            "color",
+            "owner_name",
+            "owner_name_key",
+            "owner_address",
+            "owner_user_id",
+        ).order_by("date_registered", "id")
     )
+    return dogs, date_filter_type, date_filter_label
 
-    # Attach owner profile details so the template can link records back to owners.
+
+def _attach_registration_owner_metadata(dogs):
     owner_user_ids = {dog.owner_user_id for dog in dogs if dog.owner_user_id}
     owner_profile_by_user_id = {}
     if owner_user_ids:
@@ -2810,6 +2806,7 @@ def registration_record(request):
     owner_keys_by_dog_id = {}
     owner_sort_order = {}
     owner_row_number = 0
+
     for dog in dogs:
         normalized_owner = _normalize_person_name(dog.owner_name)
         matched_owner_profile = (
@@ -2846,7 +2843,10 @@ def registration_record(request):
             owner_sort_order[owner_key] = owner_row_number
             owner_numbers[owner_key] = owner_row_number
 
-    # Keep registration rows grouped by owner while preserving date order inside each group.
+    return owner_keys_by_dog_id, owner_numbers, owner_sort_order
+
+
+def _paginate_registration_record_rows(request, dogs, owner_keys_by_dog_id, owner_numbers, owner_sort_order):
     dogs.sort(
         key=lambda dog: (
             owner_sort_order.get(owner_keys_by_dog_id.get(dog.id), 10**9),
@@ -2858,10 +2858,10 @@ def registration_record(request):
     page_number = (request.GET.get("page") or "1").strip()
     paginator = Paginator(dogs, 100)
     page_obj = paginator.get_page(page_number)
-    dogs = list(page_obj.object_list)
+    paged_dogs = list(page_obj.object_list)
 
     previous_owner_key = None
-    for dog in dogs:
+    for dog in paged_dogs:
         owner_key = owner_keys_by_dog_id.get(dog.id, f"dog:{dog.id}")
         owner_number = owner_numbers.get(owner_key, "")
         if owner_key == previous_owner_key:
@@ -2872,13 +2872,44 @@ def registration_record(request):
             dog.show_owner_fields = True
         previous_owner_key = owner_key
 
-    available_years = cache.get("registration_record_available_years")
-    if available_years is None:
-        available_years = [
-            d.year for d in Dog.objects.exclude(date_registered__isnull=True)
-            .dates('date_registered', 'year', order='DESC')
-        ]
-        cache.set("registration_record_available_years", available_years, 300)
+    return page_obj, paged_dogs
+
+
+
+
+# ---------------------------------------------------------------------------
+# Register link 2/5: Registration List
+# ---------------------------------------------------------------------------
+@admin_required
+def registration_record(request):
+    """Render the grouped registration list with owner-level presentation data."""
+    selected_barangay_raw = request.GET.get('barangay', '').strip()
+    selected_barangay = _resolve_barangay_name(selected_barangay_raw) if selected_barangay_raw else ''
+    date_filter_type = (request.GET.get('date_filter_type') or 'all').strip().lower()
+    filter_date = (request.GET.get('filter_date') or '').strip()
+    filter_month = (request.GET.get('filter_month') or '').strip()
+    filter_year = (request.GET.get('filter_year') or '').strip()
+
+    if date_filter_type not in {'all', 'day', 'month', 'year'}:
+        date_filter_type = 'all'
+
+    barangay_list_parsed = _get_cached_registration_barangays()
+    dogs, date_filter_type, date_filter_label = _build_registration_record_queryset(
+        selected_barangay,
+        date_filter_type,
+        filter_date,
+        filter_month,
+        filter_year,
+    )
+    owner_keys_by_dog_id, owner_numbers, owner_sort_order = _attach_registration_owner_metadata(dogs)
+    page_obj, dogs = _paginate_registration_record_rows(
+        request,
+        dogs,
+        owner_keys_by_dog_id,
+        owner_numbers,
+        owner_sort_order,
+    )
+    available_years = _get_cached_registration_years()
 
     date_filter_params = _build_registration_filter_params(
         date_filter_type,
@@ -3119,8 +3150,8 @@ def registration_user_search_api(request):
 
 
 @admin_required
-def download_registration(request, file_type):
-    """Export the filtered registration list as Excel or PDF."""
+def _get_registration_export_queryset(request):
+    """Build the filtered registration export queryset once for all formats."""
     selected_barangay_raw = request.GET.get('barangay', None)
     selected_barangay = _resolve_barangay_name(selected_barangay_raw) if selected_barangay_raw else None
     date_filter_type = (request.GET.get('date_filter_type') or 'all').strip().lower()
@@ -3128,7 +3159,19 @@ def download_registration(request, file_type):
     filter_month = (request.GET.get('filter_month') or '').strip()
     filter_year = (request.GET.get('filter_year') or '').strip()
 
-    dogs = Dog.objects.all()
+    dogs = Dog.objects.only(
+        "id",
+        "date_registered",
+        "name",
+        "species",
+        "sex",
+        "age",
+        "neutering_status",
+        "color",
+        "owner_name",
+        "owner_address",
+        "barangay",
+    )
 
     if selected_barangay:
         dogs = dogs.filter(barangay__iexact=selected_barangay)
@@ -3140,212 +3183,222 @@ def download_registration(request, file_type):
         filter_month,
         filter_year,
     )
-    dogs = dogs.order_by("date_registered", "id")
-    selected_barangay_label = selected_barangay or "All Barangays"
 
-    # Build the Excel layout used by barangay-level registration reports.
+    return dogs.order_by("date_registered", "id"), (selected_barangay or "All Barangays")
+
+
+def _build_registration_excel_response(dogs, selected_barangay_label):
+    """Render the registration export as an Excel workbook."""
+    Workbook, Alignment, Border, Font, PatternFill, Side = _get_openpyxl_exports()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Dog Registrations"
+    ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+    ws.page_setup.paperSize = ws.PAPERSIZE_LETTER
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+
+    thin = Side(style='thin', color='000000')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    header_fill = PatternFill(fill_type='solid', fgColor='D9D9D9')
+    group_fill = PatternFill(fill_type='solid', fgColor='CFCFCF')
+
+    ws.merge_cells('A1:J1')
+    ws['A1'] = 'National Rabies Prevention and Control Program'
+    ws.merge_cells('A2:J2')
+    ws['A2'] = 'Rabies Free Visayas Project'
+    ws.merge_cells('A3:J3')
+    ws['A3'] = 'Dog Registry and Vaccination Record'
+    ws.merge_cells('A5:J5')
+    ws['A5'] = f'Name of Barangay: {selected_barangay_label}'
+
+    for cell_ref, size, bold in [('A1', 11, False), ('A2', 12, True), ('A3', 14, True), ('A5', 11, False)]:
+        cell = ws[cell_ref]
+        cell.font = Font(size=size, bold=bold)
+        cell.alignment = Alignment(horizontal='center' if cell_ref != 'A5' else 'left')
+
+    ws.merge_cells('A7:B7')
+    ws['A7'] = 'Registration'
+    ws.merge_cells('C7:H7')
+    ws['C7'] = 'Dog Profile'
+    ws.merge_cells('I7:J7')
+    ws['I7'] = 'Pet Owner'
+
+    header_labels = [
+        'No.', 'Date', 'Name', 'Species', 'Sex (M/F)',
+        'Age (yrs)', 'Neutering (No./C/S)', 'Color',
+        'Name', 'Complete Address'
+    ]
+    for col, label in enumerate(header_labels, start=1):
+        ws.cell(row=8, column=col, value=label)
+
+    for col in range(1, 11):
+        group_cell = ws.cell(row=7, column=col)
+        group_cell.fill = group_fill
+        group_cell.font = Font(size=9, bold=True)
+        group_cell.alignment = Alignment(horizontal='center', vertical='center')
+        group_cell.border = border
+
+        header_cell = ws.cell(row=8, column=col)
+        header_cell.fill = header_fill
+        header_cell.font = Font(size=8, bold=True)
+        header_cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        header_cell.border = border
+
+    start_data_row = 9
+    for idx, dog in enumerate(dogs, start=1):
+        row_idx = start_data_row + idx - 1
+        row_values = [
+            idx,
+            dog.date_registered.strftime("%m-%d-%Y") if dog.date_registered else "",
+            dog.name,
+            dog.species,
+            dog.sex,
+            dog.age,
+            dog.neutering_status,
+            dog.color or "-",
+            dog.owner_name,
+            dog.owner_address,
+        ]
+        for col, value in enumerate(row_values, start=1):
+            cell = ws.cell(row=row_idx, column=col, value=value)
+            cell.font = Font(size=8)
+            cell.border = border
+            if col in (1, 2, 4, 5, 6, 7):
+                cell.alignment = Alignment(horizontal='center', vertical='top', wrap_text=True)
+            else:
+                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+
+    last_data_row = start_data_row + max(len(dogs), 1) - 1
+    legend_start_row = last_data_row + 2
+    ws.cell(row=legend_start_row, column=7, value='Legend:').font = Font(size=8, bold=True)
+    ws.cell(row=legend_start_row + 1, column=7, value='C - Castrated').font = Font(size=8)
+    ws.cell(row=legend_start_row + 2, column=7, value='S - Spaying').font = Font(size=8)
+    ws.cell(row=legend_start_row + 3, column=7, value='No - Not castrated nor spayed').font = Font(size=8)
+
+    widths = [5, 11, 18, 10, 10, 11, 16, 13, 20, 36]
+    for idx, width in enumerate(widths, start=1):
+        ws.column_dimensions[chr(64 + idx)].width = width
+
+    ws.print_title_rows = '1:8'
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f"Dog_Registrations_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename={filename}'
+    wb.save(response)
+    return response
+
+
+def _build_registration_pdf_response(dogs, selected_barangay_label):
+    """Render the registration export as a PDF report."""
+    colors, landscape, letter, getSampleStyleSheet, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle = _get_reportlab_exports()
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(letter),
+        leftMargin=18,
+        rightMargin=18,
+        topMargin=18,
+        bottomMargin=20
+    )
+    styles = getSampleStyleSheet()
+    title_style = styles['Heading4']
+    title_style.alignment = 1
+    title_style.fontSize = 11
+    title_style.leading = 12
+
+    small_center = styles['Normal'].clone('small_center')
+    small_center.alignment = 1
+    small_center.fontSize = 10
+
+    small_left = styles['Normal'].clone('small_left')
+    small_left.alignment = 0
+    small_left.fontSize = 9
+
+    elements = [
+        Paragraph("National Rabies Prevention and Control Program", small_center),
+        Paragraph("<b>Rabies Free Visayas Project</b>", small_center),
+        Paragraph("<b>Dog Registry and Vaccination Record</b>", title_style),
+        Spacer(1, 8),
+        Paragraph(f"Name of Barangay: {selected_barangay_label}", small_left),
+        Spacer(1, 6),
+    ]
+
+    pdf_cell = styles['Normal'].clone('pdf_cell')
+    pdf_cell.fontSize = 7
+    pdf_cell.leading = 8
+    pdf_cell.wordWrap = 'CJK'
+
+    data = [[
+        'Registration', '', 'Dog Profile', '', '', '', '', '', 'Pet Owner', ''
+    ], [
+        'No.', 'Date', 'Name', 'Species', 'Sex (M/F)', 'Age (yrs)',
+        'Neutering (No./C/S)', 'Color', 'Name', 'Complete Address'
+    ]]
+
+    for idx, dog in enumerate(dogs, start=1):
+        data.append([
+            idx,
+            dog.date_registered.strftime("%m-%d-%Y") if dog.date_registered else "",
+            dog.name,
+            dog.species,
+            dog.sex,
+            dog.age,
+            dog.neutering_status,
+            dog.color or "-",
+            Paragraph(dog.owner_name or "", pdf_cell),
+            Paragraph(dog.owner_address or "", pdf_cell),
+        ])
+
+    col_widths = [28, 48, 76, 46, 42, 44, 74, 50, 80, 242]
+    table = Table(data, colWidths=col_widths, repeatRows=0)
+    table.setStyle(TableStyle([
+        ('SPAN', (0, 0), (1, 0)),
+        ('SPAN', (2, 0), (7, 0)),
+        ('SPAN', (8, 0), (9, 0)),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d0d0d0')),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#e6e6e6')),
+        ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7.5),
+        ('ALIGN', (0, 0), (-1, 1), 'CENTER'),
+        ('ALIGN', (0, 2), (1, -1), 'CENTER'),
+        ('ALIGN', (3, 2), (7, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('WORDWRAP', (8, 2), (9, -1), 'CJK'),
+        ('GRID', (0, 0), (-1, -1), 0.7, colors.black),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+    ]))
+
+    elements.append(table)
+    elements.append(Spacer(1, 8))
+    elements.append(Paragraph("Legend:", small_left))
+    elements.append(Paragraph("C - Castrated", small_left))
+    elements.append(Paragraph("S - Spaying", small_left))
+    elements.append(Paragraph("No - Not castrated nor spayed", small_left))
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    response = HttpResponse(buffer, content_type='application/pdf')
+    filename = f"Dog_Registrations_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    response['Content-Disposition'] = f'attachment; filename={filename}'
+    return response
+
+
+@admin_required
+def download_registration(request, file_type):
+    """Export the filtered registration list as Excel or PDF."""
+    dogs, selected_barangay_label = _get_registration_export_queryset(request)
+
     if file_type == 'excel':
-        Workbook, Alignment, Border, Font, PatternFill, Side = _get_openpyxl_exports()
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Dog Registrations"
-        ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
-        ws.page_setup.paperSize = ws.PAPERSIZE_LETTER
-        ws.page_setup.fitToWidth = 1
-        ws.page_setup.fitToHeight = 0
-
-        thin = Side(style='thin', color='000000')
-        border = Border(left=thin, right=thin, top=thin, bottom=thin)
-        header_fill = PatternFill(fill_type='solid', fgColor='D9D9D9')
-        group_fill = PatternFill(fill_type='solid', fgColor='CFCFCF')
-
-        ws.merge_cells('A1:J1')
-        ws['A1'] = 'National Rabies Prevention and Control Program'
-        ws.merge_cells('A2:J2')
-        ws['A2'] = 'Rabies Free Visayas Project'
-        ws.merge_cells('A3:J3')
-        ws['A3'] = 'Dog Registry and Vaccination Record'
-        ws.merge_cells('A5:J5')
-        ws['A5'] = f'Name of Barangay: {selected_barangay_label}'
-
-        for cell_ref, size, bold in [('A1', 11, False), ('A2', 12, True), ('A3', 14, True), ('A5', 11, False)]:
-            cell = ws[cell_ref]
-            cell.font = Font(size=size, bold=bold)
-            cell.alignment = Alignment(horizontal='center' if cell_ref != 'A5' else 'left')
-
-        ws.merge_cells('A7:B7')
-        ws['A7'] = 'Registration'
-        ws.merge_cells('C7:H7')
-        ws['C7'] = 'Dog Profile'
-        ws.merge_cells('I7:J7')
-        ws['I7'] = 'Pet Owner'
-
-        header_labels = [
-            'No.', 'Date', 'Name', 'Species', 'Sex (M/F)',
-            'Age (yrs)', 'Neutering (No./C/S)', 'Color',
-            'Name', 'Complete Address'
-        ]
-        for col, label in enumerate(header_labels, start=1):
-            ws.cell(row=8, column=col, value=label)
-
-        for col in range(1, 11):
-            group_cell = ws.cell(row=7, column=col)
-            group_cell.fill = group_fill
-            group_cell.font = Font(size=9, bold=True)
-            group_cell.alignment = Alignment(horizontal='center', vertical='center')
-            group_cell.border = border
-
-            header_cell = ws.cell(row=8, column=col)
-            header_cell.fill = header_fill
-            header_cell.font = Font(size=8, bold=True)
-            header_cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-            header_cell.border = border
-
-        start_data_row = 9
-        for idx, dog in enumerate(dogs, start=1):
-            row_idx = start_data_row + idx - 1
-            row_values = [
-                idx,
-                dog.date_registered.strftime("%m-%d-%Y") if dog.date_registered else "",
-                dog.name,
-                dog.species,
-                dog.sex,
-                dog.age,
-                dog.neutering_status,
-                dog.color or "-",
-                dog.owner_name,
-                dog.owner_address,
-            ]
-            for col, value in enumerate(row_values, start=1):
-                cell = ws.cell(row=row_idx, column=col, value=value)
-                cell.font = Font(size=8)
-                cell.border = border
-                if col in (1, 2, 4, 5, 6, 7):
-                    cell.alignment = Alignment(horizontal='center', vertical='top', wrap_text=True)
-                else:
-                    cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
-
-        last_data_row = start_data_row + max(len(dogs), 1) - 1
-        legend_start_row = last_data_row + 2
-        ws.cell(row=legend_start_row, column=7, value='Legend:').font = Font(size=8, bold=True)
-        ws.cell(row=legend_start_row + 1, column=7, value='C - Castrated').font = Font(size=8)
-        ws.cell(row=legend_start_row + 2, column=7, value='S - Spaying').font = Font(size=8)
-        ws.cell(row=legend_start_row + 3, column=7, value='No - Not castrated nor spayed').font = Font(size=8)
-
-        widths = [5, 11, 18, 10, 10, 11, 16, 13, 20, 36]
-        for idx, width in enumerate(widths, start=1):
-            ws.column_dimensions[chr(64 + idx)].width = width
-
-        ws.print_title_rows = '1:8'
-
-        response = HttpResponse(
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-
-        filename = f"Dog_Registrations_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        response['Content-Disposition'] = f'attachment; filename={filename}'
-
-        wb.save(response)
-        return response
-
-    # Build the PDF layout used by barangay-level registration reports.
-    elif file_type == 'pdf':
-        colors, landscape, letter, getSampleStyleSheet, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle = _get_reportlab_exports()
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=landscape(letter),
-            leftMargin=18,
-            rightMargin=18,
-            topMargin=18,
-            bottomMargin=20
-        )
-        styles = getSampleStyleSheet()
-        title_style = styles['Heading4']
-        title_style.alignment = 1
-        title_style.fontSize = 11
-        title_style.leading = 12
-
-        small_center = styles['Normal'].clone('small_center')
-        small_center.alignment = 1
-        small_center.fontSize = 10
-
-        small_left = styles['Normal'].clone('small_left')
-        small_left.alignment = 0
-        small_left.fontSize = 9
-
-        elements = [
-            Paragraph("National Rabies Prevention and Control Program", small_center),
-            Paragraph("<b>Rabies Free Visayas Project</b>", small_center),
-            Paragraph("<b>Dog Registry and Vaccination Record</b>", title_style),
-            Spacer(1, 8),
-            Paragraph(f"Name of Barangay: {selected_barangay_label}", small_left),
-            Spacer(1, 6),
-        ]
-
-        pdf_cell = styles['Normal'].clone('pdf_cell')
-        pdf_cell.fontSize = 7
-        pdf_cell.leading = 8
-        pdf_cell.wordWrap = 'CJK'
-
-        data = [[
-            'Registration', '', 'Dog Profile', '', '', '', '', '', 'Pet Owner', ''
-        ], [
-            'No.', 'Date', 'Name', 'Species', 'Sex (M/F)', 'Age (yrs)',
-            'Neutering (No./C/S)', 'Color', 'Name', 'Complete Address'
-        ]]
-
-        for idx, dog in enumerate(dogs, start=1):
-            data.append([
-                idx,
-                dog.date_registered.strftime("%m-%d-%Y") if dog.date_registered else "",
-                dog.name,
-                dog.species,
-                dog.sex,
-                dog.age,
-                dog.neutering_status,
-                dog.color or "-",
-                Paragraph(dog.owner_name or "", pdf_cell),
-                Paragraph(dog.owner_address or "", pdf_cell),
-            ])
-
-        col_widths = [28, 48, 76, 46, 42, 44, 74, 50, 80, 242]
-        table = Table(data, colWidths=col_widths, repeatRows=0)
-        table.setStyle(TableStyle([
-            ('SPAN', (0, 0), (1, 0)),
-            ('SPAN', (2, 0), (7, 0)),
-            ('SPAN', (8, 0), (9, 0)),
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d0d0d0')),
-            ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#e6e6e6')),
-            ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 7.5),
-            ('ALIGN', (0, 0), (-1, 1), 'CENTER'),
-            ('ALIGN', (0, 2), (1, -1), 'CENTER'),
-            ('ALIGN', (3, 2), (7, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('WORDWRAP', (8, 2), (9, -1), 'CJK'),
-            ('GRID', (0, 0), (-1, -1), 0.7, colors.black),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-            ('LEFTPADDING', (0, 0), (-1, -1), 3),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-        ]))
-
-        elements.append(table)
-        elements.append(Spacer(1, 8))
-        elements.append(Paragraph("Legend:", small_left))
-        elements.append(Paragraph("C - Castrated", small_left))
-        elements.append(Paragraph("S - Spaying", small_left))
-        elements.append(Paragraph("No - Not castrated nor spayed", small_left))
-
-        doc.build(elements)
-        buffer.seek(0)
-
-        response = HttpResponse(buffer, content_type='application/pdf')
-        filename = f"Dog_Registrations_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        response['Content-Disposition'] = f'attachment; filename={filename}'
-
-        return response
+        return _build_registration_excel_response(dogs, selected_barangay_label)
+    if file_type == 'pdf':
+        return _build_registration_pdf_response(dogs, selected_barangay_label)
 
     return HttpResponse("Invalid file type.", status=400)
 

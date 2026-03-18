@@ -60,12 +60,29 @@
         flex-wrap: wrap;
     }
 
+    .owner-preview-avatar-button {
+        flex: 0 0 auto;
+        width: 132px;
+        height: 132px;
+        padding: 0;
+        border: 0;
+        border-radius: 28px;
+        background: transparent;
+        box-shadow: none;
+        cursor: zoom-in;
+    }
+
+    .owner-preview-avatar-button:focus-visible {
+        outline: 3px solid rgba(255, 255, 255, 0.45);
+        outline-offset: 4px;
+    }
+
     .owner-preview-avatar,
     .owner-preview-avatar-fallback {
-        width: 96px;
-        height: 96px;
-        border-radius: 50%;
-        border: 3px solid rgba(255, 255, 255, 0.35);
+        width: 100%;
+        height: 100%;
+        border-radius: 28px;
+        border: 3px solid rgba(255, 255, 255, 0.26);
         object-fit: cover;
         background: rgba(255, 255, 255, 0.18);
     }
@@ -74,9 +91,15 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 2rem;
+        font-size: 2.35rem;
         font-weight: 700;
         text-transform: uppercase;
+    }
+
+    .owner-preview-hero-copy {
+        min-width: 0;
+        display: grid;
+        gap: 4px;
     }
 
     .owner-preview-hero h1 {
@@ -89,14 +112,20 @@
         opacity: 0.92;
     }
 
-    .owner-preview-grid {
+    .owner-preview-overview-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 20px;
     }
 
     .owner-preview-panel {
         padding: 22px;
+        min-height: 100%;
+    }
+
+    .owner-preview-overview-grid > .owner-preview-panel {
+        display: flex;
+        flex-direction: column;
     }
 
     .owner-preview-panel h2 {
@@ -112,8 +141,64 @@
         gap: 10px;
     }
 
+    .owner-preview-list li {
+        display: grid;
+        gap: 2px;
+    }
+
     .owner-preview-list strong {
         color: #17324d;
+    }
+
+    .owner-preview-violation-stack {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .owner-preview-violation-stat {
+        padding: 16px 14px;
+        border-radius: 16px;
+        border: 1px solid #d9e1ea;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        text-align: center;
+    }
+
+    .owner-preview-violation-stat.total {
+        border-color: rgba(185, 28, 28, 0.16);
+        background: linear-gradient(180deg, #fff5f5 0%, #ffe7e7 100%);
+    }
+
+    .owner-preview-violation-stat span {
+        display: block;
+        margin-bottom: 6px;
+        color: #5b6c82;
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .owner-preview-violation-stat strong {
+        display: block;
+        color: #17324d;
+        font-size: 1.85rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .owner-preview-violation-stat.total strong {
+        color: #b42318;
+    }
+
+    .owner-preview-violation-note {
+        margin: auto 0 0;
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: #f8fbff;
+        color: #4b5563;
+        line-height: 1.55;
     }
 
     .owner-preview-face-grid,
@@ -206,6 +291,33 @@
         height: auto;
         object-fit: contain;
     }
+
+    @media (max-width: 767px) {
+        .owner-preview-hero {
+            padding: 22px;
+            align-items: flex-start;
+        }
+
+        .owner-preview-avatar-button {
+            width: 108px;
+            height: 108px;
+            border-radius: 24px;
+        }
+
+        .owner-preview-avatar,
+        .owner-preview-avatar-fallback {
+            border-radius: 24px;
+        }
+
+        .owner-preview-hero h1 {
+            font-size: 1.55rem;
+        }
+
+        .owner-preview-overview-grid,
+        .owner-preview-violation-stack {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 
 <div class="owner-preview-shell">
@@ -217,22 +329,34 @@
 
     <section class="owner-preview-card">
         <div class="owner-preview-hero">
-            {% if profile.profile_image %}
-                <img src="{{ profile.profile_image.url }}" alt="{{ profile_user.get_full_name|default:profile_user.username }}" class="owner-preview-avatar">
-            {% else %}
-                <span class="owner-preview-avatar-fallback">
-                    {{ profile_user.first_name|default:profile_user.username|slice:":1" }}{{ profile_user.last_name|slice:":1" }}
-                </span>
-            {% endif %}
-            <div>
+            <button
+                type="button"
+                class="owner-preview-avatar-button js-owner-profile-avatar"
+                {% if allow_image_preview and profile.profile_image %}
+                    data-image-src="{{ profile.profile_image.url }}"
+                    data-image-alt="{{ profile_user.get_full_name|default:profile_user.username }}"
+                    aria-label="Open larger profile photo"
+                {% else %}
+                    disabled
+                    aria-label="No profile photo available"
+                {% endif %}
+            >
+                {% if profile.profile_image %}
+                    <img src="{{ profile.profile_image.url }}" alt="{{ profile_user.get_full_name|default:profile_user.username }}" class="owner-preview-avatar">
+                {% else %}
+                    <span class="owner-preview-avatar-fallback">
+                        {{ profile_user.first_name|default:profile_user.username|slice:":1" }}{{ profile_user.last_name|slice:":1" }}
+                    </span>
+                {% endif %}
+            </button>
+            <div class="owner-preview-hero-copy">
                 <h1>{{ profile_user.get_full_name|default:profile_user.username }}</h1>
                 <p>@{{ profile_user.username }}</p>
-                <p>Read-only owner preview for admin registration records.</p>
             </div>
         </div>
     </section>
 
-    <div class="owner-preview-grid">
+    <div class="owner-preview-overview-grid">
         <section class="owner-preview-panel">
             <h2>Profile Details</h2>
             <ul class="owner-preview-list">
@@ -254,7 +378,29 @@
         </section>
 
         <section class="owner-preview-panel">
-            <h2>Face Authentication</h2>
+            <h2>Violations</h2>
+            <div class="owner-preview-violation-stack">
+                <article class="owner-preview-violation-stat total">
+                    <span>Total</span>
+                    <strong>{{ violation_summary.total|default:"0" }}</strong>
+                </article>
+                <article class="owner-preview-violation-stat">
+                    <span>Claims</span>
+                    <strong>{{ violation_summary.claims|default:"0" }}</strong>
+                </article>
+                <article class="owner-preview-violation-stat">
+                    <span>Citations</span>
+                    <strong>{{ violation_summary.citations|default:"0" }}</strong>
+                </article>
+            </div>
+            <p class="owner-preview-violation-note">
+                This summary combines claim-related violations and issued citations linked to this owner profile.
+            </p>
+        </section>
+    </div>
+
+    <section class="owner-preview-panel" style="margin-top: 24px;">
+        <h2>Face Authentication</h2>
             {% if face_images %}
                 <div class="owner-preview-face-grid">
                     {% for face in face_images %}
@@ -264,8 +410,7 @@
             {% else %}
                 <p class="owner-preview-empty">No face authentication images uploaded.</p>
             {% endif %}
-        </section>
-    </div>
+    </section>
 
     <section class="owner-preview-panel" style="margin-top: 24px;">
         <h2>Registered Pets ({{ registered_dogs_total }})</h2>
@@ -316,6 +461,7 @@
 <script>
     (function () {
         const closeBtn = document.getElementById("ownerPreviewEscapeBtn");
+        const profileAvatarBtn = document.querySelector(".js-owner-profile-avatar");
         const previewPhotos = document.querySelectorAll(".js-owner-preview-photo");
         const viewerModalElement = document.getElementById("ownerPhotoViewerModal");
         const viewerImage = document.getElementById("ownerPhotoViewerImage");
@@ -323,6 +469,18 @@
         const viewerModal = viewerModalElement && typeof bootstrap !== "undefined"
             ? new bootstrap.Modal(viewerModalElement)
             : null;
+
+        function openViewer(source, alt) {
+            if (!viewerModal || !viewerImage || !source) {
+                return;
+            }
+            viewerImage.setAttribute("src", source);
+            viewerImage.setAttribute("alt", alt || "Preview photo");
+            if (viewerTitle) {
+                viewerTitle.textContent = alt || "Preview photo";
+            }
+            viewerModal.show();
+        }
 
         function handleClose(event) {
             event.preventDefault();
@@ -337,19 +495,21 @@
             closeBtn.addEventListener("click", handleClose);
         }
 
+        if (profileAvatarBtn && !profileAvatarBtn.disabled) {
+            profileAvatarBtn.addEventListener("click", function () {
+                openViewer(
+                    profileAvatarBtn.getAttribute("data-image-src") || "",
+                    profileAvatarBtn.getAttribute("data-image-alt") || "Profile photo"
+                );
+            });
+        }
+
         previewPhotos.forEach(function (img) {
             img.addEventListener("click", function () {
-                if (!viewerModal || !viewerImage) {
-                    return;
-                }
-                const source = img.getAttribute("src") || "";
-                const alt = img.getAttribute("alt") || "Preview photo";
-                viewerImage.setAttribute("src", source);
-                viewerImage.setAttribute("alt", alt);
-                if (viewerTitle) {
-                    viewerTitle.textContent = alt;
-                }
-                viewerModal.show();
+                openViewer(
+                    img.getAttribute("src") || "",
+                    img.getAttribute("alt") || "Preview photo"
+                );
             });
         });
     })();

@@ -2884,6 +2884,12 @@ def registration_owner_profile(request, user_id):
             "registered_dogs": registered_dogs,
             "registered_dogs_total": len(registered_dogs),
             "face_images": [],
+            "violation_summary": {
+                "claims": 0,
+                "citations": 0,
+                "total": 0,
+            },
+            "allow_image_preview": bool(request.user.is_staff),
         }
         return render(request, "admin_user/profile_preview.html", context)
 
@@ -2919,6 +2925,17 @@ def registration_owner_profile(request, user_id):
     registered_dogs = _build_registered_dog_payloads(registered_dogs_qs)
 
     face_images = FaceImage.objects.filter(user=profile_user).only("id", "image").order_by("-created_at", "-id")
+    violation_summary = (
+        _admin_user_management_queryset()
+        .filter(pk=profile_user.pk)
+        .values("claim_violation_count", "citation_violation_count", "calculated_violations")
+        .first()
+        or {
+            "claim_violation_count": 0,
+            "citation_violation_count": 0,
+            "calculated_violations": 0,
+        }
+    )
 
     context = {
         "profile_user": profile_user,
@@ -2926,6 +2943,12 @@ def registration_owner_profile(request, user_id):
         "registered_dogs": registered_dogs,
         "registered_dogs_total": len(registered_dogs),
         "face_images": face_images,
+        "violation_summary": {
+            "claims": violation_summary.get("claim_violation_count", 0),
+            "citations": violation_summary.get("citation_violation_count", 0),
+            "total": violation_summary.get("calculated_violations", 0),
+        },
+        "allow_image_preview": bool(request.user.is_staff),
     }
     return render(request, "admin_user/profile_preview.html", context)
 

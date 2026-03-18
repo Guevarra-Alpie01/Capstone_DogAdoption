@@ -56,52 +56,41 @@
             {% endif %}
         </div>
 
-        <div class="user-container">
+        <div class="user-directory-grid">
             {% for user in users %}
-            <article class="user-card">
-                <div class="user-left">
-                    <a href="{% url 'dogadoption_admin:registration_owner_profile' user.id %}" class="user-avatar" aria-label="Open {{ user.username }} profile">
+            <article class="user-directory-card">
+                <a href="{% url 'dogadoption_admin:registration_owner_profile' user.id %}" class="user-directory-photo" aria-label="Open {{ user.username }} profile">
+                    <div class="user-directory-photo-frame">
                         {% if user.profile.profile_image %}
                             <img src="{{ user.profile.profile_image.url }}" alt="{{ user.username }} profile photo">
                         {% else %}
                             <img src="{% static 'images/default-user-image.jpg' %}" alt="Default profile photo">
                         {% endif %}
-                    </a>
-
-                    <div class="user-info">
-                        <div class="user-title-row">
-                            <h3>
-                                {% if user.first_name or user.last_name %}
-                                    {{ user.first_name }} {{ user.last_name }}
-                                {% else %}
-                                    {{ user.username }}
-                                {% endif %}
-                            </h3>
-                            <span class="user-handle">@{{ user.username }}</span>
-                        </div>
-                        <div class="user-meta-grid">
-                            <div class="user-meta-item">
-                                <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
-                                <span>{{ user.profile.address|default:"No address provided" }}</span>
-                            </div>
-                            <div class="user-meta-item">
-                                <i class="bi bi-calendar3" aria-hidden="true"></i>
-                                <span>Joined {{ user.date_joined|date:"M d, Y" }}</span>
-                            </div>
-                        </div>
                     </div>
-                </div>
+                </a>
 
-                <div class="user-right">
-                    <div class="violation-box {% if user.calculated_violations > 0 %}has-violations{% endif %}">
-                        <span>Violations</span>
-                        <h2>{{ user.calculated_violations|default:"0" }}</h2>
+                <div class="user-directory-body">
+                    <div class="user-directory-copy">
+                        <h3 class="user-directory-name">
+                            {% if user.first_name or user.last_name %}
+                                {{ user.first_name }} {{ user.last_name }}
+                            {% else %}
+                                {{ user.username }}
+                            {% endif %}
+                        </h3>
+                        <span class="user-directory-handle">@{{ user.username }}</span>
                     </div>
+                    <div class="user-directory-footer">
+                        <div class="user-directory-violations {% if user.calculated_violations > 0 %}has-violations{% endif %}">
+                            <span>Violations</span>
+                            <strong>{{ user.calculated_violations|default:"0" }}</strong>
+                        </div>
 
-                    <a href="{% url 'dogadoption_admin:registration_owner_profile' user.id %}" class="view-btn action-link">
-                        <i class="bi bi-person-badge" aria-hidden="true"></i>
-                        Open Profile
-                    </a>
+                        <a href="{% url 'dogadoption_admin:registration_owner_profile' user.id %}" class="view-btn action-link user-directory-action">
+                            <i class="bi bi-person-badge" aria-hidden="true"></i>
+                            Profile
+                        </a>
+                    </div>
                 </div>
             </article>
             {% empty %}

@@ -116,6 +116,10 @@ from user.notification_utils import (
 )
 
 
+POST_HISTORY_CACHE_KEY = "dogadoption_admin_post_history_ids_v1"
+POST_HISTORY_CACHE_TTL_SECONDS = 120
+
+
 # =============================================================================
 # Shared imports, constants, and helper utilities
 # =============================================================================
@@ -1044,6 +1048,10 @@ def post_list(request):
     show_appointment_modal = request.method == "GET" and (
         request.GET.get("open_appointment", "").lower() in {"1", "true", "yes"}
     )
+    show_history_modal = request.method == "GET" and (
+        request.GET.get("history", "").lower() in {"1", "true", "yes"}
+        or bool((request.GET.get("history_page") or "").strip())
+    )
     post_form = PostForm()
     if request.method == 'POST':
         form_type = (request.POST.get("form_type") or "").strip()
@@ -1068,6 +1076,7 @@ def post_list(request):
                 for image in request.FILES.getlist('images'):
                     PostImage.objects.create(post=post, image=image)
 
+                cache.delete(POST_HISTORY_CACHE_KEY)
                 bump_user_home_feed_namespace()
                 invalidate_user_notification_content()
                 messages.success(request, "Post created successfully.", extra_tags="post_list")
@@ -1188,6 +1197,51 @@ def post_list(request):
         params = request.GET.copy()
         params[page_param] = str(page_num)
         return params.urlencode()
+
+    history_candidate_ids = cache.get(POST_HISTORY_CACHE_KEY)
+    if history_candidate_ids is None:
+        history_candidate_qs = (
+            Post.objects.filter(
+                status__in=["rescued", "under_care"],
+                created_at__lte=timezone.now() - timedelta(days=Post.ADOPTION_DAYS),
+            )
+            .only("id", "caption", "status", "created_at", "claim_days")
+            .order_by("-created_at")
+        )
+        history_candidate_ids = [
+            post.id
+            for post in history_candidate_qs
+            if post.is_expired()
+        ]
+        cache.set(
+            POST_HISTORY_CACHE_KEY,
+            history_candidate_ids,
+            POST_HISTORY_CACHE_TTL_SECONDS,
+        )
+
+    history_total = len(history_candidate_ids)
+    history_paginator = Paginator(history_candidate_ids, rows_per_page)
+    history_page_obj = history_paginator.get_page(request.GET.get("history_page", 1))
+    history_posts = []
+    history_page_ids = list(history_page_obj.object_list)
+    if history_page_ids:
+        history_post_map = {
+            post.id: post
+            for post in Post.objects.filter(id__in=history_page_ids)
+            .only("id", "caption", "location", "status", "created_at", "claim_days")
+        }
+        for post_id in history_page_ids:
+            post = history_post_map.get(post_id)
+            if not post:
+                continue
+            history_posts.append({
+                "post": post,
+                "status_label": "Unresolved",
+                "status_tone": "warning",
+                "base_status_label": post.get_status_display(),
+                "posted_label": format_posted_label(post.created_at),
+                "closed_date": post.adoption_deadline(),
+            })
 
     claim_page_obj, claim_posts = _paginate_status(claim_posts, "claim_page")
     adoption_page_obj, adoption_posts = _paginate_status(adoption_posts, "adoption_page")
@@ -1324,6 +1378,12 @@ def post_list(request):
         'reunited_next_qs': _build_page_qs("reunited_page", reunited_page_obj.next_page_number()) if reunited_page_obj.has_next() else "",
         'adopted_prev_qs': _build_page_qs("adopted_page", adopted_page_obj.previous_page_number()) if adopted_page_obj.has_previous() else "",
         'adopted_next_qs': _build_page_qs("adopted_page", adopted_page_obj.next_page_number()) if adopted_page_obj.has_next() else "",
+        'history_total': history_total,
+        'history_posts': history_posts,
+        'history_page_obj': history_page_obj,
+        'history_prev_qs': _build_page_qs("history_page", history_page_obj.previous_page_number()) if history_page_obj.has_previous() else "",
+        'history_next_qs': _build_page_qs("history_page", history_page_obj.next_page_number()) if history_page_obj.has_next() else "",
+        'show_history_modal': show_history_modal,
         'return_to': request.get_full_path(),
     })
 
@@ -1410,6 +1470,7 @@ def update_request(request, req_id, action):
             elif req.request_type == 'adopt':
                 post.status = 'adopted'
             post.save(update_fields=['status'])
+            cache.delete(POST_HISTORY_CACHE_KEY)
             bump_user_home_feed_namespace()
 
             post.requests.filter(status='pending').exclude(id=req.id).update(

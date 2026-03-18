@@ -638,6 +638,83 @@ class AdminPostGenderTests(TestCase):
         self.assertEqual(created_post.gender, "male")
 
 
+class AdminPostHistoryTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.admin = User.objects.create_user(
+            username="admin_post_history",
+            password="secret123",
+            is_staff=True,
+        )
+        self.client.force_login(self.admin)
+
+    def _set_created_at(self, post, created_at):
+        Post.objects.filter(id=post.id).update(created_at=created_at)
+        post.refresh_from_db()
+        return post
+
+    def test_post_list_history_only_shows_expired_unresolved_posts_with_pagination(self):
+        now = timezone.now()
+        for index in range(12):
+            post = Post.objects.create(
+                user=self.admin,
+                caption=f"Archived Dog {index}",
+                location="Bugay",
+                status="rescued" if index % 2 == 0 else "under_care",
+                claim_days=1,
+            )
+            self._set_created_at(post, now - timedelta(days=10 + index))
+
+        active_post = Post.objects.create(
+            user=self.admin,
+            caption="Still Active",
+            location="Bugay",
+            status="rescued",
+            claim_days=5,
+        )
+        self._set_created_at(active_post, now - timedelta(days=1))
+
+        adopted_post = Post.objects.create(
+            user=self.admin,
+            caption="Already Adopted",
+            location="Bugay",
+            status="adopted",
+            claim_days=1,
+        )
+        self._set_created_at(adopted_post, now - timedelta(days=12))
+
+        reunited_post = Post.objects.create(
+            user=self.admin,
+            caption="Already Reclaimed",
+            location="Bugay",
+            status="reunited",
+            claim_days=1,
+        )
+        self._set_created_at(reunited_post, now - timedelta(days=12))
+
+        first_response = self.client.get(reverse("dogadoption_admin:post_list") + "?history=1")
+        second_response = self.client.get(reverse("dogadoption_admin:post_list") + "?history=1&history_page=2")
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertTrue(first_response.context["show_history_modal"])
+        self.assertEqual(first_response.context["history_total"], 12)
+        self.assertEqual(len(first_response.context["history_posts"]), 10)
+        self.assertEqual(len(second_response.context["history_posts"]), 2)
+        first_history_captions = {
+            item["post"].caption for item in first_response.context["history_posts"]
+        }
+        second_history_captions = {
+            item["post"].caption for item in second_response.context["history_posts"]
+        }
+        self.assertContains(first_response, "Unclaimed and Unadopted Dogs")
+        self.assertContains(first_response, "History")
+        self.assertNotIn("Still Active", first_history_captions)
+        self.assertNotIn("Already Adopted", first_history_captions)
+        self.assertNotIn("Already Reclaimed", first_history_captions)
+        self.assertNotIn("Still Active", second_history_captions)
+
+
 class RegistrationRecordOwnerBlockTests(TestCase):
     def setUp(self):
         cache.clear()

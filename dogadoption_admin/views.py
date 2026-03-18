@@ -43,7 +43,7 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, F, Prefetch, Q, Value
+from django.db.models import Case, CharField, Count, DateField, F, IntegerField, Prefetch, Q, Value, When
 from django.db.models.functions import Coalesce, Concat, Lower, Trim, TruncDate
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -1745,42 +1745,68 @@ def admin_dog_capture_requests(request):
 
     accepted_date_raw = (request.GET.get("accepted_date") or "").strip()
     accepted_date_filter = parse_date(accepted_date_raw) if accepted_date_raw else None
-    accepted_qs = base_qs.filter(status='accepted')
-    accepted_total = accepted_qs.count()
-    accepted_requests_sorted = list(accepted_qs)
+    accepted_total = base_qs.filter(status='accepted').count()
     today = timezone.localdate()
+    today_start = timezone.make_aware(
+        datetime.combine(today, time.min),
+        timezone.get_current_timezone(),
+    )
 
-    for req in accepted_requests_sorted:
-        _enrich_capture_request_display(req)
-
-    def _accepted_sort_key(req):
-        scheduled_dt = timezone.localtime(req.scheduled_date) if req.scheduled_date else None
-        scheduled_day = scheduled_dt.date() if scheduled_dt else (today + timedelta(days=36500))
-        future_first_flag = 0 if scheduled_day >= today else 1
-        walk_in_last_flag = 1 if req.submission_type == 'walk_in' else 0
-        barangay_key = (req.display_barangay or '').strip().lower()
-        location_key = (req.location_label or '').strip().lower()
-        return (
-            future_first_flag,
-            scheduled_day,
-            walk_in_last_flag,
-            barangay_key or location_key,
-            location_key,
-            req.created_at,
+    accepted_qs = (
+        base_qs.filter(status='accepted')
+        .annotate(
+            future_first_flag=Case(
+                When(scheduled_date__lt=today_start, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
+            ),
+            no_schedule_last_flag=Case(
+                When(scheduled_date__isnull=True, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
+            ),
+            walk_in_last_flag=Case(
+                When(submission_type='walk_in', then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
+            ),
+            sort_barangay=Lower(
+                Trim(Coalesce("barangay", Value(""), output_field=CharField()))
+            ),
+            sort_location=Lower(
+                Trim(
+                    Coalesce(
+                        "manual_full_address",
+                        "barangay",
+                        "city",
+                        "requested_by__profile__address",
+                        Value(""),
+                        output_field=CharField(),
+                    )
+                )
+            ),
         )
-
-    accepted_requests_sorted.sort(key=_accepted_sort_key)
+    )
     if accepted_date_filter:
-        accepted_requests_sorted = [
-            req for req in accepted_requests_sorted
-            if req.scheduled_date and timezone.localtime(req.scheduled_date).date() == accepted_date_filter
-        ]
+        accepted_qs = accepted_qs.filter(scheduled_date__date=accepted_date_filter)
 
-    accepted_page_obj = Paginator(accepted_requests_sorted, rows_per_page).get_page(
+    accepted_qs = accepted_qs.order_by(
+        "future_first_flag",
+        "no_schedule_last_flag",
+        "scheduled_date",
+        "walk_in_last_flag",
+        "sort_barangay",
+        "sort_location",
+        "created_at",
+        "id",
+    )
+    accepted_filtered_total = accepted_qs.count()
+    accepted_page_obj = Paginator(accepted_qs, rows_per_page).get_page(
         request.GET.get("accepted_page", 1)
     )
     accepted_requests = list(accepted_page_obj.object_list)
-    accepted_filtered_total = len(accepted_requests_sorted)
+    for req in accepted_requests:
+        _enrich_capture_request_display(req)
 
     default_map_profile_image_url = static("images/default-user-image.jpg")
     map_points_qs = list(

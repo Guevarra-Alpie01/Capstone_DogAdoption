@@ -171,21 +171,29 @@ def _build_registered_dog_payloads(dogs):
     return rows
 
 
-def _build_profile_dashboard_context(profile_user):
-    """Build the profile page context used by user and admin preview modes."""
-    profile, _ = Profile.objects.get_or_create(
+def _get_or_create_profile_dashboard_profile(profile_user):
+    profile = Profile.objects.filter(user=profile_user).first()
+    if profile is not None:
+        return profile
+    return Profile.objects.create(
         user=profile_user,
-        defaults={
-            "address": "",
-            "age": 18,
-            "consent_given": True
-        }
+        address="",
+        age=18,
+        consent_given=True,
     )
 
-    recent_post_limit = 6
-    default_profile_avatar_url = static("images/default-user-image.jpg")
+
+def _build_profile_post_rows(profile_user, recent_post_limit, default_profile_avatar_url):
     adoption_posts = list(
         UserAdoptionPost.objects.filter(owner=profile_user)
+        .annotate(
+            request_count=Count("requests", distinct=True),
+            pending_request_count=Count(
+                "requests",
+                filter=Q(requests__status="pending"),
+                distinct=True,
+            ),
+        )
         .prefetch_related(
             Prefetch(
                 "images",
@@ -220,7 +228,6 @@ def _build_profile_dashboard_context(profile_user):
     )
 
     profile_posts = []
-
     for post in adoption_posts:
         request_items = []
         request_panel_id = f"post-requests-{post.id}"
@@ -269,10 +276,8 @@ def _build_profile_dashboard_context(profile_user):
             "posted_label": _format_posted_label(post.created_at),
             "created_at": post.created_at,
             "image_url": _first_prefetched_image_url(post.images.all()),
-            "request_count": len(request_items),
-            "pending_request_count": sum(
-                1 for item in request_items if item["status_key"] == "pending"
-            ),
+            "request_count": int(getattr(post, "request_count", 0) or 0),
+            "pending_request_count": int(getattr(post, "pending_request_count", 0) or 0),
             "requests": request_items,
             "request_panel_id": request_panel_id,
         })
@@ -296,8 +301,10 @@ def _build_profile_dashboard_context(profile_user):
         })
 
     profile_posts.sort(key=lambda item: item["created_at"], reverse=True)
-    profile_posts = profile_posts[:recent_post_limit]
+    return profile_posts[:recent_post_limit]
 
+
+def _build_profile_adopted_post_rows(profile_user, recent_post_limit):
     staff_adopt_requests = list(
         PostRequest.objects.filter(
             user=profile_user,
@@ -305,7 +312,12 @@ def _build_profile_dashboard_context(profile_user):
             status="accepted",
         )
         .select_related("post")
-        .prefetch_related("post__images")
+        .prefetch_related(
+            Prefetch(
+                "post__images",
+                queryset=PostImage.objects.only("id", "post_id", "image").order_by("id"),
+            )
+        )
         .order_by("-created_at")[:recent_post_limit]
     )
     user_adopt_requests = list(
@@ -314,7 +326,12 @@ def _build_profile_dashboard_context(profile_user):
             status="approved",
         )
         .select_related("post", "post__owner")
-        .prefetch_related("post__images")
+        .prefetch_related(
+            Prefetch(
+                "post__images",
+                queryset=UserAdoptionImage.objects.only("id", "post_id", "image").order_by("id"),
+            )
+        )
         .order_by("-created_at")[:recent_post_limit]
     )
 
@@ -348,8 +365,10 @@ def _build_profile_dashboard_context(profile_user):
         })
 
     adopted_posts.sort(key=lambda item: item["created_at"], reverse=True)
-    adopted_posts = adopted_posts[:recent_post_limit]
+    return adopted_posts[:recent_post_limit]
 
+
+def _build_incoming_profile_requests(profile_user, default_profile_avatar_url):
     incoming_requests_limit = 6
     incoming_requests_qs = list(
         UserAdoptionRequest.objects.filter(post__owner=profile_user)
@@ -368,7 +387,6 @@ def _build_profile_dashboard_context(profile_user):
         )
         .order_by("-created_at")[:incoming_requests_limit]
     )
-    incoming_requests_total = UserAdoptionRequest.objects.filter(post__owner=profile_user).count()
     incoming_requests = []
     for adoption_request in incoming_requests_qs:
         requester = adoption_request.requester
@@ -391,6 +409,14 @@ def _build_profile_dashboard_context(profile_user):
             "created_label": _format_posted_label(adoption_request.created_at),
         })
 
+    return {
+        "incoming_requests": incoming_requests,
+        "incoming_requests_limit": incoming_requests_limit,
+        "incoming_requests_total": UserAdoptionRequest.objects.filter(post__owner=profile_user).count(),
+    }
+
+
+def _build_profile_registered_dogs(profile_user):
     registered_dogs_limit = 12
     registered_dogs_qs = list(
         Dog.objects.filter(owner_user=profile_user)
@@ -414,24 +440,26 @@ def _build_profile_dashboard_context(profile_user):
         )
         .order_by("-date_registered", "-id")[:registered_dogs_limit]
     )
-    registered_dogs_total = Dog.objects.filter(owner_user=profile_user).count()
-    registered_dogs = _build_registered_dog_payloads(registered_dogs_qs)
+    return {
+        "registered_dogs": _build_registered_dog_payloads(registered_dogs_qs),
+        "registered_dogs_limit": registered_dogs_limit,
+        "registered_dogs_total": Dog.objects.filter(owner_user=profile_user).count(),
+    }
 
+
+def _build_profile_violation_summary(profile_user):
     user_citations = (
         Citation.objects.filter(owner=profile_user)
         .select_related("penalty", "penalty__section")
         .prefetch_related("penalties", "penalties__section")
         .order_by("-date_issued", "-id")
     )
-    user_violation_count = 0
     user_violation_records = []
     for citation in user_citations:
         penalties = list(citation.penalties.all())
         if not penalties and citation.penalty_id:
             penalties = [citation.penalty]
 
-        # Count citation tickets, not individual penalties, for the profile total.
-        user_violation_count += 1
         violation_labels = [
             f"Sec. {penalty.section.number} #{penalty.number} - {penalty.title}"
             for penalty in penalties
@@ -450,20 +478,31 @@ def _build_profile_dashboard_context(profile_user):
         )
 
     return {
+        "user_violation_count": len(user_violation_records),
+        "user_violation_records": user_violation_records,
+    }
+
+
+def _build_profile_dashboard_context(profile_user):
+    """Build the profile page context used by user and admin preview modes."""
+    profile = _get_or_create_profile_dashboard_profile(profile_user)
+
+    recent_post_limit = 6
+    default_profile_avatar_url = static("images/default-user-image.jpg")
+    return {
         "profile_user": profile_user,
         "profile": profile,
-        "profile_posts": profile_posts,
+        "profile_posts": _build_profile_post_rows(
+            profile_user,
+            recent_post_limit,
+            default_profile_avatar_url,
+        ),
         "profile_posts_limit": recent_post_limit,
-        "adopted_posts": adopted_posts,
+        "adopted_posts": _build_profile_adopted_post_rows(profile_user, recent_post_limit),
         "adopted_posts_limit": recent_post_limit,
-        "incoming_requests": incoming_requests,
-        "incoming_requests_limit": incoming_requests_limit,
-        "incoming_requests_total": incoming_requests_total,
-        "registered_dogs": registered_dogs,
-        "registered_dogs_limit": registered_dogs_limit,
-        "registered_dogs_total": registered_dogs_total,
-        "user_violation_count": user_violation_count,
-        "user_violation_records": user_violation_records,
+        **_build_incoming_profile_requests(profile_user, default_profile_avatar_url),
+        **_build_profile_registered_dogs(profile_user),
+        **_build_profile_violation_summary(profile_user),
     }
 
 # =============================================================================

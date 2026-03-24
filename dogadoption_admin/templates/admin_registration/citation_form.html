@@ -59,7 +59,10 @@
                 </div>
                 <div>
                     <label for="{{ form.owner_barangay.id_for_label }}">Barangay</label>
-                    {{ form.owner_barangay }}
+                    <div class="citation-barangay-wrap">
+                        {{ form.owner_barangay }}
+                        <div id="citation-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
+                    </div>
                     {% if form.owner_barangay.errors %}<small class="error-text">{{ form.owner_barangay.errors|striptags }}</small>{% endif %}
                 </div>
             </div>
@@ -231,7 +234,7 @@
                             <th>Name</th>
                             <th>Violations</th>
                             <th>Fees</th>
-                            <th>Print</th>
+                            <th class="citation-table__action-head">Print Copy</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -243,8 +246,15 @@
                                 </td>
                                 <td>{{ row.violations }}</td>
                                 <td>PHP {{ row.total_fees }}</td>
-                                <td>
-                                    <a class="print-link" href="{% url 'dogadoption_admin:citation_print' row.citation.pk %}">Print</a>
+                                <td class="citation-table__action-cell">
+                                    <a
+                                        class="print-link"
+                                        href="{% url 'dogadoption_admin:citation_print' row.citation.pk %}"
+                                        aria-label="Open print view for citation {{ row.citation.id }}"
+                                    >
+                                        <span class="print-link__label">Open Print</span>
+                                        <span class="print-link__meta">Citation #{{ row.citation.id }}</span>
+                                    </a>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -279,6 +289,7 @@
 {{ form.media }}
 {{ owner_search_data|json_script:"citation-owner-data" }}
 
+<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 <script>
 function syncViolationSelectionUI() {
     const checks = document.querySelectorAll('.violation-check');

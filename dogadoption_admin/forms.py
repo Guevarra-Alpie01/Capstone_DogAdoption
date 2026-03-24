@@ -1,4 +1,6 @@
 from django import forms
+from django.urls import reverse_lazy
+
 from .models import Post, Barangay
 class PostForm(forms.ModelForm):
 
@@ -90,18 +92,49 @@ class CitationForm(forms.ModelForm):
         widget=forms.HiddenInput(),
     )
 
-    owner_first_name = forms.CharField(max_length=150, required=True)
-    owner_last_name = forms.CharField(max_length=150, required=True)
-    owner_barangay = forms.CharField(max_length=255, required=True)
+    owner_first_name = forms.CharField(
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={'placeholder': 'First name'}),
+    )
+    owner_last_name = forms.CharField(
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={'placeholder': 'Last name'}),
+    )
+    owner_barangay = forms.CharField(
+        max_length=255,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Barangay',
+            'autocomplete': 'off',
+            'data-barangay-autocomplete': 'true',
+            'data-barangay-suggestions-id': 'citation-barangay-suggestions',
+            'data-barangay-strict': 'true',
+        }),
+    )
 
     class Meta:
         model = Citation
         fields = ['owner', 'owner_first_name', 'owner_last_name', 'owner_barangay']
-        widgets = {
-            'owner_first_name': forms.TextInput(attrs={'placeholder': 'First name'}),
-            'owner_last_name': forms.TextInput(attrs={'placeholder': 'Last name'}),
-            'owner_barangay': forms.TextInput(attrs={'placeholder': 'Barangay'}),
-        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['owner_barangay'].widget.attrs['data-barangay-source-url'] = reverse_lazy(
+            'dogadoption_admin:barangay_list_api'
+        )
+
+    def clean_owner_barangay(self):
+        value = " ".join((self.cleaned_data.get("owner_barangay") or "").split()).strip()
+        if not value:
+            return value
+
+        normalized = "".join(ch.lower() for ch in value if ch.isalnum())
+        for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True):
+            if "".join(ch.lower() for ch in name if ch.isalnum()) == normalized:
+                return name
+
+        raise forms.ValidationError("Please select a valid barangay from the suggestions.")
 
 class SectionForm(forms.ModelForm):
     class Meta:

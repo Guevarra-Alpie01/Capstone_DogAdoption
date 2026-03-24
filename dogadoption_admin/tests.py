@@ -9,7 +9,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .forms import PostForm
+from .forms import CitationForm, PostForm
 from .models import (
     AdminNotification,
     Barangay,
@@ -77,6 +77,39 @@ class AnnouncementBucketUpdateTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.post.refresh_from_db()
         self.assertEqual(self.post.display_bucket, DogAnnouncement.BUCKET_ORDINARY)
+
+
+class CitationFormTests(TestCase):
+    def setUp(self):
+        Barangay.objects.update_or_create(
+            name="Bugay",
+            defaults={"is_active": True},
+        )
+
+    def test_owner_barangay_field_uses_autocomplete_widget_attrs(self):
+        form = CitationForm()
+
+        widget = form.fields["owner_barangay"].widget
+
+        self.assertEqual(widget.attrs.get("data-barangay-autocomplete"), "true")
+        self.assertEqual(widget.attrs.get("data-barangay-suggestions-id"), "citation-barangay-suggestions")
+        self.assertEqual(widget.attrs.get("data-barangay-strict"), "true")
+        self.assertEqual(
+            str(widget.attrs.get("data-barangay-source-url")),
+            reverse("dogadoption_admin:barangay_list_api"),
+        )
+
+    def test_owner_barangay_accepts_case_insensitive_match(self):
+        form = CitationForm(
+            data={
+                "owner_first_name": "Maria",
+                "owner_last_name": "Lopez",
+                "owner_barangay": "bugay",
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["owner_barangay"], "Bugay")
 
 
 class AdminExpiryNotificationTests(TestCase):

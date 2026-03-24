@@ -2,21 +2,27 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/face_auth.css' %}?v=20260317a">
+<link rel="stylesheet" href="{% static 'css/face_auth.css' %}?v=20260324a">
 {% endblock %}
 
 {% block content %}
-<div class="face-wrapper">
+<div
+    class="face-wrapper"
+    id="faceAuthApp"
+    data-save-face-url="{% url 'user:save_face' %}"
+    data-complete-signup-url="{% url 'user:signup_complete' %}"
+    data-expected-captures="{{ expected_capture_count }}"
+>
     <div class="face-auth-card">
         <div class="face-shell">
             <section class="face-header">
                 <div class="face-meta">
                     <div class="step-label" id="stepLabel">Step 1</div>
-                    <span id="stepCounter" class="step-counter">1 / 4</span>
+                    <span id="stepCounter" class="step-counter">1 / {{ expected_capture_count }}</span>
                 </div>
 
                 <h2 id="instructionTitle">Face Verification</h2>
-                <p id="instructionDesc">Center your face in the frame.</p>
+                <p id="instructionDesc">We will start your front camera automatically and capture four quick checks.</p>
             </section>
 
             <div class="face-progress" aria-label="Verification progress">
@@ -28,492 +34,50 @@
                 </div>
             </div>
 
-            <div id="liveHint" class="live-hint" role="status" aria-live="polite">
+            <div id="liveHint" class="live-hint live-hint--info" role="status" aria-live="polite">
                 <span class="live-hint-icon" aria-hidden="true"><i class="bi bi-lightbulb-fill"></i></span>
                 <span class="live-hint-text-wrap">
                     <span class="live-hint-label">Guide</span>
-                    <span id="liveHintText">Center your face and hold still.</span>
+                    <span id="liveHintText">Camera starting...</span>
                 </span>
             </div>
 
             <section class="camera-stage">
                 <div class="camera-circle">
                     <div class="camera-circle__guide" aria-hidden="true"></div>
-                    <video id="video" autoplay playsinline></video>
+                    <video id="video" autoplay playsinline muted></video>
                 </div>
-                <p id="status" class="capture-status">Waiting for auto-capture.</p>
+
+                <p id="status" class="capture-status" aria-live="polite">Camera starting...</p>
+
+                <div class="camera-actions">
+                    <button id="retryCameraBtn" class="face-action-btn face-action-btn--secondary" type="button" hidden>
+                        Retry Camera
+                    </button>
+                    <button id="restartCaptureBtn" class="face-action-btn face-action-btn--ghost" type="button" hidden>
+                        Restart Capture
+                    </button>
+                </div>
+
+                <p class="camera-support-note">
+                    Use your front camera, allow camera access when prompted, and keep your face inside the guide.
+                </p>
             </section>
         </div>
 
-        <canvas id="canvas" style="display:none;"></canvas>
-        <canvas id="analysisCanvas" style="display:none;"></canvas>
+        <canvas id="canvas" hidden></canvas>
+        <canvas id="analysisCanvas" hidden></canvas>
 
-        <form id="csrf-form" style="display:none;">
+        <form id="csrf-form" hidden>
             {% csrf_token %}
         </form>
 
-        <div id="consentSection" class="consent-box" style="display:none;">
-            <span class="consent-box__eyebrow">Finish signup</span>
-            <h4>One last confirmation</h4>
-
-            <p>Your face images are used only for login and identity verification on this platform.</p>
-
-            <p>They are limited to authorized admins and are not shown publicly or shared outside verification.</p>
-
-            <label class="consent-check">
-                <input type="checkbox" id="agreeCheckbox">
-                <span>I agree to the verification terms.</span>
-            </label>
-
-            <button id="completeSignupBtn" class="btn btn-success mt-3" type="button" disabled>
-                Complete Signup
-            </button>
-        </div>
+        <form id="completeSignupForm" method="post" action="{% url 'user:signup_complete' %}" hidden>
+            {% csrf_token %}
+        </form>
     </div>
 </div>
 
-<!-- MediaPipe -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-
-<script>
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const stepLabel = document.getElementById("stepLabel");
-const instructionTitle = document.getElementById("instructionTitle");
-const instructionDesc = document.getElementById("instructionDesc");
-const statusText = document.getElementById("status");
-const liveHint = document.getElementById("liveHint");
-const liveHintText = document.getElementById("liveHintText");
-const cameraCircle = document.querySelector(".camera-circle");
-const analysisCanvas = document.getElementById("analysisCanvas");
-const stepCounter = document.getElementById("stepCounter");
-const stepIndicators = Array.from(document.querySelectorAll("[data-step-indicator]"));
-
-const consentSection = document.getElementById("consentSection");
-const agreeCheckbox = document.getElementById("agreeCheckbox");
-const completeSignupBtn = document.getElementById("completeSignupBtn");
-
-const csrftoken = document.querySelector(
-    '#csrf-form input[name="csrfmiddlewaretoken"]'
-).value;
-
-let images = [];
-let step = 0;
-let lastCaptureTime = 0;
-let uploadDone = false;
-let canProceed = false;
-let lastHintUpdateTime = 0;
-let stableFrames = 0;
-let holdStartTime = 0;
-let previousSample = null;
-let lowLightStreak = 0;
-
-// Low-end-device safe capture thresholds
-const REQUIRED_STABLE_FRAMES = 9;
-const STABLE_HOLD_MS = 380;
-const MOTION_THRESHOLD = 0.006;
-
-/* ======================
-   STEP CONFIG (GCASH STYLE)
-====================== */
-const STEPS = [
-    { key: "LOOK_FORWARD", title: "Look Straight", desc: "Center your face." },
-    { key: "TURN_LEFT", title: "Turn Left", desc: "Turn your head left." },
-    { key: "TURN_RIGHT", title: "Turn Right", desc: "Turn your head right." },
-    { key: "BLINK", title: "Blink", desc: "Blink once." }
-];
-
-updateStepUI();
-
-/* ======================
-   UPDATE UI
-====================== */
-function updateStepUI(){
-    const isComplete = step >= STEPS.length;
-
-    stepLabel.innerText = isComplete ? "Complete" : `Step ${step + 1}`;
-    if (stepCounter) {
-        stepCounter.innerText = isComplete
-            ? `${STEPS.length} / ${STEPS.length}`
-            : `${step + 1} / ${STEPS.length}`;
-    }
-
-    stepIndicators.forEach((indicator, index) => {
-        indicator.classList.toggle("is-complete", index < step);
-        indicator.classList.toggle("is-active", !isComplete && index === step);
-    });
-
-    if (isComplete) {
-        return;
-    }
-
-    instructionTitle.innerText = STEPS[step].title;
-    instructionDesc.innerText = STEPS[step].desc;
-}
-
-/* ======================
-   FACE MESH INIT
-====================== */
-const faceMesh = new FaceMesh({
-    locateFile: file =>
-        `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-});
-
-faceMesh.setOptions({
-    maxNumFaces: 1,
-    refineLandmarks: true,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
-});
-
-faceMesh.onResults(onResults);
-
-/* ======================
-   CAMERA INIT
-====================== */
-function hasCameraApi() {
-    return !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === "function");
-}
-
-if (!window.isSecureContext) {
-    statusText.innerText = "Camera requires HTTPS on mobile browsers. Open this page via HTTPS.";
-    alert("Face auth needs HTTPS on phones. Current page is not secure.");
-} else if (!hasCameraApi()) {
-    statusText.innerText = "Camera API is not available in this browser.";
-    alert("No navigator.mediaDevices.getUserMedia support in this browser.");
-} else {
-    const camera = new Camera(video, {
-        onFrame: async () => {
-            await faceMesh.send({ image: video });
-        },
-        width: 640,
-        height: 480
-    });
-    camera.start().catch(() => {
-        statusText.innerText = "Unable to open camera. Check browser permission.";
-        alert("Unable to open camera. Allow camera permission and try again.");
-    });
-}
-
-/* ======================
-   MAIN DETECTION
-====================== */
-function onResults(results) {
-    if (uploadDone) return;
-
-    if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) {
-        canProceed = false;
-        resetStability();
-        setCaptureState("idle");
-        if (Date.now() - lastHintUpdateTime > 250) {
-            setLiveHint("No face detected. Move closer.", "warning");
-            lastHintUpdateTime = Date.now();
-        }
-        return;
-    }
-
-    const landmarks = results.multiFaceLandmarks[0];
-    const readiness = evaluateReadiness(landmarks);
-    canProceed = readiness.ready;
-    const stepPassed = checkStep(landmarks);
-
-    if (Date.now() - lastHintUpdateTime > 250) {
-        setLiveHint(readiness.hint, readiness.type || "info");
-        lastHintUpdateTime = Date.now();
-    }
-
-    if (!canProceed || !stepPassed) {
-        resetStability();
-        setCaptureState("idle");
-        return;
-    }
-
-    // Blink step should proceed immediately once detected.
-    if (STEPS[step].key === "BLINK" && canCapture()) {
-        captureImage();
-        setCaptureState("done");
-        resetStability();
-        step++;
-        updateStepUI();
-        statusText.innerText = `Capture ${step}/${STEPS.length} complete.`;
-
-        if (step >= STEPS.length) {
-            statusText.innerText = "Face verification complete.";
-            uploadImages();
-        }
-        return;
-    }
-
-    if (!isFaceStable(landmarks)) {
-        resetHoldTimerOnly();
-        setCaptureState("idle");
-        if (Date.now() - lastHintUpdateTime > 250) {
-            setLiveHint("Hold still.", "warning");
-            lastHintUpdateTime = Date.now();
-        }
-        return;
-    }
-
-    setCaptureState("capturing");
-    stableFrames += 1;
-    if (stableFrames < REQUIRED_STABLE_FRAMES) {
-        if (Date.now() - lastHintUpdateTime > 250) {
-            setLiveHint("Almost ready.", "info");
-            lastHintUpdateTime = Date.now();
-        }
-        return;
-    }
-
-    if (!holdStartTime) {
-        holdStartTime = Date.now();
-    }
-
-    const holdRemaining = STABLE_HOLD_MS - (Date.now() - holdStartTime);
-    if (holdRemaining > 0) {
-        if (Date.now() - lastHintUpdateTime > 250) {
-            setLiveHint(`Hold still... ${Math.max(0.1, holdRemaining / 1000).toFixed(1)}s`, "info");
-            lastHintUpdateTime = Date.now();
-        }
-        return;
-    }
-
-    if (canCapture()) {
-        captureImage();
-        setCaptureState("done");
-        resetStability();
-        step++;
-        updateStepUI();
-        statusText.innerText = `Capture ${step}/${STEPS.length} complete.`;
-
-        if (step >= STEPS.length) {
-            statusText.innerText = "Face verification complete.";
-            uploadImages();
-        }
-    }
-}
-
-/* ======================
-   HEAD YAW
-====================== */
-function headYaw(landmarks) {
-    const nose = landmarks[1].x;
-    const leftCheek = landmarks[234].x;
-    const rightCheek = landmarks[454].x;
-
-    const faceWidth = rightCheek - leftCheek;
-    const faceCenter = leftCheek + faceWidth / 2;
-
-    return (nose - faceCenter) / faceWidth;
-}
-
-/* ======================
-   STEP CHECKS
-====================== */
-function checkStep(landmarks) {
-    const yaw = headYaw(landmarks);
-
-    switch (STEPS[step].key) {
-        case "LOOK_FORWARD":
-            return Math.abs(yaw) < 0.05;
-        case "TURN_LEFT":
-            return yaw > 0.15;
-        case "TURN_RIGHT":
-            return yaw < -0.15;
-        case "BLINK":
-            return isBlinking(landmarks);
-    }
-}
-
-function isBlinking(landmarks) {
-    const top = landmarks[159].y;
-    const bottom = landmarks[145].y;
-    return (bottom - top) < 0.01;
-}
-
-function landmarkSample(landmarks) {
-    const ids = [1, 33, 263, 61, 291, 152];
-    return ids.map((idx) => ({ x: landmarks[idx].x, y: landmarks[idx].y }));
-}
-
-function isFaceStable(landmarks) {
-    const current = landmarkSample(landmarks);
-    if (!previousSample) {
-        previousSample = current;
-        return false;
-    }
-
-    let total = 0;
-    for (let i = 0; i < current.length; i++) {
-        total += Math.abs(current[i].x - previousSample[i].x) + Math.abs(current[i].y - previousSample[i].y);
-    }
-    const motion = total / current.length;
-    previousSample = current;
-    return motion < MOTION_THRESHOLD;
-}
-
-function resetHoldTimerOnly() {
-    holdStartTime = 0;
-}
-
-function resetStability() {
-    stableFrames = 0;
-    holdStartTime = 0;
-    previousSample = null;
-}
-
-function setLiveHint(message, type = "info") {
-    if (liveHintText) {
-        liveHintText.innerText = message;
-    }
-    if (liveHint) {
-        liveHint.classList.remove("live-hint--info", "live-hint--warning", "live-hint--success");
-        liveHint.classList.add(`live-hint--${type}`);
-    }
-}
-
-function setCaptureState(state) {
-    if (!cameraCircle) return;
-    cameraCircle.classList.remove("capture-prep", "capture-done");
-    if (state === "capturing") {
-        cameraCircle.classList.add("capture-prep");
-        return;
-    }
-    if (state === "done") {
-        cameraCircle.classList.add("capture-done");
-        setTimeout(() => {
-            cameraCircle.classList.remove("capture-done");
-        }, 750);
-    }
-}
-
-function getBrightnessScore() {
-    if (!video.videoWidth || !video.videoHeight) return 120;
-
-    analysisCanvas.width = 64;
-    analysisCanvas.height = 48;
-    const ctx = analysisCanvas.getContext("2d", { willReadFrequently: true });
-    ctx.drawImage(video, 0, 0, 64, 48);
-    const data = ctx.getImageData(0, 0, 64, 48).data;
-    let total = 0;
-    for (let i = 0; i < data.length; i += 4) {
-        total += (data[i] * 0.299) + (data[i + 1] * 0.587) + (data[i + 2] * 0.114);
-    }
-    return total / (64 * 48);
-}
-
-function evaluateReadiness(landmarks) {
-    const nose = landmarks[1];
-    const yaw = headYaw(landmarks);
-    const brightness = getBrightnessScore();
-
-    if (brightness < 55) {
-        lowLightStreak += 1;
-        // Grace mode for weak cameras: allow after sustained low-light frames.
-        if (lowLightStreak < 30) {
-            return { ready: false, hint: "Too dark. Find better light.", type: "warning" };
-        }
-        return { ready: true, hint: "Low light. Hold still.", type: "warning" };
-    }
-    lowLightStreak = 0;
-    if (nose.y < 0.35) {
-        return { ready: false, hint: "Move down a little.", type: "warning" };
-    }
-    if (nose.y > 0.7) {
-        return { ready: false, hint: "Move up a little.", type: "warning" };
-    }
-    if (nose.x < 0.35) {
-        return { ready: false, hint: "Move slightly right.", type: "warning" };
-    }
-    if (nose.x > 0.65) {
-        return { ready: false, hint: "Move slightly left.", type: "warning" };
-    }
-
-    if (STEPS[step].key === "LOOK_FORWARD" && Math.abs(yaw) > 0.08) {
-        return { ready: false, hint: "Look straight at the camera.", type: "warning" };
-    }
-    if (STEPS[step].key === "TURN_LEFT" && yaw <= 0.12) {
-        return { ready: false, hint: "Turn more left.", type: "warning" };
-    }
-    if (STEPS[step].key === "TURN_RIGHT" && yaw >= -0.12) {
-        return { ready: false, hint: "Turn more right.", type: "warning" };
-    }
-    if (STEPS[step].key === "BLINK") {
-        return { ready: true, hint: "Blink once.", type: "info" };
-    }
-    return { ready: true, hint: "Ready. Hold still.", type: "success" };
-}
-
-/* ======================
-   CAPTURE CONTROL
-====================== */
-function canCapture() {
-    const now = Date.now();
-    if (now - lastCaptureTime > 1200) {
-        lastCaptureTime = now;
-        return true;
-    }
-    return false;
-}
-
-/* ======================
-   CAPTURE IMAGE
-====================== */
-function captureImage() {
-    canvas.width = 480;
-    canvas.height = 360;
-
-    const ctx = canvas.getContext("2d");
-    ctx.save();
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-    ctx.restore();
-
-    const img = canvas.toDataURL("image/jpeg", 0.75);
-    images.push(img);
-}
-
-/* ======================
-   UPLOAD FIRST THEN SHOW CONSENT
-====================== */
-function uploadImages() {
-    uploadDone = true;
-
-    fetch("{% url 'user:save_face' %}", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": csrftoken
-        },
-        body: JSON.stringify({ images })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.status === "ok") {
-            consentSection.style.display = "block";
-            statusText.innerText = "Review the terms to finish signup.";
-            instructionTitle.innerText = "Verification Done";
-            instructionDesc.innerText = "Your images were captured.";
-            setLiveHint("All captures are complete.", "success");
-            liveHint.style.display = "none";
-        } else {
-            statusText.innerText = "Verification failed. Try again.";
-        }
-    });
-}
-
-/* ======================
-   ENABLE BUTTON ONLY IF CHECKED
-====================== */
-agreeCheckbox.addEventListener("change", function(){
-    completeSignupBtn.disabled = !this.checked;
-});
-
-/* ======================
-   FINAL COMPLETE SIGNUP
-====================== */
-completeSignupBtn.addEventListener("click", function(){
-    window.location.href = "{% url 'user:signup_complete' %}";
-});
-</script>
+<script src="{% static 'js/face_auth.js' %}?v=20260324a"></script>
 {% endblock %}

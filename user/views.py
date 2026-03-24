@@ -4,7 +4,6 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.validators import ASCIIUsernameValidator
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.contrib.auth.models import User
@@ -82,6 +81,7 @@ DEFAULT_REQUEST_CITY = "Bayawan City"
 PHILIPPINES_COUNTRY_CODE = "+63"
 SIGNUP_USERNAME_MIN_LENGTH = 3
 SIGNUP_USERNAME_MAX_LENGTH = User._meta.get_field("username").max_length
+SIGNUP_FACE_CAPTURE_COUNT = 4
 _signup_username_validator = ASCIIUsernameValidator()
 
 
@@ -1871,6 +1871,7 @@ def signup_view(request):
             "middle_initial": "",
             "address": barangay,
             "age": 18,
+            "consent_given": True,
         }
 
         # GO TO FACE AUTH STEP
@@ -1973,27 +1974,42 @@ def view_requester_profile(request, user_id):
     )
 
 
-@csrf_exempt
 def face_auth(request):
     """Render the face-auth capture step during signup."""
     if "signup_data" not in request.session:
         return redirect("user:signup")
-    return render(request, "face_auth.html")
+    return render(
+        request,
+        "face_auth.html",
+        {
+            "expected_capture_count": SIGNUP_FACE_CAPTURE_COUNT,
+        },
+    )
 
-@csrf_exempt
+@require_POST
 def save_face(request):
     """Persist captured signup face images into temporary storage."""
-    if request.method != "POST":
-        return JsonResponse({"status": "error"}, status=400)
-
     if "signup_data" not in request.session:
         return JsonResponse({"status": "error", "message": "Signup step missing"}, status=400)
 
-    data = json.loads(request.body.decode("utf-8"))
-    images = data.get("images", [])
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return JsonResponse({"status": "error", "message": "Invalid capture payload."}, status=400)
 
-    if not images or len(images) < 3:
-        return JsonResponse({"status": "error", "message": "At least 3 images required"}, status=400)
+    images = [
+        image for image in (data.get("images") or [])
+        if isinstance(image, str) and ";base64," in image
+    ]
+
+    if len(images) < SIGNUP_FACE_CAPTURE_COUNT:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": f"At least {SIGNUP_FACE_CAPTURE_COUNT} face captures are required.",
+            },
+            status=400,
+        )
 
     temp_dir = os.path.join(settings.MEDIA_ROOT, "temp_faces")
     os.makedirs(temp_dir, exist_ok=True)
@@ -2001,19 +2017,23 @@ def save_face(request):
     saved_files = []
     upload_token = request.session.setdefault("signup_face_upload_token", secrets.token_hex(12))
 
-    for idx, img_data in enumerate(images):
-        if ";base64," not in img_data:
-            continue
-        format, imgstr = img_data.split(";base64,")
-        filename = f"{upload_token}_{idx}.png"
-        filepath = os.path.join(temp_dir, filename)
-        with open(filepath, "wb") as f:
-            f.write(base64.b64decode(imgstr))
-        saved_files.append(f"temp_faces/{filename}")
+    try:
+        for idx, img_data in enumerate(images[:SIGNUP_FACE_CAPTURE_COUNT]):
+            _, imgstr = img_data.split(";base64,", 1)
+            decoded_image = base64.b64decode(imgstr)
+            filename = f"{upload_token}_{idx}.png"
+            filepath = os.path.join(temp_dir, filename)
+            with open(filepath, "wb") as f:
+                f.write(decoded_image)
+            saved_files.append(f"temp_faces/{filename}")
+    except (ValueError, binascii.Error):
+        _delete_temp_signup_face_images(saved_files)
+        return JsonResponse({"status": "error", "message": "One or more captures were invalid. Please try again."}, status=400)
 
     request.session["face_images_files"] = saved_files
-    return JsonResponse({"status": "ok"})
+    return JsonResponse({"status": "ok", "count": len(saved_files)})
 
+@require_POST
 def signup_complete(request):
     """Create the user account after signup and face-auth capture succeed."""
     if "signup_data" not in request.session or "face_images_files" not in request.session:
@@ -2061,7 +2081,7 @@ def signup_complete(request):
                 middle_initial=data.get("middle_initial", ""),
                 address=data.get("address", ""),
                 age=data.get("age", 18),
-                consent_given=True,
+                consent_given=bool(data.get("consent_given")),
                 profile_image=_ensure_default_profile_image_exists(),
             )
 

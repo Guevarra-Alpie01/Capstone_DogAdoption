@@ -88,12 +88,13 @@ class SignupUsernameValidationTests(TestCase):
             "middle_initial": "",
             "address": "Bugay",
             "age": 18,
+            "consent_given": True,
         }
         session["face_images_files"] = ["temp_faces/missing_0.png"]
         session["signup_face_upload_token"] = "testtoken"
         session.save()
 
-        response = self.client.get(reverse("user:signup_complete"))
+        response = self.client.post(reverse("user:signup_complete"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Username already exists.")

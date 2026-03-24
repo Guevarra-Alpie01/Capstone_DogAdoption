@@ -27,6 +27,7 @@
 
     const csrftoken = csrfInput ? csrfInput.value : "";
     const saveFaceUrl = app.dataset.saveFaceUrl;
+    const resetSignupCaptureUrl = app.dataset.resetSignupCaptureUrl;
     const expectedCaptureCount = Number(app.dataset.expectedCaptures || "4");
     const termsRequiredOnLoad = app.dataset.termsRequired === "true";
 
@@ -36,29 +37,11 @@
         { key: "TURN_RIGHT", title: "Turn Right", desc: "Turn your head slightly to the right." },
         { key: "BLINK", title: "Blink", desc: "Blink once when you are ready." }
     ];
-    const CAMERA_CONSTRAINTS = [
-        {
-            audio: false,
-            video: {
-                facingMode: { ideal: "user" },
-                width: { ideal: 640 },
-                height: { ideal: 480 }
-            }
-        },
-        {
-            audio: false,
-            video: {
-                width: { ideal: 640 },
-                height: { ideal: 480 }
-            }
-        },
-        { audio: false, video: true }
-    ];
-
-    const REQUIRED_STABLE_FRAMES = 9;
-    const STABLE_HOLD_MS = 380;
-    const MOTION_THRESHOLD = 0.006;
+    const REQUIRED_STABLE_FRAMES = 6;
+    const STABLE_HOLD_MS = 240;
+    const MOTION_THRESHOLD = 0.012;
     const MAX_AUTO_CAMERA_RETRIES = 1;
+    const STEP_ASSIST_TIMEOUT_MS = 7000;
 
     let images = [];
     let step = 0;
@@ -76,6 +59,7 @@
     let uploadInProgress = false;
     let finalizingSignup = false;
     let cameraLost = false;
+    let stepStartedAt = Date.now();
 
     const faceMesh = new FaceMesh({
         locateFile: function (file) {
@@ -85,9 +69,9 @@
 
     faceMesh.setOptions({
         maxNumFaces: 1,
-        refineLandmarks: true,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
+        refineLandmarks: false,
+        minDetectionConfidence: 0.35,
+        minTrackingConfidence: 0.35
     });
 
     faceMesh.onResults(onResults);
@@ -137,6 +121,31 @@
         }
     }
 
+    function hasPendingCapturedState() {
+        return Boolean(images.length || uploadDone || uploadInProgress || termsRequiredOnLoad || (termsSection && !termsSection.hidden));
+    }
+
+    function resetSignupCaptureOnServer() {
+        if (!resetSignupCaptureUrl || finalizingSignup || !hasPendingCapturedState()) {
+            return;
+        }
+
+        try {
+            fetch(resetSignupCaptureUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrftoken
+                },
+                body: "{}",
+                credentials: "same-origin",
+                keepalive: true
+            });
+        } catch (error) {
+            // Best-effort cleanup only.
+        }
+    }
+
     function showCameraStage() {
         if (cameraStage) {
             cameraStage.hidden = false;
@@ -175,6 +184,28 @@
 
         instructionTitle.innerText = STEPS[step].title;
         instructionDesc.innerText = STEPS[step].desc;
+    }
+
+    function buildCameraConstraints() {
+        const supported = navigator.mediaDevices && typeof navigator.mediaDevices.getSupportedConstraints === "function"
+            ? navigator.mediaDevices.getSupportedConstraints()
+            : {};
+        const preferredVideo = {};
+
+        if (supported.facingMode) {
+            preferredVideo.facingMode = { ideal: "user" };
+        }
+        if (supported.width) {
+            preferredVideo.width = { ideal: 640 };
+        }
+        if (supported.height) {
+            preferredVideo.height = { ideal: 480 };
+        }
+
+        return [
+            { audio: false, video: Object.keys(preferredVideo).length ? preferredVideo : true },
+            { audio: false, video: true },
+        ];
     }
 
     function hasCameraApi() {
@@ -267,10 +298,11 @@
     }
 
     async function startCameraWithFallbacks() {
+        const cameraConstraints = buildCameraConstraints();
         let lastError = null;
-        for (let index = 0; index < CAMERA_CONSTRAINTS.length; index += 1) {
+        for (let index = 0; index < cameraConstraints.length; index += 1) {
             try {
-                await startCameraWithConstraints(CAMERA_CONSTRAINTS[index]);
+                await startCameraWithConstraints(cameraConstraints[index]);
                 return;
             } catch (error) {
                 lastError = error;
@@ -394,20 +426,20 @@
     }
 
     function isBlinking(landmarks) {
-        const top = landmarks[159].y;
-        const bottom = landmarks[145].y;
-        return (bottom - top) < 0.01;
+        const leftEye = landmarks[145].y - landmarks[159].y;
+        const rightEye = landmarks[374].y - landmarks[386].y;
+        return ((leftEye + rightEye) / 2) < 0.014;
     }
 
     function checkStep(landmarks) {
         const yaw = headYaw(landmarks);
         switch (STEPS[step].key) {
             case "LOOK_FORWARD":
-                return Math.abs(yaw) < 0.05;
+                return Math.abs(yaw) < 0.09;
             case "TURN_LEFT":
-                return yaw > 0.15;
+                return yaw > 0.1;
             case "TURN_RIGHT":
-                return yaw < -0.15;
+                return yaw < -0.1;
             case "BLINK":
                 return isBlinking(landmarks);
             default:
@@ -480,32 +512,51 @@
         }
 
         lowLightStreak = 0;
-        if (nose.y < 0.35) {
+        if (nose.y < 0.28) {
             return { ready: false, hint: "Move down a little.", type: "warning" };
         }
-        if (nose.y > 0.7) {
+        if (nose.y > 0.74) {
             return { ready: false, hint: "Move up a little.", type: "warning" };
         }
-        if (nose.x < 0.35) {
+        if (nose.x < 0.26) {
             return { ready: false, hint: "Move slightly right.", type: "warning" };
         }
-        if (nose.x > 0.65) {
+        if (nose.x > 0.74) {
             return { ready: false, hint: "Move slightly left.", type: "warning" };
         }
 
-        if (STEPS[step].key === "LOOK_FORWARD" && Math.abs(yaw) > 0.08) {
+        if (STEPS[step].key === "LOOK_FORWARD" && Math.abs(yaw) > 0.11) {
             return { ready: false, hint: "Look straight at the camera.", type: "warning" };
         }
-        if (STEPS[step].key === "TURN_LEFT" && yaw <= 0.12) {
+        if (STEPS[step].key === "TURN_LEFT" && yaw <= 0.08) {
             return { ready: false, hint: "Turn more left.", type: "warning" };
         }
-        if (STEPS[step].key === "TURN_RIGHT" && yaw >= -0.12) {
+        if (STEPS[step].key === "TURN_RIGHT" && yaw >= -0.08) {
             return { ready: false, hint: "Turn more right.", type: "warning" };
         }
         if (STEPS[step].key === "BLINK") {
             return { ready: true, hint: "Blink once now.", type: "info" };
         }
         return { ready: true, hint: "Ready. Hold still.", type: "success" };
+    }
+
+    function shouldUseAssistedCapture(readiness) {
+        if (!readiness.ready) {
+            return false;
+        }
+        return (Date.now() - stepStartedAt) >= STEP_ASSIST_TIMEOUT_MS;
+    }
+
+    function advanceStep() {
+        setCaptureState("done");
+        resetStability();
+        step += 1;
+        stepStartedAt = Date.now();
+        updateStepUI();
+        setStatus("Capture " + step + "/" + STEPS.length + " successful.");
+        if (step >= STEPS.length) {
+            uploadImages();
+        }
     }
 
     function canCapture() {
@@ -531,6 +582,7 @@
     function resetCaptureSequence(clearImages) {
         showCameraStage();
         step = 0;
+        stepStartedAt = Date.now();
         lastCaptureTime = 0;
         lastHintUpdateTime = 0;
         lowLightStreak = 0;
@@ -616,7 +668,7 @@
             resetStability();
             setCaptureState("idle");
             if (Date.now() - lastHintUpdateTime > 250) {
-                setLiveHint("No face detected. Move closer to the camera.", "warning");
+                setLiveHint("No face detected yet. Move closer and face the camera directly.", "warning");
                 setStatus("Align your face with the guide.");
                 lastHintUpdateTime = Date.now();
             }
@@ -626,33 +678,31 @@
         const landmarks = results.multiFaceLandmarks[0];
         const readiness = evaluateReadiness(landmarks);
         const stepPassed = checkStep(landmarks);
+        const assistedCapture = shouldUseAssistedCapture(readiness);
 
         if (Date.now() - lastHintUpdateTime > 250) {
-            setLiveHint(readiness.hint, readiness.type || "info");
+            if (assistedCapture) {
+                setLiveHint("Detection assist is active. Hold still for capture.", "success");
+            } else {
+                setLiveHint(readiness.hint, readiness.type || "info");
+            }
             lastHintUpdateTime = Date.now();
         }
 
-        if (!readiness.ready || !stepPassed) {
+        if (!readiness.ready || (!stepPassed && !assistedCapture)) {
             resetStability();
             setCaptureState("idle");
             if (STEPS[step].key === "BLINK") {
                 setStatus("Blink once when the guide says ready.");
             } else {
-                setStatus("Align your face and hold still.");
+                setStatus(assistedCapture ? "Hold still for assisted capture." : "Align your face and hold still.");
             }
             return;
         }
 
-        if (STEPS[step].key === "BLINK" && canCapture()) {
+        if ((STEPS[step].key === "BLINK" || assistedCapture) && canCapture()) {
             captureImage();
-            setCaptureState("done");
-            resetStability();
-            step += 1;
-            updateStepUI();
-            setStatus("Capture " + step + "/" + STEPS.length + " successful.");
-            if (step >= STEPS.length) {
-                uploadImages();
-            }
+            advanceStep();
             return;
         }
 
@@ -690,14 +740,7 @@
 
         if (canCapture()) {
             captureImage();
-            setCaptureState("done");
-            resetStability();
-            step += 1;
-            updateStepUI();
-            setStatus("Capture " + step + "/" + STEPS.length + " successful.");
-            if (step >= STEPS.length) {
-                uploadImages();
-            }
+            advanceStep();
         }
     }
 
@@ -730,6 +773,12 @@
 
     window.addEventListener("beforeunload", function () {
         stopCamera();
+        resetSignupCaptureOnServer();
+    });
+
+    window.addEventListener("pagehide", function () {
+        stopCamera();
+        resetSignupCaptureOnServer();
     });
 
     if (termsRequiredOnLoad) {

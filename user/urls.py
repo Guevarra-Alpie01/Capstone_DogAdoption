@@ -16,6 +16,7 @@ urlpatterns = [
     path('signup/face-auth/', views.face_auth, name="face_auth"),
     path('signup/complete/', views.signup_complete, name="signup_complete"),
     path('signup/save-face/', views.save_face, name="save_face"),
+    path('signup/reset-face/', views.reset_signup_capture, name="reset_signup_capture"),
 
     # Shared profile and utility routes
     path('barangays/', views.barangay_list_api, name="barangay_list_api"),

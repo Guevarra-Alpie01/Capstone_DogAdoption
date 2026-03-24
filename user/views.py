@@ -210,6 +210,26 @@ def _clear_signup_session_state(request, *, delete_temp_faces=False):
     request.session.pop("signup_face_upload_token", None)
 
 
+def _clear_signup_face_progress(request):
+    """Reset captured face-auth progress while keeping typed signup details."""
+    _delete_temp_signup_face_images(request.session.get("face_images_files", []))
+    request.session.pop("face_images_files", None)
+    request.session.pop("signup_face_upload_token", None)
+    signup_data = request.session.get("signup_data")
+    if signup_data:
+        signup_data["consent_given"] = False
+        request.session["signup_data"] = signup_data
+
+
+def _has_pending_signup_face_progress(request):
+    """Return True when the session still has unfinished face-auth progress."""
+    signup_data = request.session.get("signup_data") or {}
+    return bool(
+        request.session.get("face_images_files")
+        and not signup_data.get("consent_given")
+    )
+
+
 def _build_registered_dog_payloads(dogs):
     """Convert registered dog rows into template-friendly profile cards."""
     rows = []
@@ -1823,6 +1843,7 @@ def signup_view(request):
         return redirect("user:user_home")
 
     if request.method == "POST":
+        _clear_signup_face_progress(request)
         username = _normalize_signup_username(request.POST.get("username"))
         password = request.POST.get("password") or ""
         confirm_password = request.POST.get("confirm_password") or ""
@@ -1987,6 +2008,14 @@ def face_auth(request):
             "terms_required": terms_required,
         },
     )
+
+
+@require_POST
+def reset_signup_capture(request):
+    """Discard unfinished face-auth progress when the user leaves the capture flow."""
+    if "signup_data" in request.session:
+        _clear_signup_face_progress(request)
+    return JsonResponse({"status": "ok"})
 
 @require_POST
 def save_face(request):
@@ -2194,6 +2223,9 @@ def user_home(request):
     # Redirect staff to admin dashboard
     if request.user.is_authenticated and request.user.is_staff:
         return redirect('dogadoption_admin:post_list')
+
+    if not request.user.is_authenticated and _has_pending_signup_face_progress(request):
+        _clear_signup_face_progress(request)
 
     selected_type = request.GET.get("type", "adoption")
     adoption_form = _build_user_adoption_post_form()

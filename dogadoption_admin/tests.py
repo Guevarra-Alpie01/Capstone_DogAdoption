@@ -1038,6 +1038,25 @@ class ManagedStaffAccessTests(TestCase):
         self.assertTrue(staff_user.staff_access.can_access_registration_list)
         self.assertContains(response, "Staff account @registry_staff created successfully.")
 
+    def test_admin_cannot_create_staff_with_duplicate_username(self):
+        User.objects.create_user(username="registry_staff", password="secret12345")
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("dogadoption_admin:admin_edit_profile"),
+            {
+                "action": "create_staff",
+                "create-staff-username": "registry_staff",
+                "create-staff-password": "secret12345",
+                "create-staff-confirm_password": "secret12345",
+                "create-staff-can_access_registration": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "That username is already in use.")
+        self.assertEqual(StaffAccess.objects.count(), 0)
+
     def test_managed_staff_is_redirected_to_first_allowed_module_when_home_is_blocked(self):
         staff_user = self._create_managed_staff(
             username="request_staff",
@@ -1053,6 +1072,38 @@ class ManagedStaffAccessTests(TestCase):
             reverse("dogadoption_admin:requests"),
             fetch_redirect_response=False,
         )
+
+    def test_managed_staff_profile_hides_notification_bell(self):
+        staff_user = self._create_managed_staff(
+            username="profile_staff",
+            can_manage_capture_requests=True,
+        )
+        self.client.force_login(staff_user)
+
+        response = self.client.get(reverse("dogadoption_admin:admin_edit_profile"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "data-admin-notification-dropdown")
+
+    def test_admin_can_delete_staff_account(self):
+        staff_user = self._create_managed_staff(
+            username="delete_me_staff",
+            can_access_registration=True,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("dogadoption_admin:admin_edit_profile"),
+            {
+                "action": "delete_staff",
+                "staff_user_id": str(staff_user.id),
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(pk=staff_user.pk).exists())
+        self.assertContains(response, "Staff account @delete_me_staff deleted successfully.")
 
     def test_managed_staff_cannot_open_admin_only_user_management(self):
         staff_user = self._create_managed_staff(

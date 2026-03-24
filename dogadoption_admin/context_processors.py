@@ -21,10 +21,20 @@ def admin_notifications(request):
 
     from django.urls import reverse
 
+    admin_access = get_admin_access_namespace(user)
+    if not admin_access.is_full_admin:
+        return {
+            "admin_pending_capture_count": 0,
+            "admin_unread_notifications": 0,
+            "admin_latest_notifications": [],
+            "admin_notifications_summary_url": "",
+            "admin_access": admin_access,
+        }
+
     return {
         "admin_pending_capture_count": 0,
         "admin_unread_notifications": 0,
         "admin_latest_notifications": [],
         "admin_notifications_summary_url": reverse("dogadoption_admin:notification_summary"),
-        "admin_access": get_admin_access_namespace(user),
+        "admin_access": admin_access,
     }

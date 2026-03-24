@@ -2400,6 +2400,21 @@ def admin_edit_profile(request):
             messages.success(request, f"Staff account @{staff_user.username} {state_label}.")
             return redirect("dogadoption_admin:admin_edit_profile")
 
+        elif action == "delete_staff":
+            if not access.get("can_manage_staff_accounts"):
+                messages.error(request, "Only the admin can manage staff accounts.")
+                return redirect(access.get("landing_url") or reverse("dogadoption_admin:admin_edit_profile"))
+
+            staff_user = get_object_or_404(
+                User.objects.filter(is_staff=True, staff_access__isnull=False),
+                pk=request.POST.get("staff_user_id"),
+            )
+            deleted_username = staff_user.username
+            with transaction.atomic():
+                staff_user.delete()
+            messages.success(request, f"Staff account @{deleted_username} deleted successfully.")
+            return redirect("dogadoption_admin:admin_edit_profile")
+
     return render(
         request,
         "admin_profile/edit_profile.html",

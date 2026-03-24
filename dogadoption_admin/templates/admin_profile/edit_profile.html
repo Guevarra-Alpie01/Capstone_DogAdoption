@@ -326,6 +326,27 @@
         gap: 6px;
     }
 
+    .staff-account-summary-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .staff-edit-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        padding: 0 14px;
+        border-radius: 999px;
+        border: 1px solid #c6d4e5;
+        background: #ffffff;
+        color: #1f4d8f;
+        font-size: 0.82rem;
+        font-weight: 800;
+    }
+
     .staff-account-title strong {
         color: #14233b;
         font-size: 1rem;
@@ -395,6 +416,16 @@
         border-radius: 14px;
         background: #ffffff;
         color: #14233b;
+        font-weight: 700;
+    }
+
+    .staff-danger-btn {
+        min-height: 48px;
+        padding: 0 18px;
+        border: 1px solid #dc2626;
+        border-radius: 14px;
+        background: #ffffff;
+        color: #b91c1c;
         font-weight: 700;
     }
 
@@ -555,7 +586,7 @@
                 <div class="staff-management-head">
                     <span class="admin-profile-kicker">Staff Access</span>
                     <h2>Create Staff Account</h2>
-                    <p>Set a username, a password, and only the modules this staff member should be able to use.</p>
+                    <p>Set a unique username, a password, and only the modules this staff member should be able to use.</p>
                 </div>
 
                 <form method="POST" class="staff-management-form" id="create-staff-form">
@@ -572,6 +603,7 @@
                         <div>
                             <label for="{{ staff_create_form.username.id_for_label }}" class="form-label">Username</label>
                             {{ staff_create_form.username }}
+                            <small class="text-muted d-block mt-1">This must be unique across all accounts.</small>
                             {% if staff_create_form.username.errors %}<small class="text-danger">{{ staff_create_form.username.errors|striptags }}</small>{% endif %}
                         </div>
                         <div>
@@ -629,7 +661,7 @@
                 <div class="staff-management-head">
                     <span class="admin-profile-kicker">Managed Team</span>
                     <h2>Staff Accounts</h2>
-                    <p>Review each staff account, update its access, or deactivate it when needed.</p>
+                    <p>Review each staff account, reset its username or password, update access, or remove it when needed.</p>
                 </div>
 
                 {% if staff_rows %}
@@ -641,9 +673,12 @@
                                         <strong>@{{ row.user.username }}</strong>
                                         <span class="staff-account-meta">Joined {{ row.user.date_joined|date:"M d, Y" }}</span>
                                     </div>
-                                    <span class="staff-status-pill {% if row.user.is_active %}is-active{% else %}is-inactive{% endif %}">
-                                        {% if row.user.is_active %}Active{% else %}Inactive{% endif %}
-                                    </span>
+                                    <div class="staff-account-summary-actions">
+                                        <span class="staff-edit-pill">Edit</span>
+                                        <span class="staff-status-pill {% if row.user.is_active %}is-active{% else %}is-inactive{% endif %}">
+                                            {% if row.user.is_active %}Active{% else %}Inactive{% endif %}
+                                        </span>
+                                    </div>
                                 </summary>
                                 <div class="staff-account-body">
                                     {% if row.permission_summary %}
@@ -669,11 +704,13 @@
                                             <div>
                                                 <label for="{{ row.form.username.id_for_label }}" class="form-label">Username</label>
                                                 {{ row.form.username }}
+                                                <small class="text-muted d-block mt-1">Use this to reset the staff username.</small>
                                                 {% if row.form.username.errors %}<small class="text-danger">{{ row.form.username.errors|striptags }}</small>{% endif %}
                                             </div>
                                             <div>
                                                 <label for="{{ row.form.password.id_for_label }}" class="form-label">New Password</label>
                                                 {{ row.form.password }}
+                                                <small class="text-muted d-block mt-1">Enter a new password here to reset the account password.</small>
                                                 {% if row.form.password.errors %}<small class="text-danger">{{ row.form.password.errors|striptags }}</small>{% endif %}
                                             </div>
                                             <div class="full">
@@ -717,17 +754,38 @@
                                         {% endfor %}
 
                                         <div class="staff-account-actions">
-                                            <button type="submit" class="admin-profile-save-btn">Save Staff Changes</button>
+                                            <button type="submit" class="admin-profile-save-btn">Save Reset &amp; Access</button>
                                         </div>
                                     </form>
 
-                                    <form method="POST" class="staff-account-actions">
+                                    <form
+                                        method="POST"
+                                        class="staff-account-actions"
+                                        data-confirm-modal="true"
+                                        data-confirm-title="{% if row.user.is_active %}Deactivate Staff Account{% else %}Activate Staff Account{% endif %}"
+                                        data-confirm-message="{% if row.user.is_active %}Deactivate @{{ row.user.username }}? They will not be able to log in until the account is activated again.{% else %}Activate @{{ row.user.username }} so this staff member can log in again?{% endif %}"
+                                        data-confirm-submit-label="{% if row.user.is_active %}Deactivate{% else %}Activate{% endif %}"
+                                    >
                                         {% csrf_token %}
                                         <input type="hidden" name="action" value="toggle_staff">
                                         <input type="hidden" name="staff_user_id" value="{{ row.user.id }}">
                                         <button type="submit" class="staff-secondary-btn">
                                             {% if row.user.is_active %}Deactivate Account{% else %}Activate Account{% endif %}
                                         </button>
+                                    </form>
+
+                                    <form
+                                        method="POST"
+                                        class="staff-account-actions"
+                                        data-confirm-modal="true"
+                                        data-confirm-title="Delete Staff Account"
+                                        data-confirm-message="Delete @{{ row.user.username }} permanently? This will remove the staff login and access settings."
+                                        data-confirm-submit-label="Delete"
+                                    >
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="delete_staff">
+                                        <input type="hidden" name="staff_user_id" value="{{ row.user.id }}">
+                                        <button type="submit" class="staff-danger-btn">Delete Staff Account</button>
                                     </form>
                                 </div>
                             </details>

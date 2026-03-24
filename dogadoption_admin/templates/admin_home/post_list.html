@@ -6,24 +6,31 @@
 
 <div class="post-toolbar-shell">
     <div class="post-toolbar">
-        <button type="button" class="btn btn-primary btn-lg create-post-btn" data-bs-toggle="modal" data-bs-target="#createPostModal">
-            <i class="fas fa-plus-circle me-2"></i> Create Post
-        </button>
-        <button type="button" class="btn btn-primary btn-lg create-post-btn" data-bs-toggle="modal" data-bs-target="#appointmentDateModal">
-            <i class="fas fa-calendar-alt me-2"></i> Set Appointment Date
-        </button>
+        {% if admin_access.can_create_posts %}
+            <button type="button" class="btn btn-primary btn-lg create-post-btn" data-bs-toggle="modal" data-bs-target="#createPostModal">
+                <i class="fas fa-plus-circle me-2"></i> Create Post
+            </button>
+        {% endif %}
+        {% if admin_access.is_full_admin %}
+            <button type="button" class="btn btn-primary btn-lg create-post-btn" data-bs-toggle="modal" data-bs-target="#appointmentDateModal">
+                <i class="fas fa-calendar-alt me-2"></i> Set Appointment Date
+            </button>
+        {% endif %}
     </div>
-    <a href="{% url 'dogadoption_admin:post_history' %}" class="history-toolbar-btn" aria-label="View post history">
-        <span class="history-toolbar-icon">
-            <i class="fas fa-history" aria-hidden="true"></i>
-        </span>
-        <span class="history-toolbar-copy">
-            <strong>History</strong>
-            <small>{{ history_total }} archived</small>
-        </span>
-    </a>
+    {% if admin_access.can_view_post_history %}
+        <a href="{% url 'dogadoption_admin:post_history' %}" class="history-toolbar-btn" aria-label="View post history">
+            <span class="history-toolbar-icon">
+                <i class="fas fa-history" aria-hidden="true"></i>
+            </span>
+            <span class="history-toolbar-copy">
+                <strong>History</strong>
+                <small>{{ history_total }} archived</small>
+            </span>
+        </a>
+    {% endif %}
 </div>
 
+{% if admin_access.can_create_posts %}
 <div class="modal fade create-post-modal" id="createPostModal" tabindex="-1" aria-labelledby="createPostModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -115,7 +122,9 @@
         </div>
     </div>
 </div>
+{% endif %}
 
+{% if admin_access.can_create_posts %}
 <div class="modal fade" id="createPostPublishConfirmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -132,7 +141,9 @@
         </div>
     </div>
 </div>
+{% endif %}
 
+{% if admin_access.is_full_admin %}
 <div class="modal fade appointment-modal" id="appointmentDateModal" tabindex="-1" aria-labelledby="appointmentDateModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -177,7 +188,9 @@
         </div>
     </div>
 </div>
+{% endif %}
 
+{% if admin_access.can_view_status_cards %}
 <section class="status-dashboard">
     <h4 class="status-dashboard-title">Status Cards</h4>
     <div class="status-cards-grid">
@@ -422,6 +435,7 @@
         </div>
     </div>
 </section>
+{% endif %}
 
 {% for item in all_posts %}
     {% with post=item.post %}

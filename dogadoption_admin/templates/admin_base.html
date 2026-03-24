@@ -79,7 +79,7 @@
         <button class="btn btn-sm text-white d-none d-lg-block" id="sidebarToggle">
             <span class="navbar-toggler-icon"></span>
         </button>
-        <a class="navbar-brand admin-brand" href="{% url 'dogadoption_admin:post_list' %}">
+        <a class="navbar-brand admin-brand" href="{{ admin_access.landing_url }}">
             <img src="{% static 'images/officialseal.webp' %}" alt="Logo" class="admin-brand-logo">
             <span class="admin-brand-text">
                 <span class="admin-brand-main">Bayawan</span>
@@ -131,7 +131,9 @@
 
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                                     <li><h6 class="dropdown-header">User Options</h6></li> 
-                                    <li><a href="{% url 'dogadoption_admin:admin_users' %}" class="dropdown-item">Users</a></li>
+                                    {% if admin_access.can_access_users %}
+                                        <li><a href="{% url 'dogadoption_admin:admin_users' %}" class="dropdown-item">Users</a></li>
+                                    {% endif %}
                                     <li><a href="{% url 'dogadoption_admin:admin_edit_profile' %}" class="dropdown-item">Profile</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a href="{% url 'dogadoption_admin:admin_logout' %}" class="dropdown-item">Log out</a></li>
@@ -193,26 +195,36 @@
 <nav class="navbar fixed-bottom d-lg-none border-top app-bottom-nav">
     <div class="container-fluid justify-content-around">
         {% url 'dogadoption_admin:analytics_dashboard' as analytics_dashboard_url %}
-        <a href="{% url 'dogadoption_admin:post_list' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'post_list' or request.resolver_match.url_name == 'create_post' or request.resolver_match.url_name == 'adoption_requests' or request.resolver_match.url_name == 'claim_requests' or request.resolver_match.url_name == 'update_request' %}is-active{% endif %}">
-            <i class="bi bi-house-door-fill bottom-nav-icon"></i>
-            <small class="bottom-nav-label">Home</small>
-        </a>
-        <a href="{% url 'dogadoption_admin:requests' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'requests' or request.resolver_match.url_name == 'update_dog_capture_request' %}is-active{% endif %}">
-            <i class="bi bi-clipboard2-check-fill bottom-nav-icon"></i>
-            <small class="bottom-nav-label">Requests</small>
-        </a>
-         <a href="{% url 'dogadoption_admin:register_dogs' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'register_dogs' or request.resolver_match.url_name == 'registration_record' or request.resolver_match.url_name == 'download_registration' or request.resolver_match.url_name == 'med_records' or request.resolver_match.url_name == 'dog_certificate' or request.resolver_match.url_name == 'certificate_print' or request.resolver_match.url_name == 'certificate_list' or request.resolver_match.url_name == 'export_certificates_pdf' or request.resolver_match.url_name == 'export_certificates_word' or request.resolver_match.url_name == 'export_certificates_excel' or request.resolver_match.url_name == 'bulk_certificate_print' or request.resolver_match.url_name == 'citation_create' or request.resolver_match.url_name == 'citation_print' or request.resolver_match.url_name == 'penalty_manage' %}is-active{% endif %}">
-            <i class="bi bi-person-vcard-fill bottom-nav-icon"></i>
-            <small class="bottom-nav-label">Register</small>
-        </a>
-        <a href="{% url 'dogadoption_admin:admin_announcements' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'admin_announcements' or request.resolver_match.url_name == 'announcement_create' or request.resolver_match.url_name == 'announcement_create_form' or request.resolver_match.url_name == 'announcement_edit' or request.resolver_match.url_name == 'announcement_update_bucket' or request.resolver_match.url_name == 'announcement_delete' %}is-active{% endif %}">
-            <i class="bi bi-megaphone-fill bottom-nav-icon"></i>
-            <small class="bottom-nav-label">Alerts</small>
-        </a>
-        <a href="{{ analytics_dashboard_url }}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'analytics_dashboard' or '/analytics/dashboard/' in request.path %}is-active{% endif %}">
-            <i class="bi bi-bar-chart-line-fill bottom-nav-icon"></i>
-            <small class="bottom-nav-label">Analytics</small>
-        </a>
+        {% if admin_access.can_access_posts_dashboard %}
+            <a href="{% url 'dogadoption_admin:post_list' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'post_list' or request.resolver_match.url_name == 'create_post' or request.resolver_match.url_name == 'adoption_requests' or request.resolver_match.url_name == 'claim_requests' or request.resolver_match.url_name == 'update_request' %}is-active{% endif %}">
+                <i class="bi bi-house-door-fill bottom-nav-icon"></i>
+                <small class="bottom-nav-label">Home</small>
+            </a>
+        {% endif %}
+        {% if admin_access.can_manage_capture_requests %}
+            <a href="{% url 'dogadoption_admin:requests' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'requests' or request.resolver_match.url_name == 'update_dog_capture_request' %}is-active{% endif %}">
+                <i class="bi bi-clipboard2-check-fill bottom-nav-icon"></i>
+                <small class="bottom-nav-label">Requests</small>
+            </a>
+        {% endif %}
+        {% if admin_access.can_access_register_area %}
+             <a href="{% url 'dogadoption_admin:register_dogs' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'register_dogs' or request.resolver_match.url_name == 'registration_record' or request.resolver_match.url_name == 'download_registration' or request.resolver_match.url_name == 'med_records' or request.resolver_match.url_name == 'dog_certificate' or request.resolver_match.url_name == 'certificate_print' or request.resolver_match.url_name == 'certificate_list' or request.resolver_match.url_name == 'export_certificates_pdf' or request.resolver_match.url_name == 'export_certificates_word' or request.resolver_match.url_name == 'export_certificates_excel' or request.resolver_match.url_name == 'bulk_certificate_print' or request.resolver_match.url_name == 'citation_create' or request.resolver_match.url_name == 'citation_print' or request.resolver_match.url_name == 'penalty_manage' %}is-active{% endif %}">
+                <i class="bi bi-person-vcard-fill bottom-nav-icon"></i>
+                <small class="bottom-nav-label">Register</small>
+            </a>
+        {% endif %}
+        {% if admin_access.can_access_announcements %}
+            <a href="{% url 'dogadoption_admin:admin_announcements' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'admin_announcements' or request.resolver_match.url_name == 'announcement_create' or request.resolver_match.url_name == 'announcement_create_form' or request.resolver_match.url_name == 'announcement_edit' or request.resolver_match.url_name == 'announcement_update_bucket' or request.resolver_match.url_name == 'announcement_delete' %}is-active{% endif %}">
+                <i class="bi bi-megaphone-fill bottom-nav-icon"></i>
+                <small class="bottom-nav-label">Alerts</small>
+            </a>
+        {% endif %}
+        {% if admin_access.can_access_analytics %}
+            <a href="{{ analytics_dashboard_url }}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'analytics_dashboard' or '/analytics/dashboard/' in request.path %}is-active{% endif %}">
+                <i class="bi bi-bar-chart-line-fill bottom-nav-icon"></i>
+                <small class="bottom-nav-label">Analytics</small>
+            </a>
+        {% endif %}
     </div>
 </nav>
 

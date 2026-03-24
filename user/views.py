@@ -34,6 +34,7 @@ from django.utils.html import strip_tags
 from urllib.parse import urlencode
 
 # Shared models from the admin app
+from dogadoption_admin.access import get_staff_landing_url
 from dogadoption_admin.models import (
     AdminNotification,
     AnnouncementComment,
@@ -601,7 +602,7 @@ def user_only(view_func):
         if not request.user.is_authenticated:
             return redirect('user:login')
         if request.user.is_staff:
-            return redirect('dogadoption_admin:post_list')  # admin goes to admin dashboard
+            return redirect(get_staff_landing_url(request.user))
         return view_func(request, *args, **kwargs)
 
     return wrapper
@@ -611,7 +612,7 @@ def login_view(request):
     """Authenticate a user and redirect staff accounts to the admin app."""
     if request.user.is_authenticated:
         if request.user.is_staff:
-            return redirect("dogadoption_admin:post_list")
+            return redirect(get_staff_landing_url(request.user))
         return redirect("user:user_home")
 
     if request.method == "POST":
@@ -623,7 +624,7 @@ def login_view(request):
         if user is not None:
             if user.is_staff:
                 login(request, user)
-                response = redirect("dogadoption_admin:post_list")
+                response = redirect(get_staff_landing_url(user))
                 response.set_cookie("admin_sessionid", request.session.session_key)
                 return response
 
@@ -1839,7 +1840,7 @@ def signup_view(request):
     """Handle the first step of signup before face-auth enrollment."""
     if request.user.is_authenticated:
         if request.user.is_staff:
-            return redirect("dogadoption_admin:post_list")
+            return redirect(get_staff_landing_url(request.user))
         return redirect("user:user_home")
 
     if request.method == "POST":
@@ -2222,7 +2223,7 @@ def user_home(request):
     """Render the mixed public feed and handle quick post creation from home."""
     # Redirect staff to admin dashboard
     if request.user.is_authenticated and request.user.is_staff:
-        return redirect('dogadoption_admin:post_list')
+        return redirect(get_staff_landing_url(request.user))
 
     if not request.user.is_authenticated and _has_pending_signup_face_progress(request):
         _clear_signup_face_progress(request)
@@ -2258,7 +2259,7 @@ def user_home(request):
 def home_search(request):
     """Search the public home feed across staff and user-created posts."""
     if request.user.is_authenticated and request.user.is_staff:
-        return redirect("dogadoption_admin:post_list")
+        return redirect(get_staff_landing_url(request.user))
 
     query = _normalized_search_query(request.GET.get("q"))
     search_performed = bool(query)

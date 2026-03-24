@@ -3,12 +3,14 @@ from datetime import datetime, time, timedelta
 from django.core.cache import cache
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth.models import User
 from django.templatetags.static import static
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from .access import get_admin_access
 from .forms import CitationForm, PostForm
 from .models import (
     AdminNotification,
@@ -25,6 +27,7 @@ from .models import (
     PenaltySection,
     Post,
     PostRequest,
+    StaffAccess,
     VaccinationRecord,
 )
 from user.models import DogCaptureRequest, Profile
@@ -110,6 +113,20 @@ class CitationFormTests(TestCase):
 
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data["owner_barangay"], "Bugay")
+
+
+class AdminAccessHelperTests(TestCase):
+    def test_get_admin_access_handles_none_user(self):
+        access = get_admin_access(None)
+
+        self.assertFalse(access["is_staff_account"])
+        self.assertEqual(access["display_role"], "Visitor")
+
+    def test_get_admin_access_handles_anonymous_user(self):
+        access = get_admin_access(AnonymousUser())
+
+        self.assertFalse(access["is_staff_account"])
+        self.assertEqual(access["display_role"], "Visitor")
 
 
 class AdminExpiryNotificationTests(TestCase):
@@ -963,6 +980,95 @@ class AdminEditProfileTests(TestCase):
         self.assertEqual(self.admin.username, "admin_profile_old")
         self.assertTrue(self.admin.check_password("secret123"))
         self.assertContains(response, "Current password is incorrect.")
+
+
+class ManagedStaffAccessTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="main_admin",
+            password="secret123",
+            is_staff=True,
+        )
+        Profile.objects.create(
+            user=self.admin,
+            address="Admin Office",
+            age=30,
+            consent_given=True,
+        )
+
+    def _create_managed_staff(self, username="staff_ops", **permissions):
+        staff_user = User.objects.create_user(
+            username=username,
+            password="secret12345",
+            is_staff=True,
+            is_active=True,
+        )
+        StaffAccess.objects.create(user=staff_user, **permissions)
+        Profile.objects.create(
+            user=staff_user,
+            address="Bugay",
+            age=24,
+            consent_given=True,
+        )
+        return staff_user
+
+    def test_admin_can_create_staff_account_from_profile_page(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("dogadoption_admin:admin_edit_profile"),
+            {
+                "action": "create_staff",
+                "create-staff-username": "registry_staff",
+                "create-staff-password": "secret12345",
+                "create-staff-confirm_password": "secret12345",
+                "create-staff-is_active": "on",
+                "create-staff-can_access_registration": "on",
+                "create-staff-can_access_registration_list": "on",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        staff_user = User.objects.get(username="registry_staff")
+        self.assertTrue(staff_user.is_staff)
+        self.assertTrue(staff_user.is_active)
+        self.assertTrue(hasattr(staff_user, "staff_access"))
+        self.assertTrue(staff_user.staff_access.can_access_registration)
+        self.assertTrue(staff_user.staff_access.can_access_registration_list)
+        self.assertContains(response, "Staff account @registry_staff created successfully.")
+
+    def test_managed_staff_is_redirected_to_first_allowed_module_when_home_is_blocked(self):
+        staff_user = self._create_managed_staff(
+            username="request_staff",
+            can_manage_capture_requests=True,
+        )
+        self.client.force_login(staff_user)
+
+        response = self.client.get(reverse("dogadoption_admin:post_list"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(
+            response,
+            reverse("dogadoption_admin:requests"),
+            fetch_redirect_response=False,
+        )
+
+    def test_managed_staff_cannot_open_admin_only_user_management(self):
+        staff_user = self._create_managed_staff(
+            username="request_staff_two",
+            can_manage_capture_requests=True,
+        )
+        self.client.force_login(staff_user)
+
+        response = self.client.get(reverse("dogadoption_admin:admin_users"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(
+            response,
+            reverse("dogadoption_admin:requests"),
+            fetch_redirect_response=False,
+        )
 
 
 class AdminDogRequestTemplateTests(TestCase):

@@ -14,9 +14,13 @@
     const statusText = document.getElementById("status");
     const liveHint = document.getElementById("liveHint");
     const liveHintText = document.getElementById("liveHintText");
+    const cameraStage = document.querySelector(".camera-stage");
     const cameraCircle = document.querySelector(".camera-circle");
     const retryCameraBtn = document.getElementById("retryCameraBtn");
     const restartCaptureBtn = document.getElementById("restartCaptureBtn");
+    const termsSection = document.getElementById("termsSection");
+    const agreeTermsCheckbox = document.getElementById("agreeTermsCheckbox");
+    const completeSignupBtn = document.getElementById("completeSignupBtn");
     const stepIndicators = Array.from(document.querySelectorAll("[data-step-indicator]"));
     const csrfInput = document.querySelector('#csrf-form input[name="csrfmiddlewaretoken"]');
     const completeSignupForm = document.getElementById("completeSignupForm");
@@ -24,6 +28,7 @@
     const csrftoken = csrfInput ? csrfInput.value : "";
     const saveFaceUrl = app.dataset.saveFaceUrl;
     const expectedCaptureCount = Number(app.dataset.expectedCaptures || "4");
+    const termsRequiredOnLoad = app.dataset.termsRequired === "true";
 
     const STEPS = [
         { key: "LOOK_FORWARD", title: "Look Straight", desc: "Center your face in the guide." },
@@ -129,6 +134,24 @@
     function showRestartCapture(visible) {
         if (restartCaptureBtn) {
             restartCaptureBtn.hidden = !visible;
+        }
+    }
+
+    function showCameraStage() {
+        if (cameraStage) {
+            cameraStage.hidden = false;
+        }
+        if (termsSection) {
+            termsSection.hidden = true;
+        }
+    }
+
+    function showTermsStage() {
+        if (cameraStage) {
+            cameraStage.hidden = true;
+        }
+        if (termsSection) {
+            termsSection.hidden = false;
         }
     }
 
@@ -506,6 +529,7 @@
     }
 
     function resetCaptureSequence(clearImages) {
+        showCameraStage();
         step = 0;
         lastCaptureTime = 0;
         lastHintUpdateTime = 0;
@@ -523,16 +547,23 @@
         setLiveHint("Camera starting...", "info");
     }
 
-    function finalizeSignup() {
-        if (finalizingSignup) {
-            return;
-        }
-        finalizingSignup = true;
+    function showTermsAndConditions() {
         stopCamera();
-        setStatus("Capture successful. Finalizing signup...");
-        setLiveHint("Capture successful. Creating your account now.", "success");
-        if (completeSignupForm) {
-            completeSignupForm.submit();
+        showTermsStage();
+        showRetryCamera(false);
+        showRestartCapture(false);
+        setCaptureState("idle");
+        step = STEPS.length;
+        updateStepUI();
+        setStatus("Face ID capture complete. Review the terms to finish signup.");
+        setLiveHint("Capture successful. Review and accept the terms to complete signup.", "success");
+        instructionTitle.innerText = "Terms and Conditions";
+        instructionDesc.innerText = "Your four captures are complete. Agree below to finish signup.";
+        if (agreeTermsCheckbox) {
+            agreeTermsCheckbox.checked = false;
+        }
+        if (completeSignupBtn) {
+            completeSignupBtn.disabled = true;
         }
     }
 
@@ -541,9 +572,10 @@
             return;
         }
 
+        stopCamera();
         uploadDone = true;
         uploadInProgress = true;
-        setStatus("Capture successful. Uploading securely...");
+        setStatus("Capture successful. Camera stopped. Uploading securely...");
         setLiveHint("Uploading your Face ID images securely.", "success");
         showRetryCamera(false);
         showRestartCapture(false);
@@ -561,17 +593,17 @@
             if (!response.ok || data.status !== "ok") {
                 throw new Error(data.message || "Unable to save face captures.");
             }
-            finalizeSignup();
+            uploadInProgress = false;
+            showTermsAndConditions();
         } catch (error) {
             uploadDone = false;
             uploadInProgress = false;
             setCaptureState("error");
             setStatus("Upload failed. Please retry the capture.");
             setLiveHint(error.message || "Upload failed. Please retry the capture.", "error");
+            showCameraStage();
             showRestartCapture(true);
-            if (!mediaStream) {
-                showRetryCamera(true);
-            }
+            showRetryCamera(true);
         }
     }
 
@@ -682,11 +714,31 @@
         });
     }
 
+    if (agreeTermsCheckbox && completeSignupBtn) {
+        agreeTermsCheckbox.addEventListener("change", function () {
+            completeSignupBtn.disabled = !agreeTermsCheckbox.checked;
+        });
+    }
+
+    if (completeSignupForm) {
+        completeSignupForm.addEventListener("submit", function () {
+            finalizingSignup = true;
+            setStatus("Terms accepted. Finalizing signup...");
+            setLiveHint("Finalizing your account setup.", "success");
+        });
+    }
+
     window.addEventListener("beforeunload", function () {
         stopCamera();
     });
 
-    updateStepUI();
-    resetCaptureSequence(true);
-    initializeCameraFlow(false);
+    if (termsRequiredOnLoad) {
+        step = STEPS.length;
+        updateStepUI();
+        showTermsAndConditions();
+    } else {
+        updateStepUI();
+        resetCaptureSequence(true);
+        initializeCameraFlow(false);
+    }
 })();

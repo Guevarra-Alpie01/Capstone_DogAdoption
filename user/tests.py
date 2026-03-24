@@ -88,13 +88,13 @@ class SignupUsernameValidationTests(TestCase):
             "middle_initial": "",
             "address": "Bugay",
             "age": 18,
-            "consent_given": True,
+            "consent_given": False,
         }
         session["face_images_files"] = ["temp_faces/missing_0.png"]
         session["signup_face_upload_token"] = "testtoken"
         session.save()
 
-        response = self.client.post(reverse("user:signup_complete"))
+        response = self.client.post(reverse("user:signup_complete"), {"agree_terms": "1"})
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Username already exists.")
@@ -105,6 +105,30 @@ class SignupUsernameValidationTests(TestCase):
         )
         self.assertNotIn("signup_data", self.client.session)
         self.assertNotIn("face_images_files", self.client.session)
+
+    def test_signup_complete_requires_terms_agreement_after_face_capture(self):
+        session = self.client.session
+        session["signup_data"] = {
+            "username": "face_terms_user",
+            "password": "Secretpass123!",
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "middle_initial": "",
+            "address": "Bugay",
+            "age": 18,
+            "consent_given": False,
+        }
+        session["face_images_files"] = ["temp_faces/capture_0.png"]
+        session["signup_face_upload_token"] = "testtoken"
+        session.save()
+
+        response = self.client.post(reverse("user:signup_complete"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "You must agree to the Face ID verification terms to complete signup.")
+        self.assertContains(response, "Terms and Conditions")
+        self.assertIn("signup_data", self.client.session)
+        self.assertIn("face_images_files", self.client.session)
 
 
 class AnnouncementListBucketTests(TestCase):

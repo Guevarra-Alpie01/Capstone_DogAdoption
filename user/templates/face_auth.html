@@ -12,6 +12,7 @@
     data-save-face-url="{% url 'user:save_face' %}"
     data-complete-signup-url="{% url 'user:signup_complete' %}"
     data-expected-captures="{{ expected_capture_count }}"
+    data-terms-required="{% if terms_required %}true{% else %}false{% endif %}"
 >
     <div class="face-auth-card">
         <div class="face-shell">
@@ -63,16 +64,34 @@
                     Use your front camera, allow camera access when prompted, and keep your face inside the guide.
                 </p>
             </section>
+
+            <section id="termsSection" class="consent-box" {% if not terms_required %}hidden{% endif %}>
+                <span class="consent-box__eyebrow">Final Step</span>
+                <h3>Terms and Conditions</h3>
+                <p>Your Face ID images are used only for login and identity verification on this platform.</p>
+                <p>They are stored securely, limited to authorized verification access, and not shown publicly.</p>
+
+                {% if terms_error %}
+                <div class="face-inline-alert" role="alert">{{ terms_error }}</div>
+                {% endif %}
+
+                <form id="completeSignupForm" method="post" action="{% url 'user:signup_complete' %}">
+                    {% csrf_token %}
+                    <label class="consent-check" for="agreeTermsCheckbox">
+                        <input type="checkbox" id="agreeTermsCheckbox" name="agree_terms" value="1" required>
+                        <span>I agree to the Face ID verification terms and conditions.</span>
+                    </label>
+                    <button id="completeSignupBtn" class="face-action-btn face-action-btn--secondary face-action-btn--full" type="submit" disabled>
+                        Complete Signup
+                    </button>
+                </form>
+            </section>
         </div>
 
         <canvas id="canvas" hidden></canvas>
         <canvas id="analysisCanvas" hidden></canvas>
 
         <form id="csrf-form" hidden>
-            {% csrf_token %}
-        </form>
-
-        <form id="completeSignupForm" method="post" action="{% url 'user:signup_complete' %}" hidden>
             {% csrf_token %}
         </form>
     </div>

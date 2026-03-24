@@ -1871,7 +1871,7 @@ def signup_view(request):
             "middle_initial": "",
             "address": barangay,
             "age": 18,
-            "consent_given": True,
+            "consent_given": False,
         }
 
         # GO TO FACE AUTH STEP
@@ -1978,11 +1978,13 @@ def face_auth(request):
     """Render the face-auth capture step during signup."""
     if "signup_data" not in request.session:
         return redirect("user:signup")
+    terms_required = "face_images_files" in request.session and not request.session["signup_data"].get("consent_given")
     return render(
         request,
         "face_auth.html",
         {
             "expected_capture_count": SIGNUP_FACE_CAPTURE_COUNT,
+            "terms_required": terms_required,
         },
     )
 
@@ -2041,6 +2043,7 @@ def signup_complete(request):
 
     data = request.session["signup_data"]
     images_files = request.session["face_images_files"]
+    agree_terms = (request.POST.get("agree_terms") or "").strip() == "1"
     username = _normalize_signup_username(data.get("username"))
     signup_form_data = _build_signup_form_data(
         username=username,
@@ -2048,6 +2051,20 @@ def signup_complete(request):
         last_name=data.get("last_name", ""),
         raw_barangay=data.get("address", ""),
     )
+
+    if not agree_terms:
+        return render(
+            request,
+            "face_auth.html",
+            {
+                "expected_capture_count": SIGNUP_FACE_CAPTURE_COUNT,
+                "terms_required": True,
+                "terms_error": "You must agree to the Face ID verification terms to complete signup.",
+            },
+        )
+
+    data["consent_given"] = True
+    request.session["signup_data"] = data
 
     try:
         _validate_signup_username(username)

@@ -957,18 +957,29 @@
 }
 
 .request-card {
-    background: #fff;
-    padding: 13px;
-    border-radius: 8px;
-    margin-bottom: 11px;
-    border-left: 6px solid #ccc;
+    position: relative;
+    overflow: hidden;
+    background: #ffffff;
+    padding: 16px 18px;
+    border-radius: 18px;
+    margin-bottom: 10px;
+    border: 1px solid #dbe6f2;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+}
+
+.request-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: #cbd5e1;
 }
 
 .requests-breadcrumb {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin: 4px 0 12px;
+    gap: 10px;
+    margin: 0 0 14px;
 }
 
 .status-crumb {
@@ -1052,9 +1063,12 @@
 }
 
 .request-group-title {
-    margin: 0 0 10px;
-    font-size: 1rem;
+    margin: 0 0 8px;
+    font-size: 0.88rem;
     color: #334155;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
 }
 
 .request-group-empty {
@@ -1063,10 +1077,10 @@
     font-size: 0.92rem;
 }
 
-.request-card.pending { border-color: orange; }
-.request-card.accepted { border-color: green; }
-.request-card.captured { border-color: #2563eb; }
-.request-card.declined { border-color: red; }
+.request-card.pending::before { background: #f59e0b; }
+.request-card.accepted::before { background: #22c55e; }
+.request-card.captured::before { background: #2563eb; }
+.request-card.declined::before { background: #ef4444; }
 
 .request-clickable {
     cursor: pointer;
@@ -1075,7 +1089,7 @@
 
 .request-clickable:hover {
     transform: translateY(-1px);
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
 }
 
 .request-clickable:focus-visible {
@@ -1088,12 +1102,15 @@
     justify-content: space-between;
     align-items: center;
     gap: 10px;
-    margin-bottom: 6px;
+    margin-bottom: 10px;
 }
 
 .request-header strong {
     flex: 1 1 auto;
     min-width: 0;
+    color: #132238;
+    font-size: 1.04rem;
+    line-height: 1.3;
 }
 
 .request-header-tools {
@@ -1105,17 +1122,59 @@
 }
 
 .status-badge {
-    padding: 4px 10px;
+    padding: 5px 10px;
     border-radius: 999px;
-    font-size: 12px;
-    color: #fff;
+    font-size: 0.74rem;
+    font-weight: 800;
+    color: #334155;
     white-space: nowrap;
+    border: 1px solid #dbe6f2;
+    background: #f8fafc;
 }
 
-.status-badge.pending { background: orange; }
-.status-badge.accepted { background: green; }
-.status-badge.captured { background: #2563eb; }
-.status-badge.declined { background: red; }
+.status-badge.pending {
+    background: #fff7ed;
+    border-color: #fed7aa;
+    color: #b45309;
+}
+
+.status-badge.accepted {
+    background: #ecfdf3;
+    border-color: #bbf7d0;
+    color: #166534;
+}
+
+.status-badge.captured {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+}
+
+.status-badge.declined {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b91c1c;
+}
+
+.request-card-lead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    margin: 0 0 12px;
+}
+
+.request-card-lead span {
+    color: #64748b;
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.request-card-lead strong {
+    color: #0f172a;
+    font-size: 1rem;
+    font-weight: 800;
+}
 
 .admin-note {
     margin-top: 6px;
@@ -1127,39 +1186,59 @@
     color: #455a64;
 }
 
-.request-view-hint {
-    margin: 8px 0 0;
-    font-size: 12px;
+.request-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.request-meta-item {
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    background: #f8fbff;
+}
+
+.request-meta-item span {
     color: #64748b;
-    font-style: italic;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
 }
 
-.request-card-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 10px;
+.request-meta-item strong {
+    color: #132238;
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.4;
 }
 
-.request-card-delete-form {
-    margin: 0;
+.request-meta-item--wide {
+    grid-column: span 2;
 }
 
-.request-card-action {
-    min-height: 34px;
-    padding: 7px 12px;
-    font-size: 0.82rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
+.request-card-note {
+    margin: 10px 0 0;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid #dbe7f3;
+    background: #f8fbff;
+    color: #475569;
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+.request-card-note strong {
+    color: #132238;
 }
 
 .request-card-icon-btn {
-    width: 36px;
-    min-width: 36px;
-    min-height: 36px;
+    width: 34px;
+    min-width: 34px;
+    min-height: 34px;
     padding: 0;
     border-radius: 12px;
     display: inline-flex;
@@ -1178,25 +1257,29 @@
 
 .request-history-modal .modal-content,
 .request-dialog-modal .modal-content {
-    border-radius: 18px;
+    border-radius: 22px;
     border: 1px solid #d7dee2;
     overflow: hidden;
+    background: #ffffff;
 }
 
 .request-history-modal .modal-header {
     align-items: flex-start;
-    background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+    padding: 18px 20px 16px;
+    background: #ffffff;
+    border-bottom: 1px solid #e5edf5;
 }
 
 .request-history-subtitle {
-    margin: 4px 0 0;
+    margin: 6px 0 0;
     color: #64748b;
-    font-size: 0.92rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
 }
 
 .request-history-content {
     display: grid;
-    gap: 12px;
+    gap: 10px;
 }
 
 .request-section-head--modal {
@@ -1204,7 +1287,7 @@
 }
 
 .request-history-modal .modal-body {
-    padding: 20px;
+    padding: 16px 18px 18px;
 }
 
 .request-history-modal .modal-body.is-loading {
@@ -1823,6 +1906,10 @@
     .status-badge {
         padding: 4px 9px;
         font-size: 0.7rem;
+    }
+
+    .request-meta-item--wide {
+        grid-column: auto;
     }
 
     .requests-scroll {

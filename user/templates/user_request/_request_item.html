@@ -24,6 +24,10 @@
                     action="{% url 'user:delete_dog_capture_request' req.id %}"
                     class="request-card-delete-form request-inline-stop"
                     data-request-delete-form="true"
+                    data-confirm-modal
+                    data-confirm-title="Confirm Delete"
+                    data-confirm-message="Delete this request?"
+                    data-confirm-submit-label="Delete"
                 >
                     {% csrf_token %}
                     <button
@@ -49,13 +53,13 @@
     </div>
 
     {% if req.status == 'accepted' %}
-        <p>
-            Scheduled:
+        <p class="request-card-lead">
+            <span>Scheduled</span>
             <strong>{{ req.scheduled_date|date:"M d, Y h:i A" }}</strong>
         </p>
     {% elif req.status == 'captured' %}
-        <p>
-            {% if req.request_type == 'surrender' %}Completed:{% else %}Captured:{% endif %}
+        <p class="request-card-lead">
+            <span>{% if req.request_type == 'surrender' %}Completed{% else %}Captured{% endif %}</span>
             <strong>
                 {% if req.captured_at %}
                     {{ req.captured_at|date:"M d, Y h:i A" }}
@@ -65,71 +69,75 @@
             </strong>
         </p>
     {% elif req.status == 'declined' %}
-        <p>Request declined</p>
+        <p class="request-card-lead">
+            <span>Update</span>
+            <strong>Request declined</strong>
+        </p>
     {% else %}
-        <p>Waiting for admin verification</p>
-    {% endif %}
-
-    {% if req.submission_type %}
-        <p class="request-meta"><strong>Submission:</strong> {{ req.get_submission_type_display }}</p>
-    {% endif %}
-    {% if req.preferred_appointment_date %}
-        <p class="request-meta"><strong>Requested Date:</strong> {{ req.preferred_appointment_date|date:"M d, Y" }}</p>
-    {% endif %}
-    {% if req.submission_type == 'online' %}
-        {% if req.manual_full_address %}
-            <p class="request-meta"><strong>Location:</strong> {{ req.manual_full_address }}{% if req.barangay %}, {{ req.barangay }}{% endif %}</p>
-        {% elif req.barangay %}
-            <p class="request-meta"><strong>Location:</strong> {{ req.barangay }}</p>
-        {% elif req.latitude and req.longitude %}
-            <p class="request-meta"><strong>Coordinates:</strong> {{ req.latitude }}, {{ req.longitude }}</p>
-        {% endif %}
-    {% endif %}
-
-    {% with total_images=req.images.all|length %}
-        {% if total_images %}
-            <p class="request-meta"><strong>Photos:</strong> {{ total_images }}</p>
-        {% elif req.image %}
-            <p class="request-meta"><strong>Photos:</strong> 1</p>
-        {% endif %}
-    {% endwith %}
-
-    {% if req.admin_message %}
-        <p class="admin-note">
-            <strong>Admin:</strong> {{ req.admin_message }}
+        <p class="request-card-lead">
+            <span>Status</span>
+            <strong>Waiting for admin verification</strong>
         </p>
     {% endif %}
 
-    {% if req.status == 'pending' %}
-        <div class="request-card-actions">
-            <button
-                type="button"
-                class="btn-secondary request-card-action request-edit-toggle"
-                data-bs-toggle="modal"
-                data-bs-target="#requestViewModal{{ req.id }}"
-                data-target="#requestEditForm{{ req.id }}"
-            >
-                <i class="bi bi-pencil-square" aria-hidden="true"></i>
-                <span>Edit</span>
-            </button>
-            <form
-                method="post"
-                action="{% url 'user:delete_dog_capture_request' req.id %}"
-                class="request-card-delete-form request-inline-stop"
-                data-confirm-modal
-                data-confirm-title="Confirm Delete"
-                data-confirm-message="Delete this request?"
-                data-confirm-submit-label="Delete"
-            >
-                {% csrf_token %}
-                <button type="submit" class="btn-danger-inline request-card-action request-inline-stop">
-                    <i class="bi bi-trash3" aria-hidden="true"></i>
-                    <span>Delete</span>
-                </button>
-            </form>
-        </div>
+    {% if req.submission_type %}
+        {% with total_images=req.images.all|length %}
+        {% if req.submission_type or req.preferred_appointment_date or req.manual_full_address or req.barangay or req.latitude or req.longitude or total_images or req.image %}
+            <div class="request-meta-grid">
+                {% if req.submission_type %}
+                    <div class="request-meta-item">
+                        <span>Submission</span>
+                        <strong>{{ req.get_submission_type_display }}</strong>
+                    </div>
+                {% endif %}
+
+                {% if req.preferred_appointment_date %}
+                    <div class="request-meta-item">
+                        <span>Requested Date</span>
+                        <strong>{{ req.preferred_appointment_date|date:"M d, Y" }}</strong>
+                    </div>
+                {% endif %}
+
+                {% if req.submission_type == 'online' %}
+                    {% if req.manual_full_address %}
+                        <div class="request-meta-item request-meta-item--wide">
+                            <span>Location</span>
+                            <strong>{{ req.manual_full_address }}{% if req.barangay %}, {{ req.barangay }}{% endif %}</strong>
+                        </div>
+                    {% elif req.barangay %}
+                        <div class="request-meta-item">
+                            <span>Location</span>
+                            <strong>{{ req.barangay }}</strong>
+                        </div>
+                    {% elif req.latitude and req.longitude %}
+                        <div class="request-meta-item request-meta-item--wide">
+                            <span>Coordinates</span>
+                            <strong>{{ req.latitude }}, {{ req.longitude }}</strong>
+                        </div>
+                    {% endif %}
+                {% endif %}
+
+                {% if total_images %}
+                    <div class="request-meta-item">
+                        <span>Photos</span>
+                        <strong>{{ total_images }}</strong>
+                    </div>
+                {% elif req.image %}
+                    <div class="request-meta-item">
+                        <span>Photos</span>
+                        <strong>1</strong>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+        {% endwith %}
     {% endif %}
-    <p class="request-view-hint">Tap to view details and request history</p>
+
+    {% if req.admin_message %}
+        <p class="request-card-note">
+            <strong>Admin note:</strong> {{ req.admin_message }}
+        </p>
+    {% endif %}
 </div>
 
 <div class="modal fade request-view-modal" id="requestViewModal{{ req.id }}" tabindex="-1" aria-hidden="true">

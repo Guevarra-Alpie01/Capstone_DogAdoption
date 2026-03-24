@@ -16,7 +16,7 @@
     {% endif %}
     <link rel="stylesheet" href="{% static 'css/user_theme.css' %}">
     <link rel="stylesheet" href="{% static 'css/notification_menu.css' %}?v=20260318b">
-    <link rel="stylesheet" href="{% static 'css/user_button_skin.css' %}?v=20260317b">
+    <link rel="stylesheet" href="{% static 'css/user_button_skin.css' %}?v=20260324a">
     <style>
         .flash-toast-stack {
             position: fixed;
@@ -290,6 +290,46 @@
 
 <!-- ================= SCRIPTS ================= -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+function ensureSharedModalCloseButtons(root) {
+    const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+    const modalContents = scope.classList && scope.classList.contains('modal-content')
+        ? [scope]
+        : scope.classList && scope.classList.contains('modal')
+            ? Array.from(scope.querySelectorAll('.modal-content'))
+            : Array.from(scope.querySelectorAll('.modal .modal-content'));
+
+    modalContents.forEach(function (content) {
+        if (!content) {
+            return;
+        }
+
+        const existingClose = content.querySelector(
+            '.btn-close, .modal-corner-close, .camera-capture-close, .certificate-next-modal__close, .citation-confirm-modal__close, .announcement-image-lightbox-close, .registration-message-modal__close, .image-lightbox-close, .share-panel-close, .page-close-btn'
+        );
+
+        if (existingClose) {
+            return;
+        }
+
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'btn-close modal-corner-close';
+        closeBtn.setAttribute('data-bs-dismiss', 'modal');
+        closeBtn.setAttribute('aria-label', 'Close');
+        content.insertBefore(closeBtn, content.firstChild);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    ensureSharedModalCloseButtons(document);
+});
+
+document.addEventListener('show.bs.modal', function (event) {
+    ensureSharedModalCloseButtons(event.target);
+});
+</script>
 
 {% if user.is_authenticated %}
 <script>

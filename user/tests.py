@@ -32,6 +32,80 @@ from user.models import (
 )
 
 
+class SignupUsernameValidationTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        Barangay.objects.get_or_create(
+            name="Bugay",
+            defaults={"is_active": True, "sort_order": 1},
+        )
+
+    def _signup_payload(self, **overrides):
+        payload = {
+            "username": "safe_user",
+            "password": "Secretpass123!",
+            "confirm_password": "Secretpass123!",
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "address": "Bugay",
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_signup_rejects_case_insensitive_duplicate_username(self):
+        User.objects.create_user(username="ExistingUser", password="secret123")
+
+        response = self.client.post(
+            reverse("user:signup"),
+            self._signup_payload(username="existinguser"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Username already exists.")
+        self.assertNotIn("signup_data", self.client.session)
+
+    def test_signup_rejects_invalid_username_characters(self):
+        response = self.client.post(
+            reverse("user:signup"),
+            self._signup_payload(username="bad user!"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Enter a valid username. This value may contain only unaccented lowercase a-z and uppercase A-Z letters, numbers, and @/./+/-/_ characters.",
+        )
+        self.assertNotIn("signup_data", self.client.session)
+
+    def test_signup_complete_rechecks_username_before_creating_account(self):
+        User.objects.create_user(username="ReservedUser", password="secret123")
+        session = self.client.session
+        session["signup_data"] = {
+            "username": "reserveduser",
+            "password": "Secretpass123!",
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "middle_initial": "",
+            "address": "Bugay",
+            "age": 18,
+        }
+        session["face_images_files"] = ["temp_faces/missing_0.png"]
+        session["signup_face_upload_token"] = "testtoken"
+        session.save()
+
+        response = self.client.get(reverse("user:signup_complete"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Username already exists.")
+        self.assertEqual(User.objects.filter(username__iexact="reserveduser").count(), 1)
+        self.assertEqual(
+            User.objects.get(username__iexact="reserveduser").username,
+            "ReservedUser",
+        )
+        self.assertNotIn("signup_data", self.client.session)
+        self.assertNotIn("face_images_files", self.client.session)
+
+
 class AnnouncementListBucketTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user(

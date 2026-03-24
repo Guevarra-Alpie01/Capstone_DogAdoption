@@ -1,5 +1,14 @@
 from django import forms
-from .models import Post, Barangay
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.validators import ASCIIUsernameValidator
+from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.urls import reverse_lazy
+
+from .access import STAFF_PERMISSION_FIELDS
+from .models import Barangay, Citation, Penalty, PenaltySection, Post, StaffAccess
+
+
 class PostForm(forms.ModelForm):
 
     caption = forms.CharField(
@@ -77,11 +86,6 @@ class PostForm(forms.ModelForm):
                 return name
 
         raise forms.ValidationError("Please select a valid barangay from the suggestions.")
-    
-
-from .models import Citation, Penalty,PenaltySection
-from user.models import User
-
 class CitationForm(forms.ModelForm):
     owner = forms.ModelChoiceField(
         queryset=User.objects.filter(is_staff=False).order_by('username'),
@@ -90,18 +94,49 @@ class CitationForm(forms.ModelForm):
         widget=forms.HiddenInput(),
     )
 
-    owner_first_name = forms.CharField(max_length=150, required=True)
-    owner_last_name = forms.CharField(max_length=150, required=True)
-    owner_barangay = forms.CharField(max_length=255, required=True)
+    owner_first_name = forms.CharField(
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={'placeholder': 'First name'}),
+    )
+    owner_last_name = forms.CharField(
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={'placeholder': 'Last name'}),
+    )
+    owner_barangay = forms.CharField(
+        max_length=255,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Barangay',
+            'autocomplete': 'off',
+            'data-barangay-autocomplete': 'true',
+            'data-barangay-suggestions-id': 'citation-barangay-suggestions',
+            'data-barangay-strict': 'true',
+        }),
+    )
 
     class Meta:
         model = Citation
         fields = ['owner', 'owner_first_name', 'owner_last_name', 'owner_barangay']
-        widgets = {
-            'owner_first_name': forms.TextInput(attrs={'placeholder': 'First name'}),
-            'owner_last_name': forms.TextInput(attrs={'placeholder': 'Last name'}),
-            'owner_barangay': forms.TextInput(attrs={'placeholder': 'Barangay'}),
-        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['owner_barangay'].widget.attrs['data-barangay-source-url'] = reverse_lazy(
+            'dogadoption_admin:barangay_list_api'
+        )
+
+    def clean_owner_barangay(self):
+        value = " ".join((self.cleaned_data.get("owner_barangay") or "").split()).strip()
+        if not value:
+            return value
+
+        normalized = "".join(ch.lower() for ch in value if ch.isalnum())
+        for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True):
+            if "".join(ch.lower() for ch in name if ch.isalnum()) == normalized:
+                return name
+
+        raise forms.ValidationError("Please select a valid barangay from the suggestions.")
 
 class SectionForm(forms.ModelForm):
     class Meta:
@@ -116,3 +151,109 @@ class PenaltyForm(forms.ModelForm):
     class Meta:
         model = Penalty
         fields = ['section', 'number', 'title', 'amount']
+
+
+class ManagedStaffAccountForm(forms.Form):
+    username_validator = ASCIIUsernameValidator()
+
+    username = forms.CharField(
+        max_length=150,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "staff_username"}),
+    )
+    password = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(
+            attrs={"class": "form-control", "placeholder": "Use at least 8 characters"}
+        ),
+    )
+    confirm_password = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(
+            attrs={"class": "form-control", "placeholder": "Repeat the password"}
+        ),
+    )
+    is_active = forms.BooleanField(required=False, initial=True)
+    can_create_posts = forms.BooleanField(required=False)
+    can_view_post_history = forms.BooleanField(required=False)
+    can_view_status_cards = forms.BooleanField(required=False)
+    can_manage_capture_requests = forms.BooleanField(required=False)
+    can_access_registration = forms.BooleanField(required=False)
+    can_access_registration_list = forms.BooleanField(required=False)
+    can_access_vaccination = forms.BooleanField(required=False)
+    can_access_vaccination_list = forms.BooleanField(required=False)
+    can_access_citations = forms.BooleanField(required=False)
+
+    def __init__(self, *args, instance=None, require_password=True, **kwargs):
+        self.instance = instance
+        self.require_password = require_password
+        super().__init__(*args, **kwargs)
+
+        if instance is not None:
+            self.fields["username"].initial = instance.username
+            self.fields["is_active"].initial = instance.is_active
+            try:
+                access = instance.staff_access
+            except StaffAccess.DoesNotExist:
+                access = None
+            if access is not None:
+                for field_name in STAFF_PERMISSION_FIELDS:
+                    self.fields[field_name].initial = bool(getattr(access, field_name, False))
+
+        password_help = "Required for new staff accounts." if require_password else "Leave blank to keep the current password."
+        self.fields["password"].help_text = password_help
+
+    def clean_username(self):
+        username = " ".join((self.cleaned_data.get("username") or "").split()).strip()
+        if not username:
+            raise forms.ValidationError("Username is required.")
+        self.username_validator(username)
+        query = User.objects.filter(username__iexact=username)
+        if self.instance is not None:
+            query = query.exclude(pk=self.instance.pk)
+        if query.exists():
+            raise forms.ValidationError("That username is already in use.")
+        return username
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get("password") or ""
+        confirm_password = cleaned_data.get("confirm_password") or ""
+        username = cleaned_data.get("username") or ""
+
+        if self.require_password and not password:
+            self.add_error("password", "Password is required for new staff accounts.")
+
+        if password or confirm_password:
+            if password != confirm_password:
+                self.add_error("confirm_password", "Password confirmation does not match.")
+            else:
+                temp_user = self.instance or User(username=username)
+                try:
+                    validate_password(password, user=temp_user)
+                except ValidationError as exc:
+                    self.add_error("password", exc)
+
+        if not any(bool(cleaned_data.get(name)) for name in STAFF_PERMISSION_FIELDS):
+            raise forms.ValidationError("Select at least one access permission for this staff account.")
+
+        return cleaned_data
+
+    def save(self):
+        if self.instance is None:
+            user = User(is_staff=True)
+        else:
+            user = self.instance
+
+        user.username = self.cleaned_data["username"]
+        user.is_staff = True
+        user.is_active = bool(self.cleaned_data.get("is_active"))
+        password = self.cleaned_data.get("password") or ""
+        if password:
+            user.set_password(password)
+        user.save()
+
+        access, _ = StaffAccess.objects.get_or_create(user=user)
+        for field_name in STAFF_PERMISSION_FIELDS:
+            setattr(access, field_name, bool(self.cleaned_data.get(field_name)))
+        access.save()
+        return user

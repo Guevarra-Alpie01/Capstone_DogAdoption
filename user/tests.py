@@ -32,6 +32,158 @@ from user.models import (
 )
 
 
+class SignupUsernameValidationTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        Barangay.objects.get_or_create(
+            name="Bugay",
+            defaults={"is_active": True, "sort_order": 1},
+        )
+
+    def _signup_payload(self, **overrides):
+        payload = {
+            "username": "safe_user",
+            "password": "Secretpass123!",
+            "confirm_password": "Secretpass123!",
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "address": "Bugay",
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_signup_rejects_case_insensitive_duplicate_username(self):
+        User.objects.create_user(username="ExistingUser", password="secret123")
+
+        response = self.client.post(
+            reverse("user:signup"),
+            self._signup_payload(username="existinguser"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Username already exists.")
+        self.assertNotIn("signup_data", self.client.session)
+
+    def test_signup_rejects_invalid_username_characters(self):
+        response = self.client.post(
+            reverse("user:signup"),
+            self._signup_payload(username="bad user!"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Enter a valid username. This value may contain only unaccented lowercase a-z and uppercase A-Z letters, numbers, and @/./+/-/_ characters.",
+        )
+        self.assertNotIn("signup_data", self.client.session)
+
+    def test_signup_complete_rechecks_username_before_creating_account(self):
+        User.objects.create_user(username="ReservedUser", password="secret123")
+        session = self.client.session
+        session["signup_data"] = {
+            "username": "reserveduser",
+            "password": "Secretpass123!",
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "middle_initial": "",
+            "address": "Bugay",
+            "age": 18,
+            "consent_given": False,
+        }
+        session["face_images_files"] = ["temp_faces/missing_0.png"]
+        session["signup_face_upload_token"] = "testtoken"
+        session.save()
+
+        response = self.client.post(reverse("user:signup_complete"), {"agree_terms": "1"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Username already exists.")
+        self.assertEqual(User.objects.filter(username__iexact="reserveduser").count(), 1)
+        self.assertEqual(
+            User.objects.get(username__iexact="reserveduser").username,
+            "ReservedUser",
+        )
+        self.assertNotIn("signup_data", self.client.session)
+        self.assertNotIn("face_images_files", self.client.session)
+
+    def test_signup_complete_requires_terms_agreement_after_face_capture(self):
+        session = self.client.session
+        session["signup_data"] = {
+            "username": "face_terms_user",
+            "password": "Secretpass123!",
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "middle_initial": "",
+            "address": "Bugay",
+            "age": 18,
+            "consent_given": False,
+        }
+        session["face_images_files"] = ["temp_faces/capture_0.png"]
+        session["signup_face_upload_token"] = "testtoken"
+        session.save()
+
+        response = self.client.post(reverse("user:signup_complete"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "You must agree to the Face ID verification terms to complete signup.")
+        self.assertContains(response, "Terms and Conditions")
+        self.assertIn("signup_data", self.client.session)
+        self.assertIn("face_images_files", self.client.session)
+
+    def test_new_signup_submission_clears_old_face_capture_progress(self):
+        session = self.client.session
+        session["signup_data"] = {
+            "username": "old_user",
+            "password": "Secretpass123!",
+            "first_name": "Old",
+            "last_name": "User",
+            "middle_initial": "",
+            "address": "Bugay",
+            "age": 18,
+            "consent_given": False,
+        }
+        session["face_images_files"] = ["temp_faces/old_capture_0.png"]
+        session["signup_face_upload_token"] = "oldtoken"
+        session.save()
+
+        response = self.client.post(
+            reverse("user:signup"),
+            self._signup_payload(username="fresh_user"),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("user:face_auth"))
+        updated_session = self.client.session
+        self.assertEqual(updated_session["signup_data"]["username"], "fresh_user")
+        self.assertNotIn("face_images_files", updated_session)
+        self.assertNotIn("signup_face_upload_token", updated_session)
+
+    def test_home_visit_clears_unfinished_face_capture_progress(self):
+        session = self.client.session
+        session["signup_data"] = {
+            "username": "pending_user",
+            "password": "Secretpass123!",
+            "first_name": "Pending",
+            "last_name": "User",
+            "middle_initial": "",
+            "address": "Bugay",
+            "age": 18,
+            "consent_given": False,
+        }
+        session["face_images_files"] = ["temp_faces/pending_capture_0.png"]
+        session["signup_face_upload_token"] = "pendingtoken"
+        session.save()
+
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        refreshed_session = self.client.session
+        self.assertIn("signup_data", refreshed_session)
+        self.assertNotIn("face_images_files", refreshed_session)
+        self.assertNotIn("signup_face_upload_token", refreshed_session)
+        self.assertFalse(refreshed_session["signup_data"]["consent_given"])
+
+
 class AnnouncementListBucketTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user(

@@ -1,6 +1,8 @@
 ADMIN_NOTIFICATIONS_CACHE_KEY = "admin_notifications_summary_v1"
 ADMIN_NOTIFICATIONS_CACHE_TTL_SECONDS = 15
 
+from .access import get_admin_access_namespace
+
 
 def _empty_admin_notifications_context():
     return {
@@ -8,6 +10,7 @@ def _empty_admin_notifications_context():
         "admin_unread_notifications": 0,
         "admin_latest_notifications": [],
         "admin_notifications_summary_url": "",
+        "admin_access": get_admin_access_namespace(None),
     }
 
 
@@ -18,9 +21,20 @@ def admin_notifications(request):
 
     from django.urls import reverse
 
+    admin_access = get_admin_access_namespace(user)
+    if not admin_access.is_full_admin:
+        return {
+            "admin_pending_capture_count": 0,
+            "admin_unread_notifications": 0,
+            "admin_latest_notifications": [],
+            "admin_notifications_summary_url": "",
+            "admin_access": admin_access,
+        }
+
     return {
         "admin_pending_capture_count": 0,
         "admin_unread_notifications": 0,
         "admin_latest_notifications": [],
         "admin_notifications_summary_url": reverse("dogadoption_admin:notification_summary"),
+        "admin_access": admin_access,
     }

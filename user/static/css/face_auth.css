@@ -158,6 +158,11 @@
     background: rgba(181, 240, 197, 0.08);
 }
 
+.live-hint.live-hint--error {
+    border-color: rgba(248, 113, 113, 0.34);
+    background: rgba(127, 29, 29, 0.34);
+}
+
 .live-hint-icon {
     display: inline-flex;
     align-items: center;
@@ -173,6 +178,11 @@
 .live-hint.live-hint--warning .live-hint-icon {
     color: #fde68a;
     background: var(--face-warning-soft);
+}
+
+.live-hint.live-hint--error .live-hint-icon {
+    color: #fecaca;
+    background: rgba(248, 113, 113, 0.2);
 }
 
 .live-hint-text-wrap {
@@ -191,6 +201,10 @@
 
 .live-hint.live-hint--warning .live-hint-label {
     color: var(--face-warning);
+}
+
+.live-hint.live-hint--error .live-hint-label {
+    color: #fca5a5;
 }
 
 #liveHintText {
@@ -252,6 +266,12 @@
         0 0 0 12px rgba(181, 240, 197, 0.16);
 }
 
+.camera-circle.capture-error {
+    box-shadow:
+        0 22px 36px rgba(9, 28, 18, 0.26),
+        0 0 0 12px rgba(248, 113, 113, 0.14);
+}
+
 @keyframes captureHalo {
     0% {
         box-shadow:
@@ -291,10 +311,51 @@
     line-height: 1.35;
 }
 
+.camera-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.face-action-btn {
+    min-height: 46px;
+    padding: 0 18px;
+    border-radius: 14px;
+    border: 1px solid rgba(227, 242, 231, 0.24);
+    font-size: 0.9rem;
+    font-weight: 800;
+    transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.face-action-btn:hover {
+    transform: translateY(-1px);
+}
+
+.face-action-btn--secondary {
+    color: #f8fafc;
+    background: linear-gradient(180deg, #23884f 0%, #1d7344 100%);
+    border-color: rgba(181, 240, 197, 0.36);
+}
+
+.face-action-btn--ghost {
+    color: rgba(247, 251, 248, 0.94);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.camera-support-note {
+    margin: 0;
+    color: var(--face-text-soft);
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.45;
+    text-align: center;
+}
+
 .consent-box {
-    position: relative;
-    z-index: 1;
-    margin-top: 16px;
+    display: grid;
+    gap: 10px;
     padding: 18px;
     border-radius: 22px;
     border: 1px solid rgba(227, 242, 231, 0.22);
@@ -304,7 +365,7 @@
 
 .consent-box__eyebrow {
     display: inline-flex;
-    margin-bottom: 8px;
+    width: fit-content;
     padding: 6px 12px;
     border-radius: 999px;
     background: var(--face-accent-soft);
@@ -315,50 +376,54 @@
     text-transform: uppercase;
 }
 
-.consent-box h4 {
-    margin: 0 0 10px;
+.consent-box h3 {
+    margin: 0;
     color: var(--face-text) !important;
     font-size: 1.16rem;
     font-weight: 800;
 }
 
 .consent-box p {
-    margin: 0 0 10px;
+    margin: 0;
     color: var(--face-text-soft) !important;
     font-size: 0.9rem;
     line-height: 1.5;
+}
+
+.consent-box form {
+    display: grid;
+    gap: 14px;
+    margin-top: 4px;
+}
+
+.face-inline-alert {
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(248, 113, 113, 0.32);
+    background: rgba(127, 29, 29, 0.3);
+    color: #fee2e2;
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.4;
 }
 
 .consent-check {
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    margin-top: 8px;
-    color: #e2e8f0;
-    font-size: 0.9rem;
+    color: rgba(247, 251, 248, 0.94);
+    font-size: 0.92rem;
     font-weight: 600;
     line-height: 1.45;
 }
 
 .consent-check input[type="checkbox"] {
-    margin: 3px 0 0;
+    margin-top: 3px;
     accent-color: var(--face-accent);
 }
 
-.face-wrapper #completeSignupBtn {
+.face-action-btn--full {
     width: 100%;
-    min-height: 52px;
-    border-radius: 16px !important;
-    border: 1px solid var(--face-accent-strong) !important;
-    background: linear-gradient(180deg, #23884f 0%, #1d7344 100%) !important;
-    font-weight: 800;
-    box-shadow: 0 14px 26px rgba(29, 115, 68, 0.2) !important;
-}
-
-.face-wrapper #completeSignupBtn:disabled {
-    border-color: #64748b !important;
-    background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%) !important;
-    box-shadow: none !important;
 }
 
 @media (max-width: 576px) {
@@ -420,5 +485,13 @@
     .capture-status {
         padding: 9px 10px;
         font-size: 0.8rem;
+    }
+
+    .camera-actions {
+        flex-direction: column;
+    }
+
+    .face-action-btn {
+        width: 100%;
     }
 }

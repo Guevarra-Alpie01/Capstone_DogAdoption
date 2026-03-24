@@ -1,15 +1,15 @@
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth.validators import ASCIIUsernameValidator
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, DateTimeField, Exists, OuterRef, Prefetch, Q
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models.expressions import RawSQL
 import os
 import json
@@ -34,6 +34,7 @@ from django.utils.html import strip_tags
 from urllib.parse import urlencode
 
 # Shared models from the admin app
+from dogadoption_admin.access import get_staff_landing_url
 from dogadoption_admin.models import (
     AdminNotification,
     AnnouncementComment,
@@ -79,6 +80,10 @@ ACTIVE_BARANGAY_LOOKUP_CACHE_KEY = "user_active_barangay_lookup"
 ACTIVE_BARANGAY_LOOKUP_CACHE_TTL_SECONDS = 300
 DEFAULT_REQUEST_CITY = "Bayawan City"
 PHILIPPINES_COUNTRY_CODE = "+63"
+SIGNUP_USERNAME_MIN_LENGTH = 3
+SIGNUP_USERNAME_MAX_LENGTH = User._meta.get_field("username").max_length
+SIGNUP_FACE_CAPTURE_COUNT = 4
+_signup_username_validator = ASCIIUsernameValidator()
 
 
 def _safe_media_url(file_field):
@@ -144,6 +149,86 @@ def _build_request_action_url(request_id, action, *, next_url=""):
     if not next_url:
         return action_url
     return f"{action_url}?{urlencode({'next': next_url})}"
+
+
+def _normalize_signup_username(raw_username):
+    """Normalize signup usernames before validation and storage."""
+    return User.objects.model.normalize_username((raw_username or "").strip())
+
+
+def _build_signup_form_data(*, username="", first_name="", last_name="", raw_barangay=""):
+    """Preserve the safe, non-password signup fields across validation errors."""
+    return {
+        "username": username,
+        "first_name": first_name.strip(),
+        "last_name": last_name.strip(),
+        "address": _clean_barangay(raw_barangay),
+    }
+
+
+def _render_signup_error(request, signup_form_data, message):
+    """Re-open the signup modal with a single validation error message."""
+    return _render_home_with_auth_modal(
+        request,
+        "signup",
+        signup_error=message,
+        signup_form_data=signup_form_data,
+    )
+
+
+def _validate_signup_username(username):
+    """Require a safe username format and block case-insensitive duplicates."""
+    if not username:
+        raise ValidationError("Username is required.")
+    if len(username) < SIGNUP_USERNAME_MIN_LENGTH:
+        raise ValidationError(
+            f"Username must be at least {SIGNUP_USERNAME_MIN_LENGTH} characters long."
+        )
+    if len(username) > SIGNUP_USERNAME_MAX_LENGTH:
+        raise ValidationError(
+            f"Username must be {SIGNUP_USERNAME_MAX_LENGTH} characters or fewer."
+        )
+    _signup_username_validator(username)
+    if User.objects.filter(username__iexact=username).exists():
+        raise ValidationError("Username already exists.")
+    return username
+
+
+def _delete_temp_signup_face_images(image_paths):
+    """Remove temporary signup face images when a signup attempt is reset."""
+    for relative_path in image_paths or []:
+        full_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+        if os.path.exists(full_path):
+            os.remove(full_path)
+
+
+def _clear_signup_session_state(request, *, delete_temp_faces=False):
+    """Clear all temporary signup session state, optionally deleting temp files."""
+    if delete_temp_faces:
+        _delete_temp_signup_face_images(request.session.get("face_images_files", []))
+    request.session.pop("signup_data", None)
+    request.session.pop("face_images_files", None)
+    request.session.pop("signup_face_upload_token", None)
+
+
+def _clear_signup_face_progress(request):
+    """Reset captured face-auth progress while keeping typed signup details."""
+    _delete_temp_signup_face_images(request.session.get("face_images_files", []))
+    request.session.pop("face_images_files", None)
+    request.session.pop("signup_face_upload_token", None)
+    signup_data = request.session.get("signup_data")
+    if signup_data:
+        signup_data["consent_given"] = False
+        request.session["signup_data"] = signup_data
+
+
+def _has_pending_signup_face_progress(request):
+    """Return True when the session still has unfinished face-auth progress."""
+    signup_data = request.session.get("signup_data") or {}
+    return bool(
+        request.session.get("face_images_files")
+        and not signup_data.get("consent_given")
+    )
 
 
 def _build_registered_dog_payloads(dogs):
@@ -517,7 +602,7 @@ def user_only(view_func):
         if not request.user.is_authenticated:
             return redirect('user:login')
         if request.user.is_staff:
-            return redirect('dogadoption_admin:post_list')  # admin goes to admin dashboard
+            return redirect(get_staff_landing_url(request.user))
         return view_func(request, *args, **kwargs)
 
     return wrapper
@@ -527,7 +612,7 @@ def login_view(request):
     """Authenticate a user and redirect staff accounts to the admin app."""
     if request.user.is_authenticated:
         if request.user.is_staff:
-            return redirect("dogadoption_admin:post_list")
+            return redirect(get_staff_landing_url(request.user))
         return redirect("user:user_home")
 
     if request.method == "POST":
@@ -539,7 +624,7 @@ def login_view(request):
         if user is not None:
             if user.is_staff:
                 login(request, user)
-                response = redirect("dogadoption_admin:post_list")
+                response = redirect(get_staff_landing_url(user))
                 response.set_cookie("admin_sessionid", request.session.session_key)
                 return response
 
@@ -1755,65 +1840,48 @@ def signup_view(request):
     """Handle the first step of signup before face-auth enrollment."""
     if request.user.is_authenticated:
         if request.user.is_staff:
-            return redirect("dogadoption_admin:post_list")
+            return redirect(get_staff_landing_url(request.user))
         return redirect("user:user_home")
 
     if request.method == "POST":
-        username = (request.POST.get("username") or "").strip()
+        _clear_signup_face_progress(request)
+        username = _normalize_signup_username(request.POST.get("username"))
         password = request.POST.get("password") or ""
         confirm_password = request.POST.get("confirm_password") or ""
         first_name = (request.POST.get("first_name") or "").strip()
         last_name = (request.POST.get("last_name") or "").strip()
         raw_barangay = request.POST.get("address")
         barangay = _resolve_barangay_name(request.POST.get("address"))
-        signup_form_data = {
-            "username": username,
-            "first_name": first_name,
-            "last_name": last_name,
-            "address": _clean_barangay(raw_barangay),
-        }
-
-        if not username:
-            return _render_home_with_auth_modal(
-                request,
-                "signup",
-                signup_error="Username is required.",
-                signup_form_data=signup_form_data,
-            )
-
-        if User.objects.filter(username__iexact=username).exists():
-            return _render_home_with_auth_modal(
-                request,
-                "signup",
-                signup_error="Username already exists",
-                signup_form_data=signup_form_data,
-            )
-
-        if password != confirm_password:
-            return _render_home_with_auth_modal(
-                request,
-                "signup",
-                signup_error="Passwords do not match.",
-                signup_form_data=signup_form_data,
-            )
+        signup_form_data = _build_signup_form_data(
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            raw_barangay=raw_barangay,
+        )
 
         try:
-            temp_user = User(username=username, first_name=request.POST.get("first_name"), last_name=request.POST.get("last_name"))
+            _validate_signup_username(username)
+        except ValidationError as exc:
+            return _render_signup_error(request, signup_form_data, " ".join(exc.messages))
+
+        if password != confirm_password:
+            return _render_signup_error(request, signup_form_data, "Passwords do not match.")
+
+        try:
+            temp_user = User(
+                username=username,
+                first_name=first_name,
+                last_name=last_name,
+            )
             validate_password(password, user=temp_user)
         except ValidationError as exc:
-            return _render_home_with_auth_modal(
-                request,
-                "signup",
-                signup_error=" ".join(exc.messages),
-                signup_form_data=signup_form_data,
-            )
+            return _render_signup_error(request, signup_form_data, " ".join(exc.messages))
 
         if not barangay:
-            return _render_home_with_auth_modal(
+            return _render_signup_error(
                 request,
-                "signup",
-                signup_error="Please select a valid barangay from the suggestions.",
-                signup_form_data=signup_form_data,
+                signup_form_data,
+                "Please select a valid barangay from the suggestions.",
             )
 
         # SAVE DATA TEMPORARILY (SESSION)
@@ -1825,6 +1893,7 @@ def signup_view(request):
             "middle_initial": "",
             "address": barangay,
             "age": 18,
+            "consent_given": False,
         }
 
         # GO TO FACE AUTH STEP
@@ -1927,45 +1996,76 @@ def view_requester_profile(request, user_id):
     )
 
 
-@csrf_exempt
 def face_auth(request):
     """Render the face-auth capture step during signup."""
     if "signup_data" not in request.session:
         return redirect("user:signup")
-    return render(request, "face_auth.html")
+    terms_required = "face_images_files" in request.session and not request.session["signup_data"].get("consent_given")
+    return render(
+        request,
+        "face_auth.html",
+        {
+            "expected_capture_count": SIGNUP_FACE_CAPTURE_COUNT,
+            "terms_required": terms_required,
+        },
+    )
 
-@csrf_exempt
+
+@require_POST
+def reset_signup_capture(request):
+    """Discard unfinished face-auth progress when the user leaves the capture flow."""
+    if "signup_data" in request.session:
+        _clear_signup_face_progress(request)
+    return JsonResponse({"status": "ok"})
+
+@require_POST
 def save_face(request):
     """Persist captured signup face images into temporary storage."""
-    if request.method != "POST":
-        return JsonResponse({"status": "error"}, status=400)
-
     if "signup_data" not in request.session:
         return JsonResponse({"status": "error", "message": "Signup step missing"}, status=400)
 
-    data = json.loads(request.body.decode("utf-8"))
-    images = data.get("images", [])
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return JsonResponse({"status": "error", "message": "Invalid capture payload."}, status=400)
 
-    if not images or len(images) < 3:
-        return JsonResponse({"status": "error", "message": "At least 3 images required"}, status=400)
+    images = [
+        image for image in (data.get("images") or [])
+        if isinstance(image, str) and ";base64," in image
+    ]
+
+    if len(images) < SIGNUP_FACE_CAPTURE_COUNT:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": f"At least {SIGNUP_FACE_CAPTURE_COUNT} face captures are required.",
+            },
+            status=400,
+        )
 
     temp_dir = os.path.join(settings.MEDIA_ROOT, "temp_faces")
     os.makedirs(temp_dir, exist_ok=True)
+    _delete_temp_signup_face_images(request.session.get("face_images_files", []))
     saved_files = []
+    upload_token = request.session.setdefault("signup_face_upload_token", secrets.token_hex(12))
 
-    for idx, img_data in enumerate(images):
-        if ";base64," not in img_data:
-            continue
-        format, imgstr = img_data.split(";base64,")
-        filename = f"{request.session['signup_data']['username']}_{idx}.png"
-        filepath = os.path.join(temp_dir, filename)
-        with open(filepath, "wb") as f:
-            f.write(base64.b64decode(imgstr))
-        saved_files.append(f"temp_faces/{filename}")
+    try:
+        for idx, img_data in enumerate(images[:SIGNUP_FACE_CAPTURE_COUNT]):
+            _, imgstr = img_data.split(";base64,", 1)
+            decoded_image = base64.b64decode(imgstr)
+            filename = f"{upload_token}_{idx}.png"
+            filepath = os.path.join(temp_dir, filename)
+            with open(filepath, "wb") as f:
+                f.write(decoded_image)
+            saved_files.append(f"temp_faces/{filename}")
+    except (ValueError, binascii.Error):
+        _delete_temp_signup_face_images(saved_files)
+        return JsonResponse({"status": "error", "message": "One or more captures were invalid. Please try again."}, status=400)
 
     request.session["face_images_files"] = saved_files
-    return JsonResponse({"status": "ok"})
+    return JsonResponse({"status": "ok", "count": len(saved_files)})
 
+@require_POST
 def signup_complete(request):
     """Create the user account after signup and face-auth capture succeed."""
     if "signup_data" not in request.session or "face_images_files" not in request.session:
@@ -1973,39 +2073,89 @@ def signup_complete(request):
 
     data = request.session["signup_data"]
     images_files = request.session["face_images_files"]
-
-    # Create user
-    user = User.objects.create_user(
-        username=data["username"],
-        password=data["password"],
-        first_name=data["first_name"],
-        last_name=data["last_name"]
+    agree_terms = (request.POST.get("agree_terms") or "").strip() == "1"
+    username = _normalize_signup_username(data.get("username"))
+    signup_form_data = _build_signup_form_data(
+        username=username,
+        first_name=data.get("first_name", ""),
+        last_name=data.get("last_name", ""),
+        raw_barangay=data.get("address", ""),
     )
 
-    # Create profile
-    profile = Profile.objects.create(
-        user=user,
-        middle_initial=data.get("middle_initial", ""),
-        address=data.get("address", ""),
-        age=data.get("age", 18),
-        consent_given=True,
-        profile_image=_ensure_default_profile_image_exists(),
-    )
+    if not agree_terms:
+        return render(
+            request,
+            "face_auth.html",
+            {
+                "expected_capture_count": SIGNUP_FACE_CAPTURE_COUNT,
+                "terms_required": True,
+                "terms_error": "You must agree to the Face ID verification terms to complete signup.",
+            },
+        )
 
-    # Move temp images into FaceImage model
-    for path in images_files:
-        full_path = os.path.join(settings.MEDIA_ROOT, path)
-        with open(full_path, "rb") as f:
-            FaceImage.objects.create(
-                user=user,
-                image=ContentFile(f.read(), name=os.path.basename(path))
+    data["consent_given"] = True
+    request.session["signup_data"] = data
+
+    try:
+        _validate_signup_username(username)
+        validate_password(
+            data["password"],
+            user=User(
+                username=username,
+                first_name=data.get("first_name", ""),
+                last_name=data.get("last_name", ""),
+            ),
+        )
+    except ValidationError as exc:
+        _clear_signup_session_state(request, delete_temp_faces=True)
+        return _render_signup_error(
+            request,
+            signup_form_data,
+            " ".join(exc.messages),
+        )
+
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=username,
+                password=data["password"],
+                first_name=data["first_name"],
+                last_name=data["last_name"],
             )
-        # Remove temp file
-        os.remove(full_path)
 
-    # Clear session
-    request.session.pop("signup_data", None)
-    request.session.pop("face_images_files", None)
+            Profile.objects.create(
+                user=user,
+                middle_initial=data.get("middle_initial", ""),
+                address=data.get("address", ""),
+                age=data.get("age", 18),
+                consent_given=bool(data.get("consent_given")),
+                profile_image=_ensure_default_profile_image_exists(),
+            )
+
+            for path in images_files:
+                full_path = os.path.join(settings.MEDIA_ROOT, path)
+                with open(full_path, "rb") as f:
+                    FaceImage.objects.create(
+                        user=user,
+                        image=ContentFile(f.read(), name=os.path.basename(path)),
+                    )
+    except IntegrityError:
+        _clear_signup_session_state(request, delete_temp_faces=True)
+        return _render_signup_error(
+            request,
+            signup_form_data,
+            "Username already exists. Please choose a different one and sign up again.",
+        )
+    except FileNotFoundError:
+        _clear_signup_session_state(request, delete_temp_faces=True)
+        return _render_signup_error(
+            request,
+            signup_form_data,
+            "Face capture files were not found. Please sign up again.",
+        )
+
+    _delete_temp_signup_face_images(images_files)
+    _clear_signup_session_state(request)
 
     messages.success(request, "Account created successfully. Please log in.")
     return redirect("user:login")
@@ -2073,7 +2223,10 @@ def user_home(request):
     """Render the mixed public feed and handle quick post creation from home."""
     # Redirect staff to admin dashboard
     if request.user.is_authenticated and request.user.is_staff:
-        return redirect('dogadoption_admin:post_list')
+        return redirect(get_staff_landing_url(request.user))
+
+    if not request.user.is_authenticated and _has_pending_signup_face_progress(request):
+        _clear_signup_face_progress(request)
 
     selected_type = request.GET.get("type", "adoption")
     adoption_form = _build_user_adoption_post_form()
@@ -2106,7 +2259,7 @@ def user_home(request):
 def home_search(request):
     """Search the public home feed across staff and user-created posts."""
     if request.user.is_authenticated and request.user.is_staff:
-        return redirect("dogadoption_admin:post_list")
+        return redirect(get_staff_landing_url(request.user))
 
     query = _normalized_search_query(request.GET.get("q"))
     search_performed = bool(query)

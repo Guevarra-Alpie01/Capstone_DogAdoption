@@ -79,7 +79,7 @@
         <button class="btn btn-sm text-white d-none d-lg-block" id="sidebarToggle">
             <span class="navbar-toggler-icon"></span>
         </button>
-        <a class="navbar-brand admin-brand" href="{% url 'dogadoption_admin:post_list' %}">
+        <a class="navbar-brand admin-brand" href="{{ admin_access.landing_url }}">
             <img src="{% static 'images/officialseal.webp' %}" alt="Logo" class="admin-brand-logo">
             <span class="admin-brand-text">
                 <span class="admin-brand-main">Bayawan</span>
@@ -88,38 +88,40 @@
         </a>
 
         <div class="d-flex ms-auto align-items-center gap-2">
-                            <div class="dropdown" data-admin-notification-dropdown>
-                                <a class="btn p-0 nav-bell topbar-icon-btn" href="#" role="button" id="notifDropdown" data-admin-notification-toggle data-summary-url="{{ admin_notifications_summary_url }}" data-unread-count="{{ admin_unread_notifications }}" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
-                                    <i class="bi bi-bell-fill"></i>
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end notification-dropdown admin-notification-dropdown" aria-labelledby="notifDropdown">
-                                    <li class="notification-dropdown-head">
-                                        <div class="notification-head-copy">
-                                            <div class="notification-heading-row">
-                                                <h6>Notifications</h6>
-                                                <span class="notification-count-chip" data-admin-notification-summary-count hidden></span>
-                                            </div>
-                                        </div>
-                                    </li>
-                                    <div data-admin-notification-list>
-                                        <li>
-                                            <div class="notification-empty">
-                                                <span class="notification-empty-icon" aria-hidden="true">
-                                                    <i class="bi bi-inbox"></i>
-                                                </span>
-                                                <strong>No alerts yet</strong>
-                                                <span>New reminders and system activity will appear here.</span>
+                            {% if admin_access.is_full_admin %}
+                                <div class="dropdown" data-admin-notification-dropdown>
+                                    <a class="btn p-0 nav-bell topbar-icon-btn" href="#" role="button" id="notifDropdown" data-admin-notification-toggle data-summary-url="{{ admin_notifications_summary_url }}" data-unread-count="{{ admin_unread_notifications }}" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
+                                        <i class="bi bi-bell-fill"></i>
+                                    </a>
+                                    <ul class="dropdown-menu dropdown-menu-end notification-dropdown admin-notification-dropdown" aria-labelledby="notifDropdown">
+                                        <li class="notification-dropdown-head">
+                                            <div class="notification-head-copy">
+                                                <div class="notification-heading-row">
+                                                    <h6>Notifications</h6>
+                                                    <span class="notification-count-chip" data-admin-notification-summary-count hidden></span>
+                                                </div>
                                             </div>
                                         </li>
-                                    </div>
-                                    <li class="notification-dropdown-footer">
-                                        <a class="dropdown-item notification-footer-link" href="{% url 'dogadoption_admin:admin_notifications' %}">
-                                            View all alerts
-                                            <i class="bi bi-arrow-right" aria-hidden="true"></i>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </div>
+                                        <div data-admin-notification-list>
+                                            <li>
+                                                <div class="notification-empty">
+                                                    <span class="notification-empty-icon" aria-hidden="true">
+                                                        <i class="bi bi-inbox"></i>
+                                                    </span>
+                                                    <strong>No alerts yet</strong>
+                                                    <span>New reminders and system activity will appear here.</span>
+                                                </div>
+                                            </li>
+                                        </div>
+                                        <li class="notification-dropdown-footer">
+                                            <a class="dropdown-item notification-footer-link" href="{% url 'dogadoption_admin:admin_notifications' %}">
+                                                View all alerts
+                                                <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            {% endif %}
                             <div class="dropdown profile-menu-shift">
                                 <a class="btn p-0 topbar-avatar-btn" href="#" role="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                                     {% if request.user.profile.profile_image %}
@@ -131,7 +133,9 @@
 
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                                     <li><h6 class="dropdown-header">User Options</h6></li> 
-                                    <li><a href="{% url 'dogadoption_admin:admin_users' %}" class="dropdown-item">Users</a></li>
+                                    {% if admin_access.can_access_users %}
+                                        <li><a href="{% url 'dogadoption_admin:admin_users' %}" class="dropdown-item">Users</a></li>
+                                    {% endif %}
                                     <li><a href="{% url 'dogadoption_admin:admin_edit_profile' %}" class="dropdown-item">Profile</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a href="{% url 'dogadoption_admin:admin_logout' %}" class="dropdown-item">Log out</a></li>
@@ -193,26 +197,36 @@
 <nav class="navbar fixed-bottom d-lg-none border-top app-bottom-nav">
     <div class="container-fluid justify-content-around">
         {% url 'dogadoption_admin:analytics_dashboard' as analytics_dashboard_url %}
-        <a href="{% url 'dogadoption_admin:post_list' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'post_list' or request.resolver_match.url_name == 'create_post' or request.resolver_match.url_name == 'adoption_requests' or request.resolver_match.url_name == 'claim_requests' or request.resolver_match.url_name == 'update_request' %}is-active{% endif %}">
-            <i class="bi bi-house-door-fill bottom-nav-icon"></i>
-            <small class="bottom-nav-label">Home</small>
-        </a>
-        <a href="{% url 'dogadoption_admin:requests' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'requests' or request.resolver_match.url_name == 'update_dog_capture_request' %}is-active{% endif %}">
-            <i class="bi bi-clipboard2-check-fill bottom-nav-icon"></i>
-            <small class="bottom-nav-label">Requests</small>
-        </a>
-         <a href="{% url 'dogadoption_admin:register_dogs' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'register_dogs' or request.resolver_match.url_name == 'registration_record' or request.resolver_match.url_name == 'download_registration' or request.resolver_match.url_name == 'med_records' or request.resolver_match.url_name == 'dog_certificate' or request.resolver_match.url_name == 'certificate_print' or request.resolver_match.url_name == 'certificate_list' or request.resolver_match.url_name == 'export_certificates_pdf' or request.resolver_match.url_name == 'export_certificates_word' or request.resolver_match.url_name == 'export_certificates_excel' or request.resolver_match.url_name == 'bulk_certificate_print' or request.resolver_match.url_name == 'citation_create' or request.resolver_match.url_name == 'citation_print' or request.resolver_match.url_name == 'penalty_manage' %}is-active{% endif %}">
-            <i class="bi bi-person-vcard-fill bottom-nav-icon"></i>
-            <small class="bottom-nav-label">Register</small>
-        </a>
-        <a href="{% url 'dogadoption_admin:admin_announcements' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'admin_announcements' or request.resolver_match.url_name == 'announcement_create' or request.resolver_match.url_name == 'announcement_create_form' or request.resolver_match.url_name == 'announcement_edit' or request.resolver_match.url_name == 'announcement_update_bucket' or request.resolver_match.url_name == 'announcement_delete' %}is-active{% endif %}">
-            <i class="bi bi-megaphone-fill bottom-nav-icon"></i>
-            <small class="bottom-nav-label">Alerts</small>
-        </a>
-        <a href="{{ analytics_dashboard_url }}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'analytics_dashboard' or '/analytics/dashboard/' in request.path %}is-active{% endif %}">
-            <i class="bi bi-bar-chart-line-fill bottom-nav-icon"></i>
-            <small class="bottom-nav-label">Analytics</small>
-        </a>
+        {% if admin_access.can_access_posts_dashboard %}
+            <a href="{% url 'dogadoption_admin:post_list' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'post_list' or request.resolver_match.url_name == 'create_post' or request.resolver_match.url_name == 'adoption_requests' or request.resolver_match.url_name == 'claim_requests' or request.resolver_match.url_name == 'update_request' %}is-active{% endif %}">
+                <i class="bi bi-house-door-fill bottom-nav-icon"></i>
+                <small class="bottom-nav-label">Home</small>
+            </a>
+        {% endif %}
+        {% if admin_access.can_manage_capture_requests %}
+            <a href="{% url 'dogadoption_admin:requests' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'requests' or request.resolver_match.url_name == 'update_dog_capture_request' %}is-active{% endif %}">
+                <i class="bi bi-clipboard2-check-fill bottom-nav-icon"></i>
+                <small class="bottom-nav-label">Requests</small>
+            </a>
+        {% endif %}
+        {% if admin_access.can_access_register_area %}
+             <a href="{% url 'dogadoption_admin:register_dogs' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'register_dogs' or request.resolver_match.url_name == 'registration_record' or request.resolver_match.url_name == 'download_registration' or request.resolver_match.url_name == 'med_records' or request.resolver_match.url_name == 'dog_certificate' or request.resolver_match.url_name == 'certificate_print' or request.resolver_match.url_name == 'certificate_list' or request.resolver_match.url_name == 'export_certificates_pdf' or request.resolver_match.url_name == 'export_certificates_word' or request.resolver_match.url_name == 'export_certificates_excel' or request.resolver_match.url_name == 'bulk_certificate_print' or request.resolver_match.url_name == 'citation_create' or request.resolver_match.url_name == 'citation_print' or request.resolver_match.url_name == 'penalty_manage' %}is-active{% endif %}">
+                <i class="bi bi-person-vcard-fill bottom-nav-icon"></i>
+                <small class="bottom-nav-label">Register</small>
+            </a>
+        {% endif %}
+        {% if admin_access.can_access_announcements %}
+            <a href="{% url 'dogadoption_admin:admin_announcements' %}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'admin_announcements' or request.resolver_match.url_name == 'announcement_create' or request.resolver_match.url_name == 'announcement_create_form' or request.resolver_match.url_name == 'announcement_edit' or request.resolver_match.url_name == 'announcement_update_bucket' or request.resolver_match.url_name == 'announcement_delete' %}is-active{% endif %}">
+                <i class="bi bi-megaphone-fill bottom-nav-icon"></i>
+                <small class="bottom-nav-label">Alerts</small>
+            </a>
+        {% endif %}
+        {% if admin_access.can_access_analytics %}
+            <a href="{{ analytics_dashboard_url }}" class="nav-link text-center text-dark p-0 bottom-nav-link {% if request.resolver_match.url_name == 'analytics_dashboard' or '/analytics/dashboard/' in request.path %}is-active{% endif %}">
+                <i class="bi bi-bar-chart-line-fill bottom-nav-icon"></i>
+                <small class="bottom-nav-label">Analytics</small>
+            </a>
+        {% endif %}
     </div>
 </nav>
 
@@ -269,174 +283,176 @@
             });
         }
 
-        const adminNotificationDropdown = document.querySelector('[data-admin-notification-dropdown]');
-        const adminNotificationToggle = document.querySelector('[data-admin-notification-toggle]');
-        const csrfToken = (document.cookie.split('; ').find((row) => row.startsWith('csrftoken=')) || '').split('=')[1] || '';
+        {% if admin_access.is_full_admin %}
+            const adminNotificationDropdown = document.querySelector('[data-admin-notification-dropdown]');
+            const adminNotificationToggle = document.querySelector('[data-admin-notification-toggle]');
+            const csrfToken = (document.cookie.split('; ').find((row) => row.startsWith('csrftoken=')) || '').split('=')[1] || '';
 
-        if (adminNotificationDropdown && adminNotificationToggle) {
-            const summaryUrl = adminNotificationToggle.dataset.summaryUrl || '';
-            const notificationList = adminNotificationDropdown.querySelector('[data-admin-notification-list]');
-            const summaryBadge = adminNotificationDropdown.querySelector('[data-admin-notification-summary-count]');
+            if (adminNotificationDropdown && adminNotificationToggle) {
+                const summaryUrl = adminNotificationToggle.dataset.summaryUrl || '';
+                const notificationList = adminNotificationDropdown.querySelector('[data-admin-notification-list]');
+                const summaryBadge = adminNotificationDropdown.querySelector('[data-admin-notification-summary-count]');
 
-            function notificationMeta(title) {
-                if ((title || '').indexOf('Vaccination') !== -1) return { iconClass: 'is-vaccine', icon: 'bi-shield-plus', tag: 'Vaccination' };
-                if ((title || '').indexOf('Medicine') !== -1) return { iconClass: 'is-medicine', icon: 'bi-capsule-pill', tag: 'Medicine' };
-                return { iconClass: 'is-general', icon: 'bi-bell-fill', tag: 'Alert' };
-            }
-
-            function renderBadge(unreadCount) {
-                adminNotificationToggle.dataset.unreadCount = String(unreadCount || 0);
-                let badge = adminNotificationToggle.querySelector('.notification-badge');
-                if (unreadCount > 0) {
-                    if (!badge) {
-                        badge = document.createElement('span');
-                        badge.className = 'notification-badge';
-                        adminNotificationToggle.appendChild(badge);
-                    }
-                    badge.textContent = String(unreadCount);
-                    if (summaryBadge) {
-                        summaryBadge.hidden = false;
-                        summaryBadge.textContent = `${unreadCount} new`;
-                    }
-                } else {
-                    if (badge) {
-                        badge.remove();
-                    }
-                    if (summaryBadge) {
-                        summaryBadge.hidden = true;
-                        summaryBadge.textContent = '';
-                    }
-                }
-            }
-
-            function renderEmpty() {
-                if (!notificationList) {
-                    return;
-                }
-                notificationList.innerHTML = `
-                                        <li>
-                                            <div class="notification-empty">
-                                                <span class="notification-empty-icon" aria-hidden="true">
-                                                    <i class="bi bi-inbox"></i>
-                                                </span>
-                                                <strong>No alerts yet</strong>
-                                                <span>New reminders and system activity will appear here.</span>
-                                            </div>
-                                        </li>`;
-            }
-
-            function renderNotifications(items) {
-                if (!notificationList) {
-                    return;
-                }
-                notificationList.innerHTML = '';
-                if (!items.length) {
-                    renderEmpty();
-                    return;
+                function notificationMeta(title) {
+                    if ((title || '').indexOf('Vaccination') !== -1) return { iconClass: 'is-vaccine', icon: 'bi-shield-plus', tag: 'Vaccination' };
+                    if ((title || '').indexOf('Medicine') !== -1) return { iconClass: 'is-medicine', icon: 'bi-capsule-pill', tag: 'Medicine' };
+                    return { iconClass: 'is-general', icon: 'bi-bell-fill', tag: 'Alert' };
                 }
 
-                items.forEach(function (item) {
-                    const meta = notificationMeta(item.title);
-                    const li = document.createElement('li');
-                    const form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = item.read_url;
-
-                    const csrfInput = document.createElement('input');
-                    csrfInput.type = 'hidden';
-                    csrfInput.name = 'csrfmiddlewaretoken';
-                    csrfInput.value = decodeURIComponent(csrfToken);
-                    form.appendChild(csrfInput);
-
-                    const button = document.createElement('button');
-                    button.type = 'submit';
-                    button.className = `dropdown-item notification-item${item.is_read ? '' : ' unread'}`;
-
-                    const icon = document.createElement('span');
-                    icon.className = `admin-notification-icon ${meta.iconClass}`;
-                    icon.setAttribute('aria-hidden', 'true');
-                    icon.innerHTML = `<i class="bi ${meta.icon}"></i>`;
-
-                    const copy = document.createElement('span');
-                    copy.className = 'notification-copy';
-                    const row = document.createElement('span');
-                    row.className = 'notification-row';
-                    const tag = document.createElement('span');
-                    tag.className = 'notification-tag';
-                    tag.textContent = meta.tag;
-                    row.appendChild(tag);
-
-                    if (!item.is_read) {
-                        const state = document.createElement('span');
-                        state.className = 'notification-state';
-                        state.textContent = 'Unread';
-                        row.appendChild(state);
+                function renderBadge(unreadCount) {
+                    adminNotificationToggle.dataset.unreadCount = String(unreadCount || 0);
+                    let badge = adminNotificationToggle.querySelector('.notification-badge');
+                    if (unreadCount > 0) {
+                        if (!badge) {
+                            badge = document.createElement('span');
+                            badge.className = 'notification-badge';
+                            adminNotificationToggle.appendChild(badge);
+                        }
+                        badge.textContent = String(unreadCount);
+                        if (summaryBadge) {
+                            summaryBadge.hidden = false;
+                            summaryBadge.textContent = `${unreadCount} new`;
+                        }
+                    } else {
+                        if (badge) {
+                            badge.remove();
+                        }
+                        if (summaryBadge) {
+                            summaryBadge.hidden = true;
+                            summaryBadge.textContent = '';
+                        }
                     }
-
-                    const title = document.createElement('span');
-                    title.className = 'notif-title';
-                    title.textContent = item.title || '';
-                    copy.appendChild(row);
-                    copy.appendChild(title);
-
-                    if (item.message) {
-                        const message = document.createElement('span');
-                        message.className = 'notif-message';
-                        message.textContent = item.message;
-                        copy.appendChild(message);
-                    }
-
-                    const time = document.createElement('span');
-                    time.className = 'notif-time';
-                    time.innerHTML = '<i class="bi bi-clock-history" aria-hidden="true"></i> ';
-                    time.appendChild(document.createTextNode(item.created_label || ''));
-                    copy.appendChild(time);
-
-                    const chevron = document.createElement('span');
-                    chevron.className = 'admin-notification-chevron';
-                    chevron.setAttribute('aria-hidden', 'true');
-                    chevron.innerHTML = '<i class="bi bi-chevron-right"></i>';
-
-                    button.appendChild(icon);
-                    button.appendChild(copy);
-                    button.appendChild(chevron);
-                    form.appendChild(button);
-                    li.appendChild(form);
-                    notificationList.appendChild(li);
-                });
-            }
-
-            function loadAdminNotifications() {
-                if (!summaryUrl) {
-                    return;
                 }
-                fetch(summaryUrl, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    credentials: 'same-origin'
-                }).then(function (response) {
-                    if (!response.ok) {
-                        return null;
-                    }
-                    return response.json();
-                }).then(function (payload) {
-                    if (!payload) {
+
+                function renderEmpty() {
+                    if (!notificationList) {
                         return;
                     }
-                    renderBadge(payload.unread_count || 0);
-                    renderNotifications(payload.notifications || []);
-                }).catch(function () {
-                    // Ignore transient navbar hydration failures.
+                    notificationList.innerHTML = `
+                                            <li>
+                                                <div class="notification-empty">
+                                                    <span class="notification-empty-icon" aria-hidden="true">
+                                                        <i class="bi bi-inbox"></i>
+                                                    </span>
+                                                    <strong>No alerts yet</strong>
+                                                    <span>New reminders and system activity will appear here.</span>
+                                                </div>
+                                            </li>`;
+                }
+
+                function renderNotifications(items) {
+                    if (!notificationList) {
+                        return;
+                    }
+                    notificationList.innerHTML = '';
+                    if (!items.length) {
+                        renderEmpty();
+                        return;
+                    }
+
+                    items.forEach(function (item) {
+                        const meta = notificationMeta(item.title);
+                        const li = document.createElement('li');
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = item.read_url;
+
+                        const csrfInput = document.createElement('input');
+                        csrfInput.type = 'hidden';
+                        csrfInput.name = 'csrfmiddlewaretoken';
+                        csrfInput.value = decodeURIComponent(csrfToken);
+                        form.appendChild(csrfInput);
+
+                        const button = document.createElement('button');
+                        button.type = 'submit';
+                        button.className = `dropdown-item notification-item${item.is_read ? '' : ' unread'}`;
+
+                        const icon = document.createElement('span');
+                        icon.className = `admin-notification-icon ${meta.iconClass}`;
+                        icon.setAttribute('aria-hidden', 'true');
+                        icon.innerHTML = `<i class="bi ${meta.icon}"></i>`;
+
+                        const copy = document.createElement('span');
+                        copy.className = 'notification-copy';
+                        const row = document.createElement('span');
+                        row.className = 'notification-row';
+                        const tag = document.createElement('span');
+                        tag.className = 'notification-tag';
+                        tag.textContent = meta.tag;
+                        row.appendChild(tag);
+
+                        if (!item.is_read) {
+                            const state = document.createElement('span');
+                            state.className = 'notification-state';
+                            state.textContent = 'Unread';
+                            row.appendChild(state);
+                        }
+
+                        const title = document.createElement('span');
+                        title.className = 'notif-title';
+                        title.textContent = item.title || '';
+                        copy.appendChild(row);
+                        copy.appendChild(title);
+
+                        if (item.message) {
+                            const message = document.createElement('span');
+                            message.className = 'notif-message';
+                            message.textContent = item.message;
+                            copy.appendChild(message);
+                        }
+
+                        const time = document.createElement('span');
+                        time.className = 'notif-time';
+                        time.innerHTML = '<i class="bi bi-clock-history" aria-hidden="true"></i> ';
+                        time.appendChild(document.createTextNode(item.created_label || ''));
+                        copy.appendChild(time);
+
+                        const chevron = document.createElement('span');
+                        chevron.className = 'admin-notification-chevron';
+                        chevron.setAttribute('aria-hidden', 'true');
+                        chevron.innerHTML = '<i class="bi bi-chevron-right"></i>';
+
+                        button.appendChild(icon);
+                        button.appendChild(copy);
+                        button.appendChild(chevron);
+                        form.appendChild(button);
+                        li.appendChild(form);
+                        notificationList.appendChild(li);
+                    });
+                }
+
+                function loadAdminNotifications() {
+                    if (!summaryUrl) {
+                        return;
+                    }
+                    fetch(summaryUrl, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    }).then(function (response) {
+                        if (!response.ok) {
+                            return null;
+                        }
+                        return response.json();
+                    }).then(function (payload) {
+                        if (!payload) {
+                            return;
+                        }
+                        renderBadge(payload.unread_count || 0);
+                        renderNotifications(payload.notifications || []);
+                    }).catch(function () {
+                        // Ignore transient navbar hydration failures.
+                    });
+                }
+
+                loadAdminNotifications();
+                adminNotificationDropdown.addEventListener('shown.bs.dropdown', function () {
+                    const unreadCount = parseInt(adminNotificationToggle.dataset.unreadCount || '0', 10);
+                    adminNotificationToggle.setAttribute('aria-label', unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications');
                 });
             }
-
-            loadAdminNotifications();
-            adminNotificationDropdown.addEventListener('shown.bs.dropdown', function () {
-                const unreadCount = parseInt(adminNotificationToggle.dataset.unreadCount || '0', 10);
-                adminNotificationToggle.setAttribute('aria-label', unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications');
-            });
-        }
+        {% endif %}
 
         function hideToast(toast) {
             if (!toast || toast.dataset.closed === "1") {

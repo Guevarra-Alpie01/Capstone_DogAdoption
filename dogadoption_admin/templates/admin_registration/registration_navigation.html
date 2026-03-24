@@ -3,30 +3,42 @@
 
 <div class="subtop-nav">
   {% with request.resolver_match.url_name as url_name %}
-    <a href="{% url 'dogadoption_admin:register_dogs' %}" 
-       class="nav-item {% if url_name == 'register_dogs' %}active{% endif %}">Registration</a>
-       
-    <a href="{% url 'dogadoption_admin:registration_record' %}" 
-       class="nav-item {% if url_name == 'registration_record' %}active{% endif %}">Registration List</a>
-       
-    <a href="{% url 'dogadoption_admin:dog_certificate' %}" 
-       class="nav-item {% if url_name == 'dog_certificate' %}active{% endif %}">Vaccination</a>
-      
-   {% if registration %}
-<a href="{% url 'dogadoption_admin:med_records' registration.id %}"
-   class="nav-item {% if url_name == 'med_records' %}active{% endif %}">
-   Medical Records
-</a>
-{% endif %}
+    {% if admin_access.can_access_registration %}
+      <a href="{% url 'dogadoption_admin:register_dogs' %}" 
+         class="nav-item {% if url_name == 'register_dogs' %}active{% endif %}">Registration</a>
+    {% endif %}
 
-    <a href="{% url 'dogadoption_admin:certificate_list' %}" 
-       class="nav-item {% if url_name == 'certificate_list' %}active{% endif %}">VaccinationList</a>
+    {% if admin_access.can_access_registration_list %}
+      <a href="{% url 'dogadoption_admin:registration_record' %}" 
+         class="nav-item {% if url_name == 'registration_record' %}active{% endif %}">Registration List</a>
+    {% endif %}
 
-    <a href="{% url 'dogadoption_admin:citation_create' %}" 
-       class="nav-item {% if url_name == 'citation_create' %}active{% endif %}">Citation</a>
+    {% if admin_access.can_access_vaccination %}
+      <a href="{% url 'dogadoption_admin:dog_certificate' %}" 
+         class="nav-item {% if url_name == 'dog_certificate' %}active{% endif %}">Vaccination</a>
+    {% endif %}
 
-    <a href="{% url 'dogadoption_admin:admin_users' %}" 
-       class="nav-item {% if url_name == 'admin_users' or url_name == 'admin_user_search' or url_name == 'admin_user_detail' %}active{% endif %}">Users</a>
+    {% if registration and admin_access.can_access_vaccination %}
+      <a href="{% url 'dogadoption_admin:med_records' registration.id %}"
+         class="nav-item {% if url_name == 'med_records' %}active{% endif %}">
+         Medical Records
+      </a>
+    {% endif %}
+
+    {% if admin_access.can_access_vaccination_list %}
+      <a href="{% url 'dogadoption_admin:certificate_list' %}" 
+         class="nav-item {% if url_name == 'certificate_list' %}active{% endif %}">VaccinationList</a>
+    {% endif %}
+
+    {% if admin_access.can_access_citations %}
+      <a href="{% url 'dogadoption_admin:citation_create' %}" 
+         class="nav-item {% if url_name == 'citation_create' %}active{% endif %}">Citation</a>
+    {% endif %}
+
+    {% if admin_access.can_access_users %}
+      <a href="{% url 'dogadoption_admin:admin_users' %}" 
+         class="nav-item {% if url_name == 'admin_users' or url_name == 'admin_user_search' or url_name == 'admin_user_detail' %}active{% endif %}">Users</a>
+    {% endif %}
 
 
   {% endwith %}

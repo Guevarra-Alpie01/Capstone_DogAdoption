@@ -56,7 +56,15 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from django.views.decorators.http import require_http_methods, require_POST
 
-from .forms import CitationForm, PenaltyForm, PostForm, SectionForm
+from .access import (
+    STAFF_PERMISSION_FIELDS,
+    STAFF_PERMISSION_GROUPS,
+    get_admin_access,
+    get_staff_landing_url,
+    get_staff_permission_summary,
+    is_route_allowed,
+)
+from .forms import CitationForm, ManagedStaffAccountForm, PenaltyForm, PostForm, SectionForm
 from .admin_notification_utils import sync_expiry_notifications
 from .cache_utils import ANALYTICS_DASHBOARD_CACHE_KEY
 from .context_processors import (
@@ -81,6 +89,7 @@ from .models import (
     Post,
     PostImage,
     PostRequest,
+    StaffAccess,
     VaccinationRecord,
 )
 from user.models import (
@@ -1057,6 +1066,12 @@ def admin_required(view_func):
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated or not request.user.is_staff:
             return redirect('user:login')
+        access = get_admin_access(request.user)
+        route_name = getattr(getattr(request, "resolver_match", None), "url_name", "") or view_func.__name__
+        if not is_route_allowed(access, route_name):
+            messages.error(request, "You do not have access to that section.")
+            return redirect(access.get("landing_url") or reverse("dogadoption_admin:admin_edit_profile"))
+        request.admin_access = access
         return view_func(request, *args, **kwargs)
 
     return wrapper
@@ -1084,6 +1099,10 @@ def admin_logout(request):
 @admin_required
 def create_post(request):
     """Create a rescue post from the admin home screen."""
+    access = getattr(request, "admin_access", get_admin_access(request.user))
+    if not access.get("can_create_posts"):
+        messages.error(request, "You do not have permission to create posts.")
+        return redirect(access.get("landing_url") or reverse("dogadoption_admin:admin_edit_profile"))
     if request.method == 'POST':
         post_form = PostForm(request.POST)
 
@@ -1112,15 +1131,22 @@ def create_post(request):
 @admin_required
 def post_list(request):
     """Render the post board and handle quick-create or appointment updates."""
+    access = getattr(request, "admin_access", get_admin_access(request.user))
     show_create_modal = False
     show_appointment_modal = request.method == "GET" and (
         request.GET.get("open_appointment", "").lower() in {"1", "true", "yes"}
     )
+    if show_appointment_modal and not access.get("is_full_admin"):
+        messages.error(request, "Only the admin can set appointment dates.")
+        show_appointment_modal = False
     post_form = PostForm()
     if request.method == 'POST':
         form_type = (request.POST.get("form_type") or "").strip()
 
         if form_type == "appointment_dates":
+            if not access.get("is_full_admin"):
+                messages.error(request, "Only the admin can set appointment dates.", extra_tags="post_list")
+                return redirect(reverse("dogadoption_admin:post_list"))
             show_appointment_modal = True
             dates_raw = (request.POST.get('appointment_dates') or '').strip()
             if not _validate_and_save_global_appointment_dates(dates_raw, request.user):
@@ -1129,6 +1155,9 @@ def post_list(request):
                 messages.success(request, "Appointment dates saved.", extra_tags="post_list")
                 return redirect(reverse('dogadoption_admin:post_list'))
         else:
+            if not access.get("can_create_posts"):
+                messages.error(request, "You do not have permission to create posts.", extra_tags="post_list")
+                return redirect(reverse("dogadoption_admin:post_list"))
             post_form = PostForm(request.POST)
             show_create_modal = True
 
@@ -2167,6 +2196,7 @@ def admin_users(request):
         'user_count': users.count(),
     })
 
+@admin_required
 def admin_user_detail(request, id):
     """Show the full admin-side detail page for a selected user."""
     user = get_object_or_404(
@@ -2175,6 +2205,7 @@ def admin_user_detail(request, id):
     )
     return render(request, 'admin_user/user_detail.html', {'user': user})
 
+@admin_required
 def admin_user_search_results(request):
     """Render the standalone search-results partial for user management."""
     query = request.GET.get('q', '')
@@ -2193,9 +2224,57 @@ def admin_user_search_results(request):
 
     return render(request, 'admin_user/user_search_results.html', context)
 
+
+def _build_staff_permission_groups(form):
+    groups = []
+    for group in STAFF_PERMISSION_GROUPS:
+        groups.append(
+            {
+                "title": group["title"],
+                "description": group.get("description", ""),
+                "note": group.get("note", ""),
+                "items": [
+                    {
+                        "field": form[item["name"]],
+                        "label": item["label"],
+                        "help": item["help"],
+                    }
+                    for item in group["items"]
+                ],
+            }
+        )
+    return groups
+
+
+def _build_staff_management_rows(bound_update_form=None, active_staff_panel=""):
+    rows = []
+    access_rows = StaffAccess.objects.select_related("user").order_by("user__username")
+    for access_row in access_rows:
+        staff_user = access_row.user
+        if bound_update_form is not None and getattr(bound_update_form.instance, "pk", None) == staff_user.pk:
+            form = bound_update_form
+        else:
+            form = ManagedStaffAccountForm(
+                instance=staff_user,
+                require_password=False,
+                prefix=f"staff-{staff_user.pk}",
+            )
+        rows.append(
+            {
+                "user": staff_user,
+                "form": form,
+                "permission_groups": _build_staff_permission_groups(form),
+                "permission_summary": get_staff_permission_summary(access_row),
+                "panel_id": f"staff-{staff_user.pk}",
+                "is_open": active_staff_panel == f"staff-{staff_user.pk}",
+            }
+        )
+    return rows
+
+
 @admin_required
 def admin_edit_profile(request):
-    """Allow the current admin to update username and password settings."""
+    """Allow the current admin to update login settings and manage staff accounts."""
     user = request.user
     profile, created = Profile.objects.get_or_create(
         user=user,
@@ -2205,49 +2284,149 @@ def admin_edit_profile(request):
             "consent_given": True
         }
     )
+    access = getattr(request, "admin_access", get_admin_access(user))
+    staff_create_form = ManagedStaffAccountForm(prefix="create-staff")
+    bound_update_form = None
+    active_staff_panel = ""
 
     if request.method == "POST":
-        username = (request.POST.get("username") or "").strip()
-        current_password = request.POST.get("current_password") or ""
-        password = request.POST.get("password") or ""
-        confirm_password = request.POST.get("confirm_password") or ""
+        action = (request.POST.get("action") or "update_profile").strip()
 
-        has_error = False
+        if action == "update_profile":
+            username = (request.POST.get("username") or "").strip()
+            current_password = request.POST.get("current_password") or ""
+            password = request.POST.get("password") or ""
+            confirm_password = request.POST.get("confirm_password") or ""
 
-        if not username:
-            messages.error(request, "Username is required.")
-            has_error = True
-        elif User.objects.exclude(pk=user.pk).filter(username=username).exists():
-            messages.error(request, "That username is already in use.")
-            has_error = True
+            has_error = False
 
-        if password or confirm_password:
-            if not current_password:
-                messages.error(request, "Enter your current password first.")
+            if not username:
+                messages.error(request, "Username is required.")
                 has_error = True
-            elif not user.check_password(current_password):
-                messages.error(request, "Current password is incorrect.")
-                has_error = True
-            elif password != confirm_password:
-                messages.error(request, "Password confirmation does not match.")
-                has_error = True
-            elif len(password) < 8:
-                messages.error(request, "Password must be at least 8 characters.")
+            elif User.objects.exclude(pk=user.pk).filter(username__iexact=username).exists():
+                messages.error(request, "That username is already in use.")
                 has_error = True
 
-        if not has_error:
-            user.username = username
-            if password:
-                user.set_password(password)
-            user.save()
-            if password:
-                update_session_auth_hash(request, user)
-            messages.success(request, "Admin profile updated successfully.")
+            if password or confirm_password:
+                if not current_password:
+                    messages.error(request, "Enter your current password first.")
+                    has_error = True
+                elif not user.check_password(current_password):
+                    messages.error(request, "Current password is incorrect.")
+                    has_error = True
+                elif password != confirm_password:
+                    messages.error(request, "Password confirmation does not match.")
+                    has_error = True
+                elif len(password) < 8:
+                    messages.error(request, "Password must be at least 8 characters.")
+                    has_error = True
+
+            if not has_error:
+                user.username = username
+                if password:
+                    user.set_password(password)
+                user.save()
+                if password:
+                    update_session_auth_hash(request, user)
+                messages.success(request, "Admin profile updated successfully.")
+                return redirect("dogadoption_admin:admin_edit_profile")
+
+        elif action == "create_staff":
+            if not access.get("can_manage_staff_accounts"):
+                messages.error(request, "Only the admin can manage staff accounts.")
+                return redirect(access.get("landing_url") or reverse("dogadoption_admin:admin_edit_profile"))
+
+            staff_create_form = ManagedStaffAccountForm(
+                request.POST,
+                prefix="create-staff",
+            )
+            active_staff_panel = "create-staff"
+            if staff_create_form.is_valid():
+                with transaction.atomic():
+                    staff_user = staff_create_form.save()
+                    Profile.objects.get_or_create(
+                        user=staff_user,
+                        defaults={
+                            "address": "",
+                            "age": 18,
+                            "consent_given": True,
+                        },
+                    )
+                messages.success(request, f"Staff account @{staff_user.username} created successfully.")
+                return redirect("dogadoption_admin:admin_edit_profile")
+
+        elif action == "update_staff":
+            if not access.get("can_manage_staff_accounts"):
+                messages.error(request, "Only the admin can manage staff accounts.")
+                return redirect(access.get("landing_url") or reverse("dogadoption_admin:admin_edit_profile"))
+
+            staff_user = get_object_or_404(
+                User.objects.filter(is_staff=True, staff_access__isnull=False),
+                pk=request.POST.get("staff_user_id"),
+            )
+            bound_update_form = ManagedStaffAccountForm(
+                request.POST,
+                instance=staff_user,
+                require_password=False,
+                prefix=f"staff-{staff_user.pk}",
+            )
+            active_staff_panel = f"staff-{staff_user.pk}"
+            if bound_update_form.is_valid():
+                with transaction.atomic():
+                    updated_user = bound_update_form.save()
+                    Profile.objects.get_or_create(
+                        user=updated_user,
+                        defaults={
+                            "address": "",
+                            "age": 18,
+                            "consent_given": True,
+                        },
+                    )
+                messages.success(request, f"Staff account @{updated_user.username} updated successfully.")
+                return redirect("dogadoption_admin:admin_edit_profile")
+
+        elif action == "toggle_staff":
+            if not access.get("can_manage_staff_accounts"):
+                messages.error(request, "Only the admin can manage staff accounts.")
+                return redirect(access.get("landing_url") or reverse("dogadoption_admin:admin_edit_profile"))
+
+            staff_user = get_object_or_404(
+                User.objects.filter(is_staff=True, staff_access__isnull=False),
+                pk=request.POST.get("staff_user_id"),
+            )
+            staff_user.is_active = not staff_user.is_active
+            staff_user.save(update_fields=["is_active"])
+            state_label = "activated" if staff_user.is_active else "deactivated"
+            messages.success(request, f"Staff account @{staff_user.username} {state_label}.")
             return redirect("dogadoption_admin:admin_edit_profile")
 
-    return render(request, "admin_profile/edit_profile.html", {
-        "profile": profile,
-    })
+        elif action == "delete_staff":
+            if not access.get("can_manage_staff_accounts"):
+                messages.error(request, "Only the admin can manage staff accounts.")
+                return redirect(access.get("landing_url") or reverse("dogadoption_admin:admin_edit_profile"))
+
+            staff_user = get_object_or_404(
+                User.objects.filter(is_staff=True, staff_access__isnull=False),
+                pk=request.POST.get("staff_user_id"),
+            )
+            deleted_username = staff_user.username
+            with transaction.atomic():
+                staff_user.delete()
+            messages.success(request, f"Staff account @{deleted_username} deleted successfully.")
+            return redirect("dogadoption_admin:admin_edit_profile")
+
+    return render(
+        request,
+        "admin_profile/edit_profile.html",
+        {
+            "profile": profile,
+            "staff_create_form": staff_create_form,
+            "staff_create_permission_groups": _build_staff_permission_groups(staff_create_form),
+            "staff_rows": _build_staff_management_rows(bound_update_form, active_staff_panel),
+            "can_manage_staff_accounts": access.get("can_manage_staff_accounts"),
+            "active_staff_panel": active_staff_panel,
+        },
+    )
 
 
 @admin_required

@@ -204,6 +204,32 @@ class GlobalAppointmentDate(models.Model):
 
 
 # ✅ CLEAN ANNOUNCEMENT MODEL (NO REACTIONS)
+class StaffAccess(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="staff_access",
+    )
+    can_create_posts = models.BooleanField(default=False)
+    can_view_post_history = models.BooleanField(default=False)
+    can_view_status_cards = models.BooleanField(default=False)
+    can_manage_capture_requests = models.BooleanField(default=False)
+    can_access_registration = models.BooleanField(default=False)
+    can_access_registration_list = models.BooleanField(default=False)
+    can_access_vaccination = models.BooleanField(default=False)
+    can_access_vaccination_list = models.BooleanField(default=False)
+    can_access_citations = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Staff access"
+        verbose_name_plural = "Staff access"
+
+    def __str__(self):
+        return f"Staff access for {self.user.username}"
+
+
 class DogAnnouncement(models.Model):
     CATEGORY_DOG_ANNOUNCEMENT = "DOG_ANNOUNCEMENT"
     CATEGORY_DOG_LAW = "DOG_LAW"

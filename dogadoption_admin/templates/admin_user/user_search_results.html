@@ -2,8 +2,8 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}">
-<link rel="stylesheet" href="{% static 'css/admin_user/admin_users.css' %}">
+<link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260325i">
+<link rel="stylesheet" href="{% static 'css/admin_user/admin_users.css' %}?v=20260326c">
 {% endblock %}
 
 {% block content %}
@@ -12,35 +12,29 @@
 <div class="registration-wrapper user-management-page">
     <section class="form-card user-search-card">
         <div class="user-search-shell">
-            <form method="GET" action="{% url 'dogadoption_admin:admin_user_search' %}" class="search-bar">
-                <label class="search-label" for="user-search-results-input">Search Users</label>
-                <div class="user-search-row">
-                    <div class="search-input-wrap">
+            <form method="GET" action="{% url 'dogadoption_admin:admin_user_search' %}" class="search-bar" data-responsive-search>
+                <div class="user-search-row" data-responsive-search-row>
+                    <div class="search-input-wrap" data-responsive-search-field>
                         <i class="bi bi-search search-input-icon" aria-hidden="true"></i>
                         <input
                             type="text"
                             id="user-search-results-input"
                             name="q"
+                            aria-label="Search users"
                             placeholder="Search by first name, last name, or username"
                             value="{{ query }}"
+                            data-responsive-search-input
                         >
                         {% if query %}
-                            <a href="{% url 'dogadoption_admin:admin_users' %}" class="search-clear-link" aria-label="Clear search">&times;</a>
+                            <a href="{% url 'dogadoption_admin:admin_users' %}" class="search-clear-link" aria-label="Clear search" data-responsive-search-clear>&times;</a>
                         {% endif %}
                     </div>
-                    <button type="submit" class="owner-search-btn user-search-btn">
+                    <button type="submit" class="owner-search-btn user-search-btn" data-responsive-search-toggle>
                         <i class="bi bi-search" aria-hidden="true"></i>
                         Search
                     </button>
                 </div>
             </form>
-            <p class="search-helper">
-                {% if query %}
-                    Showing matches for <strong>"{{ query }}"</strong>.
-                {% else %}
-                    Enter a name or username to filter the user directory.
-                {% endif %}
-            </p>
         </div>
     </section>
 

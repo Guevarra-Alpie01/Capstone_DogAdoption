@@ -29,9 +29,12 @@
 }
 
 .user-notification-dropdown {
-    width: min(344px, calc(100vw - 18px)) !important;
-    max-height: min(76vh, 452px);
+    width: clamp(320px, 34vw, 388px) !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: min(74vh, 500px);
     overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
     padding: 8px !important;
     border-radius: 24px !important;
     background:
@@ -184,6 +187,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 .user-notification-dropdown .notification-tag,
@@ -213,12 +217,14 @@
     font-weight: 800;
     line-height: 1.24;
     color: #14233b !important;
+    word-break: break-word;
 }
 
 .user-notification-dropdown .notif-message {
     font-size: 0.79rem;
     line-height: 1.35;
     color: #526173 !important;
+    word-break: break-word;
 }
 
 .user-notification-dropdown .notif-time {
@@ -287,15 +293,30 @@
     background: rgba(219, 234, 254, 0.96) !important;
 }
 
-@media (max-width: 576px) {
+@media (max-width: 991.98px) {
+    .user-notification-dropdown {
+        width: min(380px, calc(100vw - 24px)) !important;
+        max-height: min(72vh, 480px);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .user-notification-dropdown {
+        width: min(360px, calc(100vw - 18px)) !important;
+        max-height: min(70vh, 452px);
+        border-radius: 22px !important;
+    }
+}
+
+@media (max-width: 575.98px) {
     .nav-bell.topbar-icon-btn {
         width: 36px;
         height: 36px;
     }
 
     .user-notification-dropdown {
-        width: min(100vw - 14px, 328px) !important;
-        max-height: 70vh;
+        width: min(calc(100vw - 16px), 340px) !important;
+        max-height: min(68vh, 420px);
         padding: 7px !important;
     }
 
@@ -319,5 +340,14 @@
         align-items: flex-start;
         flex-direction: column;
         gap: 4px;
+    }
+
+    .user-notification-dropdown .notif-title {
+        font-size: 0.84rem;
+    }
+
+    .user-notification-dropdown .notif-message,
+    .user-notification-dropdown .notif-time {
+        font-size: 0.74rem;
     }
 }

@@ -3,8 +3,8 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/register/registration.css' %}">
-<link rel="stylesheet" href="{% static 'css/register/registration_record.css' %}">
-<link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}">
+<link rel="stylesheet" href="{% static 'css/register/registration_record.css' %}?v=20260326a">
+<link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260325i">
 {% endblock extra_css %}
 
 {% block content %}
@@ -14,8 +14,8 @@
     <div class="record-head">
       
 
-        <form method="get" action="{% url 'dogadoption_admin:registration_record' %}" class="record-search-form" id="registration-record-search-form">
-            <div class="search-input-wrap">
+        <form method="get" action="{% url 'dogadoption_admin:registration_record' %}" class="record-search-form" id="registration-record-search-form" data-responsive-search data-responsive-search-row>
+            <div class="search-input-wrap search-input-wrap--no-clear" data-responsive-search-field>
                 <i class="bi bi-search search-input-icon" aria-hidden="true"></i>
                 <input
                     type="text"
@@ -28,8 +28,8 @@
                     data-barangay-autocomplete="true"
                     data-barangay-source-url="{% url 'dogadoption_admin:barangay_list_api' %}"
                     data-barangay-suggestions-id="registration-record-suggestions"
+                    data-responsive-search-input
                 >
-                <button type="button" id="registration-record-search-clear" class="record-search-clear-btn" aria-label="Clear search">&times;</button>
             </div>
             {% if date_filter_type == 'day' and filter_date %}
                 <input type="hidden" name="date_filter_type" value="day">
@@ -41,7 +41,7 @@
                 <input type="hidden" name="date_filter_type" value="year">
                 <input type="hidden" name="filter_year" value="{{ filter_year }}">
             {% endif %}
-            <button type="submit" data-barangay-search-target="registration-record-barangay">
+            <button type="submit" data-barangay-search-target="registration-record-barangay" data-responsive-search-toggle>
                 <i class="bi bi-search" aria-hidden="true"></i>
                 Search
             </button>

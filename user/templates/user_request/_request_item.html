@@ -1,5 +1,4 @@
 <div class="request-card {{ req.status }} request-clickable"
-     data-bs-toggle="modal"
      data-bs-target="#requestViewModal{{ req.id }}"
      role="button"
      tabindex="0"
@@ -24,10 +23,6 @@
                     action="{% url 'user:delete_dog_capture_request' req.id %}"
                     class="request-card-delete-form request-inline-stop"
                     data-request-delete-form="true"
-                    data-confirm-modal
-                    data-confirm-title="Confirm Delete"
-                    data-confirm-message="Delete this request?"
-                    data-confirm-submit-label="Delete"
                 >
                     {% csrf_token %}
                     <button
@@ -80,8 +75,7 @@
         </p>
     {% endif %}
 
-    {% if req.submission_type %}
-        {% with total_images=req.images.all|length %}
+    {% with total_images=req.images.all|length %}
         {% if req.submission_type or req.preferred_appointment_date or req.manual_full_address or req.barangay or req.latitude or req.longitude or total_images or req.image %}
             <div class="request-meta-grid">
                 {% if req.submission_type %}
@@ -130,8 +124,7 @@
                 {% endif %}
             </div>
         {% endif %}
-        {% endwith %}
-    {% endif %}
+    {% endwith %}
 
     {% if req.admin_message %}
         <p class="request-card-note">

@@ -1,7 +1,10 @@
 .admin-notification-dropdown {
-    width: min(348px, calc(100vw - 18px)) !important;
-    max-height: min(76vh, 460px);
+    width: clamp(320px, 34vw, 392px) !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: min(74vh, 500px);
     overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
     padding: 8px !important;
     border-radius: 24px !important;
     background:
@@ -10,6 +13,7 @@
     box-shadow:
         0 30px 56px rgba(20, 35, 59, 0.18),
         0 12px 24px rgba(20, 35, 59, 0.08) !important;
+    inset: auto 0 auto auto !important;
 }
 
 .admin-notification-dropdown::-webkit-scrollbar {
@@ -89,10 +93,11 @@
 
 .admin-notification-dropdown .notification-item {
     display: grid;
-    grid-template-columns: 38px minmax(0, 1fr) 12px;
-    gap: 9px;
-    align-items: center;
+    grid-template-columns: 38px minmax(0, 1fr) 14px;
+    gap: 10px;
+    align-items: start;
     width: 100%;
+    min-width: 0;
     padding: 10px 11px !important;
     border-radius: 16px;
     background: transparent !important;
@@ -154,6 +159,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 .admin-notification-dropdown .notification-tag,
@@ -183,12 +189,14 @@
     font-weight: 800;
     line-height: 1.24;
     color: #14233b;
+    word-break: break-word;
 }
 
 .admin-notification-dropdown .notif-message {
     font-size: 0.79rem;
     line-height: 1.35;
     color: #526173;
+    word-break: break-word;
 }
 
 .admin-notification-dropdown .notif-time {
@@ -203,6 +211,7 @@
 .admin-notification-dropdown .admin-notification-chevron {
     color: #8ea0b7;
     font-size: 0.78rem;
+    align-self: center;
 }
 
 .admin-notification-dropdown .notification-empty {
@@ -262,10 +271,25 @@
     background: rgba(219, 234, 254, 0.96) !important;
 }
 
-@media (max-width: 576px) {
+@media (max-width: 991.98px) {
     .admin-notification-dropdown {
-        width: min(100vw - 14px, 332px) !important;
-        max-height: 72vh;
+        width: min(380px, calc(100vw - 24px)) !important;
+        max-height: min(72vh, 480px);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .admin-notification-dropdown {
+        width: min(360px, calc(100vw - 18px)) !important;
+        max-height: min(70vh, 452px);
+        border-radius: 22px !important;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .admin-notification-dropdown {
+        width: min(calc(100vw - 16px), 340px) !important;
+        max-height: min(68svh, 420px);
         padding: 7px !important;
     }
 
@@ -274,7 +298,7 @@
     }
 
     .admin-notification-dropdown .notification-item {
-        grid-template-columns: 34px minmax(0, 1fr) 10px;
+        grid-template-columns: 34px minmax(0, 1fr);
         gap: 8px;
         padding: 9px 10px !important;
     }
@@ -285,9 +309,22 @@
         border-radius: 11px;
     }
 
+    .admin-notification-dropdown .admin-notification-chevron {
+        display: none;
+    }
+
     .admin-notification-dropdown .notification-heading-row {
         align-items: flex-start;
         flex-direction: column;
         gap: 4px;
+    }
+
+    .admin-notification-dropdown .notif-title {
+        font-size: 0.84rem;
+    }
+
+    .admin-notification-dropdown .notif-message,
+    .admin-notification-dropdown .notif-time {
+        font-size: 0.74rem;
     }
 }

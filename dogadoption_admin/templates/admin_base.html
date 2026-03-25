@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
     <link rel="stylesheet" href="{% static 'css/navigation_design.css' %}">
-    <link rel="stylesheet" href="{% static 'css/admin_theme.css' %}">
-    <link rel="stylesheet" href="{% static 'css/admin_notifications/dropdown.css' %}">
+    <link rel="stylesheet" href="{% static 'css/admin_theme.css' %}?v=20260326a">
+    <link rel="stylesheet" href="{% static 'css/admin_notifications/dropdown.css' %}?v=20260325b">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -87,61 +87,78 @@
             </span>
         </a>
 
-        <div class="d-flex ms-auto align-items-center gap-2">
-                            {% if admin_access.is_full_admin %}
-                                <div class="dropdown" data-admin-notification-dropdown>
-                                    <a class="btn p-0 nav-bell topbar-icon-btn" href="#" role="button" id="notifDropdown" data-admin-notification-toggle data-summary-url="{{ admin_notifications_summary_url }}" data-unread-count="{{ admin_unread_notifications }}" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
-                                        <i class="bi bi-bell-fill"></i>
-                                    </a>
-                                    <ul class="dropdown-menu dropdown-menu-end notification-dropdown admin-notification-dropdown" aria-labelledby="notifDropdown">
-                                        <li class="notification-dropdown-head">
-                                            <div class="notification-head-copy">
-                                                <div class="notification-heading-row">
-                                                    <h6>Notifications</h6>
-                                                    <span class="notification-count-chip" data-admin-notification-summary-count hidden></span>
-                                                </div>
-                                            </div>
-                                        </li>
-                                        <div data-admin-notification-list>
-                                            <li>
-                                                <div class="notification-empty">
-                                                    <span class="notification-empty-icon" aria-hidden="true">
-                                                        <i class="bi bi-inbox"></i>
-                                                    </span>
-                                                    <strong>No alerts yet</strong>
-                                                    <span>New reminders and system activity will appear here.</span>
-                                                </div>
-                                            </li>
-                                        </div>
-                                        <li class="notification-dropdown-footer">
-                                            <a class="dropdown-item notification-footer-link" href="{% url 'dogadoption_admin:admin_notifications' %}">
-                                                View all alerts
-                                                <i class="bi bi-arrow-right" aria-hidden="true"></i>
-                                            </a>
-                                        </li>
-                                    </ul>
+        <div class="ms-auto">
+            <div class="d-flex align-items-center gap-3 admin-topbar-actions">
+                {% if admin_access.is_full_admin %}
+                    <div class="dropdown" data-admin-notification-dropdown>
+                        <a class="btn p-0 nav-bell topbar-icon-btn" href="#" role="button" id="notifDropdown" data-admin-notification-toggle data-summary-url="{{ admin_notifications_summary_url }}" data-unread-count="{{ admin_unread_notifications }}" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
+                            <i class="bi bi-bell-fill"></i>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end notification-dropdown admin-notification-dropdown" aria-labelledby="notifDropdown">
+                            <li class="notification-dropdown-head">
+                                <div class="notification-head-copy">
+                                    <div class="notification-heading-row">
+                                        <h6>Notifications</h6>
+                                        <span class="notification-count-chip" data-admin-notification-summary-count hidden></span>
+                                    </div>
                                 </div>
-                            {% endif %}
-                            <div class="dropdown profile-menu-shift">
-                                <a class="btn p-0 topbar-avatar-btn" href="#" role="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                                    {% if request.user.profile.profile_image %}
-                                        <img src="{{ request.user.profile.profile_image.url }}" alt="User Avatar" class="rounded-circle topbar-avatar-img">
-                                    {% else %}
-                                        <img src="{% static 'images/default-user-image.jpg' %}" alt="User Avatar" class="rounded-circle topbar-avatar-img">
-                                    {% endif %}
+                            </li>
+                            <div data-admin-notification-list>
+                                <li>
+                                    <div class="notification-empty">
+                                        <span class="notification-empty-icon" aria-hidden="true">
+                                            <i class="bi bi-inbox"></i>
+                                        </span>
+                                        <strong>No alerts yet</strong>
+                                        <span>New reminders and system activity will appear here.</span>
+                                    </div>
+                                </li>
+                            </div>
+                            <li class="notification-dropdown-footer">
+                                <a class="dropdown-item notification-footer-link" href="{% url 'dogadoption_admin:admin_notifications' %}">
+                                    View all alerts
+                                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
                                 </a>
+                            </li>
+                        </ul>
+                    </div>
+                {% endif %}
 
-                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                                    <li><h6 class="dropdown-header">User Options</h6></li> 
-                                    {% if admin_access.can_access_users %}
-                                        <li><a href="{% url 'dogadoption_admin:admin_users' %}" class="dropdown-item">Users</a></li>
-                                    {% endif %}
-                                    <li><a href="{% url 'dogadoption_admin:admin_edit_profile' %}" class="dropdown-item">Profile</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a href="{% url 'dogadoption_admin:admin_logout' %}" class="dropdown-item">Log out</a></li>
-                                </ul> 
-                            </div> 
-                        </div>
+                <div class="dropdown profile-menu-shift">
+                    <a class="btn p-0 topbar-avatar-btn" href="#" role="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        {% if request.user.profile.profile_image %}
+                            <img src="{{ request.user.profile.profile_image.url }}" alt="User Avatar" class="rounded-circle topbar-avatar-img">
+                        {% else %}
+                            <img src="{% static 'images/default-user-image.jpg' %}" alt="User Avatar" class="rounded-circle topbar-avatar-img">
+                        {% endif %}
+                    </a>
+
+                    <ul class="dropdown-menu dropdown-menu-end profile-dropdown-menu" aria-labelledby="userDropdown">
+                        <li class="profile-dropdown-head">
+                            <span class="profile-dropdown-kicker">Signed in as</span>
+                            <strong>{{ request.user.username }}</strong>
+                        </li>
+                        <li>
+                            <a href="{% url 'dogadoption_admin:admin_edit_profile' %}" class="dropdown-item profile-dropdown-link">
+                                <span class="profile-dropdown-icon" aria-hidden="true">
+                                    <i class="bi bi-person-circle"></i>
+                                </span>
+                                <span>Profile</span>
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider profile-dropdown-divider"></li>
+                        <li>
+                            <a href="{% url 'dogadoption_admin:admin_logout' %}" class="dropdown-item profile-dropdown-link profile-dropdown-link-danger">
+                                <span class="profile-dropdown-icon" aria-hidden="true">
+                                    <i class="bi bi-box-arrow-right"></i>
+                                </span>
+                                <span>Log out</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
 
             </div>
 </nav>
@@ -149,9 +166,9 @@
 <div class="d-flex" id="wrapper">
     {% include 'admin_sidebar.html' %} 
     
-    <div id="page-content-wrapper" class="flex-grow-1">
-        <div class="content-container">
-            <div class="container-fluid pt-3 pb-5">
+    <div id="page-content-wrapper" class="flex-grow-1 admin-page-wrapper">
+        <div class="content-container admin-content-container">
+            <div class="container-fluid pt-3 pb-5 admin-page-container">
                 {% if messages %}
                 <div class="flash-toast-stack" id="flash-toast-stack" aria-live="polite" aria-atomic="true">
                     {% for message in messages %}
@@ -176,18 +193,19 @@
     </div>
 </div> 
 
-<div class="modal fade" id="sharedConfirmModal" tabindex="-1" aria-labelledby="sharedConfirmModalTitle" aria-hidden="true">
+<div class="modal fade app-confirm-modal" id="sharedConfirmModal" tabindex="-1" aria-labelledby="sharedConfirmModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
+        <div class="modal-content app-confirm-card">
             <div class="modal-header">
                 <h5 class="modal-title" id="sharedConfirmModalTitle">Confirm Action</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body" id="sharedConfirmModalMessage">
-                Please confirm to continue.
+            <div class="modal-body">
+                <p class="app-confirm-message" id="sharedConfirmModalMessage">Please confirm to continue.</p>
             </div>
-            <div class="modal-footer justify-content-center">
-                <button type="button" class="btn btn-primary btn-sm" id="sharedConfirmModalSubmit">OK</button>
+            <div class="modal-footer app-confirm-actions">
+                <button type="button" class="btn btn-cancel-action" id="sharedConfirmModalCancel" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="sharedConfirmModalSubmit">OK</button>
             </div>
         </div>
     </div>
@@ -476,6 +494,110 @@
                 hideToast(toast);
             }, 4000 + (index * 250));
         });
+
+        const responsiveSearchMediaQuery = window.matchMedia('(max-width: 575.98px)');
+        const responsiveSearchControllers = [];
+
+        function initResponsiveSearch(root) {
+            const input = root.querySelector('[data-responsive-search-input]');
+            const toggle = root.querySelector('[data-responsive-search-toggle]');
+            const field = root.querySelector('[data-responsive-search-field]');
+            const allowMobileCollapse = root.dataset.responsiveSearchMode === 'collapsible';
+
+            if (!input || !toggle || !field) {
+                return null;
+            }
+
+            function setCollapsed(collapsed) {
+                const shouldCollapse = allowMobileCollapse && collapsed;
+                root.classList.toggle('is-collapsed', shouldCollapse);
+                root.classList.toggle('is-expanded', !shouldCollapse);
+                toggle.setAttribute('aria-expanded', shouldCollapse ? 'false' : 'true');
+            }
+
+            function sync(forceExpanded) {
+                if (!allowMobileCollapse || !responsiveSearchMediaQuery.matches) {
+                    setCollapsed(false);
+                    return;
+                }
+
+                if (forceExpanded || input.value.trim()) {
+                    setCollapsed(false);
+                    return;
+                }
+
+                setCollapsed(document.activeElement !== input);
+            }
+
+            toggle.addEventListener('click', function (event) {
+                if (!allowMobileCollapse || !responsiveSearchMediaQuery.matches || !root.classList.contains('is-collapsed')) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                if (typeof event.stopImmediatePropagation === 'function') {
+                    event.stopImmediatePropagation();
+                }
+
+                setCollapsed(false);
+                window.setTimeout(function () {
+                    input.focus();
+                }, 0);
+            }, true);
+
+            input.addEventListener('focus', function () {
+                sync(true);
+            });
+
+            input.addEventListener('input', function () {
+                sync(true);
+            });
+
+            input.addEventListener('keydown', function (event) {
+                if (allowMobileCollapse && event.key === 'Escape' && !input.value.trim()) {
+                    setCollapsed(true);
+                    input.blur();
+                }
+            });
+
+            root.querySelectorAll('[data-responsive-search-clear]').forEach(function (clearControl) {
+                clearControl.addEventListener('click', function () {
+                    window.setTimeout(function () {
+                        sync();
+                    }, 0);
+                });
+            });
+
+            document.addEventListener('click', function (event) {
+                if (!allowMobileCollapse || root.contains(event.target) || input.value.trim()) {
+                    return;
+                }
+                sync();
+            });
+
+            sync();
+            return { sync: sync };
+        }
+
+        document.querySelectorAll('[data-responsive-search]').forEach(function (root) {
+            const controller = initResponsiveSearch(root);
+            if (controller) {
+                responsiveSearchControllers.push(controller);
+            }
+        });
+
+        const syncResponsiveSearch = function () {
+            responsiveSearchControllers.forEach(function (controller) {
+                controller.sync();
+            });
+        };
+
+        if (typeof responsiveSearchMediaQuery.addEventListener === 'function') {
+            responsiveSearchMediaQuery.addEventListener('change', syncResponsiveSearch);
+        } else if (typeof responsiveSearchMediaQuery.addListener === 'function') {
+            responsiveSearchMediaQuery.addListener(syncResponsiveSearch);
+        }
 
         const confirmModalEl = document.getElementById('sharedConfirmModal');
         const confirmTitleEl = document.getElementById('sharedConfirmModalTitle');

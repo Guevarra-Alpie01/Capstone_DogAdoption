@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260321a">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260326b">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}">
 {% endblock %}
 
@@ -13,7 +13,7 @@
         {% if request.user.is_authenticated %}
         <div class="home-feed-create">
             <button type="button"
-               class="create-post-fab"
+               class="create-post-fab app-btn-fit app-btn-mobile-full"
                data-bs-toggle="modal"
                data-bs-target="#createPostModal"
                aria-label="Create Post"
@@ -26,12 +26,13 @@
         </div>
         {% endif %}
 
-        <form method="get" action="{% url 'user:home_search' %}" class="search-bar home-feed-search home-feed-search-advanced">
+        <form method="get" action="{% url 'user:home_search' %}" class="search-bar home-feed-search home-feed-search-advanced" data-responsive-search>
             {% if feed_token %}
             <input type="hidden" name="feed_token" value="{{ feed_token }}">
             {% endif %}
-            <div class="home-search-main-row">
-                <div class="home-search-input-wrap">
+            <div class="home-search-main-row" data-responsive-search-row>
+                <div class="home-search-input-wrap" data-responsive-search-field>
+                    <i class="bi bi-search search-input-icon" aria-hidden="true"></i>
                     <input
                         type="text"
                         name="q"
@@ -40,9 +41,10 @@
                         value="{{ query }}"
                         maxlength="80"
                         aria-label="Search keyword"
+                        data-responsive-search-input
                     >
                 </div>
-                <button class="btn search-submit-btn" type="submit" aria-label="Search">
+                <button class="btn search-submit-btn" type="submit" aria-label="Search" data-responsive-search-toggle>
                     <i class="bi bi-search"></i>
                 </button>
             </div>
@@ -126,8 +128,8 @@
                             <label class="form-label">Extra Photos (Optional)</label>
                             <input type="file" name="extra_images" multiple class="form-control">
                         </div>
-                        <div class="post-submit-row">
-                            <button type="submit" class="btn btn-success post-submit-btn w-100">
+                        <div class="post-submit-row app-btn-row app-btn-row--mobile-stack">
+                            <button type="submit" class="btn btn-success post-submit-btn app-btn-fit app-btn-mobile-full">
                                 <i class="bi bi-send-check"></i>
                                 <span>Publish Adoption Post</span>
                             </button>
@@ -184,8 +186,8 @@
                             {{ missing_form.contact_facebook_url }}
                             {% if missing_form.contact_facebook_url.errors %}<div class="text-danger small">{{ missing_form.contact_facebook_url.errors|striptags }}</div>{% endif %}
                         </div>
-                        <div class="post-submit-row">
-                            <button type="submit" class="btn btn-danger post-submit-btn w-100">
+                        <div class="post-submit-row app-btn-row app-btn-row--mobile-stack">
+                            <button type="submit" class="btn btn-danger post-submit-btn app-btn-fit app-btn-mobile-full">
                                 <i class="bi bi-broadcast-pin"></i>
                                 <span>Submit Missing Report</span>
                             </button>

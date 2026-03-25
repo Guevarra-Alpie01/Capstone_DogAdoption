@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/admin_analytics/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin_analytics/dashboard.css' %}?v=20260325b">
 {% endblock %}
 
 {% block content %}
@@ -76,7 +76,7 @@
     </div>
 
     <div class="chart-grid">
-        <div class="chart-card">
+        <div class="chart-card chart-card--pie">
             <div class="chart-head">
                 <h4 class="chart-title">
                     <span class="chart-icon icon-breed-pie" aria-hidden="true">
@@ -118,7 +118,7 @@
             <p id="vaccinationBreedEmptyState" class="chart-empty" hidden>No vaccinated breed data for the selected filter.</p>
         </div>
 
-        <div class="chart-card">
+        <div class="chart-card chart-card--pie">
             <div class="chart-head chart-head-stacked">
                 <h4 class="chart-title">
                     <span class="chart-icon icon-barangay" aria-hidden="true">
@@ -154,7 +154,7 @@
             <p id="registeredBarangayEmptyState" class="chart-empty" hidden>No registration data for the selected filter.</p>
         </div>
 
-        <div class="chart-card chart-span-2">
+        <div class="chart-card chart-span-2 chart-card--trend">
             <div class="chart-head">
                 <h4 class="chart-title">
                     <span class="chart-icon icon-adoption-trend" aria-hidden="true">
@@ -191,7 +191,7 @@
             <p id="adoptionClaimTrendEmptyState" class="chart-empty" hidden>No adopted or claimed dog data for the selected filter.</p>
         </div>
 
-        <div class="chart-card chart-span-2">
+        <div class="chart-card chart-span-2 chart-card--trend">
             <div class="chart-head">
                 <h4 class="chart-title">
                     <span class="chart-icon icon-rescue" aria-hidden="true">
@@ -227,7 +227,7 @@
             <p id="rescueTrendEmptyState" class="chart-empty" hidden>No rescue data for the selected filter.</p>
         </div>
 
-        <div class="chart-card chart-span-2">
+        <div class="chart-card chart-span-2 chart-card--bar">
             <div class="chart-head">
                 <h4 class="chart-title">
                     <span class="chart-icon icon-vaccine" aria-hidden="true">
@@ -285,6 +285,32 @@
     const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const currentMonth = new Date().getMonth() + 1;
     const piePalette = ['#2563eb', '#0f766e', '#f97316', '#be123c', '#7c3aed', '#0891b2', '#ca8a04', '#4f46e5', '#15803d'];
+    const analyticsPhoneMediaQuery = window.matchMedia('(max-width: 575.98px)');
+    const isAnalyticsPhone = () => analyticsPhoneMediaQuery.matches;
+
+    const analyticsLegendOptions = () => ({
+        position: 'bottom',
+        align: 'center',
+        labels: {
+            boxWidth: isAnalyticsPhone() ? 12 : 16,
+            boxHeight: isAnalyticsPhone() ? 12 : 16,
+            padding: isAnalyticsPhone() ? 10 : 14,
+            font: {
+                size: isAnalyticsPhone() ? 10 : 12,
+            },
+            usePointStyle: isAnalyticsPhone(),
+        },
+    });
+
+    const analyticsAxisTickFont = () => ({
+        size: isAnalyticsPhone() ? 10 : 12,
+    });
+
+    const analyticsAxisTickOptions = (overrides = {}) => ({
+        color: '#475569',
+        font: analyticsAxisTickFont(),
+        ...overrides,
+    });
 
     const vaccinationBreedYearFilter = document.getElementById('vaccinationBreedYearFilter');
     const vaccinationBreedViewFilter = document.getElementById('vaccinationBreedViewFilter');
@@ -384,10 +410,14 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
+                layout: {
+                    padding: {
+                        top: 4,
+                        bottom: isAnalyticsPhone() ? 10 : 0,
                     },
+                },
+                plugins: {
+                    legend: analyticsLegendOptions(),
                 },
             },
         });
@@ -499,15 +529,23 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom' },
+                    legend: analyticsLegendOptions(),
                     tooltip: { mode: 'index', intersect: false },
                 },
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        ticks: { precision: 0 },
-                    }
+                        ticks: analyticsAxisTickOptions({ precision: 0 }),
+                    },
+                    x: {
+                        ticks: analyticsAxisTickOptions({
+                            autoSkip: true,
+                            maxTicksLimit: isAnalyticsPhone() ? 6 : 12,
+                            maxRotation: isAnalyticsPhone() ? 0 : 40,
+                            minRotation: 0,
+                        }),
+                    },
                 }
             }
         });
@@ -617,12 +655,23 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom' },
+                    legend: analyticsLegendOptions(),
                     tooltip: { mode: 'index', intersect: false },
                 },
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 scales: {
-                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                    y: {
+                        beginAtZero: true,
+                        ticks: analyticsAxisTickOptions({ precision: 0 }),
+                    },
+                    x: {
+                        ticks: analyticsAxisTickOptions({
+                            autoSkip: true,
+                            maxTicksLimit: isAnalyticsPhone() ? 6 : 12,
+                            maxRotation: isAnalyticsPhone() ? 0 : 40,
+                            minRotation: 0,
+                        }),
+                    },
                 }
             }
         });
@@ -791,19 +840,27 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom' },
+                    legend: analyticsLegendOptions(),
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        ticks: { precision: 0 },
+                        ticks: analyticsAxisTickOptions({ precision: 0 }),
                     },
                     x: {
-                        ticks: {
-                            maxRotation: 55,
-                            minRotation: 35,
-                            autoSkip: false,
-                        }
+                        ticks: analyticsAxisTickOptions({
+                            autoSkip: true,
+                            maxRotation: isAnalyticsPhone() ? 0 : 55,
+                            minRotation: isAnalyticsPhone() ? 0 : 35,
+                            maxTicksLimit: isAnalyticsPhone() ? 4 : 8,
+                            callback: function(value) {
+                                const label = this.getLabelForValue(value);
+                                if (!isAnalyticsPhone() || typeof label !== 'string' || label.length <= 10) {
+                                    return label;
+                                }
+                                return `${label.slice(0, 10)}...`;
+                            },
+                        }),
                     }
                 }
             }
@@ -907,10 +964,14 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 4,
+                        bottom: isAnalyticsPhone() ? 10 : 0,
+                    },
+                },
                 plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
+                    legend: analyticsLegendOptions()
                 }
             }
         });

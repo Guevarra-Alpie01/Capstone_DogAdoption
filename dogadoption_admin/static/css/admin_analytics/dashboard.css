@@ -3,9 +3,21 @@
     --analytics-border: rgba(197, 211, 227, 0.88);
     --analytics-shadow: 0 12px 28px rgba(20, 35, 59, 0.06);
     --analytics-shadow-hover: 0 18px 34px rgba(20, 35, 59, 0.08);
-    padding: 8px 4px 24px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 8px 0 24px;
     display: grid;
-    gap: 16px;
+    gap: clamp(14px, 1.8vw, 18px);
+}
+
+.analytics-page,
+.analytics-page * {
+    box-sizing: border-box;
+}
+
+.analytics-page > * {
+    min-width: 0;
 }
 
 .analytics-head {
@@ -14,7 +26,7 @@
     background: #ffffff;
     border: 1px solid var(--admin-border);
     border-radius: 16px;
-    padding: 16px 18px;
+    padding: clamp(18px, 2vw, 24px);
     box-shadow: var(--admin-shadow-soft);
 }
 
@@ -38,10 +50,12 @@
 
 .analytics-head h1 {
     margin: 0;
-    font-size: 1.7rem;
+    font-size: clamp(1.8rem, 3vw, 2.35rem);
     font-weight: 700;
     color: #0f172a;
     letter-spacing: -0.02em;
+    line-height: 1.08;
+    overflow-wrap: anywhere;
 }
 
 .analytics-head p {
@@ -51,8 +65,8 @@
 
 .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+    gap: clamp(12px, 1.4vw, 16px);
 }
 
 .kpi-card {
@@ -68,6 +82,7 @@
     box-shadow: var(--analytics-shadow);
     border: 1px solid var(--analytics-border);
     transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+    min-width: 0;
 }
 
 .kpi-card::after {
@@ -117,7 +132,7 @@
 
 .kpi-top {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
     min-width: 0;
 }
@@ -128,6 +143,7 @@
     letter-spacing: 0.2px;
     line-height: 1.35;
     font-weight: 700;
+    overflow-wrap: anywhere;
 }
 
 .kpi-icon {
@@ -188,7 +204,8 @@
 .chart-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    gap: clamp(12px, 1.4vw, 16px);
+    align-items: start;
 }
 
 .chart-card {
@@ -199,10 +216,11 @@
     background: var(--analytics-panel-bg);
     border: 1px solid var(--analytics-border);
     border-radius: 16px;
-    padding: 14px;
+    padding: clamp(14px, 1.6vw, 18px);
     box-shadow: var(--analytics-shadow);
     min-height: 320px;
     transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+    min-width: 0;
 }
 
 .chart-card::after {
@@ -237,7 +255,7 @@
     flex-wrap: wrap;
     gap: 12px;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 12px;
     padding-bottom: 12px;
     border-bottom: 1px solid rgba(197, 211, 227, 0.74);
@@ -249,11 +267,11 @@
 
 .chart-head-stacked {
     flex-direction: row;
-    align-items: center;
+    align-items: flex-start;
 }
 
 .chart-head-stacked .chart-filters {
-    width: auto;
+    width: min(100%, 520px);
 }
 
 .chart-title {
@@ -262,6 +280,11 @@
     gap: 8px;
     flex: 1 1 220px;
     min-width: 0;
+}
+
+.chart-title > span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .chart-icon {
@@ -314,10 +337,14 @@
 .chart-filters {
     position: relative;
     z-index: 1;
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 8px;
+    flex: 1 1 340px;
+    width: min(100%, 640px);
     max-width: 100%;
+    min-width: 0;
+    margin-left: auto;
     padding: 6px;
     border-radius: 14px;
     border: 1px solid rgba(197, 211, 227, 0.72);
@@ -326,8 +353,10 @@
 }
 
 .chart-filter-select {
-    min-width: 120px;
+    min-width: 0;
     max-width: 100%;
+    width: 100%;
+    height: 42px;
     border: 1px solid #cbd5e1;
     border-radius: 10px;
     padding: 6px 10px;
@@ -339,8 +368,10 @@
 }
 
 .chart-filter-input {
-    min-width: 150px;
+    min-width: 0;
     max-width: 100%;
+    width: 100%;
+    height: 42px;
     border: 1px solid #cbd5e1;
     border-radius: 10px;
     padding: 6px 10px;
@@ -375,17 +406,19 @@
 .chart-card canvas {
     position: relative;
     z-index: 1;
+    display: block;
     width: 100% !important;
-    height: 260px !important;
+    max-width: 100%;
+    height: clamp(240px, 30vw, 360px) !important;
 }
 
 .chart-span-2 {
     grid-column: span 2;
 }
 
-@media (max-width: 991px) {
+@media (max-width: 1199.98px) {
     .kpi-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .chart-grid {
@@ -399,19 +432,90 @@
     .chart-head,
     .chart-head-stacked {
         flex-direction: column;
-        align-items: flex-start;
+        align-items: stretch;
     }
 
+    .chart-filters,
     .chart-head-stacked .chart-filters {
         width: 100%;
+        margin-left: 0;
+    }
+
+    .chart-card canvas {
+        height: 320px !important;
     }
 }
 
-@media (max-width: 575px) {
+@media (max-width: 991.98px) {
+    .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .analytics-head h1 {
+        font-size: clamp(1.65rem, 4vw, 2rem);
+    }
+
+    .chart-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767.98px) {
     .analytics-page {
+        padding: 4px 0 20px;
         gap: 14px;
     }
 
+    .analytics-head {
+        padding: 16px;
+    }
+
+    .analytics-head h1 {
+        font-size: clamp(1.45rem, 7vw, 1.9rem);
+    }
+
+    .kpi-card {
+        padding: 14px;
+        gap: 12px;
+    }
+
+    .kpi-card h3 {
+        font-size: 1.5rem;
+    }
+
+    .chart-card {
+        min-height: 0;
+        padding: 12px;
+    }
+
+    .chart-head,
+    .chart-head-stacked {
+        gap: 10px;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+    }
+
+    .chart-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        gap: 6px;
+        padding: 6px;
+    }
+
+    .chart-filter-select,
+    .chart-filter-input {
+        height: 40px;
+        padding: 6px 8px;
+        font-size: 0.84rem;
+        line-height: 1.1;
+    }
+
+    .chart-card canvas {
+        height: 280px !important;
+    }
+}
+
+@media (max-width: 575.98px) {
     .kpi-grid {
         grid-template-columns: 1fr;
     }
@@ -421,17 +525,10 @@
         align-items: center;
         justify-content: space-between;
         gap: 14px;
-        padding: 14px;
     }
 
     .kpi-top {
-        min-width: 0;
         flex: 1 1 auto;
-    }
-
-    .kpi-label {
-        display: inline-block;
-        line-height: 1.25;
     }
 
     .kpi-card h3 {
@@ -441,44 +538,25 @@
         font-size: 1.85rem;
     }
 
-    .chart-card {
-        padding: 12px;
-    }
-
-    .chart-head,
-    .chart-head-stacked {
-        gap: 8px;
-        margin-bottom: 10px;
-        padding-bottom: 10px;
-    }
-
     .chart-filters {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        width: 100%;
-        gap: 4px;
-        padding: 4px;
+        grid-template-columns: 1fr;
     }
 
-    .chart-filter-select,
-    .chart-filter-input {
-        min-width: 0;
-        width: 100%;
-        height: 30px;
-        padding: 4px 6px;
-        font-size: 0.76rem;
-        line-height: 1.1;
-    }
-}
-
-@media (max-width: 460px) {
-    .chart-filters {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+    .chart-card canvas {
+        height: 240px !important;
     }
 }
 
 @media (max-width: 360px) {
-    .chart-filters {
-        grid-template-columns: 1fr;
+    .analytics-head h1 {
+        font-size: 1.4rem;
+    }
+
+    .chart-card {
+        padding: 10px;
+    }
+
+    .chart-card canvas {
+        height: 220px !important;
     }
 }

@@ -25,6 +25,14 @@
     margin-bottom: 16px;
 }
 
+.registration-record-page .record-head {
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
 .record-title {
     margin: 0;
     font-size: clamp(1.9rem, 2.6vw, 3.1rem);
@@ -56,6 +64,10 @@
     max-width: none;
     flex: 1 1 auto;
     position: relative;
+}
+
+.registration-record-page .record-search-form .search-input-wrap--no-clear input[type="text"] {
+    padding-right: 16px !important;
 }
 
 .record-search-form input[type="text"] {
@@ -191,16 +203,18 @@
 
 .record-date-filter .btn-primary,
 .record-date-filter .btn-secondary {
-    padding: 11px 18px;
-    border-radius: 10px;
-    font-size: 0.94rem;
-    font-weight: 700;
+    min-height: 48px;
+    padding: 11px 20px;
+    border-radius: 14px;
+    font-size: 0.95rem;
+    font-weight: 800;
     text-decoration: none;
     cursor: pointer;
     white-space: nowrap;
     display: inline-flex;
     align-items: center;
     gap: 7px;
+    justify-content: center;
 }
 
 .record-date-filter .btn-primary {
@@ -245,29 +259,55 @@
 }
 
 .table-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
-    flex-wrap: wrap;
+    width: min(100%, 580px);
+    margin-left: auto;
+    align-items: stretch;
 }
 
 .table-actions .action-btn {
+    min-height: 48px;
+    min-width: 0;
+    width: 100%;
+    padding: 11px 18px;
     border: 1px solid var(--record-green-dark);
-    border-radius: 10px;
-    padding: 10px 18px;
+    border-radius: 14px;
     text-decoration: none;
     font-size: 0.95rem;
-    font-weight: 700;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    font-family: inherit;
     color: #ffffff;
     background: var(--record-green);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
+    white-space: nowrap;
+    text-align: center;
+    box-shadow: var(--record-shadow);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
 }
 
-.table-actions .action-btn:first-child {
-    background: var(--record-green-dark);
-    border-color: var(--record-green-dark);
+.table-actions .action-btn i {
+    flex: 0 0 auto;
+    line-height: 1;
+}
+
+.table-actions .action-btn:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.03);
+    box-shadow: 0 12px 22px rgba(0, 0, 0, 0.08);
+}
+
+.table-actions .action-btn:active {
+    transform: translateY(0);
+    filter: brightness(0.98);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
 }
 
 .registration-record-page .table-container {
@@ -566,11 +606,58 @@
         flex-direction: column;
         align-items: stretch;
     }
+
+    .table-actions {
+        width: 100%;
+        margin-left: 0;
+    }
 }
 
 @media (max-width: 575px) {
     .record-panel {
         padding: 12px;
+    }
+
+    .record-pill-wrap {
+        padding: 10px;
+    }
+
+    .record-pill-wrap .barangay-scroll-wrapper {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        gap: 8px;
+        padding: 4px 4px 10px;
+        border-radius: 14px;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: #8ba2c3 #eef4fb;
+    }
+
+    .record-pill-wrap .barangay-scroll-wrapper::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .record-pill-wrap .barangay-scroll-wrapper::-webkit-scrollbar-track {
+        background: #eef4fb;
+        border-radius: 999px;
+    }
+
+    .record-pill-wrap .barangay-scroll-wrapper::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg, #9bb0cd 0%, #7f97bb 100%);
+        border-radius: 999px;
+    }
+
+    .record-pill-wrap .barangay-pill {
+        flex: 0 0 auto;
+        min-width: max-content;
+        border-right: 0;
+        border-radius: 12px;
+        padding: 10px 16px;
+        scroll-snap-align: start;
+        white-space: nowrap;
     }
 
     .record-date-filter {
@@ -619,5 +706,9 @@
         width: 100%;
         left: 0;
         top: calc(100% + 4px);
+    }
+
+    .table-actions {
+        grid-template-columns: 1fr;
     }
 }

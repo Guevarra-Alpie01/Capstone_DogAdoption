@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260317b">
+<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260324b">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
 
@@ -489,21 +489,19 @@
         </div>
     </div>
 
-    <div class="modal fade request-dialog-modal" id="requestDialogModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade app-confirm-modal request-dialog-modal" id="requestDialogModal" tabindex="-1" aria-labelledby="requestDialogTitle" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="request-dialog-shell" data-request-dialog-tone="info">
-                    <div class="request-dialog-icon" id="requestDialogIcon">
-                        <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
-                    </div>
-                    <div class="request-dialog-copy">
-                        <h5 id="requestDialogTitle">Notice</h5>
-                        <p id="requestDialogMessage">Please review the details and try again.</p>
-                    </div>
-                    <div class="request-dialog-actions">
-                        <button type="button" class="btn-cancel-action" id="requestDialogCancelBtn">Cancel</button>
-                        <button type="button" class="btn-primary" id="requestDialogConfirmBtn">OK</button>
-                    </div>
+            <div class="modal-content app-confirm-card">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="requestDialogTitle">Notice</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="app-confirm-message" id="requestDialogMessage">Please review the details and try again.</p>
+                </div>
+                <div class="modal-footer app-confirm-actions">
+                    <button type="button" class="btn btn-cancel-action" id="requestDialogCancelBtn">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="requestDialogConfirmBtn">OK</button>
                 </div>
             </div>
         </div>
@@ -551,13 +549,13 @@ const step1HelperNote = document.getElementById('step1HelperNote');
 const uploadActionLabel = document.getElementById('uploadActionLabel');
 const cameraActionLabel = document.getElementById('cameraActionLabel');
 const requestDialogModalEl = document.getElementById('requestDialogModal');
-const requestDialogIcon = document.getElementById('requestDialogIcon');
 const requestDialogTitle = document.getElementById('requestDialogTitle');
 const requestDialogMessage = document.getElementById('requestDialogMessage');
 const requestDialogCancelBtn = document.getElementById('requestDialogCancelBtn');
 const requestDialogConfirmBtn = document.getElementById('requestDialogConfirmBtn');
 let requestDialogResolver = null;
 let requestDialogDismissValue = false;
+let requestDialogSuspendedModals = [];
 let allowConfirmedSubmit = false;
 
 function getSelectedRequestType() {
@@ -618,18 +616,28 @@ function primePhoneField() {
     phoneNumberField.value = formatted || '';
 }
 
-function getDialogIconMarkup(tone) {
-    if (tone === 'danger') return '<i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i>';
-    if (tone === 'warning') return '<i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>';
-    if (tone === 'success') return '<i class="bi bi-check-circle-fill" aria-hidden="true"></i>';
-    return '<i class="bi bi-info-circle-fill" aria-hidden="true"></i>';
-}
-
 function getRequestDialogModal() {
     if (!requestDialogModalEl || !window.bootstrap || !bootstrap.Modal) {
         return null;
     }
     return bootstrap.Modal.getOrCreateInstance(requestDialogModalEl);
+}
+
+function releaseRequestDialogSuspensions() {
+    requestDialogSuspendedModals.forEach((modalEl) => {
+        modalEl.classList.remove('request-modal-suspended');
+    });
+    requestDialogSuspendedModals = [];
+}
+
+function suspendVisibleRequestModals() {
+    releaseRequestDialogSuspensions();
+    requestDialogSuspendedModals = Array.from(document.querySelectorAll('.modal.show'))
+        .filter((modalEl) => modalEl !== requestDialogModalEl);
+
+    requestDialogSuspendedModals.forEach((modalEl) => {
+        modalEl.classList.add('request-modal-suspended');
+    });
 }
 
 function showRequestDialog(options = {}) {
@@ -653,16 +661,14 @@ function showRequestDialog(options = {}) {
     if (requestDialogResolver) {
         requestDialogResolver(false);
         requestDialogResolver = null;
+        releaseRequestDialogSuspensions();
     }
 
     requestDialogDismissValue = cancelText ? false : true;
-    requestDialogModalEl.querySelector('.request-dialog-shell')?.setAttribute('data-request-dialog-tone', tone);
-    if (requestDialogIcon) requestDialogIcon.innerHTML = getDialogIconMarkup(tone);
     if (requestDialogTitle) requestDialogTitle.textContent = title;
     if (requestDialogMessage) requestDialogMessage.textContent = message;
     if (requestDialogConfirmBtn) {
         requestDialogConfirmBtn.textContent = confirmText;
-        requestDialogConfirmBtn.classList.toggle('request-dialog-confirm-danger', tone === 'danger');
     }
     if (requestDialogCancelBtn) {
         requestDialogCancelBtn.textContent = cancelText || 'Cancel';
@@ -671,6 +677,7 @@ function showRequestDialog(options = {}) {
 
     return new Promise((resolve) => {
         requestDialogResolver = resolve;
+        suspendVisibleRequestModals();
         requestDialogModal.show();
     });
 }
@@ -695,6 +702,7 @@ requestDialogCancelBtn?.addEventListener('click', () => {
 });
 
 requestDialogModalEl?.addEventListener('hidden.bs.modal', () => {
+    releaseRequestDialogSuspensions();
     if (!requestDialogResolver) return;
     const resolve = requestDialogResolver;
     requestDialogResolver = null;
@@ -1459,12 +1467,29 @@ captureForm?.addEventListener('submit', async (e) => {
 
 function initRequestClickableCards(root = document) {
     root.querySelectorAll('.request-clickable').forEach((card) => {
+        const openRequestModal = () => {
+            const modalTarget = card.dataset.bsTarget;
+            if (!modalTarget || !window.bootstrap || !bootstrap.Modal) return;
+
+            const modalEl = document.querySelector(modalTarget);
+            if (!modalEl) return;
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        };
+
+        if (card.dataset.requestClickBound !== '1') {
+            card.dataset.requestClickBound = '1';
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.request-inline-stop')) return;
+                openRequestModal();
+            });
+        }
+
         if (card.dataset.requestKeydownBound === '1') return;
         card.dataset.requestKeydownBound = '1';
         card.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                card.click();
+                openRequestModal();
             }
         });
     });

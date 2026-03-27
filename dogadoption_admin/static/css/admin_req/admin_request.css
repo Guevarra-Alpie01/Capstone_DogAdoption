@@ -378,7 +378,7 @@ body {
     box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.85);
 }
 
-.legend-dot.capture { background: #d97706; }
+.legend-dot.capture { background: #dc2626; }
 
 .legend-dot.surrender { background: #2563eb; }
 
@@ -1128,6 +1128,7 @@ body {
     border-radius: 12px;
     border: 1px solid #c7d5e6;
     --request-marker-scale: 1;
+    background: linear-gradient(180deg, #dbeafe 0%, #eff6ff 100%);
 }
 
 .request-map-marker-wrap {
@@ -1136,69 +1137,56 @@ body {
 }
 
 .request-map-marker {
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    border: 3px solid #b45309;
-    background: linear-gradient(145deg, #fbbf24, #d97706);
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.92), 0 10px 18px rgba(15, 23, 42, 0.28);
-    overflow: hidden;
+    width: 40px;
+    height: 54px;
     position: relative;
-    display: grid;
-    place-items: center;
+    display: block;
     transform: scale(var(--request-marker-scale, 1));
-    transform-origin: center center;
+    transform-origin: center bottom;
     transition: transform 140ms ease-out;
+    color: var(--request-marker-color, #dc2626);
 }
 
-.request-map-marker img {
+.request-map-marker-pin,
+.request-map-marker-pin svg {
     width: 100%;
     height: 100%;
-    object-fit: cover;
     display: block;
 }
 
 .request-map-marker--capture {
-    border-color: #b45309;
-    background: linear-gradient(145deg, #fbbf24, #d97706);
+    --request-marker-color: #dc2626;
+    --request-marker-color-dark: #991b1b;
 }
 
 .request-map-marker--surrender {
-    border-color: #1d4ed8;
-    background: linear-gradient(145deg, #60a5fa, #2563eb);
+    --request-marker-color: #2563eb;
+    --request-marker-color-dark: #1d4ed8;
 }
 
-.request-map-marker-fallback {
-    font-size: 16px;
-    font-weight: 700;
-    color: #fff;
+.request-map-marker-pin {
+    filter: drop-shadow(0 0 0 2px rgba(255, 255, 255, 0.94))
+        drop-shadow(0 12px 18px rgba(15, 23, 42, 0.28));
 }
 
 .request-map-marker-badge {
     position: absolute;
-    right: -2px;
-    bottom: -2px;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
+    top: 10px;
+    left: 50%;
+    width: 20px;
+    height: 20px;
     border-radius: 999px;
-    background: #0f172a;
-    color: #fff;
+    background: rgba(255, 255, 255, 0.96);
+    color: var(--request-marker-color-dark, #991b1b);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
+    transform: translateX(-50%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    font-size: 11px;
     font-weight: 800;
-    letter-spacing: 0.04em;
-    box-shadow: 0 3px 8px rgba(15, 23, 42, 0.22);
-}
-
-.request-map-marker--capture .request-map-marker-badge {
-    background: #9a3412;
-}
-
-.request-map-marker--surrender .request-map-marker-badge {
-    background: #1e40af;
+    letter-spacing: 0.03em;
+    box-shadow: 0 6px 12px rgba(15, 23, 42, 0.18);
 }
 
 .request-popup-card {
@@ -1213,13 +1201,37 @@ body {
     margin-bottom: 10px;
 }
 
-.request-popup-avatar {
+.request-popup-type-icon {
     width: 42px;
     height: 42px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid #dbe5f0;
-    background: #f8fafc;
+    flex: 0 0 42px;
+    position: relative;
+    color: var(--request-marker-color, #dc2626);
+}
+
+.request-popup-type-icon-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    filter: drop-shadow(0 4px 10px rgba(15, 23, 42, 0.14));
+}
+
+.request-popup-type-icon-badge {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    transform: translate(-50%, -54%);
+    background: rgba(255, 255, 255, 0.96);
+    color: var(--request-marker-color-dark, #991b1b);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+    border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .request-popup-title-block {

@@ -1,4 +1,5 @@
 from datetime import datetime, time, timedelta
+from pathlib import Path
 
 from django.core.cache import cache
 from django.core.management import call_command
@@ -1595,3 +1596,15 @@ class AdminDogRequestTemplateTests(TestCase):
         self.assertEqual(len(response.context["map_points"]), 1)
         self.assertEqual(response.context["map_points"][0]["id"], pending_request.id)
         self.assertEqual(response.context["map_points"][0]["request_type_key"], "capture")
+
+    def test_admin_request_map_script_uses_bayawan_default_and_supported_tiles(self):
+        map_script = (
+            Path(__file__).resolve().parent / "static" / "js" / "map.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+            map_script,
+        )
+        self.assertIn("const DEFAULT_CENTER = [9.3668, 122.8055];", map_script)
+        self.assertIn('class="request-map-marker-pin"', map_script)

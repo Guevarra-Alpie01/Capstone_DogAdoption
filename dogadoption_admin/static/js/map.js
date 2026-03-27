@@ -11,18 +11,21 @@
     );
     const emptyState = document.getElementById('mapEmptyState');
     const markersLayer = L.layerGroup();
-    // Bayawan City center
+    // Keep the first render anchored in Bayawan City for new sessions.
     const DEFAULT_CENTER = [9.3668, 122.8055];
     const DEFAULT_ZOOM = 13;
+    const TILE_LAYER_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    const TILE_LAYER_OPTIONS = {
+        subdomains: 'abcd',
+        maxZoom: 20,
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    };
     let isInitialRender = true;
 
     const map = L.map('requests-map');
     const mapEl = document.getElementById('requests-map');
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors',
-    }).addTo(map);
+    L.tileLayer(TILE_LAYER_URL, TILE_LAYER_OPTIONS).addTo(map);
 
     markersLayer.addTo(map);
 
@@ -67,17 +70,21 @@
             : '<span class="request-map-marker-badge" aria-hidden="true">C</span>';
     }
 
+    function mapPinSvg(className = '') {
+        return `
+            <svg class="${className}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M12 2C8.13 2 5 5.13 5 9c0 5.09 5.62 11.64 6.19 12.29a1 1 0 0 0 1.52 0C13.38 20.64 19 14.09 19 9c0-3.87-3.13-7-7-7Z"></path>
+            </svg>
+        `;
+    }
+
     function markerIconHtml(point) {
-        const avatarUrl = escapeHtml(point.profile_image_url || point.image_url || '');
         const typeClass = requestTypeClass(point);
+        const typeLabel = escapeHtml(point.request_type_label || 'Request');
 
         return `
-            <div class="request-map-marker ${typeClass}">
-                ${
-                    avatarUrl
-                        ? `<img src="${avatarUrl}" alt="${escapeHtml(point.requester_name || point.user)} profile">`
-                        : `<span class="request-map-marker-fallback">${escapeHtml((point.user || '?').charAt(0).toUpperCase())}</span>`
-                }
+            <div class="request-map-marker ${typeClass}" role="img" aria-label="${typeLabel} location">
+                <span class="request-map-marker-pin" aria-hidden="true">${mapPinSvg('request-map-marker-svg')}</span>
                 ${requestTypeBadge(point)}
             </div>
         `;
@@ -98,11 +105,16 @@
         const address = escapeHtml(point.requester_address || 'No address provided');
         const reason = escapeHtml(point.reason || 'Not specified');
         const createdAt = escapeHtml(point.created_at || '');
+        const typeIconClass = requestTypeClass(point);
+        const typeBadge = point.request_type_key === 'surrender' ? 'S' : 'C';
 
         return `
             <div class="request-popup-card">
                 <div class="request-popup-header">
-                    <img class="request-popup-avatar" src="${escapeHtml(point.profile_image_url || point.image_url || '')}" alt="${requesterName} profile">
+                    <div class="request-popup-type-icon ${typeIconClass}" aria-hidden="true">
+                        ${mapPinSvg('request-popup-type-icon-svg')}
+                        <span class="request-popup-type-icon-badge">${typeBadge}</span>
+                    </div>
                     <div class="request-popup-title-block">
                         <strong>${requesterName}</strong>
                         <span>@${username}</span>
@@ -138,9 +150,9 @@
                 icon: L.divIcon({
                     className: 'request-map-marker-wrap',
                     html: markerIconHtml(point),
-                    iconSize: [42, 42],
-                    iconAnchor: [21, 21],
-                    popupAnchor: [0, -18],
+                    iconSize: [40, 54],
+                    iconAnchor: [20, 52],
+                    popupAnchor: [0, -44],
                 }),
             }).bindPopup(popupHtml(point), { className: 'map-popup' });
 

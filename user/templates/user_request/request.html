@@ -516,12 +516,17 @@ let currentStep = 1;
 let stream = null;
 let map;
 let marker;
+const BAYAWAN_CITY_CENTER = [9.3668, 122.8055];
+const DEFAULT_REQUEST_MAP_ZOOM = 13;
+const REQUEST_MAP_TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+const REQUEST_MAP_TILE_OPTIONS = {
+    subdomains: 'abcd',
+    maxZoom: 20,
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+};
 
 function addRealisticLayers(mapInstance) {
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(mapInstance);
+    L.tileLayer(REQUEST_MAP_TILE_URL, REQUEST_MAP_TILE_OPTIONS).addTo(mapInstance);
 }
 
 const stepPanels = document.querySelectorAll('.step-panel');
@@ -740,7 +745,7 @@ function validatePhoneField() {
 
 function ensureRequestMapReady() {
     if (!map) {
-        map = L.map('requestMap').setView([9.2000, 122.8500], 13);
+        map = L.map('requestMap').setView(BAYAWAN_CITY_CENTER, DEFAULT_REQUEST_MAP_ZOOM);
         addRealisticLayers(map);
     }
     map.invalidateSize();

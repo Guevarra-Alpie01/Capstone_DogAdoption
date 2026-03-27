@@ -1136,6 +1136,20 @@ class DogCaptureRequestFlowTests(TestCase):
         self.assertContains(response, 'placeholder="+63 917 123 4567"', html=False)
         self.assertNotContains(response, 'value="+63')
 
+    def test_capture_request_page_uses_bayawan_default_map_and_supported_tiles(self):
+        response = self.client.get(reverse("user:dog_capture_request"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+        )
+        self.assertContains(
+            response,
+            "const BAYAWAN_CITY_CENTER = [9.3668, 122.8055];",
+            html=False,
+        )
+
     def test_capture_request_page_does_not_prefill_saved_phone_number(self):
         Profile.objects.create(
             user=self.user,

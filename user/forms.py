@@ -14,7 +14,7 @@ class UserAdoptionPostForm(forms.ModelForm):
 
     class Meta:
         model = UserAdoptionPost
-        fields = ['dog_name', 'gender', 'description', 'location']
+        fields = ['dog_name', 'gender', 'age', 'description', 'location']
         widgets = {
             "dog_name": forms.TextInput(attrs={
                 "class": "form-control",
@@ -22,6 +22,11 @@ class UserAdoptionPostForm(forms.ModelForm):
             }),
             "gender": forms.Select(attrs={
                 "class": "form-select",
+            }),
+            "age": forms.NumberInput(attrs={
+                "class": "form-control",
+                "placeholder": "e.g., 2",
+                "min": 0,
             }),
             "description": forms.Textarea(attrs={
                 "class": "form-control",
@@ -37,6 +42,8 @@ class UserAdoptionPostForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["gender"].required = True
+        self.fields["age"].required = False
+        self.fields["description"].required = False
         self.fields["gender"].choices = [
             ("", "Select gender"),
             *UserAdoptionPost.GENDER_CHOICES,
@@ -47,6 +54,7 @@ class MissingDogPostForm(forms.ModelForm):
         model = MissingDogPost
         fields = [
             'dog_name',
+            'age',
             'description',
             'image',
             'date_lost',
@@ -59,6 +67,11 @@ class MissingDogPostForm(forms.ModelForm):
             "dog_name": forms.TextInput(attrs={
                 "class": "form-control",
                 "placeholder": "e.g., Max",
+            }),
+            "age": forms.NumberInput(attrs={
+                "class": "form-control",
+                "placeholder": "e.g., 4",
+                "min": 0,
             }),
             "description": forms.Textarea(attrs={
                 "class": "form-control",
@@ -90,3 +103,8 @@ class MissingDogPostForm(forms.ModelForm):
                 "placeholder": "Optional Facebook profile link",
             }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["age"].required = False
+        self.fields["description"].required = False

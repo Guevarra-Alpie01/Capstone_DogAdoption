@@ -305,12 +305,12 @@ def _build_profile_post_rows(profile_user, recent_post_limit, default_profile_av
                 ).order_by("-created_at"),
             ),
         )
-        .only("id", "dog_name", "location", "status", "created_at")
+        .only("id", "dog_name", "age", "location", "status", "created_at")
         .order_by("-created_at")[:recent_post_limit]
     )
     missing_posts = list(
         MissingDogPost.objects.filter(owner=profile_user)
-        .only("id", "dog_name", "location", "status", "created_at", "image")
+        .only("id", "dog_name", "age", "location", "status", "created_at", "image")
         .order_by("-created_at")[:recent_post_limit]
     )
 
@@ -357,6 +357,7 @@ def _build_profile_post_rows(profile_user, recent_post_limit, default_profile_av
             "post_type": "adoption",
             "post_type_label": "Adoption",
             "title": post.dog_name,
+            "age": post.age,
             "location": post.location,
             "status_key": post.status,
             "status_label": post.get_status_display(),
@@ -375,6 +376,7 @@ def _build_profile_post_rows(profile_user, recent_post_limit, default_profile_av
             "post_type": "missing",
             "post_type_label": "Missing",
             "title": post.dog_name,
+            "age": post.age,
             "location": post.location,
             "status_key": post.status,
             "status_label": post.get_status_display(),

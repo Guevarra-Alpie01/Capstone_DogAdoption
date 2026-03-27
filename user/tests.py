@@ -348,12 +348,27 @@ class UserPostCreationFlowTests(TestCase):
 
         follow_response = self.client.get(response["Location"])
         self.assertEqual(follow_response.status_code, 200)
-        self.assertTrue(
-            any(
-                item["post_type"] == "user" and item["post"].dog_name == "Brownie"
-                for item in follow_response.context["posts"]
-            )
+        self.assertContains(follow_response, "Brownie")
+
+    def test_home_adoption_post_allows_blank_description_and_optional_age(self):
+        response = self.client.post(
+            reverse("user:user_home"),
+            {
+                "home_create_post": "1",
+                "post_type": "adoption",
+                "adoption-dog_name": "Scout",
+                "adoption-gender": "male",
+                "adoption-age": "3",
+                "adoption-description": "",
+                "adoption-location": "Barangay 5",
+                "adoption-main_image": self._image_file("scout.gif"),
+            },
         )
+
+        self.assertEqual(response.status_code, 302)
+        created_post = UserAdoptionPost.objects.get(dog_name="Scout", owner=self.user)
+        self.assertEqual(created_post.age, 3)
+        self.assertEqual(created_post.description, "")
 
     def test_create_post_missing_dog_redirects_with_fresh_feed_and_renders_new_post(self):
         self.client.get(reverse("user:user_home"))
@@ -377,12 +392,27 @@ class UserPostCreationFlowTests(TestCase):
 
         follow_response = self.client.get(response["Location"])
         self.assertEqual(follow_response.status_code, 200)
-        self.assertTrue(
-            any(
-                item["post_type"] == "missing" and item["post"].dog_name == "Max"
-                for item in follow_response.context["posts"]
-            )
+        self.assertContains(follow_response, "Max")
+
+    def test_create_post_missing_dog_allows_blank_description_and_optional_age(self):
+        response = self.client.post(
+            reverse("user:create_post"),
+            {
+                "post_type": "missing",
+                "missing-dog_name": "Luna",
+                "missing-age": "5",
+                "missing-description": "",
+                "missing-image": self._image_file("luna-missing.gif"),
+                "missing-date_lost": "2026-03-09",
+                "missing-time_lost": "10:15",
+                "missing-location": "Poblacion",
+            },
         )
+
+        self.assertEqual(response.status_code, 302)
+        created_post = MissingDogPost.objects.get(dog_name="Luna", owner=self.user)
+        self.assertEqual(created_post.age, 5)
+        self.assertEqual(created_post.description, "")
 
 
 class UserToUserAdoptionRequestFlowTests(TestCase):

@@ -214,7 +214,8 @@ class UserAdoptionPost(models.Model):
 
     dog_name = models.CharField(max_length=100)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, default="")
-    description = models.TextField()
+    age = models.PositiveIntegerField(null=True, blank=True)
+    description = models.TextField(blank=True)
     location = models.CharField(max_length=255)
     status = models.CharField(
         max_length=20,
@@ -287,7 +288,8 @@ class MissingDogPost(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     
     dog_name = models.CharField(max_length=100)
-    description = models.TextField()
+    age = models.PositiveIntegerField(null=True, blank=True)
+    description = models.TextField(blank=True)
 
     image = models.ImageField(upload_to='missing_dogs/')
     

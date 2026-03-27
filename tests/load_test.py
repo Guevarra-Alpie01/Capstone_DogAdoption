@@ -605,6 +605,28 @@ class CapstoneUserBase(HttpUser):
             return False
         return True
 
+    def _describe_login_failure(self, response, final_url: str) -> str:
+        body = getattr(response, "text", "") or ""
+        if response.status_code == 429 or "Too many requests" in body:
+            return "Login failed: rate limited by the backend."
+        if "Invalid username or password" in body:
+            return "Login failed: invalid load-test credentials."
+        if response.status_code >= 400:
+            return f"Login failed with HTTP {response.status_code}."
+        if "/user/user-login/" in final_url:
+            return "Login failed: request stayed on the login page."
+        return "Login failed for an unknown reason."
+
+    def _abort_run_for_bad_auth(self, reason: str) -> None:
+        runner = getattr(self.environment, "runner", None)
+        if runner is None:
+            return
+        if "invalid load-test credentials" not in reason:
+            return
+        if (time.monotonic() - RUN_STATE.started_at_monotonic) > 30:
+            return
+        runner.quit()
+
     def login(self) -> None:
         username, password = self.selected_credentials
         with self.client.get(
@@ -639,8 +661,10 @@ class CapstoneUserBase(HttpUser):
             self._capture_discovery(response.text)
             final_url = (getattr(response, "url", "") or "").lower()
             if response.status_code >= 400 or "/user/user-login/" in final_url:
-                response.failure(f"Login failed for {self.user_label}.")
-                raise StopUser("Authentication failed.")
+                failure_reason = self._describe_login_failure(response, final_url)
+                response.failure(failure_reason)
+                self._abort_run_for_bad_auth(failure_reason)
+                raise StopUser(failure_reason)
             self.is_authenticated = True
             response.success()
 

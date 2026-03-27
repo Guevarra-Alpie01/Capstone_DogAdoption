@@ -170,11 +170,34 @@ def _build_signup_form_data(*, username="", first_name="", last_name="", raw_bar
 
 def _render_signup_error(request, signup_form_data, message):
     """Re-open the signup modal with a single validation error message."""
-    return _render_home_with_auth_modal(
+    return _render_signup_page(
         request,
-        "signup",
-        signup_error=message,
+        error=message,
         signup_form_data=signup_form_data,
+    )
+
+
+def _render_login_page(request, *, error="", login_form_data=None):
+    """Render the dedicated login page used for standalone auth flows."""
+    return render(
+        request,
+        "login.html",
+        {
+            "error": error,
+            "login_form_data": login_form_data or {},
+        },
+    )
+
+
+def _render_signup_page(request, *, error="", signup_form_data=None):
+    """Render the dedicated signup page used for standalone auth flows."""
+    return render(
+        request,
+        "signup.html",
+        {
+            "error": error,
+            "signup_form_data": signup_form_data or {},
+        },
     )
 
 
@@ -637,14 +660,13 @@ def login_view(request):
             response.delete_cookie("admin_sessionid")
             return response
 
-        return _render_home_with_auth_modal(
+        return _render_login_page(
             request,
-            "login",
-            login_error="Invalid username or password",
+            error="Invalid username or password",
             login_form_data={"username": username or ""},
         )
 
-    return _render_home_with_auth_modal(request, "login")
+    return _render_login_page(request)
 
 
 def logout_view(request):
@@ -1924,7 +1946,7 @@ def signup_view(request):
         # GO TO FACE AUTH STEP
         return redirect("user:face_auth")
 
-    return _render_home_with_auth_modal(request, "signup")
+    return _render_signup_page(request)
 
 @user_only
 def edit_profile(request):

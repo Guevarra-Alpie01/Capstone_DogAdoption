@@ -10,6 +10,8 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from pet_adoption.observability import runtime_metrics
+
 from .access import get_admin_access
 from .forms import CitationForm, PostForm
 from .models import (
@@ -80,6 +82,77 @@ class AnnouncementBucketUpdateTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.post.refresh_from_db()
         self.assertEqual(self.post.display_bucket, DogAnnouncement.BUCKET_ORDINARY)
+
+
+class AdminAnnouncementPaginationTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="admin_announcements",
+            password="secret123",
+            is_staff=True,
+        )
+        self.client.force_login(self.admin)
+
+        for index in range(25):
+            DogAnnouncement.objects.create(
+                title=f"Board post {index}",
+                content=f"Announcement body {index}",
+                category=DogAnnouncement.CATEGORY_DOG_ANNOUNCEMENT,
+                created_by=self.admin,
+            )
+
+    def test_admin_announcement_board_paginates_large_feeds(self):
+        response = self.client.get(reverse("dogadoption_admin:admin_announcements"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["announcements"]), 24)
+        self.assertTrue(response.context["announcement_page_obj"].has_next())
+
+        second_page = self.client.get(
+            reverse("dogadoption_admin:admin_announcements"),
+            {"page": 2},
+        )
+
+        self.assertEqual(second_page.status_code, 200)
+        self.assertEqual(second_page.context["announcement_page_obj"].number, 2)
+        self.assertEqual(len(second_page.context["announcements"]), 1)
+
+
+class HealthAndMetricsEndpointTests(TestCase):
+    def setUp(self):
+        runtime_metrics.reset()
+        self.admin = User.objects.create_user(
+            username="metrics_admin",
+            password="secret123",
+            is_staff=True,
+        )
+
+    def test_live_and_ready_endpoints_return_request_ids(self):
+        live_response = self.client.get(reverse("health_live"))
+        ready_response = self.client.get(reverse("health_ready"))
+
+        self.assertEqual(live_response.status_code, 200)
+        self.assertEqual(ready_response.status_code, 200)
+        self.assertEqual(live_response.json()["status"], "ok")
+        self.assertEqual(ready_response.json()["status"], "ok")
+        self.assertIn("X-Request-ID", live_response)
+        self.assertIn("X-Request-ID", ready_response)
+
+    def test_metrics_endpoint_requires_staff_and_reports_routes(self):
+        forbidden_response = self.client.get(reverse("health_metrics"))
+        self.assertEqual(forbidden_response.status_code, 403)
+
+        self.client.get(reverse("user:user_home"))
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse("health_metrics"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertGreaterEqual(payload["totals"]["requests"], 1)
+        self.assertTrue(
+            any(row["route"] == "user:user_home" for row in payload["routes"])
+        )
 
 
 class CitationFormTests(TestCase):

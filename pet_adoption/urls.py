@@ -47,6 +47,9 @@ register_converter(NotificationIDConverter, "notificationid")
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.root_redirect, name='root'),
+    path('health/live/', views.health_live, name='health_live'),
+    path('health/ready/', views.health_ready, name='health_ready'),
+    path('health/metrics/', views.health_metrics, name='health_metrics'),
     path('user/', include('user.urls')),
     path('vetadmin/analytics/dashboard/', admin_views.analytics_dashboard, name='analytics_dashboard_direct'),
     path('vetadmin/', include('dogadoption_admin.urls')),

@@ -318,6 +318,26 @@
 </section>
 </div>
 
+{% if announcement_page_obj and announcement_page_obj.paginator.num_pages > 1 %}
+<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mt-3">
+    {% if announcement_page_obj.has_previous %}
+    <a class="btn btn-outline-secondary btn-sm" href="?page={{ announcement_page_obj.previous_page_number }}">
+        Previous
+    </a>
+    {% else %}
+    <span class="btn btn-outline-secondary btn-sm disabled">Previous</span>
+    {% endif %}
+    <small>Page {{ announcement_page_obj.number }} of {{ announcement_page_obj.paginator.num_pages }}</small>
+    {% if announcement_page_obj.has_next %}
+    <a class="btn btn-outline-secondary btn-sm" href="?page={{ announcement_page_obj.next_page_number }}">
+        Next
+    </a>
+    {% else %}
+    <span class="btn btn-outline-secondary btn-sm disabled">Next</span>
+    {% endif %}
+</div>
+{% endif %}
+
 <div class="modal fade wiki-modal app-confirm-modal" id="announcementSubmitConfirmModal" tabindex="-1" aria-labelledby="announcementSubmitConfirmLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content wiki-modal-content app-confirm-card">

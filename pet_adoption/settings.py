@@ -103,6 +103,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'dogadoption_admin.middleware.AdminSessionMiddleware',      # Custom middleware to handle admin sessions
+    'pet_adoption.middleware.RequestObservabilityMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -142,8 +143,18 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT', '3306'),
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '60')),
+        'CONN_HEALTH_CHECKS': env_bool('DB_CONN_HEALTH_CHECKS', True),
     }
 }
+
+if "mysql" in DATABASES["default"]["ENGINE"]:
+    db_sql_mode = os.getenv("DB_SQL_MODE", "STRICT_TRANS_TABLES").strip()
+    db_options = {
+        "connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "10")),
+    }
+    if db_sql_mode:
+        db_options["init_command"] = f"SET SESSION sql_mode='{db_sql_mode}'"
+    DATABASES["default"]["OPTIONS"] = db_options
 
 CACHE_BACKEND = os.getenv("CACHE_BACKEND", "locmem").strip().lower()
 REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1")
@@ -254,3 +265,29 @@ if not DEBUG:
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOG_LEVEL = os.getenv("DJANGO_LOG_LEVEL", "INFO").strip().upper() or "INFO"
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "structured_message": {
+            "format": "%(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "structured_message",
+            "level": LOG_LEVEL,
+        },
+    },
+    "loggers": {
+        "pet_adoption.request": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+    },
+}

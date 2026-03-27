@@ -247,6 +247,64 @@ class AnnouncementListBucketTests(TestCase):
         self.assertIn(self.campaign_post.id, campaign_ids)
 
 
+class AnnouncementPaginationTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.admin = User.objects.create_user(
+            username="announcement_admin",
+            password="secret123",
+            is_staff=True,
+        )
+        self.user = User.objects.create_user(
+            username="announcement_reader",
+            password="secret123",
+        )
+        self.client.force_login(self.user)
+
+        self.pinned_post = DogAnnouncement.objects.create(
+            title="Pinned notice",
+            content="Pinned body",
+            category=DogAnnouncement.CATEGORY_DOG_ANNOUNCEMENT,
+            display_bucket=DogAnnouncement.BUCKET_PINNED,
+            created_by=self.admin,
+        )
+        self.campaign_post = DogAnnouncement.objects.create(
+            title="Campaign notice",
+            content="Campaign body",
+            category=DogAnnouncement.CATEGORY_DOG_ANNOUNCEMENT,
+            display_bucket=DogAnnouncement.BUCKET_CAMPAIGN,
+            created_by=self.admin,
+        )
+        for index in range(13):
+            DogAnnouncement.objects.create(
+                title=f"Regular notice {index}",
+                content=f"Regular body {index}",
+                category=DogAnnouncement.CATEGORY_DOG_LAW,
+                display_bucket=DogAnnouncement.BUCKET_ORDINARY,
+                created_by=self.admin,
+            )
+
+    def test_public_announcement_feed_paginates_regular_posts(self):
+        response = self.client.get(reverse("user:announcement_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["pinned_count"], 1)
+        self.assertEqual(response.context["campaign_count"], 1)
+        self.assertEqual(response.context["regular_total"], 13)
+        self.assertEqual(len(response.context["pinned_announcements"]), 1)
+        self.assertEqual(len(response.context["campaign_announcements"]), 1)
+        self.assertEqual(len(response.context["regular_announcements"]), 12)
+        self.assertTrue(response.context["regular_page_obj"].has_next())
+
+        second_page = self.client.get(reverse("user:announcement_list"), {"page": 2})
+
+        self.assertEqual(second_page.status_code, 200)
+        self.assertEqual(second_page.context["regular_page_obj"].number, 2)
+        self.assertEqual(len(second_page.context["regular_announcements"]), 1)
+        self.assertEqual(len(second_page.context["pinned_announcements"]), 1)
+        self.assertEqual(len(second_page.context["campaign_announcements"]), 1)
+
+
 class UserPostCreationFlowTests(TestCase):
     GIF_BYTES = (
         b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00"

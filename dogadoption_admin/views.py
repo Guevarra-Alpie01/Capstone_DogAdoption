@@ -809,7 +809,25 @@ ANNOUNCEMENT_BUCKET_VALUES = {
     value for value, _label in DogAnnouncement.DISPLAY_BUCKET_CHOICES
 }
 
+ADMIN_ANNOUNCEMENT_PAGE_SIZE = 24
+AUTOCOMPLETE_RESULTS_DEFAULT = 12
+AUTOCOMPLETE_RESULTS_MAX = 25
 ANALYTICS_DASHBOARD_CACHE_TTL_SECONDS = 60
+
+
+def _parse_positive_int(raw_value, default=AUTOCOMPLETE_RESULTS_DEFAULT, max_value=AUTOCOMPLETE_RESULTS_MAX):
+    try:
+        parsed = int(raw_value)
+    except (TypeError, ValueError):
+        parsed = default
+    return max(1, min(parsed, max_value))
+
+
+def _cacheable_json_response(payload, *, max_age, public=False, status=200):
+    response = JsonResponse(payload, status=status)
+    visibility = "public" if public else "private"
+    response["Cache-Control"] = f"{visibility}, max-age={max_age}"
+    return response
 
 
 def _set_post_form_barangay_source(post_form):
@@ -2003,15 +2021,37 @@ def update_dog_capture_request(request, pk):
 # Covers public admin announcements published to the user-facing app.
 # =============================================================================
 
-@admin_required
-def announcement_list(request):
-    """Render the announcement feed shown in the admin announcement module."""
-    announcements_qs = (
+def _admin_announcement_queryset():
+    return (
         DogAnnouncement.objects.select_related('created_by', 'created_by__profile')
+        .only(
+            'id',
+            'title',
+            'content',
+            'category',
+            'display_bucket',
+            'background_image',
+            'background_color',
+            'created_at',
+            'created_by__id',
+            'created_by__username',
+            'created_by__first_name',
+            'created_by__last_name',
+            'created_by__profile__profile_image',
+        )
         .prefetch_related('images')
         .order_by('-created_at')
     )
-    announcements = list(announcements_qs)
+
+
+@admin_required
+def announcement_list(request):
+    """Render the announcement feed shown in the admin announcement module."""
+    announcement_page_obj = Paginator(
+        _admin_announcement_queryset(),
+        ADMIN_ANNOUNCEMENT_PAGE_SIZE,
+    ).get_page(request.GET.get("page", 1))
+    announcements = list(announcement_page_obj.object_list)
     default_admin_avatar_url = static("images/officialseal.webp")
     for post in announcements:
         profile = getattr(post.created_by, "profile", None)
@@ -2020,6 +2060,7 @@ def announcement_list(request):
 
     return render(request, 'admin_announcement/announcement.html', {
         'announcements': announcements,
+        'announcement_page_obj': announcement_page_obj,
         'category_options': ANNOUNCEMENT_CATEGORY_OPTIONS,
     })
 
@@ -3261,25 +3302,31 @@ def registration_owner_profile(request, user_id):
 @admin_required
 def barangay_list_api(request):
     """Return active barangay names for registration autocomplete widgets."""
-    cache_key = "active_barangay_names"
+    query = " ".join((request.GET.get("q") or "").split()).strip()
+    limit = _parse_positive_int(request.GET.get("limit"), default=200, max_value=200)
+    cache_key = f"active_barangay_names:{query.casefold()}:{limit}"
     barangays = cache.get(cache_key)
     if barangays is None:
-        barangays = list(Barangay.objects.filter(is_active=True).values_list('name', flat=True))
+        barangay_qs = Barangay.objects.filter(is_active=True)
+        if query:
+            barangay_qs = barangay_qs.filter(name__icontains=query)
+        barangays = list(barangay_qs.values_list('name', flat=True)[:limit])
         cache.set(cache_key, barangays, 300)
-    return JsonResponse({"barangays": barangays})
+    return _cacheable_json_response({"barangays": barangays}, max_age=300)
 
 
 @admin_required
 def registration_user_search_api(request):
     """Search non-staff users to prefill registration owner details."""
     query = " ".join((request.GET.get("q") or "").split()).strip()
+    limit = _parse_positive_int(request.GET.get("limit"))
     if len(query) < 2:
-        return JsonResponse({"results": []})
+        return _cacheable_json_response({"results": []}, max_age=30)
 
-    cache_key = f"registration_user_search:{query.casefold()}"
+    cache_key = f"registration_user_search:{query.casefold()}:{limit}"
     cached = cache.get(cache_key)
     if cached is not None:
-        return JsonResponse({"results": cached})
+        return _cacheable_json_response({"results": cached}, max_age=60)
 
     tokens = query.split()
     users = User.objects.filter(is_active=True, is_staff=False)
@@ -3303,7 +3350,7 @@ def registration_user_search_api(request):
         "username",
         "profile__address",
         "profile__phone_number",
-    )[:12]
+    )[:limit]
     results = []
     for row in rows:
         first_name = (row.get("first_name") or "").strip()
@@ -3325,7 +3372,7 @@ def registration_user_search_api(request):
         )
 
     cache.set(cache_key, results, 60)
-    return JsonResponse({"results": results})
+    return _cacheable_json_response({"results": results}, max_age=60)
 
 
 @admin_required

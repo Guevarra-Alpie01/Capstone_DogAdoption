@@ -78,6 +78,8 @@ from .notification_utils import (
 
 ACTIVE_BARANGAY_LOOKUP_CACHE_KEY = "user_active_barangay_lookup"
 ACTIVE_BARANGAY_LOOKUP_CACHE_TTL_SECONDS = 300
+BARANGAY_API_DEFAULT_LIMIT = 200
+BARANGAY_API_MAX_LIMIT = 200
 DEFAULT_REQUEST_CITY = "Bayawan City"
 PHILIPPINES_COUNTRY_CODE = "+63"
 SIGNUP_USERNAME_MIN_LENGTH = 3
@@ -1315,6 +1317,8 @@ SEARCH_RESULTS_PER_PAGE = 12
 SEARCH_CANDIDATE_LIMIT = 240
 SEARCH_CACHE_TTL_SECONDS = 90
 SEARCH_MAX_QUERY_LENGTH = 80
+PUBLIC_ANNOUNCEMENT_PAGE_SIZE = 12
+PUBLIC_ANNOUNCEMENT_SIDEBAR_LIMIT = 6
 
 
 def _normalized_feed_query(raw_query):
@@ -1323,6 +1327,14 @@ def _normalized_feed_query(raw_query):
 
 def _normalized_search_query(raw_query):
     return _normalized_feed_query(raw_query)[:SEARCH_MAX_QUERY_LENGTH]
+
+
+def _parse_positive_int(raw_value, default, max_value):
+    try:
+        parsed = int(raw_value)
+    except (TypeError, ValueError):
+        parsed = default
+    return max(1, min(parsed, max_value))
 
 
 def _pagination_query_without_page(querydict):
@@ -1832,8 +1844,19 @@ def _group_capture_requests_by_status(requests):
 # Shared onboarding and profile endpoints
 def barangay_list_api(request):
     """Return active barangay names for signup and request autocomplete."""
-    barangays = list(Barangay.objects.filter(is_active=True).values_list("name", flat=True))
-    return JsonResponse({"barangays": barangays})
+    query = " ".join((request.GET.get("q") or "").split()).strip()
+    limit = _parse_positive_int(
+        request.GET.get("limit"),
+        BARANGAY_API_DEFAULT_LIMIT,
+        BARANGAY_API_MAX_LIMIT,
+    )
+    barangay_qs = Barangay.objects.filter(is_active=True)
+    if query:
+        barangay_qs = barangay_qs.filter(name__icontains=query)
+    barangays = list(barangay_qs.values_list("name", flat=True)[:limit])
+    response = JsonResponse({"barangays": barangays})
+    response["Cache-Control"] = "private, max-age=300"
+    return response
 
 
 def signup_view(request):
@@ -3049,37 +3072,38 @@ def adopt_confirm(request, post_id):
 # Covers announcement browsing, details, reactions, comments, and sharing.
 # =============================================================================
 
-@user_only
-def announcement_list(request):
-    """Render the public announcement feed grouped by display bucket."""
+
+def _announcement_card_prefetch():
+    return Prefetch(
+        "images",
+        queryset=DogAnnouncementImage.objects.only(
+            "id",
+            "announcement_id",
+            "image",
+            "created_at",
+        ).order_by("created_at", "id"),
+        to_attr="prefetched_images",
+    )
+
+
+def _announcement_feed_queryset(user_id):
     user_reaction_subquery = AnnouncementReaction.objects.filter(
         announcement_id=OuterRef("pk"),
-        user_id=request.user.id,
+        user_id=user_id,
     )
-    posts = (
-        DogAnnouncement.objects.select_related("created_by", "created_by__profile").annotate(
+    return (
+        DogAnnouncement.objects.select_related("created_by", "created_by__profile")
+        .annotate(
             reaction_count=Count("reactions", distinct=True),
             user_reacted=Exists(user_reaction_subquery),
-        ).prefetch_related(
-            Prefetch(
-                "images",
-                queryset=DogAnnouncementImage.objects.only(
-                    "id",
-                    "announcement_id",
-                    "image",
-                    "created_at",
-                ).order_by("created_at", "id"),
-                to_attr="prefetched_images",
-            ),
-        ).order_by("-created_at")
+        )
+        .prefetch_related(_announcement_card_prefetch())
+        .order_by("-created_at")
     )
 
-    posts = list(posts)
-    default_admin_avatar_url = static("images/officialseal.webp")
-    pinned_announcements = []
-    campaign_announcements = []
-    regular_announcements = []
 
+def _decorate_announcement_posts(posts, request):
+    default_admin_avatar_url = static("images/officialseal.webp")
     for post in posts:
         post.admin_profile_image_url = _profile_image_url_or_default(
             post.created_by, default_admin_avatar_url
@@ -3088,17 +3112,59 @@ def announcement_list(request):
         post.share_url = request.build_absolute_uri(
             reverse("user:announcement_share_preview", args=[post.id])
         )
-        if post.display_bucket == DogAnnouncement.BUCKET_PINNED:
-            pinned_announcements.append(post)
-        elif post.display_bucket == DogAnnouncement.BUCKET_CAMPAIGN:
-            campaign_announcements.append(post)
-        else:
-            regular_announcements.append(post)
+    return posts
+
+
+@user_only
+def announcement_list(request):
+    """Render the public announcement feed grouped by display bucket."""
+    bucket_counts = {
+        row["display_bucket"]: row["total"]
+        for row in DogAnnouncement.objects.values("display_bucket").annotate(
+            total=Count("id")
+        )
+    }
+    pinned_announcements = list(
+        _announcement_feed_queryset(request.user.id).filter(
+            display_bucket=DogAnnouncement.BUCKET_PINNED
+        )[:PUBLIC_ANNOUNCEMENT_SIDEBAR_LIMIT]
+    )
+    campaign_announcements = list(
+        _announcement_feed_queryset(request.user.id).filter(
+            display_bucket=DogAnnouncement.BUCKET_CAMPAIGN
+        )[:PUBLIC_ANNOUNCEMENT_SIDEBAR_LIMIT]
+    )
+    regular_qs = _announcement_feed_queryset(request.user.id).exclude(
+        display_bucket__in=[
+            DogAnnouncement.BUCKET_PINNED,
+            DogAnnouncement.BUCKET_CAMPAIGN,
+        ]
+    )
+    regular_page_obj = Paginator(
+        regular_qs,
+        PUBLIC_ANNOUNCEMENT_PAGE_SIZE,
+    ).get_page(request.GET.get("page", 1))
+    regular_announcements = list(regular_page_obj.object_list)
+
+    _decorate_announcement_posts(pinned_announcements, request)
+    _decorate_announcement_posts(campaign_announcements, request)
+    _decorate_announcement_posts(regular_announcements, request)
+
+    total_announcements = sum(bucket_counts.values())
+    pinned_count = bucket_counts.get(DogAnnouncement.BUCKET_PINNED, 0)
+    campaign_count = bucket_counts.get(DogAnnouncement.BUCKET_CAMPAIGN, 0)
+    regular_total = max(total_announcements - pinned_count - campaign_count, 0)
+    pagination_query = _pagination_query_without_page(request.GET)
 
     return render(request, 'announcement/announcement.html', {
         'pinned_announcements': pinned_announcements,
         'campaign_announcements': campaign_announcements,
         'regular_announcements': regular_announcements,
+        'pinned_count': pinned_count,
+        'campaign_count': campaign_count,
+        'regular_total': regular_total,
+        'regular_page_obj': regular_page_obj,
+        'announcement_pagination_query': pagination_query,
     })
 
 

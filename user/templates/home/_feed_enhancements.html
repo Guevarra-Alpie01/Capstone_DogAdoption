@@ -524,6 +524,18 @@
             trigger.replaceWith(badge);
         }
 
+        function resolveCsrfToken() {
+            const cookieValue = document.cookie
+                .split("; ")
+                .find((row) => row.startsWith("csrftoken="));
+            if (cookieValue) {
+                return decodeURIComponent(cookieValue.split("=").slice(1).join("="));
+            }
+
+            const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+            return csrfInput ? csrfInput.value : "";
+        }
+
         openButtons.forEach((button) => {
             button.addEventListener("click", () => {
                 activeTrigger = button;
@@ -541,15 +553,24 @@
 
             setSubmitting(true);
             try {
+                const csrfToken = resolveCsrfToken();
                 const response = await fetch(activeRequestUrl, {
                     method: "POST",
                     headers: {
+                        "Accept": "application/json",
                         "X-Requested-With": "XMLHttpRequest",
-                        "X-CSRFToken": typeof getCookie === "function" ? getCookie("csrftoken") : "",
+                        "X-CSRFToken": csrfToken,
                     },
+                    credentials: "same-origin",
                 });
-                const data = await response.json();
+                const contentType = response.headers.get("content-type") || "";
+                const data = contentType.includes("application/json")
+                    ? await response.json()
+                    : null;
                 if (!response.ok || !data.ok) {
+                    if (response.status === 403) {
+                        throw new Error("Your session could not be verified. Refresh the page and try again.");
+                    }
                     throw new Error((data && data.message) || "Request failed");
                 }
                 markTriggerRequested(activeTrigger, !!data.created);

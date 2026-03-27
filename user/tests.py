@@ -472,6 +472,14 @@ class UserToUserAdoptionRequestFlowTests(TestCase):
             UserAdoptionRequest.objects.filter(post=self.post, requester=self.requester).exists()
         )
 
+    def test_user_home_includes_csrf_aware_feed_adoption_modal_script(self):
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "function resolveCsrfToken()", html=False)
+        self.assertContains(response, '"X-CSRFToken": csrfToken', html=False)
+        self.assertContains(response, 'credentials: "same-origin"', html=False)
+
     def test_post_adopt_user_post_allows_blank_phone_and_facebook(self):
         profile = self.requester.profile
         profile.phone_number = ""

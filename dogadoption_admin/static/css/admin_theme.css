@@ -28,11 +28,6 @@
     --admin-shell-content-bottom: clamp(32px, 4vw, 56px);
     --admin-shell-bottom-nav-phone: calc(86px + env(safe-area-inset-bottom, 0px));
     --admin-shell-bottom-nav-tablet: calc(94px + env(safe-area-inset-bottom, 0px));
-    --admin-scrollbar-width: 0px;
-}
-
-html {
-    scrollbar-gutter: stable;
 }
 
 body {
@@ -50,19 +45,23 @@ body {
 
 #page-content-wrapper .content-container {
     min-height: calc(100vh - var(--admin-shell-topbar-height));
+    width: 100%;
+    padding-inline: var(--admin-shell-content-gutter);
+    box-sizing: border-box;
 }
 
-#page-content-wrapper .container-fluid {
+#page-content-wrapper .content-container > .container-fluid {
+    width: min(100%, var(--admin-page-max-width));
+    margin-inline: auto;
     padding-top: 24px !important;
-    padding-right: var(--admin-shell-content-gutter) !important;
+    padding-right: 0 !important;
     padding-bottom: var(--admin-shell-content-bottom) !important;
-    padding-left: var(--admin-shell-content-gutter) !important;
+    padding-left: 0 !important;
 }
 
 .app-topbar .container-fluid {
     min-height: var(--admin-shell-topbar-height);
     padding-inline: clamp(12px, 2vw, 20px);
-    padding-right: calc(clamp(12px, 2vw, 20px) + var(--admin-scrollbar-width));
     gap: 12px;
 }
 
@@ -83,7 +82,6 @@ body {
 }
 
 .app-topbar {
-    right: var(--admin-scrollbar-width);
     background: #f7c600 !important;
     border-bottom: 1px solid #9b8b00 !important;
     backdrop-filter: none;
@@ -825,19 +823,17 @@ tbody th,
 @media (max-width: 991.98px) {
     #page-content-wrapper .content-container {
         min-height: calc(100vh - var(--admin-shell-topbar-mobile-height));
+        padding-inline: 16px;
     }
 
-    #page-content-wrapper .container-fluid {
+    #page-content-wrapper .content-container > .container-fluid {
         padding-top: 20px !important;
-        padding-right: 16px !important;
         padding-bottom: var(--admin-shell-bottom-nav-tablet) !important;
-        padding-left: 16px !important;
     }
 
     .app-topbar .container-fluid {
         min-height: var(--admin-shell-topbar-mobile-height);
         padding-inline: 12px;
-        padding-right: calc(12px + var(--admin-scrollbar-width));
         gap: 10px;
     }
 
@@ -872,10 +868,12 @@ tbody th,
 }
 
 @media (max-width: 767.98px) {
-    #page-content-wrapper .container-fluid {
+    #page-content-wrapper .content-container {
+        padding-inline: 14px;
+    }
+
+    #page-content-wrapper .content-container > .container-fluid {
         padding-top: 18px !important;
-        padding-right: 14px !important;
-        padding-left: 14px !important;
     }
 
     .page-head,
@@ -890,16 +888,17 @@ tbody th,
 }
 
 @media (max-width: 575.98px) {
-    #page-content-wrapper .container-fluid {
+    #page-content-wrapper .content-container {
+        padding-inline: 12px;
+    }
+
+    #page-content-wrapper .content-container > .container-fluid {
         padding-top: 16px !important;
-        padding-right: 12px !important;
         padding-bottom: var(--admin-shell-bottom-nav-phone) !important;
-        padding-left: 12px !important;
     }
 
     .app-topbar .container-fluid {
         padding-inline: 10px;
-        padding-right: calc(10px + var(--admin-scrollbar-width));
     }
 
     .admin-topbar-actions {

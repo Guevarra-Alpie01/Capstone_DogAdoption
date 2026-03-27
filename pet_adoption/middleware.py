@@ -107,6 +107,10 @@ class RequestRateLimitMiddleware(MiddlewareMixin):
         "dogadoption_admin:admin_edit_profile",
     }
 
+    def __init__(self, get_response=None):
+        super().__init__(get_response)
+        self.logger = logging.getLogger("pet_adoption.rate_limit")
+
     def process_view(self, request, view_func, view_args, view_kwargs):
         if not getattr(settings, "RATE_LIMIT_ENABLED", True):
             return None
@@ -116,21 +120,49 @@ class RequestRateLimitMiddleware(MiddlewareMixin):
         resolver_match = getattr(request, "resolver_match", None)
         route_name = getattr(resolver_match, "view_name", "") or request.path
         bucket_name, limit = self._policy_for_route(route_name)
-        if limit <= 0:
-            return None
-
         window_seconds = max(int(getattr(settings, "RATE_LIMIT_WINDOW_SECONDS", 60)), 1)
         identity = self._request_identity(request)
         current_time = int(time())
         period = current_time // window_seconds
-        cache_key = f"rate_limit:{bucket_name}:{identity}:{period}"
+        retry_after = max(window_seconds - (current_time % window_seconds), 1)
 
+        if route_name in self.AUTH_ROUTE_NAMES:
+            rate_limited = self._enforce_auth_limits(
+                request=request,
+                route_name=route_name,
+                period=period,
+                window_seconds=window_seconds,
+                retry_after=retry_after,
+            )
+            if not rate_limited:
+                return None
+            return self._rate_limited_response(
+                request,
+                retry_after,
+                route_name=route_name,
+                bucket_name=rate_limited,
+            )
+
+        if limit <= 0:
+            return None
+
+        cache_key = f"rate_limit:{bucket_name}:{identity}:{period}"
         count = self._increment_counter(cache_key, window_seconds)
         if count <= limit:
             return None
 
-        retry_after = max(window_seconds - (current_time % window_seconds), 1)
-        return self._rate_limited_response(request, retry_after)
+        self._log_rate_limit(
+            request=request,
+            route_name=route_name,
+            bucket_name=bucket_name,
+            retry_after=retry_after,
+        )
+        return self._rate_limited_response(
+            request,
+            retry_after,
+            route_name=route_name,
+            bucket_name=bucket_name,
+        )
 
     def _policy_for_route(self, route_name):
         if route_name in self.AUTH_ROUTE_NAMES:
@@ -151,19 +183,79 @@ class RequestRateLimitMiddleware(MiddlewareMixin):
             cache.set(cache_key, current_value, timeout=timeout_seconds)
             return current_value
 
+    def _enforce_auth_limits(self, *, request, route_name, period, window_seconds, retry_after):
+        for bucket_name, identity, limit in self._auth_policies(request, route_name):
+            if limit <= 0:
+                continue
+            cache_key = f"rate_limit:{bucket_name}:{identity}:{period}"
+            count = self._increment_counter(cache_key, window_seconds)
+            if count <= limit:
+                continue
+            self._log_rate_limit(
+                request=request,
+                route_name=route_name,
+                bucket_name=bucket_name,
+                retry_after=retry_after,
+            )
+            return bucket_name
+        return ""
+
+    def _auth_policies(self, request, route_name):
+        client_ip = self._client_ip(request)
+        per_ip_limit = int(getattr(settings, "RATE_LIMIT_AUTH_IP_BURST_REQUESTS", 60))
+        per_credential_limit = int(getattr(settings, "RATE_LIMIT_AUTH_REQUESTS", 10))
+
+        credential_value = self._auth_credential_value(request, route_name)
+        credential_identity = (
+            f"{route_name}:credential:{credential_value}:{client_ip}"
+            if credential_value
+            else f"{route_name}:anon:{client_ip}"
+        )
+
+        return [
+            ("auth_ip", f"ip:{client_ip}", per_ip_limit),
+            ("auth_credential", credential_identity, per_credential_limit),
+        ]
+
     def _request_identity(self, request):
         user = getattr(request, "user", None)
         user_part = f"user:{getattr(user, 'pk', '')}" if getattr(user, "is_authenticated", False) else "anon"
+        client_ip = self._client_ip(request)
+        return f"{user_part}:{client_ip}"
+
+    def _client_ip(self, request):
         forwarded_for = (request.META.get("HTTP_X_FORWARDED_FOR") or "").split(",")[0].strip()
-        client_ip = (
+        return (
             forwarded_for
             or (request.META.get("HTTP_X_REAL_IP") or "").strip()
             or (request.META.get("REMOTE_ADDR") or "").strip()
             or "unknown"
         )
-        return f"{user_part}:{client_ip}"
 
-    def _rate_limited_response(self, request, retry_after):
+    def _auth_credential_value(self, request, route_name):
+        if request.method not in self.MUTATING_METHODS:
+            return ""
+
+        if route_name in {"user:login", "user:signup", "user:signup_complete"}:
+            return (request.POST.get("username") or "").strip().casefold()
+        return ""
+
+    def _log_rate_limit(self, *, request, route_name, bucket_name, retry_after):
+        self.logger.warning(
+            json.dumps(
+                {
+                    "event": "request.rate_limited",
+                    "method": request.method,
+                    "path": request.path,
+                    "route": route_name,
+                    "bucket": bucket_name,
+                    "retry_after": retry_after,
+                },
+                sort_keys=True,
+            )
+        )
+
+    def _rate_limited_response(self, request, retry_after, *, route_name="", bucket_name=""):
         message = f"Too many requests. Please wait {retry_after} seconds and try again."
         wants_json = (
             request.headers.get("X-Requested-With") == "XMLHttpRequest"
@@ -171,7 +263,13 @@ class RequestRateLimitMiddleware(MiddlewareMixin):
         )
         if wants_json:
             response = JsonResponse(
-                {"ok": False, "message": message, "retry_after": retry_after},
+                {
+                    "ok": False,
+                    "message": message,
+                    "retry_after": retry_after,
+                    "bucket": bucket_name,
+                    "route": route_name,
+                },
                 status=429,
             )
         else:

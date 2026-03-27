@@ -104,8 +104,10 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'dogadoption_admin.middleware.AdminSessionMiddleware',      # Custom middleware to handle admin sessions
     'pet_adoption.middleware.RequestObservabilityMiddleware',
+    'pet_adoption.middleware.RequestRateLimitMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'pet_adoption.middleware.SecurityHeadersMiddleware',
 ]
 
 ROOT_URLCONF = 'pet_adoption.urls'
@@ -235,6 +237,22 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024   # 20 MB
 
 # Default for user sessions
 SESSION_COOKIE_NAME = 'user_sessionid'
+SESSION_COOKIE_SAMESITE = os.getenv("DJANGO_SESSION_COOKIE_SAMESITE", "Lax")
+CSRF_COOKIE_SAMESITE = os.getenv("DJANGO_CSRF_COOKIE_SAMESITE", "Lax")
+SECURE_REFERRER_POLICY = os.getenv(
+    "DJANGO_SECURE_REFERRER_POLICY",
+    "strict-origin-when-cross-origin",
+)
+X_FRAME_OPTIONS = os.getenv("DJANGO_X_FRAME_OPTIONS", "DENY")
+SECURE_CONTENT_TYPE_NOSNIFF = env_bool("DJANGO_SECURE_CONTENT_TYPE_NOSNIFF", True)
+CSP_FRAME_ANCESTORS = os.getenv("DJANGO_CSP_FRAME_ANCESTORS", "'none'")
+
+RATE_LIMIT_ENABLED = env_bool("RATE_LIMIT_ENABLED", True)
+RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
+RATE_LIMIT_DEFAULT_REQUESTS = int(os.getenv("RATE_LIMIT_DEFAULT_REQUESTS", "60"))
+RATE_LIMIT_AUTH_REQUESTS = int(os.getenv("RATE_LIMIT_AUTH_REQUESTS", "10"))
+RATE_LIMIT_INTERACTION_REQUESTS = int(os.getenv("RATE_LIMIT_INTERACTION_REQUESTS", "30"))
+RATE_LIMIT_SUBMISSION_REQUESTS = int(os.getenv("RATE_LIMIT_SUBMISSION_REQUESTS", "12"))
 
 # Optional automatic admin bootstrapping for non-production setup only.
 CREATE_DEFAULT_ADMIN = env_bool("CREATE_DEFAULT_ADMIN", False)
@@ -248,12 +266,6 @@ if not DEBUG:
     SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", False)
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_REFERRER_POLICY = os.getenv(
-        "DJANGO_SECURE_REFERRER_POLICY",
-        "strict-origin-when-cross-origin",
-    )
-    X_FRAME_OPTIONS = os.getenv("DJANGO_X_FRAME_OPTIONS", "DENY")
     SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_SECURE_HSTS_SECONDS", "0"))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
         "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS",

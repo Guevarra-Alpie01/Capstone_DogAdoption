@@ -525,6 +525,13 @@
         }
 
         function resolveCsrfToken() {
+            if (typeof window.getCsrfToken === "function") {
+                const token = window.getCsrfToken();
+                if (token) {
+                    return token;
+                }
+            }
+
             const cookieValue = document.cookie
                 .split("; ")
                 .find((row) => row.startsWith("csrftoken="));

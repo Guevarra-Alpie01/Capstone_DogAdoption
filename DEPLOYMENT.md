@@ -24,6 +24,7 @@ If `DJANGO_CSRF_TRUSTED_ORIGINS` is left blank, it is auto-derived from `ALLOWED
 - If you use external Redis, set:
   - `CACHE_BACKEND=redis`
   - `REDIS_URL=redis://...`
+- For production, prefer Redis over `locmem` so cache state stays consistent across workers.
 
 ## 3. Install dependencies
 
@@ -83,3 +84,7 @@ Facebook preview images need `/media/` to be publicly reachable.
 
 - Media files are served by Django only when `DEBUG=True`.
 - Automatic default admin creation is disabled unless `CREATE_DEFAULT_ADMIN=True` and admin credentials are set.
+- Health probes are available at `/health/live/` and `/health/ready/`.
+- Route metrics are exposed at `/health/metrics/` for staff users; keep that endpoint internal-only in production.
+- Apply rate limits at the edge for notification, reaction, face-auth, and autocomplete endpoints.
+- Certificate exports, analytics cache warming, and face-image processing are better handled by background jobs if traffic grows.

@@ -94,8 +94,6 @@ class DogCaptureRequest(models.Model):
     scheduled_date = models.DateTimeField(null=True, blank=True)
     captured_at = models.DateTimeField(null=True, blank=True)
     admin_message = models.TextField(null=True, blank=True)
-    notification_scheduled_for = models.DateTimeField(null=True, blank=True)
-    notification_sent_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 

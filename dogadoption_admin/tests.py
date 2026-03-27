@@ -922,6 +922,53 @@ class RegistrationRecordOwnerBlockTests(TestCase):
         self.assertEqual(dogs[2].owner_name, "Argus Rafaela")
 
 
+class RegistrationRecordPaginationTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.admin = User.objects.create_user(
+            username="admin_record_pagination",
+            password="secret123",
+            is_staff=True,
+        )
+        self.owner = User.objects.create_user(
+            username="record_owner",
+            password="secret123",
+            first_name="Maria",
+            last_name="Lopez",
+        )
+        self.client.force_login(self.admin)
+
+    def test_registration_record_paginates_large_result_sets(self):
+        for index in range(101):
+            Dog.objects.create(
+                date_registered=timezone.datetime(2026, 3, 10).date(),
+                name=f"dog-{index}",
+                species="Canine",
+                sex="M" if index % 2 == 0 else "F",
+                age="2 yrs",
+                neutering_status="No",
+                color="Brown",
+                owner_name="Maria Lopez",
+                owner_name_key="maria lopez",
+                owner_user=self.owner,
+                owner_address="Bugay",
+                barangay="Bugay",
+            )
+
+        first_response = self.client.get(reverse("dogadoption_admin:registration_record"))
+        second_response = self.client.get(
+            reverse("dogadoption_admin:registration_record"),
+            {"page": 2},
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertEqual(len(first_response.context["dogs"]), 100)
+        self.assertEqual(len(second_response.context["dogs"]), 1)
+        self.assertTrue(first_response.context["page_obj"].has_next())
+        self.assertEqual(second_response.context["page_obj"].number, 2)
+
+
 class AdminUsersPageTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user(

@@ -43,8 +43,8 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Case, CharField, Count, DateField, DateTimeField, F, IntegerField, Prefetch, Q, Value, When
-from django.db.models.functions import Coalesce, Concat, Lower, Trim, TruncDate
+from django.db.models import Case, CharField, Count, DateField, DateTimeField, F, IntegerField, Prefetch, Q, Value, When, Window
+from django.db.models.functions import Cast, Coalesce, Concat, FirstValue, Lower, Trim, TruncDate
 from django.db.models.expressions import RawSQL
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -81,7 +81,6 @@ from .models import (
     DogImage,
     DogAnnouncement,
     DogAnnouncementImage,
-    DogCatcherContact,
     DogRegistration,
     GlobalAppointmentDate,
     Penalty,
@@ -1631,8 +1630,6 @@ def admin_dog_capture_requests(request):
                     status='captured',
                     assigned_admin=request.user,
                     captured_at=timezone.now(),
-                    notification_scheduled_for=None,
-                    notification_sent_at=None,
                 )
                 messages.success(request, f"{updated_count} scheduled request(s) marked as done.")
             else:
@@ -1674,9 +1671,7 @@ def admin_dog_capture_requests(request):
                 timezone.get_current_timezone(),
             )
             req.assigned_admin = request.user
-            req.notification_scheduled_for = None
-            req.notification_sent_at = None
-            req.save(update_fields=['scheduled_date', 'assigned_admin', 'notification_scheduled_for', 'notification_sent_at'])
+            req.save(update_fields=['scheduled_date', 'assigned_admin'])
 
             messages.success(request, "Scheduled request updated.")
             return _redirect_to_requests("accepted")
@@ -1725,39 +1720,10 @@ def admin_dog_capture_requests(request):
                     timezone.get_current_timezone(),
                 )
                 req.assigned_admin = request.user
-                req.notification_scheduled_for = None
-                req.notification_sent_at = None
-                req.save(update_fields=['scheduled_date', 'assigned_admin', 'notification_scheduled_for', 'notification_sent_at'])
+                req.save(update_fields=['scheduled_date', 'assigned_admin'])
 
             messages.success(request, f"{len(selected_requests)} scheduled request(s) updated.")
             return _redirect_to_requests("accepted")
-
-        elif action == 'add_contact':
-            name = (request.POST.get('contact_name') or '').strip()
-            phone = (request.POST.get('contact_phone') or '').strip()
-            if phone:
-                DogCatcherContact.objects.create(
-                    name=name,
-                    phone_number=phone,
-                    active=True
-                )
-                messages.success(request, "Dog catcher contact added.")
-            else:
-                messages.error(request, "Phone number is required.")
-
-        elif action == 'toggle_contact':
-            contact_id = request.POST.get('contact_id')
-            contact = DogCatcherContact.objects.filter(id=contact_id).first()
-            if contact:
-                contact.active = not contact.active
-                contact.save(update_fields=['active'])
-                state = "activated" if contact.active else "deactivated"
-                messages.success(request, f"Contact {state}.")
-
-        elif action == 'delete_contact':
-            contact_id = request.POST.get('contact_id')
-            DogCatcherContact.objects.filter(id=contact_id).delete()
-            messages.success(request, "Contact removed.")
 
         return _redirect_to_requests()
 
@@ -1922,7 +1888,6 @@ def admin_dog_capture_requests(request):
         'accepted_calendar_dates': [slot.appointment_date.strftime('%Y-%m-%d') for slot in available_appointment_dates],
         'active_tab': active_tab,
         'map_points': map_points,
-        'contacts': DogCatcherContact.objects.all(),
         'requests_return_to': request.get_full_path(),
     })
 
@@ -1971,8 +1936,6 @@ def update_dog_capture_request(request, pk):
             req.scheduled_date = scheduled_dt
             req.admin_message = request.POST.get('admin_message')
             req.captured_at = None
-            req.notification_scheduled_for = None
-            req.notification_sent_at = None
             req.save()
 
             messages.success(request, "Request accepted and scheduled.")
@@ -1988,8 +1951,6 @@ def update_dog_capture_request(request, pk):
             req.captured_at = timezone.now()
             if admin_message:
                 req.admin_message = admin_message
-            req.notification_scheduled_for = None
-            req.notification_sent_at = None
             req.save()
 
             messages.success(request, "Request marked as captured.")
@@ -2000,8 +1961,6 @@ def update_dog_capture_request(request, pk):
             req.assigned_admin = request.user
             req.scheduled_date = None
             req.captured_at = None
-            req.notification_scheduled_for = None
-            req.notification_sent_at = None
             req.save()
 
             messages.warning(request, "Request declined.")
@@ -2986,8 +2945,54 @@ def _build_registration_record_queryset(selected_barangay, date_filter_type, fil
         filter_month,
         filter_year,
     )
-    dogs = list(
-        dogs.select_related("owner_user").only(
+    owner_group_key = Case(
+        When(
+            owner_user_id__isnull=False,
+            then=Concat(
+                Value("user:"),
+                Cast("owner_user_id", output_field=CharField()),
+                output_field=CharField(),
+            ),
+        ),
+        When(
+            Q(owner_name_key__isnull=False) & ~Q(owner_name_key=""),
+            then=Concat(
+                Value("name:"),
+                Lower(Trim("owner_name_key")),
+                output_field=CharField(),
+            ),
+        ),
+        When(
+            Q(owner_name__isnull=False) & ~Q(owner_name=""),
+            then=Concat(
+                Value("name:"),
+                Lower(Trim("owner_name")),
+                output_field=CharField(),
+            ),
+        ),
+        default=Concat(
+            Value("dog:"),
+            Cast("id", output_field=CharField()),
+            output_field=CharField(),
+        ),
+        output_field=CharField(),
+    )
+    dogs = (
+        dogs.annotate(owner_group_key=owner_group_key)
+        .annotate(
+            owner_first_seen_date=Window(
+                expression=FirstValue("date_registered"),
+                partition_by=[F("owner_group_key")],
+                order_by=[F("date_registered").asc(), F("id").asc()],
+            ),
+            owner_first_seen_id=Window(
+                expression=FirstValue("id"),
+                partition_by=[F("owner_group_key")],
+                order_by=[F("date_registered").asc(), F("id").asc()],
+            ),
+        )
+        .select_related("owner_user")
+        .only(
             "id",
             "date_registered",
             "name",
@@ -3000,9 +3005,19 @@ def _build_registration_record_queryset(selected_barangay, date_filter_type, fil
             "owner_name_key",
             "owner_address",
             "owner_user_id",
-        ).order_by("date_registered", "id")
+        )
+        .order_by("owner_first_seen_date", "owner_first_seen_id", "date_registered", "id")
     )
     return dogs, date_filter_type, date_filter_label
+
+
+def _build_registration_owner_number_lookup(dogs_qs):
+    owner_numbers = {}
+    for owner_key in dogs_qs.values_list("owner_group_key", flat=True).iterator(chunk_size=500):
+        normalized_key = owner_key or ""
+        if normalized_key and normalized_key not in owner_numbers:
+            owner_numbers[normalized_key] = len(owner_numbers) + 1
+    return owner_numbers
 
 
 def _attach_registration_owner_metadata(dogs):
@@ -3022,10 +3037,7 @@ def _attach_registration_owner_metadata(dogs):
     ]
     owner_profile_lookup = _build_owner_profile_lookup(names_without_user_profile)
     default_owner_profile_image_url = static("images/default-user-image.jpg")
-    owner_numbers = {}
     owner_keys_by_dog_id = {}
-    owner_sort_order = {}
-    owner_row_number = 0
 
     for dog in dogs:
         normalized_owner = _normalize_person_name(dog.owner_name)
@@ -3035,7 +3047,10 @@ def _attach_registration_owner_metadata(dogs):
             else {}
         )
         matched_owner_user_id = matched_owner_profile.get("user_id")
-        owner_key = _build_registration_record_owner_key(dog, matched_owner_user_id)
+        owner_key = getattr(dog, "owner_group_key", "") or _build_registration_record_owner_key(
+            dog,
+            matched_owner_user_id,
+        )
         dog.owner_profile_image_url = (
             owner_profile_by_user_id.get(dog.owner_user_id)
             or matched_owner_profile.get("image_url", "")
@@ -3058,30 +3073,22 @@ def _attach_registration_owner_metadata(dogs):
             )
         dog.owner_initials = _owner_initials(dog.owner_name)
         owner_keys_by_dog_id[dog.id] = owner_key
-        if owner_key not in owner_sort_order:
-            owner_row_number += 1
-            owner_sort_order[owner_key] = owner_row_number
-            owner_numbers[owner_key] = owner_row_number
 
-    return owner_keys_by_dog_id, owner_numbers, owner_sort_order
+    return owner_keys_by_dog_id
 
 
-def _paginate_registration_record_rows(request, dogs, owner_keys_by_dog_id, owner_numbers, owner_sort_order):
-    dogs.sort(
-        key=lambda dog: (
-            owner_sort_order.get(owner_keys_by_dog_id.get(dog.id), 10**9),
-            dog.date_registered or datetime.min.date(),
-            dog.id,
-        )
-    )
-
+def _paginate_registration_record_rows(request, dogs_qs):
     page_number = (request.GET.get("page") or "1").strip()
-    paginator = Paginator(dogs, 100)
+    paginator = Paginator(dogs_qs, 100)
     page_obj = paginator.get_page(page_number)
     paged_dogs = list(page_obj.object_list)
 
+    return page_obj, paged_dogs
+
+
+def _apply_registration_owner_row_display(dogs, owner_keys_by_dog_id, owner_numbers):
     previous_owner_key = None
-    for dog in paged_dogs:
+    for dog in dogs:
         owner_key = owner_keys_by_dog_id.get(dog.id, f"dog:{dog.id}")
         owner_number = owner_numbers.get(owner_key, "")
         if owner_key == previous_owner_key:
@@ -3092,7 +3099,7 @@ def _paginate_registration_record_rows(request, dogs, owner_keys_by_dog_id, owne
             dog.show_owner_fields = True
         previous_owner_key = owner_key
 
-    return page_obj, paged_dogs
+    return dogs
 
 
 
@@ -3114,21 +3121,17 @@ def registration_record(request):
         date_filter_type = 'all'
 
     barangay_list_parsed = _get_cached_registration_barangays()
-    dogs, date_filter_type, date_filter_label = _build_registration_record_queryset(
+    dogs_qs, date_filter_type, date_filter_label = _build_registration_record_queryset(
         selected_barangay,
         date_filter_type,
         filter_date,
         filter_month,
         filter_year,
     )
-    owner_keys_by_dog_id, owner_numbers, owner_sort_order = _attach_registration_owner_metadata(dogs)
-    page_obj, dogs = _paginate_registration_record_rows(
-        request,
-        dogs,
-        owner_keys_by_dog_id,
-        owner_numbers,
-        owner_sort_order,
-    )
+    owner_numbers = _build_registration_owner_number_lookup(dogs_qs)
+    page_obj, dogs = _paginate_registration_record_rows(request, dogs_qs)
+    owner_keys_by_dog_id = _attach_registration_owner_metadata(dogs)
+    dogs = _apply_registration_owner_row_display(dogs, owner_keys_by_dog_id, owner_numbers)
     available_years = _get_cached_registration_years()
 
     date_filter_params = _build_registration_filter_params(

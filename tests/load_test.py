@@ -124,6 +124,9 @@ class LoadSuiteSettings:
     profile: str
     user_credentials: list[tuple[str, str]]
     admin_credentials: list[tuple[str, str]]
+    public_fixed_count: int
+    user_fixed_count: int
+    admin_fixed_count: int
     wait_min_seconds: float
     wait_max_seconds: float
     enable_writes: bool
@@ -199,6 +202,9 @@ class LoadSuiteSettings:
             profile=profile,
             user_credentials=_parse_credentials("LOAD_TEST_USER"),
             admin_credentials=_parse_credentials("LOAD_TEST_ADMIN"),
+            public_fixed_count=max(0, env_int("LOAD_TEST_PUBLIC_FIXED_COUNT", 0)),
+            user_fixed_count=max(0, env_int("LOAD_TEST_USER_FIXED_COUNT", 0)),
+            admin_fixed_count=max(0, env_int("LOAD_TEST_ADMIN_FIXED_COUNT", 0)),
             wait_min_seconds=env_float("LOAD_TEST_WAIT_MIN_SECONDS", 1.0),
             wait_max_seconds=env_float("LOAD_TEST_WAIT_MAX_SECONDS", 4.0),
             enable_writes=env_bool("LOAD_TEST_ENABLE_WRITES", False),
@@ -259,6 +265,25 @@ class LoadSuiteSettings:
 
 
 SETTINGS = LoadSuiteSettings.from_env()
+
+
+class CredentialPool:
+    def __init__(self, credentials: list[tuple[str, str]]):
+        self.credentials = list(credentials)
+        self.lock = Lock()
+        self.index = 0
+
+    def next(self) -> tuple[str, str] | None:
+        if not self.credentials:
+            return None
+        with self.lock:
+            credential = self.credentials[self.index % len(self.credentials)]
+            self.index += 1
+            return credential
+
+
+USER_CREDENTIAL_POOL = CredentialPool(SETTINGS.user_credentials)
+ADMIN_CREDENTIAL_POOL = CredentialPool(SETTINGS.admin_credentials)
 
 
 @dataclass
@@ -336,6 +361,28 @@ def on_test_start(environment, **kwargs):
         return
     RUN_STATE.reset()
     SETTINGS.output_dir.mkdir(parents=True, exist_ok=True)
+    print(
+        "Locust mix config: "
+        f"public_fixed={SETTINGS.public_fixed_count}, "
+        f"user_fixed={SETTINGS.user_fixed_count}, "
+        f"admin_fixed={SETTINGS.admin_fixed_count}, "
+        f"user_creds={len(SETTINGS.user_credentials)}, "
+        f"admin_creds={len(SETTINGS.admin_credentials)}"
+    )
+    if SETTINGS.user_fixed_count and not SETTINGS.user_credentials:
+        print("WARNING: LOAD_TEST_USER_FIXED_COUNT is set, but no user credentials were provided.")
+    if SETTINGS.admin_fixed_count and not SETTINGS.admin_credentials:
+        print("WARNING: LOAD_TEST_ADMIN_FIXED_COUNT is set, but no admin credentials were provided.")
+    if SETTINGS.user_fixed_count > len(SETTINGS.user_credentials) and SETTINGS.user_credentials:
+        print(
+            "WARNING: Fewer user credentials than fixed authenticated users. "
+            "Some accounts will be reused during login bursts."
+        )
+    if SETTINGS.admin_fixed_count > len(SETTINGS.admin_credentials) and SETTINGS.admin_credentials:
+        print(
+            "WARNING: Fewer admin credentials than fixed admin users. "
+            "Some staff accounts will be reused during login bursts."
+        )
 
 
 @events.test_stop.add_listener
@@ -776,6 +823,7 @@ class CapstoneUserBase(HttpUser):
 class PublicVisitor(HttpUser):
     weight = 1
     wait_time = between(SETTINGS.wait_min_seconds, SETTINGS.wait_max_seconds)
+    fixed_count = SETTINGS.public_fixed_count
 
     @task(2)
     def landing_redirect(self):
@@ -821,12 +869,13 @@ class PublicVisitor(HttpUser):
 class UserJourney(CapstoneUserBase):
     abstract = not bool(SETTINGS.user_credentials)
     weight = 5
+    fixed_count = SETTINGS.user_fixed_count
     user_label = "authenticated-user"
     dashboard_path = "/user/"
     logout_path = "/user/logout/"
 
     def choose_credentials(self) -> tuple[str, str] | None:
-        return random.choice(SETTINGS.user_credentials) if SETTINGS.user_credentials else None
+        return USER_CREDENTIAL_POOL.next()
 
     @task(6)
     def browse_home(self):
@@ -1079,12 +1128,13 @@ class UserJourney(CapstoneUserBase):
 class AdminJourney(CapstoneUserBase):
     abstract = not bool(SETTINGS.admin_credentials)
     weight = 1
+    fixed_count = SETTINGS.admin_fixed_count
     user_label = "admin-user"
     dashboard_path = "/vetadmin/post-list/"
     logout_path = "/vetadmin/logout/"
 
     def choose_credentials(self) -> tuple[str, str] | None:
-        return random.choice(SETTINGS.admin_credentials) if SETTINGS.admin_credentials else None
+        return ADMIN_CREDENTIAL_POOL.next()
 
     @task(5)
     def browse_post_list(self):

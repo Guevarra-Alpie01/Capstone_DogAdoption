@@ -717,16 +717,6 @@ def _dog_capture_request_board_queryset():
             "requested_by__profile",
             "assigned_admin",
         )
-        .prefetch_related(
-            Prefetch(
-                "images",
-                queryset=DogCaptureRequestImage.objects.only(
-                    "id",
-                    "request_id",
-                    "image",
-                ).order_by("id"),
-            )
-        )
         .only(
             "id",
             "requested_by_id",
@@ -762,6 +752,54 @@ def _dog_capture_request_board_queryset():
         )
         .order_by("-created_at", "-id")
     )
+
+
+def _dog_capture_request_map_queryset():
+    return (
+        DogCaptureRequest.objects.select_related(
+            "requested_by",
+            "requested_by__profile",
+        )
+        .only(
+            "id",
+            "requested_by_id",
+            "request_type",
+            "submission_type",
+            "reason",
+            "latitude",
+            "longitude",
+            "barangay",
+            "city",
+            "manual_full_address",
+            "image",
+            "status",
+            "created_at",
+            "requested_by__username",
+            "requested_by__first_name",
+            "requested_by__last_name",
+            "requested_by__profile__address",
+            "requested_by__profile__phone_number",
+        )
+        .order_by("-created_at", "-id")
+    )
+
+
+def _dog_capture_request_first_image_urls(request_ids):
+    if not request_ids:
+        return {}
+
+    image_urls = {}
+    for request_image in (
+        DogCaptureRequestImage.objects.filter(request_id__in=request_ids)
+        .only("request_id", "image")
+        .order_by("id")
+    ):
+        if request_image.request_id in image_urls:
+            continue
+        image_url = _safe_media_url(request_image.image)
+        if image_url:
+            image_urls[request_image.request_id] = image_url
+    return image_urls
 
 
 def _enrich_capture_request_user(req):
@@ -819,10 +857,6 @@ def _enrich_capture_request_display(req):
         req.location_label = "No location"
     req.has_location = req.location_label != "No location"
     req.display_barangay = barangay
-
-    first_request_image = next(iter(req.images.all()), None)
-    image_url = _safe_media_url(getattr(first_request_image, "image", None)) or _safe_media_url(req.image)
-    req.preview_image_url = image_url
 
 
 ANNOUNCEMENT_CATEGORY_OPTIONS = [
@@ -1889,27 +1923,25 @@ def admin_dog_capture_requests(request):
     for req in accepted_requests:
         _enrich_capture_request_display(req)
 
-    default_map_profile_image_url = static("images/default-user-image.jpg")
     map_points_qs = list(
-        base_qs.filter(
+        _dog_capture_request_map_queryset().filter(
             status='pending',
             latitude__isnull=False,
             longitude__isnull=False,
         )[:400]
     )
+    map_point_image_urls = _dog_capture_request_first_image_urls(
+        [req.id for req in map_points_qs]
+    )
     map_points = []
     for req in map_points_qs:
         _enrich_capture_request_display(req)
-        profile = _get_profile_or_none(req.requested_by)
-
-        profile_image_url = _safe_media_url(getattr(profile, "profile_image", None))
         map_points.append({
             'id': req.id,
             'user': req.requested_by.username,
             'requester_name': req.requester_full_name,
             'requester_phone': req.requester_phone,
             'requester_address': req.requester_address,
-            'requester_facebook': req.requester_facebook,
             'reason': req.get_reason_display(),
             'status': req.get_status_display(),
             'status_key': req.status,
@@ -1922,8 +1954,7 @@ def admin_dog_capture_requests(request):
             'created_at': req.created_at.strftime('%b %d, %Y %I:%M %p'),
             'barangay': req.display_barangay,
             'location_label': req.location_label,
-            'image_url': req.preview_image_url,
-            'profile_image_url': profile_image_url or default_map_profile_image_url,
+            'image_url': map_point_image_urls.get(req.id) or _safe_media_url(req.image),
         })
 
     available_appointment_dates = _get_available_appointment_dates()

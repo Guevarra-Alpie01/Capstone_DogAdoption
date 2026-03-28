@@ -2,7 +2,7 @@
 {% for item in posts %}
 {% with post=item.post %}
 {% if item.post_type == 'announcement' %}
-<article class="fb-card home-announcement-card {% if post.background_image or post.images.all %}has-media{% else %}text-only{% endif %}">
+<article class="fb-card home-announcement-card {% if item.has_media %}has-media{% else %}text-only{% endif %}">
     <header class="fb-card-header">
         <img src="{{ item.author_avatar_url }}" alt="Admin profile" class="fb-page-avatar">
         <div class="fb-page-meta">
@@ -15,7 +15,7 @@
         </div>
     </header>
 
-    {% if post.background_image or post.images.all %}
+    {% if item.has_media %}
     <div class="fb-caption home-announcement-caption js-ann-caption">
         <div class="js-ann-caption-text">{{ item.content_display|linebreaksbr }}</div>
         <button type="button" class="ann-caption-toggle js-ann-caption-toggle" hidden>View more</button>
@@ -28,7 +28,7 @@
             {% if post.background_image %}
             <span data-src="{{ post.background_image.url }}" data-alt="{{ post.title }}"></span>
             {% endif %}
-            {% for photo in post.images.all %}
+            {% for photo in item.gallery_images %}
             <span data-src="{{ photo.image.url }}" data-alt="{{ post.title }} photo {{ forloop.counter }}"></span>
             {% endfor %}
         </div>
@@ -243,7 +243,7 @@
                             <div class="modal-body">
                                 <div id="carousel{{ item.post_type }}{{ post.id }}" class="carousel slide" data-bs-ride="carousel">
                                     <div class="carousel-inner">
-                                        {% for image in post.images.all %}
+                                        {% for image in item.gallery_images %}
                                             <div class="carousel-item {% if forloop.first %}active{% endif %}">
                                                 <img src="{{ image.image.url }}" class="d-block w-100 modal-img" alt="Dog image">
                                             </div>

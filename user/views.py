@@ -1686,12 +1686,39 @@ def _hydrate_home_feed_items(request, feed_rows):
         "missing": [row["id"] for row in feed_rows if row["feed_type"] == "missing"],
     }
 
+    announcement_reaction_counts = {}
+    announcement_user_reacted_ids = set()
+    if ids_by_type["announcement"]:
+        announcement_reaction_counts = dict(
+            AnnouncementReaction.objects.filter(
+                announcement_id__in=ids_by_type["announcement"]
+            )
+            .values("announcement_id")
+            .annotate(total=Count("id"))
+            .values_list("announcement_id", "total")
+        )
+        current_user_id = getattr(request.user, "id", None)
+        if current_user_id:
+            announcement_user_reacted_ids = set(
+                AnnouncementReaction.objects.filter(
+                    announcement_id__in=ids_by_type["announcement"],
+                    user_id=current_user_id,
+                ).values_list("announcement_id", flat=True)
+            )
+
+    user_request_counts = {}
+    if ids_by_type["user"]:
+        user_request_counts = dict(
+            UserAdoptionRequest.objects.filter(post_id__in=ids_by_type["user"])
+            .values("post_id")
+            .annotate(total=Count("id"))
+            .values_list("post_id", "total")
+        )
+
     admin_map = {
         post.id: post
         for post in Post.objects.select_related(
             "user", "user__profile"
-        ).annotate(
-            image_count=Count("images", distinct=True),
         ).only(
             "id", "caption", "gender", "location", "status", "rescued_date", "created_at", "claim_days",
             "user__id", "user__username", "user__first_name", "user__last_name",
@@ -1700,21 +1727,14 @@ def _hydrate_home_feed_items(request, feed_rows):
             Prefetch(
                 "images",
                 queryset=PostImage.objects.only("id", "post_id", "image").order_by("id"),
+                to_attr="prefetched_images",
             )
         ).filter(id__in=ids_by_type["admin"])
     }
-    announcement_user_reaction_subquery = AnnouncementReaction.objects.filter(
-        announcement_id=OuterRef("pk"),
-        user_id=getattr(request.user, "id", None),
-    )
     announcement_map = {
         post.id: post
         for post in DogAnnouncement.objects.select_related(
             "created_by", "created_by__profile"
-        ).annotate(
-            reaction_count=Count("reactions", distinct=True),
-            user_reacted=Exists(announcement_user_reaction_subquery),
-            image_count=Count("images", distinct=True),
         ).only(
             "id", "title", "content", "category", "created_at", "background_image",
             "created_by__id", "created_by__username", "created_by__first_name",
@@ -1723,6 +1743,7 @@ def _hydrate_home_feed_items(request, feed_rows):
             Prefetch(
                 "images",
                 queryset=DogAnnouncementImage.objects.only("id", "announcement_id", "image").order_by("id"),
+                to_attr="prefetched_images",
             )
         ).filter(id__in=ids_by_type["announcement"])
     }
@@ -1730,9 +1751,6 @@ def _hydrate_home_feed_items(request, feed_rows):
         post.id: post
         for post in UserAdoptionPost.objects.select_related(
             "owner", "owner__profile"
-        ).annotate(
-            request_count=Count("requests", distinct=True),
-            image_count=Count("images", distinct=True),
         ).only(
             "id",
             "dog_name",
@@ -1751,6 +1769,7 @@ def _hydrate_home_feed_items(request, feed_rows):
             Prefetch(
                 "images",
                 queryset=UserAdoptionImage.objects.only("id", "post_id", "image").order_by("id"),
+                to_attr="prefetched_images",
             )
         ).filter(id__in=ids_by_type["user"])
     }
@@ -1794,8 +1813,8 @@ def _hydrate_home_feed_items(request, feed_rows):
             p = admin_map.get(post_id)
             if not p:
                 continue
-            image_queryset = p.images.all()
-            main_image = next(iter(image_queryset), None)
+            gallery_images = list(getattr(p, "prefetched_images", []))
+            main_image = gallery_images[0] if gallery_images else None
 
             phase, days, hours, minutes = _post_phase_payload(p)
             is_open_for_adoption = phase in ["claim", "adopt"]
@@ -1819,7 +1838,8 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "phase": phase,
                 "posted_label": _format_posted_label(p.created_at),
                 "deadline_iso": deadline.isoformat() if deadline else "",
-                "image_count": getattr(p, "image_count", 0),
+                "image_count": len(gallery_images),
+                "gallery_images": gallery_images,
                 "main_image": main_image,
             })
             continue
@@ -1828,7 +1848,7 @@ def _hydrate_home_feed_items(request, feed_rows):
             p = announcement_map.get(post_id)
             if not p:
                 continue
-            announcement_images = p.images.all()
+            announcement_images = list(getattr(p, "prefetched_images", []))
             first_image_url = _first_prefetched_image_url(announcement_images)
             main_image_url = first_image_url or _safe_media_url(p.background_image)
 
@@ -1841,9 +1861,11 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "content_display": _clean_announcement_text_for_display(p.content),
                 "posted_label": _format_posted_label(p.created_at),
                 "main_image_url": main_image_url,
-                "image_count": getattr(p, "image_count", 0),
-                "reaction_count": getattr(p, "reaction_count", 0),
-                "user_reacted": bool(getattr(p, "user_reacted", False)),
+                "image_count": len(announcement_images),
+                "gallery_images": announcement_images,
+                "has_media": bool(p.background_image or announcement_images),
+                "reaction_count": int(announcement_reaction_counts.get(p.id, 0)),
+                "user_reacted": p.id in announcement_user_reacted_ids,
                 "share_url": request.build_absolute_uri(
                     reverse("user:announcement_share_preview", args=[p.id])
                 ),
@@ -1854,8 +1876,8 @@ def _hydrate_home_feed_items(request, feed_rows):
             p = user_map.get(post_id)
             if not p:
                 continue
-            post_images = p.images.all()
-            main_image = next(iter(post_images), None)
+            post_images = list(getattr(p, "prefetched_images", []))
+            main_image = post_images[0] if post_images else None
             profile_url = _build_profile_destination_url(
                 request,
                 p.owner_id,
@@ -1872,9 +1894,10 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "is_open_for_adoption": False,
                 "phase": "closed",
                 "posted_label": _format_posted_label(p.created_at),
-                "image_count": getattr(p, "image_count", 0),
+                "image_count": len(post_images),
+                "gallery_images": post_images,
                 "main_image": main_image,
-                "request_count": getattr(p, "request_count", 0),
+                "request_count": int(user_request_counts.get(p.id, 0)),
                 "author_name": p.owner.get_full_name() or p.owner.username,
                 "author_avatar_url": _profile_image_url_or_default(
                     p.owner,

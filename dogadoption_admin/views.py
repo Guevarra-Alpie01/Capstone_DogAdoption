@@ -44,7 +44,7 @@ from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Case, CharField, Count, DateField, DateTimeField, F, IntegerField, Prefetch, Q, Value, When, Window
-from django.db.models.functions import Cast, Coalesce, Concat, FirstValue, Lower, Trim, TruncDate
+from django.db.models.functions import Cast, Coalesce, Concat, DenseRank, FirstValue, Lower, Trim, TruncDate
 from django.db.models.expressions import RawSQL
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -93,6 +93,7 @@ from .models import (
 )
 from user.models import (
     DogCaptureRequest,
+    DogCaptureRequestImage,
     FaceImage,
     Profile,
 )
@@ -430,6 +431,7 @@ def _build_owner_profile_lookup(owner_names):
             user__is_active=True,
             user__is_staff=False,
         )
+        .only("user_id", "profile_image", "user__first_name", "user__last_name")
     )
 
     grouped_profiles = defaultdict(list)
@@ -698,12 +700,73 @@ def _build_certificate_payload(
         "has_dewormings": bool(dew_records),
     }
 
+
+def _get_profile_or_none(user):
+    if user is None:
+        return None
+    try:
+        return user.profile
+    except Profile.DoesNotExist:
+        return None
+
+
+def _dog_capture_request_board_queryset():
+    return (
+        DogCaptureRequest.objects.select_related(
+            "requested_by",
+            "requested_by__profile",
+            "assigned_admin",
+        )
+        .prefetch_related(
+            Prefetch(
+                "images",
+                queryset=DogCaptureRequestImage.objects.only(
+                    "id",
+                    "request_id",
+                    "image",
+                ).order_by("id"),
+            )
+        )
+        .only(
+            "id",
+            "requested_by_id",
+            "assigned_admin_id",
+            "request_type",
+            "submission_type",
+            "preferred_appointment_date",
+            "reason",
+            "description",
+            "latitude",
+            "longitude",
+            "barangay",
+            "city",
+            "manual_full_address",
+            "image",
+            "status",
+            "scheduled_date",
+            "captured_at",
+            "admin_message",
+            "created_at",
+            "requested_by__id",
+            "requested_by__username",
+            "requested_by__first_name",
+            "requested_by__last_name",
+            "requested_by__profile__address",
+            "requested_by__profile__phone_number",
+            "requested_by__profile__facebook_url",
+            "requested_by__profile__profile_image",
+            "assigned_admin__id",
+            "assigned_admin__username",
+            "assigned_admin__first_name",
+            "assigned_admin__last_name",
+        )
+        .order_by("-created_at", "-id")
+    )
+
+
 def _enrich_capture_request_user(req):
     user = req.requested_by
-    try:
-        profile = user.profile
-    except Profile.DoesNotExist:
-        profile = None
+    profile = _get_profile_or_none(user)
 
     name_parts = [user.first_name, user.last_name]
     full_name = " ".join(part for part in name_parts if part).strip() or user.username
@@ -732,10 +795,8 @@ def _enrich_capture_request_display(req):
     barangay = _clean_barangay(req.barangay)
     city = _clean_barangay(req.city)
     manual_full_address = _clean_barangay(req.manual_full_address)
-    try:
-        profile_address = _clean_barangay(req.requested_by.profile.address)
-    except Profile.DoesNotExist:
-        profile_address = ""
+    profile = _get_profile_or_none(req.requested_by)
+    profile_address = _clean_barangay(getattr(profile, "address", ""))
 
     if not barangay:
         profile_barangay = profile_address
@@ -1222,7 +1283,7 @@ def post_list(request):
         adopt_count=Count('requests', filter=Q(requests__request_type='adopt')),
         claim_deadline_db=claim_deadline_expr,
         adopt_deadline_db=adopt_deadline_expr,
-    ).order_by("-created_at")
+    )
 
     def format_posted_label(dt):
         if not dt:
@@ -1308,16 +1369,16 @@ def post_list(request):
     reunited_qs = base_qs.filter(status='reunited').order_by("-created_at", "-id")
     adopted_qs = base_qs.filter(status='adopted').order_by("-created_at", "-id")
 
-    claim_total = claim_qs.count()
-    adoption_total = adoption_qs.count()
-    reunited_total = reunited_qs.count()
-    adopted_total = adopted_qs.count()
     history_total = len(_get_cached_post_history_ids())
 
     claim_page_obj, claim_posts = _paginate_status(claim_qs, "claim_page", "claim")
     adoption_page_obj, adoption_posts = _paginate_status(adoption_qs, "adoption_page", "adopt")
     reunited_page_obj, reunited_posts = _paginate_status(reunited_qs, "reunited_page", "closed")
     adopted_page_obj, adopted_posts = _paginate_status(adopted_qs, "adopted_page", "closed")
+    claim_total = claim_page_obj.paginator.count
+    adoption_total = adoption_page_obj.paginator.count
+    reunited_total = reunited_page_obj.paginator.count
+    adopted_total = adopted_page_obj.paginator.count
 
     modal_posts_by_id = {}
     for item in claim_posts + adoption_posts + reunited_posts + adopted_posts:
@@ -1335,7 +1396,7 @@ def post_list(request):
     if paged_post_ids:
         paged_requests = list(
             PostRequest.objects.filter(post_id__in=paged_post_ids)
-            .select_related("user")
+            .select_related("user", "user__profile")
             .only(
                 "id",
                 "post_id",
@@ -1349,6 +1410,8 @@ def post_list(request):
                 "user__username",
                 "user__first_name",
                 "user__last_name",
+                "user__profile__profile_image",
+                "user__profile__address",
             )
             .order_by("-created_at")
         )
@@ -1364,16 +1427,16 @@ def post_list(request):
         profile_address_by_user_id = {}
         face_auth_count_by_user_id = {}
         if request_user_ids:
-            profiles = Profile.objects.filter(user_id__in=request_user_ids).only(
-                "user_id",
-                "profile_image",
-                "address",
-            )
-            for profile in profiles:
-                profile_address_by_user_id[profile.user_id] = (profile.address or "").strip()
-                image_url = _safe_media_url(getattr(profile, "profile_image", None))
-                if image_url:
-                    profile_image_by_user_id[profile.user_id] = image_url
+            for req in paged_requests:
+                profile = _get_profile_or_none(req.user)
+                if not profile:
+                    continue
+                if req.user_id not in profile_address_by_user_id:
+                    profile_address_by_user_id[req.user_id] = (profile.address or "").strip()
+                if req.user_id not in profile_image_by_user_id:
+                    image_url = _safe_media_url(getattr(profile, "profile_image", None))
+                    if image_url:
+                        profile_image_by_user_id[req.user_id] = image_url
 
             face_auth_count_by_user_id = dict(
                 FaceImage.objects.filter(user_id__in=request_user_ids)
@@ -1733,12 +1796,12 @@ def admin_dog_capture_requests(request):
     if active_tab not in valid_tabs:
         active_tab = "pending"
 
-    base_qs = (
-        DogCaptureRequest.objects.select_related(
-            'requested_by', 'requested_by__profile', 'assigned_admin'
-        )
-        .prefetch_related('images')
-        .order_by('-created_at')
+    base_qs = _dog_capture_request_board_queryset()
+    status_totals = base_qs.aggregate(
+        pending_total=Count("id", filter=Q(status="pending")),
+        accepted_total=Count("id", filter=Q(status="accepted")),
+        captured_total=Count("id", filter=Q(status="captured")),
+        declined_total=Count("id", filter=Q(status="declined")),
     )
 
     def _paginate_status(status_key, page_param):
@@ -1749,7 +1812,7 @@ def admin_dog_capture_requests(request):
         items = list(page_obj.object_list)
         for req in items:
             _enrich_capture_request_display(req)
-        return page_obj, items, filtered_qs.count()
+        return page_obj, items, page_obj.paginator.count
 
     pending_page_obj, pending_requests, pending_total = _paginate_status(
         "pending", "pending_page"
@@ -1763,7 +1826,7 @@ def admin_dog_capture_requests(request):
 
     accepted_date_raw = (request.GET.get("accepted_date") or "").strip()
     accepted_date_filter = parse_date(accepted_date_raw) if accepted_date_raw else None
-    accepted_total = base_qs.filter(status='accepted').count()
+    accepted_total = int(status_totals.get("accepted_total") or 0)
     today = timezone.localdate()
     today_start = timezone.make_aware(
         datetime.combine(today, time.min),
@@ -1818,10 +1881,10 @@ def admin_dog_capture_requests(request):
         "created_at",
         "id",
     )
-    accepted_filtered_total = accepted_qs.count()
     accepted_page_obj = Paginator(accepted_qs, rows_per_page).get_page(
         request.GET.get("accepted_page", 1)
     )
+    accepted_filtered_total = accepted_page_obj.paginator.count
     accepted_requests = list(accepted_page_obj.object_list)
     for req in accepted_requests:
         _enrich_capture_request_display(req)
@@ -1837,10 +1900,7 @@ def admin_dog_capture_requests(request):
     map_points = []
     for req in map_points_qs:
         _enrich_capture_request_display(req)
-        try:
-            profile = req.requested_by.profile
-        except Profile.DoesNotExist:
-            profile = None
+        profile = _get_profile_or_none(req.requested_by)
 
         profile_image_url = _safe_media_url(getattr(profile, "profile_image", None))
         map_points.append({
@@ -1868,7 +1928,12 @@ def admin_dog_capture_requests(request):
 
     available_appointment_dates = _get_available_appointment_dates()
     return render(request, 'admin_request/request.html', {
-        'requests': bool(pending_total or accepted_total or captured_total or declined_total),
+        'requests': bool(
+            (status_totals.get("pending_total") or 0)
+            or (status_totals.get("accepted_total") or 0)
+            or (status_totals.get("captured_total") or 0)
+            or (status_totals.get("declined_total") or 0)
+        ),
         'pending_requests': pending_requests,
         'accepted_requests': accepted_requests,
         'captured_requests': captured_requests,
@@ -1879,8 +1944,8 @@ def admin_dog_capture_requests(request):
         'declined_page_obj': declined_page_obj,
         'pending_total': pending_total,
         'accepted_total': accepted_total,
-        'captured_total': captured_total,
-        'declined_total': declined_total,
+        'captured_total': int(status_totals.get("captured_total") or 0),
+        'declined_total': int(status_totals.get("declined_total") or 0),
         'accepted_filtered_total': accepted_filtered_total,
         'accepted_selected_date_iso': accepted_date_filter.isoformat() if accepted_date_filter else '',
         'accepted_selected_date_display': accepted_date_filter.strftime('%b %d, %Y') if accepted_date_filter else '',
@@ -2990,8 +3055,16 @@ def _build_registration_record_queryset(selected_barangay, date_filter_type, fil
                 partition_by=[F("owner_group_key")],
                 order_by=[F("date_registered").asc(), F("id").asc()],
             ),
+            owner_rank=Window(
+                expression=DenseRank(),
+                order_by=[
+                    F("owner_first_seen_date").asc(),
+                    F("owner_first_seen_id").asc(),
+                    F("owner_group_key").asc(),
+                ],
+            ),
         )
-        .select_related("owner_user")
+        .select_related("owner_user", "owner_user__profile")
         .only(
             "id",
             "date_registered",
@@ -3004,31 +3077,25 @@ def _build_registration_record_queryset(selected_barangay, date_filter_type, fil
             "owner_name",
             "owner_name_key",
             "owner_address",
+            "barangay",
             "owner_user_id",
+            "owner_user__profile__profile_image",
         )
         .order_by("owner_first_seen_date", "owner_first_seen_id", "date_registered", "id")
     )
     return dogs, date_filter_type, date_filter_label
 
 
-def _build_registration_owner_number_lookup(dogs_qs):
-    owner_numbers = {}
-    for owner_key in dogs_qs.values_list("owner_group_key", flat=True).iterator(chunk_size=500):
-        normalized_key = owner_key or ""
-        if normalized_key and normalized_key not in owner_numbers:
-            owner_numbers[normalized_key] = len(owner_numbers) + 1
-    return owner_numbers
-
-
 def _attach_registration_owner_metadata(dogs):
-    owner_user_ids = {dog.owner_user_id for dog in dogs if dog.owner_user_id}
     owner_profile_by_user_id = {}
-    if owner_user_ids:
-        profiles = Profile.objects.filter(user_id__in=owner_user_ids).only("user_id", "profile_image")
-        for profile in profiles:
-            image_url = _safe_media_url(getattr(profile, "profile_image", None))
-            if image_url and profile.user_id not in owner_profile_by_user_id:
-                owner_profile_by_user_id[profile.user_id] = image_url
+    for dog in dogs:
+        owner_user = getattr(dog, "owner_user", None)
+        if not owner_user or not dog.owner_user_id:
+            continue
+        profile = _get_profile_or_none(owner_user)
+        image_url = _safe_media_url(getattr(profile, "profile_image", None))
+        if image_url and dog.owner_user_id not in owner_profile_by_user_id:
+            owner_profile_by_user_id[dog.owner_user_id] = image_url
 
     names_without_user_profile = [
         dog.owner_name
@@ -3086,16 +3153,15 @@ def _paginate_registration_record_rows(request, dogs_qs):
     return page_obj, paged_dogs
 
 
-def _apply_registration_owner_row_display(dogs, owner_keys_by_dog_id, owner_numbers):
+def _apply_registration_owner_row_display(dogs, owner_keys_by_dog_id):
     previous_owner_key = None
     for dog in dogs:
         owner_key = owner_keys_by_dog_id.get(dog.id, f"dog:{dog.id}")
-        owner_number = owner_numbers.get(owner_key, "")
         if owner_key == previous_owner_key:
             dog.owner_display_number = ""
             dog.show_owner_fields = False
         else:
-            dog.owner_display_number = owner_number
+            dog.owner_display_number = getattr(dog, "owner_rank", "") or ""
             dog.show_owner_fields = True
         previous_owner_key = owner_key
 
@@ -3128,10 +3194,9 @@ def registration_record(request):
         filter_month,
         filter_year,
     )
-    owner_numbers = _build_registration_owner_number_lookup(dogs_qs)
     page_obj, dogs = _paginate_registration_record_rows(request, dogs_qs)
     owner_keys_by_dog_id = _attach_registration_owner_metadata(dogs)
-    dogs = _apply_registration_owner_row_display(dogs, owner_keys_by_dog_id, owner_numbers)
+    dogs = _apply_registration_owner_row_display(dogs, owner_keys_by_dog_id)
     available_years = _get_cached_registration_years()
 
     date_filter_params = _build_registration_filter_params(

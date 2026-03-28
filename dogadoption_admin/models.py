@@ -426,6 +426,8 @@ class Dog(models.Model):
         indexes = [
             models.Index(fields=["date_registered"], name="dog_date_reg_idx"),
             models.Index(fields=["barangay", "date_registered"], name="dog_brgy_date_idx"),
+            models.Index(fields=["owner_user", "date_registered"], name="dog_owneruser_date_idx"),
+            models.Index(fields=["owner_name_key", "date_registered"], name="dog_ownerkey_date_idx"),
         ]
 
     def __str__(self):

@@ -102,6 +102,14 @@ class DogCaptureRequest(models.Model):
             models.Index(fields=["status", "created_at"], name="dogcap_status_created_idx"),
             models.Index(fields=["requested_by", "status", "created_at"], name="dogcap_user_status_created_idx"),
             models.Index(fields=["assigned_admin", "status"], name="dogcap_admin_status_idx"),
+            models.Index(
+                fields=["status", "scheduled_date", "created_at"],
+                name="dogcap_stat_sched_cr_idx",
+            ),
+            models.Index(
+                fields=["status", "latitude", "longitude", "created_at"],
+                name="dogcap_stat_coords_cr_idx",
+            ),
         ]
 
     def get_reason_display(self):

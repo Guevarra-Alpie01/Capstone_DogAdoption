@@ -78,6 +78,7 @@ from .notification_utils import (
 
 ACTIVE_BARANGAY_LOOKUP_CACHE_KEY = "user_active_barangay_lookup"
 ACTIVE_BARANGAY_LOOKUP_CACHE_TTL_SECONDS = 300
+HOME_FEED_SESSION_TOKEN_KEY = "user_home_feed_token"
 BARANGAY_API_DEFAULT_LIMIT = 200
 BARANGAY_API_MAX_LIMIT = 200
 DEFAULT_REQUEST_CITY = "Bayawan City"
@@ -643,8 +644,15 @@ def login_view(request):
         return redirect("user:user_home")
 
     if request.method == "POST":
-        username = request.POST.get("username")
+        username = (request.POST.get("username") or "").strip()
         password = request.POST.get("password")
+
+        if not username or not password:
+            return _render_login_page(
+                request,
+                error="Username and password are required.",
+                login_form_data={"username": username},
+            )
 
         user = authenticate(request, username=username, password=password)
 
@@ -1383,6 +1391,22 @@ def _fresh_feed_token():
     return secrets.token_hex(8)
 
 
+def _resolve_home_feed_token(request, raw_token=""):
+    explicit_token = _normalized_feed_token(raw_token)
+    session_token = _normalized_feed_token(
+        request.session.get(HOME_FEED_SESSION_TOKEN_KEY)
+    )
+    if explicit_token:
+        if explicit_token != session_token:
+            request.session[HOME_FEED_SESSION_TOKEN_KEY] = explicit_token
+        return explicit_token
+    if session_token:
+        return session_token
+    generated_token = _fresh_feed_token()
+    request.session[HOME_FEED_SESSION_TOKEN_KEY] = generated_token
+    return generated_token
+
+
 def _redirect_to_user_home_with_fresh_feed():
     return redirect(f"{reverse('user:user_home')}?feed_token={_fresh_feed_token()}")
 
@@ -1428,10 +1452,11 @@ def _sample_ids_with_cache(cache_key, candidate_ids, sample_limit):
 
 
 def _active_admin_posts_queryset(query=""):
-    accepted_post_ids = PostRequest.objects.filter(
+    accepted_post_requests = PostRequest.objects.filter(
+        post_id=OuterRef("pk"),
         status="accepted",
         request_type__in=["claim", "adopt"],
-    ).values("post_id")
+    )
     post_table = Post._meta.db_table
     claim_deadline_expr = RawSQL(
         f"DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY)",
@@ -1446,14 +1471,17 @@ def _active_admin_posts_queryset(query=""):
     now = timezone.now()
     admin_qs = (
         Post.objects.exclude(status__in=["reunited", "adopted"])
-        .exclude(id__in=accepted_post_ids)
         .annotate(
+            has_accepted_request=Exists(accepted_post_requests),
             claim_deadline_db=claim_deadline_expr,
             adopt_deadline_db=adopt_deadline_expr,
         )
         .filter(
-            Q(claim_deadline_db__gte=now)
-            | (Q(claim_deadline_db__lt=now) & Q(adopt_deadline_db__gte=now))
+            Q(has_accepted_request=False)
+            & (
+                Q(claim_deadline_db__gte=now)
+                | (Q(claim_deadline_db__lt=now) & Q(adopt_deadline_db__gte=now))
+            )
         )
     )
     if query:
@@ -1648,6 +1676,9 @@ def _build_search_home_rows(query, dogs_only=False, viewer_id=None):
 
 
 def _hydrate_home_feed_items(request, feed_rows):
+    if not feed_rows:
+        return []
+
     ids_by_type = {
         "admin": [row["id"] for row in feed_rows if row["feed_type"] == "admin"],
         "announcement": [row["id"] for row in feed_rows if row["feed_type"] == "announcement"],
@@ -1662,7 +1693,7 @@ def _hydrate_home_feed_items(request, feed_rows):
         ).annotate(
             image_count=Count("images", distinct=True),
         ).only(
-            "id", "caption", "location", "status", "created_at", "claim_days",
+            "id", "caption", "gender", "location", "status", "rescued_date", "created_at", "claim_days",
             "user__id", "user__username", "user__first_name", "user__last_name",
             "user__profile__profile_image",
         ).prefetch_related(
@@ -1685,7 +1716,7 @@ def _hydrate_home_feed_items(request, feed_rows):
             user_reacted=Exists(announcement_user_reaction_subquery),
             image_count=Count("images", distinct=True),
         ).only(
-            "id", "title", "content", "created_at", "background_image",
+            "id", "title", "content", "category", "created_at", "background_image",
             "created_by__id", "created_by__username", "created_by__first_name",
             "created_by__last_name", "created_by__profile__profile_image",
         ).prefetch_related(
@@ -1702,6 +1733,20 @@ def _hydrate_home_feed_items(request, feed_rows):
         ).annotate(
             request_count=Count("requests", distinct=True),
             image_count=Count("images", distinct=True),
+        ).only(
+            "id",
+            "dog_name",
+            "gender",
+            "age",
+            "description",
+            "location",
+            "status",
+            "created_at",
+            "owner__id",
+            "owner__username",
+            "owner__first_name",
+            "owner__last_name",
+            "owner__profile__profile_image",
         ).prefetch_related(
             Prefetch(
                 "images",
@@ -1713,6 +1758,25 @@ def _hydrate_home_feed_items(request, feed_rows):
         post.id: post
         for post in MissingDogPost.objects.select_related(
             "owner", "owner__profile"
+        ).only(
+            "id",
+            "owner_id",
+            "dog_name",
+            "age",
+            "description",
+            "image",
+            "date_lost",
+            "time_lost",
+            "location",
+            "contact_phone_number",
+            "contact_facebook_url",
+            "status",
+            "created_at",
+            "owner__id",
+            "owner__username",
+            "owner__first_name",
+            "owner__last_name",
+            "owner__profile__profile_image",
         ).filter(id__in=ids_by_type["missing"])
     }
 
@@ -2223,7 +2287,7 @@ def _build_user_home_context(
     adoption_form = adoption_form or UserAdoptionPostForm()
     missing_form = missing_form or MissingDogPostForm()
     query = _normalized_feed_query(request.GET.get("q"))
-    feed_token = _normalized_feed_token(request.GET.get("feed_token")) or _fresh_feed_token()
+    feed_token = _resolve_home_feed_token(request, request.GET.get("feed_token"))
     page_number = request.GET.get("page", 1)
     show_dogs_only = request.user.is_authenticated and not request.user.is_staff
     mixed_rows = _build_random_home_rows(

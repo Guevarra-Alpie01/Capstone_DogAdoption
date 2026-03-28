@@ -346,6 +346,8 @@
     max-width: 100%;
     min-width: 0;
     margin-left: auto;
+    align-content: start;
+    justify-content: start;
     padding: 6px;
     border-radius: 14px;
     border: 1px solid rgba(197, 211, 227, 0.72);
@@ -438,6 +440,7 @@
 
     .chart-filters,
     .chart-head-stacked .chart-filters {
+        flex: 0 1 auto;
         width: 100%;
         margin-left: 0;
     }
@@ -539,8 +542,43 @@
         font-size: 1.85rem;
     }
 
+    .chart-card {
+        padding: 10px;
+    }
+
+    .chart-head,
+    .chart-head-stacked {
+        gap: 8px;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+    }
+
+    .chart-title {
+        gap: 7px;
+    }
+
+    .chart-head h4,
+    .chart-head-stacked h4 {
+        font-size: 0.96rem;
+        line-height: 1.28;
+    }
+
     .chart-filters {
-        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
+        flex: 0 1 auto;
+        width: 100%;
+        gap: 4px;
+        padding: 4px;
+        border-radius: 12px;
+        align-content: stretch;
+    }
+
+    .chart-filter-select,
+    .chart-filter-input {
+        height: 38px;
+        padding: 5px 8px;
+        font-size: 0.83rem;
     }
 
     .chart-card canvas {
@@ -559,5 +597,164 @@
 
     .chart-card canvas {
         height: 220px !important;
+    }
+}
+
+/* Mobile-first reinforcement layer */
+.analytics-page {
+    overflow-x: clip;
+}
+
+.kpi-grid,
+.chart-grid,
+.chart-card,
+.chart-head,
+.chart-filters {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.chart-title,
+.chart-title > span:last-child,
+.chart-head h4,
+.chart-head-stacked h4 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 414.98px) {
+    .analytics-page {
+        gap: 12px;
+    }
+
+    .analytics-head {
+        padding: 14px;
+        border-radius: 14px;
+    }
+
+    .analytics-head h1 {
+        font-size: clamp(1.32rem, 7.4vw, 1.7rem);
+        line-height: 1.12;
+    }
+
+    .kpi-card {
+        padding: 12px;
+        gap: 12px;
+    }
+
+    .kpi-top {
+        gap: 9px;
+        align-items: center;
+    }
+
+    .kpi-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 9px;
+    }
+
+    .kpi-card h3 {
+        font-size: 1.7rem;
+    }
+
+    .chart-card {
+        padding: 10px;
+        border-radius: 14px;
+    }
+
+    .chart-head,
+    .chart-head-stacked {
+        gap: 8px;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+    }
+
+    .chart-title {
+        gap: 8px;
+        flex-basis: auto;
+    }
+
+    .chart-head h4,
+    .chart-head-stacked h4 {
+        font-size: 0.94rem;
+        line-height: 1.3;
+    }
+
+    .chart-filters {
+        padding: 5px;
+        gap: 5px;
+        border-radius: 12px;
+    }
+
+    .chart-filter-select,
+    .chart-filter-input {
+        height: 40px;
+        padding: 6px 8px;
+        font-size: 0.82rem;
+    }
+
+    .chart-empty {
+        padding: 6px 2px 0;
+        font-size: 0.84rem;
+    }
+
+    .chart-card canvas {
+        height: clamp(210px, 68vw, 250px) !important;
+    }
+}
+
+@media (min-width: 576px) and (max-width: 767.98px) {
+    .chart-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .chart-card canvas {
+        height: 260px !important;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .chart-card {
+        padding: 14px;
+    }
+
+    .chart-head,
+    .chart-head-stacked {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .chart-filters,
+    .chart-head-stacked .chart-filters {
+        width: 100%;
+        margin-left: 0;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1200px) {
+    .chart-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .chart-span-2 {
+        grid-column: span 2;
+    }
+
+    .chart-head {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+
+    .chart-head-stacked {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+
+    .chart-filters,
+    .chart-head-stacked .chart-filters {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        width: min(100%, 640px);
+        margin-left: auto;
     }
 }

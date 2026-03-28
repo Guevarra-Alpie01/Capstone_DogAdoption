@@ -43,8 +43,8 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Case, CharField, Count, DateField, DateTimeField, F, IntegerField, Prefetch, Q, Value, When, Window
-from django.db.models.functions import Cast, Coalesce, Concat, DenseRank, FirstValue, Lower, Trim, TruncDate
+from django.db.models import Case, CharField, Count, DateField, DateTimeField, F, IntegerField, Min, OuterRef, Prefetch, Q, Subquery, Value, When
+from django.db.models.functions import Cast, Coalesce, Concat, Lower, Trim, TruncDate
 from django.db.models.expressions import RawSQL
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -3073,28 +3073,27 @@ def _build_registration_record_queryset(selected_barangay, date_filter_type, fil
         ),
         output_field=CharField(),
     )
-    dogs = (
-        dogs.annotate(owner_group_key=owner_group_key)
-        .annotate(
-            owner_first_seen_date=Window(
-                expression=FirstValue("date_registered"),
-                partition_by=[F("owner_group_key")],
-                order_by=[F("date_registered").asc(), F("id").asc()],
-            ),
-            owner_first_seen_id=Window(
-                expression=FirstValue("id"),
-                partition_by=[F("owner_group_key")],
-                order_by=[F("date_registered").asc(), F("id").asc()],
-            ),
-            owner_rank=Window(
-                expression=DenseRank(),
-                order_by=[
-                    F("owner_first_seen_date").asc(),
-                    F("owner_first_seen_id").asc(),
-                    F("owner_group_key").asc(),
-                ],
-            ),
+    dogs = dogs.annotate(owner_group_key=owner_group_key)
+    owner_grouped_dogs = dogs
+    owner_first_seen_date_subquery = (
+        owner_grouped_dogs.filter(owner_group_key=OuterRef("owner_group_key"))
+        .values("owner_group_key")
+        .annotate(first_seen_date=Min("date_registered"))
+        .values("first_seen_date")[:1]
+    )
+    dogs = dogs.annotate(
+        owner_first_seen_date=Subquery(owner_first_seen_date_subquery)
+    )
+    owner_first_seen_id_subquery = (
+        owner_grouped_dogs.filter(
+            owner_group_key=OuterRef("owner_group_key"),
+            date_registered=OuterRef("owner_first_seen_date"),
         )
+        .order_by("id")
+        .values("id")[:1]
+    )
+    dogs = (
+        dogs.annotate(owner_first_seen_id=Subquery(owner_first_seen_id_subquery))
         .select_related("owner_user", "owner_user__profile")
         .only(
             "id",
@@ -3115,6 +3114,18 @@ def _build_registration_record_queryset(selected_barangay, date_filter_type, fil
         .order_by("owner_first_seen_date", "owner_first_seen_id", "date_registered", "id")
     )
     return dogs, date_filter_type, date_filter_label
+
+
+def _build_registration_owner_rank_lookup(dogs_qs):
+    owner_rows = (
+        dogs_qs.values("owner_group_key", "owner_first_seen_date", "owner_first_seen_id")
+        .distinct()
+        .order_by("owner_first_seen_date", "owner_first_seen_id", "owner_group_key")
+    )
+    return {
+        row["owner_group_key"]: index
+        for index, row in enumerate(owner_rows, start=1)
+    }
 
 
 def _attach_registration_owner_metadata(dogs):
@@ -3184,7 +3195,7 @@ def _paginate_registration_record_rows(request, dogs_qs):
     return page_obj, paged_dogs
 
 
-def _apply_registration_owner_row_display(dogs, owner_keys_by_dog_id):
+def _apply_registration_owner_row_display(dogs, owner_keys_by_dog_id, owner_rank_by_key):
     previous_owner_key = None
     for dog in dogs:
         owner_key = owner_keys_by_dog_id.get(dog.id, f"dog:{dog.id}")
@@ -3192,7 +3203,8 @@ def _apply_registration_owner_row_display(dogs, owner_keys_by_dog_id):
             dog.owner_display_number = ""
             dog.show_owner_fields = False
         else:
-            dog.owner_display_number = getattr(dog, "owner_rank", "") or ""
+            rank_key = getattr(dog, "owner_group_key", "") or owner_key
+            dog.owner_display_number = owner_rank_by_key.get(rank_key, "")
             dog.show_owner_fields = True
         previous_owner_key = owner_key
 
@@ -3225,9 +3237,14 @@ def registration_record(request):
         filter_month,
         filter_year,
     )
+    owner_rank_by_key = _build_registration_owner_rank_lookup(dogs_qs)
     page_obj, dogs = _paginate_registration_record_rows(request, dogs_qs)
     owner_keys_by_dog_id = _attach_registration_owner_metadata(dogs)
-    dogs = _apply_registration_owner_row_display(dogs, owner_keys_by_dog_id)
+    dogs = _apply_registration_owner_row_display(
+        dogs,
+        owner_keys_by_dog_id,
+        owner_rank_by_key,
+    )
     available_years = _get_cached_registration_years()
 
     date_filter_params = _build_registration_filter_params(

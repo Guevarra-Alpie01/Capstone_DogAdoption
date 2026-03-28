@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/admin_analytics/dashboard.css' %}?v=20260327a">
+<link rel="stylesheet" href="{% static 'css/admin_analytics/dashboard.css' %}?v=20260328c">
 {% endblock %}
 
 {% block content %}
@@ -286,24 +286,26 @@
     const currentMonth = new Date().getMonth() + 1;
     const piePalette = ['#2563eb', '#0f766e', '#f97316', '#be123c', '#7c3aed', '#0891b2', '#ca8a04', '#4f46e5', '#15803d'];
     const analyticsPhoneMediaQuery = window.matchMedia('(max-width: 575.98px)');
+    const analyticsTinyPhoneMediaQuery = window.matchMedia('(max-width: 414.98px)');
     const isAnalyticsPhone = () => analyticsPhoneMediaQuery.matches;
+    const isAnalyticsTinyPhone = () => analyticsTinyPhoneMediaQuery.matches;
 
     const analyticsLegendOptions = () => ({
         position: 'bottom',
-        align: 'center',
+        align: isAnalyticsPhone() ? 'start' : 'center',
         labels: {
-            boxWidth: isAnalyticsPhone() ? 12 : 16,
-            boxHeight: isAnalyticsPhone() ? 12 : 16,
-            padding: isAnalyticsPhone() ? 10 : 14,
+            boxWidth: isAnalyticsTinyPhone() ? 10 : isAnalyticsPhone() ? 12 : 16,
+            boxHeight: isAnalyticsTinyPhone() ? 10 : isAnalyticsPhone() ? 12 : 16,
+            padding: isAnalyticsTinyPhone() ? 8 : isAnalyticsPhone() ? 10 : 14,
             font: {
-                size: isAnalyticsPhone() ? 10 : 12,
+                size: isAnalyticsTinyPhone() ? 9 : isAnalyticsPhone() ? 10 : 12,
             },
             usePointStyle: isAnalyticsPhone(),
         },
     });
 
     const analyticsAxisTickFont = () => ({
-        size: isAnalyticsPhone() ? 10 : 12,
+        size: isAnalyticsTinyPhone() ? 9 : isAnalyticsPhone() ? 10 : 12,
     });
 
     const analyticsAxisTickOptions = (overrides = {}) => ({
@@ -311,6 +313,35 @@
         font: analyticsAxisTickFont(),
         ...overrides,
     });
+
+    const analyticsViewportBucket = () => {
+        if (window.innerWidth <= 414.98) return 'tiny-phone';
+        if (window.innerWidth <= 575.98) return 'phone';
+        if (window.innerWidth <= 767.98) return 'small-tablet';
+        if (window.innerWidth <= 1199.98) return 'tablet';
+        return 'desktop';
+    };
+
+    let lastAnalyticsViewportBucket = analyticsViewportBucket();
+    let analyticsRefreshTimeoutId = null;
+    const analyticsRenderers = [];
+    const registerAnalyticsRenderer = (renderFn) => {
+        analyticsRenderers.push(renderFn);
+    };
+
+    const refreshAnalyticsChartsForViewport = () => {
+        const nextBucket = analyticsViewportBucket();
+        if (nextBucket === lastAnalyticsViewportBucket) {
+            return;
+        }
+        lastAnalyticsViewportBucket = nextBucket;
+        analyticsRenderers.forEach((renderFn) => renderFn());
+    };
+
+    const scheduleAnalyticsRefresh = () => {
+        window.clearTimeout(analyticsRefreshTimeoutId);
+        analyticsRefreshTimeoutId = window.setTimeout(refreshAnalyticsChartsForViewport, 120);
+    };
 
     const vaccinationBreedYearFilter = document.getElementById('vaccinationBreedYearFilter');
     const vaccinationBreedViewFilter = document.getElementById('vaccinationBreedViewFilter');
@@ -427,6 +458,7 @@
     vaccinationBreedViewFilter.addEventListener('change', renderVaccinationBreedChart);
     vaccinationBreedMonthFilter.addEventListener('change', renderVaccinationBreedChart);
     vaccinationBreedTypeFilter.addEventListener('change', renderVaccinationBreedChart);
+    registerAnalyticsRenderer(renderVaccinationBreedChart);
     renderVaccinationBreedChart();
 
     const adoptionClaimTrendYearFilter = document.getElementById('adoptionClaimTrendYearFilter');
@@ -492,6 +524,8 @@
                     data: adoptedData,
                     borderColor: '#be123c',
                     backgroundColor: '#be123c',
+                    pointRadius: isAnalyticsPhone() ? 2 : 3,
+                    pointHoverRadius: isAnalyticsPhone() ? 4 : 5,
                     tension: 0.25,
                     fill: false,
                 },
@@ -500,6 +534,8 @@
                     data: claimedData,
                     borderColor: '#0f766e',
                     backgroundColor: '#0f766e',
+                    pointRadius: isAnalyticsPhone() ? 2 : 3,
+                    pointHoverRadius: isAnalyticsPhone() ? 4 : 5,
                     tension: 0.25,
                     fill: false,
                 }
@@ -541,7 +577,7 @@
                     x: {
                         ticks: analyticsAxisTickOptions({
                             autoSkip: true,
-                            maxTicksLimit: isAnalyticsPhone() ? 6 : 12,
+                            maxTicksLimit: isAnalyticsTinyPhone() ? 4 : isAnalyticsPhone() ? 6 : 12,
                             maxRotation: isAnalyticsPhone() ? 0 : 40,
                             minRotation: 0,
                         }),
@@ -554,6 +590,7 @@
     adoptionClaimTrendYearFilter.addEventListener('change', renderAdoptionClaimTrendChart);
     adoptionClaimTrendViewFilter.addEventListener('change', renderAdoptionClaimTrendChart);
     adoptionClaimTrendMonthFilter.addEventListener('change', renderAdoptionClaimTrendChart);
+    registerAnalyticsRenderer(renderAdoptionClaimTrendChart);
     renderAdoptionClaimTrendChart();
 
     const rescueTrendYearFilter = document.getElementById('rescueTrendYearFilter');
@@ -626,6 +663,8 @@
             data: entry.data,
             borderColor: linePalette[idx % linePalette.length],
             backgroundColor: linePalette[idx % linePalette.length],
+            pointRadius: isAnalyticsPhone() ? 2 : 3,
+            pointHoverRadius: isAnalyticsPhone() ? 4 : 5,
             tension: 0.25,
             fill: false,
         }));
@@ -667,7 +706,7 @@
                     x: {
                         ticks: analyticsAxisTickOptions({
                             autoSkip: true,
-                            maxTicksLimit: isAnalyticsPhone() ? 6 : 12,
+                            maxTicksLimit: isAnalyticsTinyPhone() ? 4 : isAnalyticsPhone() ? 6 : 12,
                             maxRotation: isAnalyticsPhone() ? 0 : 40,
                             minRotation: 0,
                         }),
@@ -680,6 +719,7 @@
     rescueTrendYearFilter.addEventListener('change', renderRescueTrendChart);
     rescueTrendViewFilter.addEventListener('change', renderRescueTrendChart);
     rescueTrendMonthFilter.addEventListener('change', renderRescueTrendChart);
+    registerAnalyticsRenderer(renderRescueTrendChart);
     renderRescueTrendChart();
 
     const vaccinationYearFilter = document.getElementById('vaccinationBarangayYearFilter');
@@ -800,11 +840,13 @@
                     label: 'Total Vaccinated',
                     data: barangays.map((name) => vaccinatedByBarangay.get(name)?.size || 0),
                     backgroundColor: '#2563eb',
+                    maxBarThickness: isAnalyticsTinyPhone() ? 20 : isAnalyticsPhone() ? 24 : 32,
                 },
                 {
                     label: 'Expired Vaccination',
                     data: barangays.map((name) => expiredByBarangay.get(name)?.size || 0),
                     backgroundColor: '#dc2626',
+                    maxBarThickness: isAnalyticsTinyPhone() ? 20 : isAnalyticsPhone() ? 24 : 32,
                 }
             ],
         };
@@ -852,13 +894,14 @@
                             autoSkip: true,
                             maxRotation: isAnalyticsPhone() ? 0 : 55,
                             minRotation: isAnalyticsPhone() ? 0 : 35,
-                            maxTicksLimit: isAnalyticsPhone() ? 4 : 8,
+                            maxTicksLimit: isAnalyticsTinyPhone() ? 3 : isAnalyticsPhone() ? 4 : 8,
                             callback: function(value) {
                                 const label = this.getLabelForValue(value);
-                                if (!isAnalyticsPhone() || typeof label !== 'string' || label.length <= 10) {
+                                const truncateAt = isAnalyticsTinyPhone() ? 8 : 10;
+                                if (!isAnalyticsPhone() || typeof label !== 'string' || label.length <= truncateAt) {
                                     return label;
                                 }
-                                return `${label.slice(0, 10)}...`;
+                                return `${label.slice(0, truncateAt)}...`;
                             },
                         }),
                     }
@@ -871,6 +914,7 @@
     vaccinationViewFilter.addEventListener('change', renderVaccinationBarangayChart);
     vaccinationMonthFilter.addEventListener('change', renderVaccinationBarangayChart);
     vaccinationDayFilter.addEventListener('change', renderVaccinationBarangayChart);
+    registerAnalyticsRenderer(renderVaccinationBarangayChart);
     renderVaccinationBarangayChart();
 
     const registeredBarangayYearFilter = document.getElementById('registeredBarangayYearFilter');
@@ -980,6 +1024,11 @@
     registeredBarangayYearFilter.addEventListener('change', renderRegisteredBarangayChart);
     registeredBarangayViewFilter.addEventListener('change', renderRegisteredBarangayChart);
     registeredBarangayMonthFilter.addEventListener('change', renderRegisteredBarangayChart);
+    registerAnalyticsRenderer(renderRegisteredBarangayChart);
     renderRegisteredBarangayChart();
+
+    analyticsPhoneMediaQuery.addEventListener('change', scheduleAnalyticsRefresh);
+    analyticsTinyPhoneMediaQuery.addEventListener('change', scheduleAnalyticsRefresh);
+    window.addEventListener('resize', scheduleAnalyticsRefresh, { passive: true });
 </script>
 {% endblock %}

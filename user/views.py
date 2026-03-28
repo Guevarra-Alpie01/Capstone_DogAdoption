@@ -672,7 +672,7 @@ def login_view(request):
 def logout_view(request):
     """Log out the current session and clear any admin session cookie."""
     logout(request)
-    response = redirect("user:login")
+    response = _redirect_to_user_home_with_fresh_feed()
     response.delete_cookie("admin_sessionid")
     return response
 

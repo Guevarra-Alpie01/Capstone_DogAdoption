@@ -448,24 +448,45 @@
 {% for item in all_posts %}
     {% with post=item.post %}
     <div class="modal fade" id="postDetails{{ post.id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content post-detail-modal-card">
+                <div class="modal-header post-detail-modal-header">
                     <h5 class="modal-title">{{ post.caption|default:"Dog Details" }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    {% if item.primary_image_url %}
-                        <img src="{{ item.primary_image_url }}" class="detail-preview-img mb-3" alt="Dog image">
-                    {% else %}
-                        <div class="detail-no-image mb-3">No image uploaded</div>
-                    {% endif %}
-                    <div class="detail-grid">
-                        <div><strong>Rescued Date:</strong> {{ post.rescued_date|date:"M d, Y"|default:"-" }}</div>
-                        <div><strong>Gender:</strong> {{ post.get_gender_display|default:"-" }}</div>
-                        <div><strong>Barangay:</strong> {{ post.location|default:"-" }}</div>
-                        <div><strong>Status:</strong> {{ post.get_status_display }}</div>
-                        <div><strong>Time Left:</strong> {{ item.time_left_label }}</div>
+                <div class="modal-body post-detail-modal-body">
+                    <div class="post-detail-shell">
+                        {% if item.primary_image_url %}
+                            <div class="detail-preview-stage mb-3">
+                                <div class="detail-preview-frame">
+                                    <img src="{{ item.primary_image_url }}" class="detail-preview-img" alt="Dog image">
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="detail-no-image mb-3">No image uploaded</div>
+                        {% endif %}
+                        <div class="detail-grid">
+                            <div class="detail-stat">
+                                <span class="detail-label">Rescued Date</span>
+                                <strong class="detail-value">{{ post.rescued_date|date:"M d, Y"|default:"-" }}</strong>
+                            </div>
+                            <div class="detail-stat">
+                                <span class="detail-label">Gender</span>
+                                <strong class="detail-value">{{ post.get_gender_display|default:"-" }}</strong>
+                            </div>
+                            <div class="detail-stat">
+                                <span class="detail-label">Barangay</span>
+                                <strong class="detail-value">{{ post.location|default:"-" }}</strong>
+                            </div>
+                            <div class="detail-stat">
+                                <span class="detail-label">Status</span>
+                                <strong class="detail-value detail-pill detail-pill--{{ post.status|slugify }}">{{ post.get_status_display }}</strong>
+                            </div>
+                            <div class="detail-stat detail-stat--wide">
+                                <span class="detail-label">Time Left</span>
+                                <strong class="detail-value">{{ item.time_left_label }}</strong>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

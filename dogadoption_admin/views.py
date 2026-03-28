@@ -1313,11 +1313,26 @@ def post_list(request):
         'claim_days',
         'created_at',
     ).annotate(
-        claim_count=Count('requests', filter=Q(requests__request_type='claim')),
-        adopt_count=Count('requests', filter=Q(requests__request_type='adopt')),
         claim_deadline_db=claim_deadline_expr,
         adopt_deadline_db=adopt_deadline_expr,
     )
+
+    def _with_request_count(qs, request_type, annotation_name):
+        request_count_subquery = (
+            PostRequest.objects.filter(post_id=OuterRef("pk"), request_type=request_type)
+            .order_by()
+            .values("post_id")
+            .annotate(total=Count("id"))
+            .values("total")[:1]
+        )
+        return qs.annotate(
+            **{
+                annotation_name: Coalesce(
+                    Subquery(request_count_subquery, output_field=IntegerField()),
+                    Value(0),
+                )
+            }
+        )
 
     def format_posted_label(dt):
         if not dt:
@@ -1385,21 +1400,23 @@ def post_list(request):
         params[page_param] = str(page_num)
         return params.urlencode()
 
-    claim_qs = (
+    claim_qs = _with_request_count(
         base_qs.filter(
             status__in=active_statuses,
             claim_deadline_db__gte=now,
-        )
-        .order_by("-claim_count", "-created_at", "-id")
-    )
-    adoption_qs = (
+        ),
+        "claim",
+        "claim_count",
+    ).order_by("-claim_count", "-created_at", "-id")
+    adoption_qs = _with_request_count(
         base_qs.filter(
             status__in=active_statuses,
             claim_deadline_db__lt=now,
             adopt_deadline_db__gte=now,
-        )
-        .order_by("-adopt_count", "-created_at", "-id")
-    )
+        ),
+        "adopt",
+        "adopt_count",
+    ).order_by("-adopt_count", "-created_at", "-id")
     reunited_qs = base_qs.filter(status='reunited').order_by("-created_at", "-id")
     adopted_qs = base_qs.filter(status='adopted').order_by("-created_at", "-id")
 
@@ -1430,7 +1447,7 @@ def post_list(request):
     if paged_post_ids:
         paged_requests = list(
             PostRequest.objects.filter(post_id__in=paged_post_ids)
-            .select_related("user", "user__profile")
+            .select_related("user")
             .only(
                 "id",
                 "post_id",
@@ -1444,8 +1461,6 @@ def post_list(request):
                 "user__username",
                 "user__first_name",
                 "user__last_name",
-                "user__profile__profile_image",
-                "user__profile__address",
             )
             .order_by("-created_at")
         )
@@ -1461,16 +1476,15 @@ def post_list(request):
         profile_address_by_user_id = {}
         face_auth_count_by_user_id = {}
         if request_user_ids:
-            for req in paged_requests:
-                profile = _get_profile_or_none(req.user)
-                if not profile:
-                    continue
-                if req.user_id not in profile_address_by_user_id:
-                    profile_address_by_user_id[req.user_id] = (profile.address or "").strip()
-                if req.user_id not in profile_image_by_user_id:
-                    image_url = _safe_media_url(getattr(profile, "profile_image", None))
-                    if image_url:
-                        profile_image_by_user_id[req.user_id] = image_url
+            for profile in Profile.objects.filter(user_id__in=request_user_ids).only(
+                "user_id",
+                "address",
+                "profile_image",
+            ):
+                profile_address_by_user_id[profile.user_id] = (profile.address or "").strip()
+                image_url = _safe_media_url(getattr(profile, "profile_image", None))
+                if image_url:
+                    profile_image_by_user_id[profile.user_id] = image_url
 
             face_auth_count_by_user_id = dict(
                 FaceImage.objects.filter(user_id__in=request_user_ids)

@@ -58,6 +58,7 @@ from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, Mi
 
 # Forms and notification helpers
 from .forms import MissingDogPostForm, UserAdoptionPostForm
+from .avatar_cache import invalidate_cached_profile_avatar
 from .notification_utils import (
     build_user_notification_payload,
     bump_user_home_feed_namespace,
@@ -2051,6 +2052,7 @@ def edit_profile(request):
             if request.FILES.get("profile_image"):
                 profile.profile_image = request.FILES["profile_image"]
                 profile.save(update_fields=["profile_image"])
+                invalidate_cached_profile_avatar(user.id)
                 messages.success(request, "Profile photo updated successfully")
             else:
                 messages.error(request, "Please choose a profile photo first.")
@@ -2307,8 +2309,13 @@ def _build_user_home_context(
     missing_form=None,
     open_create_modal=False,
 ):
-    adoption_form = adoption_form or UserAdoptionPostForm()
-    missing_form = missing_form or MissingDogPostForm()
+    should_render_create_modal = request.user.is_authenticated and not request.user.is_staff
+    if should_render_create_modal:
+        adoption_form = adoption_form or UserAdoptionPostForm()
+        missing_form = missing_form or MissingDogPostForm()
+    else:
+        adoption_form = adoption_form or None
+        missing_form = missing_form or None
     query = _normalized_feed_query(request.GET.get("q"))
     feed_token = _resolve_home_feed_token(request, request.GET.get("feed_token"))
     page_number = request.GET.get("page", 1)
@@ -2363,8 +2370,12 @@ def user_home(request):
         _clear_signup_face_progress(request)
 
     selected_type = request.GET.get("type", "adoption")
-    adoption_form = _build_user_adoption_post_form()
-    missing_form = _build_missing_dog_post_form()
+    if request.user.is_authenticated:
+        adoption_form = _build_user_adoption_post_form()
+        missing_form = _build_missing_dog_post_form()
+    else:
+        adoption_form = None
+        missing_form = None
     open_create_modal = False
 
     if request.method == "POST" and request.POST.get("home_create_post") == "1":

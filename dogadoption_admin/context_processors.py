@@ -1,6 +1,8 @@
 ADMIN_NOTIFICATIONS_CACHE_KEY = "admin_notifications_summary_v1"
 ADMIN_NOTIFICATIONS_CACHE_TTL_SECONDS = 15
 
+from user.avatar_cache import DEFAULT_AVATAR_URL, get_cached_profile_avatar_url
+
 from .access import get_admin_access_namespace
 
 
@@ -11,6 +13,7 @@ def _empty_admin_notifications_context():
         "admin_latest_notifications": [],
         "admin_notifications_summary_url": "",
         "admin_access": get_admin_access_namespace(None),
+        "admin_topbar_avatar_url": DEFAULT_AVATAR_URL,
     }
 
 
@@ -29,6 +32,7 @@ def admin_notifications(request):
             "admin_latest_notifications": [],
             "admin_notifications_summary_url": "",
             "admin_access": admin_access,
+            "admin_topbar_avatar_url": get_cached_profile_avatar_url(user),
         }
 
     return {
@@ -37,4 +41,5 @@ def admin_notifications(request):
         "admin_latest_notifications": [],
         "admin_notifications_summary_url": reverse("dogadoption_admin:notification_summary"),
         "admin_access": admin_access,
+        "admin_topbar_avatar_url": get_cached_profile_avatar_url(user),
     }

@@ -50,7 +50,7 @@
             </div>
         </div>
 
-        <form method="POST" enctype="multipart/form-data" class="capture-form" id="captureForm">
+        <form method="POST" enctype="multipart/form-data" class="capture-form" id="captureForm" novalidate>
             {% csrf_token %}
 
             <div class="step-panel" data-step="1">
@@ -561,8 +561,6 @@ const requestDialogConfirmBtn = document.getElementById('requestDialogConfirmBtn
 let requestDialogResolver = null;
 let requestDialogDismissValue = false;
 let requestDialogSuspendedModals = [];
-let allowConfirmedSubmit = false;
-
 function getSelectedRequestType() {
     return document.querySelector('input[name="request_type"]:checked')?.value || 'capture';
 }
@@ -1405,12 +1403,15 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
 });
 
 captureForm?.addEventListener('submit', async (e) => {
-    if (allowConfirmedSubmit) {
-        allowConfirmedSubmit = false;
+    e.preventDefault();
+
+    if (getSelectedRequestType() === 'capture' && !hasAttachedStepOneProof()) {
+        showRequestNotice(
+            'Dog capture requests require a proof photo. Please upload or capture a clear photo of the dog or the barangay request letter before submitting.',
+            { title: 'Proof Photo Required', tone: 'warning' }
+        );
         return;
     }
-
-    e.preventDefault();
 
     if (!validatePhoneField()) {
         return;
@@ -1466,8 +1467,7 @@ captureForm?.addEventListener('submit', async (e) => {
     if (!confirmed) return;
 
     phoneNumberField.value = normalizePhoneForSubmit(phoneNumberField.value);
-    allowConfirmedSubmit = true;
-    captureForm.requestSubmit();
+    captureForm.submit();
 });
 
 function initRequestClickableCards(root = document) {

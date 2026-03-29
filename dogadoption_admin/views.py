@@ -12,6 +12,7 @@ import hashlib
 import io
 import json
 import re
+import secrets
 from types import SimpleNamespace
 from urllib.parse import urlencode
 
@@ -1171,18 +1172,44 @@ def _validate_registration_images(uploaded_images):
 # Shared admin access and authentication helpers
 # =============================================================================
 
+def _is_ajax_request(request):
+    """Return True when the request was sent through frontend fetch/XHR code."""
+    return request.headers.get("x-requested-with") == "XMLHttpRequest"
+
 def admin_required(view_func):
     """Limit a view to authenticated staff users."""
 
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated or not request.user.is_staff:
+        if not request.user.is_authenticated:
+            if _is_ajax_request(request):
+                return JsonResponse({
+                    "ok": False,
+                    "auth_required": True,
+                    "auth_modal": "login",
+                    "login_url": reverse("user:login"),
+                }, status=401)
             return redirect('user:login')
+        if not request.user.is_staff:
+            redirect_url = reverse("user:user_home")
+            if _is_ajax_request(request):
+                return JsonResponse({
+                    "ok": False,
+                    "redirect_url": redirect_url,
+                }, status=403)
+            return redirect(redirect_url)
         access = get_admin_access(request.user)
         route_name = getattr(getattr(request, "resolver_match", None), "url_name", "") or view_func.__name__
         if not is_route_allowed(access, route_name):
+            redirect_url = access.get("landing_url") or reverse("dogadoption_admin:admin_edit_profile")
+            if _is_ajax_request(request):
+                return JsonResponse({
+                    "ok": False,
+                    "message": "You do not have access to that section.",
+                    "redirect_url": redirect_url,
+                }, status=403)
             messages.error(request, "You do not have access to that section.")
-            return redirect(access.get("landing_url") or reverse("dogadoption_admin:admin_edit_profile"))
+            return redirect(redirect_url)
         request.admin_access = access
         return view_func(request, *args, **kwargs)
 
@@ -1198,7 +1225,9 @@ def admin_login(request):
 def admin_logout(request):
     """Log the admin out and clear the dedicated admin session cookie."""
     logout(request)
-    response = redirect('user:login')
+    response = redirect(
+        f"{reverse('user:user_home')}?feed_token={secrets.token_hex(8)}"
+    )
     response.delete_cookie('admin_sessionid')
     return response
 

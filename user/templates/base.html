@@ -29,7 +29,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     {% block extra_css %}{% endblock %}
     {% if not user.is_authenticated %}
-    <link rel="stylesheet" href="{% static 'css/auth_modal.css' %}?v=20260328a">
+    <link rel="stylesheet" href="{% static 'css/auth_modal.css' %}?v=20260329a">
     {% endif %}
     <link rel="stylesheet" href="{% static 'css/user_theme.css' %}?v=20260325g">
     <link rel="stylesheet" href="{% static 'css/notification_menu.css' %}?v=20260328a">
@@ -551,6 +551,78 @@ document.addEventListener("DOMContentLoaded", function () {
         return bootstrap.Modal.getOrCreateInstance(modalEl);
     }
 
+    window.setAuthNext = function (nextUrl) {
+        var normalizedNextUrl = nextUrl || "";
+        document.querySelectorAll("[data-auth-next-field]").forEach(function (field) {
+            field.value = normalizedNextUrl;
+        });
+        return normalizedNextUrl;
+    };
+
+    window.openAuthModal = function (target, options) {
+        if (options && Object.prototype.hasOwnProperty.call(options, "nextUrl")) {
+            window.setAuthNext(options.nextUrl);
+        }
+        var nextModalId = target === "signup" ? "signupModal" : "loginModal";
+        var nextModal = getModalInstance(nextModalId);
+        if (!nextModal) {
+            return false;
+        }
+        nextModal.show();
+        return true;
+    };
+
+    window.handleAuthRequiredResponse = async function (response, fallbackTarget) {
+        if (!response || !response.headers) {
+            return { handled: false, data: null };
+        }
+
+        var contentType = response.headers.get("content-type") || "";
+        var data = null;
+
+        if (contentType.indexOf("application/json") !== -1) {
+            try {
+                data = await response.clone().json();
+            } catch (error) {
+                data = null;
+            }
+        }
+
+        if (data && data.redirect_url) {
+            window.location.href = data.redirect_url;
+            return { handled: true, data: data };
+        }
+
+        if (data && data.auth_required) {
+            if (!window.openAuthModal(data.auth_modal || fallbackTarget || "login")) {
+                window.location.href = data.login_url || "{% url 'user:login' %}";
+            }
+            return { handled: true, data: data };
+        }
+
+        return { handled: false, data: data };
+    };
+
+    document.querySelectorAll("[data-auth-modal-trigger]").forEach(function (trigger) {
+        trigger.addEventListener("click", function (event) {
+            event.preventDefault();
+            window.openAuthModal(
+                trigger.getAttribute("data-auth-modal-trigger") || "login",
+                {
+                    nextUrl: trigger.getAttribute("data-auth-next-url") || trigger.getAttribute("href") || "",
+                }
+            );
+        });
+    });
+
+    document.querySelectorAll('[data-bs-target="#loginModal"], [data-bs-target="#signupModal"]').forEach(function (trigger) {
+        trigger.addEventListener("click", function () {
+            if (!trigger.hasAttribute("data-auth-next-url")) {
+                window.setAuthNext("");
+            }
+        });
+    });
+
     document.querySelectorAll("[data-auth-switch]").forEach(function (trigger) {
         trigger.addEventListener("click", function () {
             var target = trigger.getAttribute("data-auth-switch");
@@ -575,13 +647,11 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
+    window.setAuthNext("{{ auth_next|default:''|escapejs }}");
+
     var authModal = "{{ auth_modal|default:''|escapejs }}";
     if (authModal) {
-        var initialModalId = authModal === "signup" ? "signupModal" : "loginModal";
-        var initialModal = getModalInstance(initialModalId);
-        if (initialModal) {
-            initialModal.show();
-        }
+        window.openAuthModal(authModal);
     }
 });
 </script>

@@ -1,45 +1,80 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'css/register/registration_navigation.css' %}">
+<link rel="stylesheet" href="{% static 'css/register/registration_navigation.css' %}?v=20260328a">
 
-<div class="subtop-nav">
+<div class="subtop-nav" data-registration-nav aria-label="Registration sections">
   {% with request.resolver_match.url_name as url_name %}
     {% if admin_access.can_access_registration %}
       <a href="{% url 'dogadoption_admin:register_dogs' %}" 
-         class="nav-item {% if url_name == 'register_dogs' %}active{% endif %}">Registration</a>
+         class="nav-item {% if url_name == 'register_dogs' %}active{% endif %}"
+         {% if url_name == 'register_dogs' %}data-registration-nav-active="true"{% endif %}>Registration</a>
     {% endif %}
 
     {% if admin_access.can_access_registration_list %}
       <a href="{% url 'dogadoption_admin:registration_record' %}" 
-         class="nav-item {% if url_name == 'registration_record' %}active{% endif %}">Registration List</a>
+         class="nav-item {% if url_name == 'registration_record' %}active{% endif %}"
+         {% if url_name == 'registration_record' %}data-registration-nav-active="true"{% endif %}>Registration List</a>
     {% endif %}
 
     {% if admin_access.can_access_vaccination %}
       <a href="{% url 'dogadoption_admin:dog_certificate' %}" 
-         class="nav-item {% if url_name == 'dog_certificate' %}active{% endif %}">Vaccination</a>
+         class="nav-item {% if url_name == 'dog_certificate' %}active{% endif %}"
+         {% if url_name == 'dog_certificate' %}data-registration-nav-active="true"{% endif %}>Vaccination</a>
     {% endif %}
 
     {% if registration and admin_access.can_access_vaccination %}
       <a href="{% url 'dogadoption_admin:med_records' registration.id %}"
-         class="nav-item {% if url_name == 'med_records' %}active{% endif %}">
+         class="nav-item {% if url_name == 'med_records' %}active{% endif %}"
+         {% if url_name == 'med_records' %}data-registration-nav-active="true"{% endif %}>
          Medical Records
       </a>
     {% endif %}
 
     {% if admin_access.can_access_vaccination_list %}
       <a href="{% url 'dogadoption_admin:certificate_list' %}" 
-         class="nav-item {% if url_name == 'certificate_list' %}active{% endif %}">VaccinationList</a>
+         class="nav-item {% if url_name == 'certificate_list' %}active{% endif %}"
+         {% if url_name == 'certificate_list' %}data-registration-nav-active="true"{% endif %}>Vaccination List</a>
     {% endif %}
 
     {% if admin_access.can_access_citations %}
       <a href="{% url 'dogadoption_admin:citation_create' %}" 
-         class="nav-item {% if url_name == 'citation_create' %}active{% endif %}">Citation</a>
+         class="nav-item {% if url_name == 'citation_create' %}active{% endif %}"
+         {% if url_name == 'citation_create' %}data-registration-nav-active="true"{% endif %}>Citation</a>
     {% endif %}
 
     {% if admin_access.can_access_users %}
       <a href="{% url 'dogadoption_admin:admin_users' %}" 
-         class="nav-item {% if url_name == 'admin_users' or url_name == 'admin_user_search' or url_name == 'admin_user_detail' %}active{% endif %}">Users</a>
+         class="nav-item {% if url_name == 'admin_users' or url_name == 'admin_user_search' or url_name == 'admin_user_detail' %}active{% endif %}"
+         {% if url_name == 'admin_users' or url_name == 'admin_user_search' or url_name == 'admin_user_detail' %}data-registration-nav-active="true"{% endif %}>Users</a>
     {% endif %}
 
 
   {% endwith %}
 </div>
+<script>
+    (function () {
+        function alignActiveRegistrationNav() {
+            const nav = document.querySelector('[data-registration-nav]');
+            const activeItem = nav ? nav.querySelector('[data-registration-nav-active]') : null;
+            if (!nav || !activeItem || nav.scrollWidth <= nav.clientWidth + 4) {
+                return;
+            }
+
+            const targetLeft = Math.max(
+                0,
+                activeItem.offsetLeft - ((nav.clientWidth - activeItem.offsetWidth) / 2)
+            );
+            const maxLeft = Math.max(0, nav.scrollWidth - nav.clientWidth);
+            nav.scrollTo({
+                left: Math.min(targetLeft, maxLeft),
+                behavior: 'auto'
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', alignActiveRegistrationNav, { once: true });
+            return;
+        }
+
+        alignActiveRegistrationNav();
+    })();
+</script>

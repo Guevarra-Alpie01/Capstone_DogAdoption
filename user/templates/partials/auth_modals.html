@@ -17,6 +17,8 @@
 
                         <form method="post" action="{% url 'user:login' %}" class="login-form">
                             {% csrf_token %}
+                            <input type="hidden" name="auth_source" value="modal">
+                            <input type="hidden" name="next" value="{{ auth_next|default:'' }}" data-auth-next-field>
 
                             <div class="mb-3 input-group">
                                 <label for="loginModalUsername" class="auth-field-label">Username</label>
@@ -56,7 +58,7 @@
                         </div>
 
                         <button type="button"
-                                class="w-100 login-btn d-block text-center py-2 create-account-link border-0 app-btn-fit app-btn-mobile-full"
+                                class="create-account-link auth-text-link border-0"
                                 data-auth-switch="signup">
                             Create New Account
                         </button>
@@ -89,6 +91,8 @@
 
                         <form method="post" action="{% url 'user:signup' %}" class="signup-form">
                             {% csrf_token %}
+                            <input type="hidden" name="auth_source" value="modal">
+                            <input type="hidden" name="next" value="{{ auth_next|default:'' }}" data-auth-next-field>
 
                             <div class="mb-2 input-group">
                                 <label for="signupModalUsername" class="auth-field-label">Username</label>

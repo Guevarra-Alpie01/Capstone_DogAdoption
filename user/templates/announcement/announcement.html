@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260328g">
+<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260329a">
 {% endblock %}
 
 {% block content %}
@@ -180,11 +180,18 @@
                     body: payload
                 });
 
+                const authResult = window.handleAuthRequiredResponse
+                    ? await window.handleAuthRequiredResponse(response, 'login')
+                    : { handled: false, data: null };
+                if (authResult.handled) {
+                    return;
+                }
+
                 if (!response.ok) {
                     throw new Error('Request failed');
                 }
 
-                const data = await response.json();
+                const data = authResult.data || await response.json();
                 if (!data.ok) {
                     throw new Error('Invalid response');
                 }

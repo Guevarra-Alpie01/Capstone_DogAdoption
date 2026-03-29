@@ -172,6 +172,15 @@ def _build_signup_form_data(*, username="", first_name="", last_name="", raw_bar
 
 def _render_signup_error(request, signup_form_data, message):
     """Re-open the signup modal with a single validation error message."""
+    next_url = _get_safe_next_url(request, request.POST.get("next"))
+    if (request.POST.get("auth_source") or "").strip() == "modal":
+        return _render_home_with_auth_modal(
+            request,
+            "signup",
+            auth_next=next_url,
+            signup_error=message,
+            signup_form_data=signup_form_data,
+        )
     return _render_signup_page(
         request,
         error=message,
@@ -179,7 +188,7 @@ def _render_signup_error(request, signup_form_data, message):
     )
 
 
-def _render_login_page(request, *, error="", login_form_data=None):
+def _render_login_page(request, *, error="", login_form_data=None, next_url=""):
     """Render the dedicated login page used for standalone auth flows."""
     return render(
         request,
@@ -187,6 +196,7 @@ def _render_login_page(request, *, error="", login_form_data=None):
         {
             "error": error,
             "login_form_data": login_form_data or {},
+            "auth_next": next_url,
         },
     )
 
@@ -629,12 +639,81 @@ def user_only(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
+            if _is_ajax_request(request):
+                return JsonResponse({
+                    "ok": False,
+                    "auth_required": True,
+                    "auth_modal": "login",
+                    "login_url": reverse("user:login"),
+                }, status=401)
             return redirect('user:login')
         if request.user.is_staff:
-            return redirect(get_staff_landing_url(request.user))
+            landing_url = get_staff_landing_url(request.user)
+            if _is_ajax_request(request):
+                return JsonResponse({
+                    "ok": False,
+                    "redirect_url": landing_url,
+                }, status=403)
+            return redirect(landing_url)
         return view_func(request, *args, **kwargs)
 
     return wrapper
+
+
+def _is_ajax_request(request):
+    """Return True when the request was sent from frontend fetch/XHR code."""
+    return request.headers.get("x-requested-with") == "XMLHttpRequest"
+
+
+def _get_safe_next_url(request, raw_value=""):
+    """Return a safe in-app continuation URL or an empty string."""
+    next_url = (raw_value or "").strip()
+    if not next_url:
+        return ""
+    if url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return next_url
+    return ""
+
+
+def _build_home_auth_modal_url(request, auth_modal="login", next_url=""):
+    """Build a safe home-page URL that re-opens an auth modal."""
+    modal = auth_modal if auth_modal in {"login", "signup"} else "login"
+    query = {"auth_modal": modal}
+    safe_next_url = _get_safe_next_url(request, next_url)
+    if safe_next_url:
+        query["next"] = safe_next_url
+    return "{}?{}".format(reverse("user:user_home"), urlencode(query))
+
+
+def _require_public_member_or_auth_modal(request, *, next_url=""):
+    """
+    Guard public claim/adopt entry points.
+
+    Guests are sent back to the public home page with the real auth modal,
+    while staff still go to their admin landing page.
+    """
+    if not request.user.is_authenticated:
+        if _is_ajax_request(request):
+            return JsonResponse({
+                "ok": False,
+                "auth_required": True,
+                "auth_modal": "login",
+                "login_url": reverse("user:login"),
+            }, status=401)
+        return redirect(_build_home_auth_modal_url(request, "login", next_url or request.get_full_path()))
+    if request.user.is_staff:
+        landing_url = get_staff_landing_url(request.user)
+        if _is_ajax_request(request):
+            return JsonResponse({
+                "ok": False,
+                "redirect_url": landing_url,
+            }, status=403)
+        return redirect(landing_url)
+    return None
 
 
 def login_view(request):
@@ -644,16 +723,35 @@ def login_view(request):
             return redirect(get_staff_landing_url(request.user))
         return redirect("user:user_home")
 
+    next_url = _get_safe_next_url(
+        request,
+        request.POST.get("next") if request.method == "POST" else request.GET.get("next"),
+    )
+    auth_source = (request.POST.get("auth_source") or "").strip() if request.method == "POST" else ""
+
+    def render_login_error(message, username=""):
+        login_form_data = {"username": username or ""}
+        if auth_source == "modal":
+            return _render_home_with_auth_modal(
+                request,
+                "login",
+                auth_next=next_url,
+                login_error=message,
+                login_form_data=login_form_data,
+            )
+        return _render_login_page(
+            request,
+            error=message,
+            login_form_data=login_form_data,
+            next_url=next_url,
+        )
+
     if request.method == "POST":
         username = (request.POST.get("username") or "").strip()
         password = request.POST.get("password")
 
         if not username or not password:
-            return _render_login_page(
-                request,
-                error="Username and password are required.",
-                login_form_data={"username": username},
-            )
+            return render_login_error("Username and password are required.", username)
 
         user = authenticate(request, username=username, password=password)
 
@@ -665,17 +763,13 @@ def login_view(request):
                 return response
 
             login(request, user)
-            response = redirect("user:user_home")
+            response = redirect(next_url or "user:user_home")
             response.delete_cookie("admin_sessionid")
             return response
 
-        return _render_login_page(
-            request,
-            error="Invalid username or password",
-            login_form_data={"username": username or ""},
-        )
+        return render_login_error("Invalid username or password", username)
 
-    return _render_login_page(request)
+    return _render_login_page(request, next_url=next_url)
 
 
 def logout_view(request):
@@ -2369,6 +2463,14 @@ def user_home(request):
     if not request.user.is_authenticated and _has_pending_signup_face_progress(request):
         _clear_signup_face_progress(request)
 
+    auth_modal = ""
+    auth_next = ""
+    if not request.user.is_authenticated:
+        auth_modal_candidate = (request.GET.get("auth_modal") or "").strip().lower()
+        if auth_modal_candidate in {"login", "signup"}:
+            auth_modal = auth_modal_candidate
+            auth_next = _get_safe_next_url(request, request.GET.get("next"))
+
     selected_type = request.GET.get("type", "adoption")
     if request.user.is_authenticated:
         adoption_form = _build_user_adoption_post_form()
@@ -2392,13 +2494,18 @@ def user_home(request):
         if created:
             return _redirect_to_user_home_with_fresh_feed()
 
-    return render(request, "home/user_home.html", _build_user_home_context(
+    context = _build_user_home_context(
         request,
         selected_type=selected_type,
         adoption_form=adoption_form,
         missing_form=missing_form,
         open_create_modal=open_create_modal,
-    ))
+    )
+    context.update({
+        "auth_modal": auth_modal,
+        "auth_next": auth_next,
+    })
+    return render(request, "home/user_home.html", context)
 
 
 def home_search(request):
@@ -3090,9 +3197,11 @@ def claim(request):
 # Covers adoption browsing, adoption status, and adoption confirmation.
 # =============================================================================
 
-@user_only
 def adopt_list(request):
     """Browse dogs that are available for adoption."""
+    access_response = _require_public_member_or_auth_modal(request)
+    if access_response is not None:
+        return access_response
     return render(request, "adopt/adopt_list.html", _build_public_post_listing(request, "adopt"))
 
 @user_only
@@ -3176,9 +3285,14 @@ def adopt_status(request):
         'user_summary': user_summary,
     })
 
-@user_only
 def adopt_confirm(request, post_id):
     """Confirm and submit an adoption request for a staff-managed post."""
+    access_response = _require_public_member_or_auth_modal(
+        request,
+        next_url=reverse("user:adopt_confirm", args=[post_id]),
+    )
+    if access_response is not None:
+        return access_response
     return _handle_confirm_request(
         request=request,
         post_id=post_id,
@@ -3354,7 +3468,7 @@ def announcement_react(request, post_id):
 
     reaction_count = AnnouncementReaction.objects.filter(announcement_id=post.id).count()
 
-    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+    if _is_ajax_request(request):
         return JsonResponse({
             "ok": True,
             "reacted": reacted,
@@ -3463,15 +3577,22 @@ def my_claims(request):
     })
 
 
-@user_only
 def claim_list(request):
     """Browse dogs that are still available to be claimed."""
+    access_response = _require_public_member_or_auth_modal(request)
+    if access_response is not None:
+        return access_response
     return render(request, "adopt/adopt_list.html", _build_public_post_listing(request, "claim"))
 
 
-@user_only
 def claim_confirm(request, post_id):
     """Confirm and submit a claim request for a staff-managed post."""
+    access_response = _require_public_member_or_auth_modal(
+        request,
+        next_url=reverse("user:claim_confirm", args=[post_id]),
+    )
+    if access_response is not None:
+        return access_response
     return _handle_confirm_request(
         request=request,
         post_id=post_id,

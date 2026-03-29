@@ -242,7 +242,7 @@
                         <div class="location-card-head">
                             <div>
                                 <h4>Exact GPS location</h4>
-                                <p>Allow location access, then confirm the map pin so the shelter team can find the dog or pickup point.</p>
+                                <p>Allow browser location access and make sure device GPS is turned on so we can capture the most accurate location possible.</p>
                             </div>
                             <button type="button" class="btn-secondary" id="getLocationBtn">
                                 <i class="bi bi-crosshair2" aria-hidden="true"></i>
@@ -253,6 +253,8 @@
                         <div id="requestMap"></div>
                         <input type="hidden" name="latitude" id="latitude">
                         <input type="hidden" name="longitude" id="longitude">
+                        <input type="hidden" name="city" id="cityField" value="{{ default_manual_city }}">
+                        <input type="hidden" name="gps_accuracy" id="gpsAccuracyField">
                     </div>
 
                     <div id="manualLocationBox" class="location-card" hidden>
@@ -516,8 +518,14 @@ let currentStep = 1;
 let stream = null;
 let map;
 let marker;
+let accuracyCircle;
+let locationWatchId = null;
 const BAYAWAN_CITY_CENTER = [9.3668, 122.8055];
 const DEFAULT_REQUEST_MAP_ZOOM = 13;
+const GPS_TARGET_ACCURACY_METERS = 30;
+const GPS_WARN_ACCURACY_METERS = 120;
+const GPS_MAX_WAIT_MS = 18000;
+const GPS_FALLBACK_TIMEOUT_MS = 12000;
 const REQUEST_MAP_TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 const REQUEST_MAP_TILE_OPTIONS = {
     subdomains: 'abcd',
@@ -545,6 +553,8 @@ const surrenderDetailsSection = document.getElementById('surrenderDetailsSection
 const requestHistoryModalEl = document.getElementById('requestHistoryModal');
 const appointmentDateField = document.getElementById('appointment_date');
 const barangayField = document.getElementById('barangayField');
+const cityField = document.getElementById('cityField');
+const gpsAccuracyField = document.getElementById('gpsAccuracyField');
 const manualFullAddressField = document.getElementById('manualFullAddressField');
 const locationLandmarkImageField = document.getElementById('locationLandmarkImageField');
 const surrenderDescriptionField = document.getElementById('surrenderDescriptionField');
@@ -747,6 +757,181 @@ function ensureRequestMapReady() {
         addRealisticLayers(map);
     }
     map.invalidateSize();
+}
+
+function clearRequestLocationWatch() {
+    if (locationWatchId !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(locationWatchId);
+        locationWatchId = null;
+    }
+}
+
+function formatGpsAccuracy(accuracy) {
+    const numericAccuracy = Number(accuracy);
+    if (!Number.isFinite(numericAccuracy) || numericAccuracy <= 0) {
+        return '';
+    }
+    return `within about ${Math.round(numericAccuracy)} meters`;
+}
+
+function setCapturedCoordinates(lat, lng) {
+    const latitudeInput = document.getElementById('latitude');
+    const longitudeInput = document.getElementById('longitude');
+    if (latitudeInput) latitudeInput.value = lat.toFixed(6);
+    if (longitudeInput) longitudeInput.value = lng.toFixed(6);
+}
+
+function setResolvedCity(value) {
+    if (!cityField) return;
+    cityField.value = (value || defaultRequestCity || '').trim();
+}
+
+function setGpsAccuracy(value) {
+    if (!gpsAccuracyField) return;
+    const numericAccuracy = Number(value);
+    gpsAccuracyField.value = Number.isFinite(numericAccuracy) && numericAccuracy > 0
+        ? String(Math.round(numericAccuracy))
+        : '';
+}
+
+function updateExactLocationMap(lat, lng, accuracy) {
+    ensureRequestMapReady();
+
+    const numericAccuracy = Number(accuracy);
+    const popupText = formatGpsAccuracy(numericAccuracy)
+        ? `Exact location (${formatGpsAccuracy(numericAccuracy)})`
+        : 'Exact location';
+    const zoom = numericAccuracy && numericAccuracy <= 25
+        ? 18
+        : numericAccuracy && numericAccuracy <= 60
+            ? 17
+            : 16;
+
+    map.setView([lat, lng], zoom);
+
+    if (marker) marker.remove();
+    marker = L.marker([lat, lng]).addTo(map).bindPopup(popupText).openPopup();
+
+    if (accuracyCircle) accuracyCircle.remove();
+    if (Number.isFinite(numericAccuracy) && numericAccuracy > 0) {
+        accuracyCircle = L.circle([lat, lng], {
+            radius: numericAccuracy,
+            color: '#0f6b4b',
+            weight: 1,
+            opacity: 0.75,
+            fillColor: '#2bb673',
+            fillOpacity: 0.14,
+        }).addTo(map);
+    }
+}
+
+function buildLocationPermissionHelpMessage(permissionState = '') {
+    const mobileHelp = isLikelyMobileDevice
+        ? ' On mobile, also turn on the device GPS or Location service in phone settings before trying again.'
+        : '';
+
+    if (!window.isSecureContext) {
+        return 'Exact GPS access requires a secure connection. Open this site over HTTPS or localhost to let the browser access location.' + mobileHelp;
+    }
+
+    if (permissionState === 'denied') {
+        return 'Location access is blocked for this site. Please allow location permission in your browser settings, then turn on precise or high-accuracy location before trying again.' + mobileHelp;
+    }
+
+    return 'Please allow location access when your browser asks for permission, and keep precise or high-accuracy location enabled for the most accurate GPS pin.' + mobileHelp;
+}
+
+async function getGeolocationPermissionState() {
+    if (!navigator.permissions || typeof navigator.permissions.query !== 'function') {
+        return '';
+    }
+
+    try {
+        const status = await navigator.permissions.query({ name: 'geolocation' });
+        return status?.state || '';
+    } catch (error) {
+        return '';
+    }
+}
+
+function requestBestGeolocationFix(statusEl) {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error('unsupported'));
+            return;
+        }
+
+        let bestPosition = null;
+        let settled = false;
+        let expiryTimer = null;
+
+        const finish = (position, error = null) => {
+            if (settled) return;
+            settled = true;
+            clearRequestLocationWatch();
+            if (expiryTimer) {
+                clearTimeout(expiryTimer);
+            }
+            if (position) {
+                resolve(position);
+            } else {
+                reject(error || new Error('unavailable'));
+            }
+        };
+
+        const acceptPosition = (position) => {
+            const accuracy = Number(position?.coords?.accuracy || Infinity);
+            const bestAccuracy = Number(bestPosition?.coords?.accuracy || Infinity);
+
+            if (!bestPosition || accuracy < bestAccuracy) {
+                bestPosition = position;
+                const accuracyText = formatGpsAccuracy(accuracy);
+                if (statusEl) {
+                    statusEl.textContent = accuracyText
+                        ? `GPS signal found ${accuracyText}. Refining location...`
+                        : 'GPS signal found. Refining location...';
+                }
+            }
+
+            if (Number.isFinite(accuracy) && accuracy <= GPS_TARGET_ACCURACY_METERS) {
+                finish(bestPosition || position);
+            }
+        };
+
+        const handleError = (error) => {
+            if (bestPosition) {
+                finish(bestPosition);
+            } else {
+                finish(null, error);
+            }
+        };
+
+        const geoOptions = {
+            enableHighAccuracy: true,
+            timeout: GPS_FALLBACK_TIMEOUT_MS,
+            maximumAge: 0,
+        };
+
+        locationWatchId = navigator.geolocation.watchPosition(
+            acceptPosition,
+            handleError,
+            geoOptions,
+        );
+
+        navigator.geolocation.getCurrentPosition(
+            acceptPosition,
+            handleError,
+            geoOptions,
+        );
+
+        expiryTimer = window.setTimeout(() => {
+            if (bestPosition) {
+                finish(bestPosition);
+            } else {
+                finish(null, new Error('timeout'));
+            }
+        }, GPS_MAX_WAIT_MS);
+    });
 }
 
 function syncRequestFlowUI() {
@@ -1301,7 +1486,10 @@ captureBtn?.addEventListener('click', () => {
     updateCameraStatus('Photo captured. You can take another photo or continue to the next step.');
 });
 
-window.addEventListener('beforeunload', stopCamera);
+window.addEventListener('beforeunload', () => {
+    stopCamera();
+    clearRequestLocationWatch();
+});
 refreshAvailableVideoInputs();
 updateCameraButtons();
 
@@ -1320,6 +1508,11 @@ function applyCreateLocationMode() {
     if (barangayField) barangayField.required = isOnline && !isExact;
     if (manualFullAddressField) manualFullAddressField.required = false;
     if (locationLandmarkImageField) locationLandmarkImageField.required = false;
+    if (isExact) {
+        setResolvedCity(cityField?.value || defaultRequestCity);
+    } else {
+        clearRequestLocationWatch();
+    }
 }
 
 locationModeInputs.forEach(input => {
@@ -1327,6 +1520,7 @@ locationModeInputs.forEach(input => {
 });
 
 primePhoneField();
+setResolvedCity(cityField?.value || defaultRequestCity);
 syncRequestFlowUI();
 
 async function resolveAddressFromCoords(lat, lng) {
@@ -1356,50 +1550,96 @@ async function resolveAddressFromCoords(lat, lng) {
 
 document.getElementById('getLocationBtn').addEventListener('click', async () => {
     const status = document.getElementById('gpsStatus');
+    const locationButton = document.getElementById('getLocationBtn');
 
     if (!navigator.geolocation) {
         await showRequestNotice('Geolocation is not supported on this device or browser.', { title: 'Location Unavailable', tone: 'warning' });
         return;
     }
 
-    status.textContent = 'Getting exact location...';
-    navigator.geolocation.getCurrentPosition(async position => {
+    const permissionState = await getGeolocationPermissionState();
+    if (permissionState === 'denied') {
+        if (status) status.textContent = 'Location permission is blocked.';
+        await showRequestNotice(
+            buildLocationPermissionHelpMessage(permissionState),
+            { title: 'Location Permission Required', tone: 'warning' }
+        );
+        return;
+    }
+
+    if (isLikelyMobileDevice && permissionState !== 'granted') {
+        await showRequestNotice(
+            'When your phone asks for location access, tap Allow and keep GPS or Precise location turned on so we can pin the request as accurately as possible.',
+            { title: 'Enable Phone Location', tone: 'info' }
+        );
+    }
+
+    clearRequestLocationWatch();
+    if (status) {
+        status.textContent = permissionState === 'granted'
+            ? 'Getting the most accurate GPS fix from your device...'
+            : 'Allow location access when prompted, then keep your phone steady while GPS locks in.';
+    }
+    if (locationButton) {
+        locationButton.disabled = true;
+    }
+
+    try {
+        const position = await requestBestGeolocationFix(status);
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
+        const accuracy = Number(position.coords.accuracy || 0);
+        const accuracyText = formatGpsAccuracy(accuracy);
 
-        document.getElementById('latitude').value = lat.toFixed(6);
-        document.getElementById('longitude').value = lng.toFixed(6);
-        status.textContent = `Location captured: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        setCapturedCoordinates(lat, lng);
+        setGpsAccuracy(accuracy);
+        updateExactLocationMap(lat, lng, accuracy);
+
+        if (status) {
+            status.textContent = accuracyText
+                ? `Location captured ${accuracyText}. Resolving address...`
+                : `Location captured: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        }
 
         try {
             const resolved = await resolveAddressFromCoords(lat, lng);
-            if (resolved.barangay) barangayField.value = resolved.barangay;
+            if (resolved.barangay) {
+                barangayField.value = resolved.barangay;
+            }
+            setResolvedCity(resolved.city);
 
             const label = [resolved.barangay, resolved.city].filter(Boolean).join(', ');
-            if (label) {
-                status.textContent = `Location captured: ${label}`;
+            if (status) {
+                status.textContent = label
+                    ? `Location captured: ${label}${accuracyText ? ` (${accuracyText})` : ''}`
+                    : `Location captured: ${lat.toFixed(6)}, ${lng.toFixed(6)}${accuracyText ? ` (${accuracyText})` : ''}`;
             }
-        } catch (e) {
-            // Keep the captured coordinates even if address lookup is unavailable.
+        } catch (error) {
+            setResolvedCity(defaultRequestCity);
+            if (status) {
+                status.textContent = accuracyText
+                    ? `Location captured ${accuracyText}. Address lookup is unavailable right now.`
+                    : `Location captured: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            }
         }
 
-        if (!map) {
-            ensureRequestMapReady();
-            map.setView([lat, lng], 16);
-        } else {
-            map.setView([lat, lng], 16);
+        if (Number.isFinite(accuracy) && accuracy > GPS_WARN_ACCURACY_METERS) {
+            await showRequestNotice(
+                `The current GPS fix is only ${formatGpsAccuracy(accuracy)}. For a more accurate location, move to an open area, turn on your phone's GPS or Precise location setting, and tap "Use Exact GPS Location" again.`,
+                { title: 'Improve GPS Accuracy', tone: 'warning' }
+            );
         }
-
-        if (marker) marker.remove();
-        marker = L.marker([lat, lng]).addTo(map).bindPopup('Exact location').openPopup();
-    }, () => {
-        status.textContent = 'Unable to retrieve location. Please try again.';
-        showRequestNotice('Unable to retrieve location.', { title: 'Location Error', tone: 'warning' });
-    }, {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 0
-    });
+    } catch (error) {
+        if (status) status.textContent = 'Unable to retrieve accurate location. Please try again.';
+        await showRequestNotice(
+            buildLocationPermissionHelpMessage(permissionState),
+            { title: 'Location Error', tone: 'warning' }
+        );
+    } finally {
+        if (locationButton) {
+            locationButton.disabled = false;
+        }
+    }
 });
 
 captureForm?.addEventListener('submit', async (e) => {

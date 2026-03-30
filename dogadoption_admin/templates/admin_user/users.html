@@ -3,7 +3,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260330c">
-<link rel="stylesheet" href="{% static 'css/admin_user/admin_users.css' %}?v=20260330f">
+<link rel="stylesheet" href="{% static 'css/admin_user/admin_users.css' %}?v=20260331c">
 {% endblock extra_css %}
 
 {% block content %}
@@ -45,7 +45,6 @@
                     <i class="bi bi-person-lines-fill" aria-hidden="true"></i>
                     {{ user_count }} user{{ user_count|pluralize }}
                 </span>
-                <p class="user-list-helper">Track each user's violation count, open the violation record, and print the warning letter when a violation already exists.</p>
             </div>
             {% if query %}
                 <a href="{% url 'dogadoption_admin:admin_users' %}" class="btn-secondary user-clear-filter">
@@ -85,19 +84,19 @@
                         <td data-label="Date Joined">
                             <span class="user-row-date">{{ user.date_joined|date:"M d, Y" }}</span>
                         </td>
-                        <td data-label="Violation Count">
+                        <td data-label="Violation Count" class="user-directory-table__badge-cell">
                             <span class="violation-count-pill {% if user.violation_count > 0 %}has-violations{% endif %}">
                                 {{ user.violation_count }}
                             </span>
                         </td>
-                        <td data-label="Notification">
+                        <td data-label="Notification" class="user-directory-table__badge-cell">
                             <span class="user-status-pill is-{{ user.notification_status.tone }}">
                                 {{ user.notification_status.label }}
                             </span>
                         </td>
                         <td data-label="Actions" class="user-directory-table__actions-cell">
                             <div class="user-action-stack">
-                                <a href="{{ user.profile_url }}" class="view-btn action-link user-table-action">
+                                <a href="{{ user.profile_url }}" class="user-table-action user-table-action--profile">
                                     <i class="bi bi-person-badge" aria-hidden="true"></i>
                                     <span>Profile</span>
                                 </a>

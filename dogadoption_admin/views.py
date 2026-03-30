@@ -521,9 +521,69 @@ BAYAWAN_ALLOWED_BARANGAY_KEYS = {
     _normalize_barangay(name) for name in BAYAWAN_ALLOWED_BARANGAYS
 }
 
+REGISTRATION_RECORD_LOCATOR_POINTS = {
+    "malabugas": {"x": 37.0, "y": 12.0},
+    "maninihon": {"x": 51.0, "y": 18.0},
+    "nangka": {"x": 69.0, "y": 12.0},
+    "kalumboyan": {"x": 63.0, "y": 23.0},
+    "banaybanay": {"x": 35.0, "y": 24.0},
+    "aliis": {"x": 23.0, "y": 29.0},
+    "banga": {"x": 42.0, "y": 34.0},
+    "pagatban": {"x": 59.0, "y": 34.0},
+    "bugay": {"x": 75.0, "y": 31.0},
+    "boyco": {"x": 29.0, "y": 43.0},
+    "minaba": {"x": 43.0, "y": 45.0},
+    "narra": {"x": 57.0, "y": 46.0},
+    "cansumalig": {"x": 70.0, "y": 45.0},
+    "dawis": {"x": 81.0, "y": 42.0},
+    "kalamtukan": {"x": 35.0, "y": 55.0},
+    "tayawan": {"x": 49.0, "y": 57.0},
+    "villareal": {"x": 62.0, "y": 58.0},
+    "poblacion": {"x": 74.0, "y": 60.0},
+    "manduao": {"x": 29.0, "y": 70.0},
+    "sanjose": {"x": 47.0, "y": 67.0},
+    "sanisidro": {"x": 61.0, "y": 68.0},
+    "suba": {"x": 78.0, "y": 69.0},
+    "sanmiguel": {"x": 42.0, "y": 78.0},
+    "sanroque": {"x": 56.0, "y": 80.0},
+    "tinago": {"x": 70.0, "y": 77.0},
+    "ubos": {"x": 82.0, "y": 80.0},
+    "tabuan": {"x": 37.0, "y": 90.0},
+    "villasol": {"x": 54.0, "y": 91.0},
+}
+
 
 def _normalize_city(value):
     return "".join(ch.lower() for ch in _clean_barangay(value) if ch.isalnum())
+
+
+def _build_registration_locator_points(barangay_names):
+    """Create schematic locator positions for registration record barangay highlighting."""
+    points = []
+    fallback_index = 0
+
+    for name in barangay_names:
+        normalized_name = _normalize_barangay(name)
+        coords = REGISTRATION_RECORD_LOCATOR_POINTS.get(normalized_name)
+
+        if coords is None:
+            col = fallback_index % 4
+            row = fallback_index // 4
+            coords = {
+                "x": 18.0 + (col * 18.0),
+                "y": 18.0 + (row * 12.0),
+            }
+            fallback_index += 1
+
+        points.append(
+            {
+                "name": name,
+                "x": coords["x"],
+                "y": coords["y"],
+            }
+        )
+
+    return points
 
 
 def _is_bayawan_city(value):
@@ -1222,6 +1282,7 @@ def admin_login(request):
 
 
 @login_required
+@require_POST
 def admin_logout(request):
     """Log the admin out and clear the dedicated admin session cookie."""
     logout(request)
@@ -3308,6 +3369,7 @@ def registration_record(request):
         'selected_barangay': selected_barangay,
         'dogs': dogs,
         'barangay_list_parsed': barangay_list_parsed,
+        'registration_locator_points': _build_registration_locator_points(barangay_list_parsed),
         'date_filter_type': date_filter_type,
         'filter_date': filter_date,
         'filter_month': filter_month,

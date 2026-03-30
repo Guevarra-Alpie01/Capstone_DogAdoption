@@ -23,11 +23,13 @@
                     <div class="notification-body">
                         <div class="notification-topline">
                             <div class="notification-meta-group">
-                                <span class="notification-icon-shell {% if 'Vaccination' in n.title %}is-vaccine{% elif 'Medicine' in n.title %}is-medicine{% else %}is-general{% endif %}" aria-hidden="true">
+                                <span class="notification-icon-shell {% if 'Vaccination' in n.title %}is-vaccine{% elif 'Medicine' in n.title %}is-medicine{% elif 'violation' in n.title|lower or 'warning' in n.title|lower %}is-general{% else %}is-general{% endif %}" aria-hidden="true">
                                     {% if 'Vaccination' in n.title %}
                                         <i class="bi bi-shield-plus"></i>
                                     {% elif 'Medicine' in n.title %}
                                         <i class="bi bi-capsule-pill"></i>
+                                    {% elif 'violation' in n.title|lower or 'warning' in n.title|lower %}
+                                        <i class="bi bi-exclamation-triangle-fill"></i>
                                     {% else %}
                                         <i class="bi bi-bell-fill"></i>
                                     {% endif %}
@@ -37,6 +39,8 @@
                                         Vaccination reminder
                                     {% elif 'Medicine' in n.title %}
                                         Medicine reminder
+                                    {% elif 'violation' in n.title|lower or 'warning' in n.title|lower %}
+                                        Violation warning
                                     {% else %}
                                         Admin alert
                                     {% endif %}

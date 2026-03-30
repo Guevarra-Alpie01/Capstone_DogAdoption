@@ -90,6 +90,9 @@ from .models import (
     PostImage,
     PostRequest,
     StaffAccess,
+    UserViolationNotification,
+    UserViolationRecord,
+    UserViolationSummary,
     VaccinationRecord,
 )
 from user.models import (
@@ -129,6 +132,14 @@ from user.notification_utils import (
 
 POST_HISTORY_CACHE_KEY = "dogadoption_admin_post_history_ids_v1"
 POST_HISTORY_CACHE_TTL_SECONDS = 120
+VIOLATION_WARNING_THRESHOLD = 3
+VIOLATION_OFFICE_NAME = "CITY VETERINARY OFFICE"
+VIOLATION_OFFICE_ADDRESS_LINES = (
+    "National Highway, Barangay Villareal, Bayawan City",
+    "Negros Oriental, 6221 Philippines",
+)
+VIOLATION_SIGNATORY_NAME = "REYNALDO SOLAMILLO"
+VIOLATION_SIGNATORY_ROLE = "Team Leader-Rabies Control Team"
 
 
 # =============================================================================
@@ -2297,7 +2308,7 @@ def _admin_user_management_queryset():
     """Build the base queryset used by the admin user-management screens."""
     return (
         User.objects.filter(is_staff=False)
-        .select_related('profile')
+        .select_related('profile', 'violation_summary', 'violation_summary__latest_notification')
         .annotate(
             claim_violation_count=Count(
                 'postrequest',
@@ -2307,19 +2318,230 @@ def _admin_user_management_queryset():
             citation_violation_count=Count('citation', distinct=True),
         )
         .annotate(
-            calculated_violations=F('claim_violation_count') + F('citation_violation_count')
+            calculated_violations=F('claim_violation_count') + F('citation_violation_count'),
+            managed_violation_count=Coalesce('violation_summary__violation_count', Value(0)),
+        )
+        .annotate(
+            effective_violation_count=Case(
+                When(calculated_violations__gt=0, then=F('calculated_violations')),
+                default=F('managed_violation_count'),
+                output_field=IntegerField(),
+            )
         )
     )
+
+
+def _admin_user_display_name(user):
+    full_name = " ".join(part for part in [user.first_name, user.last_name] if part).strip()
+    return full_name or user.username
+
+
+def _get_user_violation_summary_or_none(user):
+    if user is None:
+        return None
+    try:
+        return user.violation_summary
+    except UserViolationSummary.DoesNotExist:
+        return None
+
+
+def _get_effective_violation_count(user):
+    if user is None:
+        return 0
+    calculated_count = int(getattr(user, "calculated_violations", 0) or 0)
+    managed_count = getattr(user, "managed_violation_count", None)
+    if managed_count is None:
+        summary = _get_user_violation_summary_or_none(user)
+        managed_count = getattr(summary, "violation_count", 0) if summary else 0
+    managed_count = int(managed_count or 0)
+    return calculated_count if calculated_count > 0 else managed_count
+
+
+def _build_violation_notification_status(summary, violation_count):
+    latest_notification = getattr(summary, "latest_notification", None) if summary else None
+    if latest_notification:
+        if latest_notification.letter_status == UserViolationNotification.STATUS_PRINTED:
+            return {"label": "Letter printed", "tone": "success"}
+        return {"label": "Notice generated", "tone": "warning"}
+    if violation_count >= VIOLATION_WARNING_THRESHOLD:
+        return {"label": "Pending notice", "tone": "warning"}
+    if violation_count > 0:
+        return {"label": "Monitoring", "tone": "neutral"}
+    return {"label": "No notice", "tone": "muted"}
+
+
+def _build_admin_user_row_payloads(users):
+    rows = []
+    default_photo_url = static("images/default-user-image.jpg")
+    for user in users:
+        profile = _get_profile_or_none(user)
+        summary = _get_user_violation_summary_or_none(user)
+        violation_count = _get_effective_violation_count(user)
+        rows.append(
+            {
+                "id": user.id,
+                "full_name": _admin_user_display_name(user),
+                "username": user.username,
+                "date_joined": user.date_joined,
+                "photo_url": _safe_media_url(getattr(profile, "profile_image", None)) or default_photo_url,
+                "violation_count": violation_count,
+                "notification_status": _build_violation_notification_status(summary, violation_count),
+                "profile_url": reverse("dogadoption_admin:registration_owner_profile", args=[user.id]),
+                "violation_url": reverse("dogadoption_admin:admin_user_violations", args=[user.id]),
+            }
+        )
+    return rows
+
+
+def _build_violation_threshold_message(user, violation_count):
+    return (
+        f"{_admin_user_display_name(user)} has reached {violation_count} recorded violations and may be "
+        f"subject to disciplinary action based on system policy."
+    )
+
+
+def _ensure_violation_threshold_notification(user, summary, violation_count):
+    threshold_count = int(violation_count or 0)
+    if summary is not None:
+        threshold_count = max(threshold_count, int(getattr(summary, "violation_count", 0) or 0))
+    if threshold_count < VIOLATION_WARNING_THRESHOLD:
+        return None, False
+
+    if summary is None:
+        summary = UserViolationSummary.objects.create(user=user, violation_count=threshold_count)
+    elif threshold_count > int(getattr(summary, "violation_count", 0) or 0):
+        summary.violation_count = threshold_count
+        summary.save(update_fields=["violation_count", "updated_at"])
+
+    notification, created = UserViolationNotification.objects.get_or_create(
+        summary=summary,
+        trigger_violation_count=VIOLATION_WARNING_THRESHOLD,
+        defaults={
+            "title": "Notice of Final Warning",
+            "message": _build_violation_threshold_message(user, threshold_count),
+        },
+    )
+
+    event_key = f"user-violation-threshold:{user.id}:{VIOLATION_WARNING_THRESHOLD}"
+    admin_notification = notification.admin_notification
+    if admin_notification is None:
+        admin_notification = AdminNotification.objects.filter(event_key=event_key).first()
+        if admin_notification is None:
+            admin_notification = AdminNotification.objects.create(
+                title=f"User reached {VIOLATION_WARNING_THRESHOLD} violations",
+                message=notification.message,
+                url=reverse("dogadoption_admin:admin_user_violations", args=[user.id]),
+                event_key=event_key,
+            )
+            cache.delete(ADMIN_NOTIFICATIONS_CACHE_KEY)
+        notification.admin_notification = admin_notification
+        notification.save(update_fields=["admin_notification"])
+
+    if summary.latest_notification_id != notification.id:
+        summary.latest_notification = notification
+        summary.save()
+
+    return notification, created
+
+
+def _build_violation_letter_context(user, summary, latest_notification=None, violation_count=None):
+    profile = _get_profile_or_none(user)
+    address = (getattr(profile, "address", "") or "").strip()
+    dogs = list(
+        Dog.objects.filter(owner_user=user)
+        .only("id", "name", "barangay", "date_registered")
+        .order_by("-date_registered", "-id")[:4]
+    )
+    registration_ids = [str(dog.id) for dog in dogs]
+    registration_reference = ", ".join(registration_ids[:3]) if registration_ids else "No linked registration record"
+    if len(registration_ids) > 3:
+        registration_reference = f"{registration_reference} +{len(registration_ids) - 3} more"
+
+    barangay = next(
+        ((dog.barangay or "").strip() for dog in dogs if (dog.barangay or "").strip()),
+        "",
+    ) or _extract_barangay_from_address(address)
+
+    violation_count = int(
+        violation_count
+        if violation_count is not None
+        else (getattr(summary, "violation_count", 0) if summary else 0)
+    )
+    is_final_warning = violation_count >= VIOLATION_WARNING_THRESHOLD
+    title = (
+        latest_notification.title
+        if latest_notification
+        else ("Notice of Final Warning" if is_final_warning else "Notice of Violation Warning")
+    )
+    message = (
+        latest_notification.message
+        if latest_notification and latest_notification.message
+        else (
+            f"This notice is issued to inform you that you currently have {violation_count} recorded "
+            f"violation{'s' if violation_count != 1 else ''} in the registration system."
+        )
+    )
+    follow_up = (
+        "This serves as a final warning. Further non-compliance may result in disciplinary action "
+        "based on system policy."
+        if is_final_warning
+        else "Please comply with all registration and system policies to avoid additional sanctions."
+    )
+
+    return {
+        "title": title,
+        "document_date": timezone.localdate(),
+        "display_name": _admin_user_display_name(user),
+        "user_id": user.id,
+        "registration_reference": registration_reference,
+        "violation_count": violation_count,
+        "barangay": barangay or "-",
+        "address": address or "-",
+        "message": message,
+        "follow_up": follow_up,
+        "is_final_warning": is_final_warning,
+        "status": getattr(latest_notification, "letter_status", "draft"),
+        "printed_at": getattr(latest_notification, "printed_at", None),
+        "office_name": VIOLATION_OFFICE_NAME,
+        "office_address_lines": VIOLATION_OFFICE_ADDRESS_LINES,
+        "signatory_name": VIOLATION_SIGNATORY_NAME,
+        "signatory_role": VIOLATION_SIGNATORY_ROLE,
+    }
+
+
+def _serialize_violation_record(record):
+    return {
+        "id": record.id,
+        "reason": record.reason,
+        "details": record.details,
+        "recorded_on": record.recorded_on.isoformat(),
+        "recorded_on_label": record.recorded_on.strftime("%b %d, %Y"),
+        "violation_number": record.violation_number,
+        "recorded_by": _admin_user_display_name(record.recorded_by) if record.recorded_by else "System",
+        "created_at": timezone.localtime(record.created_at).isoformat(),
+    }
+
+
+def _serialize_violation_notification(notification):
+    return {
+        "id": notification.id,
+        "title": notification.title,
+        "message": notification.message,
+        "trigger_violation_count": notification.trigger_violation_count,
+        "letter_status": notification.letter_status,
+        "created_at": timezone.localtime(notification.created_at).isoformat(),
+        "created_label": timezone.localtime(notification.created_at).strftime("%b %d, %Y %I:%M %p"),
+        "printed_at": timezone.localtime(notification.printed_at).isoformat() if notification.printed_at else "",
+    }
 
 
 @admin_required
 def admin_users(request):
     """List non-staff users together with their violation counts."""
-    query = request.GET.get('q', '')
+    query = " ".join((request.GET.get('q') or '').split()).strip()
 
     users = _admin_user_management_queryset()
 
-    # Search functionality
     if query:
         users = users.filter(
             Q(first_name__icontains=query) |
@@ -2327,13 +2549,15 @@ def admin_users(request):
             Q(username__icontains=query)
         )
 
-    users = users.order_by('-calculated_violations', 'first_name', 'last_name', 'username')
+    users = users.order_by('-effective_violation_count', 'first_name', 'last_name', 'username')
+    user_count = users.count()
 
     return render(request, 'admin_user/users.html', {
-        'users': users,
+        'users': _build_admin_user_row_payloads(users),
         'query': query,
-        'user_count': users.count(),
+        'user_count': user_count,
     })
+
 
 @admin_required
 def admin_user_detail(request, id):
@@ -2344,24 +2568,164 @@ def admin_user_detail(request, id):
     )
     return render(request, 'admin_user/user_detail.html', {'user': user})
 
+
 @admin_required
 def admin_user_search_results(request):
-    """Render the standalone search-results partial for user management."""
-    query = request.GET.get('q', '')
+    """Render the filtered user-management page."""
+    query = " ".join((request.GET.get('q') or '').split()).strip()
 
     results = _admin_user_management_queryset().filter(
         Q(first_name__icontains=query) |
         Q(last_name__icontains=query) |
         Q(username__icontains=query)
-    ).order_by('-calculated_violations', 'first_name', 'last_name', 'username')
+    ).order_by('-effective_violation_count', 'first_name', 'last_name', 'username')
 
     context = {
-        'results': results,
+        'users': _build_admin_user_row_payloads(results),
         'query': query,
-        'result_count': results.count(),
+        'user_count': results.count(),
     }
 
-    return render(request, 'admin_user/user_search_results.html', context)
+    return render(request, 'admin_user/users.html', context)
+
+
+@admin_required
+def admin_user_violations(request, id):
+    """Show the admin violation history, actions, and letter preview for a user."""
+    user = get_object_or_404(_admin_user_management_queryset(), id=id)
+    summary = _get_user_violation_summary_or_none(user)
+    violation_count = _get_effective_violation_count(user)
+    latest_notification = getattr(summary, "latest_notification", None) if summary else None
+    records = []
+    notifications = []
+    if summary:
+        records = list(summary.records.select_related("recorded_by"))
+        notifications = list(summary.notifications.select_related("admin_notification"))
+        if latest_notification is None and notifications:
+            latest_notification = notifications[0]
+    if violation_count >= VIOLATION_WARNING_THRESHOLD or (
+        summary and int(getattr(summary, "violation_count", 0) or 0) >= VIOLATION_WARNING_THRESHOLD
+    ):
+        latest_notification, _ = _ensure_violation_threshold_notification(user, summary, violation_count)
+
+    context = {
+        "managed_user": user,
+        "managed_profile": _get_profile_or_none(user),
+        "managed_violation_count": violation_count,
+        "records": records,
+        "notifications": notifications,
+        "latest_notification": latest_notification,
+        "letter": _build_violation_letter_context(user, summary, latest_notification, violation_count=violation_count),
+        "add_violation_url": reverse("dogadoption_admin:admin_user_add_violation", args=[user.id]),
+        "history_api_url": reverse("dogadoption_admin:admin_user_violation_history", args=[user.id]),
+        "print_url": reverse("dogadoption_admin:admin_user_violation_letter", args=[user.id]),
+        "profile_url": reverse("dogadoption_admin:registration_owner_profile", args=[user.id]),
+    }
+    return render(request, "admin_user/violation_detail.html", context)
+
+
+@admin_required
+@require_POST
+def admin_user_add_violation(request, id):
+    """Record a new violation entry for a non-staff user."""
+    user = get_object_or_404(User.objects.filter(is_staff=False), id=id)
+    redirect_url = reverse("dogadoption_admin:admin_user_violations", args=[user.id])
+    reason = " ".join((request.POST.get("reason") or "").split()).strip()
+    details = (request.POST.get("details") or "").strip()
+    recorded_on_raw = (request.POST.get("recorded_on") or "").strip()
+
+    if not reason:
+        messages.error(request, "Please provide a violation reason before saving.")
+        return redirect(redirect_url)
+    if len(reason) > 160:
+        messages.error(request, "Violation reason must be 160 characters or fewer.")
+        return redirect(redirect_url)
+
+    recorded_on = timezone.localdate()
+    if recorded_on_raw:
+        parsed_recorded_on = parse_date(recorded_on_raw)
+        if not parsed_recorded_on:
+            messages.error(request, "Please provide a valid violation date.")
+            return redirect(redirect_url)
+        recorded_on = parsed_recorded_on
+
+    with transaction.atomic():
+        summary, _ = UserViolationSummary.objects.select_for_update().get_or_create(user=user)
+        summary.violation_count = int(summary.violation_count or 0) + 1
+        summary.save()
+        UserViolationRecord.objects.create(
+            summary=summary,
+            recorded_by=request.user,
+            reason=reason,
+            details=details,
+            recorded_on=recorded_on,
+            violation_number=summary.violation_count,
+        )
+        notification, created_notification = _ensure_violation_threshold_notification(
+            user,
+            summary,
+            _get_effective_violation_count(user),
+        )
+
+    if created_notification:
+        messages.success(
+            request,
+            f"Violation recorded for {_admin_user_display_name(user)}. A final warning notification was generated automatically.",
+        )
+    else:
+        messages.success(request, f"Violation recorded for {_admin_user_display_name(user)}.")
+    return redirect(redirect_url)
+
+
+@admin_required
+def admin_user_violation_history(request, id):
+    """Return the stored violation history and notification data for a user."""
+    user = get_object_or_404(_admin_user_management_queryset(), id=id)
+    summary = _get_user_violation_summary_or_none(user)
+    violation_count = _get_effective_violation_count(user)
+    latest_notification = getattr(summary, "latest_notification", None) if summary else None
+    records = list(summary.records.select_related("recorded_by")) if summary else []
+    notifications = list(summary.notifications.all()) if summary else []
+    payload = {
+        "user": {
+            "id": user.id,
+            "full_name": _admin_user_display_name(user),
+            "username": user.username,
+        },
+        "violation_count": violation_count,
+        "latest_notification": _serialize_violation_notification(latest_notification) if latest_notification else None,
+        "notifications": [_serialize_violation_notification(notification) for notification in notifications],
+        "records": [_serialize_violation_record(record) for record in records],
+    }
+    return _cacheable_json_response(payload, max_age=0)
+
+
+@admin_required
+def admin_user_violation_letter(request, id):
+    """Render the printable violation letter for a user."""
+    user = get_object_or_404(_admin_user_management_queryset(), id=id)
+    summary = _get_user_violation_summary_or_none(user)
+    violation_count = _get_effective_violation_count(user)
+    if violation_count <= 0:
+        messages.warning(request, "There are no recorded violations to print for this user.")
+        return redirect("dogadoption_admin:admin_user_violations", id=user.id)
+
+    latest_notification = getattr(summary, "latest_notification", None)
+    if violation_count >= VIOLATION_WARNING_THRESHOLD or (
+        summary and int(getattr(summary, "violation_count", 0) or 0) >= VIOLATION_WARNING_THRESHOLD
+    ):
+        latest_notification, _ = _ensure_violation_threshold_notification(user, summary, violation_count)
+        if latest_notification and latest_notification.letter_status != UserViolationNotification.STATUS_PRINTED:
+            latest_notification.letter_status = UserViolationNotification.STATUS_PRINTED
+            latest_notification.printed_at = timezone.now()
+            latest_notification.save(update_fields=["letter_status", "printed_at"])
+
+    context = {
+        "managed_user": user,
+        "letter": _build_violation_letter_context(user, summary, latest_notification, violation_count=violation_count),
+        "back_url": reverse("dogadoption_admin:admin_user_violations", args=[user.id]),
+    }
+    return render(request, "admin_user/violation_letter_print.html", context)
 
 
 def _build_staff_permission_groups(form):
@@ -3390,8 +3754,10 @@ def registration_owner_profile(request, user_id):
             "registered_dogs_total": len(registered_dogs),
             "face_images": [],
             "violation_summary": {
+                "manual": 0,
                 "claims": 0,
                 "citations": 0,
+                "legacy_total": 0,
                 "total": 0,
             },
             "allow_image_preview": bool(request.user.is_staff),
@@ -3433,12 +3799,20 @@ def registration_owner_profile(request, user_id):
     violation_summary = (
         _admin_user_management_queryset()
         .filter(pk=profile_user.pk)
-        .values("claim_violation_count", "citation_violation_count", "calculated_violations")
+        .values(
+            "claim_violation_count",
+            "citation_violation_count",
+            "calculated_violations",
+            "managed_violation_count",
+            "effective_violation_count",
+        )
         .first()
         or {
             "claim_violation_count": 0,
             "citation_violation_count": 0,
             "calculated_violations": 0,
+            "managed_violation_count": 0,
+            "effective_violation_count": 0,
         }
     )
 
@@ -3449,9 +3823,11 @@ def registration_owner_profile(request, user_id):
         "registered_dogs_total": len(registered_dogs),
         "face_images": face_images,
         "violation_summary": {
+            "manual": violation_summary.get("managed_violation_count", 0),
             "claims": violation_summary.get("claim_violation_count", 0),
             "citations": violation_summary.get("citation_violation_count", 0),
-            "total": violation_summary.get("calculated_violations", 0),
+            "legacy_total": violation_summary.get("calculated_violations", 0),
+            "total": violation_summary.get("effective_violation_count", 0),
         },
         "allow_image_preview": bool(request.user.is_staff),
     }

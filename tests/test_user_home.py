@@ -1,3 +1,4 @@
+import os
 import shutil
 import tempfile
 from urllib.parse import parse_qs, urlparse
@@ -8,6 +9,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from dogadoption_admin.models import DogAnnouncement, Post, PostImage
+from user.models import FaceImage
 
 
 class UserHomeFeedTests(TestCase):
@@ -396,3 +398,43 @@ class UserHomeFeedTests(TestCase):
         self.assertTemplateUsed(response, "home/user_home.html")
         self.assertContains(response, "Username is required.")
         self.assertContains(response, f'value="{claim_url}"', html=False)
+
+    def test_signup_complete_redirects_to_public_home_feed(self):
+        with self.settings(MEDIA_ROOT=self._temp_media_root):
+            temp_faces_dir = os.path.join(self._temp_media_root, "temp_faces")
+            os.makedirs(temp_faces_dir, exist_ok=True)
+
+            saved_paths = []
+            for idx in range(4):
+                relative_path = f"temp_faces/signup-test-{idx}.png"
+                absolute_path = os.path.join(temp_faces_dir, f"signup-test-{idx}.png")
+                with open(absolute_path, "wb") as handle:
+                    handle.write(b"fake-face-image-bytes")
+                saved_paths.append(relative_path)
+
+            session = self.client.session
+            session["signup_data"] = {
+                "username": "freshsignupuser",
+                "password": "Secret123!x",
+                "first_name": "Fresh",
+                "last_name": "Signup",
+                "middle_initial": "",
+                "address": "Tinago",
+                "age": 18,
+                "consent_given": False,
+            }
+            session["face_images_files"] = saved_paths
+            session.save()
+
+            response = self.client.post(
+                reverse("user:signup_complete"),
+                {"agree_terms": "1"},
+                follow=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.request["PATH_INFO"], reverse("user:user_home"))
+        self.assertTemplateUsed(response, "home/user_home.html")
+        self.assertContains(response, "Account created successfully. Please log in.")
+        self.assertTrue(User.objects.filter(username="freshsignupuser").exists())
+        self.assertEqual(FaceImage.objects.filter(user__username="freshsignupuser").count(), 4)

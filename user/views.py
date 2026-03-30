@@ -2398,7 +2398,7 @@ def signup_complete(request):
     _clear_signup_session_state(request)
 
     messages.success(request, "Account created successfully. Please log in.")
-    return redirect("user:login")
+    return _redirect_to_user_home_with_fresh_feed()
 
 # =============================================================================
 # Navigation 1/5: Home

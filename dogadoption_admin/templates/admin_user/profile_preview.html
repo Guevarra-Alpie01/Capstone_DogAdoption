@@ -4,7 +4,7 @@
 {% block title %}Owner Profile Preview{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/admin_user/profile_preview.css' %}?v=20260324a">
+<link rel="stylesheet" href="{% static 'css/admin_user/profile_preview.css' %}?v=20260330b">
 {% endblock %}
 
 {% block content %}
@@ -188,33 +188,62 @@
             <div class="owner-preview-dogs">
                 {% for dog in registered_dogs %}
                     <article class="owner-preview-dog-card">
-                        <div class="owner-preview-dog-head">
-                            <h3>{{ dog.name }}</h3>
-                            <span class="owner-preview-dog-date">
-                                <i class="bi bi-calendar2-week" aria-hidden="true"></i>
-                                Registered {{ dog.date_registered|date:"M d, Y" }}
-                            </span>
+                        <div class="owner-preview-dog-media">
+                            {% if dog.photo_urls %}
+                                <div class="owner-preview-photo-frame">
+                                    <img src="{{ dog.photo_urls.0 }}" alt="{{ dog.name }} registration photo" class="js-owner-preview-photo owner-preview-dog-photo">
+                                    {% if dog.photo_urls|length > 1 %}
+                                        <span class="owner-preview-dog-photo-count">+{{ dog.photo_urls|length|add:"-1" }} more</span>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <div class="owner-preview-photo-empty">
+                                    <i class="bi bi-image" aria-hidden="true"></i>
+                                    <span>No staff registration photo uploaded yet.</span>
+                                </div>
+                            {% endif %}
                         </div>
 
-                        <div class="owner-preview-dog-specs">
-                            <span>{{ dog.species }}</span>
-                            <span>Sex: {{ dog.sex_label }}</span>
-                            <span>Age: {{ dog.age }}</span>
-                            <span>Neutering: {{ dog.neutering_label }}</span>
-                            <span>Color: {{ dog.color }}</span>
-                        </div>
-
-                        <p class="owner-preview-dog-location"><strong>Location:</strong> {{ dog.location|default:"-" }}</p>
-
-                        {% if dog.photo_urls %}
-                            <div class="owner-preview-photo-grid">
-                                {% for photo_url in dog.photo_urls %}
-                                    <img src="{{ photo_url }}" alt="{{ dog.name }} registration photo {{ forloop.counter }}" class="js-owner-preview-photo">
-                                {% endfor %}
+                        <div class="owner-preview-dog-main">
+                            <div class="owner-preview-dog-head">
+                                <div class="owner-preview-dog-title">
+                                    <span class="owner-preview-dog-eyebrow">{{ dog.species }}</span>
+                                    <h3>{{ dog.name }}</h3>
+                                </div>
+                                <span class="owner-preview-dog-date">{{ dog.date_registered|date:"M d, Y" }}</span>
                             </div>
-                        {% else %}
-                            <p class="owner-preview-empty">No staff registration photo uploaded for this dog yet.</p>
-                        {% endif %}
+
+                            <div class="owner-preview-dog-specs">
+                                <div class="owner-preview-dog-spec">
+                                    <span>Sex</span>
+                                    <strong>{{ dog.sex_label }}</strong>
+                                </div>
+                                <div class="owner-preview-dog-spec">
+                                    <span>Age</span>
+                                    <strong>{{ dog.age }}</strong>
+                                </div>
+                                <div class="owner-preview-dog-spec">
+                                    <span>Neutering</span>
+                                    <strong>{{ dog.neutering_label }}</strong>
+                                </div>
+                                <div class="owner-preview-dog-spec">
+                                    <span>Color</span>
+                                    <strong>{{ dog.color }}</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <aside class="owner-preview-dog-side">
+                            <div class="owner-preview-dog-side-block">
+                                <span>Location</span>
+                                <strong>{{ dog.location|default:"-" }}</strong>
+                            </div>
+                            <div class="owner-preview-dog-side-block">
+                                <span>Uploads</span>
+                                <strong>{{ dog.photo_urls|length }}</strong>
+                                <small>staff upload{{ dog.photo_urls|length|pluralize }}</small>
+                            </div>
+                        </aside>
                     </article>
                 {% endfor %}
             </div>

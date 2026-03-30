@@ -650,7 +650,15 @@
 
 @media (max-width: 767.98px) {
     .user-ann-mobile-tabs {
-        display: flex;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-items: stretch;
+    }
+
+    .user-ann-mobile-tab {
+        width: 100%;
+        max-width: none;
+        justify-content: space-between;
     }
 
     .user-ann-desktop-summary,
@@ -726,21 +734,21 @@
 
 @media (max-width: 420px) {
     .user-ann-mobile-tabs {
-        gap: 8px;
+        gap: 6px;
         padding: 7px;
     }
 
     .user-ann-mobile-tab {
-        gap: 6px;
-        padding: 10px 8px;
-        font-size: 10px;
-        letter-spacing: 0.35px;
+        gap: 3px;
+        padding: 8px 6px;
+        font-size: 0.52rem;
+        letter-spacing: 0.03em;
     }
 
     .user-ann-mobile-tab-count {
-        min-width: 24px;
-        padding: 4px 6px;
-        font-size: 10px;
+        min-width: 20px;
+        padding: 3px 4px;
+        font-size: 0.56rem;
     }
 
     .user-ann-mobile-schedule-row {
@@ -914,38 +922,59 @@
     color: #b7791f;
 }
 
-.user-ann-mobile-tabs {
-    margin-bottom: 0;
-    padding: var(--ann-space-1);
-    border: 0;
-    border-radius: 20px;
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
-}
-
-.user-ann-mobile-tab {
-    border-radius: 14px;
+.user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
+    margin-bottom: 14px;
+    padding: 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
     background: #ffffff;
-    border: 1px solid var(--ann-border-soft);
-    color: var(--ann-text-soft);
-    font-size: 0.68rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
 }
 
-.user-ann-mobile-tab:hover {
-    background: #f8fafc;
-    color: var(--ann-text);
+.user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact {
+    border: 1px solid #d8e1ec !important;
+    border-radius: 14px;
+    background: #ffffff !important;
+    color: #3d536e !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.9),
+        0 4px 10px rgba(15, 23, 42, 0.08) !important;
+    text-shadow: none !important;
 }
 
-.user-ann-mobile-tab-count {
+.user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact > span:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+}
+
+.user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact:hover {
+    background: #f8fbff !important;
+    color: #28435f !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.94),
+        0 6px 14px rgba(15, 23, 42, 0.1) !important;
+}
+
+.user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact.is-active,
+.user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact[aria-pressed="true"] {
+    border-color: #1f4d8f !important;
+    background: linear-gradient(135deg, #2f66c9, #1f4d8f) !important;
+    color: #ffffff !important;
+    box-shadow: 0 10px 20px rgba(47, 102, 201, 0.24) !important;
+}
+
+.user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] .user-ann-mobile-tab-count.announcement-mobile-tab-count {
     min-width: 28px;
-    background: rgba(255, 255, 255, 0.78);
+    background: #ffffff !important;
+    color: #36516f !important;
     font-weight: 800;
 }
 
-.user-ann-mobile-tab.is-active .user-ann-mobile-tab-count {
-    background: rgba(255, 255, 255, 0.18);
+.user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact.is-active .user-ann-mobile-tab-count.announcement-mobile-tab-count,
+.user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact[aria-pressed="true"] .user-ann-mobile-tab-count.announcement-mobile-tab-count {
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
 }
 
 .user-ann-columns {
@@ -1633,6 +1662,69 @@
 
     .user-ann-card .user-ann-action-row.has-view-action {
         grid-template-columns: none;
+        justify-content: center;
+        gap: 12px;
+        padding-top: 12px;
+    }
+
+    .user-ann-card .user-ann-action-row .user-ann-desktop-view {
+        display: none !important;
+    }
+
+    .user-ann-card .user-ann-action-row.has-view-action .fb-action-btn:not(.user-ann-desktop-view) {
+        width: auto !important;
+        min-width: 96px;
+        min-height: 42px;
+        border-radius: 12px;
+        padding: 0 18px !important;
+        gap: 8px !important;
+    }
+
+    .user-ann-card .user-ann-action-row.has-view-action .fb-action-btn:not(.user-ann-desktop-view) span {
+        display: inline !important;
+    }
+
+    .user-ann-card .user-ann-action-row.has-view-action .fb-action-btn:not(.user-ann-desktop-view) i {
+        font-size: 0.95rem;
+    }
+
+    .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-items: stretch;
+        width: min(100%, 390px);
+        margin-left: auto;
+        margin-right: auto;
+        gap: 8px;
+        padding: 6px;
+        border-radius: 16px;
+        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.07);
+    }
+
+    .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact {
+        width: 100%;
+        max-width: none;
+        flex: 0 0 auto;
+        justify-content: space-between;
+        gap: 4px;
+        min-height: 42px;
+        padding: 7px 8px;
+        border-radius: 12px;
+        font-size: 8.8px;
+        letter-spacing: 0.18px;
+    }
+
+    .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact > span:first-child {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] .user-ann-mobile-tab-count.announcement-mobile-tab-count {
+        min-width: 22px;
+        padding: 3px 5px;
+        font-size: 8.6px;
+        flex: 0 0 auto;
     }
 }
 
@@ -1642,13 +1734,35 @@
     }
 
     .user-ann-mobile-tabs {
-        flex-direction: column;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 7px;
     }
 
     .user-ann-mobile-tab {
         width: 100%;
         max-width: none;
         justify-content: space-between;
+        gap: 4px;
+        padding: 9px 7px;
+        font-size: 0.56rem;
+        letter-spacing: 0.04em;
+    }
+
+    .user-ann-mobile-tab > span:first-child {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .user-ann-mobile-tab-count {
+        min-width: 22px;
+        padding: 3px 5px;
+        font-size: 0.6rem;
+    }
+
+    .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
+        gap: 7px;
+        padding: 6px;
     }
 
     .user-ann-column-header,
@@ -1690,5 +1804,26 @@
         width: 100%;
         text-align: center;
         order: -1;
+    }
+}
+
+@media (max-width: 420px) {
+    .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
+        gap: 6px;
+        padding: 5px;
+    }
+
+    .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact {
+        gap: 3px;
+        min-height: 40px;
+        padding: 6px 7px;
+        font-size: 8.2px;
+        letter-spacing: 0.14px;
+    }
+
+    .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] .user-ann-mobile-tab-count.announcement-mobile-tab-count {
+        min-width: 19px;
+        padding: 3px 4px;
+        font-size: 8px;
     }
 }

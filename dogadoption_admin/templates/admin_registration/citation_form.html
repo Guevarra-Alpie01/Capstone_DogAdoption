@@ -2,8 +2,8 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/register/citation.css' %}">
-<link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260327a">
+<link rel="stylesheet" href="{% static 'css/register/citation.css' %}?v=20260330c">
+<link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260330d">
 {% endblock extra_css %}
 
 {% block content %}
@@ -31,24 +31,26 @@
 
         <div class="form-group">
             <label>Select Owner</label>
-            <div class="owner-search-row owner-search-row--with-label" data-responsive-search data-responsive-search-row>
-                <div class="owner-search-input-wrap owner-search-input-wrap--with-icon" data-responsive-search-field>
-                    <i class="bi bi-search search-input-icon" aria-hidden="true"></i>
-                    <input
-                        type="text"
-                        id="owner-search-input"
-                        class="owner-search-input"
-                        placeholder="Search by username, first name, last name, or barangay"
-                        data-responsive-search-input
-                    >
-                    <button type="button" class="owner-search-clear" id="owner-search-clear" aria-label="Clear search" data-responsive-search-clear>&times;</button>
+            <div class="owner-search-anchor">
+                <div class="owner-search-row owner-search-row--with-label" data-responsive-search data-responsive-search-row>
+                    <div class="owner-search-input-wrap owner-search-input-wrap--with-icon" data-responsive-search-field>
+                        <i class="bi bi-search search-input-icon" aria-hidden="true"></i>
+                        <input
+                            type="text"
+                            id="owner-search-input"
+                            class="owner-search-input"
+                            placeholder="Search by username, first name, last name, or barangay"
+                            data-responsive-search-input
+                        >
+                        <button type="button" class="owner-search-clear" id="owner-search-clear" aria-label="Clear search" data-responsive-search-clear style="display:none;">&times;</button>
+                    </div>
+                    <button type="button" class="toolbar-btn owner-search-btn owner-search-btn--with-label" id="owner-search-btn" data-responsive-search-toggle>
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        Search
+                    </button>
                 </div>
-                <button type="button" class="toolbar-btn owner-search-btn owner-search-btn--with-label" id="owner-search-btn" data-responsive-search-toggle>
-                    <i class="bi bi-search" aria-hidden="true"></i>
-                    Search
-                </button>
+                <div class="owner-suggestions" id="owner-search-suggestions" style="display:none;"></div>
             </div>
-            <div class="owner-suggestions" id="owner-search-suggestions" style="display:none;"></div>
             {{ form.owner }}
 
             <div class="owner-details-grid">
@@ -316,14 +318,16 @@ function wireOwnerSearch() {
     const lastNameInput = document.getElementById('{{ form.owner_last_name.id_for_label }}');
     const barangayInput = document.getElementById('{{ form.owner_barangay.id_for_label }}');
     const ownersDataNode = document.getElementById('citation-owner-data');
-    if (!input || !searchBtn || !clearBtn || !suggestions || !result || !ownerInput || !firstNameInput || !lastNameInput || !barangayInput || !ownersDataNode) return;
+    if (!input || !searchBtn || !suggestions || !result || !ownerInput || !firstNameInput || !lastNameInput || !barangayInput || !ownersDataNode) return;
 
     const owners = JSON.parse(ownersDataNode.textContent || '[]');
     const ownersById = new Map(owners.map((owner) => [String(owner.id || ''), owner]));
     let currentMatches = [];
 
     const toggleClearBtn = () => {
-        clearBtn.style.display = input.value.trim() ? 'inline-flex' : 'none';
+        if (clearBtn) {
+            clearBtn.style.display = input.value.trim() ? 'inline-flex' : 'none';
+        }
     };
 
     const hideSuggestions = () => {
@@ -452,17 +456,19 @@ function wireOwnerSearch() {
         }
     });
 
-    clearBtn.addEventListener('click', () => {
-        input.value = '';
-        ownerInput.value = '';
-        firstNameInput.value = '';
-        lastNameInput.value = '';
-        barangayInput.value = '';
-        hideSuggestions();
-        result.textContent = '';
-        toggleClearBtn();
-        input.focus();
-    });
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            input.value = '';
+            ownerInput.value = '';
+            firstNameInput.value = '';
+            lastNameInput.value = '';
+            barangayInput.value = '';
+            hideSuggestions();
+            result.textContent = '';
+            toggleClearBtn();
+            input.focus();
+        });
+    }
 
     document.addEventListener('click', (event) => {
         if (!event.target.closest('.owner-search-input-wrap') && !event.target.closest('.owner-suggestions')) {

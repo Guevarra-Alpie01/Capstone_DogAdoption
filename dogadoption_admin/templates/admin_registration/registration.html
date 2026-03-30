@@ -5,7 +5,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/register/registration.css' %}?v=20260328a">
-<link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260327a">
+<link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260330d">
 {% endblock extra_css %}
 
 {% block content %}
@@ -26,7 +26,7 @@
                             data-user-search-url="{% url 'dogadoption_admin:registration_user_search_api' %}"
                             data-responsive-search-input
                         >
-                        <button type="button" id="registration-owner-search-clear" class="owner-search-clear" aria-label="Clear owner search" data-responsive-search-clear>&times;</button>
+                        <button type="button" id="registration-owner-search-clear" class="owner-search-clear" aria-label="Clear owner search" data-responsive-search-clear style="display:none;">&times;</button>
                     </div>
                     <button type="button" id="registration-owner-search-btn" class="owner-search-btn owner-search-btn--with-label" aria-label="Search user" data-responsive-search-toggle>
                         <i class="bi bi-search" aria-hidden="true"></i>
@@ -262,7 +262,7 @@
         const ownerUserIdInput = document.getElementById('owner_user_id');
         const barangayInput = document.getElementById('barangay');
 
-        if (!searchInput || !clearBtn || !searchBtn || !suggestionsBox || !ownerFirstName || !ownerLastName || !ownerUserIdInput || !barangayInput) {
+        if (!searchInput || !searchBtn || !suggestionsBox || !ownerFirstName || !ownerLastName || !ownerUserIdInput || !barangayInput) {
             return;
         }
 
@@ -279,7 +279,9 @@
         }
 
         function toggleClearButton() {
-            clearBtn.style.display = searchInput.value.trim() ? 'inline-flex' : 'none';
+            if (clearBtn) {
+                clearBtn.style.display = searchInput.value.trim() ? 'inline-flex' : 'none';
+            }
         }
 
         function clearOwnerUserSelection() {
@@ -375,13 +377,15 @@
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(runSearch, 200);
         });
-        clearBtn.addEventListener('click', function () {
-            searchInput.value = '';
-            clearOwnerAutofillFields();
-            clearSuggestions();
-            toggleClearButton();
-            searchInput.focus();
-        });
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function () {
+                searchInput.value = '';
+                clearOwnerAutofillFields();
+                clearSuggestions();
+                toggleClearButton();
+                searchInput.focus();
+            });
+        }
         ownerFirstName.addEventListener('input', clearOwnerUserSelection);
         ownerLastName.addEventListener('input', clearOwnerUserSelection);
         searchInput.addEventListener('keydown', function (event) {

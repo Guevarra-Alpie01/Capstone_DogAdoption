@@ -77,6 +77,7 @@ class AdminUserViolationTests(TestCase):
         self.assertNotContains(detail_response, "Add Violation")
         self.assertNotContains(detail_response, "Violation Records")
         self.assertNotContains(detail_response, "Open JSON")
+        self.assertNotContains(detail_response, 'target="_blank"')
         self.assertContains(detail_response, "Print Letter")
 
     def test_threshold_notice_generated_from_claim_based_violation_count(self):
@@ -113,3 +114,5 @@ class AdminUserViolationTests(TestCase):
         self.assertEqual(notification.letter_status, UserViolationNotification.STATUS_PRINTED)
         self.assertContains(response, "User ID / Registration ID")
         self.assertContains(response, "Tracked Member")
+        self.assertContains(response, 'onload="prepareViolationPrint();"')
+        self.assertContains(response, "goBackToViolationDetail(event)")

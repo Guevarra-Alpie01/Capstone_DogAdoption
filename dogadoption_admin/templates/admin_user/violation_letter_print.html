@@ -290,15 +290,15 @@
         }
     </style>
 </head>
-<body>
+<body onload="prepareViolationPrint();">
     <div class="print-toolbar">
         <div>
             <strong>{{ letter.title }}</strong><br>
             <span>{{ letter.display_name }}</span>
         </div>
         <div class="print-toolbar__actions">
-            <a href="{{ back_url }}" class="back-btn">Back</a>
-            <button type="button" class="print-btn" onclick="window.print()">Print Letter</button>
+            <a href="{{ back_url }}" class="back-btn" onclick="return goBackToViolationDetail(event)">Back</a>
+            <button type="button" class="print-btn" onclick="prepareViolationPrint()">Print Letter</button>
         </div>
     </div>
 
@@ -365,5 +365,118 @@
             </footer>
         </article>
     </div>
+    <script>
+        let violationPrintReturnHandled = false;
+        let violationPrintHandlersBound = false;
+
+        function resolveViolationReturnUrl() {
+            const fallbackUrl = "{{ back_url|escapejs }}";
+            if (!document.referrer) {
+                return fallbackUrl;
+            }
+
+            try {
+                const refUrl = new URL(document.referrer);
+                if (refUrl.origin === window.location.origin && refUrl.href !== window.location.href) {
+                    return refUrl.href;
+                }
+            } catch (error) {
+                return fallbackUrl;
+            }
+
+            return fallbackUrl;
+        }
+
+        function navigateBackToViolationDetail() {
+            if (violationPrintReturnHandled) {
+                return;
+            }
+            violationPrintReturnHandled = true;
+
+            const returnUrl = resolveViolationReturnUrl();
+            let usedHistoryBack = false;
+
+            try {
+                const refUrl = document.referrer ? new URL(document.referrer) : null;
+                if (window.history.length > 1 && refUrl && refUrl.origin === window.location.origin) {
+                    usedHistoryBack = true;
+                    window.history.back();
+                }
+            } catch (error) {
+                usedHistoryBack = false;
+            }
+
+            if (usedHistoryBack) {
+                window.setTimeout(() => {
+                    if (window.location.href.includes("/violations/letter/")) {
+                        window.location.href = returnUrl;
+                    }
+                }, 350);
+                return;
+            }
+
+            window.location.href = returnUrl;
+        }
+
+        function bindViolationPrintHandlers() {
+            if (violationPrintHandlersBound) {
+                return;
+            }
+            violationPrintHandlersBound = true;
+
+            window.addEventListener("afterprint", navigateBackToViolationDetail);
+
+            const mediaQuery = window.matchMedia ? window.matchMedia("print") : null;
+            if (mediaQuery && typeof mediaQuery.addEventListener === "function") {
+                mediaQuery.addEventListener("change", (event) => {
+                    if (!event.matches) {
+                        navigateBackToViolationDetail();
+                    }
+                });
+            } else if (mediaQuery && typeof mediaQuery.addListener === "function") {
+                mediaQuery.addListener((event) => {
+                    if (!event.matches) {
+                        navigateBackToViolationDetail();
+                    }
+                });
+            }
+        }
+
+        function prepareViolationPrint() {
+            violationPrintReturnHandled = false;
+            bindViolationPrintHandlers();
+            window.print();
+        }
+
+        function goBackToViolationDetail(event) {
+            event.preventDefault();
+            violationPrintReturnHandled = true;
+
+            const fallbackUrl = event.currentTarget.href;
+            let usedHistoryBack = false;
+
+            try {
+                const refUrl = document.referrer ? new URL(document.referrer) : null;
+                if (window.history.length > 1 && refUrl && refUrl.origin === window.location.origin) {
+                    usedHistoryBack = true;
+                    window.history.back();
+                }
+            } catch (error) {
+                usedHistoryBack = false;
+            }
+
+            if (usedHistoryBack) {
+                window.setTimeout(() => {
+                    if (window.location.href.includes("/violations/letter/")) {
+                        window.location.href = fallbackUrl;
+                    }
+                }, 250);
+                return false;
+            }
+
+            window.location.href = fallbackUrl;
+            return false;
+        }
+    </script>
 </body>
 </html>

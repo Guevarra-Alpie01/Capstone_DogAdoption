@@ -677,33 +677,3 @@ class UserViolationNotification(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.summary.user.username})"
-
-
-class UserViolationRecord(models.Model):
-    summary = models.ForeignKey(
-        UserViolationSummary,
-        on_delete=models.CASCADE,
-        related_name="records",
-    )
-    recorded_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="recorded_violation_entries",
-    )
-    reason = models.CharField(max_length=160)
-    details = models.TextField(blank=True)
-    recorded_on = models.DateField(default=timezone.localdate)
-    violation_number = models.PositiveIntegerField()
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-violation_number", "-created_at", "-id"]
-        indexes = [
-            models.Index(fields=["summary", "violation_number"], name="usrviolrec_sum_num_idx"),
-            models.Index(fields=["recorded_on", "created_at"], name="usrviolrec_date_cr_idx"),
-        ]
-
-    def __str__(self):
-        return f"Violation #{self.violation_number} for {self.summary.user.username}"

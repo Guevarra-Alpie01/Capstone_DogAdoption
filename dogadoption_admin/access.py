@@ -112,8 +112,6 @@ ADMIN_ROUTE_RULES = {
     "admin_user_detail": {"admin_only": True},
     "admin_user_search": {"admin_only": True},
     "admin_user_violations": {"admin_only": True},
-    "admin_user_add_violation": {"admin_only": True},
-    "admin_user_violation_history": {"admin_only": True},
     "admin_user_violation_letter": {"admin_only": True},
     "admin_announcements": {"admin_only": True},
     "announcement_create": {"admin_only": True},

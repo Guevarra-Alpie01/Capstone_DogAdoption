@@ -91,7 +91,6 @@ from .models import (
     PostRequest,
     StaffAccess,
     UserViolationNotification,
-    UserViolationRecord,
     UserViolationSummary,
     VaccinationRecord,
 )
@@ -2509,32 +2508,6 @@ def _build_violation_letter_context(user, summary, latest_notification=None, vio
     }
 
 
-def _serialize_violation_record(record):
-    return {
-        "id": record.id,
-        "reason": record.reason,
-        "details": record.details,
-        "recorded_on": record.recorded_on.isoformat(),
-        "recorded_on_label": record.recorded_on.strftime("%b %d, %Y"),
-        "violation_number": record.violation_number,
-        "recorded_by": _admin_user_display_name(record.recorded_by) if record.recorded_by else "System",
-        "created_at": timezone.localtime(record.created_at).isoformat(),
-    }
-
-
-def _serialize_violation_notification(notification):
-    return {
-        "id": notification.id,
-        "title": notification.title,
-        "message": notification.message,
-        "trigger_violation_count": notification.trigger_violation_count,
-        "letter_status": notification.letter_status,
-        "created_at": timezone.localtime(notification.created_at).isoformat(),
-        "created_label": timezone.localtime(notification.created_at).strftime("%b %d, %Y %I:%M %p"),
-        "printed_at": timezone.localtime(notification.printed_at).isoformat() if notification.printed_at else "",
-    }
-
-
 @admin_required
 def admin_users(request):
     """List non-staff users together with their violation counts."""
@@ -2591,18 +2564,14 @@ def admin_user_search_results(request):
 
 @admin_required
 def admin_user_violations(request, id):
-    """Show the admin violation history, actions, and letter preview for a user."""
+    """Show the admin violation status and letter preview for a user."""
     user = get_object_or_404(_admin_user_management_queryset(), id=id)
     summary = _get_user_violation_summary_or_none(user)
     violation_count = _get_effective_violation_count(user)
     latest_notification = getattr(summary, "latest_notification", None) if summary else None
-    records = []
-    notifications = []
     if summary:
-        records = list(summary.records.select_related("recorded_by"))
-        notifications = list(summary.notifications.select_related("admin_notification"))
-        if latest_notification is None and notifications:
-            latest_notification = notifications[0]
+        if latest_notification is None:
+            latest_notification = summary.notifications.order_by("-created_at", "-id").first()
     if violation_count >= VIOLATION_WARNING_THRESHOLD or (
         summary and int(getattr(summary, "violation_count", 0) or 0) >= VIOLATION_WARNING_THRESHOLD
     ):
@@ -2612,92 +2581,12 @@ def admin_user_violations(request, id):
         "managed_user": user,
         "managed_profile": _get_profile_or_none(user),
         "managed_violation_count": violation_count,
-        "records": records,
-        "notifications": notifications,
         "latest_notification": latest_notification,
         "letter": _build_violation_letter_context(user, summary, latest_notification, violation_count=violation_count),
-        "add_violation_url": reverse("dogadoption_admin:admin_user_add_violation", args=[user.id]),
-        "history_api_url": reverse("dogadoption_admin:admin_user_violation_history", args=[user.id]),
         "print_url": reverse("dogadoption_admin:admin_user_violation_letter", args=[user.id]),
         "profile_url": reverse("dogadoption_admin:registration_owner_profile", args=[user.id]),
     }
     return render(request, "admin_user/violation_detail.html", context)
-
-
-@admin_required
-@require_POST
-def admin_user_add_violation(request, id):
-    """Record a new violation entry for a non-staff user."""
-    user = get_object_or_404(User.objects.filter(is_staff=False), id=id)
-    redirect_url = reverse("dogadoption_admin:admin_user_violations", args=[user.id])
-    reason = " ".join((request.POST.get("reason") or "").split()).strip()
-    details = (request.POST.get("details") or "").strip()
-    recorded_on_raw = (request.POST.get("recorded_on") or "").strip()
-
-    if not reason:
-        messages.error(request, "Please provide a violation reason before saving.")
-        return redirect(redirect_url)
-    if len(reason) > 160:
-        messages.error(request, "Violation reason must be 160 characters or fewer.")
-        return redirect(redirect_url)
-
-    recorded_on = timezone.localdate()
-    if recorded_on_raw:
-        parsed_recorded_on = parse_date(recorded_on_raw)
-        if not parsed_recorded_on:
-            messages.error(request, "Please provide a valid violation date.")
-            return redirect(redirect_url)
-        recorded_on = parsed_recorded_on
-
-    with transaction.atomic():
-        summary, _ = UserViolationSummary.objects.select_for_update().get_or_create(user=user)
-        summary.violation_count = int(summary.violation_count or 0) + 1
-        summary.save()
-        UserViolationRecord.objects.create(
-            summary=summary,
-            recorded_by=request.user,
-            reason=reason,
-            details=details,
-            recorded_on=recorded_on,
-            violation_number=summary.violation_count,
-        )
-        notification, created_notification = _ensure_violation_threshold_notification(
-            user,
-            summary,
-            _get_effective_violation_count(user),
-        )
-
-    if created_notification:
-        messages.success(
-            request,
-            f"Violation recorded for {_admin_user_display_name(user)}. A final warning notification was generated automatically.",
-        )
-    else:
-        messages.success(request, f"Violation recorded for {_admin_user_display_name(user)}.")
-    return redirect(redirect_url)
-
-
-@admin_required
-def admin_user_violation_history(request, id):
-    """Return the stored violation history and notification data for a user."""
-    user = get_object_or_404(_admin_user_management_queryset(), id=id)
-    summary = _get_user_violation_summary_or_none(user)
-    violation_count = _get_effective_violation_count(user)
-    latest_notification = getattr(summary, "latest_notification", None) if summary else None
-    records = list(summary.records.select_related("recorded_by")) if summary else []
-    notifications = list(summary.notifications.all()) if summary else []
-    payload = {
-        "user": {
-            "id": user.id,
-            "full_name": _admin_user_display_name(user),
-            "username": user.username,
-        },
-        "violation_count": violation_count,
-        "latest_notification": _serialize_violation_notification(latest_notification) if latest_notification else None,
-        "notifications": [_serialize_violation_notification(notification) for notification in notifications],
-        "records": [_serialize_violation_record(record) for record in records],
-    }
-    return _cacheable_json_response(payload, max_age=0)
 
 
 @admin_required

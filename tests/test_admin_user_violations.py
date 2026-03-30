@@ -7,7 +7,6 @@ from dogadoption_admin.models import (
     Post,
     PostRequest,
     UserViolationNotification,
-    UserViolationRecord,
     UserViolationSummary,
 )
 from user.models import Profile
@@ -36,33 +35,56 @@ class AdminUserViolationTests(TestCase):
         )
         self.client.force_login(self.admin)
 
-    def _record_violation(self, reason):
-        return self.client.post(
-            reverse("dogadoption_admin:admin_user_add_violation", args=[self.member.id]),
-            {
-                "reason": reason,
-                "recorded_on": "2026-03-30",
-                "details": f"Details for {reason}",
-            },
-            follow=True,
-        )
+    def _create_claim_violations(self, count):
+        for index in range(count):
+            post = Post.objects.create(
+                user=self.admin,
+                caption=f"Claim violation source {index + 1}",
+                location="Bayawan",
+                claim_days=3,
+            )
+            PostRequest.objects.create(
+                post=post,
+                user=self.member,
+                request_type="claim",
+            )
 
-    def test_add_violation_creates_summary_and_history_record(self):
-        response = self._record_violation("Late registration compliance")
+    def test_users_page_hides_removed_manual_violation_controls(self):
+        response = self.client.get(reverse("dogadoption_admin:admin_users"))
+        user_row = next(row for row in response.context["users"] if row["id"] == self.member.id)
 
         self.assertEqual(response.status_code, 200)
-        summary = UserViolationSummary.objects.get(user=self.member)
-        record = UserViolationRecord.objects.get(summary=summary)
+        self.assertEqual(user_row["violation_count"], 0)
+        self.assertNotContains(response, "Add Violation")
+        self.assertNotContains(response, "Open JSON")
+        self.assertNotContains(response, user_row["violation_url"])
 
-        self.assertEqual(summary.violation_count, 1)
-        self.assertEqual(record.reason, "Late registration compliance")
-        self.assertEqual(record.violation_number, 1)
-        self.assertContains(response, "Violation recorded for Tracked Member.")
+    def test_claim_based_violation_button_and_detail_page_work_without_history_section(self):
+        self._create_claim_violations(1)
 
-    def test_third_violation_creates_saved_notification_and_admin_alert(self):
-        self._record_violation("Violation one")
-        self._record_violation("Violation two")
-        self._record_violation("Violation three")
+        users_response = self.client.get(reverse("dogadoption_admin:admin_users"))
+        detail_response = self.client.get(
+            reverse("dogadoption_admin:admin_user_violations", args=[self.member.id])
+        )
+        user_row = next(row for row in users_response.context["users"] if row["id"] == self.member.id)
+
+        self.assertEqual(users_response.status_code, 200)
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(user_row["violation_count"], 1)
+        self.assertContains(users_response, user_row["violation_url"])
+        self.assertEqual(detail_response.context["managed_violation_count"], 1)
+        self.assertEqual(detail_response.context["letter"]["violation_count"], 1)
+        self.assertNotContains(detail_response, "Add Violation")
+        self.assertNotContains(detail_response, "Violation Records")
+        self.assertNotContains(detail_response, "Open JSON")
+        self.assertContains(detail_response, "Print Letter")
+
+    def test_threshold_notice_generated_from_claim_based_violation_count(self):
+        self._create_claim_violations(3)
+
+        response = self.client.get(
+            reverse("dogadoption_admin:admin_user_violations", args=[self.member.id])
+        )
 
         summary = UserViolationSummary.objects.get(user=self.member)
         notification = UserViolationNotification.objects.get(summary=summary)
@@ -70,32 +92,15 @@ class AdminUserViolationTests(TestCase):
             event_key=f"user-violation-threshold:{self.member.id}:3"
         )
 
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["managed_violation_count"], 3)
         self.assertEqual(summary.violation_count, 3)
         self.assertEqual(summary.latest_notification, notification)
         self.assertEqual(notification.admin_notification, admin_alert)
         self.assertIn("3 recorded violations", notification.message)
 
-    def test_history_api_returns_violation_records_and_latest_notification(self):
-        self._record_violation("Violation one")
-        self._record_violation("Violation two")
-        self._record_violation("Violation three")
-
-        response = self.client.get(
-            reverse("dogadoption_admin:admin_user_violation_history", args=[self.member.id])
-        )
-
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-
-        self.assertEqual(payload["user"]["id"], self.member.id)
-        self.assertEqual(payload["violation_count"], 3)
-        self.assertEqual(len(payload["records"]), 3)
-        self.assertEqual(payload["latest_notification"]["letter_status"], "generated")
-
     def test_print_view_marks_threshold_letter_as_printed(self):
-        self._record_violation("Violation one")
-        self._record_violation("Violation two")
-        self._record_violation("Violation three")
+        self._create_claim_violations(3)
 
         response = self.client.get(
             reverse("dogadoption_admin:admin_user_violation_letter", args=[self.member.id])
@@ -108,25 +113,3 @@ class AdminUserViolationTests(TestCase):
         self.assertEqual(notification.letter_status, UserViolationNotification.STATUS_PRINTED)
         self.assertContains(response, "User ID / Registration ID")
         self.assertContains(response, "Tracked Member")
-
-    def test_claim_based_violation_count_is_restored_for_detail_and_print(self):
-        post = Post.objects.create(
-            user=self.admin,
-            caption="Claim violation source",
-            location="Bayawan",
-            claim_days=3,
-        )
-        PostRequest.objects.create(
-            post=post,
-            user=self.member,
-            request_type="claim",
-        )
-
-        response = self.client.get(
-            reverse("dogadoption_admin:admin_user_violations", args=[self.member.id])
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["managed_violation_count"], 1)
-        self.assertEqual(response.context["letter"]["violation_count"], 1)
-        self.assertContains(response, "Print Letter")

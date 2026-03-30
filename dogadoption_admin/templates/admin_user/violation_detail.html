@@ -81,130 +81,45 @@
         </div>
     </section>
 
-    <div class="violation-overview-grid">
-        <section class="violation-panel" id="violation-entry-form">
-            <div class="violation-panel-head">
-                <div>
-                    <span class="violation-section-label">Record</span>
-                    <h2>Add Violation</h2>
-                </div>
-                <span class="violation-note-chip">Saved to user history</span>
-            </div>
-
-            <form method="post" action="{{ add_violation_url }}" class="violation-form">
-                {% csrf_token %}
-                <label class="violation-field">
-                    <span>Violation reason</span>
-                    <input type="text" name="reason" maxlength="160" placeholder="Example: Missed registration compliance deadline" required>
-                </label>
-                <label class="violation-field">
-                    <span>Violation date</span>
-                    <input type="date" name="recorded_on" value="{{ letter.document_date|date:'Y-m-d' }}">
-                </label>
-                <label class="violation-field">
-                    <span>Details</span>
-                    <textarea name="details" rows="5" placeholder="Add supporting notes, incident details, or policy references."></textarea>
-                </label>
-                <div class="violation-form-actions">
-                    <button type="submit" class="violation-submit-btn">
-                        <i class="bi bi-plus-circle-fill" aria-hidden="true"></i>
-                        <span>Save Violation</span>
-                    </button>
-                    <p class="violation-form-hint">The warning notice still follows the original violation count shown in the Users module, including claim-based violations.</p>
-                </div>
-            </form>
-        </section>
-
-        <section class="violation-panel">
-            <div class="violation-panel-head">
-                <div>
-                    <span class="violation-section-label">Notice</span>
-                    <h2>Notification Status</h2>
-                </div>
-                <span class="violation-note-chip {% if latest_notification %}is-alert{% endif %}">
-                    {% if latest_notification %}Saved{% else %}Waiting{% endif %}
-                </span>
-            </div>
-
-            <div class="violation-status-stack">
-                <article class="violation-status-card">
-                    <span class="violation-status-label">Threshold warning</span>
-                    <strong>{% if managed_violation_count >= 3 %}Reached{% else %}Not reached{% endif %}</strong>
-                    <p>The automatic notice is created when the visible violation count reaches exactly 3.</p>
-                </article>
-                <article class="violation-status-card">
-                    <span class="violation-status-label">Latest saved notification</span>
-                    <strong>{% if latest_notification %}{{ latest_notification.title }}{% else %}None yet{% endif %}</strong>
-                    <p>
-                        {% if latest_notification %}
-                            {{ latest_notification.message }}
-                        {% else %}
-                            Once the threshold is reached, the warning notice will be stored here for later review.
-                        {% endif %}
-                    </p>
-                </article>
-                <article class="violation-status-card">
-                    <span class="violation-status-label">Letter status</span>
-                    <strong>{{ letter.status|title }}</strong>
-                    <p>
-                        {% if letter.printed_at %}
-                            Last printed on {{ letter.printed_at|date:"M d, Y h:i A" }}.
-                        {% else %}
-                            Printable letter preview is available below.
-                        {% endif %}
-                    </p>
-                </article>
-            </div>
-        </section>
-    </div>
-
     <section class="violation-panel">
         <div class="violation-panel-head">
             <div>
-                <span class="violation-section-label">History</span>
-                <h2>Violation Records</h2>
+                <span class="violation-section-label">Notice</span>
+                <h2>Notification Status</h2>
             </div>
-            <a href="{{ history_api_url }}" class="violation-inline-link" target="_blank" rel="noopener noreferrer">
-                <i class="bi bi-code-slash" aria-hidden="true"></i>
-                <span>Open JSON</span>
-            </a>
+            <span class="violation-note-chip {% if latest_notification %}is-alert{% endif %}">
+                {% if latest_notification %}Saved{% else %}Waiting{% endif %}
+            </span>
         </div>
 
-        <div class="violation-history-wrap">
-            <table class="violation-history-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Date</th>
-                        <th>Reason</th>
-                        <th>Details</th>
-                        <th>Recorded By</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for record in records %}
-                    <tr>
-                        <td data-label="#">{{ record.violation_number }}</td>
-                        <td data-label="Date">{{ record.recorded_on|date:"M d, Y" }}</td>
-                        <td data-label="Reason">{{ record.reason }}</td>
-                        <td data-label="Details">{{ record.details|default:"-" }}</td>
-                        <td data-label="Recorded By">
-                            {% if record.recorded_by %}
-                                {{ record.recorded_by.get_full_name|default:record.recorded_by.username }}
-                            {% else %}
-                                System
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="5" class="violation-history-empty">
-                            No violation records saved for this user yet.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="violation-status-stack">
+            <article class="violation-status-card">
+                <span class="violation-status-label">Threshold warning</span>
+                <strong>{% if managed_violation_count >= 3 %}Reached{% else %}Not reached{% endif %}</strong>
+                <p>The automatic notice is created when the visible violation count reaches exactly 3.</p>
+            </article>
+            <article class="violation-status-card">
+                <span class="violation-status-label">Latest saved notification</span>
+                <strong>{% if latest_notification %}{{ latest_notification.title }}{% else %}None yet{% endif %}</strong>
+                <p>
+                    {% if latest_notification %}
+                        {{ latest_notification.message }}
+                    {% else %}
+                        Once the threshold is reached, the warning notice will be stored here for later review.
+                    {% endif %}
+                </p>
+            </article>
+            <article class="violation-status-card">
+                <span class="violation-status-label">Letter status</span>
+                <strong>{{ letter.status|title }}</strong>
+                <p>
+                    {% if letter.printed_at %}
+                        Last printed on {{ letter.printed_at|date:"M d, Y h:i A" }}.
+                    {% else %}
+                        Printable letter preview is available below.
+                    {% endif %}
+                </p>
+            </article>
         </div>
     </section>
 

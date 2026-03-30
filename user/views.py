@@ -1319,15 +1319,25 @@ def _get_available_appointment_dates():
     ).order_by("appointment_date")
 
 
+def _confirm_return_to(request):
+    return ((request.GET.get("return_to") or request.POST.get("return_to") or "").strip().lower())
+
+
 def _render_confirm_page(request, template_name, post, available_dates, request_type=None):
     """Render a reusable confirmation page for claim/adoption requests."""
-    cancel_url = reverse(_public_listing_route_name(request_type)) if request_type else reverse("user:user_home")
+    return_to = _confirm_return_to(request)
+    cancel_url = (
+        reverse("user:user_home")
+        if return_to == "home"
+        else reverse(_public_listing_route_name(request_type)) if request_type else reverse("user:user_home")
+    )
     status_url = reverse(_request_history_route_name(request_type)) if request_type else reverse("user:user_home")
     return render(request, template_name, {
         "post": post,
         "available_dates": available_dates,
         "cancel_url": cancel_url,
         "status_url": status_url,
+        "return_to": return_to if return_to == "home" else "",
     })
 
 
@@ -2388,7 +2398,7 @@ def signup_complete(request):
     _clear_signup_session_state(request)
 
     messages.success(request, "Account created successfully. Please log in.")
-    return redirect("user:login")
+    return _redirect_to_user_home_with_fresh_feed()
 
 # =============================================================================
 # Navigation 1/5: Home
@@ -3589,7 +3599,7 @@ def claim_confirm(request, post_id):
     """Confirm and submit a claim request for a staff-managed post."""
     access_response = _require_public_member_or_auth_modal(
         request,
-        next_url=reverse("user:claim_confirm", args=[post_id]),
+        next_url=request.get_full_path(),
     )
     if access_response is not None:
         return access_response

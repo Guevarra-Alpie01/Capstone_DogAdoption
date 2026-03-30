@@ -4,7 +4,7 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/register/registration.css' %}?v=20260328a">
 <link rel="stylesheet" href="{% static 'css/register/dog_certificate.css' %}">
-<link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260327a">
+<link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260330d">
 {% endblock extra_css %}
 
 {% block content %}
@@ -25,7 +25,6 @@
                             data-user-search-url="{% url 'dogadoption_admin:registration_user_search_api' %}"
                             data-responsive-search-input
                         >
-                        <button type="button" id="certificate-owner-search-clear" class="owner-search-clear" aria-label="Clear owner search" data-responsive-search-clear>&times;</button>
                     </div>
                     <button type="button" id="certificate-owner-search-btn" class="owner-search-btn owner-search-btn--with-label" aria-label="Search user" data-responsive-search-toggle>
                         <i class="bi bi-search" aria-hidden="true"></i>
@@ -188,7 +187,6 @@
 <script>
     (function () {
         const searchInput = document.getElementById('certificate-owner-search');
-        const clearBtn = document.getElementById('certificate-owner-search-clear');
         const searchBtn = document.getElementById('certificate-owner-search-btn');
         const suggestionsBox = document.getElementById('certificate-owner-suggestions');
         const ownerFirstName = document.getElementById('owner_first_name');
@@ -196,7 +194,7 @@
         const barangayInput = document.getElementById('barangay');
         const contactInput = document.getElementById('contact_no');
 
-        if (!searchInput || !clearBtn || !searchBtn || !suggestionsBox || !ownerFirstName || !ownerLastName || !barangayInput || !contactInput) {
+        if (!searchInput || !searchBtn || !suggestionsBox || !ownerFirstName || !ownerLastName || !barangayInput || !contactInput) {
             return;
         }
 
@@ -210,17 +208,6 @@
         function clearSuggestions() {
             suggestionsBox.innerHTML = '';
             suggestionsBox.style.display = 'none';
-        }
-
-        function clearAutofilledOwnerFields() {
-            ownerFirstName.value = '';
-            ownerLastName.value = '';
-            barangayInput.value = '';
-            contactInput.value = '09';
-        }
-
-        function toggleClearButton() {
-            clearBtn.style.display = searchInput.value.trim() ? 'inline-flex' : 'none';
         }
 
         function renderSuggestions(results) {
@@ -304,16 +291,8 @@
 
         searchBtn.addEventListener('click', runSearch);
         searchInput.addEventListener('input', function () {
-            toggleClearButton();
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(runSearch, 200);
-        });
-        clearBtn.addEventListener('click', function () {
-            searchInput.value = '';
-            clearAutofilledOwnerFields();
-            clearSuggestions();
-            toggleClearButton();
-            searchInput.focus();
         });
         searchInput.addEventListener('keydown', function (event) {
             if (event.key === 'Enter') {
@@ -329,7 +308,6 @@
                 clearSuggestions();
             }
         });
-        toggleClearButton();
     })();
 
     const breedList = [

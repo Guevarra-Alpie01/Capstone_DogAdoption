@@ -117,8 +117,7 @@
 
 .auth-grid-two {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    grid-template-columns: 1fr;
 }
 
 .auth-grid-two .mb-2,
@@ -210,6 +209,137 @@
     box-shadow: none !important;
 }
 
+.signup-password-guide {
+    display: none;
+    margin: 0 2px 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(227, 242, 231, 0.14);
+    border-radius: 16px;
+    background: rgba(8, 32, 18, 0.16);
+    color: rgba(244, 248, 246, 0.92);
+}
+
+.signup-password-guide.is-visible {
+    display: block;
+}
+
+.signup-password-strength-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.signup-password-strength-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: rgba(244, 248, 246, 0.78);
+}
+
+.signup-password-strength-value {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    border: 1px solid transparent;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+.signup-password-strength-value.is-empty {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(244, 248, 246, 0.82);
+    border-color: rgba(227, 242, 231, 0.12);
+}
+
+.signup-password-strength-value.is-weak {
+    background: rgba(220, 53, 69, 0.16);
+    color: #ffd7dc;
+    border-color: rgba(220, 53, 69, 0.32);
+}
+
+.signup-password-strength-value.is-medium {
+    background: rgba(255, 193, 7, 0.16);
+    color: #ffe9a6;
+    border-color: rgba(255, 193, 7, 0.32);
+}
+
+.signup-password-strength-value.is-strong {
+    background: rgba(74, 222, 128, 0.16);
+    color: #dcfce7;
+    border-color: rgba(74, 222, 128, 0.32);
+}
+
+.signup-password-strength-bar {
+    width: 100%;
+    height: 8px;
+    margin-bottom: 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+}
+
+.signup-password-strength-fill {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #dc3545 0%, #f59e0b 58%, #22c55e 100%);
+    transition: width 0.2s ease;
+}
+
+.signup-password-guide-copy {
+    margin-bottom: 10px;
+    color: rgba(244, 248, 246, 0.8);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.signup-password-rules {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.signup-password-rules li {
+    position: relative;
+    padding-left: 20px;
+    color: rgba(244, 248, 246, 0.72);
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+.signup-password-rules li::before {
+    content: "";
+    position: absolute;
+    top: 0.28rem;
+    left: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(227, 242, 231, 0.24);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.signup-password-rules li.is-met {
+    color: #ffffff;
+}
+
+.signup-password-rules li.is-met::before {
+    border-color: rgba(74, 222, 128, 0.52);
+    background: #4ade80;
+    box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.14);
+}
+
 .auth-card input[type="password"]::-ms-reveal,
 .auth-card input[type="password"]::-ms-clear,
 .auth-card input[type="password"]::-webkit-textfield-decoration-container {
@@ -222,26 +352,34 @@
 
 .signup-barangay-wrap .suggestions-box {
     position: absolute;
-    top: calc(100% + 6px);
+    top: calc(100% + 8px);
     left: 0;
     right: 0;
-    border: 1px solid #d1dcd4;
+    border: 1px solid rgba(203, 213, 225, 0.95);
     border-radius: 14px;
-    max-height: 180px;
+    max-height: min(280px, 42vh);
+    overflow: hidden;
     overflow-y: auto;
     background: #ffffff;
-    z-index: 20;
-    box-shadow: 0 16px 28px rgba(15, 23, 42, 0.12);
+    z-index: 120;
+    box-shadow: 0 18px 34px rgba(15, 23, 42, 0.14);
+    padding: 4px 0;
 }
 
 .signup-barangay-wrap .suggestion-item {
-    padding: 10px 12px;
+    padding: 10px 14px;
     color: #1f2937;
     cursor: pointer;
+    border: 0;
+    background: #ffffff;
+}
+
+.signup-barangay-wrap .suggestion-item + .suggestion-item {
+    border-top: 1px solid #e5e7eb;
 }
 
 .signup-barangay-wrap .suggestion-item:hover {
-    background: #f2f7f4;
+    background: #f8fafc;
 }
 
 .auth-card .login-btn {
@@ -439,7 +577,21 @@
 
     .auth-grid-two {
         grid-template-columns: 1fr;
-        gap: 0;
+        gap: 14px;
+    }
+
+    .signup-password-guide {
+        padding: 11px 12px;
+    }
+
+    .signup-password-strength-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .signup-password-rules {
+        grid-template-columns: 1fr;
+        gap: 6px;
     }
 
     .auth-card .form-control {

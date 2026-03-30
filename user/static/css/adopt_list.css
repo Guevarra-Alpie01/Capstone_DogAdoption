@@ -34,18 +34,25 @@
     letter-spacing: -0.04em;
 }
 
-.adoption-list-page .listing-toolbar-link {
+.adoption-list-page .adoption-list-header .listing-toolbar .listing-toolbar-link {
     display: inline-flex;
     align-items: center;
-    gap: 14px;
-    min-width: 240px;
-    padding: 14px 16px !important;
+    justify-content: flex-start;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    gap: 8px;
+    width: auto !important;
+    max-width: 100%;
+    min-width: 0 !important;
+    padding: 12px 14px !important;
     border: 1px solid #24543f !important;
     border-radius: 18px !important;
     background: linear-gradient(180deg, #2f6a53 0%, #24543f 100%) !important;
     color: #ffffff !important;
     text-decoration: none !important;
     box-shadow: 0 16px 28px rgba(36, 84, 63, 0.18) !important;
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
 }
 
 .listing-toolbar-icon {
@@ -64,32 +71,16 @@
 
 .listing-toolbar-copy {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    flex: 0 1 auto;
+    min-width: 0;
 }
 
 .listing-toolbar-label {
     font-size: 0.98rem;
     font-weight: 800;
     line-height: 1.2;
-}
-
-.listing-toolbar-subtitle {
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 0.82rem;
-}
-
-.listing-toolbar-badge {
-    min-width: 34px;
-    height: 34px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 10px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.16);
-    font-size: 0.92rem;
-    font-weight: 800;
+    white-space: nowrap;
 }
 
 .adoption-filter-shell {
@@ -205,6 +196,17 @@
     width: 100%;
 }
 
+.post-card-media-link {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    border-radius: 18px;
+    text-decoration: none;
+    cursor: zoom-in;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
 .post-card img,
 .post-card-placeholder {
     width: 100%;
@@ -218,6 +220,103 @@
     background: #f5f8fc;
     border: 1px solid #d9e6f3;
     box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+    cursor: zoom-in;
+}
+
+.post-card-media-link:hover img,
+.post-card-media-link:focus-visible img {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 28px rgba(15, 23, 42, 0.11);
+}
+
+body.lightbox-open {
+    overflow: hidden;
+}
+
+.adopt-list-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(2, 6, 23, 0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+}
+
+.adopt-list-lightbox[hidden] {
+    display: none !important;
+}
+
+.adopt-list-lightbox .image-lightbox-dialog {
+    position: relative;
+    width: auto;
+    max-width: min(100%, 1180px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.adopt-list-lightbox .image-lightbox-img {
+    display: block;
+    width: auto;
+    max-width: min(100%, 1180px);
+    max-height: calc(100vh - 112px);
+    object-fit: contain;
+    border-radius: 18px;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.48);
+    background: #0f172a;
+}
+
+.adopt-list-lightbox .image-lightbox-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: auto;
+    height: auto;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: #111111;
+    font-size: 1.55rem;
+    font-weight: 400;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 2;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+.adopt-list-lightbox .image-lightbox-close:hover,
+.adopt-list-lightbox .image-lightbox-close:focus-visible {
+    background: transparent;
+    color: #111111;
+    opacity: 0.78;
+}
+
+@media (max-width: 767.98px) {
+    .adopt-list-lightbox {
+        padding: 14px;
+    }
+
+    .adopt-list-lightbox .image-lightbox-dialog {
+        max-width: 100%;
+    }
+
+    .adopt-list-lightbox .image-lightbox-img {
+        max-height: calc(100vh - 96px);
+        border-radius: 16px;
+    }
+
+    .adopt-list-lightbox .image-lightbox-close {
+        top: 10px;
+        right: 10px;
+        font-size: 1.35rem;
+    }
 }
 
 .post-card-placeholder {
@@ -468,9 +567,15 @@
         align-items: stretch;
     }
 
-    .adoption-list-page .listing-toolbar-link {
-        width: 100%;
-        justify-content: space-between;
+    .adoption-list-page .adoption-list-header .listing-toolbar {
+        justify-content: flex-start;
+    }
+
+    .adoption-list-page .adoption-list-header .listing-toolbar .listing-toolbar-link {
+        width: auto !important;
+        justify-content: flex-start !important;
+        gap: 8px;
+        padding: 10px 12px !important;
     }
 
     .adoption-card-list {
@@ -491,7 +596,7 @@
     .adoption-list-header,
     .post-card,
     .adoption-list-empty {
-        padding: 18px;
+        padding: 14px;
         border-radius: 20px;
     }
 
@@ -499,9 +604,59 @@
         font-size: 1.8rem;
     }
 
+    .post-card {
+        gap: 12px;
+    }
+
     .post-card img,
     .post-card-placeholder {
-        height: 210px;
+        height: 164px;
+        border-radius: 16px;
+    }
+
+    .post-card-content {
+        gap: 10px;
+    }
+
+    .post-card-heading {
+        gap: 8px;
+    }
+
+    .post-source-badge {
+        margin-bottom: 6px;
+        padding: 4px 9px;
+        font-size: 0.66rem;
+    }
+
+    .post-card-title {
+        font-size: 1.16rem;
+        line-height: 1.2;
+    }
+
+    .adoption-list-page .status-tag {
+        padding: 6px 10px;
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+    }
+
+    .post-card-facts {
+        gap: 8px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .post-fact {
+        gap: 4px;
+        padding: 11px 12px;
+        border-radius: 14px;
+    }
+
+    .post-fact-label {
+        font-size: 0.7rem;
+    }
+
+    .post-fact-value {
+        font-size: 0.94rem;
+        line-height: 1.3;
     }
 
     .post-card-footer {
@@ -516,6 +671,33 @@
 }
 
 @media (max-width: 575.98px) {
+    .post-card {
+        gap: 10px;
+        padding: 12px;
+    }
+
+    .post-card img,
+    .post-card-placeholder {
+        height: 152px;
+        border-radius: 15px;
+    }
+
+    .post-card-content {
+        gap: 9px;
+    }
+
+    .post-card-title {
+        font-size: 1.08rem;
+    }
+
+    .post-card-facts {
+        gap: 7px;
+    }
+
+    .post-fact {
+        padding: 10px 11px;
+    }
+
     .adoption-list-page .subtop-nav:not(.source-nav) {
         overflow: visible;
         gap: 8px;

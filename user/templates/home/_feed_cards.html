@@ -233,12 +233,12 @@
 
         {% if item.post_type != 'missing' %}
             {% if item.image_count > 1 %}
-                <div class="modal fade" id="postImages{{ item.post_type }}{{ post.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal fade post-images-modal" id="postImages{{ item.post_type }}{{ post.id }}" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-lg modal-dialog-centered">
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="modal-title">Post Images</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                <button type="button" class="btn-close post-images-modal-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <div id="carousel{{ item.post_type }}{{ post.id }}" class="carousel slide" data-bs-ride="carousel">
@@ -295,11 +295,11 @@
                 {% else %}
                     {% if item.phase == 'claim' %}
                         <div class="d-flex justify-content-center gap-2 admin-actions">
-                            <a href="{% url 'user:claim_confirm' post.id %}"
+                            <a href="{% url 'user:claim_confirm' post.id %}?return_to=home"
                                class="btn btn-success btn-sm action-btn action-claim"
                                {% if not request.user.is_authenticated %}
                                data-auth-modal-trigger="login"
-                               data-auth-next-url="{% url 'user:claim_confirm' post.id %}"
+                               data-auth-next-url="{% url 'user:claim_confirm' post.id %}?return_to=home"
                                {% endif %}>
                                 Claim
                             </a>

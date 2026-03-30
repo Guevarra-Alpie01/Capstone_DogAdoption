@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260329a">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260330l">
 {% endblock %}
 {% block content %}
 <div class="adoption-list-page">
@@ -19,9 +19,7 @@
                 </span>
                 <span class="listing-toolbar-copy">
                     <span class="listing-toolbar-label">{{ status_page_label }}</span>
-                    <span class="listing-toolbar-subtitle">View updates</span>
                 </span>
-                <span class="listing-toolbar-badge">{{ pending_request_count }}</span>
             </a>
         </div>
     </header>
@@ -57,7 +55,9 @@
                         <article class="post-card">
                             <div class="post-card-media">
                                 {% if item.main_image_url %}
-                                <img src="{{ item.main_image_url }}" width="280" height="220" alt="{{ post.caption|default:'Dog image' }}">
+                                <a href="{{ item.main_image_url }}" class="post-card-media-link js-adopt-list-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ post.caption|default:'Dog image' }}" aria-label="View full image">
+                                    <img src="{{ item.main_image_url }}" width="280" height="220" alt="{{ post.caption|default:'Dog image' }}">
+                                </a>
                                 {% else %}
                                 <div class="post-card-placeholder">
                                     <span>{{ post.caption|default:'Dog'|slice:':1'|upper }}</span>
@@ -150,7 +150,9 @@
                         <article class="post-card">
                             <div class="post-card-media">
                                 {% if item.main_image_url %}
-                                <img src="{{ item.main_image_url }}" width="280" height="220" alt="{{ post.dog_name|default:'Dog image' }}">
+                                <a href="{{ item.main_image_url }}" class="post-card-media-link js-adopt-list-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ post.dog_name|default:'Dog image' }}" aria-label="View full image">
+                                    <img src="{{ item.main_image_url }}" width="280" height="220" alt="{{ post.dog_name|default:'Dog image' }}">
+                                </a>
                                 {% else %}
                                 <div class="post-card-placeholder">
                                     <span>{{ post.dog_name|default:'Dog'|slice:':1'|upper }}</span>
@@ -237,7 +239,9 @@
                 <article class="post-card">
                     <div class="post-card-media">
                         {% if item.main_image_url %}
-                        <img src="{{ item.main_image_url }}" width="280" height="220" alt="{{ post.caption|default:'Dog image' }}">
+                        <a href="{{ item.main_image_url }}" class="post-card-media-link js-adopt-list-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ post.caption|default:'Dog image' }}" aria-label="View full image">
+                            <img src="{{ item.main_image_url }}" width="280" height="220" alt="{{ post.caption|default:'Dog image' }}">
+                        </a>
                         {% else %}
                         <div class="post-card-placeholder">
                             <span>{{ post.caption|default:'Dog'|slice:':1'|upper }}</span>
@@ -323,4 +327,54 @@
         {% endif %}
     </div>
 </div>
+
+<div id="imageLightbox" class="image-lightbox adopt-list-lightbox" hidden>
+    <div class="image-lightbox-dialog">
+        <button type="button" class="image-lightbox-close" aria-label="Close image">&times;</button>
+        <img id="imageLightboxImg" class="image-lightbox-img" alt="Full image preview">
+    </div>
+</div>
+
+<script>
+(function () {
+    const triggers = document.querySelectorAll('.js-adopt-list-zoom');
+    const lightbox = document.getElementById('imageLightbox');
+    const lightboxImg = document.getElementById('imageLightboxImg');
+    const closeBtn = lightbox?.querySelector('.image-lightbox-close');
+
+    if (!triggers.length || !lightbox || !lightboxImg || !closeBtn) return;
+
+    function openLightbox(src, altText) {
+        if (!src) return;
+        lightboxImg.src = src;
+        lightboxImg.alt = altText || 'Full image preview';
+        lightbox.hidden = false;
+        document.body.classList.add('lightbox-open');
+    }
+
+    function closeLightbox() {
+        lightbox.hidden = true;
+        lightboxImg.removeAttribute('src');
+        document.body.classList.remove('lightbox-open');
+    }
+
+    triggers.forEach((trigger) => {
+        trigger.addEventListener('click', (evt) => {
+            evt.preventDefault();
+            openLightbox(
+                trigger.getAttribute('data-full-src') || trigger.getAttribute('href') || '',
+                trigger.getAttribute('data-full-alt') || trigger.querySelector('img')?.getAttribute('alt') || ''
+            );
+        });
+    });
+
+    closeBtn.addEventListener('click', closeLightbox);
+    lightbox.addEventListener('click', (evt) => {
+        if (evt.target === lightbox) closeLightbox();
+    });
+    document.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Escape' && !lightbox.hidden) closeLightbox();
+    });
+})();
+</script>
 {% endblock %}

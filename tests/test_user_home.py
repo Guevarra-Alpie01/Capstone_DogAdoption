@@ -1,3 +1,4 @@
+import os
 import shutil
 import tempfile
 from urllib.parse import parse_qs, urlparse
@@ -8,6 +9,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from dogadoption_admin.models import DogAnnouncement, Post, PostImage
+from user.models import FaceImage
 
 
 class UserHomeFeedTests(TestCase):
@@ -177,9 +179,31 @@ class UserHomeFeedTests(TestCase):
         self.assertContains(response, 'data-auth-modal-trigger="login"', html=False)
         self.assertContains(
             response,
-            f'data-auth-next-url="{reverse("user:claim_confirm", args=[post.id])}"',
+            f'data-auth-next-url="{reverse("user:claim_confirm", args=[post.id])}?return_to=home"',
             html=False,
         )
+
+    def test_guest_claim_confirm_preserves_home_return_to_in_login_redirect(self):
+        staff_user = User.objects.create_user(
+            username="claimreturnstaff",
+            password="secret123",
+            is_staff=True,
+        )
+        post = Post.objects.create(
+            user=staff_user,
+            caption="Claim Return Dog",
+            location="Bayawan",
+            claim_days=3,
+        )
+        claim_url = f'{reverse("user:claim_confirm", args=[post.id])}?return_to=home'
+
+        response = self.client.get(claim_url)
+
+        self.assertEqual(response.status_code, 302)
+        parsed = urlparse(response["Location"])
+        self.assertEqual(parsed.path, reverse("user:user_home"))
+        self.assertEqual(parse_qs(parsed.query).get("auth_modal"), ["login"])
+        self.assertEqual(parse_qs(parsed.query).get("next"), [claim_url])
 
     def test_guest_claim_confirm_redirects_to_home_with_login_modal(self):
         staff_user = User.objects.create_user(
@@ -231,6 +255,87 @@ class UserHomeFeedTests(TestCase):
         )
 
         self.assertRedirects(response, claim_url, fetch_redirect_response=False)
+
+    def test_claim_confirm_cancel_returns_home_only_for_home_origin(self):
+        staff_user = User.objects.create_user(
+            username="claimcancelstaff",
+            password="secret123",
+            is_staff=True,
+        )
+        member = User.objects.create_user(
+            username="claimcancelmember",
+            password="secret123",
+        )
+        post = Post.objects.create(
+            user=staff_user,
+            caption="Claim Cancel Home Dog",
+            location="Bayawan",
+            claim_days=3,
+        )
+        self.client.force_login(member)
+
+        response = self.client.get(f'{reverse("user:claim_confirm", args=[post.id])}?return_to=home')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'href="{reverse("user:user_home")}" class="btn btn-claim-cancel"',
+            html=False,
+        )
+
+    def test_claim_confirm_cancel_stays_on_claim_list_without_home_origin(self):
+        staff_user = User.objects.create_user(
+            username="claimlistcancelstaff",
+            password="secret123",
+            is_staff=True,
+        )
+        member = User.objects.create_user(
+            username="claimlistcancelmember",
+            password="secret123",
+        )
+        post = Post.objects.create(
+            user=staff_user,
+            caption="Claim Cancel List Dog",
+            location="Bayawan",
+            claim_days=3,
+        )
+        self.client.force_login(member)
+
+        response = self.client.get(reverse("user:claim_confirm", args=[post.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'href="{reverse("user:claim_list")}" class="btn btn-claim-cancel"',
+            html=False,
+        )
+
+    def test_claim_list_claim_button_does_not_include_home_return_to(self):
+        staff_user = User.objects.create_user(
+            username="claimlistbuttonstaff",
+            password="secret123",
+            is_staff=True,
+        )
+        member = User.objects.create_user(
+            username="claimlistbuttonmember",
+            password="secret123",
+        )
+        post = Post.objects.create(
+            user=staff_user,
+            caption="Claim List Button Dog",
+            location="Bayawan",
+            claim_days=3,
+        )
+        self.client.force_login(member)
+
+        response = self.client.get(reverse("user:claim_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'href="{reverse("user:claim_confirm", args=[post.id])}" class="btn-action"',
+            html=False,
+        )
 
     def test_modal_login_error_re_renders_home_with_login_popup(self):
         staff_user = User.objects.create_user(
@@ -293,3 +398,43 @@ class UserHomeFeedTests(TestCase):
         self.assertTemplateUsed(response, "home/user_home.html")
         self.assertContains(response, "Username is required.")
         self.assertContains(response, f'value="{claim_url}"', html=False)
+
+    def test_signup_complete_redirects_to_public_home_feed(self):
+        with self.settings(MEDIA_ROOT=self._temp_media_root):
+            temp_faces_dir = os.path.join(self._temp_media_root, "temp_faces")
+            os.makedirs(temp_faces_dir, exist_ok=True)
+
+            saved_paths = []
+            for idx in range(4):
+                relative_path = f"temp_faces/signup-test-{idx}.png"
+                absolute_path = os.path.join(temp_faces_dir, f"signup-test-{idx}.png")
+                with open(absolute_path, "wb") as handle:
+                    handle.write(b"fake-face-image-bytes")
+                saved_paths.append(relative_path)
+
+            session = self.client.session
+            session["signup_data"] = {
+                "username": "freshsignupuser",
+                "password": "Secret123!x",
+                "first_name": "Fresh",
+                "last_name": "Signup",
+                "middle_initial": "",
+                "address": "Tinago",
+                "age": 18,
+                "consent_given": False,
+            }
+            session["face_images_files"] = saved_paths
+            session.save()
+
+            response = self.client.post(
+                reverse("user:signup_complete"),
+                {"agree_terms": "1"},
+                follow=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.request["PATH_INFO"], reverse("user:user_home"))
+        self.assertTemplateUsed(response, "home/user_home.html")
+        self.assertContains(response, "Account created successfully. Please log in.")
+        self.assertTrue(User.objects.filter(username="freshsignupuser").exists())
+        self.assertEqual(FaceImage.objects.filter(user__username="freshsignupuser").count(), 4)

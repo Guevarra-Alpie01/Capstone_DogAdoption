@@ -1,0 +1,175 @@
+{% extends "admin_base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260330c">
+<link rel="stylesheet" href="{% static 'css/admin_user/violation_detail.css' %}?v=20260330a">
+{% endblock extra_css %}
+
+{% block content %}
+{% include 'admin_registration/registration_navigation.html' %}
+
+<div class="violation-page-shell">
+    <div class="violation-page-topbar">
+        <a href="{% url 'dogadoption_admin:admin_users' %}" class="violation-back-link">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>
+            <span>Back to users</span>
+        </a>
+        <div class="violation-topbar-actions">
+            <a href="{{ profile_url }}" class="violation-topbar-btn">
+                <i class="bi bi-person-badge" aria-hidden="true"></i>
+                <span>Open Profile</span>
+            </a>
+            {% if managed_violation_count > 0 %}
+                <a href="{{ print_url }}" class="violation-topbar-btn violation-topbar-btn--print">
+                    <i class="bi bi-printer-fill" aria-hidden="true"></i>
+                    <span>Print Letter</span>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <section class="violation-hero-card">
+        <div class="violation-hero-main">
+            <div class="violation-avatar-frame">
+                {% if managed_profile and managed_profile.profile_image %}
+                    <img src="{{ managed_profile.profile_image.url }}" alt="{{ managed_user.username }} profile photo" class="violation-avatar">
+                {% else %}
+                    <span class="violation-avatar-fallback">
+                        {{ managed_user.first_name|default:managed_user.username|slice:":1" }}{{ managed_user.last_name|slice:":1" }}
+                    </span>
+                {% endif %}
+            </div>
+            <div class="violation-hero-copy">
+                <span class="violation-eyebrow">Violation Management</span>
+                <h1>{{ managed_user.get_full_name|default:managed_user.username }}</h1>
+                <p class="violation-handle">@{{ managed_user.username }}</p>
+                <div class="violation-hero-badges">
+                    <span class="violation-badge">
+                        <i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i>
+                        {{ managed_violation_count }} violation{{ managed_violation_count|pluralize }}
+                    </span>
+                    <span class="violation-badge">
+                        <i class="bi bi-person-vcard-fill" aria-hidden="true"></i>
+                        User ID #{{ managed_user.id }}
+                    </span>
+                    <span class="violation-badge {% if latest_notification %}is-alert{% endif %}">
+                        <i class="bi bi-bell-fill" aria-hidden="true"></i>
+                        {% if latest_notification %}
+                            {{ latest_notification.get_letter_status_display }}
+                        {% else %}
+                            No saved notice yet
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="violation-hero-stats">
+            <article class="violation-stat-card">
+                <span>Total violations</span>
+                <strong>{{ managed_violation_count }}</strong>
+            </article>
+            <article class="violation-stat-card">
+                <span>Auto-warning threshold</span>
+                <strong>3 violations</strong>
+            </article>
+            <article class="violation-stat-card">
+                <span>Latest notice</span>
+                <strong>{% if latest_notification %}{{ latest_notification.created_at|date:"M d, Y" }}{% else %}-{% endif %}</strong>
+            </article>
+        </div>
+    </section>
+
+    <section class="violation-panel">
+        <div class="violation-panel-head">
+            <div>
+                <span class="violation-section-label">Notice</span>
+                <h2>Notification Status</h2>
+            </div>
+            <span class="violation-note-chip {% if latest_notification %}is-alert{% endif %}">
+                {% if latest_notification %}Saved{% else %}Waiting{% endif %}
+            </span>
+        </div>
+
+        <div class="violation-status-stack">
+            <article class="violation-status-card">
+                <span class="violation-status-label">Threshold warning</span>
+                <strong>{% if managed_violation_count >= 3 %}Reached{% else %}Not reached{% endif %}</strong>
+                <p>The automatic notice is created when the visible violation count reaches exactly 3.</p>
+            </article>
+            <article class="violation-status-card">
+                <span class="violation-status-label">Latest saved notification</span>
+                <strong>{% if latest_notification %}{{ latest_notification.title }}{% else %}None yet{% endif %}</strong>
+                <p>
+                    {% if latest_notification %}
+                        {{ latest_notification.message }}
+                    {% else %}
+                        Once the threshold is reached, the warning notice will be stored here for later review.
+                    {% endif %}
+                </p>
+            </article>
+            <article class="violation-status-card">
+                <span class="violation-status-label">Letter status</span>
+                <strong>{{ letter.status|title }}</strong>
+                <p>
+                    {% if letter.printed_at %}
+                        Last printed on {{ letter.printed_at|date:"M d, Y h:i A" }}.
+                    {% else %}
+                        Printable letter preview is available below.
+                    {% endif %}
+                </p>
+            </article>
+        </div>
+    </section>
+
+    <section class="violation-panel">
+        <div class="violation-panel-head">
+            <div>
+                <span class="violation-section-label">Letter Preview</span>
+                <h2>{{ letter.title }}</h2>
+            </div>
+            {% if managed_violation_count > 0 %}
+                <a href="{{ print_url }}" class="violation-topbar-btn violation-topbar-btn--print">
+                    <i class="bi bi-printer-fill" aria-hidden="true"></i>
+                    <span>Print</span>
+                </a>
+            {% endif %}
+        </div>
+
+        {% if managed_violation_count > 0 %}
+        <article class="violation-letter-preview">
+            <header class="violation-letter-preview__head">
+                <div>
+                    <span class="violation-letter-preview__label">Recipient</span>
+                    <strong>{{ letter.display_name }}</strong>
+                </div>
+                <div>
+                    <span class="violation-letter-preview__label">Date</span>
+                    <strong>{{ letter.document_date|date:"F d, Y" }}</strong>
+                </div>
+                <div>
+                    <span class="violation-letter-preview__label">User ID / Registration ID</span>
+                    <strong>{{ letter.user_id }} / {{ letter.registration_reference }}</strong>
+                </div>
+                <div>
+                    <span class="violation-letter-preview__label">Total violations</span>
+                    <strong>{{ letter.violation_count }}</strong>
+                </div>
+            </header>
+            <div class="violation-letter-preview__body">
+                <p><strong>Barangay:</strong> {{ letter.barangay }}, Bayawan City</p>
+                <p>{{ letter.message }}</p>
+                <p>{{ letter.follow_up }}</p>
+            </div>
+        </article>
+        {% else %}
+        <div class="violation-preview-empty">
+            <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+            <h3>No letter available yet</h3>
+            <p>The print action becomes available once the user already has a violation count in the Users module.</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

@@ -3,7 +3,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260330c">
-<link rel="stylesheet" href="{% static 'css/admin_user/admin_users.css' %}?v=20260326c">
+<link rel="stylesheet" href="{% static 'css/admin_user/admin_users.css' %}?v=20260330f">
 {% endblock extra_css %}
 
 {% block content %}
@@ -40,10 +40,13 @@
 
     <section class="record-panel user-list-shell">
         <div class="user-list-toolbar">
-            <span class="record-chip">
-                <i class="bi bi-person-lines-fill" aria-hidden="true"></i>
-                {{ user_count }} user{{ user_count|pluralize }}
-            </span>
+            <div class="user-list-toolbar-copy">
+                <span class="record-chip">
+                    <i class="bi bi-person-lines-fill" aria-hidden="true"></i>
+                    {{ user_count }} user{{ user_count|pluralize }}
+                </span>
+                <p class="user-list-helper">Track each user's violation count, open the violation record, and print the warning letter when a violation already exists.</p>
+            </div>
             {% if query %}
                 <a href="{% url 'dogadoption_admin:admin_users' %}" class="btn-secondary user-clear-filter">
                     <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
@@ -52,49 +55,73 @@
             {% endif %}
         </div>
 
-        <div class="user-directory-grid">
-            {% for user in users %}
-            <article class="user-directory-card">
-                <a href="{% url 'dogadoption_admin:registration_owner_profile' user.id %}" class="user-directory-photo" aria-label="Open {{ user.username }} profile">
-                    <div class="user-directory-photo-frame">
-                        {% if user.profile.profile_image %}
-                            <img src="{{ user.profile.profile_image.url }}" alt="{{ user.username }} profile photo">
-                        {% else %}
-                            <img src="{% static 'images/default-user-image.jpg' %}" alt="Default profile photo">
-                        {% endif %}
-                    </div>
-                </a>
-
-                <div class="user-directory-body">
-                    <div class="user-directory-copy">
-                        <h3 class="user-directory-name">
-                            {% if user.first_name or user.last_name %}
-                                {{ user.first_name }} {{ user.last_name }}
-                            {% else %}
-                                {{ user.username }}
-                            {% endif %}
-                        </h3>
-                        <span class="user-directory-handle">@{{ user.username }}</span>
-                    </div>
-                    <div class="user-directory-footer">
-                        <div class="user-directory-violations {% if user.calculated_violations > 0 %}has-violations{% endif %}">
-                            <span>Violations</span>
-                            <strong>{{ user.calculated_violations|default:"0" }}</strong>
-                        </div>
-
-                        <a href="{% url 'dogadoption_admin:registration_owner_profile' user.id %}" class="view-btn action-link user-directory-action">
-                            <i class="bi bi-person-badge" aria-hidden="true"></i>
-                            <span>Profile</span>
-                        </a>
-                    </div>
-                </div>
-            </article>
-            {% empty %}
-                <div class="empty-state-card">
-                    <h3>No users found</h3>
-                    <p>Try another name or clear the filter to load the full directory again.</p>
-                </div>
-            {% endfor %}
+        <div class="user-table-wrap">
+            <table class="user-directory-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Username</th>
+                        <th>Date Joined</th>
+                        <th>Violation Count</th>
+                        <th>Notification</th>
+                        <th class="user-directory-table__actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td data-label="User">
+                            <div class="user-row-ident">
+                                <img src="{{ user.photo_url }}" alt="{{ user.full_name }} profile photo" class="user-row-avatar">
+                                <div class="user-row-copy">
+                                    <strong class="user-row-name">{{ user.full_name }}</strong>
+                                    <span class="user-row-meta">User ID #{{ user.id }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td data-label="Username">
+                            <span class="user-row-handle">@{{ user.username }}</span>
+                        </td>
+                        <td data-label="Date Joined">
+                            <span class="user-row-date">{{ user.date_joined|date:"M d, Y" }}</span>
+                        </td>
+                        <td data-label="Violation Count">
+                            <span class="violation-count-pill {% if user.violation_count > 0 %}has-violations{% endif %}">
+                                {{ user.violation_count }}
+                            </span>
+                        </td>
+                        <td data-label="Notification">
+                            <span class="user-status-pill is-{{ user.notification_status.tone }}">
+                                {{ user.notification_status.label }}
+                            </span>
+                        </td>
+                        <td data-label="Actions" class="user-directory-table__actions-cell">
+                            <div class="user-action-stack">
+                                <a href="{{ user.profile_url }}" class="view-btn action-link user-table-action">
+                                    <i class="bi bi-person-badge" aria-hidden="true"></i>
+                                    <span>Profile</span>
+                                </a>
+                                {% if user.violation_count > 0 %}
+                                    <a href="{{ user.violation_url }}" class="user-table-action user-table-action--danger">
+                                        <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+                                        <span>Violation</span>
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="user-directory-table__empty">
+                            <div class="empty-state-card">
+                                <h3>No users found</h3>
+                                <p>Try another name or clear the filter to load the full directory again.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </section>
 </div>

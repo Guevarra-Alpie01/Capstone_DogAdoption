@@ -604,3 +604,76 @@ class Citation(models.Model):
 
     def __str__(self):
         return f"Citation #{self.id} - {self.owner}"
+
+
+class UserViolationSummary(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="violation_summary",
+    )
+    violation_count = models.PositiveIntegerField(default=0, db_index=True)
+    latest_notification = models.ForeignKey(
+        "UserViolationNotification",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["violation_count", "updated_at"], name="usrviolsum_count_upd_idx"),
+        ]
+
+    def __str__(self):
+        return f"Violation summary for {self.user.username}"
+
+
+class UserViolationNotification(models.Model):
+    STATUS_GENERATED = "generated"
+    STATUS_PRINTED = "printed"
+    LETTER_STATUS_CHOICES = [
+        (STATUS_GENERATED, "Generated"),
+        (STATUS_PRINTED, "Printed"),
+    ]
+
+    summary = models.ForeignKey(
+        UserViolationSummary,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    trigger_violation_count = models.PositiveIntegerField(default=3)
+    title = models.CharField(max_length=160)
+    message = models.TextField()
+    letter_status = models.CharField(
+        max_length=20,
+        choices=LETTER_STATUS_CHOICES,
+        default=STATUS_GENERATED,
+    )
+    admin_notification = models.OneToOneField(
+        AdminNotification,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="user_violation_notification",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    printed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["summary", "trigger_violation_count"],
+                name="usrviolnotif_unique_sum_count",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["letter_status", "created_at"], name="usrviolnotif_status_cr_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.title} ({self.summary.user.username})"

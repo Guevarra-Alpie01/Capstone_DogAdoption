@@ -1,0 +1,482 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ letter.title }} - {{ letter.display_name }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 14mm 12mm 18mm;
+        }
+
+        :root {
+            color-scheme: light;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #eef3f7;
+            color: #1f2933;
+            font-family: "Arial", sans-serif;
+            line-height: 1.55;
+        }
+
+        .print-toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 24px;
+            background: rgba(13, 36, 63, 0.94);
+            color: #ffffff;
+            box-shadow: 0 16px 28px rgba(16, 34, 56, 0.2);
+        }
+
+        .print-toolbar__actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .print-btn,
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 0;
+            border-radius: 999px;
+            padding: 11px 18px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .print-btn {
+            background: linear-gradient(135deg, #0d7c66 0%, #136f63 100%);
+            color: #ffffff;
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+        }
+
+        .page-shell {
+            width: min(100%, 920px);
+            margin: 28px auto;
+            padding: 0 18px 24px;
+        }
+
+        .letter-sheet {
+            position: relative;
+            overflow: hidden;
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 28px 52px rgba(15, 23, 42, 0.12);
+            padding: 42px 48px 52px;
+        }
+
+        .letter-sheet::before {
+            content: "";
+            position: absolute;
+            inset: auto -14% -110px auto;
+            width: 420px;
+            height: 220px;
+            background: radial-gradient(circle at center, rgba(224, 168, 0, 0.28), rgba(224, 168, 0, 0));
+            pointer-events: none;
+        }
+
+        .letter-sheet::after {
+            content: "";
+            position: absolute;
+            inset: auto 0 0 0;
+            height: 16px;
+            background: linear-gradient(90deg, #d89c1d 0%, #d89c1d 30%, #6f9f4d 72%, #5b8f3d 100%);
+        }
+
+        .letter-header {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+            align-items: start;
+            gap: 18px;
+            margin-bottom: 30px;
+        }
+
+        .letter-brand {
+            width: 210px;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .letter-seal {
+            width: 88px;
+            height: 88px;
+            object-fit: contain;
+        }
+
+        .letter-office {
+            text-align: right;
+        }
+
+        .letter-office h1 {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .letter-office p {
+            margin: 4px 0 0;
+            font-size: 0.92rem;
+        }
+
+        .letter-title {
+            margin: 12px 0 24px;
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .letter-meta {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 28px;
+            font-size: 1rem;
+        }
+
+        .meta-row {
+            display: grid;
+            grid-template-columns: 220px minmax(0, 1fr);
+            gap: 12px;
+            align-items: end;
+        }
+
+        .meta-label {
+            font-weight: 700;
+        }
+
+        .meta-value {
+            min-height: 24px;
+            border-bottom: 1px solid #6b7280;
+            padding-bottom: 4px;
+        }
+
+        .letter-body {
+            font-size: 1.02rem;
+        }
+
+        .letter-body p {
+            margin: 0 0 18px;
+            text-align: justify;
+        }
+
+        .letter-emphasis {
+            font-weight: 700;
+        }
+
+        .letter-footer {
+            display: grid;
+            gap: 22px;
+            margin-top: 42px;
+        }
+
+        .letter-signature {
+            margin-left: auto;
+            width: min(100%, 320px);
+            text-align: center;
+        }
+
+        .letter-signature p {
+            margin: 0;
+        }
+
+        .letter-signature .signature-heading {
+            margin-bottom: 36px;
+            font-size: 0.98rem;
+        }
+
+        .letter-signature .signature-name {
+            font-size: 1.08rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .letter-signature .signature-role {
+            font-size: 0.98rem;
+        }
+
+        .letter-acknowledgement {
+            margin-top: 34px;
+            width: min(100%, 360px);
+        }
+
+        .letter-acknowledgement .line {
+            margin-top: 64px;
+            border-bottom: 1px solid #6b7280;
+        }
+
+        .letter-acknowledgement .caption {
+            margin-top: 6px;
+            font-size: 0.92rem;
+            text-align: center;
+            font-style: italic;
+        }
+
+        @media (max-width: 800px) {
+            .letter-sheet {
+                padding: 28px 22px 40px;
+                border-radius: 0;
+            }
+
+            .page-shell {
+                width: 100%;
+                padding: 0;
+            }
+
+            .letter-header {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .letter-brand,
+            .letter-seal {
+                margin: 0 auto;
+            }
+
+            .letter-office {
+                text-align: center;
+            }
+
+            .meta-row {
+                grid-template-columns: 1fr;
+                gap: 4px;
+            }
+        }
+
+        @media print {
+            body {
+                background: #ffffff;
+            }
+
+            .print-toolbar {
+                display: none;
+            }
+
+            .page-shell {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            .letter-sheet {
+                box-shadow: none;
+                border-radius: 0;
+                padding: 0 0 18px;
+            }
+        }
+    </style>
+</head>
+<body onload="prepareViolationPrint();">
+    <div class="print-toolbar">
+        <div>
+            <strong>{{ letter.title }}</strong><br>
+            <span>{{ letter.display_name }}</span>
+        </div>
+        <div class="print-toolbar__actions">
+            <a href="{{ back_url }}" class="back-btn" onclick="return goBackToViolationDetail(event)">Back</a>
+            <button type="button" class="print-btn" onclick="prepareViolationPrint()">Print Letter</button>
+        </div>
+    </div>
+
+    <div class="page-shell">
+        <article class="letter-sheet">
+            <header class="letter-header">
+                <img src="{% static 'images/bayawanharvest-removebg-preview.png' %}" alt="Bayawan Celebrate Life's Harvest" class="letter-brand">
+                <img src="{% static 'images/Logo-Bagong-Pilipinas-print.png' %}" alt="Bagong Pilipinas" class="letter-seal">
+                <div class="letter-office">
+                    <h1>{{ letter.office_name }}</h1>
+                    {% for line in letter.office_address_lines %}
+                        <p>{{ line }}</p>
+                    {% endfor %}
+                </div>
+            </header>
+
+            <h2 class="letter-title">{{ letter.title }}</h2>
+
+            <section class="letter-meta">
+                <div class="meta-row">
+                    <span class="meta-label">Date:</span>
+                    <span class="meta-value">{{ letter.document_date|date:"F d, Y" }}</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">Ms/Mrs/Mr:</span>
+                    <span class="meta-value">{{ letter.display_name }}</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">Barangay:</span>
+                    <span class="meta-value">{{ letter.barangay }}</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">User ID / Registration ID:</span>
+                    <span class="meta-value">{{ letter.user_id }} / {{ letter.registration_reference }}</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">Total Violations:</span>
+                    <span class="meta-value">{{ letter.violation_count }}</span>
+                </div>
+            </section>
+
+            <section class="letter-body">
+                <p><span class="letter-emphasis">Sir/Madame:</span></p>
+                <p>{{ letter.message }}</p>
+                <p>{{ letter.follow_up }}</p>
+                <p>
+                    This letter is issued by the City Veterinary Office as part of the system's compliance
+                    and registration monitoring process. Please keep a copy of this notice for your records.
+                </p>
+            </section>
+
+            <footer class="letter-footer">
+                <div class="letter-signature">
+                    <p class="signature-heading">By authority of the Office of the City Veterinarian</p>
+                    <p class="signature-name">{{ letter.signatory_name }}</p>
+                    <p class="signature-role">{{ letter.signatory_role }}</p>
+                </div>
+
+                <div class="letter-acknowledgement">
+                    <p>Acknowledged by:</p>
+                    <div class="line"></div>
+                    <p class="caption">(Dog Owner/Authorized Representative)</p>
+                </div>
+            </footer>
+        </article>
+    </div>
+    <script>
+        let violationPrintReturnHandled = false;
+        let violationPrintHandlersBound = false;
+
+        function resolveViolationReturnUrl() {
+            const fallbackUrl = "{{ back_url|escapejs }}";
+            if (!document.referrer) {
+                return fallbackUrl;
+            }
+
+            try {
+                const refUrl = new URL(document.referrer);
+                if (refUrl.origin === window.location.origin && refUrl.href !== window.location.href) {
+                    return refUrl.href;
+                }
+            } catch (error) {
+                return fallbackUrl;
+            }
+
+            return fallbackUrl;
+        }
+
+        function navigateBackToViolationDetail() {
+            if (violationPrintReturnHandled) {
+                return;
+            }
+            violationPrintReturnHandled = true;
+
+            const returnUrl = resolveViolationReturnUrl();
+            let usedHistoryBack = false;
+
+            try {
+                const refUrl = document.referrer ? new URL(document.referrer) : null;
+                if (window.history.length > 1 && refUrl && refUrl.origin === window.location.origin) {
+                    usedHistoryBack = true;
+                    window.history.back();
+                }
+            } catch (error) {
+                usedHistoryBack = false;
+            }
+
+            if (usedHistoryBack) {
+                window.setTimeout(() => {
+                    if (window.location.href.includes("/violations/letter/")) {
+                        window.location.href = returnUrl;
+                    }
+                }, 350);
+                return;
+            }
+
+            window.location.href = returnUrl;
+        }
+
+        function bindViolationPrintHandlers() {
+            if (violationPrintHandlersBound) {
+                return;
+            }
+            violationPrintHandlersBound = true;
+
+            window.addEventListener("afterprint", navigateBackToViolationDetail);
+
+            const mediaQuery = window.matchMedia ? window.matchMedia("print") : null;
+            if (mediaQuery && typeof mediaQuery.addEventListener === "function") {
+                mediaQuery.addEventListener("change", (event) => {
+                    if (!event.matches) {
+                        navigateBackToViolationDetail();
+                    }
+                });
+            } else if (mediaQuery && typeof mediaQuery.addListener === "function") {
+                mediaQuery.addListener((event) => {
+                    if (!event.matches) {
+                        navigateBackToViolationDetail();
+                    }
+                });
+            }
+        }
+
+        function prepareViolationPrint() {
+            violationPrintReturnHandled = false;
+            bindViolationPrintHandlers();
+            window.print();
+        }
+
+        function goBackToViolationDetail(event) {
+            event.preventDefault();
+            violationPrintReturnHandled = true;
+
+            const fallbackUrl = event.currentTarget.href;
+            let usedHistoryBack = false;
+
+            try {
+                const refUrl = document.referrer ? new URL(document.referrer) : null;
+                if (window.history.length > 1 && refUrl && refUrl.origin === window.location.origin) {
+                    usedHistoryBack = true;
+                    window.history.back();
+                }
+            } catch (error) {
+                usedHistoryBack = false;
+            }
+
+            if (usedHistoryBack) {
+                window.setTimeout(() => {
+                    if (window.location.href.includes("/violations/letter/")) {
+                        window.location.href = fallbackUrl;
+                    }
+                }, 250);
+                return false;
+            }
+
+            window.location.href = fallbackUrl;
+            return false;
+        }
+    </script>
+</body>
+</html>

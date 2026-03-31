@@ -600,6 +600,9 @@
     const rescueTrendCanvas = document.getElementById('rescueBarangayTrendChart');
 
     const linePalette = ['#2563eb', '#dc2626', '#16a34a', '#7c3aed', '#ea580c', '#0891b2', '#be123c', '#4f46e5', '#0f766e', '#9333ea'];
+    const analyticsSeriesColor = (idx, palette = linePalette) => (
+        palette[idx] || `hsl(${(idx * 47) % 360} 72% 45%)`
+    );
     const rescueEvents = rescueBarangayTrendData.events || [];
     const years = (rescueBarangayTrendData.years || []).slice().sort((a, b) => a - b);
     let rescueTrendChart = null;
@@ -649,25 +652,47 @@
             byBarangay[barangay][bucketIdx] += 1;
         });
 
-        const topBarangays = Object.entries(byBarangay)
+        const rankedBarangays = Object.entries(byBarangay)
             .map(([name, data]) => ({
                 name,
                 total: data.reduce((sum, n) => sum + n, 0),
                 data,
             }))
-            .sort((a, b) => b.total - a.total)
-            .slice(0, 8);
+            .sort((a, b) => {
+                if (b.total !== a.total) return b.total - a.total;
+                return a.name.localeCompare(b.name);
+            });
 
-        const datasets = topBarangays.map((entry, idx) => ({
-            label: entry.name,
-            data: entry.data,
-            borderColor: linePalette[idx % linePalette.length],
-            backgroundColor: linePalette[idx % linePalette.length],
-            pointRadius: isAnalyticsPhone() ? 2 : 3,
-            pointHoverRadius: isAnalyticsPhone() ? 4 : 5,
-            tension: 0.25,
-            fill: false,
-        }));
+        const signatureCounts = new Map();
+        const datasets = rankedBarangays.map((entry, idx) => {
+            const signature = JSON.stringify(entry.data);
+            const overlapIndex = signatureCounts.get(signature) || 0;
+            signatureCounts.set(signature, overlapIndex + 1);
+
+            const seriesColor = analyticsSeriesColor(idx);
+            const actualData = entry.data.slice();
+            const visualData = actualData.map((value) => {
+                if (value <= 0 || overlapIndex === 0) {
+                    return value;
+                }
+                return Number((value + (overlapIndex * 0.08)).toFixed(2));
+            });
+
+            return {
+                label: entry.name,
+                data: visualData,
+                actualData,
+                borderColor: seriesColor,
+                backgroundColor: seriesColor,
+                pointRadius: isAnalyticsPhone() ? 3 : 4,
+                pointHoverRadius: isAnalyticsPhone() ? 5 : 6,
+                pointBorderWidth: 1.5,
+                pointBackgroundColor: '#ffffff',
+                pointBorderColor: seriesColor,
+                tension: 0,
+                fill: false,
+            };
+        });
 
         return { labels, datasets };
     };
@@ -695,13 +720,27 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: analyticsLegendOptions(),
-                    tooltip: { mode: 'index', intersect: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label(context) {
+                                const actualData = context.dataset.actualData || [];
+                                const value = actualData[context.dataIndex] ?? context.parsed.y;
+                                return `${context.dataset.label}: ${value}`;
+                            },
+                        },
+                    },
                 },
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        ticks: analyticsAxisTickOptions({ precision: 0 }),
+                        ticks: analyticsAxisTickOptions({
+                            precision: 0,
+                            stepSize: 1,
+                            callback: (value) => Number.isInteger(value) ? value : '',
+                        }),
                     },
                     x: {
                         ticks: analyticsAxisTickOptions({

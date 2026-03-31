@@ -3074,12 +3074,21 @@ def _build_rescue_barangay_trend_chart():
         .order_by("activity_date", "location")
     )
     for row in rescue_rows:
-        location = (row["location"] or "").strip()
+        location = _clean_barangay(row["location"])
         if not location:
             continue
+
         activity_date = row["activity_date"]
+        if not activity_date:
+            continue
+
+        barangay_name = (
+            _extract_barangay_from_address(location)
+            or _resolve_barangay_name(location)
+            or location
+        )
         events.append({
-            "barangay": _resolve_barangay_name(location) or location,
+            "barangay": barangay_name,
             "date": activity_date.isoformat(),
         })
         years.add(activity_date.year)

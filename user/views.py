@@ -772,6 +772,7 @@ def login_view(request):
     return _render_login_page(request, next_url=next_url)
 
 
+@require_POST
 def logout_view(request):
     """Log out the current session and clear any admin session cookie."""
     logout(request)

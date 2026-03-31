@@ -4,7 +4,7 @@
 {% block title %}Dog Registry and Vaccination Record{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/register/registration.css' %}?v=20260328a">
+<link rel="stylesheet" href="{% static 'css/register/registration.css' %}?v=20260330b">
 <link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260330d">
 {% endblock extra_css %}
 
@@ -39,7 +39,16 @@
     </div>
 
     <div class="form-card">
-        <form method="post" action="{% url 'dogadoption_admin:register_dogs' %}" enctype="multipart/form-data" id="registration-form">
+        <form
+            method="post"
+            action="{% url 'dogadoption_admin:register_dogs' %}"
+            enctype="multipart/form-data"
+            id="registration-form"
+            data-confirm-modal
+            data-confirm-title="Confirm Registration"
+            data-confirm-message="Save this registration record now?"
+            data-confirm-submit-label="Confirm Save"
+        >
             {% csrf_token %}
             <input type="hidden" name="owner_user_id" id="owner_user_id" value="">
 
@@ -177,28 +186,11 @@
             </div>
 
             <div class="form-actions">
-                <button type="button" class="submit-btn registration-submit-btn" id="open-registration-confirm-modal">
+                <button type="submit" class="submit-btn registration-submit-btn">
                     Save Registration Record
                 </button>
             </div>
         </form>
-    </div>
-</div>
-<div class="modal fade app-confirm-modal" id="registrationConfirmModal" tabindex="-1" aria-labelledby="registrationConfirmModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content app-confirm-card">
-            <div class="modal-header">
-                <h5 class="modal-title" id="registrationConfirmModalLabel">Confirm Registration</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                Save this registration record now?
-            </div>
-            <div class="modal-footer app-confirm-actions">
-                <button type="button" class="btn btn-cancel-action" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-success" form="registration-form">Confirm Save</button>
-            </div>
-        </div>
     </div>
 </div>
 <div class="photo-option-modal" id="photo-option-modal" hidden>
@@ -821,43 +813,6 @@
         setCameraStatus('Camera access has not been requested yet.', 'neutral');
         updatePhotoCount();
         updateCameraSaveButton();
-    })();
-</script>
-<script>
-    (function () {
-        const form = document.getElementById('registration-form');
-        const openConfirmBtn = document.getElementById('open-registration-confirm-modal');
-        const confirmModalElement = document.getElementById('registrationConfirmModal');
-        const confirmModal = confirmModalElement && typeof bootstrap !== 'undefined'
-            ? new bootstrap.Modal(confirmModalElement)
-            : null;
-
-        if (!form || !openConfirmBtn) {
-            return;
-        }
-
-        openConfirmBtn.addEventListener('click', function () {
-            if (!form.checkValidity()) {
-                form.reportValidity();
-                return;
-            }
-
-            if (confirmModal) {
-                confirmModal.show();
-                return;
-            }
-
-            const shouldSave = window.confirm('Save this registration record now?');
-            if (!shouldSave) {
-                return;
-            }
-
-            if (typeof form.requestSubmit === 'function') {
-                form.requestSubmit();
-                return;
-            }
-            form.submit();
-        });
     })();
 </script>
 {% endblock %}

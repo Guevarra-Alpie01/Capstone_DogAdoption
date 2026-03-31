@@ -23,6 +23,15 @@
                             {% else %}
                                 <div class="admin-profile-avatar-fallback">{{ request.user.username|first|upper }}</div>
                             {% endif %}
+                            <form method="POST" enctype="multipart/form-data" class="admin-profile-photo-form" id="adminProfilePhotoForm">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="update_photo">
+                                <input id="adminProfilePhotoInput" type="file" name="profile_image" accept="image/*" hidden>
+                                <label for="adminProfilePhotoInput" class="admin-profile-avatar-edit" title="Update profile photo">
+                                    <i class="bi bi-camera-fill" aria-hidden="true"></i>
+                                    <span class="visually-hidden">Upload profile photo</span>
+                                </label>
+                            </form>
                         </div>
                         <div class="admin-profile-title-block">
                             <div class="admin-profile-name-line">
@@ -35,6 +44,7 @@
                             <i class="bi bi-pencil-square" aria-hidden="true"></i>
                             Edit Profile
                         </button>
+                        <p class="admin-profile-photo-note">Use the camera button on your avatar to upload a new admin profile photo.</p>
                     </div>
                 </div>
             </div>
@@ -399,6 +409,17 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const root = document.querySelector('[data-admin-profile-tabs]');
+        const photoInput = document.getElementById('adminProfilePhotoInput');
+        const photoForm = document.getElementById('adminProfilePhotoForm');
+
+        if (photoInput && photoForm) {
+            photoInput.addEventListener('change', function () {
+                if (photoInput.files && photoInput.files.length > 0) {
+                    photoForm.submit();
+                }
+            });
+        }
+
         if (!root) return;
 
         const tabs = Array.from(root.querySelectorAll('[data-admin-profile-tab]'));

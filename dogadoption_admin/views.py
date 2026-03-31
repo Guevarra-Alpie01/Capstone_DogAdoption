@@ -121,6 +121,7 @@ def _build_admin_notification_summary():
         ADMIN_NOTIFICATIONS_CACHE_TTL_SECONDS,
     )
     return payload
+from user.avatar_cache import invalidate_cached_profile_avatar
 from user.notification_utils import (
     bump_user_home_feed_namespace,
     invalidate_user_notification_content,
@@ -2684,6 +2685,16 @@ def admin_edit_profile(request):
 
     if request.method == "POST":
         action = (request.POST.get("action") or "update_profile").strip()
+
+        if action == "update_photo":
+            if request.FILES.get("profile_image"):
+                profile.profile_image = request.FILES["profile_image"]
+                profile.save(update_fields=["profile_image"])
+                invalidate_cached_profile_avatar(user.id)
+                messages.success(request, "Admin profile photo updated successfully.")
+            else:
+                messages.error(request, "Please choose a profile photo first.")
+            return redirect("dogadoption_admin:admin_edit_profile")
 
         if action == "update_profile":
             username = (request.POST.get("username") or "").strip()

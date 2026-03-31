@@ -66,58 +66,6 @@
             </div>
         </div>
 
-        <section class="record-locator-section" aria-label="Barangay locator">
-            <div class="record-locator-copy">
-                <span class="record-locator-eyebrow">Barangay Locator</span>
-                <h3>
-                    {% if selected_barangay %}
-                        {{ selected_barangay }} highlighted
-                    {% else %}
-                        Select a barangay to highlight it
-                    {% endif %}
-                </h3>
-                <p>
-                    This locator gives a quick visual guide to the selected barangay. Click any barangay dot on the image or use the pills above.
-                </p>
-            </div>
-
-            <div class="record-locator-map" aria-hidden="false">
-                <svg class="record-locator-base" viewBox="0 0 340 420" role="img" aria-label="Schematic Bayawan barangay locator image">
-                    <defs>
-                        <linearGradient id="recordLocatorFill" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="#f8fbff"></stop>
-                            <stop offset="100%" stop-color="#dce9ff"></stop>
-                        </linearGradient>
-                        <linearGradient id="recordLocatorAccent" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stop-color="#86a8e7" stop-opacity="0.75"></stop>
-                            <stop offset="100%" stop-color="#ffffff" stop-opacity="0"></stop>
-                        </linearGradient>
-                    </defs>
-                    <rect x="0" y="0" width="340" height="420" rx="28" fill="#f5f8ff"></rect>
-                    <path d="M130 18C168 22 220 42 245 77C270 111 285 150 301 190C311 215 321 241 320 271C318 305 302 335 279 357C255 379 222 396 186 401C150 406 111 399 84 379C54 357 41 324 31 292C20 258 14 221 24 188C36 151 49 114 70 81C86 55 103 33 130 18Z" fill="url(#recordLocatorFill)" stroke="#b8cbea" stroke-width="3"></path>
-                    <path d="M111 60C150 73 198 99 222 141C245 180 251 229 242 273C236 304 218 339 190 360" fill="none" stroke="rgba(73, 108, 171, 0.18)" stroke-width="12" stroke-linecap="round"></path>
-                    <path d="M82 97C119 126 154 157 172 205C188 248 188 296 176 339" fill="none" stroke="rgba(255, 255, 255, 0.7)" stroke-width="8" stroke-linecap="round"></path>
-                    <path d="M75 245C116 226 156 219 205 228C235 233 261 245 284 267" fill="none" stroke="rgba(73, 108, 171, 0.16)" stroke-width="10" stroke-linecap="round"></path>
-                    <path d="M208 58C247 93 277 131 293 179C304 213 307 255 300 286" fill="none" stroke="url(#recordLocatorAccent)" stroke-width="24" stroke-linecap="round"></path>
-                </svg>
-
-                <div class="record-locator-points">
-                    {% for point in registration_locator_points %}
-                        <a
-                            href="?barangay={{ point.name|urlencode }}{% if date_filter_query %}&{{ date_filter_query }}{% endif %}"
-                            class="record-locator-point {% if selected_barangay == point.name %}is-active{% endif %}"
-                            style="--locator-x: {{ point.x }}%; --locator-y: {{ point.y }}%;"
-                            aria-label="Filter and highlight {{ point.name }}"
-                        >
-                            <span class="record-locator-point-ring" aria-hidden="true"></span>
-                            <span class="record-locator-point-dot" aria-hidden="true"></span>
-                            <span class="record-locator-point-label">{{ point.name }}</span>
-                        </a>
-                    {% endfor %}
-                </div>
-            </div>
-        </section>
-
         <form method="get" action="{% url 'dogadoption_admin:registration_record' %}" class="record-date-filter" id="registration-date-filter-form">
             <span class="date-filter-label">
                 <i class="bi bi-funnel-fill" aria-hidden="true"></i>

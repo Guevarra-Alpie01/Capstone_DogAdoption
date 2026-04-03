@@ -35,7 +35,6 @@ CSRF_RE = re.compile(r'name=["\']csrfmiddlewaretoken["\']\s+value=["\']([^"\']+)
 USER_ADOPT_PATH_RE = re.compile(r"(/user/user-adopt/[^\"'\s<]+/)")
 STAFF_ADOPT_PATH_RE = re.compile(r"(/user/adopt/[^\"'\s<]+/)")
 CLAIM_PATH_RE = re.compile(r"(/user/claim/[^\"'\s<]+/)")
-ANNOUNCEMENT_REACT_PATH_RE = re.compile(r"(/user/announcements/[^\"'\s<]+/react/)")
 ANNOUNCEMENT_COMMENT_PATH_RE = re.compile(r"(/user/announcements/[^\"'\s<]+/comment/)")
 
 
@@ -552,7 +551,6 @@ class CapstoneUserBase(HttpUser):
         self.user_adopt_paths: list[str] = []
         self.staff_adopt_paths: list[str] = []
         self.claim_paths: list[str] = []
-        self.announcement_react_paths: list[str] = []
         self.announcement_comment_paths: list[str] = []
         self.last_security_probe_at = 0.0
         self.write_enabled = SETTINGS.enable_writes and (
@@ -628,11 +626,6 @@ class CapstoneUserBase(HttpUser):
         )
         self.claim_paths = list(
             set(self.claim_paths).union(CLAIM_PATH_RE.findall(html))
-        )
-        self.announcement_react_paths = list(
-            set(self.announcement_react_paths).union(
-                ANNOUNCEMENT_REACT_PATH_RE.findall(html)
-            )
         )
         self.announcement_comment_paths = list(
             set(self.announcement_comment_paths).union(
@@ -998,24 +991,6 @@ class UserJourney(CapstoneUserBase):
         ) as response:
             if response.status_code >= 400:
                 response.failure(f"Mark-seen failed with {response.status_code}")
-            else:
-                response.success()
-
-    @task(1)
-    def react_to_announcement(self):
-        if not self.write_enabled or not self.announcement_react_paths:
-            return
-        path = random.choice(self.announcement_react_paths)
-        headers = self._csrf_headers("/user/announcements/", ajax=True)
-        with self.client.post(
-            path,
-            data={"next": "/user/announcements/"},
-            headers=headers,
-            name="POST /user/announcements/[announcement]/react/",
-            catch_response=True,
-        ) as response:
-            if response.status_code >= 400:
-                response.failure(f"Announcement reaction failed with {response.status_code}")
             else:
                 response.success()
 

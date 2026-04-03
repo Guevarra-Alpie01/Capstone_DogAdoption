@@ -90,23 +90,7 @@
         </section>
         {% endif %}
 
-        <div class="detail-clean-stats">
-            <span class="fb-like-badge"><i class="bi bi-hand-thumbs-up-fill"></i></span>
-            <span class="js-detail-reaction-count">{{ post.reaction_count }}</span>
-        </div>
-
         <div class="detail-inline-actions">
-            <form method="POST"
-                  action="{% url 'user:announcement_react' post.id %}"
-                  class="detail-inline-form js-detail-react-form">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{{ request.path }}">
-                <button type="submit" class="detail-inline-action js-detail-react-btn {% if post.user_reacted %}is-active{% endif %}">
-                    <i class="bi bi-hand-thumbs-up"></i>
-                    <span class="js-detail-react-label">{% if post.user_reacted %}Reacted{% else %}React{% endif %}</span>
-                </button>
-            </form>
-
             <a href="https://www.facebook.com/sharer/sharer.php?u={{ share_url|urlencode }}"
                target="_blank"
                rel="noopener noreferrer"
@@ -155,56 +139,6 @@
             });
         });
     }
-
-    document.querySelector('.js-detail-react-form')?.addEventListener('submit', async (evt) => {
-        evt.preventDefault();
-
-        const form = evt.currentTarget;
-        const button = form.querySelector('.js-detail-react-btn');
-        const label = form.querySelector('.js-detail-react-label');
-        const countNodes = document.querySelectorAll('.js-detail-reaction-count');
-        const payload = new FormData(form);
-
-        try {
-            const response = await fetch(form.action, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: payload
-            });
-
-            const authResult = window.handleAuthRequiredResponse
-                ? await window.handleAuthRequiredResponse(response, 'login')
-                : { handled: false, data: null };
-            if (authResult.handled) {
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error('Request failed');
-            }
-
-            const data = authResult.data || await response.json();
-            if (!data.ok) {
-                throw new Error('Invalid response');
-            }
-
-            countNodes.forEach((node) => {
-                node.textContent = String(data.reaction_count || 0);
-            });
-
-            if (button) {
-                button.classList.toggle('is-active', !!data.reacted);
-            }
-
-            if (label) {
-                label.textContent = data.reacted ? 'Reacted' : 'React';
-            }
-        } catch (err) {
-            form.submit();
-        }
-    });
 
     const triggers = document.querySelectorAll('.js-zoom-image');
     const lightbox = document.getElementById('imageLightbox');

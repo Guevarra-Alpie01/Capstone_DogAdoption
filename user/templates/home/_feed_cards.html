@@ -34,26 +34,7 @@
     </div>
     {% endif %}
 
-    <div class="fb-social-row">
-        <div class="fb-like-count">
-            <span class="fb-like-badge"><i class="bi bi-hand-thumbs-up-fill"></i></span>
-            <span class="js-reaction-count">{{ item.reaction_count }}</span>
-        </div>
-    </div>
-
     <div class="fb-action-row">
-        <form method="POST"
-              action="{% url 'user:announcement_react' post.id %}"
-              class="fb-action-form js-react-form">
-            {% csrf_token %}
-            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <button type="submit"
-                    class="fb-action-btn js-react-btn {% if item.user_reacted %}is-active{% endif %}">
-                <i class="bi bi-hand-thumbs-up"></i>
-                <span class="js-react-label">{% if item.user_reacted %}Reacted{% else %}React{% endif %}</span>
-            </button>
-        </form>
-
         <a href="https://www.facebook.com/sharer/sharer.php?u={{ item.share_url|urlencode }}"
            target="_blank"
            rel="noopener noreferrer"
@@ -234,6 +215,7 @@
 
             {% elif item.post_type == 'user' %}
                 {% if post.status == 'available' and request.user != post.owner %}
+                    {% if request.user.is_authenticated %}
                     <button
                         type="button"
                         class="btn btn-success btn-sm js-open-adoption-request-modal"
@@ -244,6 +226,16 @@
                     >
                         Request Adoption
                     </button>
+                    {% else %}
+                    <a
+                        href="{% url 'user:adopt_user_post' post.id %}"
+                        class="btn btn-success btn-sm"
+                        data-auth-modal-trigger="login"
+                        data-auth-next-url="{% url 'user:adopt_user_post' post.id %}"
+                    >
+                        Request Adoption
+                    </a>
+                    {% endif %}
                 {% elif post.status == 'adopted' %}
                     <span class="badge bg-secondary fs-6 px-3 py-2">Adopted</span>
                 {% endif %}

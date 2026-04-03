@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
+<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260404b">
 {% endblock %}
 
 {% block content %}
@@ -172,57 +172,6 @@
         });
 
         render();
-    });
-
-    document.querySelectorAll('.js-react-form').forEach((form) => {
-        form.addEventListener('submit', async (evt) => {
-            evt.preventDefault();
-
-            const button = form.querySelector('.js-react-btn');
-            const label = form.querySelector('.js-react-label');
-            const countNode = form.closest('.fb-card')?.querySelector('.js-reaction-count');
-            const payload = new FormData(form);
-
-            try {
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: payload
-                });
-
-                const authResult = window.handleAuthRequiredResponse
-                    ? await window.handleAuthRequiredResponse(response, 'login')
-                    : { handled: false, data: null };
-                if (authResult.handled) {
-                    return;
-                }
-
-                if (!response.ok) {
-                    throw new Error('Request failed');
-                }
-
-                const data = authResult.data || await response.json();
-                if (!data.ok) {
-                    throw new Error('Invalid response');
-                }
-
-                if (countNode) {
-                    countNode.textContent = String(data.reaction_count || 0);
-                }
-
-                if (button) {
-                    button.classList.toggle('is-active', !!data.reacted);
-                }
-
-                if (label) {
-                    label.textContent = data.reacted ? 'Reacted' : 'React';
-                }
-            } catch (err) {
-                form.submit();
-            }
-        });
     });
 
     const board = document.querySelector('[data-user-mobile-announcement-board]');

@@ -18,8 +18,13 @@
             <button
                 type="button"
                 class="request-history-trigger"
+                {% if request.user.is_authenticated %}
                 data-bs-toggle="modal"
                 data-bs-target="#requestHistoryModal"
+                {% else %}
+                data-auth-modal-trigger="login"
+                data-auth-next-url="{% url 'user:dog_capture_request' %}"
+                {% endif %}
                 aria-label="Open request history"
             >
                 <span class="request-history-trigger-icon">
@@ -483,6 +488,8 @@ const stepDots = document.querySelectorAll('.step-dot');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const submitBtn = document.getElementById('submitBtn');
+const requestSubmitRequiresAuth = {{ request.user.is_authenticated|yesno:'false,true' }};
+const requestAuthNextUrl = "{% url 'user:dog_capture_request' %}";
 const phoneNumberField = document.getElementById('phoneNumberField');
 const defaultRequestCity = "{{ default_manual_city|escapejs }}";
 const captureForm = document.getElementById('captureForm');
@@ -1618,6 +1625,15 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
 
 captureForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    if (requestSubmitRequiresAuth) {
+        if (window.openAuthModal) {
+            window.openAuthModal('login', { nextUrl: requestAuthNextUrl });
+        } else {
+            window.location.href = "{% url 'user:login' %}?next=" + encodeURIComponent(requestAuthNextUrl);
+        }
+        return;
+    }
 
     if (!validatePhoneField()) {
         return;

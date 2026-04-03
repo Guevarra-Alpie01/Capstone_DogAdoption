@@ -102,7 +102,7 @@ class UserHomeFeedTests(TestCase):
         self.assertContains(response, post.caption)
         self.assertContains(response, image.image.url)
 
-    def test_guest_ajax_announcement_reaction_requests_login_modal(self):
+    def test_guest_can_open_announcement_pages_without_react_controls(self):
         staff_user = User.objects.create_user(
             username="announcementstaff",
             password="secret123",
@@ -114,21 +114,15 @@ class UserHomeFeedTests(TestCase):
             created_by=staff_user,
         )
 
-        response = self.client.post(
-            reverse("user:announcement_react", args=[announcement.id]),
-            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
-        )
+        list_response = self.client.get(reverse("user:announcement_list"))
+        detail_response = self.client.get(reverse("user:announcement_detail", args=[announcement.id]))
 
-        self.assertEqual(response.status_code, 401)
-        self.assertEqual(
-            response.json(),
-            {
-                "ok": False,
-                "auth_required": True,
-                "auth_modal": "login",
-                "login_url": reverse("user:login"),
-            },
-        )
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(list_response, announcement.title)
+        self.assertContains(detail_response, announcement.title)
+        self.assertNotContains(list_response, "React")
+        self.assertNotContains(detail_response, "React")
 
     def test_guest_ajax_admin_view_requests_login_modal_json(self):
         response = self.client.get(
@@ -168,7 +162,7 @@ class UserHomeFeedTests(TestCase):
             },
         )
 
-    def test_guest_home_claim_button_uses_login_modal_trigger(self):
+    def test_guest_home_claim_button_opens_login_modal(self):
         staff_user = User.objects.create_user(
             username="claimstaff",
             password="secret123",
@@ -184,7 +178,11 @@ class UserHomeFeedTests(TestCase):
         response = self.client.get(reverse("user:user_home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'data-auth-modal-trigger="login"', html=False)
+        self.assertContains(
+            response,
+            'data-auth-modal-trigger="login"',
+            html=False,
+        )
         self.assertContains(
             response,
             f'data-auth-next-url="{reverse("user:claim_confirm", args=[post.id])}?return_to=home"',
@@ -232,7 +230,7 @@ class UserHomeFeedTests(TestCase):
         self.assertNotContains(response, "author-avatar-img", html=False)
         self.assertNotContains(response, 'class="author-name"', html=False)
 
-    def test_guest_claim_confirm_preserves_home_return_to_in_login_redirect(self):
+    def test_guest_claim_confirm_preserves_home_return_to_in_login_modal_redirect(self):
         staff_user = User.objects.create_user(
             username="claimreturnstaff",
             password="secret123",
@@ -254,7 +252,7 @@ class UserHomeFeedTests(TestCase):
         self.assertEqual(parse_qs(parsed.query).get("auth_modal"), ["login"])
         self.assertEqual(parse_qs(parsed.query).get("next"), [claim_url])
 
-    def test_guest_claim_confirm_redirects_to_home_with_login_modal(self):
+    def test_guest_claim_confirm_redirects_to_home_login_modal(self):
         staff_user = User.objects.create_user(
             username="claimredirectstaff",
             password="secret123",
@@ -275,6 +273,26 @@ class UserHomeFeedTests(TestCase):
         self.assertEqual(parsed.path, reverse("user:user_home"))
         self.assertEqual(parse_qs(parsed.query).get("auth_modal"), ["login"])
         self.assertEqual(parse_qs(parsed.query).get("next"), [claim_url])
+
+    def test_guest_can_open_find_a_dog_listing_without_login(self):
+        staff_user = User.objects.create_user(
+            username="guestfinderstaff",
+            password="secret123",
+            is_staff=True,
+        )
+        Post.objects.create(
+            user=staff_user,
+            caption="Guest Finder Dog",
+            location="Bayawan",
+            claim_days=3,
+        )
+
+        response = self.client.get(reverse("user:claim_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "adopt/adopt_list.html")
+        self.assertContains(response, "Dog Rescue Finder")
+        self.assertContains(response, 'data-auth-modal-trigger="login"', html=False)
 
     def test_login_redirects_to_safe_claim_next_url(self):
         staff_user = User.objects.create_user(
@@ -382,9 +400,10 @@ class UserHomeFeedTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            f'href="{reverse("user:claim_confirm", args=[post.id])}" class="btn-action"',
+            f'href="{reverse("user:claim_confirm", args=[post.id])}"',
             html=False,
         )
+        self.assertNotContains(response, 'data-auth-modal-trigger="login"', html=False)
 
     def test_adopt_list_defaults_to_adoption_phase_in_rescue_finder(self):
         staff_user = User.objects.create_user(

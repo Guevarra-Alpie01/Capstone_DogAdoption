@@ -44,7 +44,6 @@ from dogadoption_admin.access import get_staff_landing_url
 from dogadoption_admin.models import (
     AdminNotification,
     AnnouncementComment,
-    AnnouncementReaction,
     Barangay,
     Citation,
     Dog,
@@ -775,7 +774,7 @@ def user_only(view_func):
                     "auth_modal": "login",
                     "login_url": reverse("user:login"),
                 }, status=401)
-            return redirect('user:login')
+            return redirect(_build_login_redirect_url(request, request.get_full_path()))
         if request.user.is_staff:
             landing_url = get_staff_landing_url(request.user)
             if _is_ajax_request(request):
@@ -818,12 +817,21 @@ def _build_home_auth_modal_url(request, auth_modal="login", next_url=""):
     return "{}?{}".format(reverse("user:user_home"), urlencode(query))
 
 
+def _build_login_redirect_url(request, next_url=""):
+    """Build a safe login-page URL with an optional continuation target."""
+    login_url = reverse("user:login")
+    safe_next_url = _get_safe_next_url(request, next_url)
+    if not safe_next_url:
+        return login_url
+    return "{}?{}".format(login_url, urlencode({"next": safe_next_url}))
+
+
 def _require_public_member_or_auth_modal(request, *, next_url=""):
     """
     Guard public claim/adopt entry points.
 
-    Guests are sent back to the public home page with the real auth modal,
-    while staff still go to their admin landing page.
+    Guests are sent to the public home page with the login modal ready, while
+    staff still go to their admin landing page.
     """
     if not request.user.is_authenticated:
         if _is_ajax_request(request):
@@ -833,7 +841,13 @@ def _require_public_member_or_auth_modal(request, *, next_url=""):
                 "auth_modal": "login",
                 "login_url": reverse("user:login"),
             }, status=401)
-        return redirect(_build_home_auth_modal_url(request, "login", next_url or request.get_full_path()))
+        return redirect(
+            _build_home_auth_modal_url(
+                request,
+                "login",
+                next_url or request.get_full_path(),
+            )
+        )
     if request.user.is_staff:
         landing_url = get_staff_landing_url(request.user)
         if _is_ajax_request(request):
@@ -2011,26 +2025,6 @@ def _hydrate_home_feed_items(request, feed_rows):
         "missing": [row["id"] for row in feed_rows if row["feed_type"] == "missing"],
     }
 
-    announcement_reaction_counts = {}
-    announcement_user_reacted_ids = set()
-    if ids_by_type["announcement"]:
-        announcement_reaction_counts = dict(
-            AnnouncementReaction.objects.filter(
-                announcement_id__in=ids_by_type["announcement"]
-            )
-            .values("announcement_id")
-            .annotate(total=Count("id"))
-            .values_list("announcement_id", "total")
-        )
-        current_user_id = getattr(request.user, "id", None)
-        if current_user_id:
-            announcement_user_reacted_ids = set(
-                AnnouncementReaction.objects.filter(
-                    announcement_id__in=ids_by_type["announcement"],
-                    user_id=current_user_id,
-                ).values_list("announcement_id", flat=True)
-            )
-
     user_request_counts = {}
     if ids_by_type["user"]:
         user_request_counts = dict(
@@ -2191,8 +2185,6 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "image_count": len(announcement_images),
                 "gallery_images": announcement_images,
                 "has_media": bool(p.background_image or announcement_images),
-                "reaction_count": int(announcement_reaction_counts.get(p.id, 0)),
-                "user_reacted": p.id in announcement_user_reacted_ids,
                 "share_url": request.build_absolute_uri(
                     reverse("user:announcement_share_preview", args=[p.id])
                 ),
@@ -2863,10 +2855,15 @@ def post_detail(request, post_id):
 # Covers dog-capture request submission, editing, and deletion.
 # =============================================================================
 
-@user_only
 def request_dog_capture(request):
     """Create and list online dog-surrender requests for the current user."""
     if request.method == 'POST':
+        access_response = _require_public_member_or_auth_modal(
+            request,
+            next_url=reverse("user:dog_capture_request"),
+        )
+        if access_response is not None:
+            return access_response
         submission_response = _handle_dog_capture_request_submission(request)
         if submission_response is not None:
             return submission_response
@@ -2949,6 +2946,26 @@ def _build_dog_capture_request_page_context(request):
     active_status_tab = (request.GET.get("status_tab") or "scheduled").strip().lower()
     if active_status_tab not in valid_tabs:
         active_status_tab = "scheduled"
+
+    if not request.user.is_authenticated:
+        empty_page_obj = Paginator([], rows_per_page).get_page(1)
+        return {
+            'requests': False,
+            'accepted_requests': [],
+            'pending_requests': [],
+            'declined_requests': [],
+            'captured_requests': [],
+            'accepted_page_obj': empty_page_obj,
+            'pending_page_obj': empty_page_obj,
+            'declined_page_obj': empty_page_obj,
+            'captured_page_obj': empty_page_obj,
+            'accepted_total': 0,
+            'pending_total': 0,
+            'declined_total': 0,
+            'captured_total': 0,
+            'active_status_tab': active_status_tab,
+            'default_manual_city': DEFAULT_REQUEST_CITY,
+        }
 
     status_totals = {
         row["status"]: row["total"]
@@ -3316,9 +3333,6 @@ def claim(request):
 
 def adopt_list(request):
     """Browse dogs that are available for adoption."""
-    access_response = _require_public_member_or_auth_modal(request)
-    if access_response is not None:
-        return access_response
     return render(request, "adopt/adopt_list.html", _build_public_post_listing(request, "adopt"))
 
 @user_only
@@ -3439,17 +3453,9 @@ def _announcement_card_prefetch():
     )
 
 
-def _announcement_feed_queryset(user_id):
-    user_reaction_subquery = AnnouncementReaction.objects.filter(
-        announcement_id=OuterRef("pk"),
-        user_id=user_id,
-    )
+def _announcement_feed_queryset():
     return (
         DogAnnouncement.objects.select_related("created_by", "created_by__profile")
-        .annotate(
-            reaction_count=Count("reactions", distinct=True),
-            user_reacted=Exists(user_reaction_subquery),
-        )
         .prefetch_related(_announcement_card_prefetch())
         .order_by("-created_at")
     )
@@ -3468,7 +3474,6 @@ def _decorate_announcement_posts(posts, request):
     return posts
 
 
-@user_only
 def announcement_list(request):
     """Render the public announcement feed grouped by display bucket."""
     bucket_counts = {
@@ -3478,16 +3483,16 @@ def announcement_list(request):
         )
     }
     pinned_announcements = list(
-        _announcement_feed_queryset(request.user.id).filter(
+        _announcement_feed_queryset().filter(
             display_bucket=DogAnnouncement.BUCKET_PINNED
         )[:PUBLIC_ANNOUNCEMENT_SIDEBAR_LIMIT]
     )
     campaign_announcements = list(
-        _announcement_feed_queryset(request.user.id).filter(
+        _announcement_feed_queryset().filter(
             display_bucket=DogAnnouncement.BUCKET_CAMPAIGN
         )[:PUBLIC_ANNOUNCEMENT_SIDEBAR_LIMIT]
     )
-    regular_qs = _announcement_feed_queryset(request.user.id).exclude(
+    regular_qs = _announcement_feed_queryset().exclude(
         display_bucket__in=[
             DogAnnouncement.BUCKET_PINNED,
             DogAnnouncement.BUCKET_CAMPAIGN,
@@ -3521,18 +3526,10 @@ def announcement_list(request):
     })
 
 
-@user_only
 def announcement_detail(request, post_id):
-    """Render a detailed announcement view with reactions and share data."""
-    user_reaction_subquery = AnnouncementReaction.objects.filter(
-        announcement_id=OuterRef("pk"),
-        user_id=request.user.id,
-    )
+    """Render a detailed announcement view with share data."""
     post = get_object_or_404(
-        DogAnnouncement.objects.select_related("created_by", "created_by__profile").annotate(
-            reaction_count=Count("reactions", distinct=True),
-            user_reacted=Exists(user_reaction_subquery),
-        ).prefetch_related(
+        DogAnnouncement.objects.select_related("created_by", "created_by__profile").prefetch_related(
             Prefetch(
                 "images",
                 queryset=DogAnnouncementImage.objects.only(
@@ -3556,50 +3553,6 @@ def announcement_detail(request, post_id):
             reverse("user:announcement_share_preview", args=[post.id])
         ),
     })
-
-
-@user_only
-@require_POST
-def announcement_react(request, post_id):
-    """Toggle the current user's reaction on an announcement."""
-    post = get_object_or_404(DogAnnouncement.objects.only("id"), id=post_id)
-
-    existing_reaction = AnnouncementReaction.objects.filter(
-        announcement_id=post.id,
-        user_id=request.user.id,
-    ).only("id").first()
-
-    if existing_reaction:
-        existing_reaction.delete()
-        reacted = False
-    else:
-        try:
-            AnnouncementReaction.objects.create(
-                announcement_id=post.id,
-                user_id=request.user.id,
-            )
-            reacted = True
-        except IntegrityError:
-            # Another request created the same reaction concurrently.
-            reacted = True
-
-    reaction_count = AnnouncementReaction.objects.filter(announcement_id=post.id).count()
-
-    if _is_ajax_request(request):
-        return JsonResponse({
-            "ok": True,
-            "reacted": reacted,
-            "reaction_count": reaction_count,
-        })
-
-    next_url = (request.POST.get("next") or "").strip()
-    if not next_url or not url_has_allowed_host_and_scheme(
-        next_url,
-        allowed_hosts={request.get_host()},
-        require_https=request.is_secure(),
-    ):
-        next_url = reverse("user:announcement_list")
-    return redirect(next_url)
 
 
 def announcement_share_preview(request, post_id):
@@ -3696,9 +3649,6 @@ def my_claims(request):
 
 def claim_list(request):
     """Browse dogs that are still available to be claimed."""
-    access_response = _require_public_member_or_auth_modal(request)
-    if access_response is not None:
-        return access_response
     return render(request, "adopt/adopt_list.html", _build_public_post_listing(request, "claim"))
 
 

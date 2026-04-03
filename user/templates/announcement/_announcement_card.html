@@ -97,14 +97,6 @@
     {% endif %}
 
     <div class="user-ann-card-footer">
-        <div class="fb-social-row">
-            <div class="fb-like-count">
-                <span class="fb-like-badge"><i class="bi bi-hand-thumbs-up-fill"></i></span>
-                <span class="js-reaction-count">{{ post.reaction_count }}</span>
-                <span class="user-ann-like-label">Reactions</span>
-            </div>
-        </div>
-
         <div class="fb-action-row user-ann-action-row app-btn-row app-btn-row--mobile-stack{% if post.display_bucket == 'pinned' or post.display_bucket == 'campaign' %} has-view-action{% endif %}">
             {% if post.display_bucket == 'pinned' or post.display_bucket == 'campaign' %}
             <a href="{% url 'user:announcement_detail' post.id %}"
@@ -114,19 +106,6 @@
                 <span>View</span>
             </a>
             {% endif %}
-
-            <form method="POST"
-                  action="{% url 'user:announcement_react' post.id %}"
-                  class="fb-action-form js-react-form">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{{ request.path }}">
-                <button type="submit"
-                        class="fb-action-btn js-react-btn app-btn-fit app-btn-mobile-full {% if post.user_reacted %}is-active{% endif %}"
-                        aria-label="{% if post.user_reacted %}Remove reaction{% else %}React to announcement{% endif %}">
-                    <i class="bi bi-hand-thumbs-up"></i>
-                    <span class="js-react-label">{% if post.user_reacted %}Reacted{% else %}React{% endif %}</span>
-                </button>
-            </form>
 
             <a href="https://www.facebook.com/sharer/sharer.php?u={{ post.share_url|urlencode }}"
                target="_blank"

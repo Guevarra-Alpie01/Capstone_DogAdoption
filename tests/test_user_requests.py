@@ -34,6 +34,28 @@ class UserDogSurrenderRequestTests(TestCase):
         self.assertNotContains(response, "Request Dog Capture")
         self.assertNotContains(response, "Walk-in Request (Office)")
 
+    def test_guest_can_view_request_page_but_submit_uses_login_modal_flow(self):
+        response = self.client.get(self.request_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Dog Surrender Form")
+        self.assertContains(response, 'data-auth-modal-trigger="login"', html=False)
+
+    def test_guest_request_submission_redirects_to_home_login_modal(self):
+        response = self.client.post(
+            self.request_url,
+            {
+                "phone_number": "09171234567",
+                "location_mode": "manual",
+                "barangay": "Bugay",
+                "city": "Bayawan City",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("auth_modal=login", response["Location"])
+        self.assertIn("next=%2Fuser%2Frequest%2F", response["Location"])
+
     def test_submission_forces_online_surrender_and_ignores_legacy_values(self):
         self.client.force_login(self.user)
 

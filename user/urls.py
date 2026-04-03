@@ -46,7 +46,6 @@ urlpatterns = [
     # Navigation 4/5: Announcement
     path('announcements/', views.announcement_list, name='announcement_list'),
     path('announcements/<announcementid:post_id>/', views.announcement_detail, name='announcement_detail'),
-    path('announcements/<announcementid:post_id>/react/', views.announcement_react, name='announcement_react'),
     path('announcements/<announcementid:post_id>/comment/', views.announcement_comment, name='announcement_comment'),
     path('announcements/share/<announcementid:post_id>/', views.announcement_share_preview, name='announcement_share_preview'),
 

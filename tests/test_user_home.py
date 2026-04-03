@@ -6,6 +6,7 @@ from urllib.parse import parse_qs, urlparse
 
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core import mail
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
@@ -14,7 +15,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from dogadoption_admin.models import DogAnnouncement, Post, PostImage
-from user.models import Profile
+from user.models import Profile, UserAdoptionPost
 
 
 class UserHomeFeedTests(TestCase):
@@ -187,6 +188,47 @@ class UserHomeFeedTests(TestCase):
             f'data-auth-next-url="{reverse("user:claim_confirm", args=[post.id])}?return_to=home"',
             html=False,
         )
+
+    def test_home_feed_excludes_admin_announcements_and_uses_date_only_headers(self):
+        staff_user = User.objects.create_user(
+            username="feedstaff",
+            password="secret123",
+            is_staff=True,
+        )
+        member = User.objects.create_user(
+            username="feedmember",
+            password="secret123",
+            first_name="Feed",
+            last_name="Member",
+        )
+        Post.objects.create(
+            user=staff_user,
+            caption="Visible Rescue Dog",
+            location="Bayawan",
+            claim_days=3,
+        )
+        UserAdoptionPost.objects.create(
+            owner=member,
+            dog_name="Friendly Pup",
+            location="Mabigo",
+            description="Healthy and ready for adoption.",
+        )
+        DogAnnouncement.objects.create(
+            title="Hidden Announcement",
+            content="Announcement content that should stay off the home feed.",
+            created_by=staff_user,
+        )
+        cache.clear()
+
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Visible Rescue Dog")
+        self.assertContains(response, "Friendly Pup")
+        self.assertNotContains(response, "Announcement content that should stay off the home feed.")
+        self.assertContains(response, 'class="post-author post-author--date-only"', html=False)
+        self.assertNotContains(response, "author-avatar-img", html=False)
+        self.assertNotContains(response, 'class="author-name"', html=False)
 
     def test_guest_claim_confirm_preserves_home_return_to_in_login_redirect(self):
         staff_user = User.objects.create_user(

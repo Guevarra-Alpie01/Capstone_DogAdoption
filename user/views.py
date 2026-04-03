@@ -2487,7 +2487,8 @@ def _build_user_home_context(
     query = _normalized_feed_query(request.GET.get("q"))
     feed_token = _resolve_home_feed_token(request, request.GET.get("feed_token"))
     page_number = request.GET.get("page", 1)
-    show_dogs_only = request.user.is_authenticated and not request.user.is_staff
+    # Keep home feed content focused on dog posts. Announcements live on their own page.
+    show_dogs_only = True
     mixed_rows = _build_random_home_rows(
         query,
         feed_token=feed_token,
@@ -2591,7 +2592,8 @@ def home_search(request):
 
     query = _normalized_search_query(request.GET.get("q"))
     search_performed = bool(query)
-    show_dogs_only = request.user.is_authenticated and not request.user.is_staff
+    # Search should mirror the home feed and exclude announcement cards.
+    show_dogs_only = True
     search_rows = _build_search_home_rows(
         query=query,
         dogs_only=show_dogs_only,

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_confirm.css' %}?v=20260325a">
+<link rel="stylesheet" href="{% static 'css/adopt_confirm.css' %}?v=20260403a">
 {% endblock %}
 {% block content %}
 <div class="adoption-review-page">
@@ -17,8 +17,44 @@
 
         <section class="adoption-review-section adoption-review-overview">
             <div class="adoption-review-copy">
-                <h2 class="adoption-review-section-title">{{ post.caption|default:"Dog Listing" }}</h2>
+                <h2 class="adoption-review-section-title">{{ post.display_title|default:"Dog Listing" }}</h2>
                 <div class="adoption-review-meta">
+                    {% if post.display_breed %}
+                        <div class="review-meta-card">
+                            <span class="review-meta-label">Breed</span>
+                            <span class="review-meta-value">{{ post.display_breed }}</span>
+                        </div>
+                    {% endif %}
+                    {% if post.display_age_group %}
+                        <div class="review-meta-card">
+                            <span class="review-meta-label">Age</span>
+                            <span class="review-meta-value">{{ post.display_age_group }}</span>
+                        </div>
+                    {% endif %}
+                    {% if post.display_size_group %}
+                        <div class="review-meta-card">
+                            <span class="review-meta-label">Size</span>
+                            <span class="review-meta-value">{{ post.display_size_group }}</span>
+                        </div>
+                    {% endif %}
+                    {% if post.gender %}
+                        <div class="review-meta-card">
+                            <span class="review-meta-label">Gender</span>
+                            <span class="review-meta-value">{{ post.get_gender_display }}</span>
+                        </div>
+                    {% endif %}
+                    {% if post.display_coat_length %}
+                        <div class="review-meta-card">
+                            <span class="review-meta-label">Coat</span>
+                            <span class="review-meta-value">{{ post.display_coat_length }}</span>
+                        </div>
+                    {% endif %}
+                    {% if post.display_colors %}
+                        <div class="review-meta-card">
+                            <span class="review-meta-label">Color</span>
+                            <span class="review-meta-value">{{ post.display_colors }}</span>
+                        </div>
+                    {% endif %}
                     {% if post.location %}
                         <div class="review-meta-card">
                             <span class="review-meta-label">Location</span>
@@ -41,7 +77,7 @@
                     <div class="adoption-review-photos">
                         {% for image in post.images.all %}
                             <img src="{{ image.image.url }}"
-                                 alt="{{ post.caption|default:'Dog photo' }}"
+                                 alt="{{ post.display_title|default:'Dog photo' }}"
                                  width="112"
                                  height="112">
                         {% endfor %}

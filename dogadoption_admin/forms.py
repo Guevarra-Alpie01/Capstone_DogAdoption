@@ -11,12 +11,33 @@ from .models import Barangay, Citation, Penalty, PenaltySection, Post, StaffAcce
 
 class PostForm(forms.ModelForm):
 
-    caption = forms.CharField(
-        label="Dog Name",
+    breed = forms.ChoiceField(
+        label="Breed",
+        required=True,
+        choices=[("", "Select breed"), *Post.BREED_CHOICES],
+        widget=forms.Select(),
+    )
+
+    breed_other = forms.CharField(
+        label="Other Breed",
         required=False,
         widget=forms.TextInput(attrs={
-            'placeholder': 'Enter dog name'
+            'placeholder': 'Enter breed',
         })
+    )
+
+    age_group = forms.ChoiceField(
+        label="Age",
+        required=True,
+        choices=[("", "Select age range"), *Post.AGE_GROUP_CHOICES],
+        widget=forms.Select(),
+    )
+
+    size_group = forms.ChoiceField(
+        label="Size",
+        required=True,
+        choices=[("", "Select size"), *Post.SIZE_GROUP_CHOICES],
+        widget=forms.Select(),
     )
 
     rescued_date = forms.DateField(
@@ -25,9 +46,31 @@ class PostForm(forms.ModelForm):
     )
 
     gender = forms.ChoiceField(
-        required=False,
-        choices=[("", "Gender (Optional)"), *Post.GENDER_CHOICES],
+        required=True,
+        choices=[("", "Select gender"), *Post.GENDER_CHOICES],
         widget=forms.Select(),
+    )
+
+    coat_length = forms.ChoiceField(
+        label="Coat Length",
+        required=True,
+        choices=[("", "Select coat length"), *Post.COAT_LENGTH_CHOICES],
+        widget=forms.Select(),
+    )
+
+    colors = forms.MultipleChoiceField(
+        label="Color",
+        required=True,
+        choices=Post.COLOR_CHOICES,
+        widget=forms.CheckboxSelectMultiple(),
+    )
+
+    color_other = forms.CharField(
+        label="Other Color",
+        required=False,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Enter other color',
+        })
     )
 
     location = forms.CharField(
@@ -55,8 +98,14 @@ class PostForm(forms.ModelForm):
     class Meta:
         model = Post
         fields = [
-            'caption',
+            'breed',
+            'breed_other',
+            'age_group',
+            'size_group',
             'gender',
+            'coat_length',
+            'colors',
+            'color_other',
             'location',
             'rescued_date',
             'claim_days',
@@ -65,8 +114,13 @@ class PostForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field_name, css_class in {
-            "caption": "form-control",
+            "breed": "form-select",
+            "breed_other": "form-control",
+            "age_group": "form-select",
+            "size_group": "form-select",
             "gender": "form-select",
+            "coat_length": "form-select",
+            "color_other": "form-control",
             "location": "form-control",
             "rescued_date": "form-control",
             "claim_days": "form-control",
@@ -74,6 +128,9 @@ class PostForm(forms.ModelForm):
             existing = self.fields[field_name].widget.attrs.get("class", "")
             merged = f"{existing} {css_class}".strip()
             self.fields[field_name].widget.attrs["class"] = merged
+        self.fields["colors"].widget.attrs["class"] = "post-checkbox-grid"
+        if self.instance.pk and self.instance.colors:
+            self.initial["colors"] = list(self.instance.colors)
 
     def clean_location(self):
         value = " ".join((self.cleaned_data.get("location") or "").split()).strip()
@@ -86,6 +143,42 @@ class PostForm(forms.ModelForm):
                 return name
 
         raise forms.ValidationError("Please select a valid barangay from the suggestions.")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        breed = cleaned_data.get("breed") or ""
+        breed_other = " ".join((cleaned_data.get("breed_other") or "").split()).strip()
+        colors = list(dict.fromkeys(cleaned_data.get("colors") or []))
+        color_other = " ".join((cleaned_data.get("color_other") or "").split()).strip()
+
+        if breed == Post.BREED_OTHER and not breed_other:
+            self.add_error("breed_other", "Enter the breed when Other is selected.")
+        elif breed != Post.BREED_OTHER:
+            cleaned_data["breed_other"] = ""
+
+        if Post.COLOR_OTHER in colors and not color_other:
+            self.add_error("color_other", "Enter the color when Other is selected.")
+        elif Post.COLOR_OTHER not in colors:
+            cleaned_data["color_other"] = ""
+
+        cleaned_data["colors"] = colors
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.colors = self.cleaned_data.get("colors") or []
+
+        breed = self.cleaned_data.get("breed") or ""
+        breed_other = self.cleaned_data.get("breed_other") or ""
+        if breed == Post.BREED_OTHER:
+            instance.caption = breed_other or "Other"
+        else:
+            instance.caption = dict(Post.BREED_CHOICES).get(breed, instance.caption or "")
+
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
 class CitationForm(forms.ModelForm):
     owner = forms.ModelChoiceField(
         queryset=User.objects.filter(is_staff=False).order_by('username'),

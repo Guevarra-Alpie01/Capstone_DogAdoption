@@ -2,21 +2,82 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/admin_home/create_post.css' %}?v=20260330a">
+<link rel="stylesheet" href="{% static 'css/admin_home/create_post.css' %}?v=20260403a">
 
 <div class="form-shell">
     <form method="POST" enctype="multipart/form-data" class="post-form" id="create-post-form">
         {% csrf_token %}
 
         <div class="form-grid">
-            <div class="form-group full">
-                <label for="{{ post_form.caption.id_for_label }}">Dog Name</label>
-                {{ post_form.caption }}
+            <div class="form-group">
+                <label for="{{ post_form.breed.id_for_label }}">Breed</label>
+                {{ post_form.breed }}
+                {% if post_form.breed.errors %}
+                    <div class="text-danger small mt-1">{{ post_form.breed.errors|join:", " }}</div>
+                {% endif %}
             </div>
 
             <div class="form-group">
-                <label for="{{ post_form.gender.id_for_label }}">Gender <span class="field-optional">(Optional)</span></label>
+                <label for="{{ post_form.age_group.id_for_label }}">Age</label>
+                {{ post_form.age_group }}
+                {% if post_form.age_group.errors %}
+                    <div class="text-danger small mt-1">{{ post_form.age_group.errors|join:", " }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group" id="breedOtherGroup" {% if post_form.breed.value != 'other' and not post_form.breed_other.value %}hidden{% endif %}>
+                <label for="{{ post_form.breed_other.id_for_label }}">Other Breed</label>
+                {{ post_form.breed_other }}
+                {% if post_form.breed_other.errors %}
+                    <div class="text-danger small mt-1">{{ post_form.breed_other.errors|join:", " }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ post_form.size_group.id_for_label }}">Size</label>
+                {{ post_form.size_group }}
+                {% if post_form.size_group.errors %}
+                    <div class="text-danger small mt-1">{{ post_form.size_group.errors|join:", " }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ post_form.gender.id_for_label }}">Gender</label>
                 {{ post_form.gender }}
+                {% if post_form.gender.errors %}
+                    <div class="text-danger small mt-1">{{ post_form.gender.errors|join:", " }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ post_form.coat_length.id_for_label }}">Coat Length</label>
+                {{ post_form.coat_length }}
+                {% if post_form.coat_length.errors %}
+                    <div class="text-danger small mt-1">{{ post_form.coat_length.errors|join:", " }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group full">
+                <label>Color</label>
+                <div class="post-checkbox-options" id="postColorOptions">
+                    {% for checkbox in post_form.colors %}
+                        <label class="post-checkbox-option">
+                            {{ checkbox.tag }}
+                            <span>{{ checkbox.choice_label }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+                {% if post_form.colors.errors %}
+                    <div class="text-danger small mt-1">{{ post_form.colors.errors|join:", " }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group full" id="colorOtherGroup" {% if not post_form.color_other.value and not post_form.color_other.errors %}hidden{% endif %}>
+                <label for="{{ post_form.color_other.id_for_label }}">Other Color</label>
+                {{ post_form.color_other }}
+                {% if post_form.color_other.errors %}
+                    <div class="text-danger small mt-1">{{ post_form.color_other.errors|join:", " }}</div>
+                {% endif %}
             </div>
 
             <div class="form-group location-group">
@@ -80,11 +141,37 @@
 
 <script>
     const claimDaysInput = document.getElementById("{{ post_form.claim_days.id_for_label }}");
+    const breedSelect = document.getElementById("{{ post_form.breed.id_for_label }}");
+    const breedOtherGroup = document.getElementById("breedOtherGroup");
+    const colorOtherGroup = document.getElementById("colorOtherGroup");
+    const colorOptionInputs = document.querySelectorAll("#postColorOptions input[type='checkbox']");
     const form = document.getElementById("create-post-form");
     const claimDaysStorageKey = "admin_create_post_claim_days";
     const publishConfirmModalEl = document.getElementById("publishConfirmModal");
     const publishConfirmSubmitBtn = document.getElementById("publishConfirmSubmit");
     let publishConfirmed = false;
+
+    function toggleFieldGroup(group, shouldShow) {
+        if (!group) {
+            return;
+        }
+        group.hidden = !shouldShow;
+    }
+
+    function syncBreedOther() {
+        if (!breedSelect) {
+            return;
+        }
+        toggleFieldGroup(breedOtherGroup, breedSelect.value === "other");
+    }
+
+    function syncColorOther() {
+        if (!colorOptionInputs.length) {
+            return;
+        }
+        const showOtherColor = Array.from(colorOptionInputs).some((input) => input.value === "other" && input.checked);
+        toggleFieldGroup(colorOtherGroup, showOtherColor);
+    }
 
     if (claimDaysInput) {
         const savedClaimDays = window.localStorage.getItem(claimDaysStorageKey);
@@ -100,6 +187,18 @@
                 window.localStorage.removeItem(claimDaysStorageKey);
             }
         });
+    }
+
+    if (breedSelect) {
+        breedSelect.addEventListener("change", syncBreedOther);
+        syncBreedOther();
+    }
+
+    if (colorOptionInputs.length) {
+        colorOptionInputs.forEach((input) => {
+            input.addEventListener("change", syncColorOther);
+        });
+        syncColorOther();
     }
 
     if (form) {

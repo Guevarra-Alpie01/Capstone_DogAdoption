@@ -8,9 +8,67 @@ from django.utils import timezone
 
 class Post(models.Model):
     ADOPTION_DAYS = 3
+    BREED_OTHER = "other"
+    COLOR_OTHER = "other"
+
+    BREED_CHOICES = [
+        ("aspin", "Aspin / Mixed Local Breed"),
+        ("beagle", "Beagle"),
+        ("chihuahua", "Chihuahua"),
+        ("dachshund", "Dachshund"),
+        ("french_bulldog", "French Bulldog"),
+        ("german_shepherd", "German Shepherd"),
+        ("golden_retriever", "Golden Retriever"),
+        ("husky", "Siberian Husky"),
+        ("labrador", "Labrador Retriever"),
+        ("pomeranian", "Pomeranian"),
+        ("poodle", "Poodle"),
+        ("rottweiler", "Rottweiler"),
+        ("shih_tzu", "Shih Tzu"),
+        (BREED_OTHER, "Other"),
+    ]
+
+    AGE_GROUP_CHOICES = [
+        ("puppy", "Puppy (< 1 year)"),
+        ("young", "Young (1-3 years)"),
+        ("adult", "Adult (3-8 years)"),
+        ("senior", "Senior (8+ years)"),
+    ]
+
+    SIZE_GROUP_CHOICES = [
+        ("small", "Small (up to 25 lbs)"),
+        ("medium", "Medium (26-60 lbs)"),
+        ("large", "Large (61-100 lbs)"),
+        ("x_large", "X-Large (> 100 lbs)"),
+    ]
+
     GENDER_CHOICES = [
         ("male", "Male"),
         ("female", "Female"),
+    ]
+
+    COAT_LENGTH_CHOICES = [
+        ("short", "Short"),
+        ("medium", "Medium"),
+        ("long", "Long"),
+        ("wire", "Wire"),
+        ("hairless", "Hairless"),
+        ("curly", "Curly"),
+    ]
+
+    COLOR_CHOICES = [
+        ("black", "Black"),
+        ("white", "White"),
+        ("brown", "Brown"),
+        ("tan", "Tan"),
+        ("cream", "Cream"),
+        ("gold", "Gold"),
+        ("gray", "Gray"),
+        ("red", "Red"),
+        ("brindle", "Brindle"),
+        ("merle", "Merle"),
+        ("tricolor", "Tricolor"),
+        (COLOR_OTHER, "Other"),
     ]
 
     STATUS_CHOICES = [
@@ -22,7 +80,14 @@ class Post(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     caption = models.TextField()
+    breed = models.CharField(max_length=40, choices=BREED_CHOICES, blank=True, default="")
+    breed_other = models.CharField(max_length=100, blank=True, default="")
+    age_group = models.CharField(max_length=20, choices=AGE_GROUP_CHOICES, blank=True, default="")
+    size_group = models.CharField(max_length=20, choices=SIZE_GROUP_CHOICES, blank=True, default="")
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, default="")
+    coat_length = models.CharField(max_length=20, choices=COAT_LENGTH_CHOICES, blank=True, default="")
+    colors = models.JSONField(blank=True, default=list)
+    color_other = models.CharField(max_length=100, blank=True, default="")
     location = models.CharField(max_length=255, blank=True, null=True)
 
     status = models.CharField(
@@ -45,6 +110,58 @@ class Post(models.Model):
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @staticmethod
+    def _clean_text(value):
+        return " ".join((value or "").split()).strip()
+
+    @property
+    def display_breed(self):
+        if self.breed == self.BREED_OTHER:
+            return self._clean_text(self.breed_other) or "Other"
+        if self.breed:
+            return self.get_breed_display()
+        return self._clean_text(self.caption)
+
+    @property
+    def display_age_group(self):
+        return self.get_age_group_display() if self.age_group else ""
+
+    @property
+    def display_size_group(self):
+        return self.get_size_group_display() if self.size_group else ""
+
+    @property
+    def display_coat_length(self):
+        return self.get_coat_length_display() if self.coat_length else ""
+
+    @property
+    def display_color_list(self):
+        raw_colors = self.colors or []
+        if isinstance(raw_colors, str):
+            raw_colors = [raw_colors]
+        color_labels = []
+        choice_map = dict(self.COLOR_CHOICES)
+        for value in raw_colors:
+            if value == self.COLOR_OTHER:
+                other_label = self._clean_text(self.color_other)
+                if other_label:
+                    color_labels.append(other_label)
+                elif "Other" not in color_labels:
+                    color_labels.append("Other")
+                continue
+            label = choice_map.get(value)
+            if label and label not in color_labels:
+                color_labels.append(label)
+        return color_labels
+
+    @property
+    def display_colors(self):
+        return ", ".join(self.display_color_list)
+
+    @property
+    def display_title(self):
+        return self.display_breed or self._clean_text(self.caption) or "Dog Listing"
 
     def claim_deadline(self):
         """Deadline for owner claim window."""
@@ -107,6 +224,16 @@ class Post(models.Model):
     # Optional alias
     def is_open_for_claim_adopt(self):
         return self.current_phase() in ['claim', 'adopt']
+
+    def save(self, *args, **kwargs):
+        if not isinstance(self.colors, list):
+            self.colors = [self.colors] if self.colors else []
+        breed_label = self.display_breed
+        if breed_label:
+            self.caption = breed_label
+        elif self.caption is None:
+            self.caption = ""
+        super().save(*args, **kwargs)
 
     class Meta:
         indexes = [

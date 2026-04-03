@@ -1954,7 +1954,9 @@ def _hydrate_home_feed_items(request, feed_rows):
         for post in Post.objects.select_related(
             "user", "user__profile"
         ).only(
-            "id", "caption", "gender", "location", "status", "rescued_date", "created_at", "claim_days",
+            "id", "caption", "breed", "breed_other", "age_group", "size_group", "gender",
+            "coat_length", "colors", "color_other", "location", "status", "rescued_date",
+            "created_at", "claim_days",
             "user__id", "user__username", "user__first_name", "user__last_name",
             "user__profile__profile_image",
         ).prefetch_related(

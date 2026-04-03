@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260330a">
+<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260403a">
 
 <div class="post-toolbar-shell">
     <div class="post-toolbar">
@@ -56,19 +56,74 @@
                         {% csrf_token %}
                         <input type="hidden" name="form_type" value="create_post">
                         <div class="form-grid">
-                            <div class="form-group full">
-                                <label for="{{ post_form.caption.id_for_label }}">Dog Name</label>
-                                {{ post_form.caption }}
-                                {% if post_form.caption.errors %}
-                                    <div class="text-danger small mt-1">{{ post_form.caption.errors|join:", " }}</div>
+                            <div class="form-group">
+                                <label for="{{ post_form.breed.id_for_label }}">Breed</label>
+                                {{ post_form.breed }}
+                                {% if post_form.breed.errors %}
+                                    <div class="text-danger small mt-1">{{ post_form.breed.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="form-group" id="breedOtherGroup" {% if post_form.breed.value != 'other' and not post_form.breed_other.value %}hidden{% endif %}>
+                                <label for="{{ post_form.breed_other.id_for_label }}">Other Breed</label>
+                                {{ post_form.breed_other }}
+                                {% if post_form.breed_other.errors %}
+                                    <div class="text-danger small mt-1">{{ post_form.breed_other.errors|join:", " }}</div>
                                 {% endif %}
                             </div>
 
                             <div class="form-group">
-                                <label for="{{ post_form.gender.id_for_label }}">Gender <span class="field-optional">(Optional)</span></label>
+                                <label for="{{ post_form.age_group.id_for_label }}">Age</label>
+                                {{ post_form.age_group }}
+                                {% if post_form.age_group.errors %}
+                                    <div class="text-danger small mt-1">{{ post_form.age_group.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="form-group">
+                                <label for="{{ post_form.size_group.id_for_label }}">Size</label>
+                                {{ post_form.size_group }}
+                                {% if post_form.size_group.errors %}
+                                    <div class="text-danger small mt-1">{{ post_form.size_group.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="form-group">
+                                <label for="{{ post_form.gender.id_for_label }}">Gender</label>
                                 {{ post_form.gender }}
                                 {% if post_form.gender.errors %}
                                     <div class="text-danger small mt-1">{{ post_form.gender.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="form-group">
+                                <label for="{{ post_form.coat_length.id_for_label }}">Coat Length</label>
+                                {{ post_form.coat_length }}
+                                {% if post_form.coat_length.errors %}
+                                    <div class="text-danger small mt-1">{{ post_form.coat_length.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="form-group full">
+                                <label>Color</label>
+                                <div class="post-checkbox-options" id="postColorOptions">
+                                    {% for checkbox in post_form.colors %}
+                                        <label class="post-checkbox-option">
+                                            {{ checkbox.tag }}
+                                            <span>{{ checkbox.choice_label }}</span>
+                                        </label>
+                                    {% endfor %}
+                                </div>
+                                {% if post_form.colors.errors %}
+                                    <div class="text-danger small mt-1">{{ post_form.colors.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="form-group full" id="colorOtherGroup" {% if not post_form.color_other.value and not post_form.color_other.errors %}hidden{% endif %}>
+                                <label for="{{ post_form.color_other.id_for_label }}">Other Color</label>
+                                {{ post_form.color_other }}
+                                {% if post_form.color_other.errors %}
+                                    <div class="text-danger small mt-1">{{ post_form.color_other.errors|join:", " }}</div>
                                 {% endif %}
                             </div>
 
@@ -213,7 +268,7 @@
                         <table class="table table-sm status-mini-table mb-0">
                             <thead>
                                 <tr>
-                                    <th>Dog</th>
+                                    <th>Breed</th>
                                     <th>Barangay</th>
                                     <th>Time Left</th>
                                     <th>Requests</th>
@@ -224,7 +279,7 @@
                                 {% for item in claim_posts %}
                                     {% with post=item.post %}
                                     <tr>
-                                        <td>{{ post.caption|default:"Unnamed Dog" }}</td>
+                                        <td>{{ post.display_title|default:"Unlisted Breed" }}</td>
                                         <td>{{ post.location|default:"-" }}</td>
                                         <td>{{ item.time_left_label }}</td>
                                         <td>
@@ -275,7 +330,7 @@
                         <table class="table table-sm status-mini-table mb-0">
                             <thead>
                                 <tr>
-                                    <th>Dog</th>
+                                    <th>Breed</th>
                                     <th>Barangay</th>
                                     <th>Time Left</th>
                                     <th>Requests</th>
@@ -286,7 +341,7 @@
                                 {% for item in adoption_posts %}
                                     {% with post=item.post %}
                                     <tr>
-                                        <td>{{ post.caption|default:"Unnamed Dog" }}</td>
+                                        <td>{{ post.display_title|default:"Unlisted Breed" }}</td>
                                         <td>{{ post.location|default:"-" }}</td>
                                         <td>{{ item.time_left_label }}</td>
                                         <td>
@@ -337,7 +392,7 @@
                         <table class="table table-sm status-mini-table mb-0">
                             <thead>
                                 <tr>
-                                    <th>Dog</th>
+                                    <th>Breed</th>
                                     <th>Rescued Date</th>
                                     <th>Claimed By</th>
                                     <th>User Barangay</th>
@@ -348,7 +403,7 @@
                                 {% for item in reunited_posts %}
                                     {% with post=item.post %}
                                     <tr>
-                                        <td>{{ post.caption|default:"Unnamed Dog" }}</td>
+                                        <td>{{ post.display_title|default:"Unlisted Breed" }}</td>
                                         <td>{{ post.rescued_date|date:"M d, Y"|default:"-" }}</td>
                                         <td>{{ item.finalized_user_name|default:"-" }}</td>
                                         <td>{{ item.finalized_user_barangay|default:"-" }}</td>
@@ -395,7 +450,7 @@
                         <table class="table table-sm status-mini-table mb-0">
                             <thead>
                                 <tr>
-                                    <th>Dog</th>
+                                    <th>Breed</th>
                                     <th>Rescued Date</th>
                                     <th>Adopted By</th>
                                     <th>User Barangay</th>
@@ -406,7 +461,7 @@
                                 {% for item in adopted_posts %}
                                     {% with post=item.post %}
                                     <tr>
-                                        <td>{{ post.caption|default:"Unnamed Dog" }}</td>
+                                        <td>{{ post.display_title|default:"Unlisted Breed" }}</td>
                                         <td>{{ post.rescued_date|date:"M d, Y"|default:"-" }}</td>
                                         <td>{{ item.finalized_user_name|default:"-" }}</td>
                                         <td>{{ item.finalized_user_barangay|default:"-" }}</td>
@@ -451,7 +506,7 @@
         <div class="modal-dialog modal-dialog-centered post-detail-modal-dialog">
             <div class="modal-content post-detail-modal-card">
                 <div class="modal-header post-detail-modal-header">
-                    <h5 class="modal-title">{{ post.caption|default:"Dog Details" }}</h5>
+                    <h5 class="modal-title">{{ post.display_title|default:"Dog Details" }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body post-detail-modal-body">
@@ -467,12 +522,32 @@
                         {% endif %}
                         <div class="detail-grid">
                             <div class="detail-stat">
-                                <span class="detail-label">Rescued Date</span>
-                                <strong class="detail-value">{{ post.rescued_date|date:"M d, Y"|default:"-" }}</strong>
+                                <span class="detail-label">Breed</span>
+                                <strong class="detail-value">{{ post.display_breed|default:"-" }}</strong>
+                            </div>
+                            <div class="detail-stat">
+                                <span class="detail-label">Age</span>
+                                <strong class="detail-value">{{ post.display_age_group|default:"-" }}</strong>
+                            </div>
+                            <div class="detail-stat">
+                                <span class="detail-label">Size</span>
+                                <strong class="detail-value">{{ post.display_size_group|default:"-" }}</strong>
                             </div>
                             <div class="detail-stat">
                                 <span class="detail-label">Gender</span>
                                 <strong class="detail-value">{{ post.get_gender_display|default:"-" }}</strong>
+                            </div>
+                            <div class="detail-stat">
+                                <span class="detail-label">Coat Length</span>
+                                <strong class="detail-value">{{ post.display_coat_length|default:"-" }}</strong>
+                            </div>
+                            <div class="detail-stat">
+                                <span class="detail-label">Color</span>
+                                <strong class="detail-value">{{ post.display_colors|default:"-" }}</strong>
+                            </div>
+                            <div class="detail-stat">
+                                <span class="detail-label">Rescued Date</span>
+                                <strong class="detail-value">{{ post.rescued_date|date:"M d, Y"|default:"-" }}</strong>
                             </div>
                             <div class="detail-stat">
                                 <span class="detail-label">Barangay</span>
@@ -497,7 +572,7 @@
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Claim Requests - {{ post.caption|default:"Post" }}</h5>
+                    <h5 class="modal-title">Claim Requests - {{ post.display_title|default:"Post" }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -587,7 +662,7 @@
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Adoption Requests - {{ post.caption|default:"Post" }}</h5>
+                    <h5 class="modal-title">Adoption Requests - {{ post.display_title|default:"Post" }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -874,6 +949,10 @@
         const createPostModalEl = document.getElementById("createPostModal");
         const appointmentModalEl = document.getElementById("appointmentDateModal");
         const claimDaysInput = document.getElementById("{{ post_form.claim_days.id_for_label }}");
+        const breedSelect = document.getElementById("{{ post_form.breed.id_for_label }}");
+        const breedOtherGroup = document.getElementById("breedOtherGroup");
+        const colorOtherGroup = document.getElementById("colorOtherGroup");
+        const colorOptionInputs = document.querySelectorAll("#postColorOptions input[type='checkbox']");
         const form = document.getElementById("create-post-form");
         const appointmentFormEl = document.getElementById("appointmentForm");
         const publishConfirmModalEl = document.getElementById("createPostPublishConfirmModal");
@@ -885,6 +964,28 @@
         const shouldOpenAppointmentModal = {{ show_appointment_modal|yesno:"true,false" }};
         let publishConfirmed = false;
         let appointmentConfirmed = false;
+
+        function toggleFieldGroup(group, shouldShow) {
+            if (!group) {
+                return;
+            }
+            group.hidden = !shouldShow;
+        }
+
+        function syncBreedOther() {
+            if (!breedSelect) {
+                return;
+            }
+            toggleFieldGroup(breedOtherGroup, breedSelect.value === "other");
+        }
+
+        function syncColorOther() {
+            if (!colorOptionInputs.length) {
+                return;
+            }
+            const showOtherColor = Array.from(colorOptionInputs).some((input) => input.value === "other" && input.checked);
+            toggleFieldGroup(colorOtherGroup, showOtherColor);
+        }
 
         if (claimDaysInput) {
             const savedClaimDays = safeStorageGet(claimDaysStorageKey);
@@ -900,6 +1001,18 @@
                     safeStorageRemove(claimDaysStorageKey);
                 }
             });
+        }
+
+        if (breedSelect) {
+            breedSelect.addEventListener("change", syncBreedOther);
+            syncBreedOther();
+        }
+
+        if (colorOptionInputs.length) {
+            colorOptionInputs.forEach((input) => {
+                input.addEventListener("change", syncColorOther);
+            });
+            syncColorOther();
         }
 
         if (form) {

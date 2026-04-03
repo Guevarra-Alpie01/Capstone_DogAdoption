@@ -55,12 +55,12 @@
                         <article class="post-card">
                             <div class="post-card-media">
                                 {% if item.main_image_url %}
-                                <a href="{{ item.main_image_url }}" class="post-card-media-link js-adopt-list-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ post.caption|default:'Dog image' }}" aria-label="View full image">
-                                    <img src="{{ item.main_image_url }}" width="280" height="220" alt="{{ post.caption|default:'Dog image' }}">
+                                <a href="{{ item.main_image_url }}" class="post-card-media-link js-adopt-list-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ post.display_title|default:'Dog image' }}" aria-label="View full image">
+                                    <img src="{{ item.main_image_url }}" width="280" height="220" alt="{{ post.display_title|default:'Dog image' }}">
                                 </a>
                                 {% else %}
                                 <div class="post-card-placeholder">
-                                    <span>{{ post.caption|default:'Dog'|slice:':1'|upper }}</span>
+                                    <span>{{ post.display_title|default:'Dog'|slice:':1'|upper }}</span>
                                     <small>No Photo</small>
                                 </div>
                                 {% endif %}
@@ -70,7 +70,7 @@
                                 <div class="post-card-heading">
                                     <div class="post-card-title-group">
                                         <span class="post-source-badge">Staff Post</span>
-                                        <h3 class="post-card-title">{{ post.caption|default:"Adoption Post" }}</h3>
+                                        <h3 class="post-card-title">{{ post.display_title|default:"Adoption Post" }}</h3>
                                     </div>
                                     {% if item.phase == 'adopt' %}
                                     <span class="status-tag status-open">Open</span>
@@ -88,15 +88,21 @@
                                         <span class="post-fact-value">{{ post.get_gender_display }}</span>
                                     </div>
                                     {% endif %}
-                                    {% if post.age %}
+                                    {% if post.display_age_group %}
                                     <div class="post-fact">
                                         <span class="post-fact-label">Age</span>
-                                        <span class="post-fact-value">{{ post.age }}</span>
+                                        <span class="post-fact-value">{{ post.display_age_group }}</span>
+                                    </div>
+                                    {% endif %}
+                                    {% if post.display_size_group %}
+                                    <div class="post-fact">
+                                        <span class="post-fact-label">Size</span>
+                                        <span class="post-fact-value">{{ post.display_size_group }}</span>
                                     </div>
                                     {% endif %}
                                     <div class="post-fact">
                                         <span class="post-fact-label">Location</span>
-                                        <span class="post-fact-value">{{ post.location }}</span>
+                                        <span class="post-fact-value">{{ post.location|default:"-" }}</span>
                                     </div>
                                     <div class="post-fact {% if item.phase == 'adopt' %}post-fact-highlight{% endif %}">
                                         <span class="post-fact-label">{% if item.phase == 'adopt' %}Time Left{% else %}Status{% endif %}</span>
@@ -111,6 +117,14 @@
                                         </span>
                                     </div>
                                 </div>
+
+                                {% if post.display_coat_length or post.display_colors or post.rescued_date %}
+                                <p class="post-card-note">
+                                    {% if post.display_coat_length %}<strong>Coat:</strong> {{ post.display_coat_length }}<br>{% endif %}
+                                    {% if post.display_colors %}<strong>Color:</strong> {{ post.display_colors }}<br>{% endif %}
+                                    {% if post.rescued_date %}<strong>Rescued:</strong> {{ post.rescued_date|date:"M d, Y" }}{% endif %}
+                                </p>
+                                {% endif %}
 
                                 <div class="post-card-footer">
                                     {% if item.phase == 'adopt' %}
@@ -239,12 +253,12 @@
                 <article class="post-card">
                     <div class="post-card-media">
                         {% if item.main_image_url %}
-                        <a href="{{ item.main_image_url }}" class="post-card-media-link js-adopt-list-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ post.caption|default:'Dog image' }}" aria-label="View full image">
-                            <img src="{{ item.main_image_url }}" width="280" height="220" alt="{{ post.caption|default:'Dog image' }}">
+                        <a href="{{ item.main_image_url }}" class="post-card-media-link js-adopt-list-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ post.display_title|default:'Dog image' }}" aria-label="View full image">
+                            <img src="{{ item.main_image_url }}" width="280" height="220" alt="{{ post.display_title|default:'Dog image' }}">
                         </a>
                         {% else %}
                         <div class="post-card-placeholder">
-                            <span>{{ post.caption|default:'Dog'|slice:':1'|upper }}</span>
+                            <span>{{ post.display_title|default:'Dog'|slice:':1'|upper }}</span>
                             <small>No Photo</small>
                         </div>
                         {% endif %}
@@ -253,7 +267,7 @@
                     <div class="post-card-content">
                         <div class="post-card-heading">
                             <div class="post-card-title-group">
-                                <h3 class="post-card-title">{{ post.caption|default:"Dog Post" }}</h3>
+                                <h3 class="post-card-title">{{ post.display_title|default:"Dog Post" }}</h3>
                             </div>
                             {% if listing_mode == 'claim' and item.phase == 'claim' %}
                             <span class="status-tag status-open">Open</span>
@@ -269,9 +283,27 @@
                         </div>
 
                         <div class="post-card-facts">
+                            {% if post.display_age_group %}
+                            <div class="post-fact">
+                                <span class="post-fact-label">Age</span>
+                                <span class="post-fact-value">{{ post.display_age_group }}</span>
+                            </div>
+                            {% endif %}
+                            {% if post.display_size_group %}
+                            <div class="post-fact">
+                                <span class="post-fact-label">Size</span>
+                                <span class="post-fact-value">{{ post.display_size_group }}</span>
+                            </div>
+                            {% endif %}
+                            {% if post.gender %}
+                            <div class="post-fact">
+                                <span class="post-fact-label">Gender</span>
+                                <span class="post-fact-value">{{ post.get_gender_display }}</span>
+                            </div>
+                            {% endif %}
                             <div class="post-fact">
                                 <span class="post-fact-label">Location</span>
-                                <span class="post-fact-value">{{ post.location }}</span>
+                                <span class="post-fact-value">{{ post.location|default:"-" }}</span>
                             </div>
                             <div class="post-fact {% if item.phase == 'claim' or item.phase == 'adopt' %}post-fact-highlight{% endif %}">
                                 <span class="post-fact-label">
@@ -298,6 +330,14 @@
                                 </span>
                             </div>
                         </div>
+
+                        {% if post.display_coat_length or post.display_colors or post.rescued_date %}
+                        <p class="post-card-note">
+                            {% if post.display_coat_length %}<strong>Coat:</strong> {{ post.display_coat_length }}<br>{% endif %}
+                            {% if post.display_colors %}<strong>Color:</strong> {{ post.display_colors }}<br>{% endif %}
+                            {% if post.rescued_date %}<strong>Rescued:</strong> {{ post.rescued_date|date:"M d, Y" }}{% endif %}
+                        </p>
+                        {% endif %}
 
                         <div class="post-card-footer">
                             {% if listing_mode == 'claim' and item.phase == 'claim' %}

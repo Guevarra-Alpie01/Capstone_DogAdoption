@@ -64,6 +64,48 @@ class UserDogSurrenderRequestTests(TestCase):
         self.assertEqual(request_record.manual_full_address, "Purok 1")
         self.assertEqual(request_record.description, "Needs safe turnover.")
 
+    def test_exact_submission_requires_good_gps_accuracy(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            self.request_url,
+            {
+                "phone_number": "09171234567",
+                "location_mode": "exact",
+                "latitude": "9.123456",
+                "longitude": "122.654321",
+                "gps_accuracy": "80",
+                "reason": "stray",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(DogCaptureRequest.objects.filter(requested_by=self.user).exists())
+        self.assertContains(response, "35 meters or better")
+
+    def test_exact_submission_saves_coordinates_when_accuracy_is_good(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            self.request_url,
+            {
+                "phone_number": "09171234567",
+                "location_mode": "exact",
+                "latitude": "9.123456",
+                "longitude": "122.654321",
+                "gps_accuracy": "12",
+                "reason": "stray",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        request_record = DogCaptureRequest.objects.get(requested_by=self.user)
+        self.assertEqual(str(request_record.latitude), "9.123456")
+        self.assertEqual(str(request_record.longitude), "122.654321")
+        self.assertEqual(request_record.submission_type, "online")
+
     def test_edit_forces_online_surrender_and_clears_old_appointment_data(self):
         request_record = DogCaptureRequest.objects.create(
             requested_by=self.user,

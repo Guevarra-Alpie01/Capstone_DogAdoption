@@ -62,11 +62,12 @@ class DogCaptureRequest(models.Model):
     request_type = models.CharField(
         max_length=20,
         choices=REQUEST_TYPE_CHOICES,
-        default="capture",
+        default="surrender",
     )
     submission_type = models.CharField(
         max_length=20,
         choices=SUBMISSION_TYPE_CHOICES,
+        default="online",
         null=True,
         blank=True,
     )

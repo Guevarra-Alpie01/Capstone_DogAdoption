@@ -14,7 +14,7 @@
 
     <div class="card request-wizard-card">
         <div class="request-hero">
-            <span class="request-eyebrow">Dog Request Form</span>
+            <span class="request-eyebrow">Dog Surrender Form</span>
             <button
                 type="button"
                 class="request-history-trigger"
@@ -38,20 +38,18 @@
         <div class="step-indicator" aria-label="Request progress">
             <div class="step-dot active" data-step-dot="1">
                 <span class="step-dot-number">1</span>
-                <span class="step-dot-label">Request</span>
+                <span class="step-dot-label">Photo</span>
             </div>
             <div class="step-dot" data-step-dot="2">
                 <span class="step-dot-number">2</span>
-                <span class="step-dot-label">Submission</span>
-            </div>
-            <div class="step-dot" data-step-dot="3">
-                <span class="step-dot-number">3</span>
                 <span class="step-dot-label">Details</span>
             </div>
         </div>
 
         <form method="POST" enctype="multipart/form-data" class="capture-form" id="captureForm" novalidate>
             {% csrf_token %}
+            <input type="hidden" name="request_type" value="surrender">
+            <input type="hidden" name="submission_type" value="online">
 
             <div class="step-panel" data-step="1">
                 <div class="step-panel-header">
@@ -60,44 +58,25 @@
                     </div>
                     <div>
                         <p class="step-kicker">Step 1</p>
-                        <h3 id="step1Title">Choose request type and add proof</h3>
+                        <h3 id="step1Title">Add a photo of the dog</h3>
                         <p class="step-description" id="step1Description">
-                            For dog capture, attach capture proof such as a clear dog photo or a barangay letter requesting dog capture. Proof is required to continue.
+                            Upload or take a photo of the dog being surrendered. This is optional, but it helps the shelter team prepare.
                         </p>
                     </div>
-                </div>
-
-                <div class="request-choice-grid" role="radiogroup" aria-label="Request type">
-                    <label class="request-choice-card">
-                        <input type="radio" name="request_type" value="capture" checked>
-                        <span class="request-choice-icon"><i class="bi bi-megaphone-fill" aria-hidden="true"></i></span>
-                        <span class="request-choice-copy">
-                            <strong>Request Dog Capture</strong>
-                            <small id="captureRequestTypeHint">Attach a dog photo or barangay request letter.</small>
-                        </span>
-                    </label>
-                    <label class="request-choice-card">
-                        <input type="radio" name="request_type" value="surrender">
-                        <span class="request-choice-icon"><i class="bi bi-house-heart-fill" aria-hidden="true"></i></span>
-                        <span class="request-choice-copy">
-                            <strong>Request Dog Surrender</strong>
-                            <small>Owner will surrender the dog to the shelter.</small>
-                        </span>
-                    </label>
                 </div>
 
                 <div class="capture-choice" role="group" aria-label="Photo options">
                     <button type="button" class="btn-secondary capture-action-btn" id="openUploadPickerBtn">
                         <i class="bi bi-upload" aria-hidden="true"></i>
-                        <span id="uploadActionLabel">Upload Proof</span>
+                        <span id="uploadActionLabel">Upload Photo</span>
                     </button>
                     <button type="button" class="btn-primary capture-action-btn" id="openCameraExperienceBtn">
                         <i class="bi bi-camera2" aria-hidden="true"></i>
-                        <span id="cameraActionLabel">Take Proof</span>
+                        <span id="cameraActionLabel">Take Photo</span>
                     </button>
                 </div>
                 <p class="helper-text capture-helper-note" id="step1HelperNote">
-                    Required for dog capture.
+                    Optional, but recommended.
                 </p>
 
                 <input type="file" name="images" id="imageInput" class="photo-input-hidden" accept="image/*" multiple>
@@ -139,46 +118,17 @@
                     <div id="photoSummaryList" class="photo-summary-list"></div>
                 </div>
             </div>
+            {% comment %}
 
-            <div class="step-panel" data-step="2" hidden>
-                <div class="step-panel-header">
-                    <div class="step-panel-icon">
-                        <i class="bi bi-signpost-split-fill" aria-hidden="true"></i>
-                    </div>
-                    <div>
-                        <p class="step-kicker">Step 2</p>
-                        <h3>Choose how the request will be submitted</h3>
-                    </div>
-                </div>
-
-                <div class="request-choice-grid" role="radiogroup" aria-label="Submission type">
-                        <label class="request-choice-card">
-                            <input type="radio" name="submission_type" value="walk_in">
-                            <span class="request-choice-icon"><i class="bi bi-building" aria-hidden="true"></i></span>
-                            <span class="request-choice-copy">
-                                <strong>Walk-in Request (Office)</strong>
-                                <small>Visit the office and choose an available appointment date to confirm the request.</small>
-                            </span>
-                        </label>
-                        <label class="request-choice-card">
-                            <input type="radio" name="submission_type" value="online">
-                            <span class="request-choice-icon"><i class="bi bi-broadcast-pin" aria-hidden="true"></i></span>
-                            <span class="request-choice-copy">
-                                <strong>Online Request</strong>
                                 <small>Submit online and share the dog’s location so the dog catcher can be dispatched.</small>
-                            </span>
-                        </label>
-                </div>
-
-            </div>
-
-            <div class="step-panel" data-step="3" hidden>
+            {% endcomment %}
+            <div class="step-panel" data-step="2" hidden>
                 <div class="step-panel-header">
                     <div class="step-panel-icon">
                         <i class="bi bi-ui-checks-grid" aria-hidden="true"></i>
                     </div>
                     <div>
-                        <p class="step-kicker">Step 3</p>
+                        <p class="step-kicker">Step 2</p>
                         <h3>Contact information and request details</h3>
                     </div>
                 </div>
@@ -206,19 +156,7 @@
                     </div>
                 </div>
 
-                <div id="walkInDetailsSection" class="request-detail-branch" hidden>
-                    <div class="location-card request-appointment-box">
-                        <div class="location-card-head">
-                            <div>
-                                <h4>Select Available Date</h4>
-                                <p>This uses the same appointment schedule managed by the admin.</p>
-                            </div>
-                        </div>
-                        {% include 'partials/appointment_picker.html' with submit_btn_id='submitBtn' %}
-                    </div>
-                </div>
-
-                <div id="onlineDetailsSection" class="request-detail-branch" hidden>
+                <div id="onlineDetailsSection" class="request-detail-branch">
                     <div class="location-mode">
                         <label class="location-mode-card">
                             <input type="radio" name="location_mode" value="exact" checked>
@@ -320,7 +258,7 @@
 
                 <input type="hidden" name="reason" value="stray">
 
-                <div id="surrenderDetailsSection" class="request-detail-branch" hidden>
+                <div id="surrenderDetailsSection" class="request-detail-branch">
                     <div class="location-card">
                         <div class="location-card-head">
                             <div>
@@ -515,6 +453,7 @@
 <script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 <script>
 let currentStep = 1;
+const MAX_REQUEST_STEPS = 2;
 let stream = null;
 let map;
 let marker;
@@ -547,11 +486,9 @@ const defaultRequestCity = "{{ default_manual_city|escapejs }}";
 const captureForm = document.getElementById('captureForm');
 const requestTypeInputs = document.querySelectorAll('input[name="request_type"]');
 const submissionTypeInputs = document.querySelectorAll('input[name="submission_type"]');
-const walkInDetailsSection = document.getElementById('walkInDetailsSection');
 const onlineDetailsSection = document.getElementById('onlineDetailsSection');
 const surrenderDetailsSection = document.getElementById('surrenderDetailsSection');
 const requestHistoryModalEl = document.getElementById('requestHistoryModal');
-const appointmentDateField = document.getElementById('appointment_date');
 const barangayField = document.getElementById('barangayField');
 const cityField = document.getElementById('cityField');
 const gpsAccuracyField = document.getElementById('gpsAccuracyField');
@@ -572,11 +509,11 @@ let requestDialogResolver = null;
 let requestDialogDismissValue = false;
 let requestDialogSuspendedModals = [];
 function getSelectedRequestType() {
-    return document.querySelector('input[name="request_type"]:checked')?.value || 'capture';
+    return document.querySelector('input[name="request_type"]')?.value || 'surrender';
 }
 
 function getSelectedSubmissionType() {
-    return document.querySelector('input[name="submission_type"]:checked')?.value || '';
+    return document.querySelector('input[name="submission_type"]')?.value || 'online';
 }
 
 function getRequestHistoryContentRoot() {
@@ -724,17 +661,7 @@ requestDialogModalEl?.addEventListener('hidden.bs.modal', () => {
 
 function syncSubmitButtonState() {
     if (!submitBtn) return;
-    const submissionType = getSelectedSubmissionType();
-
-    let disabled = false;
-    if (currentStep === 3) {
-        if (!submissionType) {
-            disabled = true;
-        } else if (submissionType === 'walk_in') {
-            disabled = !appointmentDateField?.value;
-        }
-    }
-    submitBtn.disabled = disabled;
+    submitBtn.disabled = false;
 }
 
 function validatePhoneField() {
@@ -935,26 +862,13 @@ function requestBestGeolocationFix(statusEl) {
 }
 
 function syncRequestFlowUI() {
-    const requestType = getSelectedRequestType();
-    const submissionType = getSelectedSubmissionType();
-    const isCapture = requestType === 'capture';
-    const isWalkIn = submissionType === 'walk_in';
-    const isOnline = submissionType === 'online';
-
     syncStepOneContent();
-    if (walkInDetailsSection) walkInDetailsSection.hidden = !isWalkIn;
-    if (onlineDetailsSection) onlineDetailsSection.hidden = !isOnline;
-    if (surrenderDetailsSection) surrenderDetailsSection.hidden = isCapture;
-
-    if (appointmentDateField) {
-        appointmentDateField.required = isWalkIn;
-    }
-    if (surrenderDescriptionField) {
-        surrenderDescriptionField.disabled = isCapture;
-    }
+    if (onlineDetailsSection) onlineDetailsSection.hidden = false;
+    if (surrenderDetailsSection) surrenderDetailsSection.hidden = false;
+    if (surrenderDescriptionField) surrenderDescriptionField.disabled = false;
     syncSubmitButtonState();
 
-    if (isOnline && currentStep === 3) {
+    if (currentStep === MAX_REQUEST_STEPS) {
         window.setTimeout(() => ensureRequestMapReady(), 140);
     }
 
@@ -978,35 +892,17 @@ function setStep(step) {
     });
 
     prevBtn.hidden = step <= 1;
-    nextBtn.hidden = step >= 3;
-    submitBtn.hidden = step !== 3;
+    nextBtn.hidden = step >= MAX_REQUEST_STEPS;
+    submitBtn.hidden = step !== MAX_REQUEST_STEPS;
     syncRequestFlowUI();
 }
 
 function validateStep(step) {
     if (step === 1) {
-        if (getSelectedRequestType() === 'capture' && !hasAttachedStepOneProof()) {
-            showRequestNotice(
-                'Dog capture requests require a proof photo. Please upload or capture a clear photo of the dog or the barangay request letter before continuing.',
-                { title: 'Proof Photo Required', tone: 'warning' }
-            );
-            return false;
-        }
         return true;
     }
 
     if (step === 2) {
-        if (!getSelectedSubmissionType()) {
-            showRequestNotice(
-                'Please choose whether this request will be walk-in or online.',
-                { title: 'Submission Type Required', tone: 'warning' }
-            );
-            return false;
-        }
-        return true;
-    }
-
-    if (step === 3) {
         return validatePhoneField();
     }
 
@@ -1015,7 +911,7 @@ function validateStep(step) {
 
 nextBtn?.addEventListener('click', () => {
     if (!validateStep(currentStep)) return;
-    if (currentStep < 3) setStep(currentStep + 1);
+    if (currentStep < MAX_REQUEST_STEPS) setStep(currentStep + 1);
 });
 
 prevBtn?.addEventListener('click', () => {
@@ -1043,7 +939,6 @@ submissionTypeInputs.forEach((input) => {
     input.addEventListener('change', syncRequestFlowUI);
 });
 
-appointmentDateField?.addEventListener('change', syncSubmitButtonState);
 document.addEventListener('appointment-picker:change', syncSubmitButtonState);
 
 const cameraSection = document.getElementById('cameraSection');
@@ -1078,29 +973,14 @@ function hasAttachedStepOneProof() {
 }
 
 function syncStepOneContent() {
-    const isCapture = getSelectedRequestType() === 'capture';
-
-    if (step1Title) {
-        step1Title.textContent = isCapture
-            ? 'Choose request type and add proof'
-            : 'Choose request type and add a photo';
-    }
+    if (step1Title) step1Title.textContent = 'Add a photo of the dog';
     if (step1Description) {
-        step1Description.textContent = isCapture
-            ? 'For dog capture, upload a clear dog photo or barangay request letter. Proof is required to continue.'
-            : 'For surrender, a photo is optional but helpful.';
+        step1Description.textContent =
+            'Upload or take a photo of the dog being surrendered. This is optional, but it helps the shelter team prepare.';
     }
-    if (step1HelperNote) {
-        step1HelperNote.textContent = isCapture
-            ? 'Required for dog capture.'
-            : 'Photo is optional for surrender.';
-    }
-    if (uploadActionLabel) {
-        uploadActionLabel.textContent = isCapture ? 'Upload Proof' : 'Upload Photo';
-    }
-    if (cameraActionLabel) {
-        cameraActionLabel.textContent = isCapture ? 'Take Proof' : 'Take Photo';
-    }
+    if (step1HelperNote) step1HelperNote.textContent = 'Optional, but recommended.';
+    if (uploadActionLabel) uploadActionLabel.textContent = 'Upload Photo';
+    if (cameraActionLabel) cameraActionLabel.textContent = 'Take Photo';
 }
 
 function showCameraSection(visible) {
@@ -1645,35 +1525,11 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
 captureForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    if (getSelectedRequestType() === 'capture' && !hasAttachedStepOneProof()) {
-        showRequestNotice(
-            'Dog capture requests require a proof photo. Please upload or capture a clear photo of the dog or the barangay request letter before submitting.',
-            { title: 'Proof Photo Required', tone: 'warning' }
-        );
-        return;
-    }
-
     if (!validatePhoneField()) {
         return;
     }
 
     const submissionType = getSelectedSubmissionType();
-
-    if (!submissionType) {
-        showRequestNotice(
-            'Please choose whether this request will be walk-in or online.',
-            { title: 'Submission Type Required', tone: 'warning' }
-        );
-        return;
-    }
-
-    if (submissionType === 'walk_in' && !appointmentDateField?.value) {
-        showRequestNotice(
-            'Please select an available appointment date for this walk-in request.',
-            { title: 'Appointment Date Required', tone: 'warning' }
-        );
-        return;
-    }
 
     if (submissionType === 'online') {
         const mode = document.querySelector('input[name="location_mode"]:checked')?.value || 'exact';
@@ -1852,10 +1708,6 @@ function initRequestEditCancels(root = document) {
 
 function applyRequestEditLocationMode(form) {
     if (!form) return;
-    const requestTypeSelect = form.querySelector('[data-edit-request-type]');
-    const submissionTypeSelect = form.querySelector('[data-edit-submission-type]');
-    const appointmentBox = form.querySelector('[data-edit-appointment-box]');
-    const appointmentInput = form.querySelector('select[name="appointment_date"]');
     const locationModeGroup = form.querySelector('[data-edit-location-mode-group]');
     const exactRadio = form.querySelector('input[name="edit_location_mode"][value="exact"]');
     const manualBox = form.querySelector('[data-edit-manual-box]');
@@ -1864,27 +1716,15 @@ function applyRequestEditLocationMode(form) {
     const manualFullAddressInput = form.querySelector('textarea[name="manual_full_address"]');
     const latitudeInput = form.querySelector('input[name="latitude"]');
     const longitudeInput = form.querySelector('input[name="longitude"]');
-    const requestType = requestTypeSelect?.value || 'capture';
-    const submissionType = submissionTypeSelect?.value || '';
-    const isOnline = submissionType === 'online';
-    const isWalkIn = submissionType === 'walk_in';
     const isExact = !!(exactRadio && exactRadio.checked);
 
-    if (submissionTypeSelect) {
-        submissionTypeSelect.disabled = false;
-        submissionTypeSelect.required = true;
-    }
+    if (locationModeGroup) locationModeGroup.style.display = 'grid';
+    if (manualBox) manualBox.style.display = !isExact ? 'grid' : 'none';
+    if (exactBox) exactBox.style.display = isExact ? 'grid' : 'none';
 
-    if (appointmentBox) appointmentBox.style.display = isWalkIn ? 'block' : 'none';
-    if (appointmentInput) appointmentInput.required = isWalkIn;
-    if (locationModeGroup) locationModeGroup.style.display = isOnline ? 'grid' : 'none';
-
-    if (manualBox) manualBox.style.display = isOnline && !isExact ? 'grid' : 'none';
-    if (exactBox) exactBox.style.display = isOnline && isExact ? 'grid' : 'none';
-
-    if (latitudeInput) latitudeInput.required = isOnline && isExact;
-    if (longitudeInput) longitudeInput.required = isOnline && isExact;
-    if (barangayInput) barangayInput.required = isOnline && !isExact;
+    if (latitudeInput) latitudeInput.required = isExact;
+    if (longitudeInput) longitudeInput.required = isExact;
+    if (barangayInput) barangayInput.required = !isExact;
     if (manualFullAddressInput) manualFullAddressInput.required = false;
 }
 
@@ -1897,13 +1737,9 @@ function initRequestEditForms(root = document) {
 
         form.dataset.requestEditFormBound = '1';
         const modeRadios = form.querySelectorAll('input[name="edit_location_mode"]');
-        const requestTypeSelect = form.querySelector('[data-edit-request-type]');
-        const submissionTypeSelect = form.querySelector('[data-edit-submission-type]');
         modeRadios.forEach((radio) => {
             radio.addEventListener('change', () => applyRequestEditLocationMode(form));
         });
-        requestTypeSelect?.addEventListener('change', () => applyRequestEditLocationMode(form));
-        submissionTypeSelect?.addEventListener('change', () => applyRequestEditLocationMode(form));
         applyRequestEditLocationMode(form);
     });
 

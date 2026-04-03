@@ -89,6 +89,8 @@ HOME_FEED_SESSION_TOKEN_KEY = "user_home_feed_token"
 BARANGAY_API_DEFAULT_LIMIT = 200
 BARANGAY_API_MAX_LIMIT = 200
 DEFAULT_REQUEST_CITY = "Bayawan City"
+DOG_SURRENDER_REQUEST_TYPE = "surrender"
+DOG_ONLINE_SUBMISSION_TYPE = "online"
 PHILIPPINES_COUNTRY_CODE = "+63"
 SIGNUP_USERNAME_MIN_LENGTH = 3
 SIGNUP_USERNAME_MAX_LENGTH = User._meta.get_field("username").max_length
@@ -1030,38 +1032,6 @@ def _resolve_barangay_name(value):
             ACTIVE_BARANGAY_LOOKUP_CACHE_TTL_SECONDS,
         )
     return lookup.get(normalized, "")
-
-
-def _normalize_dog_request_type(value):
-    request_type = (value or "").strip().lower()
-    return request_type if request_type in {"capture", "surrender"} else "capture"
-
-
-def _normalize_dog_request_submission_type(value):
-    submission_type = (value or "").strip().lower()
-    return submission_type if submission_type in {"walk_in", "online"} else ""
-
-
-def _derive_dog_request_submission_type(
-    request_type,
-    raw_submission_type,
-    *,
-    appointment_date_raw="",
-    latitude_raw="",
-    longitude_raw="",
-    barangay="",
-):
-    submission_type = _normalize_dog_request_submission_type(raw_submission_type)
-    if submission_type:
-        return submission_type
-
-    if (appointment_date_raw or "").strip():
-        return "walk_in"
-
-    if (latitude_raw or "").strip() or (longitude_raw or "").strip() or _clean_barangay(barangay):
-        return "online"
-
-    return ""
 
 
 def _ensure_default_profile_image_exists():
@@ -2774,20 +2744,16 @@ def post_detail(request, post_id):
 
 @user_only
 def request_dog_capture(request):
-    """Create and list dog-capture requests for the current user."""
-    available_dates = _get_available_appointment_dates()
+    """Create and list online dog-surrender requests for the current user."""
     if request.method == 'POST':
-        submission_response = _handle_dog_capture_request_submission(
-            request,
-            available_dates,
-        )
+        submission_response = _handle_dog_capture_request_submission(request)
         if submission_response is not None:
             return submission_response
 
     return render(
         request,
         'user_request/request.html',
-        _build_dog_capture_request_page_context(request, available_dates),
+        _build_dog_capture_request_page_context(request),
     )
 
 
@@ -2856,7 +2822,7 @@ def _paginate_dog_capture_status(request, rows_per_page, status_key, page_param)
     return page_obj, list(page_obj.object_list)
 
 
-def _build_dog_capture_request_page_context(request, available_dates):
+def _build_dog_capture_request_page_context(request):
     rows_per_page = 5
     valid_tabs = {"scheduled", "pending", "declined", "captured"}
     active_status_tab = (request.GET.get("status_tab") or "scheduled").strip().lower()
@@ -2898,18 +2864,16 @@ def _build_dog_capture_request_page_context(request, available_dates):
         'captured_total': status_totals.get("captured", 0),
         'active_status_tab': active_status_tab,
         'default_manual_city': DEFAULT_REQUEST_CITY,
-        'available_dates': available_dates,
     }
 
 
-def _handle_dog_capture_request_submission(request, available_dates):
+def _handle_dog_capture_request_submission(request):
     uploaded_images = _build_uploaded_capture_images(request)
     if uploaded_images is None:
         return _dog_capture_request_redirect()
 
     phone_number = _normalize_ph_phone_number(request.POST.get('phone_number'))
-    request_type = _normalize_dog_request_type(request.POST.get('request_type'))
-    appointment_date_raw = (request.POST.get('appointment_date') or '').strip()
+    request_type = DOG_SURRENDER_REQUEST_TYPE
     if not phone_number:
         messages.error(
             request,
@@ -2927,27 +2891,7 @@ def _handle_dog_capture_request_submission(request, available_dates):
     description = (request.POST.get('description') or '').strip()
     latitude_raw = (request.POST.get('latitude') or '').strip()
     longitude_raw = (request.POST.get('longitude') or '').strip()
-    submission_type = _derive_dog_request_submission_type(
-        request_type,
-        request.POST.get('submission_type'),
-        appointment_date_raw=appointment_date_raw,
-        latitude_raw=latitude_raw,
-        longitude_raw=longitude_raw,
-        barangay=request.POST.get('barangay'),
-    )
-    if not submission_type:
-        messages.error(request, "Please choose how you want to submit this request.")
-        return _dog_capture_request_redirect()
-
-    preferred_appointment_date = None
-    if submission_type == 'walk_in':
-        preferred_appointment_date = parse_date(appointment_date_raw) if appointment_date_raw else None
-        if not preferred_appointment_date:
-            messages.error(request, "Please select an available appointment date for this walk-in request.")
-            return _dog_capture_request_redirect()
-        if not available_dates.filter(appointment_date=preferred_appointment_date).exists():
-            messages.error(request, "Selected appointment date is not available.")
-            return _dog_capture_request_redirect()
+    submission_type = DOG_ONLINE_SUBMISSION_TYPE
 
     location_mode = (request.POST.get('location_mode') or 'exact').strip().lower()
     if location_mode not in {'exact', 'manual'}:
@@ -2959,13 +2903,6 @@ def _handle_dog_capture_request_submission(request, available_dates):
         (request.POST.get('manual_full_address') or '').split()
     ).strip()
     location_landmark_images = list(request.FILES.getlist('location_landmark_image'))
-
-    if request_type == 'capture' and not uploaded_images:
-        messages.error(
-            request,
-            "Dog capture requests require a proof photo. Please upload or capture a clear photo of the dog or the barangay request letter.",
-        )
-        return _dog_capture_request_redirect()
 
     if submission_type == 'online' and location_mode == 'manual':
         resolved_barangay = _resolve_barangay_name(barangay)
@@ -3009,7 +2946,7 @@ def _handle_dog_capture_request_submission(request, available_dates):
         requested_by=request.user,
         request_type=request_type,
         submission_type=submission_type or None,
-        preferred_appointment_date=preferred_appointment_date,
+        preferred_appointment_date=None,
         reason=reason,
         description=description or None,
         latitude=latitude_value,
@@ -3072,15 +3009,6 @@ def _resolve_capture_location_mode(request, latitude_raw, longitude_raw):
     return location_mode
 
 
-def _validate_walk_in_appointment_date(available_dates, appointment_date_raw):
-    preferred_appointment_date = parse_date(appointment_date_raw) if appointment_date_raw else None
-    if not preferred_appointment_date:
-        return None, "Please select an available appointment date for this walk-in request."
-    if not available_dates.filter(appointment_date=preferred_appointment_date).exists():
-        return None, "Selected appointment date is not available."
-    return preferred_appointment_date, ""
-
-
 def _clear_request_landmark_images(req):
     if req.location_landmark_image:
         req.location_landmark_image.delete(save=False)
@@ -3107,7 +3035,7 @@ def _replace_request_landmark_images(req, location_landmark_images):
 @user_only
 @require_POST
 def edit_dog_capture_request(request, req_id):
-    """Edit a pending dog-capture request submitted by the current user."""
+    """Edit a pending online dog-surrender request submitted by the current user."""
     req = get_object_or_404(
         DogCaptureRequest,
         id=req_id,
@@ -3119,12 +3047,11 @@ def edit_dog_capture_request(request, req_id):
         messages.warning(request, "Only pending requests can be edited.")
         return redirect('user:dog_capture_request')
 
-    available_dates = _get_available_appointment_dates()
     reason = (request.POST.get('reason') or req.reason or 'stray').strip()
     if not _is_valid_capture_reason(reason):
         reason = 'stray'
     description = (request.POST.get('description') or '').strip()
-    request_type = _normalize_dog_request_type(request.POST.get('request_type') or req.request_type)
+    request_type = DOG_SURRENDER_REQUEST_TYPE
     barangay = _clean_barangay(request.POST.get('barangay'))
     city = _clean_barangay(request.POST.get('city')) or DEFAULT_REQUEST_CITY
     manual_full_address = " ".join(
@@ -3137,30 +3064,7 @@ def edit_dog_capture_request(request, req_id):
     longitude_raw = (request.POST.get('longitude') or '').strip()
     remove_landmark_ids = _parse_removable_landmark_ids(raw_remove_landmark_ids)
     location_mode = _resolve_capture_location_mode(request, latitude_raw, longitude_raw)
-
-    appointment_date_raw = (request.POST.get('appointment_date') or '').strip()
-    submission_type = _derive_dog_request_submission_type(
-        request_type,
-        request.POST.get('submission_type') or req.submission_type,
-        appointment_date_raw=appointment_date_raw,
-        latitude_raw=latitude_raw,
-        longitude_raw=longitude_raw,
-        barangay=barangay,
-    )
-
-    if not submission_type:
-        messages.error(request, "Please choose how you want to submit this request.")
-        return redirect('user:dog_capture_request')
-
-    preferred_appointment_date = None
-    if submission_type == 'walk_in':
-        preferred_appointment_date, appointment_error = _validate_walk_in_appointment_date(
-            available_dates,
-            appointment_date_raw,
-        )
-        if appointment_error:
-            messages.error(request, appointment_error)
-            return redirect('user:dog_capture_request')
+    submission_type = DOG_ONLINE_SUBMISSION_TYPE
 
     # Exact mode stores GPS coordinates; manual mode stores full manual address.
     if submission_type == 'online' and location_mode == 'exact':
@@ -3217,7 +3121,7 @@ def edit_dog_capture_request(request, req_id):
 
     req.request_type = request_type
     req.submission_type = submission_type or None
-    req.preferred_appointment_date = preferred_appointment_date
+    req.preferred_appointment_date = None
     req.reason = reason
     req.description = description or None
     req.barangay = (_resolve_barangay_name(barangay) or barangay) if barangay else None

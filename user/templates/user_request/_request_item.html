@@ -278,36 +278,11 @@
                         style="display:none;"
                     >
                         {% csrf_token %}
+                        <input type="hidden" name="request_type" value="surrender">
+                        <input type="hidden" name="submission_type" value="online">
                         <div class="request-edit-grid">
                             <div class="form-group">
-                                <label for="editRequestType{{ req.id }}">Request Type</label>
-                                <select name="request_type" id="editRequestType{{ req.id }}" data-edit-request-type>
-                                    <option value="capture" {% if req.request_type == 'capture' %}selected{% endif %}>Request Dog Capture</option>
-                                    <option value="surrender" {% if req.request_type == 'surrender' %}selected{% endif %}>Request Dog Surrender</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="editSubmissionType{{ req.id }}">Submission Type</label>
-                                <select name="submission_type" id="editSubmissionType{{ req.id }}" data-edit-submission-type>
-                                    <option value="">Select submission type</option>
-                                    <option value="walk_in" {% if req.submission_type == 'walk_in' %}selected{% endif %}>Walk-in Request (Office)</option>
-                                    <option value="online" {% if req.submission_type == 'online' %}selected{% endif %}>Online Request</option>
-                                </select>
-                            </div>
-                            <div class="form-group request-edit-full-row" data-edit-appointment-box>
-                                <label for="editAppointmentDate{{ req.id }}">Requested Appointment Date</label>
-                                <select name="appointment_date" id="editAppointmentDate{{ req.id }}">
-                                    <option value="">Select available date</option>
-                                    {% for slot in available_dates %}
-                                        <option value="{{ slot.appointment_date|date:'Y-m-d' }}" {% if req.preferred_appointment_date and req.preferred_appointment_date|date:'Y-m-d' == slot.appointment_date|date:'Y-m-d' %}selected{% endif %}>
-                                            {{ slot.appointment_date|date:"M d, Y" }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                                <small class="helper-text">Uses the active appointment dates from the admin schedule.</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="editDescription{{ req.id }}">Details</label>
+                                <label for="editDescription{{ req.id }}">Surrender Notes</label>
                                 <textarea name="description" id="editDescription{{ req.id }}" rows="3">{{ req.description|default_if_none:'' }}</textarea>
                             </div>
                         </div>

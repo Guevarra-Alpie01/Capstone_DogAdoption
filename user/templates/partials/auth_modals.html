@@ -59,6 +59,10 @@
                             </button>
                         </form>
 
+                        <p class="auth-helper-copy auth-helper-copy--compact">
+                            Only accounts with a verified email address can log in.
+                        </p>
+
                         <div class="auth-divider" aria-hidden="true">
                             <span>or</span>
                         </div>
@@ -101,10 +105,17 @@
                         </div>
                         {% endif %}
 
-                        <form method="post" action="{% url 'user:signup' %}" class="signup-form">
+                        <form
+                            method="post"
+                            action="{% url 'user:signup' %}"
+                            class="signup-form"
+                            data-google-signup-form
+                            data-google-client-id="{{ google_client_id|default:'' }}"
+                        >
                             {% csrf_token %}
                             <input type="hidden" name="auth_source" value="modal">
                             <input type="hidden" name="next" value="{{ auth_next|default:'' }}" data-auth-next-field>
+                            <input type="hidden" name="google_credential" value="">
 
                             <div class="mb-2 input-group">
                                 <label for="signupModalUsername" class="auth-field-label">Username</label>
@@ -217,9 +228,24 @@
                                 <div id="signup-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
                             </div>
 
-                            <button type="submit" class="login-btn signup-submit-btn auth-form-submit py-2">
-                                Sign Up
-                            </button>
+                            <div class="auth-divider" aria-hidden="true">
+                                <span>Finish Registration</span>
+                            </div>
+
+                            <p class="auth-helper-copy">
+                                Continue with Google to attach the email address we will verify before your first login.
+                            </p>
+
+                            {% if google_signup_enabled %}
+                            <div class="google-signup-shell">
+                                <div class="google-signup-button" data-google-signup-button></div>
+                                <p class="auth-inline-alert auth-inline-alert--static d-none" data-google-signup-error role="alert"></p>
+                            </div>
+                            {% else %}
+                            <p class="auth-inline-alert auth-inline-alert--static" role="alert">
+                                Google signup is not configured yet. Add <code>GOOGLE_CLIENT_ID</code> to enable account creation.
+                            </p>
+                            {% endif %}
                         </form>
 
                         <div class="auth-footer">

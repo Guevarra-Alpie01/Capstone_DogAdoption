@@ -104,6 +104,128 @@ body {
     opacity: 0.85;
 }
 
+.user-topbar-shell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.user-topbar-start,
+.user-topbar-end,
+.user-topbar-actions {
+    display: flex;
+    align-items: center;
+}
+
+.user-topbar-start {
+    gap: 8px;
+    min-width: 0;
+}
+
+.user-topbar-end {
+    margin-left: auto;
+}
+
+.user-topbar-actions {
+    gap: 12px;
+}
+
+.user-topbar-start .navbar-brand.user-brand {
+    margin-left: 0 !important;
+}
+
+.user-topbar-start #sidebarToggle {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    flex: 0 0 auto;
+}
+
+.user-topbar-start #sidebarToggle .navbar-toggler-icon {
+    width: 20px;
+    height: 20px;
+    background-size: 20px 20px;
+}
+
+.user-topbar-center {
+    min-width: 0;
+}
+
+.user-primary-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    max-width: 100%;
+}
+
+.topbar-primary-nav-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    color: #21481c !important;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    background: transparent;
+    transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.topbar-primary-nav-link:hover,
+.topbar-primary-nav-link:focus-visible {
+    background: rgba(255, 248, 200, 0.58);
+    color: #173914 !important;
+    box-shadow: inset 0 0 0 1px rgba(36, 76, 26, 0.12);
+    transform: translateY(-1px);
+}
+
+.topbar-primary-nav-link.is-active {
+    background: rgba(255, 250, 226, 0.86);
+    color: #173914 !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(36, 76, 26, 0.14),
+        0 10px 18px rgba(120, 103, 0, 0.12);
+}
+
+.topbar-primary-nav-label {
+    white-space: nowrap;
+    line-height: 1;
+}
+
+.user-sidebar-backdrop {
+    position: fixed;
+    top: 66px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border: 0;
+    padding: 0;
+    background: rgba(15, 23, 42, 0.26);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+    z-index: 999;
+}
+
+body.user-sidebar-open {
+    overflow: hidden;
+}
+
+body.user-sidebar-open .user-sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 .topbar-icon-btn,
 .topbar-avatar-btn,
 .dropdown-menu,
@@ -793,6 +915,14 @@ tbody th,
         gap: 8px;
     }
 
+    .user-topbar-shell {
+        gap: 10px;
+    }
+
+    .user-topbar-actions {
+        gap: 10px;
+    }
+
     .user-brand-logo {
         width: 36px;
         height: 36px;
@@ -804,6 +934,27 @@ tbody th,
 
     .user-brand-sub {
         font-size: 0.72rem;
+    }
+
+    .user-mobile-sidebar {
+        width: 240px !important;
+        margin-left: -240px !important;
+        border-radius: 0 24px 24px 0;
+        z-index: 1000;
+    }
+
+    .user-mobile-sidebar .sidebar-menu-list {
+        padding: 18px 12px 24px;
+        gap: 10px;
+    }
+
+    .user-mobile-sidebar .sidebar-nav-link {
+        min-height: 50px;
+        padding: 12px 16px !important;
+    }
+
+    .user-mobile-sidebar .sidebar-nav-link span {
+        font-size: 0.88rem;
     }
 
     .subtop-nav {
@@ -908,5 +1059,39 @@ tbody th,
         min-width: 28px !important;
         height: 28px !important;
         font-size: 0.82rem !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .user-mobile-sidebar {
+        width: 220px !important;
+        margin-left: -220px !important;
+    }
+}
+
+@media (min-width: 992px) {
+    body.is-authenticated #page-content-wrapper,
+    body.is-authenticated #wrapper.toggled #page-content-wrapper {
+        padding-left: 0 !important;
+    }
+
+    .user-topbar-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        align-items: center;
+        gap: 16px;
+    }
+
+    .user-topbar-start {
+        justify-self: start;
+    }
+
+    .user-topbar-center {
+        justify-self: center;
+    }
+
+    .user-topbar-end {
+        margin-left: 0;
+        justify-self: end;
     }
 }

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.urls import reverse
 
 from .avatar_cache import DEFAULT_AVATAR_URL, get_cached_profile_avatar_url
@@ -24,4 +25,12 @@ def user_notifications(request):
         "user_notifications_seen_url": reverse("user:mark_notifications_seen"),
         "user_notifications_summary_url": reverse("user:notification_summary"),
         "user_topbar_avatar_url": get_cached_profile_avatar_url(user),
+    }
+
+
+def auth_ui(request):
+    google_client_id = (getattr(settings, "GOOGLE_CLIENT_ID", "") or "").strip()
+    return {
+        "google_signup_enabled": bool(google_client_id),
+        "google_client_id": google_client_id,
     }

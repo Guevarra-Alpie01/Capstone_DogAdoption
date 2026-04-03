@@ -13,10 +13,7 @@ urlpatterns = [
     path('notifications/summary/', views.notification_summary, name='notification_summary'),
     path('notifications/seen/', views.mark_notifications_seen, name='mark_notifications_seen'),
     path('sign-up/', views.signup_view, name="signup"),
-    path('signup/face-auth/', views.face_auth, name="face_auth"),
-    path('signup/complete/', views.signup_complete, name="signup_complete"),
-    path('signup/save-face/', views.save_face, name="save_face"),
-    path('signup/reset-face/', views.reset_signup_capture, name="reset_signup_capture"),
+    path('verify-email/<str:uidb64>/<str:token>/', views.verify_email, name="verify_email"),
 
     # Shared profile and utility routes
     path('barangays/', views.barangay_list_api, name="barangay_list_api"),

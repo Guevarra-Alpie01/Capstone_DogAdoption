@@ -1,18 +1,20 @@
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.validators import ASCIIUsernameValidator
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
 from django.views.decorators.http import require_POST
 from django.utils import timezone
+from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, DateTimeField, Exists, OuterRef, Prefetch, Q
 from django.db import IntegrityError, transaction
 from django.db.models.expressions import RawSQL
 import os
-import json
 import base64
 import binascii
 import hashlib
@@ -28,7 +30,11 @@ from functools import wraps
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
 from django.urls import reverse
-from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.http import (
+    url_has_allowed_host_and_scheme,
+    urlsafe_base64_decode,
+    urlsafe_base64_encode,
+)
 from django.templatetags.static import static
 from django.utils.html import strip_tags
 from urllib.parse import urlencode
@@ -53,7 +59,7 @@ from dogadoption_admin.models import (
 from dogadoption_admin.context_processors import ADMIN_NOTIFICATIONS_CACHE_KEY
 
 # Models from the user app
-from .models import Profile, DogCaptureRequest, DogCaptureRequestImage, DogCaptureRequestLandmarkImage, FaceImage, ClaimImage
+from .models import Profile, DogCaptureRequest, DogCaptureRequestImage, DogCaptureRequestLandmarkImage, ClaimImage
 from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, MissingDogPost
 
 # Forms and notification helpers
@@ -86,7 +92,6 @@ DEFAULT_REQUEST_CITY = "Bayawan City"
 PHILIPPINES_COUNTRY_CODE = "+63"
 SIGNUP_USERNAME_MIN_LENGTH = 3
 SIGNUP_USERNAME_MAX_LENGTH = User._meta.get_field("username").max_length
-SIGNUP_FACE_CAPTURE_COUNT = 4
 _signup_username_validator = ASCIIUsernameValidator()
 
 
@@ -170,6 +175,15 @@ def _build_signup_form_data(*, username="", first_name="", last_name="", raw_bar
     }
 
 
+def _auth_ui_context():
+    """Expose the public auth template flags shared by login and signup views."""
+    google_client_id = (getattr(settings, "GOOGLE_CLIENT_ID", "") or "").strip()
+    return {
+        "google_signup_enabled": bool(google_client_id),
+        "google_client_id": google_client_id,
+    }
+
+
 def _render_signup_error(request, signup_form_data, message):
     """Re-open the signup modal with a single validation error message."""
     next_url = _get_safe_next_url(request, request.POST.get("next"))
@@ -185,6 +199,7 @@ def _render_signup_error(request, signup_form_data, message):
         request,
         error=message,
         signup_form_data=signup_form_data,
+        next_url=next_url,
     )
 
 
@@ -197,11 +212,12 @@ def _render_login_page(request, *, error="", login_form_data=None, next_url=""):
             "error": error,
             "login_form_data": login_form_data or {},
             "auth_next": next_url,
+            **_auth_ui_context(),
         },
     )
 
 
-def _render_signup_page(request, *, error="", signup_form_data=None):
+def _render_signup_page(request, *, error="", signup_form_data=None, next_url=""):
     """Render the dedicated signup page used for standalone auth flows."""
     return render(
         request,
@@ -209,6 +225,8 @@ def _render_signup_page(request, *, error="", signup_form_data=None):
         {
             "error": error,
             "signup_form_data": signup_form_data or {},
+            "auth_next": next_url,
+            **_auth_ui_context(),
         },
     )
 
@@ -229,6 +247,112 @@ def _validate_signup_username(username):
     if User.objects.filter(username__iexact=username).exists():
         raise ValidationError("Username already exists.")
     return username
+
+
+def _normalize_signup_email(raw_email):
+    """Normalize the verified signup email before saving it to the user record."""
+    return (User.objects.normalize_email((raw_email or "").strip()) or "").strip().lower()
+
+
+def _user_has_verified_email(user):
+    """Return True for legacy accounts or for profiles already marked verified."""
+    if not user or getattr(user, "is_staff", False):
+        return True
+    profile = getattr(user, "profile", None)
+    return bool(getattr(profile, "email_verified", True))
+
+
+def _user_requires_email_verification(user):
+    """Return True when a public account is still blocked pending email verification."""
+    return bool(user and not user.is_staff and not user.is_active and not _user_has_verified_email(user))
+
+
+def _build_public_absolute_uri(request, relative_url):
+    """Build an absolute URL for emails, honoring an optional site-base override."""
+    site_base_url = (getattr(settings, "SITE_BASE_URL", "") or "").strip().rstrip("/")
+    if site_base_url:
+        return f"{site_base_url}{relative_url}"
+    return request.build_absolute_uri(relative_url)
+
+
+def _build_email_verification_url(request, user, *, next_url=""):
+    """Create the email verification link for an inactive signup account."""
+    verification_path = reverse(
+        "user:verify_email",
+        args=[
+            urlsafe_base64_encode(force_bytes(user.pk)),
+            default_token_generator.make_token(user),
+        ],
+    )
+    if next_url:
+        verification_path = f"{verification_path}?{urlencode({'next': next_url})}"
+    return _build_public_absolute_uri(request, verification_path)
+
+
+def _send_signup_verification_email(request, user, *, next_url=""):
+    """Send the verification email required before the user can log in."""
+    verification_url = _build_email_verification_url(request, user, next_url=next_url)
+    sent_count = send_mail(
+        "Verify your Bayawan Vet account",
+        (
+            f"Hello {user.first_name or user.username},\n\n"
+            "Your Bayawan Vet account has been created, but you must verify your email address "
+            "before you can log in.\n\n"
+            f"Verify your account: {verification_url}\n\n"
+            "If you did not request this account, you can ignore this message."
+        ),
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        fail_silently=False,
+    )
+    if sent_count != 1:
+        raise RuntimeError("We couldn't send the verification email. Please try again later.")
+
+
+def _verify_google_signup_credential(raw_credential):
+    """Validate the Google Identity Services ID token used during signup."""
+    credential = (raw_credential or "").strip()
+    if not credential:
+        raise ValidationError("Continue with Google is required to finish creating your account.")
+
+    google_client_id = (getattr(settings, "GOOGLE_CLIENT_ID", "") or "").strip()
+    if not google_client_id:
+        raise ValidationError("Google signup is not configured yet. Please contact the administrator.")
+
+    try:
+        from google.auth.transport import requests as google_requests
+        from google.oauth2 import id_token
+    except ImportError as exc:
+        raise ValidationError("Google signup is unavailable because the server dependency is missing.") from exc
+
+    try:
+        google_payload = id_token.verify_oauth2_token(
+            credential,
+            google_requests.Request(),
+            google_client_id,
+        )
+    except ValueError as exc:
+        raise ValidationError("Google could not verify the selected account. Please try again.") from exc
+
+    if google_payload.get("iss") not in {"accounts.google.com", "https://accounts.google.com"}:
+        raise ValidationError("Google could not verify the selected account. Please try again.")
+
+    google_email = _normalize_signup_email(google_payload.get("email"))
+    if not google_email:
+        raise ValidationError("Your Google account did not provide an email address.")
+    if not google_payload.get("email_verified"):
+        raise ValidationError("Your Google account email must already be verified before signup.")
+
+    google_sub = (google_payload.get("sub") or "").strip()
+    if not google_sub:
+        raise ValidationError("Google could not verify the selected account. Please try again.")
+
+    return {
+        "email": google_email,
+        "sub": google_sub,
+        "given_name": (google_payload.get("given_name") or "").strip(),
+        "family_name": (google_payload.get("family_name") or "").strip(),
+    }
 
 
 def _delete_temp_signup_face_images(image_paths):
@@ -752,6 +876,10 @@ def login_view(request):
 
         if not username or not password:
             return render_login_error("Username and password are required.", username)
+
+        existing_user = User.objects.filter(username__iexact=username).select_related("profile").first()
+        if _user_requires_email_verification(existing_user):
+            return render_login_error("Please verify your email address before logging in.", username)
 
         user = authenticate(request, username=username, password=password)
 
@@ -2077,14 +2205,19 @@ def barangay_list_api(request):
 
 
 def signup_view(request):
-    """Handle the first step of signup before face-auth enrollment."""
+    """Create a new public account and email a verification link before first login."""
     if request.user.is_authenticated:
         if request.user.is_staff:
             return redirect(get_staff_landing_url(request.user))
         return redirect("user:user_home")
 
+    next_url = _get_safe_next_url(
+        request,
+        request.POST.get("next") if request.method == "POST" else request.GET.get("next"),
+    )
+
     if request.method == "POST":
-        _clear_signup_face_progress(request)
+        _clear_signup_session_state(request, delete_temp_faces=True)
         username = _normalize_signup_username(request.POST.get("username"))
         password = request.POST.get("password") or ""
         confirm_password = request.POST.get("confirm_password") or ""
@@ -2124,22 +2257,118 @@ def signup_view(request):
                 "Please select a valid barangay from the suggestions.",
             )
 
-        # SAVE DATA TEMPORARILY (SESSION)
-        request.session["signup_data"] = {
-            "username": username,
-            "password": password,
-            "first_name": first_name,
-            "last_name": last_name,
-            "middle_initial": "",
-            "address": barangay,
+        if not first_name or not last_name:
+            return _render_signup_error(
+                request,
+                signup_form_data,
+                "First name and last name are required.",
+            )
+
+        try:
+            google_account = _verify_google_signup_credential(request.POST.get("google_credential"))
+        except ValidationError as exc:
+            return _render_signup_error(request, signup_form_data, " ".join(exc.messages))
+
+        google_email = google_account["email"]
+        if User.objects.filter(email__iexact=google_email).exists():
+            return _render_signup_error(
+                request,
+                signup_form_data,
+                "An account already exists with this Google email address.",
+            )
+
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=username,
+                    password=password,
+                    first_name=first_name,
+                    last_name=last_name,
+                    email=google_email,
+                    is_active=False,
+                )
+
+                Profile.objects.create(
+                    user=user,
+                    middle_initial="",
+                    address=barangay,
+                    age=18,
+                    consent_given=True,
+                    email_verified=False,
+                    profile_image=_ensure_default_profile_image_exists(),
+                )
+
+                try:
+                    _send_signup_verification_email(request, user, next_url=next_url)
+                except Exception as exc:
+                    raise RuntimeError(
+                        "We couldn't send the verification email. Please try again later."
+                    ) from exc
+        except IntegrityError:
+            return _render_signup_error(
+                request,
+                signup_form_data,
+                "Username already exists. Please choose a different one and sign up again.",
+            )
+        except RuntimeError as exc:
+            return _render_signup_error(
+                request,
+                signup_form_data,
+                str(exc),
+            )
+
+        messages.success(
+            request,
+            f"Account created for {google_email}. Check your email to verify your account before logging in.",
+        )
+        login_url = reverse("user:login")
+        if next_url:
+            login_url = f"{login_url}?{urlencode({'next': next_url})}"
+        return redirect(login_url)
+
+    return _render_signup_page(request, next_url=next_url)
+
+
+def verify_email(request, uidb64, token):
+    """Activate a public user account after the email verification link is opened."""
+    next_url = _get_safe_next_url(request, request.GET.get("next"))
+
+    try:
+        user_id = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.select_related("profile").get(pk=user_id, is_staff=False)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is None or not default_token_generator.check_token(user, token):
+        messages.error(request, "This verification link is invalid or has expired.")
+        return redirect("user:signup")
+
+    profile, _ = Profile.objects.get_or_create(
+        user=user,
+        defaults={
+            "address": "",
             "age": 18,
-            "consent_given": False,
-        }
+            "consent_given": True,
+            "email_verified": True,
+        },
+    )
 
-        # GO TO FACE AUTH STEP
-        return redirect("user:face_auth")
+    fields_to_update = []
+    if not profile.email_verified:
+        profile.email_verified = True
+        fields_to_update.append("email_verified")
+    if fields_to_update:
+        profile.save(update_fields=fields_to_update)
 
-    return _render_signup_page(request)
+    if not user.is_active:
+        user.is_active = True
+        user.save(update_fields=["is_active"])
+
+    messages.success(request, "Email verified. You can now log in.")
+    login_url = reverse("user:login")
+    if next_url:
+        login_url = f"{login_url}?{urlencode({'next': next_url})}"
+    return redirect(login_url)
 
 @user_only
 def edit_profile(request):
@@ -2235,172 +2464,6 @@ def view_requester_profile(request, user_id):
         back_url=reverse("user:user_adoption_requests"),
         back_label="Back to Requests",
     )
-
-
-def face_auth(request):
-    """Render the face-auth capture step during signup."""
-    if "signup_data" not in request.session:
-        return redirect("user:signup")
-    terms_required = "face_images_files" in request.session and not request.session["signup_data"].get("consent_given")
-    return render(
-        request,
-        "face_auth.html",
-        {
-            "expected_capture_count": SIGNUP_FACE_CAPTURE_COUNT,
-            "terms_required": terms_required,
-        },
-    )
-
-
-@require_POST
-def reset_signup_capture(request):
-    """Discard unfinished face-auth progress when the user leaves the capture flow."""
-    if "signup_data" in request.session:
-        _clear_signup_face_progress(request)
-    return JsonResponse({"status": "ok"})
-
-@require_POST
-def save_face(request):
-    """Persist captured signup face images into temporary storage."""
-    if "signup_data" not in request.session:
-        return JsonResponse({"status": "error", "message": "Signup step missing"}, status=400)
-
-    try:
-        data = json.loads(request.body.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return JsonResponse({"status": "error", "message": "Invalid capture payload."}, status=400)
-
-    images = [
-        image for image in (data.get("images") or [])
-        if isinstance(image, str) and ";base64," in image
-    ]
-
-    if len(images) < SIGNUP_FACE_CAPTURE_COUNT:
-        return JsonResponse(
-            {
-                "status": "error",
-                "message": f"At least {SIGNUP_FACE_CAPTURE_COUNT} face captures are required.",
-            },
-            status=400,
-        )
-
-    temp_dir = os.path.join(settings.MEDIA_ROOT, "temp_faces")
-    os.makedirs(temp_dir, exist_ok=True)
-    _delete_temp_signup_face_images(request.session.get("face_images_files", []))
-    saved_files = []
-    upload_token = request.session.setdefault("signup_face_upload_token", secrets.token_hex(12))
-
-    try:
-        for idx, img_data in enumerate(images[:SIGNUP_FACE_CAPTURE_COUNT]):
-            _, imgstr = img_data.split(";base64,", 1)
-            decoded_image = base64.b64decode(imgstr)
-            filename = f"{upload_token}_{idx}.png"
-            filepath = os.path.join(temp_dir, filename)
-            with open(filepath, "wb") as f:
-                f.write(decoded_image)
-            saved_files.append(f"temp_faces/{filename}")
-    except (ValueError, binascii.Error):
-        _delete_temp_signup_face_images(saved_files)
-        return JsonResponse({"status": "error", "message": "One or more captures were invalid. Please try again."}, status=400)
-
-    request.session["face_images_files"] = saved_files
-    return JsonResponse({"status": "ok", "count": len(saved_files)})
-
-@require_POST
-def signup_complete(request):
-    """Create the user account after signup and face-auth capture succeed."""
-    if "signup_data" not in request.session or "face_images_files" not in request.session:
-        return redirect("user:signup")
-
-    data = request.session["signup_data"]
-    images_files = request.session["face_images_files"]
-    agree_terms = (request.POST.get("agree_terms") or "").strip() == "1"
-    username = _normalize_signup_username(data.get("username"))
-    signup_form_data = _build_signup_form_data(
-        username=username,
-        first_name=data.get("first_name", ""),
-        last_name=data.get("last_name", ""),
-        raw_barangay=data.get("address", ""),
-    )
-
-    if not agree_terms:
-        return render(
-            request,
-            "face_auth.html",
-            {
-                "expected_capture_count": SIGNUP_FACE_CAPTURE_COUNT,
-                "terms_required": True,
-                "terms_error": "You must agree to the Face ID verification terms to complete signup.",
-            },
-        )
-
-    data["consent_given"] = True
-    request.session["signup_data"] = data
-
-    try:
-        _validate_signup_username(username)
-        validate_password(
-            data["password"],
-            user=User(
-                username=username,
-                first_name=data.get("first_name", ""),
-                last_name=data.get("last_name", ""),
-            ),
-        )
-    except ValidationError as exc:
-        _clear_signup_session_state(request, delete_temp_faces=True)
-        return _render_signup_error(
-            request,
-            signup_form_data,
-            " ".join(exc.messages),
-        )
-
-    try:
-        with transaction.atomic():
-            user = User.objects.create_user(
-                username=username,
-                password=data["password"],
-                first_name=data["first_name"],
-                last_name=data["last_name"],
-            )
-
-            Profile.objects.create(
-                user=user,
-                middle_initial=data.get("middle_initial", ""),
-                address=data.get("address", ""),
-                age=data.get("age", 18),
-                consent_given=bool(data.get("consent_given")),
-                profile_image=_ensure_default_profile_image_exists(),
-            )
-
-            for path in images_files:
-                full_path = os.path.join(settings.MEDIA_ROOT, path)
-                with open(full_path, "rb") as f:
-                    FaceImage.objects.create(
-                        user=user,
-                        image=ContentFile(f.read(), name=os.path.basename(path)),
-                    )
-    except IntegrityError:
-        _clear_signup_session_state(request, delete_temp_faces=True)
-        return _render_signup_error(
-            request,
-            signup_form_data,
-            "Username already exists. Please choose a different one and sign up again.",
-        )
-    except FileNotFoundError:
-        _clear_signup_session_state(request, delete_temp_faces=True)
-        return _render_signup_error(
-            request,
-            signup_form_data,
-            "Face capture files were not found. Please sign up again.",
-        )
-
-    _delete_temp_signup_face_images(images_files)
-    _clear_signup_session_state(request)
-
-    messages.success(request, "Account created successfully. Please log in.")
-    return _redirect_to_user_home_with_fresh_feed()
-
 # =============================================================================
 # Navigation 1/5: Home
 # Covers the public feed, search, user-created posts, and related post actions.
@@ -2460,6 +2523,7 @@ def _render_home_with_auth_modal(request, auth_modal, **extra_context):
     context = _build_user_home_context(request)
     context.update({
         "auth_modal": auth_modal,
+        **_auth_ui_context(),
         **extra_context,
     })
     return render(request, "home/user_home.html", context)
@@ -2515,6 +2579,7 @@ def user_home(request):
     context.update({
         "auth_modal": auth_modal,
         "auth_next": auth_next,
+        **_auth_ui_context(),
     })
     return render(request, "home/user_home.html", context)
 

@@ -1,15 +1,20 @@
 import os
 import shutil
 import tempfile
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
+from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.models import User
+from django.core import mail
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
 from dogadoption_admin.models import DogAnnouncement, Post, PostImage
-from user.models import FaceImage
+from user.models import Profile
 
 
 class UserHomeFeedTests(TestCase):
@@ -399,42 +404,118 @@ class UserHomeFeedTests(TestCase):
         self.assertContains(response, "Username is required.")
         self.assertContains(response, f'value="{claim_url}"', html=False)
 
-    def test_signup_complete_redirects_to_public_home_feed(self):
-        with self.settings(MEDIA_ROOT=self._temp_media_root):
-            temp_faces_dir = os.path.join(self._temp_media_root, "temp_faces")
-            os.makedirs(temp_faces_dir, exist_ok=True)
-
-            saved_paths = []
-            for idx in range(4):
-                relative_path = f"temp_faces/signup-test-{idx}.png"
-                absolute_path = os.path.join(temp_faces_dir, f"signup-test-{idx}.png")
-                with open(absolute_path, "wb") as handle:
-                    handle.write(b"fake-face-image-bytes")
-                saved_paths.append(relative_path)
-
-            session = self.client.session
-            session["signup_data"] = {
+    def test_signup_requires_google_credential(self):
+        response = self.client.post(
+            reverse("user:signup"),
+            {
                 "username": "freshsignupuser",
                 "password": "Secret123!x",
+                "confirm_password": "Secret123!x",
                 "first_name": "Fresh",
                 "last_name": "Signup",
-                "middle_initial": "",
                 "address": "Tinago",
-                "age": 18,
-                "consent_given": False,
-            }
-            session["face_images_files"] = saved_paths
-            session.save()
-
-            response = self.client.post(
-                reverse("user:signup_complete"),
-                {"agree_terms": "1"},
-                follow=True,
-            )
+            },
+        )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.request["PATH_INFO"], reverse("user:user_home"))
-        self.assertTemplateUsed(response, "home/user_home.html")
-        self.assertContains(response, "Account created successfully. Please log in.")
-        self.assertTrue(User.objects.filter(username="freshsignupuser").exists())
-        self.assertEqual(FaceImage.objects.filter(user__username="freshsignupuser").count(), 4)
+        self.assertTemplateUsed(response, "signup.html")
+        self.assertContains(response, "Continue with Google is required to finish creating your account.")
+        self.assertFalse(User.objects.filter(username="freshsignupuser").exists())
+
+    @patch(
+        "user.views._verify_google_signup_credential",
+        return_value={
+            "email": "freshsignup@example.com",
+            "sub": "google-sub-123",
+            "given_name": "Fresh",
+            "family_name": "Signup",
+        },
+    )
+    def test_signup_sends_verification_email_and_blocks_login(self, mocked_google_verify):
+        response = self.client.post(
+            reverse("user:signup"),
+            {
+                "username": "freshsignupuser",
+                "password": "Secret123!x",
+                "confirm_password": "Secret123!x",
+                "first_name": "Fresh",
+                "last_name": "Signup",
+                "address": "Tinago",
+                "google_credential": "mock-google-id-token",
+            },
+            follow=True,
+        )
+
+        mocked_google_verify.assert_called_once_with("mock-google-id-token")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.request["PATH_INFO"], reverse("user:login"))
+        self.assertTemplateUsed(response, "login.html")
+        self.assertContains(
+            response,
+            "Account created for freshsignup@example.com. Check your email to verify your account before logging in.",
+        )
+
+        user = User.objects.get(username="freshsignupuser")
+        self.assertEqual(user.email, "freshsignup@example.com")
+        self.assertFalse(user.is_active)
+        self.assertFalse(user.profile.email_verified)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(user.email, mail.outbox[0].to)
+        self.assertIn("/user/verify-email/", mail.outbox[0].body)
+
+        login_response = self.client.post(
+            reverse("user:login"),
+            {
+                "username": "freshsignupuser",
+                "password": "Secret123!x",
+            },
+        )
+
+        self.assertEqual(login_response.status_code, 200)
+        self.assertContains(login_response, "Please verify your email address before logging in.")
+
+    def test_verify_email_activates_user_and_allows_login(self):
+        user = User.objects.create_user(
+            username="verifyme",
+            password="Secret123!x",
+            first_name="Verify",
+            last_name="Me",
+            email="verifyme@example.com",
+            is_active=False,
+        )
+        Profile.objects.create(
+            user=user,
+            address="Tinago",
+            age=18,
+            consent_given=True,
+            email_verified=False,
+        )
+
+        verification_url = reverse(
+            "user:verify_email",
+            args=[
+                urlsafe_base64_encode(force_bytes(user.pk)),
+                default_token_generator.make_token(user),
+            ],
+        )
+
+        response = self.client.get(verification_url, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.request["PATH_INFO"], reverse("user:login"))
+        self.assertContains(response, "Email verified. You can now log in.")
+
+        user.refresh_from_db()
+        user.profile.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertTrue(user.profile.email_verified)
+
+        login_response = self.client.post(
+            reverse("user:login"),
+            {
+                "username": "verifyme",
+                "password": "Secret123!x",
+            },
+        )
+
+        self.assertRedirects(login_response, reverse("user:user_home"), fetch_redirect_response=False)

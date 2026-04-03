@@ -69,9 +69,6 @@ class RequestRateLimitMiddleware(MiddlewareMixin):
     AUTH_ROUTE_NAMES = {
         "user:login",
         "user:signup",
-        "user:signup_complete",
-        "user:save_face",
-        "user:reset_signup_capture",
         "dogadoption_admin:admin_login",
     }
     INTERACTION_ROUTE_NAMES = {
@@ -236,7 +233,7 @@ class RequestRateLimitMiddleware(MiddlewareMixin):
         if request.method not in self.MUTATING_METHODS:
             return ""
 
-        if route_name in {"user:login", "user:signup", "user:signup_complete"}:
+        if route_name in {"user:login", "user:signup"}:
             return (request.POST.get("username") or "").strip().casefold()
         return ""
 

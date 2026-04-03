@@ -16,6 +16,7 @@ class Profile(models.Model):
     address = models.TextField()
     age = models.IntegerField()
     consent_given = models.BooleanField(default=False)
+    email_verified = models.BooleanField(default=True)
     phone_number = models.CharField(max_length=20, blank=True)
     facebook_url = models.URLField(blank=True)
     profile_image = models.ImageField(

@@ -3389,7 +3389,7 @@ def adopt_status(request):
 
     return render(request, 'adopt/adopt.html', {
         'summary': summary,
-        'browse_url': reverse("user:adopt_list"),
+        'browse_url': reverse("user:claim_list"),
         'current_source': source_type,
         'current_status': status_filter,
         'show_staff_requests': show_staff_requests,

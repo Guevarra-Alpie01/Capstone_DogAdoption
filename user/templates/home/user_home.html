@@ -2,13 +2,86 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260403b">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260403d">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
 {% block content %}
 <div class="home-page-center-shell">
 <div class="home-content container{% if not request.user.is_authenticated %} home-content--public{% endif %}">
+
+    <section class="home-hero" aria-labelledby="homeHeroTitle">
+        <div class="home-hero__inner">
+            <div class="home-hero__panel">
+                <span class="home-hero__eyebrow">Rescue. Adopt. Belong.</span>
+                <h1 class="home-hero__title" id="homeHeroTitle">Give a Dog a Second Chance at Life</h1>
+                <p class="home-hero__text">
+                    Open your heart and home to a rescue dog. Adopt, love, and help save pets waiting for their forever family.
+                </p>
+
+                <div class="home-hero__actions">
+                    <a href="{% url 'user:adopt_list' %}" class="home-hero__btn home-hero__btn--primary">
+                        <i class="bi bi-heart-fill" aria-hidden="true"></i>
+                        <span>Adopt a Dog</span>
+                    </a>
+                    {% if request.user.is_authenticated %}
+                    <a href="{% url 'user:dog_capture_request' %}" class="home-hero__btn home-hero__btn--secondary">
+                        <i class="bi bi-life-preserver" aria-hidden="true"></i>
+                        <span>Help Save a Pet</span>
+                    </a>
+                    {% else %}
+                    <a href="{% url 'user:dog_capture_request' %}"
+                       class="home-hero__btn home-hero__btn--secondary"
+                       data-auth-modal-trigger="signup"
+                       data-auth-next-url="{% url 'user:dog_capture_request' %}">
+                        <i class="bi bi-life-preserver" aria-hidden="true"></i>
+                        <span>Help Save a Pet</span>
+                    </a>
+                    {% endif %}
+                </div>
+
+                <div class="home-hero__trust" role="list" aria-label="Adoption highlights">
+                    <span class="home-hero__trust-pill" role="listitem">
+                        <i class="bi bi-shield-heart" aria-hidden="true"></i>
+                        <span>Safe, compassionate adoption support</span>
+                    </span>
+                    <span class="home-hero__trust-pill" role="listitem">
+                        <i class="bi bi-house-heart" aria-hidden="true"></i>
+                        <span>More dogs matched with loving homes</span>
+                    </span>
+                    <span class="home-hero__trust-pill" role="listitem">
+                        <i class="bi bi-stars" aria-hidden="true"></i>
+                        <span>Hope for every rescued pet</span>
+                    </span>
+                </div>
+            </div>
+
+            <aside class="home-hero__spotlight" aria-label="Why adoption matters">
+                <div class="home-hero__spotlight-card">
+                    <span class="home-hero__spotlight-kicker">Why it matters</span>
+                    <h2 class="home-hero__spotlight-title">One open door can change more than one life.</h2>
+                    <p class="home-hero__spotlight-text">
+                        Every adoption gives a homeless dog safety, healing, and love while making room for another rescue to be saved.
+                    </p>
+
+                    <div class="home-hero__spotlight-grid">
+                        <div class="home-hero__spotlight-item">
+                            <strong>Adopt</strong>
+                            <span>Welcome a rescue dog into your family.</span>
+                        </div>
+                        <div class="home-hero__spotlight-item">
+                            <strong>Rescue</strong>
+                            <span>Support faster response for pets in danger.</span>
+                        </div>
+                        <div class="home-hero__spotlight-item">
+                            <strong>Restore</strong>
+                            <span>Give abandoned dogs a future built on trust.</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </section>
 
     <div class="home-feed-controls{% if not request.user.is_authenticated %} no-create{% endif %}">
         {% if request.user.is_authenticated %}

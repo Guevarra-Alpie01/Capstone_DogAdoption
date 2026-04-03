@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+from datetime import timedelta
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
@@ -13,6 +14,7 @@ from django.utils.http import urlsafe_base64_encode
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from dogadoption_admin.models import DogAnnouncement, Post, PostImage
 from user.models import Profile, UserAdoptionPost
@@ -383,6 +385,103 @@ class UserHomeFeedTests(TestCase):
             f'href="{reverse("user:claim_confirm", args=[post.id])}" class="btn-action"',
             html=False,
         )
+
+    def test_adopt_list_defaults_to_adoption_phase_in_rescue_finder(self):
+        staff_user = User.objects.create_user(
+            username="finderadoptstaff",
+            password="secret123",
+            is_staff=True,
+        )
+        member = User.objects.create_user(
+            username="finderadoptmember",
+            password="secret123",
+        )
+        claim_post = Post.objects.create(
+            user=staff_user,
+            caption="Claim Window Dog",
+            location="Bayawan",
+            breed="beagle",
+            age_group="young",
+            size_group="medium",
+            gender="male",
+            claim_days=3,
+        )
+        adopt_post = Post.objects.create(
+            user=staff_user,
+            caption="Adoption Window Dog",
+            location="Tinago",
+            breed="labrador",
+            age_group="adult",
+            size_group="large",
+            gender="female",
+            claim_days=3,
+        )
+        Post.objects.filter(id=adopt_post.id).update(
+            created_at=timezone.now() - timedelta(days=4)
+        )
+        self.client.force_login(member)
+
+        response = self.client.get(reverse("user:adopt_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="purpose"', html=False)
+        self.assertEqual(response.context["current_purpose"], "adopt")
+        self.assertEqual(len(response.context["posts"]), 1)
+        self.assertEqual(response.context["posts"][0]["post"].id, adopt_post.id)
+        self.assertNotEqual(response.context["posts"][0]["post"].id, claim_post.id)
+
+    def test_claim_list_filter_preferences_sort_best_match_first(self):
+        staff_user = User.objects.create_user(
+            username="finderclaimstaff",
+            password="secret123",
+            is_staff=True,
+        )
+        member = User.objects.create_user(
+            username="finderclaimmember",
+            password="secret123",
+        )
+        matching_post = Post.objects.create(
+            user=staff_user,
+            caption="Labrador Match",
+            location="Bayawan Proper",
+            breed="labrador",
+            age_group="adult",
+            size_group="large",
+            gender="male",
+            coat_length="short",
+            colors=["black"],
+            claim_days=3,
+        )
+        non_matching_post = Post.objects.create(
+            user=staff_user,
+            caption="Beagle Mismatch",
+            location="Villareal",
+            breed="beagle",
+            age_group="young",
+            size_group="small",
+            gender="female",
+            coat_length="medium",
+            colors=["tricolor"],
+            claim_days=3,
+        )
+        self.client.force_login(member)
+
+        response = self.client.get(
+            reverse("user:claim_list"),
+            {
+                "purpose": "all",
+                "breed": "labrador",
+                "gender": "male",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["current_purpose"], "all")
+        self.assertEqual(response.context["posts"][0]["post"].id, matching_post.id)
+        self.assertEqual(response.context["active_filter_count"], 2)
+        self.assertTrue(response.context["recommended_posts"])
+        self.assertEqual(response.context["recommended_posts"][0]["post"].id, matching_post.id)
+        self.assertNotEqual(response.context["posts"][0]["post"].id, non_matching_post.id)
 
     def test_modal_login_error_re_renders_home_with_login_popup(self):
         staff_user = User.objects.create_user(

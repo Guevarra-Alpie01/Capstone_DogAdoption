@@ -1,6 +1,57 @@
 # forms.py
 from django import forms
-from .models import UserAdoptionPost,MissingDogPost
+
+from dogadoption_admin.models import Post
+
+from .models import MissingDogPost, UserAdoptionPost
+
+
+class RescueFinderForm(forms.Form):
+    PURPOSE_CHOICES = [
+        ("all", "All"),
+        ("claim", "Claim"),
+        ("adopt", "Adopt"),
+    ]
+    FILTER_FIELDS = (
+        "breed",
+        "age_group",
+        "size_group",
+        "gender",
+        "coat_length",
+        "color",
+        "location",
+    )
+
+    purpose = forms.ChoiceField(required=False, choices=PURPOSE_CHOICES)
+    breed = forms.ChoiceField(required=False, choices=[])
+    age_group = forms.ChoiceField(required=False, choices=[])
+    size_group = forms.ChoiceField(required=False, choices=[])
+    gender = forms.ChoiceField(required=False, choices=[])
+    coat_length = forms.ChoiceField(required=False, choices=[])
+    color = forms.ChoiceField(required=False, choices=[])
+    location = forms.ChoiceField(required=False, choices=[])
+
+    def __init__(self, *args, location_choices=None, default_purpose="all", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["purpose"].initial = default_purpose
+        self.fields["breed"].label = "Breed"
+        self.fields["age_group"].label = "Age"
+        self.fields["size_group"].label = "Size"
+        self.fields["gender"].label = "Gender"
+        self.fields["coat_length"].label = "Coat"
+        self.fields["color"].label = "Color"
+        self.fields["location"].label = "Rescue Location"
+
+        self.fields["breed"].choices = [("", "Any breed"), *Post.BREED_CHOICES]
+        self.fields["age_group"].choices = [("", "Any age"), *Post.AGE_GROUP_CHOICES]
+        self.fields["size_group"].choices = [("", "Any size"), *Post.SIZE_GROUP_CHOICES]
+        self.fields["gender"].choices = [("", "Any gender"), *Post.GENDER_CHOICES]
+        self.fields["coat_length"].choices = [("", "Any coat"), *Post.COAT_LENGTH_CHOICES]
+        self.fields["color"].choices = [("", "Any color"), *Post.COLOR_CHOICES]
+        self.fields["location"].choices = [
+            ("", "Any location"),
+            *((value, value) for value in (location_choices or [])),
+        ]
 
 
 class UserAdoptionPostForm(forms.ModelForm):

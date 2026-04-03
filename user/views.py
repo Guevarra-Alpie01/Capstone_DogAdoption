@@ -63,7 +63,7 @@ from .models import Profile, DogCaptureRequest, DogCaptureRequestImage, DogCaptu
 from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, MissingDogPost
 
 # Forms and notification helpers
-from .forms import MissingDogPostForm, UserAdoptionPostForm
+from .forms import MissingDogPostForm, RescueFinderForm, UserAdoptionPostForm
 from .avatar_cache import invalidate_cached_profile_avatar
 from .notification_utils import (
     build_user_notification_payload,
@@ -96,6 +96,8 @@ PHILIPPINES_COUNTRY_CODE = "+63"
 SIGNUP_USERNAME_MIN_LENGTH = 3
 SIGNUP_USERNAME_MAX_LENGTH = User._meta.get_field("username").max_length
 _signup_username_validator = ASCIIUsernameValidator()
+RESCUE_FINDER_PAGE_SIZE = 12
+RESCUE_FINDER_RECOMMENDATION_LIMIT = 4
 
 
 def _safe_media_url(file_field):
@@ -1138,6 +1140,136 @@ def _base_user_adoption_post_queryset():
     ).prefetch_related("images").order_by("-created_at")
 
 
+def _build_rescue_finder_form(*args, location_choices=None, default_purpose="all", **kwargs):
+    return RescueFinderForm(
+        *args,
+        location_choices=location_choices,
+        default_purpose=default_purpose,
+        **kwargs,
+    )
+
+
+def _finder_default_purpose(listing_mode):
+    return "claim" if listing_mode == "claim" else "adopt"
+
+
+def _normalize_rescue_location(value):
+    return " ".join((value or "").split()).casefold()
+
+
+def _rescue_finder_choice_map(field):
+    return {
+        str(value): label
+        for value, label in field.choices
+        if value not in {"", None}
+    }
+
+
+def _rescue_finder_post_matches(post, key, value):
+    if not value:
+        return False
+    if key == "color":
+        raw_colors = post.colors or []
+        if isinstance(raw_colors, str):
+            raw_colors = [raw_colors]
+        return value in raw_colors
+    if key == "location":
+        return _normalize_rescue_location(post.location) == _normalize_rescue_location(value)
+    return getattr(post, key, "") == value
+
+
+def _rescue_finder_match_score(post, selected_filters):
+    return sum(
+        1
+        for key, value in selected_filters.items()
+        if value and _rescue_finder_post_matches(post, key, value)
+    )
+
+
+def _rescue_finder_phase_priority(phase, preferred_phase):
+    if preferred_phase in {"claim", "adopt"}:
+        return 0 if phase == preferred_phase else 1
+    return 0 if phase == "claim" else 1
+
+
+def _rescue_finder_title(post):
+    return " ".join((post.display_title or "Dog Listing").split())
+
+
+def _build_rescue_finder_card_item(post, phase, days, hours, minutes, match_score):
+    action_url = (
+        reverse("user:claim_confirm", args=[post.id])
+        if phase == "claim"
+        else reverse("user:adopt_confirm", args=[post.id])
+    )
+    return {
+        "post": post,
+        "phase": phase,
+        "phase_label": "Claim" if phase == "claim" else "Adopt",
+        "phase_title": "Ready for Claim" if phase == "claim" else "Ready for Adoption",
+        "days_left": days,
+        "hours_left": hours,
+        "minutes_left": minutes,
+        "main_image_url": _first_prefetched_image_url(post.images.all()),
+        "title": _rescue_finder_title(post),
+        "breed_label": post.display_breed or "Unknown Breed",
+        "age_label": post.display_age_group or "Age not listed",
+        "size_label": post.display_size_group or "Size not listed",
+        "gender_label": post.get_gender_display() if post.gender else "Gender not listed",
+        "coat_label": post.display_coat_length or "Coat not listed",
+        "color_label": post.display_colors or "Color not listed",
+        "location_label": " ".join((post.location or "").split()) or "Location not listed",
+        "action_label": "Claim" if phase == "claim" else "Adopt",
+        "action_url": action_url,
+        "match_score": match_score,
+    }
+
+
+def _build_rescue_finder_filter_sections(form, selected_filters):
+    icon_map = {
+        "breed": "bi bi-tags",
+        "age_group": "bi bi-calendar-heart",
+        "size_group": "bi bi-arrows-angle-expand",
+        "gender": "bi bi-gender-ambiguous",
+        "coat_length": "bi bi-scissors",
+        "color": "bi bi-palette",
+        "location": "bi bi-geo-alt",
+    }
+    sections = []
+    for key in RescueFinderForm.FILTER_FIELDS:
+        field = form.fields[key]
+        choice_map = _rescue_finder_choice_map(field)
+        sections.append({
+            "key": key,
+            "label": field.label,
+            "icon_class": icon_map.get(key, "bi bi-sliders"),
+            "value": selected_filters.get(key, ""),
+            "value_label": choice_map.get(selected_filters.get(key, ""), ""),
+            "clear_label": field.choices[0][1] if field.choices else "",
+            "options": [
+                {"value": str(value), "label": label}
+                for value, label in field.choices
+                if value not in {"", None}
+            ],
+        })
+    return sections
+
+
+def _build_rescue_finder_selected_chips(form, selected_filters):
+    chips = []
+    for key in RescueFinderForm.FILTER_FIELDS:
+        value = selected_filters.get(key, "")
+        if not value:
+            continue
+        field = form.fields[key]
+        chips.append({
+            "key": key,
+            "label": field.label,
+            "value_label": _rescue_finder_choice_map(field).get(value, value),
+        })
+    return chips
+
+
 def _filter_public_posts(posts_qs, listing_mode, filter_type):
     now = timezone.now()
     post_table = Post._meta.db_table
@@ -1224,148 +1356,125 @@ def _filter_user_adoption_posts(posts_qs, filter_type):
 
 
 def _build_public_post_listing(request, listing_mode):
-    """Build listing data for the public claim/adopt browse screens."""
-    filter_type = request.GET.get("filter", "all")
-    request_type = "claim" if listing_mode == "claim" else "adopt"
-    nav_tabs = [
-        {"key": "all", "label": "All"},
-        {"key": "ready_claim", "label": "Ready to Claim"},
-        {"key": "reunited", "label": "Reclaimed"},
-    ] if listing_mode == "claim" else [
-        {"key": "all", "label": "All"},
-        {"key": "ready_adopt", "label": "Ready to Adopt"},
-        {"key": "adopted", "label": "Adopted"},
-    ]
-    page_title = "Dogs for Claim" if listing_mode == "claim" else "Dogs for Adoption"
-
-    if listing_mode == "claim":
-        page_number = request.GET.get("page", 1)
-        posts_qs, filter_type = _filter_public_posts(
-            _base_public_post_queryset(),
-            listing_mode,
-            filter_type,
-        )
-        page_obj = Paginator(posts_qs, 12).get_page(page_number)
-        post_items = []
-        for post in page_obj.object_list:
-            phase, days, hours, minutes = _post_phase_payload(post)
-            post_items.append({
-                "post": post,
-                "phase": phase,
-                "days_left": days,
-                "hours_left": hours,
-                "minutes_left": minutes,
-                "main_image_url": _first_prefetched_image_url(post.images.all()),
-            })
-
-        return {
-            "posts": post_items,
-            "current_filter": filter_type,
-            "page_obj": page_obj,
-            "listing_mode": listing_mode,
-            "nav_tabs": nav_tabs,
-            "page_title": page_title,
-            "status_page_url": reverse(_request_history_route_name(request_type)),
-            "status_page_label": "My Claim Requests",
-            "pending_request_count": PostRequest.objects.filter(
-                user=request.user,
-                request_type=request_type,
-                status="pending",
-            ).count(),
-        }
-
-    source_type = request.GET.get("source", "all")
-    source_tabs = [
-        {"key": "all", "label": "All Posts"},
-        {"key": "staff", "label": "Staff Posts"},
-        {"key": "user", "label": "User Posts"},
-    ]
-    if source_type not in {tab["key"] for tab in source_tabs}:
-        source_type = "all"
-
-    show_staff_posts = source_type in {"all", "staff"}
-    show_user_posts = source_type in {"all", "user"}
-    items_per_page = 6 if source_type == "all" else 12
-
-    staff_page_obj = None
-    staff_items = []
-    if show_staff_posts:
-        staff_page_number = request.GET.get("staff_page", 1)
-        staff_qs, filter_type = _filter_public_posts(
-            _base_public_post_queryset(),
-            listing_mode,
-            filter_type,
-        )
-        staff_page_obj = Paginator(staff_qs, items_per_page).get_page(staff_page_number)
-        for post in staff_page_obj.object_list:
-            phase, days, hours, minutes = _post_phase_payload(post)
-            staff_items.append({
-                "post": post,
-                "phase": phase,
-                "days_left": days,
-                "hours_left": hours,
-                "minutes_left": minutes,
-                "main_image_url": _first_prefetched_image_url(post.images.all()),
-                "source_type": "staff",
-            })
-    else:
-        _, filter_type = _filter_user_adoption_posts(
-            _base_user_adoption_post_queryset(),
-            filter_type,
-        )
-
-    user_page_obj = None
-    user_items = []
-    if show_user_posts:
-        user_page_number = request.GET.get("user_page", 1)
-        user_qs, filter_type = _filter_user_adoption_posts(
-            _base_user_adoption_post_queryset(),
-            filter_type,
-        )
-        user_page_obj = Paginator(user_qs, items_per_page).get_page(user_page_number)
-        for post in user_page_obj.object_list:
-            user_items.append({
-                "post": post,
-                "main_image_url": _first_prefetched_image_url(post.images.all()),
-                "owner_name": post.owner.get_full_name() or post.owner.username,
-                "owner_profile_url": _build_profile_destination_url(
-                    request,
-                    post.owner_id,
-                    next_url=request.get_full_path(),
-                    back_label="Back to Adoption List",
-                ),
-                "source_type": "user",
-            })
-
-    pending_request_count = (
-        PostRequest.objects.filter(
-            user=request.user,
-            request_type=request_type,
-            status="pending",
-        ).count()
-        + UserAdoptionRequest.objects.filter(
-            requester=request.user,
-            status="pending",
-        ).count()
+    """Build the rescue finder page using real rescue-post phases and profile filters."""
+    preferred_purpose = _finder_default_purpose(listing_mode)
+    raw_open_posts = (
+        _base_public_post_queryset()
+        .filter(status__in=["rescued", "under_care"])
     )
 
+    open_post_rows = []
+    location_map = {}
+    phase_counts = {"all": 0, "claim": 0, "adopt": 0}
+    for post in raw_open_posts:
+        phase, days, hours, minutes = _post_phase_payload(post)
+        if phase not in {"claim", "adopt"}:
+            continue
+        open_post_rows.append((post, phase, days, hours, minutes))
+        phase_counts["all"] += 1
+        phase_counts[phase] += 1
+        location_value = " ".join((post.location or "").split())
+        if location_value:
+            location_map.setdefault(_normalize_rescue_location(location_value), location_value)
+
+    finder_form = _build_rescue_finder_form(
+        location_choices=sorted(location_map.values(), key=str.lower),
+        default_purpose=preferred_purpose,
+    )
+    purpose_choice_map = _rescue_finder_choice_map(finder_form.fields["purpose"])
+    selected_purpose = (request.GET.get("purpose") or "").strip()
+    if selected_purpose not in purpose_choice_map:
+        selected_purpose = preferred_purpose
+
+    selected_filters = {}
+    for key in RescueFinderForm.FILTER_FIELDS:
+        raw_value = (request.GET.get(key) or "").strip()
+        allowed_values = _rescue_finder_choice_map(finder_form.fields[key])
+        selected_filters[key] = raw_value if raw_value in allowed_values else ""
+
+    active_filter_chips = _build_rescue_finder_selected_chips(finder_form, selected_filters)
+    active_filter_count = len(active_filter_chips)
+
+    candidate_items = []
+    for post, phase, days, hours, minutes in open_post_rows:
+        if selected_purpose != "all" and phase != selected_purpose:
+            continue
+        match_score = _rescue_finder_match_score(post, selected_filters)
+        candidate_items.append(
+            _build_rescue_finder_card_item(
+                post,
+                phase,
+                days,
+                hours,
+                minutes,
+                match_score,
+            )
+        )
+
+    candidate_items.sort(
+        key=lambda item: (
+            -item["match_score"],
+            _rescue_finder_phase_priority(item["phase"], preferred_purpose),
+            0 if item["main_image_url"] else 1,
+            -item["post"].created_at.timestamp(),
+            item["post"].id,
+        )
+    )
+
+    recommended_posts = []
+    if active_filter_count:
+        recommended_posts = [
+            item for item in candidate_items if item["match_score"] > 0
+        ][:RESCUE_FINDER_RECOMMENDATION_LIMIT]
+
+    page_obj = Paginator(candidate_items, RESCUE_FINDER_PAGE_SIZE).get_page(
+        request.GET.get("page", 1)
+    )
+
+    if selected_purpose == "claim":
+        results_title = "Dogs Ready for Claim"
+        results_description = "These dogs are still within the owner-claim window."
+    elif selected_purpose == "adopt":
+        results_title = "Dogs Ready for Adoption"
+        results_description = "These rescue dogs have moved into the adoption window."
+    else:
+        results_title = "All Open Rescue Dogs"
+        results_description = "Browse every active rescue dog currently open for claim or adoption."
+
     return {
-        "posts": staff_items if source_type != "user" else user_items,
-        "current_filter": filter_type,
+        "posts": list(page_obj.object_list),
+        "page_obj": page_obj,
         "listing_mode": listing_mode,
-        "nav_tabs": nav_tabs,
-        "page_title": page_title,
-        "status_page_url": reverse(_request_history_route_name(request_type)),
-        "status_page_label": "My Adoption Requests",
-        "pending_request_count": pending_request_count,
-        "current_source": source_type,
-        "source_tabs": source_tabs,
-        "show_staff_posts": show_staff_posts,
-        "show_user_posts": show_user_posts,
-        "staff_posts": staff_items,
-        "staff_page_obj": staff_page_obj,
-        "user_posts": user_items,
-        "user_page_obj": user_page_obj,
+        "page_title": "Dog Rescue Finder",
+        "page_description": "Find active rescue dogs using live claim and adoption phases from the backend.",
+        "results_title": results_title,
+        "results_description": results_description,
+        "purpose_choices": list(finder_form.fields["purpose"].choices),
+        "current_purpose": selected_purpose,
+        "purpose_counts": phase_counts,
+        "filter_sections": _build_rescue_finder_filter_sections(
+            finder_form,
+            selected_filters,
+        ),
+        "active_filter_chips": active_filter_chips,
+        "active_filter_count": active_filter_count,
+        "recommended_posts": recommended_posts,
+        "pagination_query": _pagination_query_without_page(request.GET),
+        "clear_filters_url": reverse(
+            "user:claim_list" if listing_mode == "claim" else "user:adopt_list"
+        ),
+        "request_links": [
+            {
+                "url": reverse("user:my_claims"),
+                "label": "My Claim Requests",
+                "icon_class": "bi bi-shield-check",
+            },
+            {
+                "url": reverse("user:adopt_status"),
+                "label": "My Adoption Requests",
+                "icon_class": "bi bi-house-heart",
+            },
+        ],
     }
 
 

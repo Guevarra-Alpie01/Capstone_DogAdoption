@@ -1,388 +1,200 @@
 {% extends "base.html" %}
 {% load static %}
+
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260330l">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260404a">
 {% endblock %}
+
 {% block content %}
-<div class="adoption-list-page">
-    <header class="adoption-list-header">
-        <div class="adoption-list-copy">
-            <h1 class="adoption-list-title">{{ page_title }}</h1>
+<div class="finder-page">
+    <section class="finder-hero">
+        <div class="finder-hero__copy">
+            <span class="finder-hero__eyebrow">
+                <i class="bi bi-heart-pulse" aria-hidden="true"></i>
+                Rescue Finder
+            </span>
+            <h1 class="finder-hero__title">{{ page_title }}</h1>
+            <p class="finder-hero__text">{{ page_description }}</p>
         </div>
-        <div class="listing-toolbar">
-            <a href="{{ status_page_url }}" class="listing-toolbar-link">
-                <span class="listing-toolbar-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M7 4H17M7 12H17M7 20H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        <circle cx="17.5" cy="19.5" r="3.5" stroke="currentColor" stroke-width="2"/>
-                    </svg>
-                </span>
-                <span class="listing-toolbar-copy">
-                    <span class="listing-toolbar-label">{{ status_page_label }}</span>
-                </span>
-            </a>
-        </div>
-    </header>
 
-    <div class="adoption-filter-shell">
-        {% if listing_mode != 'adopt' %}
-        <div class="subtop-nav">
-            {% for tab in nav_tabs %}
-            <a href="?filter={{ tab.key }}" class="nav-item {% if current_filter == tab.key %}active{% endif %}">{{ tab.label }}</a>
+        <div class="finder-hero__actions">
+            {% for link in request_links %}
+            <a href="{{ link.url }}" class="finder-hero__link">
+                <i class="{{ link.icon_class }}" aria-hidden="true"></i>
+                <span>{{ link.label }}</span>
+            </a>
             {% endfor %}
         </div>
-        {% else %}
-        <div class="subtop-nav source-nav">
-            <a href="?filter=all&source=all" class="nav-item {% if current_filter == 'all' and current_source == 'all' %}active{% endif %}">All Posts</a>
-            <a href="?filter=all&source=staff" class="nav-item {% if current_source == 'staff' and current_filter != 'adopted' %}active{% endif %}">Staff Posts</a>
-            <a href="?filter=all&source=user" class="nav-item {% if current_source == 'user' and current_filter != 'adopted' %}active{% endif %}">User Posts</a>
-            <a href="?filter=adopted&source={{ current_source|default:'all'|urlencode }}" class="nav-item {% if current_filter == 'adopted' %}active{% endif %}">Adopted</a>
-        </div>
-        {% endif %}
-    </div>
+    </section>
 
-    <div class="adoption-list-results">
-        {% if listing_mode == 'adopt' %}
-            {% if show_staff_posts %}
-            <section class="adoption-source-section">
-                <div class="adoption-section-header">
-                    <h2 class="adoption-section-title">Staff Posts</h2>
+    <form method="get" class="finder-layout">
+        <aside class="finder-sidebar">
+            <div class="finder-panel">
+                <div class="finder-panel__head">
+                    <div>
+                        <h2 class="finder-panel__title">Search Preferences</h2>
+                        <p class="finder-panel__text">Browse live rescue posts and surface your best matches first.</p>
+                    </div>
+                    <a href="{{ clear_filters_url }}" class="finder-panel__clear">Clear all</a>
                 </div>
-                {% if staff_posts %}
-                <div class="adoption-card-list">
-                    {% for item in staff_posts %}
-                        {% with post=item.post %}
-                        <article class="post-card">
-                            <div class="post-card-media">
-                                {% if item.main_image_url %}
-                                <a href="{{ item.main_image_url }}" class="post-card-media-link js-adopt-list-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ post.display_title|default:'Dog image' }}" aria-label="View full image">
-                                    <img src="{{ item.main_image_url }}" width="280" height="220" alt="{{ post.display_title|default:'Dog image' }}">
-                                </a>
-                                {% else %}
-                                <div class="post-card-placeholder">
-                                    <span>{{ post.display_title|default:'Dog'|slice:':1'|upper }}</span>
-                                    <small>No Photo</small>
-                                </div>
-                                {% endif %}
-                            </div>
 
-                            <div class="post-card-content">
-                                <div class="post-card-heading">
-                                    <div class="post-card-title-group">
-                                        <span class="post-source-badge">Staff Post</span>
-                                        <h3 class="post-card-title">{{ post.display_title|default:"Adoption Post" }}</h3>
-                                    </div>
-                                    {% if item.phase == 'adopt' %}
-                                    <span class="status-tag status-open">Open</span>
-                                    {% elif post.status == 'adopted' %}
-                                    <span class="status-tag status-closed">Adopted</span>
-                                    {% else %}
-                                    <span class="status-tag status-closed">Closed</span>
-                                    {% endif %}
-                                </div>
+                <div class="finder-purpose">
+                    <label for="finderPurpose" class="finder-field__label">Purpose</label>
+                    <div class="finder-purpose__select-wrap">
+                        <select id="finderPurpose" name="purpose" class="finder-select" data-auto-submit>
+                            {% for value, label in purpose_choices %}
+                            <option value="{{ value }}"{% if current_purpose == value %} selected{% endif %}>{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="finder-purpose__stats">
+                        <span class="finder-purpose__pill{% if current_purpose == 'all' %} is-active{% endif %}">
+                            <strong>{{ purpose_counts.all }}</strong>
+                            <span>All</span>
+                        </span>
+                        <span class="finder-purpose__pill{% if current_purpose == 'claim' %} is-active{% endif %}">
+                            <strong>{{ purpose_counts.claim }}</strong>
+                            <span>Claim</span>
+                        </span>
+                        <span class="finder-purpose__pill{% if current_purpose == 'adopt' %} is-active{% endif %}">
+                            <strong>{{ purpose_counts.adopt }}</strong>
+                            <span>Adopt</span>
+                        </span>
+                    </div>
+                </div>
 
-                                <div class="post-card-facts">
-                                    {% if post.gender %}
-                                    <div class="post-fact">
-                                        <span class="post-fact-label">Gender</span>
-                                        <span class="post-fact-value">{{ post.get_gender_display }}</span>
-                                    </div>
-                                    {% endif %}
-                                    {% if post.display_age_group %}
-                                    <div class="post-fact">
-                                        <span class="post-fact-label">Age</span>
-                                        <span class="post-fact-value">{{ post.display_age_group }}</span>
-                                    </div>
-                                    {% endif %}
-                                    {% if post.display_size_group %}
-                                    <div class="post-fact">
-                                        <span class="post-fact-label">Size</span>
-                                        <span class="post-fact-value">{{ post.display_size_group }}</span>
-                                    </div>
-                                    {% endif %}
-                                    <div class="post-fact">
-                                        <span class="post-fact-label">Location</span>
-                                        <span class="post-fact-value">{{ post.location|default:"-" }}</span>
-                                    </div>
-                                    <div class="post-fact {% if item.phase == 'adopt' %}post-fact-highlight{% endif %}">
-                                        <span class="post-fact-label">{% if item.phase == 'adopt' %}Time Left{% else %}Status{% endif %}</span>
-                                        <span class="post-fact-value">
-                                            {% if item.phase == 'adopt' %}
-                                            {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m
-                                            {% elif post.status == 'adopted' %}
-                                            Adopted
-                                            {% else %}
-                                            Closed
-                                            {% endif %}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {% if post.display_coat_length or post.display_colors or post.rescued_date %}
-                                <p class="post-card-note">
-                                    {% if post.display_coat_length %}<strong>Coat:</strong> {{ post.display_coat_length }}<br>{% endif %}
-                                    {% if post.display_colors %}<strong>Color:</strong> {{ post.display_colors }}<br>{% endif %}
-                                    {% if post.rescued_date %}<strong>Rescued:</strong> {{ post.rescued_date|date:"M d, Y" }}{% endif %}
-                                </p>
-                                {% endif %}
-
-                                <div class="post-card-footer">
-                                    {% if item.phase == 'adopt' %}
-                                    <a href="{% url 'user:adopt_confirm' post.id %}" class="btn-action">Adopt</a>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </article>
-                        {% endwith %}
+                {% if active_filter_chips %}
+                <div class="finder-chip-list" aria-label="Active filters">
+                    {% for chip in active_filter_chips %}
+                    <span class="finder-chip">{{ chip.label }}: {{ chip.value_label }}</span>
                     {% endfor %}
                 </div>
-                {% if staff_page_obj and staff_page_obj.has_next %}
-                <div class="adoption-list-more-wrap">
-                    <a class="adoption-list-more-btn"
-                       href="?filter={{ current_filter|urlencode }}&source={{ current_source|urlencode }}&staff_page={{ staff_page_obj.next_page_number }}{% if user_page_obj %}&user_page={{ user_page_obj.number }}{% endif %}">
-                        Load more staff posts
-                    </a>
-                </div>
                 {% endif %}
+
+                <div class="finder-filter-groups">
+                    {% for section in filter_sections %}
+                    <details class="finder-filter-group"{% if section.value or forloop.counter <= 2 %} open{% endif %}>
+                        <summary class="finder-filter-group__summary">
+                            <span class="finder-filter-group__title">
+                                <i class="{{ section.icon_class }}" aria-hidden="true"></i>
+                                <span>{{ section.label }}</span>
+                            </span>
+                            {% if section.value_label %}
+                            <span class="finder-filter-group__value">{{ section.value_label }}</span>
+                            {% endif %}
+                        </summary>
+
+                        <div class="finder-filter-options">
+                            <label class="finder-filter-option{% if not section.value %} is-selected{% endif %}">
+                                <input type="radio" name="{{ section.key }}" value=""{% if not section.value %} checked{% endif %} data-auto-submit>
+                                <span class="finder-filter-option__box">
+                                    <i class="bi bi-check2" aria-hidden="true"></i>
+                                </span>
+                                <span class="finder-filter-option__label">{{ section.clear_label }}</span>
+                            </label>
+                            {% for option in section.options %}
+                            <label class="finder-filter-option{% if section.value == option.value %} is-selected{% endif %}">
+                                <input type="radio" name="{{ section.key }}" value="{{ option.value }}"{% if section.value == option.value %} checked{% endif %} data-auto-submit>
+                                <span class="finder-filter-option__box">
+                                    <i class="bi bi-check2" aria-hidden="true"></i>
+                                </span>
+                                <span class="finder-filter-option__label">{{ option.label }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </details>
+                    {% endfor %}
+                </div>
+
+                <button type="submit" class="finder-apply">Apply Preferences</button>
+            </div>
+        </aside>
+
+        <div class="finder-content">
+            {% if active_filter_count %}
+            <section class="finder-recommended">
+                <div class="finder-section__head">
+                    <div>
+                        <span class="finder-section__eyebrow">
+                            <i class="bi bi-stars" aria-hidden="true"></i>
+                            Recommended for you
+                        </span>
+                        <h2 class="finder-section__title">Best matches from your selected filters</h2>
+                    </div>
+                    <p class="finder-section__meta">{{ active_filter_count }} active filter{{ active_filter_count|pluralize }}</p>
+                </div>
+
+                {% if recommended_posts %}
+                <div class="finder-card-grid">
+                    {% for item in recommended_posts %}
+                    {% include "adopt/_finder_card.html" with item=item featured=True active_filter_count=active_filter_count %}
+                    {% endfor %}
+                </div>
                 {% else %}
-                <div class="adoption-list-empty adoption-list-empty-inline">
-                    <p>No staff posts right now.</p>
+                <div class="finder-empty finder-empty--inline">
+                    <h3>No close matches yet</h3>
+                    <p>Try changing one preference to widen the rescue search.</p>
                 </div>
                 {% endif %}
             </section>
             {% endif %}
 
-            {% if show_user_posts %}
-            <section class="adoption-source-section">
-                <div class="adoption-section-header">
-                    <h2 class="adoption-section-title">User Posts</h2>
+            <section class="finder-results">
+                <div class="finder-section__head">
+                    <div>
+                        <h2 class="finder-section__title">{{ results_title }}</h2>
+                        <p class="finder-section__text">{{ results_description }}</p>
+                    </div>
+                    <p class="finder-section__meta">{{ page_obj.paginator.count }} dog{{ page_obj.paginator.count|pluralize }}</p>
                 </div>
-                {% if user_posts %}
-                <div class="adoption-card-list">
-                    {% for item in user_posts %}
-                        {% with post=item.post %}
-                        <article class="post-card">
-                            <div class="post-card-media">
-                                {% if item.main_image_url %}
-                                <a href="{{ item.main_image_url }}" class="post-card-media-link js-adopt-list-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ post.dog_name|default:'Dog image' }}" aria-label="View full image">
-                                    <img src="{{ item.main_image_url }}" width="280" height="220" alt="{{ post.dog_name|default:'Dog image' }}">
-                                </a>
-                                {% else %}
-                                <div class="post-card-placeholder">
-                                    <span>{{ post.dog_name|default:'Dog'|slice:':1'|upper }}</span>
-                                    <small>No Photo</small>
-                                </div>
-                                {% endif %}
-                            </div>
 
-                            <div class="post-card-content">
-                                <div class="post-card-heading">
-                                    <div class="post-card-title-group">
-                                        <span class="post-source-badge is-user">User Post</span>
-                                        <h3 class="post-card-title">{{ post.dog_name }}</h3>
-                                    </div>
-                                    {% if post.status == 'available' %}
-                                    <span class="status-tag status-open">Open</span>
-                                    {% else %}
-                                    <span class="status-tag status-closed">Adopted</span>
-                                    {% endif %}
-                                </div>
-
-                                <div class="post-card-facts">
-                                    {% if post.gender %}
-                                    <div class="post-fact">
-                                        <span class="post-fact-label">Gender</span>
-                                        <span class="post-fact-value">{{ post.get_gender_display }}</span>
-                                    </div>
-                                    {% endif %}
-                                    {% if post.age %}
-                                    <div class="post-fact">
-                                        <span class="post-fact-label">Age</span>
-                                        <span class="post-fact-value">{{ post.age }}</span>
-                                    </div>
-                                    {% endif %}
-                                    <div class="post-fact">
-                                        <span class="post-fact-label">Location</span>
-                                        <span class="post-fact-value">{{ post.location }}</span>
-                                    </div>
-                                    <div class="post-fact">
-                                        <span class="post-fact-label">Owner</span>
-                                        <span class="post-fact-value">
-                                            <a href="{{ item.owner_profile_url }}">{{ item.owner_name }}</a>
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {% if post.description %}
-                                <p class="post-card-note">{{ post.description|truncatewords:18 }}</p>
-                                {% endif %}
-
-                                <div class="post-card-footer">
-                                    {% if post.status == 'available' %}
-                                        {% if post.owner_id == request.user.id %}
-                                        <span class="btn-action is-secondary">Your Post</span>
-                                        {% else %}
-                                        <a href="{% url 'user:adopt_user_post' post.id %}" class="btn-action">Request</a>
-                                        {% endif %}
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </article>
-                        {% endwith %}
+                {% if posts %}
+                <div class="finder-card-grid">
+                    {% for item in posts %}
+                    {% include "adopt/_finder_card.html" with item=item active_filter_count=active_filter_count %}
                     {% endfor %}
                 </div>
-                {% if user_page_obj and user_page_obj.has_next %}
-                <div class="adoption-list-more-wrap">
-                    <a class="adoption-list-more-btn"
-                       href="?filter={{ current_filter|urlencode }}&source={{ current_source|urlencode }}{% if staff_page_obj %}&staff_page={{ staff_page_obj.number }}{% endif %}&user_page={{ user_page_obj.next_page_number }}">
-                        Load more user posts
-                    </a>
+
+                {% if page_obj.has_next %}
+                <div class="finder-load-more">
+                    <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ page_obj.next_page_number }}" class="finder-load-more__link">Load more dogs</a>
                 </div>
                 {% endif %}
                 {% else %}
-                <div class="adoption-list-empty adoption-list-empty-inline">
-                    <p>No user posts right now.</p>
+                <div class="finder-empty">
+                    <h3>No rescue dogs found</h3>
+                    <p>There are no active rescue dogs for this view right now. Check back again soon.</p>
+                    <a href="{{ clear_filters_url }}" class="finder-empty__link">Reset search</a>
                 </div>
                 {% endif %}
             </section>
-            {% endif %}
-        {% elif posts %}
-        <div class="adoption-card-list">
-            {% for item in posts %}
-                {% with post=item.post %}
-                <article class="post-card">
-                    <div class="post-card-media">
-                        {% if item.main_image_url %}
-                        <a href="{{ item.main_image_url }}" class="post-card-media-link js-adopt-list-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ post.display_title|default:'Dog image' }}" aria-label="View full image">
-                            <img src="{{ item.main_image_url }}" width="280" height="220" alt="{{ post.display_title|default:'Dog image' }}">
-                        </a>
-                        {% else %}
-                        <div class="post-card-placeholder">
-                            <span>{{ post.display_title|default:'Dog'|slice:':1'|upper }}</span>
-                            <small>No Photo</small>
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    <div class="post-card-content">
-                        <div class="post-card-heading">
-                            <div class="post-card-title-group">
-                                <h3 class="post-card-title">{{ post.display_title|default:"Dog Post" }}</h3>
-                            </div>
-                            {% if listing_mode == 'claim' and item.phase == 'claim' %}
-                            <span class="status-tag status-open">Open</span>
-                            {% elif listing_mode == 'adopt' and item.phase == 'adopt' %}
-                            <span class="status-tag status-open">Open</span>
-                            {% elif post.status == 'reunited' %}
-                            <span class="status-tag status-closed">Reclaimed</span>
-                            {% elif post.status == 'adopted' %}
-                            <span class="status-tag status-closed">Adopted</span>
-                            {% else %}
-                            <span class="status-tag status-closed">Closed</span>
-                            {% endif %}
-                        </div>
-
-                        <div class="post-card-facts">
-                            {% if post.display_age_group %}
-                            <div class="post-fact">
-                                <span class="post-fact-label">Age</span>
-                                <span class="post-fact-value">{{ post.display_age_group }}</span>
-                            </div>
-                            {% endif %}
-                            {% if post.display_size_group %}
-                            <div class="post-fact">
-                                <span class="post-fact-label">Size</span>
-                                <span class="post-fact-value">{{ post.display_size_group }}</span>
-                            </div>
-                            {% endif %}
-                            {% if post.gender %}
-                            <div class="post-fact">
-                                <span class="post-fact-label">Gender</span>
-                                <span class="post-fact-value">{{ post.get_gender_display }}</span>
-                            </div>
-                            {% endif %}
-                            <div class="post-fact">
-                                <span class="post-fact-label">Location</span>
-                                <span class="post-fact-value">{{ post.location|default:"-" }}</span>
-                            </div>
-                            <div class="post-fact {% if item.phase == 'claim' or item.phase == 'adopt' %}post-fact-highlight{% endif %}">
-                                <span class="post-fact-label">
-                                    {% if item.phase == 'claim' %}
-                                    Time Left
-                                    {% elif item.phase == 'adopt' %}
-                                    Time Left
-                                    {% else %}
-                                    Status
-                                    {% endif %}
-                                </span>
-                                <span class="post-fact-value">
-                                    {% if listing_mode == 'claim' and item.phase == 'claim' %}
-                                    {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m
-                                    {% elif listing_mode == 'adopt' and item.phase == 'adopt' %}
-                                    {{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m
-                                    {% elif post.status == 'reunited' %}
-                                    Reclaimed
-                                    {% elif post.status == 'adopted' %}
-                                    Adopted
-                                    {% else %}
-                                    Closed
-                                    {% endif %}
-                                </span>
-                            </div>
-                        </div>
-
-                        {% if post.display_coat_length or post.display_colors or post.rescued_date %}
-                        <p class="post-card-note">
-                            {% if post.display_coat_length %}<strong>Coat:</strong> {{ post.display_coat_length }}<br>{% endif %}
-                            {% if post.display_colors %}<strong>Color:</strong> {{ post.display_colors }}<br>{% endif %}
-                            {% if post.rescued_date %}<strong>Rescued:</strong> {{ post.rescued_date|date:"M d, Y" }}{% endif %}
-                        </p>
-                        {% endif %}
-
-                        <div class="post-card-footer">
-                            {% if listing_mode == 'claim' and item.phase == 'claim' %}
-                            <a href="{% url 'user:claim_confirm' post.id %}" class="btn-action">Claim</a>
-                            {% elif listing_mode == 'adopt' and item.phase == 'adopt' %}
-                            <a href="{% url 'user:adopt_confirm' post.id %}" class="btn-action">Adopt</a>
-                            {% endif %}
-                        </div>
-                    </div>
-                </article>
-                {% endwith %}
-            {% endfor %}
         </div>
-        {% if page_obj.has_next %}
-        <div class="adoption-list-more-wrap">
-            <a class="adoption-list-more-btn"
-               href="?filter={{ current_filter|urlencode }}&page={{ page_obj.next_page_number }}">
-                Load more
-            </a>
-        </div>
-        {% endif %}
-        {% else %}
-        <div class="adoption-list-empty">
-            <h2>No posts found</h2>
-            <p>Check another filter or come back later.</p>
-        </div>
-        {% endif %}
-    </div>
+    </form>
 </div>
 
-<div id="imageLightbox" class="image-lightbox adopt-list-lightbox" hidden>
-    <div class="image-lightbox-dialog">
-        <button type="button" class="image-lightbox-close" aria-label="Close image">&times;</button>
-        <img id="imageLightboxImg" class="image-lightbox-img" alt="Full image preview">
+<div id="finderImageLightbox" class="finder-lightbox" hidden>
+    <div class="finder-lightbox__dialog">
+        <button type="button" class="finder-lightbox__close" aria-label="Close image">&times;</button>
+        <img id="finderImageLightboxImg" class="finder-lightbox__img" alt="Full image preview">
     </div>
 </div>
 
 <script>
 (function () {
-    const triggers = document.querySelectorAll('.js-adopt-list-zoom');
-    const lightbox = document.getElementById('imageLightbox');
-    const lightboxImg = document.getElementById('imageLightboxImg');
-    const closeBtn = lightbox?.querySelector('.image-lightbox-close');
+    const autoSubmitInputs = document.querySelectorAll('[data-auto-submit]');
+    const lightbox = document.getElementById('finderImageLightbox');
+    const lightboxImg = document.getElementById('finderImageLightboxImg');
+    const lightboxClose = lightbox?.querySelector('.finder-lightbox__close');
+    const zoomTriggers = document.querySelectorAll('.js-finder-zoom');
 
-    if (!triggers.length || !lightbox || !lightboxImg || !closeBtn) return;
+    autoSubmitInputs.forEach((input) => {
+        input.addEventListener('change', () => {
+            const form = input.closest('form');
+            if (form) form.submit();
+        });
+    });
+
+    if (!lightbox || !lightboxImg || !lightboxClose || !zoomTriggers.length) return;
 
     function openLightbox(src, altText) {
         if (!src) return;
@@ -398,9 +210,9 @@
         document.body.classList.remove('lightbox-open');
     }
 
-    triggers.forEach((trigger) => {
-        trigger.addEventListener('click', (evt) => {
-            evt.preventDefault();
+    zoomTriggers.forEach((trigger) => {
+        trigger.addEventListener('click', (event) => {
+            event.preventDefault();
             openLightbox(
                 trigger.getAttribute('data-full-src') || trigger.getAttribute('href') || '',
                 trigger.getAttribute('data-full-alt') || trigger.querySelector('img')?.getAttribute('alt') || ''
@@ -408,12 +220,12 @@
         });
     });
 
-    closeBtn.addEventListener('click', closeLightbox);
-    lightbox.addEventListener('click', (evt) => {
-        if (evt.target === lightbox) closeLightbox();
+    lightboxClose.addEventListener('click', closeLightbox);
+    lightbox.addEventListener('click', (event) => {
+        if (event.target === lightbox) closeLightbox();
     });
-    document.addEventListener('keydown', (evt) => {
-        if (evt.key === 'Escape' && !lightbox.hidden) closeLightbox();
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !lightbox.hidden) closeLightbox();
     });
 })();
 </script>

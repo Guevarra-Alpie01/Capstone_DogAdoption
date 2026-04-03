@@ -1,0 +1,70 @@
+<article class="finder-card{% if featured %} is-featured{% endif %}">
+    <div class="finder-card__media">
+        {% if item.main_image_url %}
+        <a href="{{ item.main_image_url }}" class="finder-card__media-link js-finder-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ item.title|default:'Dog image' }}" aria-label="View full image">
+            <img src="{{ item.main_image_url }}" width="320" height="320" alt="{{ item.title|default:'Dog image' }}">
+        </a>
+        {% else %}
+        <div class="finder-card__placeholder" aria-hidden="true">
+            <span>{{ item.title|default:'Dog'|slice:':1'|upper }}</span>
+            <small>No Photo</small>
+        </div>
+        {% endif %}
+
+        <span class="finder-card__badge is-{{ item.phase }}">{{ item.phase_label }}</span>
+        {% if active_filter_count and item.match_score %}
+        <span class="finder-card__match">Match {{ item.match_score }}/{{ active_filter_count }}</span>
+        {% endif %}
+    </div>
+
+    <div class="finder-card__body">
+        <div class="finder-card__head">
+            <div class="finder-card__title-wrap">
+                <h3 class="finder-card__title">{{ item.title }}</h3>
+                <p class="finder-card__breed">
+                    <i class="bi bi-tags" aria-hidden="true"></i>
+                    <span>{{ item.breed_label }}</span>
+                </p>
+            </div>
+            <span class="finder-card__phase-title">{{ item.phase_title }}</span>
+        </div>
+
+        <div class="finder-card__facts">
+            <div class="finder-card__fact">
+                <span class="finder-card__fact-icon"><i class="bi bi-calendar-heart" aria-hidden="true"></i></span>
+                <span>{{ item.age_label }}</span>
+            </div>
+            <div class="finder-card__fact">
+                <span class="finder-card__fact-icon"><i class="bi bi-arrows-angle-expand" aria-hidden="true"></i></span>
+                <span>{{ item.size_label }}</span>
+            </div>
+            <div class="finder-card__fact">
+                <span class="finder-card__fact-icon"><i class="bi bi-gender-ambiguous" aria-hidden="true"></i></span>
+                <span>{{ item.gender_label }}</span>
+            </div>
+        </div>
+
+        <div class="finder-card__traits">
+            <span class="finder-card__trait">
+                <i class="bi bi-scissors" aria-hidden="true"></i>
+                <span>{{ item.coat_label }}</span>
+            </span>
+            <span class="finder-card__trait">
+                <i class="bi bi-palette" aria-hidden="true"></i>
+                <span>{{ item.color_label }}</span>
+            </span>
+            <span class="finder-card__trait">
+                <i class="bi bi-geo-alt" aria-hidden="true"></i>
+                <span>{{ item.location_label }}</span>
+            </span>
+        </div>
+
+        <div class="finder-card__footer">
+            <span class="finder-card__timer">
+                <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+                <span>{{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m left</span>
+            </span>
+            <a href="{{ item.action_url }}" class="btn-action">{{ item.action_label }}</a>
+        </div>
+    </div>
+</article>

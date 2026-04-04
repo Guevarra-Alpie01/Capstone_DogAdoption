@@ -2,44 +2,14 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260404finder-subnav-scale">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260404finder-top-subnav-tight">
 {% endblock %}
 
 {% block content %}
 <div class="finder-page">
-    <section class="finder-hero">
-        <div class="finder-hero__copy">
-            <span class="finder-hero__eyebrow">
-                <i class="bi bi-heart" aria-hidden="true"></i>
-                Rescue Finder
-            </span>
-            <h1 class="finder-hero__title">{{ page_title }}</h1>
-        </div>
-
-        <div class="finder-hero__actions">
-            {% for link in request_links %}
-            <a
-                href="{{ link.url }}"
-                class="finder-hero__link"
-                {% if not request.user.is_authenticated %}
-                data-auth-modal-trigger="login"
-                data-auth-next-url="{{ link.url }}"
-                {% endif %}
-            >
-                <i class="{{ link.icon_class }}" aria-hidden="true"></i>
-                <span>{{ link.label }}</span>
-            </a>
-            {% endfor %}
-        </div>
-    </section>
-
     <form method="get" class="finder-layout" data-finder-layout>
         <section class="finder-filter-shell">
             <div class="finder-filter-shell__head">
-                <div class="finder-filter-shell__copy">
-                    <h2 class="finder-filter-shell__title">Filter Search</h2>
-                    <p class="finder-filter-shell__text">Browse live rescue posts and narrow the list by purpose, traits, and rescue location.</p>
-                </div>
                 <div class="finder-filter-shell__actions">
                     {% if active_filter_count %}
                     <span class="finder-filter-shell__count">{{ active_filter_count }} active filter{{ active_filter_count|pluralize }}</span>
@@ -59,14 +29,6 @@
                     </button>
                 </div>
             </div>
-
-            {% if active_filter_chips %}
-            <div class="finder-chip-list" aria-label="Active filters">
-                {% for chip in active_filter_chips %}
-                <span class="finder-chip">{{ chip.label }}: {{ chip.value_label }}</span>
-                {% endfor %}
-            </div>
-            {% endif %}
 
             <div class="finder-filter-backdrop" data-finder-filter-close aria-hidden="true"></div>
 
@@ -88,8 +50,8 @@
                                 {% include "adopt/_finder_icon.html" with icon_name="all" %}
                             </span>
                             <span class="finder-purpose-menu__summary-copy">
-                                <span class="finder-purpose-menu__summary-label" data-purpose-current-label>{{ current_purpose_label }}</span>
-                                <span class="finder-purpose-menu__summary-meta">Purpose</span>
+                                <span class="finder-purpose-menu__summary-title">Purpose</span>
+                                <span class="finder-purpose-menu__summary-label" data-purpose-current-label title="{{ current_purpose_label }}">{{ current_purpose_label }}</span>
                             </span>
                             <span class="finder-purpose-menu__summary-count" data-purpose-current-count>{{ current_purpose_count }}</span>
                             <span class="finder-purpose-menu__summary-caret" aria-hidden="true">
@@ -127,17 +89,17 @@
                         {% for section in filter_sections %}
                         <details class="finder-filter-group"{% if section.value %} open{% endif %}>
                             <summary class="finder-filter-group__summary">
-                                <span class="finder-filter-group__title">
+                                <span class="finder-filter-group__content">
                                     <span class="finder-filter-group__icon">
                                         {% include "adopt/_finder_icon.html" with icon_name=section.key %}
                                     </span>
-                                    <span>{{ section.label }}</span>
-                                </span>
-                                <span class="finder-filter-group__summary-meta">
-                                    <span class="finder-filter-group__value" data-default-label="{{ section.clear_label }}">{{ section.value_label|default:section.clear_label }}</span>
-                                    <span class="finder-filter-group__caret" aria-hidden="true">
-                                        <i class="bi bi-chevron-down"></i>
+                                    <span class="finder-filter-group__copy">
+                                        <span class="finder-filter-group__title">{{ section.label }}</span>
+                                        <span class="finder-filter-group__value" data-default-label="{{ section.clear_label }}" title="{{ section.value_label|default:section.clear_label }}">{{ section.value_label|default:section.clear_label }}</span>
                                     </span>
+                                </span>
+                                <span class="finder-filter-group__caret" aria-hidden="true">
+                                    <i class="bi bi-chevron-down"></i>
                                 </span>
                             </summary>
 
@@ -180,67 +142,93 @@
                 </div>
             </section>
         </section>
-
-        <div class="finder-content">
-            {% if active_filter_count %}
-            <section class="finder-recommended">
-                <div class="finder-section__head">
-                    <div>
-                        <span class="finder-section__eyebrow">
-                            <i class="bi bi-stars" aria-hidden="true"></i>
-                            Recommended for you
-                        </span>
-                        <h2 class="finder-section__title">Best matches from your selected filters</h2>
-                    </div>
-                    <p class="finder-section__meta">{{ active_filter_count }} active filter{{ active_filter_count|pluralize }}</p>
-                </div>
-
-                {% if recommended_posts %}
-                <div class="finder-card-grid">
-                    {% for item in recommended_posts %}
-                    {% include "adopt/_finder_card.html" with item=item featured=True active_filter_count=active_filter_count %}
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="finder-empty finder-empty--inline">
-                    <h3>No close matches yet</h3>
-                    <p>Try changing one preference to widen the rescue search.</p>
-                </div>
-                {% endif %}
-            </section>
-            {% endif %}
-
-            <section class="finder-results">
-                <div class="finder-section__head">
-                    <div>
-                        <h2 class="finder-section__title">{{ results_title }}</h2>
-                        <p class="finder-section__text">{{ results_description }}</p>
-                    </div>
-                    <p class="finder-section__meta">{{ page_obj.paginator.count }} dog{{ page_obj.paginator.count|pluralize }}</p>
-                </div>
-
-                {% if posts %}
-                <div class="finder-card-grid">
-                    {% for item in posts %}
-                    {% include "adopt/_finder_card.html" with item=item active_filter_count=active_filter_count %}
-                    {% endfor %}
-                </div>
-
-                {% if page_obj.has_next %}
-                <div class="finder-load-more">
-                    <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ page_obj.next_page_number }}" class="finder-load-more__link">Load more dogs</a>
-                </div>
-                {% endif %}
-                {% else %}
-                <div class="finder-empty">
-                    <h3>No rescue dogs found</h3>
-                    <p>There are no active rescue dogs for this view right now. Check back again soon.</p>
-                    <a href="{{ clear_filters_url }}" class="finder-empty__link">Reset search</a>
-                </div>
-                {% endif %}
-            </section>
-        </div>
     </form>
+
+    <section class="finder-hero">
+        <div class="finder-hero__copy">
+            <span class="finder-hero__eyebrow">
+                <i class="bi bi-heart" aria-hidden="true"></i>
+                Rescue Finder
+            </span>
+            <h1 class="finder-hero__title">{{ page_title }}</h1>
+        </div>
+
+        <div class="finder-hero__actions">
+            {% for link in request_links %}
+            <a
+                href="{{ link.url }}"
+                class="finder-hero__link"
+                {% if not request.user.is_authenticated %}
+                data-auth-modal-trigger="login"
+                data-auth-next-url="{{ link.url }}"
+                {% endif %}
+            >
+                <i class="{{ link.icon_class }}" aria-hidden="true"></i>
+                <span>{{ link.label }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+
+    <div class="finder-content">
+        {% if active_filter_count %}
+        <section class="finder-recommended">
+            <div class="finder-section__head">
+                <div>
+                    <span class="finder-section__eyebrow">
+                        <i class="bi bi-stars" aria-hidden="true"></i>
+                        Recommended for you
+                    </span>
+                    <h2 class="finder-section__title">Best matches from your selected filters</h2>
+                </div>
+                <p class="finder-section__meta">{{ active_filter_count }} active filter{{ active_filter_count|pluralize }}</p>
+            </div>
+
+            {% if recommended_posts %}
+            <div class="finder-card-grid">
+                {% for item in recommended_posts %}
+                {% include "adopt/_finder_card.html" with item=item featured=True active_filter_count=active_filter_count %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="finder-empty finder-empty--inline">
+                <h3>No close matches yet</h3>
+                <p>Try changing one preference to widen the rescue search.</p>
+            </div>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        <section class="finder-results">
+            <div class="finder-section__head">
+                <div>
+                    <h2 class="finder-section__title">{{ results_title }}</h2>
+                    <p class="finder-section__text">{{ results_description }}</p>
+                </div>
+                <p class="finder-section__meta">{{ page_obj.paginator.count }} dog{{ page_obj.paginator.count|pluralize }}</p>
+            </div>
+
+            {% if posts %}
+            <div class="finder-card-grid">
+                {% for item in posts %}
+                {% include "adopt/_finder_card.html" with item=item active_filter_count=active_filter_count %}
+                {% endfor %}
+            </div>
+
+            {% if page_obj.has_next %}
+            <div class="finder-load-more">
+                <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ page_obj.next_page_number }}" class="finder-load-more__link">Load more dogs</a>
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="finder-empty">
+                <h3>No rescue dogs found</h3>
+                <p>There are no active rescue dogs for this view right now. Check back again soon.</p>
+                <a href="{{ clear_filters_url }}" class="finder-empty__link">Reset search</a>
+            </div>
+            {% endif %}
+        </section>
+    </div>
 </div>
 
 <div id="finderImageLightbox" class="finder-lightbox" hidden>
@@ -298,7 +286,9 @@
         });
 
         if (valueEl) {
-            valueEl.textContent = selectedLabel || valueEl.getAttribute('data-default-label') || '';
+            const nextLabel = selectedLabel || valueEl.getAttribute('data-default-label') || '';
+            valueEl.textContent = nextLabel;
+            valueEl.setAttribute('title', nextLabel);
         }
     }
 
@@ -320,7 +310,9 @@
 
         if (activeOption) {
             if (purposeCurrentLabel) {
-                purposeCurrentLabel.textContent = activeOption.getAttribute('data-purpose-label') || '';
+                const nextPurposeLabel = activeOption.getAttribute('data-purpose-label') || '';
+                purposeCurrentLabel.textContent = nextPurposeLabel;
+                purposeCurrentLabel.setAttribute('title', nextPurposeLabel);
             }
             if (purposeCurrentCount) {
                 purposeCurrentCount.textContent = activeOption.getAttribute('data-purpose-count') || '';

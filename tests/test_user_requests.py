@@ -96,7 +96,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "location_mode": "exact",
                 "latitude": "9.123456",
                 "longitude": "122.654321",
-                "gps_accuracy": "80",
+                "gps_accuracy": "130",
                 "reason": "stray",
             },
             follow=True,
@@ -104,7 +104,29 @@ class UserDogSurrenderRequestTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(DogCaptureRequest.objects.filter(requested_by=self.user).exists())
-        self.assertContains(response, "35 meters or better")
+        self.assertContains(response, "100 meters or better")
+
+    def test_exact_submission_accepts_usable_gps_accuracy(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            self.request_url,
+            {
+                "phone_number": "09171234567",
+                "location_mode": "exact",
+                "latitude": "9.123456",
+                "longitude": "122.654321",
+                "gps_accuracy": "80",
+                "reason": "stray",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        request_record = DogCaptureRequest.objects.get(requested_by=self.user)
+        self.assertEqual(str(request_record.latitude), "9.123456")
+        self.assertEqual(str(request_record.longitude), "122.654321")
+        self.assertEqual(request_record.submission_type, "online")
 
     def test_exact_submission_saves_coordinates_when_accuracy_is_good(self):
         self.client.force_login(self.user)

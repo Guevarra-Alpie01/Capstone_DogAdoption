@@ -32,7 +32,7 @@
     {% if not user.is_authenticated %}
     <link rel="stylesheet" href="{% static 'css/auth_modal.css' %}?v=20260330j">
     {% endif %}
-    <link rel="stylesheet" href="{% static 'css/user_theme.css' %}?v=20260403a">
+    <link rel="stylesheet" href="{% static 'css/user_theme.css' %}?v=20260404boxedmobilenav-caps">
     <link rel="stylesheet" href="{% static 'css/notification_menu.css' %}?v=20260330b">
     <link rel="stylesheet" href="{% static 'css/user_button_skin.css' %}?v=20260324a">
     <style>
@@ -256,10 +256,9 @@
                 </div>
             </div>
 
-            <div class="user-topbar-end">
-                <div class="d-flex align-items-center gap-2">
+            <div class="user-topbar-end user-topbar-end--guest">
+                <div class="d-flex align-items-center gap-2 user-topbar-auth-actions">
                     <a href="{% url 'user:login' %}" class="auth-btn login-btn border-0">Login</a>
-                    <a href="{% url 'user:signup' %}" class="auth-btn signup-btn border-0">Sign Up</a>
                 </div>
             </div>
         {% endif %}
@@ -367,6 +366,68 @@ document.addEventListener('show.bs.modal', function (event) {
     ensureSharedModalCloseButtons(event.target);
 });
 </script>
+
+{% if not user.is_authenticated %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const wrapper = document.getElementById('wrapper');
+    const sidebarBackdrop = document.querySelector('[data-sidebar-backdrop]');
+    const mobileSidebarMediaQuery = window.matchMedia('(max-width: 991.98px)');
+
+    function setSidebarOpen(isOpen) {
+        if (!wrapper) {
+            return;
+        }
+
+        const shouldOpen = !!isOpen && mobileSidebarMediaQuery.matches;
+        wrapper.classList.toggle('toggled', shouldOpen);
+        document.body.classList.toggle('user-sidebar-open', shouldOpen);
+
+        if (sidebarToggle) {
+            sidebarToggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+        }
+    }
+
+    if (sidebarToggle && wrapper) {
+        sidebarToggle.addEventListener('click', function (event) {
+            event.preventDefault();
+            setSidebarOpen(!wrapper.classList.contains('toggled'));
+        });
+    }
+
+    if (sidebarBackdrop) {
+        sidebarBackdrop.addEventListener('click', function () {
+            setSidebarOpen(false);
+        });
+    }
+
+    document.querySelectorAll('#sidebar-wrapper a').forEach(function (link) {
+        link.addEventListener('click', function () {
+            setSidebarOpen(false);
+        });
+    });
+
+    function syncSidebarForViewport() {
+        if (!mobileSidebarMediaQuery.matches) {
+            setSidebarOpen(false);
+        }
+    }
+
+    if (typeof mobileSidebarMediaQuery.addEventListener === 'function') {
+        mobileSidebarMediaQuery.addEventListener('change', syncSidebarForViewport);
+    } else if (typeof mobileSidebarMediaQuery.addListener === 'function') {
+        mobileSidebarMediaQuery.addListener(syncSidebarForViewport);
+    }
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            setSidebarOpen(false);
+        }
+    });
+});
+</script>
+{% endif %}
 
 {% if user.is_authenticated %}
 <script>

@@ -230,6 +230,60 @@ class UserHomeFeedTests(TestCase):
         self.assertNotContains(response, "author-avatar-img", html=False)
         self.assertNotContains(response, 'class="author-name"', html=False)
 
+    def test_home_page_renders_claim_and_adopt_featured_carousels(self):
+        staff_user = User.objects.create_user(
+            username="carouselstaff",
+            password="secret123",
+            is_staff=True,
+        )
+        claim_post = Post.objects.create(
+            user=staff_user,
+            caption="Claim Carousel Dog",
+            breed="golden_retriever",
+            location="Villareal",
+            claim_days=3,
+        )
+        adopt_post = Post.objects.create(
+            user=staff_user,
+            caption="Adopt Carousel Dog",
+            breed="beagle",
+            location="Mabigo",
+            claim_days=1,
+        )
+        Post.objects.filter(pk=adopt_post.pk).update(
+            created_at=timezone.now() - timedelta(days=2)
+        )
+        adopt_post.refresh_from_db()
+        claim_deadline_label = timezone.localtime(claim_post.claim_deadline()).strftime("%b %d, %Y")
+
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Claim Dog")
+        self.assertContains(response, "Adopt Dog")
+        self.assertContains(response, claim_post.display_breed)
+        self.assertContains(response, adopt_post.display_breed)
+        self.assertContains(response, f'href="{reverse("user:claim_list")}"', html=False)
+        self.assertContains(response, f'href="{reverse("user:adopt_list")}"', html=False)
+        self.assertContains(response, "home-carousel-claim-1")
+        self.assertContains(response, "home-carousel-adopt-1")
+        self.assertContains(response, "View Details")
+        self.assertContains(response, "Open Post Page")
+        self.assertContains(response, "data-dog-detail-toggle", html=False)
+        self.assertContains(response, "data-dog-detail-panel", html=False)
+        self.assertContains(response, "Barangay")
+        self.assertContains(response, "Claim Ends")
+        self.assertContains(response, claim_deadline_label)
+
+    def test_guest_home_renders_mobile_navbar_actions(self):
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="sidebarToggle"', html=False)
+        self.assertContains(response, 'class="d-flex align-items-center gap-2 user-topbar-auth-actions"', html=False)
+        self.assertContains(response, f'href="{reverse("user:login")}" class="auth-btn login-btn border-0"', html=False)
+        self.assertContains(response, f'href="{reverse("user:signup")}" class="auth-btn signup-btn border-0"', html=False)
+
     def test_guest_claim_confirm_preserves_home_return_to_in_login_modal_redirect(self):
         staff_user = User.objects.create_user(
             username="claimreturnstaff",
@@ -293,6 +347,26 @@ class UserHomeFeedTests(TestCase):
         self.assertTemplateUsed(response, "adopt/adopt_list.html")
         self.assertContains(response, "Dog Rescue Finder")
         self.assertContains(response, 'data-auth-modal-trigger="login"', html=False)
+
+    def test_guest_can_open_post_detail_without_login(self):
+        staff_user = User.objects.create_user(
+            username="guestdetailstaff",
+            password="secret123",
+            is_staff=True,
+        )
+        post = Post.objects.create(
+            user=staff_user,
+            caption="Guest Detail Dog",
+            location="Bayawan",
+            claim_days=3,
+        )
+
+        response = self.client.get(reverse("user:post_detail", args=[post.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "home/post_detail.html")
+        self.assertContains(response, "Guest Detail Dog")
+        self.assertContains(response, "Back to feed")
 
     def test_login_redirects_to_safe_claim_next_url(self):
         staff_user = User.objects.create_user(

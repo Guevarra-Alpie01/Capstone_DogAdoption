@@ -89,6 +89,7 @@ HOME_FEED_SESSION_TOKEN_KEY = "user_home_feed_token"
 BARANGAY_API_DEFAULT_LIMIT = 200
 BARANGAY_API_MAX_LIMIT = 200
 DEFAULT_REQUEST_CITY = "Bayawan City"
+ADMIN_POST_HISTORY_CACHE_KEY = "dogadoption_admin_post_history_ids_v1"
 DOG_SURRENDER_REQUEST_TYPE = "surrender"
 DOG_ONLINE_SUBMISSION_TYPE = "online"
 DOG_EXACT_GPS_MAX_ACCURACY_METERS = 100
@@ -1126,6 +1127,13 @@ def _format_posted_label(dt):
     return dt.strftime("%b %d, %Y")
 
 
+def _format_datetime_label(dt):
+    if not dt:
+        return ""
+    localized = timezone.localtime(dt) if timezone.is_aware(dt) else dt
+    return localized.strftime("%b %d, %Y %I:%M %p")
+
+
 def _split_time_left(diff):
     total_seconds = max(int(diff.total_seconds()), 0)
     days = total_seconds // 86400
@@ -1138,16 +1146,28 @@ def _split_time_left(diff):
 
 def _post_phase_payload(post):
     phase = post.current_phase() if hasattr(post, "current_phase") else "closed"
+    is_pending_review = bool(getattr(post, "has_pending_review", False))
+    pending_review_until = getattr(post, "pending_review_until", None)
     days = hours = minutes = 0
-    if phase in {"claim", "adopt"}:
+    if phase in {"claim", "adopt"} and not is_pending_review:
         days, hours, minutes = _split_time_left(post.time_left())
-    return phase, days, hours, minutes
+    return {
+        "phase": phase,
+        "days_left": days,
+        "hours_left": hours,
+        "minutes_left": minutes,
+        "is_pending_review": is_pending_review,
+        "pending_review_until": pending_review_until,
+        "pending_review_until_label": _format_datetime_label(pending_review_until),
+    }
 
 
 def _base_public_post_queryset():
-    return Post.objects.select_related(
-        "user", "user__profile"
-    ).prefetch_related("images").order_by("-created_at")
+    return Post.with_pending_request_state(
+        Post.objects.select_related(
+            "user", "user__profile"
+        ).prefetch_related("images")
+    ).order_by("-created_at")
 
 
 def _base_user_adoption_post_queryset():
@@ -1228,17 +1248,33 @@ def _rescue_finder_title(post):
     return " ".join((post.display_title or "Dog Listing").split())
 
 
-def _build_rescue_finder_card_item(post, phase, days, hours, minutes, match_score):
+def _build_rescue_finder_card_item(post, phase_payload, match_score):
+    phase = phase_payload["phase"]
+    days = phase_payload["days_left"]
+    hours = phase_payload["hours_left"]
+    minutes = phase_payload["minutes_left"]
+    is_pending_review = phase_payload["is_pending_review"]
+    pending_review_until_label = phase_payload["pending_review_until_label"]
     action_url = (
         reverse("user:claim_confirm", args=[post.id])
         if phase == "claim"
         else reverse("user:adopt_confirm", args=[post.id])
     )
+    if is_pending_review:
+        phase_title = "Claim Pending Review" if phase == "claim" else "Adoption Pending Review"
+        pending_state_detail = (
+            f"Verification until {pending_review_until_label}"
+            if pending_review_until_label
+            else "Verification in progress"
+        )
+    else:
+        phase_title = "Ready for Claim" if phase == "claim" else "Ready for Adoption"
+        pending_state_detail = ""
     return {
         "post": post,
         "phase": phase,
         "phase_label": "Claim" if phase == "claim" else "Adopt",
-        "phase_title": "Ready for Claim" if phase == "claim" else "Ready for Adoption",
+        "phase_title": phase_title,
         "days_left": days,
         "hours_left": hours,
         "minutes_left": minutes,
@@ -1254,6 +1290,11 @@ def _build_rescue_finder_card_item(post, phase, days, hours, minutes, match_scor
         "action_label": "Claim" if phase == "claim" else "Adopt",
         "action_url": action_url,
         "match_score": match_score,
+        "is_pending_review": is_pending_review,
+        "show_countdown": not is_pending_review,
+        "pending_state_label": "Pending admin review" if is_pending_review else "",
+        "pending_state_detail": pending_state_detail,
+        "pending_review_until_label": pending_review_until_label,
     }
 
 
@@ -1399,10 +1440,11 @@ def _build_public_post_listing(request, listing_mode):
     location_map = {}
     phase_counts = {"all": 0, "claim": 0, "adopt": 0}
     for post in raw_open_posts:
-        phase, days, hours, minutes = _post_phase_payload(post)
+        phase_payload = _post_phase_payload(post)
+        phase = phase_payload["phase"]
         if phase not in {"claim", "adopt"}:
             continue
-        open_post_rows.append((post, phase, days, hours, minutes))
+        open_post_rows.append((post, phase_payload))
         phase_counts["all"] += 1
         phase_counts[phase] += 1
         location_value = " ".join((post.location or "").split())
@@ -1431,17 +1473,15 @@ def _build_public_post_listing(request, listing_mode):
     active_filter_count = len(active_filter_chips)
 
     candidate_items = []
-    for post, phase, days, hours, minutes in open_post_rows:
+    for post, phase_payload in open_post_rows:
+        phase = phase_payload["phase"]
         if selected_purpose != "all" and phase != selected_purpose:
             continue
         match_score = _rescue_finder_match_score(post, selected_filters)
         candidate_items.append(
             _build_rescue_finder_card_item(
                 post,
-                phase,
-                days,
-                hours,
-                minutes,
+                phase_payload,
                 match_score,
             )
         )
@@ -1549,16 +1589,19 @@ def _build_home_featured_rescue_sections():
     section_items = {"claim": [], "adopt": []}
 
     for post in raw_open_posts:
-        phase, days, hours, minutes = _post_phase_payload(post)
+        phase_payload = _post_phase_payload(post)
+        phase = phase_payload["phase"]
         if phase not in section_items or len(section_items[phase]) >= HOME_FEATURED_CAROUSEL_LIMIT:
             continue
 
-        card_item = _build_rescue_finder_card_item(post, phase, days, hours, minutes, 0)
-        countdown_deadline = (
-            post.claim_deadline()
-            if phase == "claim"
-            else post.adoption_deadline()
-        )
+        card_item = _build_rescue_finder_card_item(post, phase_payload, 0)
+        countdown_deadline = None
+        if not phase_payload["is_pending_review"]:
+            countdown_deadline = (
+                post.claim_deadline()
+                if phase == "claim"
+                else post.adoption_deadline()
+            )
         countdown_deadline_local = (
             timezone.localtime(countdown_deadline)
             if countdown_deadline
@@ -1567,13 +1610,28 @@ def _build_home_featured_rescue_sections():
         card_item.update({
             "detail_url": reverse("user:post_detail", args=[post.id]),
             "home_action_url": f'{card_item["action_url"]}?return_to=home',
-            "time_left_badge": f"{days}d {hours}h {minutes}m left",
+            "time_left_badge": (
+                "Pending Admin Review"
+                if phase_payload["is_pending_review"]
+                else (
+                    f'{phase_payload["days_left"]}d {phase_payload["hours_left"]}h '
+                    f'{phase_payload["minutes_left"]}m left'
+                )
+            ),
             "barangay_label": card_item["location_label"],
-            "countdown_date_heading": "Claim Ends" if phase == "claim" else "Adoption Ends",
+            "countdown_date_heading": (
+                "Verification Until"
+                if phase_payload["is_pending_review"]
+                else ("Claim Ends" if phase == "claim" else "Adoption Ends")
+            ),
             "countdown_date_label": (
-                countdown_deadline_local.strftime("%b %d, %Y")
-                if countdown_deadline_local
-                else "Date pending"
+                phase_payload["pending_review_until_label"]
+                if phase_payload["is_pending_review"]
+                else (
+                    countdown_deadline_local.strftime("%b %d, %Y")
+                    if countdown_deadline_local
+                    else "Date pending"
+                )
             ),
         })
         section_items[phase].append(card_item)
@@ -1782,6 +1840,8 @@ def _handle_confirm_request(
             return _render_confirm_page(request, template_name, post, available_dates, request_type)
 
         _create_post_request_with_images(request, post, request_type, appointment_date)
+        cache.delete(ADMIN_POST_HISTORY_CACHE_KEY)
+        bump_user_home_feed_namespace()
         messages.success(request, success_message)
         return redirect(history_url)
 
@@ -1796,7 +1856,7 @@ def _user_post_requests(user, request_type):
 
 
 FEED_CACHE_TTL_SECONDS = 90
-FEED_CACHE_VERSION = "v5"
+FEED_CACHE_VERSION = "v6"
 FEED_POSTS_PER_PAGE = 12
 FEED_ADMIN_CANDIDATE_LIMIT = 700
 FEED_ANNOUNCEMENT_CANDIDATE_LIMIT = 300
@@ -1931,19 +1991,20 @@ def _active_admin_posts_queryset(query=""):
         output_field=DateTimeField(),
     )
     now = timezone.now()
-    admin_qs = (
+    admin_qs = Post.with_pending_request_state(
         Post.objects.exclude(status__in=["reunited", "adopted"])
         .annotate(
             has_accepted_request=Exists(accepted_post_requests),
             claim_deadline_db=claim_deadline_expr,
             adopt_deadline_db=adopt_deadline_expr,
         )
-        .filter(
-            Q(has_accepted_request=False)
-            & (
-                Q(claim_deadline_db__gte=now)
-                | (Q(claim_deadline_db__lt=now) & Q(adopt_deadline_db__gte=now))
-            )
+    ).filter(
+        Q(has_accepted_request=False)
+        & (
+            Q(has_pending_claim_request=True)
+            | Q(has_pending_adopt_request=True)
+            | Q(claim_deadline_db__gte=now)
+            | (Q(claim_deadline_db__lt=now) & Q(adopt_deadline_db__gte=now))
         )
     )
     if query:
@@ -2159,14 +2220,16 @@ def _hydrate_home_feed_items(request, feed_rows):
 
     admin_map = {
         post.id: post
-        for post in Post.objects.select_related(
-            "user", "user__profile"
-        ).only(
-            "id", "caption", "breed", "breed_other", "age_group", "size_group", "gender",
-            "coat_length", "colors", "color_other", "location", "status", "rescued_date",
-            "created_at", "claim_days",
-            "user__id", "user__username", "user__first_name", "user__last_name",
-            "user__profile__profile_image",
+        for post in Post.with_pending_request_state(
+            Post.objects.select_related(
+                "user", "user__profile"
+            ).only(
+                "id", "caption", "breed", "breed_other", "age_group", "size_group", "gender",
+                "coat_length", "colors", "color_other", "location", "status", "rescued_date",
+                "created_at", "claim_days",
+                "user__id", "user__username", "user__first_name", "user__last_name",
+                "user__profile__profile_image",
+            )
         ).prefetch_related(
             Prefetch(
                 "images",
@@ -2260,13 +2323,14 @@ def _hydrate_home_feed_items(request, feed_rows):
             gallery_images = list(getattr(p, "prefetched_images", []))
             main_image = gallery_images[0] if gallery_images else None
 
-            phase, days, hours, minutes = _post_phase_payload(p)
+            phase_payload = _post_phase_payload(p)
+            phase = phase_payload["phase"]
             is_open_for_adoption = phase in ["claim", "adopt"]
 
             deadline = None
-            if phase == "claim":
+            if phase == "claim" and not phase_payload["is_pending_review"]:
                 deadline = p.claim_deadline()
-            elif phase == "adopt":
+            elif phase == "adopt" and not phase_payload["is_pending_review"]:
                 deadline = p.adoption_deadline()
 
             combined_posts.append({
@@ -2275,11 +2339,21 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "author_avatar_url": _profile_image_url_or_default(
                     p.user, default_admin_avatar_url
                 ),
-                "days_left": days,
-                "hours_left": hours,
-                "minutes_left": minutes,
+                "days_left": phase_payload["days_left"],
+                "hours_left": phase_payload["hours_left"],
+                "minutes_left": phase_payload["minutes_left"],
                 "is_open_for_adoption": is_open_for_adoption,
                 "phase": phase,
+                "is_pending_review": phase_payload["is_pending_review"],
+                "show_countdown": bool(deadline),
+                "pending_review_until": phase_payload["pending_review_until"],
+                "pending_review_until_label": phase_payload["pending_review_until_label"],
+                "pending_state_label": "Pending admin review" if phase_payload["is_pending_review"] else "",
+                "pending_state_detail": (
+                    f'Verification until {phase_payload["pending_review_until_label"]}'
+                    if phase_payload["is_pending_review"] and phase_payload["pending_review_until_label"]
+                    else ""
+                ),
                 "posted_label": _format_posted_label(p.created_at),
                 "deadline_iso": deadline.isoformat() if deadline else "",
                 "image_count": len(gallery_images),
@@ -2969,7 +3043,7 @@ def delete_missing_dog_post(request, post_id):
 
 def post_detail(request, post_id):
     """Render a post detail page used by shared or linked home posts."""
-    post = get_object_or_404(Post, id=post_id)
+    post = get_object_or_404(Post.with_pending_request_state(Post.objects.all()), id=post_id)
     return render(request, 'home/post_detail.html', {'post': post})
 
 
@@ -3557,7 +3631,7 @@ def adopt_confirm(request, post_id):
         is_open_fn=lambda post: post.is_open_for_adoption(),
         not_open_message="Adoption is not open yet or has already closed.",
         duplicate_message="You already submitted an adoption request.",
-        success_message="Adoption request submitted successfully! ðŸ¾",
+        success_message="Adoption request submitted. The post stays visible while admin verification runs for 1 day.",
     )
 # =============================================================================
 # Navigation 4/5: Announcement
@@ -3793,5 +3867,5 @@ def claim_confirm(request, post_id):
         is_open_fn=lambda post: post.is_open_for_claim(),
         not_open_message="Claim period has ended for this post.",
         duplicate_message="You already submitted a claim for this dog.",
-        success_message="Claim submitted successfully! Admin will review it carefully ðŸ¾",
+        success_message="Claim submitted. The post stays visible while admin verification runs for 1 day.",
     )

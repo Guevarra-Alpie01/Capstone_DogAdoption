@@ -39,7 +39,9 @@
                 <div class="post-detail-pills">
                     <span class="post-detail-pill">{{ post.get_status_display }}</span>
                     <span class="post-detail-pill is-secondary">
-                        {% if phase == 'claim' %}
+                        {% if post.has_pending_review %}
+                        {{ post.pending_review_request_type|capfirst }} pending admin review
+                        {% elif phase == 'claim' %}
                         Owner claim period
                         {% elif phase == 'adopt' %}
                         Adoption phase
@@ -69,6 +71,12 @@
                             <dt>Posted on</dt>
                             <dd>{{ post.created_at|date:"M d, Y h:i A" }}</dd>
                         </div>
+                        {% if post.has_pending_review %}
+                        <div class="post-detail-meta-row">
+                            <dt>Verification until</dt>
+                            <dd>{{ post.pending_review_until|date:"M d, Y h:i A" }}</dd>
+                        </div>
+                        {% endif %}
                         {% if post.rescued_date %}
                         <div class="post-detail-meta-row">
                             <dt>Rescued date</dt>

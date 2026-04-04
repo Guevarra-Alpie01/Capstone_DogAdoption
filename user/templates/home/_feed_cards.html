@@ -146,6 +146,7 @@
         {% if item.post_type == 'admin' and item.phase != 'closed' %}
             </div>
             <div class="post-timer">
+                {% if item.show_countdown %}
                 <div class="countdown-bar" data-deadline="{{ item.deadline_iso }}">
                     <div class="countdown-label">
                         {% if item.phase == 'claim' %}
@@ -168,6 +169,14 @@
                         <div class="countdown-text">Minutes</div>
                     </div>
                 </div>
+                {% else %}
+                <div class="countdown-bar countdown-bar--status">
+                    <div class="countdown-label">{{ item.pending_state_label|default:"Pending admin review" }}</div>
+                    {% if item.pending_state_detail %}
+                    <div class="countdown-status-text">{{ item.pending_state_detail }}</div>
+                    {% endif %}
+                </div>
+                {% endif %}
             </div>
             </div>
         {% else %}

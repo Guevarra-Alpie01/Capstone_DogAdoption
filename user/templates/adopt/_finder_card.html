@@ -60,10 +60,22 @@
         </div>
 
         <div class="finder-card__footer">
+            {% if item.show_countdown %}
             <span class="finder-card__timer">
                 <i class="bi bi-hourglass-split" aria-hidden="true"></i>
                 <span>{{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m left</span>
             </span>
+            {% else %}
+            <span class="finder-card__timer finder-card__timer--pending">
+                <i class="bi bi-shield-check" aria-hidden="true"></i>
+                <span class="finder-card__timer-copy">
+                    <strong>{{ item.pending_state_label }}</strong>
+                    {% if item.pending_state_detail %}
+                    <small>{{ item.pending_state_detail }}</small>
+                    {% endif %}
+                </span>
+            </span>
+            {% endif %}
             <a
                 href="{{ item.action_url }}"
                 class="btn-action"

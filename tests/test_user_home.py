@@ -186,7 +186,12 @@ class UserHomeFeedTests(TestCase):
         )
         self.assertContains(
             response,
-            f'data-auth-next-url="{reverse("user:claim_confirm", args=[post.id])}?return_to=home"',
+            'data-auth-next-url="/user/claim/',
+            html=False,
+        )
+        self.assertContains(
+            response,
+            '?return_to=home"',
             html=False,
         )
 

@@ -1,0 +1,224 @@
+from datetime import timedelta
+
+from django.contrib.auth.models import User
+from django.core.cache import cache
+from django.test import Client, TestCase
+from django.urls import reverse
+from django.utils import timezone
+
+from dogadoption_admin.models import GlobalAppointmentDate, Post, PostRequest
+
+
+class PostRequestVerificationWindowTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.admin_user = User.objects.create_user(
+            username="verificationadmin",
+            password="Secret123!",
+            is_staff=True,
+        )
+        cls.first_member = User.objects.create_user(
+            username="verificationmember1",
+            password="Secret123!",
+        )
+        cls.second_member = User.objects.create_user(
+            username="verificationmember2",
+            password="Secret123!",
+        )
+
+    def setUp(self):
+        cache.clear()
+        self.appointment_date = timezone.localdate() + timedelta(days=2)
+        GlobalAppointmentDate.objects.create(
+            appointment_date=self.appointment_date,
+            is_active=True,
+        )
+        self.flow_config = {
+            "claim": {
+                "confirm_route": "user:claim_confirm",
+                "list_route": "user:claim_list",
+                "history_route": "user:my_claims",
+                "admin_bucket": "claim_posts",
+                "accepted_post_status": "reunited",
+                "initial_created_at": lambda now: now,
+                "expired_created_at": lambda now: now - timedelta(days=1, hours=1),
+                "home_action_url": lambda post_id: (
+                    f'{reverse("user:claim_confirm", args=[post_id])}?return_to=home'
+                ),
+            },
+            "adopt": {
+                "confirm_route": "user:adopt_confirm",
+                "list_route": "user:adopt_list",
+                "history_route": "user:adopt_status",
+                "admin_bucket": "adoption_posts",
+                "accepted_post_status": "adopted",
+                "initial_created_at": lambda now: now - timedelta(days=2),
+                "expired_created_at": lambda now: now - timedelta(days=4, hours=1),
+                "home_action_url": lambda post_id: reverse(
+                    "user:adopt_confirm",
+                    args=[post_id],
+                ),
+            },
+        }
+
+    def _client_for(self, user):
+        client = Client()
+        client.force_login(user)
+        return client
+
+    def _create_post(self, flow, *, created_at):
+        post = Post.objects.create(
+            user=self.admin_user,
+            caption=f"{flow.title()} Verification Dog",
+            location="Bayawan",
+            claim_days=1,
+        )
+        Post.objects.filter(pk=post.pk).update(created_at=created_at)
+        post.refresh_from_db()
+        return post
+
+    def _submit_request(self, flow, user, post):
+        client = self._client_for(user)
+        response = client.post(
+            reverse(self.flow_config[flow]["confirm_route"], args=[post.id]),
+            {"appointment_date": self.appointment_date.isoformat()},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.request["PATH_INFO"],
+            reverse(self.flow_config[flow]["history_route"]),
+        )
+        return PostRequest.objects.get(
+            user=user,
+            post=post,
+            request_type=flow,
+        )
+
+    def _set_created_at(self, model, obj_id, created_at):
+        model.objects.filter(pk=obj_id).update(created_at=created_at)
+
+    def _find_item(self, items, post_id):
+        return next(item for item in items if item["post"].id == post_id)
+
+    def test_pending_requests_keep_posts_visible_hide_countdowns_and_allow_more_requests(self):
+        now = timezone.now()
+
+        for flow, config in self.flow_config.items():
+            with self.subTest(flow=flow):
+                post = self._create_post(
+                    flow,
+                    created_at=config["initial_created_at"](now),
+                )
+                self._submit_request(flow, self.first_member, post)
+                self._set_created_at(
+                    Post,
+                    post.id,
+                    config["expired_created_at"](now),
+                )
+                post.refresh_from_db()
+
+                member_client = self._client_for(self.first_member)
+
+                list_response = member_client.get(reverse(config["list_route"]))
+                list_item = self._find_item(list_response.context["posts"], post.id)
+                self.assertEqual(list_item["phase"], flow)
+                self.assertTrue(list_item["is_pending_review"])
+                self.assertFalse(list_item["show_countdown"])
+                self.assertEqual(list_item["action_label"], flow.title())
+                self.assertContains(list_response, post.display_title)
+                self.assertContains(list_response, "Pending admin review")
+
+                home_response = member_client.get(reverse("user:user_home"))
+                home_item = self._find_item(home_response.context["posts"], post.id)
+                self.assertEqual(home_item["post_type"], "admin")
+                self.assertEqual(home_item["phase"], flow)
+                self.assertTrue(home_item["is_pending_review"])
+                self.assertFalse(home_item["show_countdown"])
+                self.assertContains(home_response, post.display_title)
+
+                history_response = member_client.get(reverse(config["history_route"]))
+                self.assertContains(history_response, "Admin approval opens after")
+
+                self._submit_request(flow, self.second_member, post)
+                self.assertEqual(
+                    PostRequest.objects.filter(
+                        post=post,
+                        request_type=flow,
+                        status="pending",
+                    ).count(),
+                    2,
+                )
+
+    def test_admin_cannot_accept_requests_before_verification_window_opens(self):
+        now = timezone.now()
+        admin_client = self._client_for(self.admin_user)
+
+        for flow, config in self.flow_config.items():
+            with self.subTest(flow=flow):
+                post = self._create_post(
+                    flow,
+                    created_at=config["initial_created_at"](now),
+                )
+                request_record = self._submit_request(flow, self.first_member, post)
+
+                dashboard_response = admin_client.get(reverse("dogadoption_admin:post_list"))
+                dashboard_item = self._find_item(
+                    dashboard_response.context[config["admin_bucket"]],
+                    post.id,
+                )
+                self.assertTrue(dashboard_item["is_pending_review"])
+                self.assertFalse(dashboard_item["show_countdown"])
+                self.assertContains(dashboard_response, "Accept after")
+                self.assertContains(dashboard_response, "Verification until")
+
+                response = admin_client.post(
+                    reverse(
+                        "dogadoption_admin:update_request",
+                        args=[request_record.id, "accept"],
+                    ),
+                    follow=True,
+                )
+
+                request_record.refresh_from_db()
+                post.refresh_from_db()
+                self.assertEqual(request_record.status, "pending")
+                self.assertIsNone(request_record.scheduled_appointment_date)
+                self.assertEqual(post.status, "rescued")
+                self.assertContains(response, "Approval opens after")
+
+    def test_admin_can_accept_requests_after_verification_window_for_claim_and_adopt(self):
+        now = timezone.now()
+        admin_client = self._client_for(self.admin_user)
+
+        for flow, config in self.flow_config.items():
+            with self.subTest(flow=flow):
+                post = self._create_post(
+                    flow,
+                    created_at=config["initial_created_at"](now),
+                )
+                request_record = self._submit_request(flow, self.first_member, post)
+                self._set_created_at(
+                    PostRequest,
+                    request_record.id,
+                    now - PostRequest.verification_window() - timedelta(minutes=1),
+                )
+                request_record.refresh_from_db()
+
+                response = admin_client.post(
+                    reverse(
+                        "dogadoption_admin:update_request",
+                        args=[request_record.id, "accept"],
+                    ),
+                    follow=True,
+                )
+
+                self.assertEqual(response.status_code, 200)
+                request_record.refresh_from_db()
+                post.refresh_from_db()
+                self.assertEqual(request_record.status, "accepted")
+                self.assertEqual(
+                    request_record.scheduled_appointment_date,
+                    self.appointment_date,
+                )
+                self.assertEqual(post.status, config["accepted_post_status"])

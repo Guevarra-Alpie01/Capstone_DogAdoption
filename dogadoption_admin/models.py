@@ -4,10 +4,12 @@ from uuid import uuid4
 
 from django.contrib.auth.models import User
 from django.db import models
+from django.db.models import DateTimeField, Exists, OuterRef, Subquery
 from django.utils import timezone
 
 class Post(models.Model):
     ADOPTION_DAYS = 3
+    REQUEST_VERIFICATION_DAYS = 1
     BREED_OTHER = "other"
     COLOR_OTHER = "other"
 
@@ -146,6 +148,31 @@ class Post(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    @classmethod
+    def with_pending_request_state(cls, queryset):
+        pending_claim_qs = PostRequest.objects.filter(
+            post_id=OuterRef("pk"),
+            request_type="claim",
+            status="pending",
+        )
+        pending_adopt_qs = PostRequest.objects.filter(
+            post_id=OuterRef("pk"),
+            request_type="adopt",
+            status="pending",
+        )
+        return queryset.annotate(
+            has_pending_claim_request=Exists(pending_claim_qs),
+            has_pending_adopt_request=Exists(pending_adopt_qs),
+            pending_claim_started_at=Subquery(
+                pending_claim_qs.order_by("created_at").values("created_at")[:1],
+                output_field=DateTimeField(),
+            ),
+            pending_adopt_started_at=Subquery(
+                pending_adopt_qs.order_by("created_at").values("created_at")[:1],
+                output_field=DateTimeField(),
+            ),
+        )
+
     @staticmethod
     def _clean_text(value):
         return " ".join((value or "").split()).strip()
@@ -198,6 +225,65 @@ class Post(models.Model):
     def display_title(self):
         return self.display_breed or self._clean_text(self.caption) or "Dog Listing"
 
+    def _pending_request_details(self, request_type):
+        flag_attr = f"has_pending_{request_type}_request"
+        started_attr = f"pending_{request_type}_started_at"
+
+        has_pending = getattr(self, flag_attr, None)
+        started_at = getattr(self, started_attr, None)
+        if has_pending is not None:
+            return bool(has_pending), started_at
+
+        prefetched_requests = getattr(self, "_prefetched_objects_cache", {}).get("requests")
+        if prefetched_requests is not None:
+            pending_created_ats = [
+                req.created_at
+                for req in prefetched_requests
+                if req.status == "pending"
+                and req.request_type == request_type
+                and req.created_at
+            ]
+            return bool(pending_created_ats), min(pending_created_ats) if pending_created_ats else None
+
+        started_at = self.requests.filter(
+            status="pending",
+            request_type=request_type,
+        ).order_by("created_at").values_list("created_at", flat=True).first()
+        return bool(started_at), started_at
+
+    @property
+    def pending_review_request_type(self):
+        if self.status in ["reunited", "adopted"]:
+            return None
+
+        claim_pending, _ = self._pending_request_details("claim")
+        if claim_pending:
+            return "claim"
+
+        adopt_pending, _ = self._pending_request_details("adopt")
+        if adopt_pending:
+            return "adopt"
+
+        return None
+
+    @property
+    def pending_review_started_at(self):
+        request_type = self.pending_review_request_type
+        if not request_type:
+            return None
+        return self._pending_request_details(request_type)[1]
+
+    @property
+    def pending_review_until(self):
+        started_at = self.pending_review_started_at
+        if not started_at:
+            return None
+        return started_at + PostRequest.verification_window()
+
+    @property
+    def has_pending_review(self):
+        return bool(self.pending_review_request_type)
+
     def claim_deadline(self):
         """Deadline for owner claim window."""
         if self.created_at and self.claim_days is not None:
@@ -212,6 +298,20 @@ class Post(models.Model):
             return claim_end + timedelta(days=self.ADOPTION_DAYS)
         return None
 
+    def timeline_phase(self, now=None):
+        if self.status in ["reunited", "adopted"]:
+            return "closed"
+
+        now = now or timezone.now()
+        claim_end = self.claim_deadline()
+        adopt_end = self.adoption_deadline()
+
+        if claim_end and now <= claim_end:
+            return "claim"
+        if adopt_end and now <= adopt_end:
+            return "adopt"
+        return "closed"
+
     def current_phase(self):
         """
         Returns one of:
@@ -219,22 +319,17 @@ class Post(models.Model):
         - adopt
         - closed
         """
-        if self.status in ['reunited', 'adopted']:
-            return 'closed'
-
-        now = timezone.now()
-        claim_end = self.claim_deadline()
-        adopt_end = self.adoption_deadline()
-
-        if claim_end and now <= claim_end:
-            return 'claim'
-        if adopt_end and now <= adopt_end:
-            return 'adopt'
-        return 'closed'
+        pending_phase = self.pending_review_request_type
+        if pending_phase:
+            return pending_phase
+        return self.timeline_phase()
 
     def time_left(self):
         """Return remaining time in the active phase."""
-        phase = self.current_phase()
+        if self.has_pending_review:
+            return timedelta(seconds=0)
+
+        phase = self.timeline_phase()
         now = timezone.now()
 
         if phase == 'claim':
@@ -245,6 +340,8 @@ class Post(models.Model):
 
     def is_expired(self):
         """Return True if both claim and adoption windows are finished."""
+        if self.status in ["reunited", "adopted"] or self.has_pending_review:
+            return False
         deadline = self.adoption_deadline()
         return deadline and timezone.now() > deadline
 
@@ -290,6 +387,7 @@ class PostImage(models.Model):
         return f"Image for post {self.post.id}"
 
 class PostRequest(models.Model):
+    VERIFICATION_WINDOW_DAYS = 1
 
     REQUEST_TYPE_CHOICES = [
         ('claim', 'Claim'),
@@ -338,6 +436,30 @@ class PostRequest(models.Model):
             models.Index(fields=["request_type", "status", "created_at"], name="postreq_type_status_cr_idx"),
             models.Index(fields=["user", "request_type", "status"], name="postreq_user_type_status_idx"),
         ]
+
+    @classmethod
+    def verification_window(cls):
+        return timedelta(days=cls.VERIFICATION_WINDOW_DAYS)
+
+    @property
+    def approval_available_at(self):
+        if not self.created_at:
+            return None
+        return self.created_at + self.verification_window()
+
+    @property
+    def verification_ready(self):
+        approval_at = self.approval_available_at
+        if self.status != "pending" or not approval_at:
+            return False
+        return timezone.now() >= approval_at
+
+    @property
+    def verification_pending(self):
+        approval_at = self.approval_available_at
+        if self.status != "pending" or not approval_at:
+            return False
+        return timezone.now() < approval_at
 
     def __str__(self):
         return f"{self.user.username} - {self.request_type} ({self.status})"

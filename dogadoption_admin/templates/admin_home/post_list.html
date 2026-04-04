@@ -557,7 +557,7 @@
                                 <strong class="detail-value detail-pill detail-pill--{{ post.status|slugify }}">{{ post.get_status_display }}</strong>
                             </div>
                             <div class="detail-stat detail-stat--wide">
-                                <span class="detail-label">Time Left</span>
+                                <span class="detail-label">{% if item.is_pending_review %}Verification{% else %}Time Left{% endif %}</span>
                                 <strong class="detail-value">{{ item.time_left_label }}</strong>
                             </div>
                         </div>
@@ -615,18 +615,23 @@
                                             <td>
                                                 {% if req.status == 'pending' %}
                                                     <div class="request-action-cell">
-                                                        <form method="post" action="{% url 'dogadoption_admin:update_request' req.id 'accept' %}" class="request-action-form">
-                                                            {% csrf_token %}
-                                                            <input type="hidden" name="next" value="{{ return_to }}">
-                                                            <button
-                                                                type="button"
-                                                                class="btn btn-success btn-sm js-confirm-action"
-                                                                data-confirm-title="Confirm Accept"
-                                                                data-confirm-body="Accept this claim request?"
-                                                            >
-                                                                Accept
-                                                            </button>
-                                                        </form>
+                                                        {% if req.verification_ready %}
+                                                            <form method="post" action="{% url 'dogadoption_admin:update_request' req.id 'accept' %}" class="request-action-form">
+                                                                {% csrf_token %}
+                                                                <input type="hidden" name="next" value="{{ return_to }}">
+                                                                <button
+                                                                    type="button"
+                                                                    class="btn btn-success btn-sm js-confirm-action"
+                                                                    data-confirm-title="Confirm Accept"
+                                                                    data-confirm-body="Accept this claim request?"
+                                                                >
+                                                                    Accept
+                                                                </button>
+                                                            </form>
+                                                        {% else %}
+                                                            <div class="text-muted small">Accept after {{ req.approval_available_at|date:"M d, Y H:i" }}</div>
+                                                            <button type="button" class="btn btn-success btn-sm" disabled>Accept</button>
+                                                        {% endif %}
                                                         <form method="post" action="{% url 'dogadoption_admin:update_request' req.id 'reject' %}">
                                                             {% csrf_token %}
                                                             <input type="hidden" name="next" value="{{ return_to }}">
@@ -705,18 +710,23 @@
                                             <td>
                                                 {% if req.status == 'pending' %}
                                                     <div class="request-action-cell">
-                                                        <form method="post" action="{% url 'dogadoption_admin:update_request' req.id 'accept' %}" class="request-action-form">
-                                                            {% csrf_token %}
-                                                            <input type="hidden" name="next" value="{{ return_to }}">
-                                                            <button
-                                                                type="button"
-                                                                class="btn btn-success btn-sm js-confirm-action"
-                                                                data-confirm-title="Confirm Accept"
-                                                                data-confirm-body="Accept this adoption request?"
-                                                            >
-                                                                Accept
-                                                            </button>
-                                                        </form>
+                                                        {% if req.verification_ready %}
+                                                            <form method="post" action="{% url 'dogadoption_admin:update_request' req.id 'accept' %}" class="request-action-form">
+                                                                {% csrf_token %}
+                                                                <input type="hidden" name="next" value="{{ return_to }}">
+                                                                <button
+                                                                    type="button"
+                                                                    class="btn btn-success btn-sm js-confirm-action"
+                                                                    data-confirm-title="Confirm Accept"
+                                                                    data-confirm-body="Accept this adoption request?"
+                                                                >
+                                                                    Accept
+                                                                </button>
+                                                            </form>
+                                                        {% else %}
+                                                            <div class="text-muted small">Accept after {{ req.approval_available_at|date:"M d, Y H:i" }}</div>
+                                                            <button type="button" class="btn btn-success btn-sm" disabled>Accept</button>
+                                                        {% endif %}
                                                         <form method="post" action="{% url 'dogadoption_admin:update_request' req.id 'reject' %}">
                                                             {% csrf_token %}
                                                             <input type="hidden" name="next" value="{{ return_to }}">

@@ -153,9 +153,11 @@ def _get_cached_post_history_ids():
         return history_candidate_ids
 
     history_candidate_qs = (
-        Post.objects.filter(
-            status__in=["rescued", "under_care"],
-            created_at__lte=timezone.now() - timedelta(days=Post.ADOPTION_DAYS),
+        Post.with_pending_request_state(
+            Post.objects.filter(
+                status__in=["rescued", "under_care"],
+                created_at__lte=timezone.now() - timedelta(days=Post.ADOPTION_DAYS),
+            )
         )
         .only("id", "status", "created_at", "claim_days")
         .order_by("-created_at")
@@ -1373,25 +1375,27 @@ def post_list(request):
     )
     active_statuses = ["rescued", "under_care"]
 
-    base_qs = Post.objects.only(
-        'id',
-        'caption',
-        'breed',
-        'breed_other',
-        'age_group',
-        'size_group',
-        'gender',
-        'coat_length',
-        'colors',
-        'color_other',
-        'location',
-        'status',
-        'rescued_date',
-        'claim_days',
-        'created_at',
-    ).annotate(
-        claim_deadline_db=claim_deadline_expr,
-        adopt_deadline_db=adopt_deadline_expr,
+    base_qs = Post.with_pending_request_state(
+        Post.objects.only(
+            'id',
+            'caption',
+            'breed',
+            'breed_other',
+            'age_group',
+            'size_group',
+            'gender',
+            'coat_length',
+            'colors',
+            'color_other',
+            'location',
+            'status',
+            'rescued_date',
+            'claim_days',
+            'created_at',
+        ).annotate(
+            claim_deadline_db=claim_deadline_expr,
+            adopt_deadline_db=adopt_deadline_expr,
+        )
     )
 
     def _with_request_count(qs, request_type, annotation_name):
@@ -1433,10 +1437,17 @@ def post_list(request):
 
     def _build_post_item(post, phase):
         days = hours = minutes = 0
+        is_pending_review = bool(getattr(post, "has_pending_review", False)) and phase in {"claim", "adopt"}
+        pending_review_until = getattr(post, "pending_review_until", None) if is_pending_review else None
+        pending_review_until_label = (
+            timezone.localtime(pending_review_until).strftime("%b %d, %Y %I:%M %p")
+            if pending_review_until
+            else ""
+        )
         deadline = None
-        if phase == 'claim':
+        if phase == 'claim' and not is_pending_review:
             deadline = getattr(post, "claim_deadline_db", None) or post.claim_deadline()
-        elif phase == 'adopt':
+        elif phase == 'adopt' and not is_pending_review:
             deadline = getattr(post, "adopt_deadline_db", None) or post.adoption_deadline()
 
         if deadline and phase in {'claim', 'adopt'}:
@@ -1453,12 +1464,24 @@ def post_list(request):
             'hours_left': hours,
             'minutes_left': minutes,
             'phase': phase,
+            'is_pending_review': is_pending_review,
+            'show_countdown': bool(deadline and phase in {'claim', 'adopt'}),
+            'pending_review_until': pending_review_until,
+            'pending_review_until_label': pending_review_until_label,
             'posted_label': format_posted_label(post.created_at),
             'deadline_iso': deadline.isoformat() if deadline else "",
             'time_left_label': (
-                f"{days:02d}d {hours:02d}h {minutes:02d}m"
-                if phase in ['claim', 'adopt']
-                else "No active time window"
+                (
+                    f"Verification until {pending_review_until_label}"
+                    if pending_review_until_label
+                    else "Pending admin review"
+                )
+                if is_pending_review
+                else (
+                    f"{days:02d}d {hours:02d}h {minutes:02d}m"
+                    if phase in ['claim', 'adopt']
+                    else "No active time window"
+                )
             ),
             'claim_request_count': int(getattr(post, "claim_count", 0) or 0),
             'adopt_request_count': int(getattr(post, "adopt_count", 0) or 0),
@@ -1480,7 +1503,13 @@ def post_list(request):
     claim_qs = _with_request_count(
         base_qs.filter(
             status__in=active_statuses,
-            claim_deadline_db__gte=now,
+        ).filter(
+            Q(has_pending_claim_request=True)
+            | (
+                Q(has_pending_claim_request=False)
+                & Q(has_pending_adopt_request=False)
+                & Q(claim_deadline_db__gte=now)
+            )
         ),
         "claim",
         "claim_count",
@@ -1488,8 +1517,16 @@ def post_list(request):
     adoption_qs = _with_request_count(
         base_qs.filter(
             status__in=active_statuses,
-            claim_deadline_db__lt=now,
-            adopt_deadline_db__gte=now,
+        ).filter(
+            Q(has_pending_claim_request=False)
+            & (
+                Q(has_pending_adopt_request=True)
+                | (
+                    Q(has_pending_adopt_request=False)
+                    & Q(claim_deadline_db__lt=now)
+                    & Q(adopt_deadline_db__gte=now)
+                )
+            )
         ),
         "adopt",
         "adopt_count",
@@ -1718,6 +1755,19 @@ def update_request(request, req_id, action):
             return _build_request_redirect_or_next(request, req)
 
         if action == 'accept':
+            if not req.verification_ready:
+                approval_open_at = req.approval_available_at
+                if approval_open_at:
+                    messages.error(
+                        request,
+                        "Approval opens after {}.".format(
+                            timezone.localtime(approval_open_at).strftime("%b %d, %Y %I:%M %p")
+                        ),
+                    )
+                else:
+                    messages.error(request, "This request is still in its verification window.")
+                return _build_request_redirect_or_next(request, req)
+
             scheduled_date_raw = (request.POST.get('scheduled_appointment_date') or '').strip()
             if scheduled_date_raw:
                 scheduled_date = parse_date(scheduled_date_raw)
@@ -1742,8 +1792,6 @@ def update_request(request, req_id, action):
             elif req.request_type == 'adopt':
                 post.status = 'adopted'
             post.save(update_fields=['status'])
-            cache.delete(POST_HISTORY_CACHE_KEY)
-            bump_user_home_feed_namespace()
 
             post.requests.filter(status='pending').exclude(id=req.id).update(
                 status='rejected',
@@ -1757,6 +1805,8 @@ def update_request(request, req_id, action):
         req.save(update_fields=['status', 'scheduled_appointment_date'])
         remember_request_reviewed_at(req.id, reviewed_at)
         invalidate_user_notification_payload(req.user_id)
+        cache.delete(POST_HISTORY_CACHE_KEY)
+        bump_user_home_feed_namespace()
 
     return _build_request_redirect_or_next(request, req)
 # =============================================================================

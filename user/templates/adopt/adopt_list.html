@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260404a">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260404finder-horizontal">
 {% endblock %}
 
 {% block content %}
@@ -33,88 +33,128 @@
         </div>
     </section>
 
-    <form method="get" class="finder-layout">
-        <aside class="finder-sidebar">
-            <div class="finder-panel">
-                <div class="finder-panel__head">
-                    <div>
-                        <h2 class="finder-panel__title">Search Preferences</h2>
-                        <p class="finder-panel__text">Browse live rescue posts and surface your best matches first.</p>
-                    </div>
+    <form method="get" class="finder-layout" data-finder-layout>
+        <section class="finder-filter-shell">
+            <div class="finder-filter-shell__head">
+                <div class="finder-filter-shell__copy">
+                    <h2 class="finder-filter-shell__title">Filter Search</h2>
+                    <p class="finder-filter-shell__text">Browse live rescue posts and narrow the list by purpose, traits, and rescue location.</p>
+                </div>
+                <div class="finder-filter-shell__actions">
+                    {% if active_filter_count %}
+                    <span class="finder-filter-shell__count">{{ active_filter_count }} active filter{{ active_filter_count|pluralize }}</span>
+                    {% endif %}
                     <a href="{{ clear_filters_url }}" class="finder-panel__clear">Clear all</a>
+                    <button
+                        type="button"
+                        class="finder-mobile-toggle"
+                        data-finder-filter-open
+                        aria-expanded="false"
+                        aria-controls="finderFiltersPanel"
+                    >
+                        <i class="bi bi-sliders" aria-hidden="true"></i>
+                        <span>Filter Search</span>
+                        {% if active_filter_count %}
+                        <span class="finder-mobile-toggle__count">{{ active_filter_count }}</span>
+                        {% endif %}
+                    </button>
+                </div>
+            </div>
+
+            {% if active_filter_chips %}
+            <div class="finder-chip-list" aria-label="Active filters">
+                {% for chip in active_filter_chips %}
+                <span class="finder-chip">{{ chip.label }}: {{ chip.value_label }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="finder-filter-backdrop" data-finder-filter-close aria-hidden="true"></div>
+
+            <section class="finder-toolbar" id="finderFiltersPanel" data-finder-toolbar aria-label="Dog search filters">
+                <div class="finder-toolbar__header">
+                    <div>
+                        <h3 class="finder-toolbar__title">Filter Search</h3>
+                        <p class="finder-toolbar__text">Tap a filter to see all available choices, then apply your preferences.</p>
+                    </div>
+                    <button type="button" class="finder-toolbar__close" data-finder-filter-close aria-label="Close filters">
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
+                    </button>
                 </div>
 
-                <div class="finder-purpose">
-                    <label for="finderPurpose" class="finder-field__label">Purpose</label>
-                    <div class="finder-purpose__select-wrap">
-                        <select id="finderPurpose" name="purpose" class="finder-select" data-auto-submit>
-                            {% for value, label in purpose_choices %}
-                            <option value="{{ value }}"{% if current_purpose == value %} selected{% endif %}>{{ value }}</option>
-                            {% endfor %}
-                        </select>
+                <div class="finder-purpose finder-purpose--toolbar">
+                    <div class="finder-purpose__field">
+                        <label for="finderPurpose" class="finder-field__label">Purpose</label>
+                        <div class="finder-purpose__select-wrap">
+                            <select id="finderPurpose" name="purpose" class="finder-select">
+                                {% for value, label in purpose_choices %}
+                                <option value="{{ value }}"{% if current_purpose == value %} selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
                     <div class="finder-purpose__stats">
-                        <span class="finder-purpose__pill{% if current_purpose == 'all' %} is-active{% endif %}">
+                        <span class="finder-purpose__pill{% if current_purpose == 'all' %} is-active{% endif %}" data-purpose-pill data-purpose="all">
                             <strong>{{ purpose_counts.all }}</strong>
                             <span>All</span>
                         </span>
-                        <span class="finder-purpose__pill{% if current_purpose == 'claim' %} is-active{% endif %}">
+                        <span class="finder-purpose__pill{% if current_purpose == 'claim' %} is-active{% endif %}" data-purpose-pill data-purpose="claim">
                             <strong>{{ purpose_counts.claim }}</strong>
                             <span>Claim</span>
                         </span>
-                        <span class="finder-purpose__pill{% if current_purpose == 'adopt' %} is-active{% endif %}">
+                        <span class="finder-purpose__pill{% if current_purpose == 'adopt' %} is-active{% endif %}" data-purpose-pill data-purpose="adopt">
                             <strong>{{ purpose_counts.adopt }}</strong>
                             <span>Adopt</span>
                         </span>
                     </div>
                 </div>
 
-                {% if active_filter_chips %}
-                <div class="finder-chip-list" aria-label="Active filters">
-                    {% for chip in active_filter_chips %}
-                    <span class="finder-chip">{{ chip.label }}: {{ chip.value_label }}</span>
-                    {% endfor %}
-                </div>
-                {% endif %}
-
-                <div class="finder-filter-groups">
-                    {% for section in filter_sections %}
-                    <details class="finder-filter-group"{% if section.value or forloop.counter <= 2 %} open{% endif %}>
-                        <summary class="finder-filter-group__summary">
-                            <span class="finder-filter-group__title">
-                                <i class="{{ section.icon_class }}" aria-hidden="true"></i>
-                                <span>{{ section.label }}</span>
-                            </span>
-                            {% if section.value_label %}
-                            <span class="finder-filter-group__value">{{ section.value_label }}</span>
-                            {% endif %}
-                        </summary>
-
-                        <div class="finder-filter-options">
-                            <label class="finder-filter-option{% if not section.value %} is-selected{% endif %}">
-                                <input type="radio" name="{{ section.key }}" value=""{% if not section.value %} checked{% endif %} data-auto-submit>
-                                <span class="finder-filter-option__box">
-                                    <i class="bi bi-check2" aria-hidden="true"></i>
+                <div class="finder-toolbar__controls">
+                    <div class="finder-filter-groups" aria-label="Dog filters">
+                        {% for section in filter_sections %}
+                        <details class="finder-filter-group"{% if section.value %} open{% endif %}>
+                            <summary class="finder-filter-group__summary">
+                                <span class="finder-filter-group__title">
+                                    <i class="{{ section.icon_class }}" aria-hidden="true"></i>
+                                    <span>{{ section.label }}</span>
                                 </span>
-                                <span class="finder-filter-option__label">{{ section.clear_label }}</span>
-                            </label>
-                            {% for option in section.options %}
-                            <label class="finder-filter-option{% if section.value == option.value %} is-selected{% endif %}">
-                                <input type="radio" name="{{ section.key }}" value="{{ option.value }}"{% if section.value == option.value %} checked{% endif %} data-auto-submit>
-                                <span class="finder-filter-option__box">
-                                    <i class="bi bi-check2" aria-hidden="true"></i>
+                                <span class="finder-filter-group__summary-meta">
+                                    <span class="finder-filter-group__value" data-default-label="{{ section.clear_label }}">{{ section.value_label|default:section.clear_label }}</span>
+                                    <span class="finder-filter-group__caret" aria-hidden="true">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </span>
                                 </span>
-                                <span class="finder-filter-option__label">{{ option.label }}</span>
-                            </label>
-                            {% endfor %}
-                        </div>
-                    </details>
-                    {% endfor %}
-                </div>
+                            </summary>
 
-                <button type="submit" class="finder-apply">Apply Preferences</button>
-            </div>
-        </aside>
+                            <div class="finder-filter-options">
+                                <label class="finder-filter-option{% if not section.value %} is-selected{% endif %}">
+                                    <input type="radio" name="{{ section.key }}" value=""{% if not section.value %} checked{% endif %}>
+                                    <span class="finder-filter-option__box">
+                                        <i class="bi bi-check2" aria-hidden="true"></i>
+                                    </span>
+                                    <span class="finder-filter-option__label">{{ section.clear_label }}</span>
+                                </label>
+                                {% for option in section.options %}
+                                <label class="finder-filter-option{% if section.value == option.value %} is-selected{% endif %}">
+                                    <input type="radio" name="{{ section.key }}" value="{{ option.value }}"{% if section.value == option.value %} checked{% endif %}>
+                                    <span class="finder-filter-option__box">
+                                        <i class="bi bi-check2" aria-hidden="true"></i>
+                                    </span>
+                                    <span class="finder-filter-option__label">{{ option.label }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </details>
+                        {% endfor %}
+                    </div>
+
+                    <div class="finder-toolbar__footer">
+                        <a href="{{ clear_filters_url }}" class="finder-panel__clear finder-panel__clear--footer">Clear all</a>
+                        <button type="submit" class="finder-apply">Apply Preferences</button>
+                    </div>
+                </div>
+            </section>
+        </section>
 
         <div class="finder-content">
             {% if active_filter_count %}
@@ -187,20 +227,110 @@
 
 <script>
 (function () {
-    const autoSubmitInputs = document.querySelectorAll('[data-auto-submit]');
+    const layout = document.querySelector('[data-finder-layout]');
+    const filterToolbar = layout?.querySelector('[data-finder-toolbar]');
+    const filterOpenTrigger = layout?.querySelector('[data-finder-filter-open]');
+    const filterCloseTriggers = layout?.querySelectorAll('[data-finder-filter-close]');
+    const filterGroups = layout ? Array.from(layout.querySelectorAll('.finder-filter-group')) : [];
+    const purposeSelect = layout?.querySelector('#finderPurpose');
+    const purposePills = layout ? Array.from(layout.querySelectorAll('[data-purpose-pill]')) : [];
+    const mobileQuery = window.matchMedia('(max-width: 767.98px)');
     const lightbox = document.getElementById('finderImageLightbox');
     const lightboxImg = document.getElementById('finderImageLightboxImg');
     const lightboxClose = lightbox?.querySelector('.finder-lightbox__close');
     const zoomTriggers = document.querySelectorAll('.js-finder-zoom');
 
-    autoSubmitInputs.forEach((input) => {
-        input.addEventListener('change', () => {
-            const form = input.closest('form');
-            if (form) form.submit();
+    function closeFilterGroups(exceptGroup = null) {
+        filterGroups.forEach((group) => {
+            if (group !== exceptGroup) {
+                group.open = false;
+            }
+        });
+    }
+
+    function syncFilterGroupState(group) {
+        if (!group) return;
+        const selectedInput = group.querySelector('input[type="radio"]:checked');
+        const valueEl = group.querySelector('.finder-filter-group__value');
+        const selectedLabel = selectedInput
+            ?.closest('.finder-filter-option')
+            ?.querySelector('.finder-filter-option__label')
+            ?.textContent
+            ?.trim();
+
+        group.querySelectorAll('.finder-filter-option').forEach((option) => {
+            const optionInput = option.querySelector('input[type="radio"]');
+            option.classList.toggle('is-selected', Boolean(optionInput?.checked));
+        });
+
+        if (valueEl) {
+            valueEl.textContent = selectedLabel || valueEl.getAttribute('data-default-label') || '';
+        }
+    }
+
+    function syncPurposePills() {
+        if (!purposeSelect) return;
+        purposePills.forEach((pill) => {
+            pill.classList.toggle('is-active', pill.getAttribute('data-purpose') === purposeSelect.value);
+        });
+    }
+
+    function setMobileFiltersOpen(shouldOpen) {
+        if (!layout || !filterToolbar || !filterOpenTrigger) return;
+        const isOpen = Boolean(shouldOpen) && mobileQuery.matches;
+        layout.classList.toggle('is-filter-open', isOpen);
+        document.body.classList.toggle('finder-filter-open', isOpen);
+        filterOpenTrigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
+
+    filterGroups.forEach((group) => {
+        syncFilterGroupState(group);
+        group.addEventListener('toggle', () => {
+            if (group.open) {
+                closeFilterGroups(group);
+            }
+        });
+        group.querySelectorAll('input[type="radio"]').forEach((input) => {
+            input.addEventListener('change', () => {
+                syncFilterGroupState(group);
+                if (!mobileQuery.matches) {
+                    group.open = false;
+                }
+            });
         });
     });
 
-    if (!lightbox || !lightboxImg || !lightboxClose || !zoomTriggers.length) return;
+    syncPurposePills();
+    purposeSelect?.addEventListener('change', syncPurposePills);
+
+    filterOpenTrigger?.addEventListener('click', () => {
+        setMobileFiltersOpen(true);
+    });
+
+    filterCloseTriggers?.forEach((trigger) => {
+        trigger.addEventListener('click', () => {
+            setMobileFiltersOpen(false);
+        });
+    });
+
+    document.addEventListener('click', (event) => {
+        if (mobileQuery.matches) return;
+        if (!event.target.closest('.finder-filter-group')) {
+            closeFilterGroups();
+        }
+    });
+
+    const handleViewportChange = (event) => {
+        if (!event.matches) {
+            setMobileFiltersOpen(false);
+        }
+    };
+
+    if (typeof mobileQuery.addEventListener === 'function') {
+        mobileQuery.addEventListener('change', handleViewportChange);
+    } else if (typeof mobileQuery.addListener === 'function') {
+        mobileQuery.addListener(handleViewportChange);
+    }
 
     function openLightbox(src, altText) {
         if (!src) return;
@@ -231,7 +361,13 @@
         if (event.target === lightbox) closeLightbox();
     });
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !lightbox.hidden) closeLightbox();
+        if (event.key !== 'Escape') return;
+        if (mobileQuery.matches && layout?.classList.contains('is-filter-open')) {
+            setMobileFiltersOpen(false);
+            return;
+        }
+        closeFilterGroups();
+        if (lightbox && !lightbox.hidden) closeLightbox();
     });
 })();
 </script>

@@ -91,51 +91,80 @@
 }
 
 .finder-layout {
-    display: grid;
-    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
-    gap: 24px;
-    align-items: start;
-}
-
-.finder-sidebar {
-    position: sticky;
-    top: 92px;
-}
-
-.finder-panel {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    padding: 22px;
-    border: 1px solid rgba(214, 226, 236, 0.92);
-    border-radius: 26px;
-    background: rgba(255, 255, 255, 0.97);
-    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+    gap: 24px;
 }
 
-.finder-panel__head {
+.finder-filter-shell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 22px 24px;
+    border: 1px solid rgba(214, 226, 236, 0.92);
+    border-radius: 28px;
+    background: linear-gradient(180deg, rgba(255, 255, 240, 0.98), rgba(250, 249, 246, 0.98));
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+    overflow: visible;
+}
+
+.finder-filter-shell__head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
 }
 
-.finder-panel__title {
+.finder-filter-shell__copy {
+    max-width: 34rem;
+}
+
+.finder-filter-shell__title {
     margin: 0;
     color: #10243e;
     font-size: 1.18rem;
     font-weight: 800;
 }
 
-.finder-panel__text {
+.finder-filter-shell__text {
     margin: 8px 0 0;
     color: #617489;
     font-size: 0.92rem;
     line-height: 1.6;
 }
 
+.finder-filter-shell__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.finder-filter-shell__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: #edf9f2;
+    color: #166534;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+}
+
 .finder-panel__clear {
-    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 14px;
+    border: 1px solid #d8e3eb;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
     color: #166534;
     font-size: 0.86rem;
     font-weight: 700;
@@ -144,7 +173,40 @@
 
 .finder-panel__clear:hover,
 .finder-panel__clear:focus-visible {
-    text-decoration: underline;
+    border-color: #b9d6c0;
+    color: #14532d;
+}
+
+.finder-mobile-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 16px;
+    border: 1px solid #1f6b4a;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #2f855a 0%, #1f6b4a 100%);
+    color: #ffffff;
+    font-size: 0.9rem;
+    font-weight: 800;
+    box-shadow: 0 14px 26px rgba(31, 107, 74, 0.18);
+}
+
+.finder-mobile-toggle__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    font-size: 0.76rem;
+}
+
+.finder-filter-backdrop {
+    display: none;
 }
 
 .finder-field__label {
@@ -172,6 +234,20 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+.finder-purpose--toolbar {
+    display: grid;
+    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+    align-items: end;
+    gap: 16px;
+}
+
+.finder-purpose__field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
 }
 
 .finder-purpose__stats {
@@ -231,15 +307,22 @@
 
 .finder-filter-groups {
     display: flex;
-    flex-direction: column;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
     gap: 12px;
+    align-items: flex-start;
+    min-width: 0;
 }
 
 .finder-filter-group {
-    border: 1px solid #deebf2;
-    border-radius: 20px;
-    background: #f8fbfd;
-    overflow: hidden;
+    position: relative;
+    flex: 1 1 168px;
+    min-width: 168px;
+    max-width: 228px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    overflow: visible;
 }
 
 .finder-filter-group__summary {
@@ -247,9 +330,15 @@
     align-items: center;
     justify-content: space-between;
     gap: 14px;
-    padding: 16px 16px 14px;
+    min-height: 58px;
+    padding: 14px 16px;
     cursor: pointer;
     list-style: none;
+    border: 1px solid #dce7ef;
+    border-radius: 18px;
+    background: rgba(255, 255, 240, 0.98);
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+    transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
 }
 
 .finder-filter-group__summary::-webkit-details-marker {
@@ -270,29 +359,88 @@
     font-size: 1rem;
 }
 
+.finder-filter-group__summary:hover,
+.finder-filter-group__summary:focus-visible {
+    transform: translateY(-1px);
+    border-color: #b9d6c0;
+    box-shadow: 0 14px 28px rgba(21, 128, 61, 0.1);
+}
+
+.finder-filter-group__summary-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    margin-left: auto;
+}
+
 .finder-filter-group__value {
-    max-width: 50%;
-    color: #166534;
+    max-width: 112px;
+    overflow: hidden;
+    color: #52677b;
     font-size: 0.78rem;
-    font-weight: 800;
+    font-weight: 700;
     line-height: 1.35;
     text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.finder-filter-group__caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    color: #617489;
+    font-size: 0.82rem;
+    transition: transform 0.18s ease;
+}
+
+.finder-filter-group[open] .finder-filter-group__summary {
+    border-color: #afd4bb;
+    background: #ecfdf3;
+    box-shadow: 0 16px 30px rgba(21, 128, 61, 0.12);
+}
+
+.finder-filter-group[open] .finder-filter-group__caret {
+    transform: rotate(180deg);
 }
 
 .finder-filter-options {
-    display: grid;
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    z-index: 20;
+    display: none;
     gap: 10px;
-    padding: 0 16px 16px;
+    width: min(320px, calc(100vw - 48px));
+    max-height: 320px;
+    padding: 14px;
+    overflow: auto;
+    border: 1px solid #deebf2;
+    border-radius: 20px;
+    background: #fffef8;
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.14);
+}
+
+.finder-filter-group[open] .finder-filter-options {
+    display: grid;
+}
+
+.finder-filter-group:nth-last-child(-n + 2) .finder-filter-options {
+    left: auto;
+    right: 0;
 }
 
 .finder-filter-option {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 12px 14px;
     border: 1px solid #dce7ef;
     border-radius: 16px;
-    background: #ffffff;
+    background: rgba(255, 255, 240, 0.98);
     cursor: pointer;
     transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
@@ -343,8 +491,56 @@
     line-height: 1.45;
 }
 
+.finder-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow: visible;
+}
+
+.finder-toolbar__header {
+    display: none;
+}
+
+.finder-toolbar__title {
+    margin: 0;
+    color: #10243e;
+    font-size: 1.08rem;
+    font-weight: 800;
+}
+
+.finder-toolbar__text {
+    margin: 6px 0 0;
+    color: #617489;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.finder-toolbar__close {
+    display: none;
+}
+
+.finder-toolbar__controls {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.finder-toolbar__footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+
+.finder-panel__clear--footer {
+    display: none;
+}
+
 .finder-apply {
-    width: 100%;
+    width: auto;
+    min-width: 176px;
     min-height: 52px;
     border: 1px solid #1f6b4a;
     border-radius: 18px;
@@ -748,6 +944,10 @@ body.lightbox-open {
     overflow: hidden;
 }
 
+body.finder-filter-open {
+    overflow: hidden;
+}
+
 .finder-lightbox {
     position: fixed;
     inset: 0;
@@ -794,28 +994,37 @@ body.lightbox-open {
 }
 
 @media (max-width: 1199.98px) {
-    .finder-layout {
-        grid-template-columns: 290px minmax(0, 1fr);
-    }
-
     .finder-card-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
 @media (max-width: 991.98px) {
-    .finder-hero,
-    .finder-layout {
+    .finder-hero {
         grid-template-columns: minmax(0, 1fr);
-    }
-
-    .finder-sidebar {
-        position: static;
-        top: auto;
     }
 
     .finder-hero__actions {
         justify-content: flex-start;
+    }
+
+    .finder-filter-shell__head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .finder-filter-shell__actions {
+        justify-content: flex-start;
+    }
+
+    .finder-purpose--toolbar,
+    .finder-toolbar__controls {
+        grid-template-columns: minmax(0, 1fr);
+        flex-direction: column;
+    }
+
+    .finder-toolbar__footer {
+        margin-left: 0;
     }
 }
 
@@ -825,7 +1034,7 @@ body.lightbox-open {
     }
 
     .finder-hero,
-    .finder-panel,
+    .finder-filter-shell,
     .finder-recommended,
     .finder-results {
         padding: 20px;
@@ -835,7 +1044,7 @@ body.lightbox-open {
     .finder-section__head,
     .finder-card__head,
     .finder-card__footer,
-    .finder-panel__head {
+    .finder-filter-shell__head {
         flex-direction: column;
         align-items: flex-start;
     }
@@ -850,14 +1059,176 @@ body.lightbox-open {
         align-items: stretch;
     }
 
+    .finder-filter-shell__actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .finder-panel__clear {
+        display: none;
+    }
+
+    .finder-mobile-toggle {
+        display: inline-flex;
+    }
+
+    .finder-filter-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 1400;
+        background: rgba(15, 23, 42, 0.56);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+    }
+
+    .finder-layout.is-filter-open .finder-filter-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .finder-toolbar {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 1410;
+        max-height: min(88vh, 760px);
+        padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+        border-radius: 26px 26px 0 0;
+        background: linear-gradient(180deg, rgba(255, 255, 240, 0.99), rgba(250, 249, 246, 0.99));
+        box-shadow: 0 -20px 48px rgba(15, 23, 42, 0.24);
+        overflow-y: auto;
+        transform: translate3d(0, calc(100% + 24px), 0);
+        opacity: 0;
+        pointer-events: none;
+        transition: transform 0.22s ease, opacity 0.22s ease;
+    }
+
+    .finder-layout.is-filter-open .finder-toolbar {
+        transform: translate3d(0, 0, 0);
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .finder-toolbar__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .finder-toolbar__close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border: 1px solid #d7e2ea;
+        border-radius: 999px;
+        background: #ffffff;
+        color: #10243e;
+        font-size: 0.95rem;
+    }
+
+    .finder-purpose--toolbar {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
     .finder-purpose__stats {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .finder-toolbar__controls {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .finder-filter-groups {
+        width: 100%;
+        flex-direction: column;
+        flex-wrap: nowrap;
+    }
+
+    .finder-filter-group {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        border: 1px solid #deebf2;
+        border-radius: 20px;
+        background: #f8fbfd;
+        overflow: hidden;
+    }
+
+    .finder-filter-group__summary {
+        min-height: 0;
+        padding: 18px 16px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .finder-filter-group__summary:hover,
+    .finder-filter-group__summary:focus-visible,
+    .finder-filter-group[open] .finder-filter-group__summary {
+        transform: none;
+        border-color: transparent;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .finder-filter-group__value {
+        max-width: 124px;
+    }
+
+    .finder-filter-group__caret {
+        font-size: 0.88rem;
+    }
+
+    .finder-filter-options {
+        position: static;
+        width: auto;
+        max-height: none;
+        padding: 0 16px 16px;
+        overflow: visible;
+        border: 0;
+        border-top: 1px solid #e1ebf1;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .finder-toolbar__footer {
+        width: 100%;
+        margin-left: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .finder-panel__clear--footer {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 46px;
+        border-radius: 16px;
+        border: 1px solid #d7e2ea;
+        background: #ffffff;
+        color: #166534;
+        text-decoration: none;
+        font-weight: 700;
     }
 
     .finder-card__footer .btn-action,
     .finder-load-more__link,
     .finder-empty__link,
-    .finder-hero__link {
+    .finder-hero__link,
+    .finder-apply {
         width: 100%;
     }
 }
@@ -868,7 +1239,24 @@ body.lightbox-open {
     }
 
     .finder-purpose__stats {
-        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .finder-purpose__pill {
+        padding: 10px 8px;
+        border-radius: 16px;
+    }
+
+    .finder-purpose__pill strong {
+        font-size: 1rem;
+    }
+
+    .finder-purpose__pill span {
+        font-size: 0.74rem;
+    }
+
+    .finder-filter-group__summary {
+        padding: 16px 14px;
     }
 
     .finder-filter-option {

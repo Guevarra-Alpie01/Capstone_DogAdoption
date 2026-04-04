@@ -1024,7 +1024,7 @@ def _get_available_appointment_dates():
 def _build_requests_with_meta(post, request_type):
     requests_qs = (
         post.requests.filter(request_type=request_type)
-        .select_related("user")
+        .select_related("user", "post")
         .prefetch_related("images")
         .order_by("-created_at")
     )
@@ -1437,8 +1437,15 @@ def post_list(request):
 
     def _build_post_item(post, phase):
         days = hours = minutes = 0
-        is_pending_review = bool(getattr(post, "has_pending_review", False)) and phase in {"claim", "adopt"}
-        pending_review_until = getattr(post, "pending_review_until", None) if is_pending_review else None
+        is_pending_review = (
+            phase in {"claim", "adopt"}
+            and bool(getattr(post, f"has_pending_{phase}_request", False))
+        )
+        pending_review_until = (
+            post.pending_request_review_available_at(phase)
+            if is_pending_review
+            else None
+        )
         pending_review_until_label = (
             timezone.localtime(pending_review_until).strftime("%b %d, %Y %I:%M %p")
             if pending_review_until
@@ -1504,12 +1511,8 @@ def post_list(request):
         base_qs.filter(
             status__in=active_statuses,
         ).filter(
-            Q(has_pending_claim_request=True)
-            | (
-                Q(has_pending_claim_request=False)
-                & Q(has_pending_adopt_request=False)
-                & Q(claim_deadline_db__gte=now)
-            )
+            Q(claim_deadline_db__gte=now)
+            | Q(has_pending_claim_request=True)
         ),
         "claim",
         "claim_count",
@@ -1518,14 +1521,10 @@ def post_list(request):
         base_qs.filter(
             status__in=active_statuses,
         ).filter(
-            Q(has_pending_claim_request=False)
-            & (
-                Q(has_pending_adopt_request=True)
-                | (
-                    Q(has_pending_adopt_request=False)
-                    & Q(claim_deadline_db__lt=now)
-                    & Q(adopt_deadline_db__gte=now)
-                )
+            Q(has_pending_adopt_request=True)
+            | (
+                Q(claim_deadline_db__lt=now)
+                & Q(adopt_deadline_db__gte=now)
             )
         ),
         "adopt",
@@ -1561,7 +1560,7 @@ def post_list(request):
     if paged_post_ids:
         paged_requests = list(
             PostRequest.objects.filter(post_id__in=paged_post_ids)
-            .select_related("user")
+            .select_related("user", "post")
             .only(
                 "id",
                 "post_id",
@@ -1571,6 +1570,10 @@ def post_list(request):
                 "appointment_date",
                 "scheduled_appointment_date",
                 "created_at",
+                "post__id",
+                "post__created_at",
+                "post__claim_days",
+                "post__status",
                 "user__id",
                 "user__username",
                 "user__first_name",

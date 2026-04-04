@@ -1146,8 +1146,15 @@ def _split_time_left(diff):
 
 def _post_phase_payload(post):
     phase = post.current_phase() if hasattr(post, "current_phase") else "closed"
-    is_pending_review = bool(getattr(post, "has_pending_review", False))
-    pending_review_until = getattr(post, "pending_review_until", None)
+    is_pending_review = (
+        phase in {"claim", "adopt"}
+        and bool(getattr(post, f"has_pending_{phase}_request", False))
+    )
+    pending_review_until = (
+        post.pending_request_review_available_at(phase)
+        if is_pending_review and hasattr(post, "pending_request_review_available_at")
+        else None
+    )
     days = hours = minutes = 0
     if phase in {"claim", "adopt"} and not is_pending_review:
         days, hours, minutes = _split_time_left(post.time_left())
@@ -2001,9 +2008,7 @@ def _active_admin_posts_queryset(query=""):
     ).filter(
         Q(has_accepted_request=False)
         & (
-            Q(has_pending_claim_request=True)
-            | Q(has_pending_adopt_request=True)
-            | Q(claim_deadline_db__gte=now)
+            Q(claim_deadline_db__gte=now)
             | (Q(claim_deadline_db__lt=now) & Q(adopt_deadline_db__gte=now))
         )
     )

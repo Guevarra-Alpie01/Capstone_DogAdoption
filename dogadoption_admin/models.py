@@ -167,8 +167,16 @@ class Post(models.Model):
                 pending_claim_qs.order_by("created_at").values("created_at")[:1],
                 output_field=DateTimeField(),
             ),
+            pending_claim_latest_at=Subquery(
+                pending_claim_qs.order_by("-created_at").values("created_at")[:1],
+                output_field=DateTimeField(),
+            ),
             pending_adopt_started_at=Subquery(
                 pending_adopt_qs.order_by("created_at").values("created_at")[:1],
+                output_field=DateTimeField(),
+            ),
+            pending_adopt_latest_at=Subquery(
+                pending_adopt_qs.order_by("-created_at").values("created_at")[:1],
                 output_field=DateTimeField(),
             ),
         )
@@ -251,6 +259,42 @@ class Post(models.Model):
         ).order_by("created_at").values_list("created_at", flat=True).first()
         return bool(started_at), started_at
 
+    def _pending_request_created_bounds(self, request_type):
+        flag_attr = f"has_pending_{request_type}_request"
+        started_attr = f"pending_{request_type}_started_at"
+        latest_attr = f"pending_{request_type}_latest_at"
+
+        has_pending = getattr(self, flag_attr, None)
+        started_at = getattr(self, started_attr, None)
+        latest_at = getattr(self, latest_attr, None)
+        if has_pending is not None:
+            if not has_pending:
+                return False, None, None
+            return True, started_at, latest_at or started_at
+
+        prefetched_requests = getattr(self, "_prefetched_objects_cache", {}).get("requests")
+        if prefetched_requests is not None:
+            pending_created_ats = [
+                req.created_at
+                for req in prefetched_requests
+                if req.status == "pending"
+                and req.request_type == request_type
+                and req.created_at
+            ]
+            if not pending_created_ats:
+                return False, None, None
+            return True, min(pending_created_ats), max(pending_created_ats)
+
+        pending_qs = self.requests.filter(
+            status="pending",
+            request_type=request_type,
+        )
+        started_at = pending_qs.order_by("created_at").values_list("created_at", flat=True).first()
+        if not started_at:
+            return False, None, None
+        latest_at = pending_qs.order_by("-created_at").values_list("created_at", flat=True).first()
+        return True, started_at, latest_at or started_at
+
     @property
     def pending_review_request_type(self):
         if self.status in ["reunited", "adopted"]:
@@ -278,11 +322,29 @@ class Post(models.Model):
         started_at = self.pending_review_started_at
         if not started_at:
             return None
-        return started_at + PostRequest.verification_window()
+        return self.pending_request_review_available_at(self.pending_review_request_type)
 
     @property
     def has_pending_review(self):
         return bool(self.pending_review_request_type)
+
+    def pending_request_review_available_at(self, request_type):
+        if request_type not in {"claim", "adopt"}:
+            return None
+
+        has_pending, _, latest_created_at = self._pending_request_created_bounds(request_type)
+        if not has_pending:
+            return None
+
+        ready_candidates = []
+        if latest_created_at:
+            ready_candidates.append(latest_created_at + PostRequest.verification_window())
+
+        phase_deadline = self.claim_deadline() if request_type == "claim" else self.adoption_deadline()
+        if phase_deadline:
+            ready_candidates.append(phase_deadline)
+
+        return max(ready_candidates) if ready_candidates else None
 
     def claim_deadline(self):
         """Deadline for owner claim window."""
@@ -319,16 +381,10 @@ class Post(models.Model):
         - adopt
         - closed
         """
-        pending_phase = self.pending_review_request_type
-        if pending_phase:
-            return pending_phase
         return self.timeline_phase()
 
     def time_left(self):
         """Return remaining time in the active phase."""
-        if self.has_pending_review:
-            return timedelta(seconds=0)
-
         phase = self.timeline_phase()
         now = timezone.now()
 
@@ -443,6 +499,13 @@ class PostRequest(models.Model):
 
     @property
     def approval_available_at(self):
+        if self.status != "pending":
+            return None
+        post = getattr(self, "post", None)
+        if self.post_id and post is None:
+            post = self.post
+        if post is not None:
+            return post.pending_request_review_available_at(self.request_type)
         if not self.created_at:
             return None
         return self.created_at + self.verification_window()

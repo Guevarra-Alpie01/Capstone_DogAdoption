@@ -1242,7 +1242,7 @@ def _build_rescue_finder_card_item(post, phase, days, hours, minutes, match_scor
 
 def _build_rescue_finder_filter_sections(form, selected_filters):
     icon_map = {
-        "breed": "bi bi-tags",
+        "breed": "bi bi-tag",
         "age_group": "bi bi-calendar-heart",
         "size_group": "bi bi-arrows-angle-expand",
         "gender": "bi bi-gender-ambiguous",
@@ -1456,6 +1456,31 @@ def _build_public_post_listing(request, listing_mode):
         results_title = "All Open Rescue Dogs"
         results_description = "Browse every active rescue dog currently open for claim or adoption."
 
+    purpose_options = [
+        {
+            "value": "all",
+            "label": purpose_choice_map.get("all", "All"),
+            "count": phase_counts["all"],
+            "icon_key": "all",
+        },
+        {
+            "value": "claim",
+            "label": purpose_choice_map.get("claim", "Claim"),
+            "count": phase_counts["claim"],
+            "icon_key": "claim",
+        },
+        {
+            "value": "adopt",
+            "label": purpose_choice_map.get("adopt", "Adopt"),
+            "count": phase_counts["adopt"],
+            "icon_key": "adopt",
+        },
+    ]
+    current_purpose_option = next(
+        (option for option in purpose_options if option["value"] == selected_purpose),
+        purpose_options[0],
+    )
+
     return {
         "posts": list(page_obj.object_list),
         "page_obj": page_obj,
@@ -1465,7 +1490,10 @@ def _build_public_post_listing(request, listing_mode):
         "results_title": results_title,
         "results_description": results_description,
         "purpose_choices": list(finder_form.fields["purpose"].choices),
+        "purpose_options": purpose_options,
         "current_purpose": selected_purpose,
+        "current_purpose_label": current_purpose_option["label"],
+        "current_purpose_count": current_purpose_option["count"],
         "purpose_counts": phase_counts,
         "filter_sections": _build_rescue_finder_filter_sections(
             finder_form,
@@ -1482,12 +1510,12 @@ def _build_public_post_listing(request, listing_mode):
             {
                 "url": reverse("user:my_claims"),
                 "label": "My Claim Requests",
-                "icon_class": "bi bi-shield-check",
+                "icon_class": "bi bi-shield",
             },
             {
                 "url": reverse("user:adopt_status"),
                 "label": "My Adoption Requests",
-                "icon_class": "bi bi-house-heart",
+                "icon_class": "bi bi-house-door",
             },
         ],
     }

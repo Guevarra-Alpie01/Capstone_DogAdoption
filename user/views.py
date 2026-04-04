@@ -1536,7 +1536,7 @@ def _build_home_featured_rescue_sections():
     sections = [
         {
             "key": "claim",
-            "title": "Claim Dog",
+            "title": "Ready for Claim",
             "eyebrow": "Owner Claim Window",
             "description": "",
             "browse_url": reverse("user:claim_list"),
@@ -1545,7 +1545,7 @@ def _build_home_featured_rescue_sections():
         },
         {
             "key": "adopt",
-            "title": "Adopt Dog",
+            "title": "Ready for Adoption",
             "eyebrow": "Ready For Adoption",
             "description": "Dogs whose claim window has ended and are now ready to meet a new family.",
             "browse_url": reverse("user:adopt_list"),

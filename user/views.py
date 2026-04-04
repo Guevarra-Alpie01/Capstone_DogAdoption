@@ -90,13 +90,14 @@ BARANGAY_API_MAX_LIMIT = 200
 DEFAULT_REQUEST_CITY = "Bayawan City"
 DOG_SURRENDER_REQUEST_TYPE = "surrender"
 DOG_ONLINE_SUBMISSION_TYPE = "online"
-DOG_EXACT_GPS_MAX_ACCURACY_METERS = 35
+DOG_EXACT_GPS_MAX_ACCURACY_METERS = 100
 PHILIPPINES_COUNTRY_CODE = "+63"
 SIGNUP_USERNAME_MIN_LENGTH = 3
 SIGNUP_USERNAME_MAX_LENGTH = User._meta.get_field("username").max_length
 _signup_username_validator = ASCIIUsernameValidator()
 RESCUE_FINDER_PAGE_SIZE = 12
 RESCUE_FINDER_RECOMMENDATION_LIMIT = 4
+HOME_FEATURED_CAROUSEL_LIMIT = 5
 
 
 def _safe_media_url(file_field):
@@ -1492,6 +1493,80 @@ def _build_public_post_listing(request, listing_mode):
     }
 
 
+def _build_home_featured_rescue_sections():
+    raw_open_posts = (
+        _base_public_post_queryset()
+        .filter(status__in=["rescued", "under_care"])
+    )
+    section_items = {"claim": [], "adopt": []}
+
+    for post in raw_open_posts:
+        phase, days, hours, minutes = _post_phase_payload(post)
+        if phase not in section_items or len(section_items[phase]) >= HOME_FEATURED_CAROUSEL_LIMIT:
+            continue
+
+        card_item = _build_rescue_finder_card_item(post, phase, days, hours, minutes, 0)
+        countdown_deadline = (
+            post.claim_deadline()
+            if phase == "claim"
+            else post.adoption_deadline()
+        )
+        countdown_deadline_local = (
+            timezone.localtime(countdown_deadline)
+            if countdown_deadline
+            else None
+        )
+        card_item.update({
+            "detail_url": reverse("user:post_detail", args=[post.id]),
+            "home_action_url": f'{card_item["action_url"]}?return_to=home',
+            "time_left_badge": f"{days}d {hours}h {minutes}m left",
+            "barangay_label": card_item["location_label"],
+            "countdown_date_heading": "Claim Ends" if phase == "claim" else "Adoption Ends",
+            "countdown_date_label": (
+                countdown_deadline_local.strftime("%b %d, %Y")
+                if countdown_deadline_local
+                else "Date pending"
+            ),
+        })
+        section_items[phase].append(card_item)
+
+        if all(len(items) >= HOME_FEATURED_CAROUSEL_LIMIT for items in section_items.values()):
+            break
+
+    sections = [
+        {
+            "key": "claim",
+            "title": "Claim Dog",
+            "eyebrow": "Owner Claim Window",
+            "description": "",
+            "browse_url": reverse("user:claim_list"),
+            "empty_message": "No dogs are currently in the claim window.",
+            "items": section_items["claim"],
+        },
+        {
+            "key": "adopt",
+            "title": "Adopt Dog",
+            "eyebrow": "Ready For Adoption",
+            "description": "Dogs whose claim window has ended and are now ready to meet a new family.",
+            "browse_url": reverse("user:adopt_list"),
+            "empty_message": "No dogs are currently ready for adoption.",
+            "items": section_items["adopt"],
+        },
+    ]
+
+    for section in sections:
+        input_ids = [
+            f'home-carousel-{section["key"]}-{index}'
+            for index in range(1, len(section["items"]) + 1)
+        ]
+        for index, item in enumerate(section["items"]):
+            item["input_id"] = input_ids[index]
+            item["previous_input_id"] = input_ids[index - 1] if input_ids else ""
+            item["next_input_id"] = input_ids[(index + 1) % len(input_ids)] if input_ids else ""
+
+    return sections
+
+
 def _create_user_adoption_images(request, post):
     main_image = request.FILES.get("adoption-main_image") or request.FILES.get("main_image")
     if main_image:
@@ -2591,6 +2666,7 @@ def _build_user_home_context(
 
     return {
         "posts": combined_posts,
+        "featured_dog_sections": _build_home_featured_rescue_sections(),
         "page_obj": page_obj,
         "query": query,
         "feed_token": feed_token,
@@ -2843,7 +2919,6 @@ def delete_missing_dog_post(request, post_id):
     messages.success(request, f'Missing dog post "{dog_name}" deleted.')
     return redirect("user:edit_profile")
 
-@user_only
 def post_detail(request, post_id):
     """Render a post detail page used by shared or linked home posts."""
     post = get_object_or_404(Post, id=post_id)
@@ -2965,6 +3040,7 @@ def _build_dog_capture_request_page_context(request):
             'captured_total': 0,
             'active_status_tab': active_status_tab,
             'default_manual_city': DEFAULT_REQUEST_CITY,
+            'exact_gps_max_accuracy_meters': DOG_EXACT_GPS_MAX_ACCURACY_METERS,
         }
 
     status_totals = {
@@ -3002,6 +3078,7 @@ def _build_dog_capture_request_page_context(request):
         'captured_total': status_totals.get("captured", 0),
         'active_status_tab': active_status_tab,
         'default_manual_city': DEFAULT_REQUEST_CITY,
+        'exact_gps_max_accuracy_meters': DOG_EXACT_GPS_MAX_ACCURACY_METERS,
     }
 
 

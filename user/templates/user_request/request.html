@@ -466,20 +466,21 @@ let accuracyCircle;
 let locationWatchId = null;
 const BAYAWAN_CITY_CENTER = [9.3668, 122.8055];
 const DEFAULT_REQUEST_MAP_ZOOM = 13;
-const GPS_TARGET_ACCURACY_METERS = 20;
-const GPS_ACCEPTABLE_ACCURACY_METERS = 35;
-const GPS_MAX_WAIT_MS = 12000;
-const GPS_FALLBACK_TIMEOUT_MS = 7000;
-const GPS_CACHED_FIX_MAX_AGE_MS = 10000;
+const GPS_TARGET_ACCURACY_METERS = 35;
+const GPS_ACCEPTABLE_ACCURACY_METERS = {{ exact_gps_max_accuracy_meters|default:100 }};
+const GPS_MAX_WAIT_MS = 6000;
+const GPS_FALLBACK_TIMEOUT_MS = 3500;
+const GPS_QUICK_TIMEOUT_MS = 2000;
+const GPS_CACHED_FIX_MAX_AGE_MS = 30000;
 const GPS_AUTO_CAPTURE_DELAY_MS = 250;
-const REQUEST_MAP_TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+const REVERSE_GEOCODE_TIMEOUT_MS = 3500;
+const REQUEST_MAP_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const REQUEST_MAP_TILE_OPTIONS = {
-    subdomains: 'abcd',
-    maxZoom: 20,
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
 };
 
-function addRealisticLayers(mapInstance) {
+function addRequestMapBaseLayer(mapInstance) {
     L.tileLayer(REQUEST_MAP_TILE_URL, REQUEST_MAP_TILE_OPTIONS).addTo(mapInstance);
 }
 
@@ -692,7 +693,7 @@ function validatePhoneField() {
 function ensureRequestMapReady() {
     if (!map) {
         map = L.map('requestMap').setView(BAYAWAN_CITY_CENTER, DEFAULT_REQUEST_MAP_ZOOM);
-        addRealisticLayers(map);
+        addRequestMapBaseLayer(map);
     }
     map.invalidateSize();
 }
@@ -771,7 +772,7 @@ function updateExactLocationMap(lat, lng, accuracy) {
     map.setView([lat, lng], zoom);
 
     if (marker) marker.remove();
-    marker = L.marker([lat, lng]).addTo(map).bindPopup(popupText).openPopup();
+    marker = L.marker([lat, lng]).addTo(map).bindPopup(popupText);
 
     if (accuracyCircle) accuracyCircle.remove();
     if (Number.isFinite(numericAccuracy) && numericAccuracy > 0) {
@@ -848,9 +849,13 @@ function requestBestGeolocationFix(statusEl) {
                 bestPosition = position;
                 const accuracyText = formatGpsAccuracy(accuracy);
                 if (statusEl) {
-                    statusEl.textContent = accuracyText
-                        ? `Device location found ${accuracyText}.`
-                        : 'Device location found.';
+                    if (accuracyText) {
+                        statusEl.textContent = accuracy <= GPS_ACCEPTABLE_ACCURACY_METERS
+                            ? `Device location found ${accuracyText}.`
+                            : `Device location found ${accuracyText}. Improving accuracy...`;
+                    } else {
+                        statusEl.textContent = 'Device location found.';
+                    }
                 }
             }
 
@@ -887,8 +892,8 @@ function requestBestGeolocationFix(statusEl) {
             maximumAge: 0,
         };
         const quickGeoOptions = {
-            enableHighAccuracy: true,
-            timeout: GPS_FALLBACK_TIMEOUT_MS,
+            enableHighAccuracy: false,
+            timeout: GPS_QUICK_TIMEOUT_MS,
             maximumAge: GPS_CACHED_FIX_MAX_AGE_MS,
         };
 
@@ -1463,34 +1468,54 @@ setResolvedCity(cityField?.value || defaultRequestCity);
 syncRequestFlowUI();
 
 async function resolveAddressFromCoords(lat, lng) {
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timeoutId = controller
+        ? window.setTimeout(() => controller.abort(), REVERSE_GEOCODE_TIMEOUT_MS)
+        : null;
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`;
-    const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!response.ok) throw new Error('Reverse geocoding failed');
 
-    const data = await response.json();
-    const address = data.address || {};
+    try {
+        const response = await fetch(url, {
+            headers: { 'Accept': 'application/json' },
+            signal: controller?.signal,
+        });
+        if (!response.ok) throw new Error('reverse_geocoding_failed');
 
-    const barangay =
-        address.suburb ||
-        address.village ||
-        address.hamlet ||
-        address.neighbourhood ||
-        address.quarter ||
-        '';
-    const city =
-        address.city ||
-        address.town ||
-        address.municipality ||
-        address.county ||
-        defaultRequestCity;
+        const data = await response.json();
+        const address = data.address || {};
 
-    return { barangay, city };
+        const barangay =
+            address.suburb ||
+            address.village ||
+            address.hamlet ||
+            address.neighbourhood ||
+            address.quarter ||
+            '';
+        const city =
+            address.city ||
+            address.town ||
+            address.municipality ||
+            address.county ||
+            defaultRequestCity;
+
+        return { barangay, city };
+    } finally {
+        if (timeoutId !== null) {
+            window.clearTimeout(timeoutId);
+        }
+    }
 }
 
 async function detectDeviceLocation(options = {}) {
     const userInitiated = options.userInitiated === true;
     const status = document.getElementById('gpsStatus');
     const locationButton = document.getElementById('getLocationBtn');
+    const latitudeInput = document.getElementById('latitude');
+    const longitudeInput = document.getElementById('longitude');
+    const hadUsableSavedFix = hasSavedExactLocationFix();
+    const previousLatitude = latitudeInput?.value || '';
+    const previousLongitude = longitudeInput?.value || '';
+    const previousGpsAccuracy = gpsAccuracyField?.value || '';
 
     if (!shouldAutoDetectDeviceLocation()) {
         return;
@@ -1530,9 +1555,11 @@ async function detectDeviceLocation(options = {}) {
 
     exactLocationRequestInFlight = true;
     clearRequestLocationWatch();
-    document.getElementById('latitude').value = '';
-    document.getElementById('longitude').value = '';
-    setGpsAccuracy('');
+    if (!hadUsableSavedFix) {
+        if (latitudeInput) latitudeInput.value = '';
+        if (longitudeInput) longitudeInput.value = '';
+        setGpsAccuracy('');
+    }
     if (status) {
         status.textContent = permissionState === 'granted'
             ? 'Detecting device location...'
@@ -1588,15 +1615,24 @@ async function detectDeviceLocation(options = {}) {
             );
         }
     } catch (error) {
+        if (hadUsableSavedFix) {
+            if (latitudeInput) latitudeInput.value = previousLatitude;
+            if (longitudeInput) longitudeInput.value = previousLongitude;
+            if (gpsAccuracyField) gpsAccuracyField.value = previousGpsAccuracy;
+        } else {
+            if (latitudeInput) latitudeInput.value = '';
+            if (longitudeInput) longitudeInput.value = '';
+            setGpsAccuracy('');
+        }
         if (status) {
             status.textContent = error?.code === 'insufficient_accuracy'
-                ? `Unable to detect an exact device location within ${GPS_ACCEPTABLE_ACCURACY_METERS} meters.`
+                ? `Unable to detect a usable device location within ${GPS_ACCEPTABLE_ACCURACY_METERS} meters.`
                 : 'Unable to retrieve accurate location. Please try again.';
         }
         if (userInitiated) {
             await showRequestNotice(
                 error?.code === 'insufficient_accuracy'
-                    ? `We could not detect an exact device location within ${GPS_ACCEPTABLE_ACCURACY_METERS} meters. Move to an open area, keep precise location enabled, and tap "Refresh Device Location" again. If the signal stays weak, switch to manual barangay selection instead.`
+                    ? `We could not detect a usable device location within ${GPS_ACCEPTABLE_ACCURACY_METERS} meters. Move to an open area, keep precise location enabled, and tap "Refresh Device Location" again. If the signal stays weak, switch to manual barangay selection instead.`
                     : buildLocationPermissionHelpMessage(permissionState),
                 { title: 'Location Error', tone: 'warning' }
             );

@@ -67,6 +67,7 @@ from .access import (
 )
 from .forms import CitationForm, ManagedStaffAccountForm, PenaltyForm, PostForm, SectionForm
 from .admin_notification_utils import sync_expiry_notifications
+from .barangays import BAYAWAN_BARANGAYS
 from .cache_utils import ANALYTICS_DASHBOARD_CACHE_KEY
 from .context_processors import (
     ADMIN_NOTIFICATIONS_CACHE_KEY,
@@ -496,36 +497,7 @@ def _extract_barangay_from_address(address):
     return _resolve_barangay_name(cleaned)
 
 
-BAYAWAN_ALLOWED_BARANGAYS = (
-    "Ali-is",
-    "Banaybanay",
-    "Banga",
-    "Boyco",
-    "Bugay",
-    "Cansumalig",
-    "Dawis",
-    "Kalamtukan",
-    "Kalumboyan",
-    "Malabugas",
-    "Mandu-ao",
-    "Maninihon",
-    "Minaba",
-    "Nangka",
-    "Narra",
-    "Pagatban",
-    "Poblacion",
-    "San Isidro",
-    "San Jose",
-    "San Miguel",
-    "San Roque",
-    "Suba",
-    "Tabuan",
-    "Tayawan",
-    "Tinago",
-    "Ubos",
-    "Villareal",
-    "Villasol",
-)
+BAYAWAN_ALLOWED_BARANGAYS = BAYAWAN_BARANGAYS
 
 BAYAWAN_ALLOWED_BARANGAY_KEYS = {
     _normalize_barangay(name) for name in BAYAWAN_ALLOWED_BARANGAYS
@@ -996,9 +968,7 @@ def _cacheable_json_response(payload, *, max_age, public=False, status=200):
 
 
 def _set_post_form_barangay_source(post_form):
-    post_form.fields["location"].widget.attrs["data-barangay-source-url"] = reverse(
-        "dogadoption_admin:barangay_list_api"
-    )
+    return post_form
 
 
 def _parse_appointment_dates(dates_raw):

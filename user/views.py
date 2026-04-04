@@ -41,6 +41,7 @@ from urllib.parse import urlencode
 
 # Shared models from the admin app
 from dogadoption_admin.access import get_staff_landing_url
+from dogadoption_admin.barangays import BAYAWAN_BARANGAYS
 from dogadoption_admin.models import (
     AdminNotification,
     AnnouncementComment,
@@ -1172,6 +1173,22 @@ def _normalize_rescue_location(value):
     return " ".join((value or "").split()).casefold()
 
 
+def _merge_rescue_finder_locations(*location_groups):
+    merged = []
+    seen = set()
+    for group in location_groups:
+        for value in group or []:
+            cleaned = " ".join((value or "").split()).strip()
+            if not cleaned:
+                continue
+            key = _normalize_rescue_location(cleaned)
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(cleaned)
+    return merged
+
+
 def _rescue_finder_choice_map(field):
     return {
         str(value): label
@@ -1393,7 +1410,10 @@ def _build_public_post_listing(request, listing_mode):
             location_map.setdefault(_normalize_rescue_location(location_value), location_value)
 
     finder_form = _build_rescue_finder_form(
-        location_choices=sorted(location_map.values(), key=str.lower),
+        location_choices=_merge_rescue_finder_locations(
+            BAYAWAN_BARANGAYS,
+            sorted(location_map.values(), key=str.lower),
+        ),
         default_purpose=preferred_purpose,
     )
     purpose_choice_map = _rescue_finder_choice_map(finder_form.fields["purpose"])

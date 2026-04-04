@@ -16,6 +16,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from dogadoption_admin.barangays import BAYAWAN_BARANGAYS
 from dogadoption_admin.models import DogAnnouncement, Post, PostImage
 from user.models import Profile, UserAdoptionPost
 
@@ -575,6 +576,38 @@ class UserHomeFeedTests(TestCase):
         self.assertTrue(response.context["recommended_posts"])
         self.assertEqual(response.context["recommended_posts"][0]["post"].id, matching_post.id)
         self.assertNotEqual(response.context["posts"][0]["post"].id, non_matching_post.id)
+
+    def test_claim_list_location_filter_displays_all_28_barangays(self):
+        staff_user = User.objects.create_user(
+            username="finderlocationstaff",
+            password="secret123",
+            is_staff=True,
+        )
+        member = User.objects.create_user(
+            username="finderlocationmember",
+            password="secret123",
+        )
+        Post.objects.create(
+            user=staff_user,
+            caption="Bugay Dog",
+            location="Bugay",
+            claim_days=3,
+        )
+        self.client.force_login(member)
+
+        response = self.client.get(reverse("user:claim_list"))
+
+        self.assertEqual(response.status_code, 200)
+        location_section = next(
+            section
+            for section in response.context["filter_sections"]
+            if section["key"] == "location"
+        )
+        self.assertEqual(len(location_section["options"]), 28)
+        self.assertEqual(
+            [option["value"] for option in location_section["options"]],
+            list(BAYAWAN_BARANGAYS),
+        )
 
     def test_modal_login_error_re_renders_home_with_login_popup(self):
         staff_user = User.objects.create_user(

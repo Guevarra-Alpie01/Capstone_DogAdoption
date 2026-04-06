@@ -336,6 +336,18 @@ class Post(models.Model):
         if not has_pending:
             return None
 
+        schedule = self._timeline_schedule()
+        if schedule["use_calendar_schedule"]:
+            if request_type == "claim":
+                required_days = max(int(self.claim_days or 0), 0)
+                schedule_dates = schedule["claim_dates"]
+            else:
+                required_days = self.ADOPTION_DAYS
+                schedule_dates = schedule["adoption_dates"]
+
+            if len(schedule_dates) < required_days:
+                return None
+
         ready_candidates = []
         if latest_created_at:
             ready_candidates.append(latest_created_at + PostRequest.verification_window())
@@ -377,6 +389,36 @@ class Post(models.Model):
             )
         return deadline
 
+    @staticmethod
+    def _schedule_day_start(schedule_date):
+        if not schedule_date:
+            return None
+        day_start = datetime.combine(schedule_date, time.min)
+        if timezone.is_naive(day_start):
+            day_start = timezone.make_aware(
+                day_start,
+                timezone.get_current_timezone(),
+            )
+        return day_start
+
+    @classmethod
+    def _schedule_day_end_exclusive(cls, schedule_date):
+        day_start = cls._schedule_day_start(schedule_date)
+        if not day_start:
+            return None
+        return day_start + timedelta(days=1)
+
+    @classmethod
+    def _remaining_scheduled_time(cls, schedule_dates, now):
+        remaining = timedelta(seconds=0)
+        for schedule_date in schedule_dates or []:
+            day_start = cls._schedule_day_start(schedule_date)
+            day_end = cls._schedule_day_end_exclusive(schedule_date)
+            if not day_start or not day_end or now >= day_end:
+                continue
+            remaining += day_end - max(now, day_start)
+        return remaining
+
     def _legacy_claim_deadline(self):
         if self.created_at and self.claim_days is not None:
             claim_days = max(int(self.claim_days), 0)
@@ -407,13 +449,14 @@ class Post(models.Model):
         cache_key = (
             self.created_at,
             claim_days,
+            tuple(active_dates),
             tuple(eligible_dates),
         )
         cached = getattr(self, "_timeline_schedule_cache", None)
         if cached and cached.get("key") == cache_key:
             return cached["value"]
 
-        use_calendar_schedule = bool(eligible_dates)
+        use_calendar_schedule = bool(active_dates)
         claim_dates = []
         adoption_dates = []
 
@@ -428,14 +471,18 @@ class Post(models.Model):
         claim_deadline = (
             self._schedule_deadline_for_date(claim_dates[-1])
             if use_calendar_schedule and claim_dates
-            else self._legacy_claim_deadline()
+            else (
+                self._legacy_claim_deadline()
+                if not use_calendar_schedule
+                else None
+            )
         )
         adoption_deadline = (
             self._schedule_deadline_for_date(adoption_dates[-1])
             if use_calendar_schedule and adoption_dates
             else (
                 claim_deadline + timedelta(days=self.ADOPTION_DAYS)
-                if claim_deadline
+                if (not use_calendar_schedule and claim_deadline)
                 else None
             )
         )
@@ -461,13 +508,59 @@ class Post(models.Model):
         """Deadline for adoption window after the claim window ends."""
         return self._timeline_schedule()["adoption_deadline"]
 
+    def _phase_schedule_dates(self, phase):
+        schedule = self._timeline_schedule()
+        if phase == "claim":
+            return schedule["claim_dates"]
+        if phase == "adopt":
+            return schedule["adoption_dates"]
+        return []
+
+    def _phase_schedule_complete(self, phase, now=None):
+        now = now or timezone.now()
+        schedule = self._timeline_schedule()
+        if not schedule["use_calendar_schedule"]:
+            deadline = (
+                schedule["claim_deadline"]
+                if phase == "claim"
+                else schedule["adoption_deadline"]
+            )
+            return bool(deadline and now > deadline)
+
+        if phase == "claim":
+            required_days = max(int(self.claim_days or 0), 0)
+            schedule_dates = schedule["claim_dates"]
+        elif phase == "adopt":
+            required_days = self.ADOPTION_DAYS
+            schedule_dates = schedule["adoption_dates"]
+        else:
+            return True
+
+        if required_days <= 0:
+            return True
+        if len(schedule_dates) < required_days:
+            return False
+
+        return all(
+            now >= self._schedule_day_end_exclusive(schedule_date)
+            for schedule_date in schedule_dates
+        )
+
     def timeline_phase(self, now=None):
         if self.status in ["reunited", "adopted"]:
             return "closed"
 
         now = now or timezone.now()
-        claim_end = self.claim_deadline()
-        adopt_end = self.adoption_deadline()
+        schedule = self._timeline_schedule()
+        if schedule["use_calendar_schedule"]:
+            if not self._phase_schedule_complete("claim", now):
+                return "claim"
+            if not self._phase_schedule_complete("adopt", now):
+                return "adopt"
+            return "closed"
+
+        claim_end = schedule["claim_deadline"]
+        adopt_end = schedule["adoption_deadline"]
 
         if claim_end and now <= claim_end:
             return "claim"
@@ -484,15 +577,22 @@ class Post(models.Model):
         """
         return self.timeline_phase()
 
-    def time_left(self):
+    def time_left(self, now=None):
         """Return remaining time in the active phase."""
-        phase = self.timeline_phase()
-        now = timezone.now()
+        now = now or timezone.now()
+        phase = self.timeline_phase(now)
+        schedule = self._timeline_schedule()
 
         if phase == 'claim':
-            return self.claim_deadline() - now
+            if schedule["use_calendar_schedule"]:
+                return self._remaining_scheduled_time(schedule["claim_dates"], now)
+            claim_deadline = schedule["claim_deadline"]
+            return claim_deadline - now if claim_deadline else timedelta(seconds=0)
         if phase == 'adopt':
-            return self.adoption_deadline() - now
+            if schedule["use_calendar_schedule"]:
+                return self._remaining_scheduled_time(schedule["adoption_dates"], now)
+            adoption_deadline = schedule["adoption_deadline"]
+            return adoption_deadline - now if adoption_deadline else timedelta(seconds=0)
         return timedelta(seconds=0)
 
     def is_expired(self):

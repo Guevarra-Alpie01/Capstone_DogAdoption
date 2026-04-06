@@ -434,3 +434,61 @@ class PostRequestVerificationWindowTests(TestCase):
 
         updated_deadline = timezone.localtime(post.claim_deadline()).date()
         self.assertEqual(updated_deadline, today + timedelta(days=2))
+
+    def test_claim_countdown_pauses_until_the_next_available_calendar_day(self):
+        GlobalAppointmentDate.objects.all().delete()
+        today = timezone.localdate()
+        for offset in [1, 3]:
+            GlobalAppointmentDate.objects.create(
+                appointment_date=today + timedelta(days=offset),
+                is_active=True,
+            )
+
+        post = self._create_post(
+            "claim",
+            created_at=timezone.make_aware(
+                datetime.combine(today, time(hour=10)),
+                timezone.get_current_timezone(),
+            ),
+            claim_days=2,
+        )
+
+        before_first_available = timezone.make_aware(
+            datetime.combine(today, time(hour=15)),
+            timezone.get_current_timezone(),
+        )
+        between_available_days = timezone.make_aware(
+            datetime.combine(today + timedelta(days=2), time(hour=12)),
+            timezone.get_current_timezone(),
+        )
+
+        self.assertEqual(post.current_phase(), "claim")
+        self.assertEqual(post.time_left(before_first_available), timedelta(days=2))
+        self.assertEqual(post.timeline_phase(between_available_days), "claim")
+        self.assertEqual(post.time_left(between_available_days), timedelta(days=1))
+
+    def test_adoption_countdown_pauses_on_unavailable_days_between_adoption_dates(self):
+        GlobalAppointmentDate.objects.all().delete()
+        today = timezone.localdate()
+        for offset in [0, 2, 4, 5]:
+            GlobalAppointmentDate.objects.create(
+                appointment_date=today + timedelta(days=offset),
+                is_active=True,
+            )
+
+        post = self._create_post(
+            "adopt",
+            created_at=timezone.make_aware(
+                datetime.combine(today, time(hour=9)),
+                timezone.get_current_timezone(),
+            ),
+            claim_days=1,
+        )
+
+        paused_adoption_day = timezone.make_aware(
+            datetime.combine(today + timedelta(days=3), time(hour=14)),
+            timezone.get_current_timezone(),
+        )
+
+        self.assertEqual(post.timeline_phase(paused_adoption_day), "adopt")
+        self.assertEqual(post.time_left(paused_adoption_day), timedelta(days=2))

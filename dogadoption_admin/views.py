@@ -1458,8 +1458,12 @@ def post_list(request):
         elif phase == 'adopt' and not is_pending_review:
             deadline = post.adoption_deadline()
 
-        if deadline and phase in {'claim', 'adopt'}:
-            total_seconds = max(int((deadline - now).total_seconds()), 0)
+        remaining_time = timedelta(seconds=0)
+        if phase in {'claim', 'adopt'} and not is_pending_review:
+            remaining_time = post.time_left(now)
+
+        if remaining_time and phase in {'claim', 'adopt'}:
+            total_seconds = max(int(remaining_time.total_seconds()), 0)
             days = total_seconds // 86400
             remainder = total_seconds % 86400
             hours = remainder // 3600

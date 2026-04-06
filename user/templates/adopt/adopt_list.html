@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260407finder-subnav">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260407finder-mobile-collapsed">
 {% endblock %}
 
 {% block content %}
@@ -87,7 +87,7 @@
 
                     <div class="finder-filter-groups" aria-label="Dog filters">
                         {% for section in filter_sections %}
-                        <details class="finder-filter-group"{% if section.value %} open{% endif %}>
+                        <details class="finder-filter-group">
                             <summary class="finder-filter-group__summary">
                                 <span class="finder-filter-group__content">
                                     <span class="finder-filter-group__icon">
@@ -270,6 +270,11 @@
         }
     }
 
+    function resetTransientFilterUi() {
+        closeFilterGroups();
+        closePurposeMenu();
+    }
+
     function syncFilterGroupState(group) {
         if (!group) return;
         const selectedInput = group.querySelector('input[type="radio"]:checked');
@@ -326,16 +331,18 @@
         layout.classList.toggle('is-filter-open', isOpen);
         document.body.classList.toggle('finder-filter-open', isOpen);
         filterOpenTrigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        if (isOpen) {
+            filterToolbar.scrollTop = 0;
+        }
         if (!isOpen) {
-            closeFilterGroups();
-            closePurposeMenu();
+            resetTransientFilterUi();
         }
     }
 
     filterGroups.forEach((group) => {
         syncFilterGroupState(group);
         group.addEventListener('toggle', () => {
-            if (group.open) {
+            if (group.open && !mobileQuery.matches) {
                 closeFilterGroups(group);
                 closePurposeMenu();
             }
@@ -353,8 +360,10 @@
     syncPurposeOptions();
     purposeSelect?.addEventListener('change', syncPurposeOptions);
 
+    resetTransientFilterUi();
+
     purposeMenu?.addEventListener('toggle', () => {
-        if (purposeMenu.open) {
+        if (purposeMenu.open && !mobileQuery.matches) {
             closeFilterGroups();
         }
     });
@@ -389,6 +398,10 @@
     });
 
     const handleViewportChange = (event) => {
+        if (event.matches) {
+            resetTransientFilterUi();
+            return;
+        }
         if (!event.matches) {
             setMobileFiltersOpen(false);
         }
@@ -399,6 +412,11 @@
     } else if (typeof mobileQuery.addListener === 'function') {
         mobileQuery.addListener(handleViewportChange);
     }
+
+    window.addEventListener('pageshow', () => {
+        resetTransientFilterUi();
+        setMobileFiltersOpen(false);
+    });
 
     function openLightbox(src, altText) {
         if (!src) return;

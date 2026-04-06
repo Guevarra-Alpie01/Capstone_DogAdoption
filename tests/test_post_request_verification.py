@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
@@ -29,9 +29,15 @@ class PostRequestVerificationWindowTests(TestCase):
     def setUp(self):
         cache.clear()
         self.appointment_date = timezone.localdate() + timedelta(days=2)
-        GlobalAppointmentDate.objects.create(
-            appointment_date=self.appointment_date,
-            is_active=True,
+        GlobalAppointmentDate.objects.bulk_create(
+            [
+                GlobalAppointmentDate(
+                    appointment_date=timezone.localdate() + timedelta(days=offset),
+                    is_active=True,
+                )
+                for offset in range(-7, 15)
+            ],
+            ignore_conflicts=True,
         )
         self.flow_config = {
             "claim": {
@@ -348,3 +354,83 @@ class PostRequestVerificationWindowTests(TestCase):
                     self.appointment_date,
                 )
                 self.assertEqual(post.status, config["accepted_post_status"])
+
+    def test_admin_calendar_save_preserves_past_dates_while_updating_current_and_future(self):
+        GlobalAppointmentDate.objects.all().delete()
+        today = timezone.localdate()
+        past_date = today - timedelta(days=2)
+        current_date = today
+        removed_future_date = today + timedelta(days=3)
+        kept_future_date = today + timedelta(days=5)
+
+        for day in [past_date, current_date, removed_future_date]:
+            GlobalAppointmentDate.objects.create(appointment_date=day, is_active=True)
+
+        admin_client = self._client_for(self.admin_user)
+        response = admin_client.post(
+            reverse("dogadoption_admin:post_list"),
+            {
+                "form_type": "appointment_dates",
+                "appointment_dates": ",".join(
+                    [current_date.isoformat(), kept_future_date.isoformat()]
+                ),
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Appointment dates saved.")
+        self.assertEqual(
+            set(
+                GlobalAppointmentDate.objects.order_by("appointment_date").values_list(
+                    "appointment_date",
+                    flat=True,
+                )
+            ),
+            {past_date, current_date, kept_future_date},
+        )
+
+    def test_post_deadlines_follow_non_consecutive_admin_calendar_dates(self):
+        GlobalAppointmentDate.objects.all().delete()
+        today = timezone.localdate()
+        schedule_offsets = [-2, 0, 3, 5, 6]
+        for offset in schedule_offsets:
+            GlobalAppointmentDate.objects.create(
+                appointment_date=today + timedelta(days=offset),
+                is_active=True,
+            )
+
+        created_at = timezone.make_aware(
+            datetime.combine(today - timedelta(days=2), time(hour=9)),
+            timezone.get_current_timezone(),
+        )
+        post = self._create_post(
+            "claim",
+            created_at=created_at,
+            claim_days=2,
+        )
+
+        self.assertEqual(timezone.localtime(post.claim_deadline()).date(), today)
+        self.assertEqual(
+            timezone.localtime(post.adoption_deadline()).date(),
+            today + timedelta(days=6),
+        )
+        self.assertEqual(post.current_phase(), "claim")
+
+    def test_future_calendar_changes_shift_existing_post_deadlines(self):
+        today = timezone.localdate()
+        post = self._create_post(
+            "claim",
+            created_at=timezone.now(),
+            claim_days=2,
+        )
+
+        initial_deadline = timezone.localtime(post.claim_deadline()).date()
+        self.assertEqual(initial_deadline, today + timedelta(days=1))
+
+        GlobalAppointmentDate.objects.filter(
+            appointment_date=today + timedelta(days=1)
+        ).delete()
+
+        updated_deadline = timezone.localtime(post.claim_deadline()).date()
+        self.assertEqual(updated_deadline, today + timedelta(days=2))

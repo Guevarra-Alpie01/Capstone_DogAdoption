@@ -1,5 +1,5 @@
 import os
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from uuid import uuid4
 
 from django.contrib.auth.models import User
@@ -346,19 +346,120 @@ class Post(models.Model):
 
         return max(ready_candidates) if ready_candidates else None
 
-    def claim_deadline(self):
-        """Deadline for owner claim window."""
+    @classmethod
+    def active_appointment_dates(cls):
+        return list(
+            GlobalAppointmentDate.objects.filter(is_active=True)
+            .order_by("appointment_date")
+            .values_list("appointment_date", flat=True)
+        )
+
+    @classmethod
+    def attach_active_appointment_dates(cls, posts, appointment_dates=None):
+        dates = list(
+            appointment_dates
+            if appointment_dates is not None
+            else cls.active_appointment_dates()
+        )
+        for post in posts or []:
+            setattr(post, "_prefetched_global_appointment_dates", dates)
+        return dates
+
+    @staticmethod
+    def _schedule_deadline_for_date(schedule_date):
+        if not schedule_date:
+            return None
+        deadline = datetime.combine(schedule_date, time.max)
+        if timezone.is_naive(deadline):
+            deadline = timezone.make_aware(
+                deadline,
+                timezone.get_current_timezone(),
+            )
+        return deadline
+
+    def _legacy_claim_deadline(self):
         if self.created_at and self.claim_days is not None:
             claim_days = max(int(self.claim_days), 0)
             return self.created_at + timedelta(days=claim_days)
         return None
 
+    def _timeline_schedule(self):
+        active_dates = getattr(self, "_prefetched_global_appointment_dates", None)
+        if active_dates is None:
+            active_dates = self.active_appointment_dates()
+        else:
+            active_dates = list(active_dates)
+
+        start_date = None
+        if self.created_at:
+            start_date = (
+                timezone.localtime(self.created_at).date()
+                if timezone.is_aware(self.created_at)
+                else self.created_at.date()
+            )
+
+        claim_days = max(int(self.claim_days or 0), 0)
+        eligible_dates = (
+            [day for day in active_dates if day >= start_date]
+            if start_date
+            else []
+        )
+        cache_key = (
+            self.created_at,
+            claim_days,
+            tuple(eligible_dates),
+        )
+        cached = getattr(self, "_timeline_schedule_cache", None)
+        if cached and cached.get("key") == cache_key:
+            return cached["value"]
+
+        use_calendar_schedule = bool(eligible_dates)
+        claim_dates = []
+        adoption_dates = []
+
+        if use_calendar_schedule:
+            if claim_days:
+                claim_dates = eligible_dates[:claim_days]
+            adoption_start = claim_days
+            adoption_dates = eligible_dates[
+                adoption_start: adoption_start + self.ADOPTION_DAYS
+            ]
+
+        claim_deadline = (
+            self._schedule_deadline_for_date(claim_dates[-1])
+            if use_calendar_schedule and claim_dates
+            else self._legacy_claim_deadline()
+        )
+        adoption_deadline = (
+            self._schedule_deadline_for_date(adoption_dates[-1])
+            if use_calendar_schedule and adoption_dates
+            else (
+                claim_deadline + timedelta(days=self.ADOPTION_DAYS)
+                if claim_deadline
+                else None
+            )
+        )
+
+        schedule = {
+            "use_calendar_schedule": use_calendar_schedule,
+            "claim_dates": claim_dates,
+            "adoption_dates": adoption_dates,
+            "claim_deadline": claim_deadline,
+            "adoption_deadline": adoption_deadline,
+        }
+        self._timeline_schedule_cache = {
+            "key": cache_key,
+            "value": schedule,
+        }
+        return schedule
+
+    def claim_deadline(self):
+        """Deadline for owner claim window."""
+        return self._timeline_schedule()["claim_deadline"]
+
     def adoption_deadline(self):
-        """Deadline for adoption window (claim deadline + fixed 3 days)."""
-        claim_end = self.claim_deadline()
-        if claim_end:
-            return claim_end + timedelta(days=self.ADOPTION_DAYS)
-        return None
+        """Deadline for adoption window after the claim window ends."""
+        return self._timeline_schedule()["adoption_deadline"]
 
     def timeline_phase(self, now=None):
         if self.status in ["reunited", "adopted"]:

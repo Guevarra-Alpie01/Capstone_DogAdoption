@@ -11,9 +11,8 @@ from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, DateTimeField, Exists, OuterRef, Prefetch, Q
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from django.db import IntegrityError, transaction
-from django.db.models.expressions import RawSQL
 import os
 import base64
 import binascii
@@ -1407,75 +1406,53 @@ def _build_rescue_finder_selected_chips(form, selected_filters):
 
 
 def _filter_public_posts(posts_qs, listing_mode, filter_type):
-    now = timezone.now()
-    post_table = Post._meta.db_table
+    posts = list(posts_qs)
+    Post.attach_active_appointment_dates(posts)
     active_statuses = ["rescued", "under_care"]
-
-    claim_deadline_expr = RawSQL(
-        f"DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY)",
-        [],
-        output_field=DateTimeField(),
-    )
-    adopt_deadline_expr = RawSQL(
-        f"DATE_ADD(DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY), INTERVAL %s DAY)",
-        [Post.ADOPTION_DAYS],
-        output_field=DateTimeField(),
-    )
 
     if listing_mode == "claim":
         allowed_filters = {"all", "ready_claim", "reunited"}
         if filter_type not in allowed_filters:
             filter_type = "all"
 
-        if filter_type in {"all", "ready_claim"}:
-            posts_qs = posts_qs.annotate(claim_deadline_db=claim_deadline_expr)
-
         if filter_type == "ready_claim":
-            posts_qs = posts_qs.filter(
-                status__in=active_statuses,
-                claim_deadline_db__gte=now,
-            )
+            posts = [
+                post
+                for post in posts
+                if post.status in active_statuses and post.current_phase() == "claim"
+            ]
         elif filter_type == "reunited":
-            posts_qs = posts_qs.filter(status="reunited")
+            posts = [post for post in posts if post.status == "reunited"]
         else:
-            posts_qs = posts_qs.filter(
-                Q(status="reunited")
-                | (
-                    Q(status__in=active_statuses)
-                    & Q(claim_deadline_db__gte=now)
-                )
-            )
-        return posts_qs, filter_type
+            posts = [
+                post
+                for post in posts
+                if post.status == "reunited"
+                or (post.status in active_statuses and post.current_phase() == "claim")
+            ]
+        return posts, filter_type
 
     allowed_filters = {"all", "ready_adopt", "adopted"}
     if filter_type not in allowed_filters:
         filter_type = "all"
 
-    if filter_type in {"all", "ready_adopt"}:
-        posts_qs = posts_qs.annotate(
-            claim_deadline_db=claim_deadline_expr,
-            adopt_deadline_db=adopt_deadline_expr,
-        )
-
     if filter_type == "ready_adopt":
-        posts_qs = posts_qs.filter(
-            status__in=active_statuses,
-            claim_deadline_db__lt=now,
-            adopt_deadline_db__gte=now,
-        )
+        posts = [
+            post
+            for post in posts
+            if post.status in active_statuses and post.current_phase() == "adopt"
+        ]
     elif filter_type == "adopted":
-        posts_qs = posts_qs.filter(status="adopted")
+        posts = [post for post in posts if post.status == "adopted"]
     else:
-        posts_qs = posts_qs.filter(
-            Q(status="adopted")
-            | (
-                Q(status__in=active_statuses)
-                & Q(claim_deadline_db__lt=now)
-                & Q(adopt_deadline_db__gte=now)
-            )
-        )
+        posts = [
+            post
+            for post in posts
+            if post.status == "adopted"
+            or (post.status in active_statuses and post.current_phase() == "adopt")
+        ]
 
-    return posts_qs, filter_type
+    return posts, filter_type
 
 
 def _filter_user_adoption_posts(posts_qs, filter_type):
@@ -1494,10 +1471,11 @@ def _filter_user_adoption_posts(posts_qs, filter_type):
 def _build_public_post_listing(request, listing_mode):
     """Build the rescue finder page using real rescue-post phases and profile filters."""
     preferred_purpose = _finder_default_purpose(listing_mode)
-    raw_open_posts = (
+    raw_open_posts = list(
         _base_public_post_queryset()
         .filter(status__in=["rescued", "under_care"])
     )
+    Post.attach_active_appointment_dates(raw_open_posts)
 
     open_post_rows = []
     location_map = {}
@@ -1645,10 +1623,11 @@ def _build_public_post_listing(request, listing_mode):
 
 
 def _build_home_featured_rescue_sections():
-    raw_open_posts = (
+    raw_open_posts = list(
         _base_public_post_queryset()
         .filter(status__in=["rescued", "under_care"])
     )
+    Post.attach_active_appointment_dates(raw_open_posts)
     section_items = {"claim": [], "adopt": []}
 
     for post in raw_open_posts:
@@ -1737,10 +1716,11 @@ def _build_home_featured_rescue_sections():
 
 
 def _build_home_limited_time_rescue_section():
-    raw_open_posts = (
+    raw_open_posts = list(
         _base_public_post_queryset()
         .filter(status__in=["rescued", "under_care"])
     )
+    Post.attach_active_appointment_dates(raw_open_posts)
     items = []
 
     for post in raw_open_posts:
@@ -2163,39 +2143,35 @@ def _active_admin_posts_queryset(query=""):
         status="accepted",
         request_type__in=["claim", "adopt"],
     )
-    post_table = Post._meta.db_table
-    claim_deadline_expr = RawSQL(
-        f"DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY)",
-        [],
-        output_field=DateTimeField(),
-    )
-    adopt_deadline_expr = RawSQL(
-        f"DATE_ADD(DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY), INTERVAL %s DAY)",
-        [Post.ADOPTION_DAYS],
-        output_field=DateTimeField(),
-    )
-    now = timezone.now()
     admin_qs = Post.with_pending_request_state(
         Post.objects.exclude(status__in=["reunited", "adopted"])
         .annotate(
             has_accepted_request=Exists(accepted_post_requests),
-            claim_deadline_db=claim_deadline_expr,
-            adopt_deadline_db=adopt_deadline_expr,
         )
-    ).filter(
-        Q(has_accepted_request=False)
-        & (
-            Q(claim_deadline_db__gte=now)
-            | (Q(claim_deadline_db__lt=now) & Q(adopt_deadline_db__gte=now))
-        )
-    )
+    ).filter(has_accepted_request=False)
     if query:
         admin_qs = admin_qs.filter(
-            Q(caption__icontains=query)
+            Q(user__username__icontains=query)
+            | Q(user__first_name__icontains=query)
+            | Q(user__last_name__icontains=query)
+            | Q(caption__icontains=query)
             | Q(location__icontains=query)
             | Q(status__icontains=query)
         )
-    return admin_qs
+    return admin_qs.order_by("-created_at", "-id")
+
+
+def _active_admin_posts(query="", candidate_limit=None):
+    admin_qs = _active_admin_posts_queryset(query)
+    if candidate_limit is not None:
+        admin_qs = admin_qs[:candidate_limit]
+    posts = list(admin_qs)
+    Post.attach_active_appointment_dates(posts)
+    return [
+        post
+        for post in posts
+        if post.current_phase() in {"claim", "adopt"}
+    ]
 
 
 def _active_admin_candidate_ids_with_cache(query):
@@ -2204,11 +2180,13 @@ def _active_admin_candidate_ids_with_cache(query):
     if cached_ids is not None:
         return cached_ids
 
-    active_ids = list(
-        _active_admin_posts_queryset(query)
-        .order_by("-created_at")
-        .values_list("id", flat=True)[:FEED_ADMIN_CANDIDATE_LIMIT]
-    )
+    active_ids = [
+        post.id
+        for post in _active_admin_posts(
+            query,
+            candidate_limit=FEED_ADMIN_CANDIDATE_LIMIT,
+        )
+    ]
     cache.set(cache_key, active_ids, FEED_CACHE_TTL_SECONDS)
     return active_ids
 
@@ -2301,7 +2279,10 @@ def _build_search_home_rows(query, dogs_only=False, viewer_id=None):
     if cached_rows is not None:
         return cached_rows
 
-    admin_qs = _active_admin_posts_queryset(query)
+    admin_posts = _active_admin_posts(
+        query,
+        candidate_limit=SEARCH_CANDIDATE_LIMIT,
+    )
     announcement_qs = DogAnnouncement.objects.all()
     user_qs = UserAdoptionPost.objects.filter(status="available")
     missing_qs = MissingDogPost.objects.filter(status="missing")
@@ -2335,21 +2316,14 @@ def _build_search_home_rows(query, dogs_only=False, viewer_id=None):
             | Q(owner__last_name__icontains=query)
         )
 
-        admin_qs = admin_qs.filter(
-            Q(user__username__icontains=query)
-            | Q(user__first_name__icontains=query)
-            | Q(user__last_name__icontains=query)
-            | Q(caption__icontains=query)
-            | Q(location__icontains=query)
-            | Q(status__icontains=query)
-        )
         announcement_qs = announcement_qs.filter(announcement_filters)
         user_qs = user_qs.filter(user_filters)
         missing_qs = missing_qs.filter(missing_filters)
 
-    admin_rows = list(
-        admin_qs.order_by("-created_at").values("id", "created_at")[:SEARCH_CANDIDATE_LIMIT]
-    )
+    admin_rows = [
+        {"id": post.id, "created_at": post.created_at}
+        for post in admin_posts
+    ]
     announcement_rows = []
     if not dogs_only:
         announcement_rows = list(
@@ -2420,6 +2394,7 @@ def _hydrate_home_feed_items(request, feed_rows):
             )
         ).filter(id__in=ids_by_type["admin"])
     }
+    Post.attach_active_appointment_dates(admin_map.values())
     announcement_map = {
         post.id: post
         for post in DogAnnouncement.objects.select_related(

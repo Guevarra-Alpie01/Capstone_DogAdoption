@@ -44,9 +44,8 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Case, CharField, Count, DateField, DateTimeField, F, IntegerField, Min, OuterRef, Prefetch, Q, Subquery, Value, When
+from django.db.models import Case, CharField, Count, DateField, F, IntegerField, Min, OuterRef, Prefetch, Q, Subquery, Value, When
 from django.db.models.functions import Cast, Coalesce, Concat, Lower, Trim, TruncDate
-from django.db.models.expressions import RawSQL
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -152,19 +151,19 @@ def _get_cached_post_history_ids():
     if history_candidate_ids is not None:
         return history_candidate_ids
 
-    history_candidate_qs = (
+    history_candidate_posts = list(
         Post.with_pending_request_state(
             Post.objects.filter(
                 status__in=["rescued", "under_care"],
-                created_at__lte=timezone.now() - timedelta(days=Post.ADOPTION_DAYS),
             )
         )
         .only("id", "status", "created_at", "claim_days")
         .order_by("-created_at")
     )
+    Post.attach_active_appointment_dates(history_candidate_posts)
     history_candidate_ids = [
         post.id
-        for post in history_candidate_qs
+        for post in history_candidate_posts
         if post.is_expired()
     ]
     cache.set(
@@ -188,6 +187,7 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
             for post in Post.objects.filter(id__in=page_ids)
             .only("id", "caption", "location", "status", "created_at", "claim_days")
         }
+        Post.attach_active_appointment_dates(post_map.values())
         primary_image_by_post_id = {}
         for image in PostImage.objects.filter(post_id__in=page_ids).only("post_id", "image").order_by("id"):
             if image.post_id in primary_image_by_post_id:
@@ -983,11 +983,15 @@ def _parse_appointment_dates(dates_raw):
 
 
 def _save_global_appointment_dates(parsed_dates, user):
+    today = timezone.localdate()
+    editable_dates = [day for day in parsed_dates if day >= today]
     with transaction.atomic():
-        GlobalAppointmentDate.objects.exclude(
-            appointment_date__in=parsed_dates
+        GlobalAppointmentDate.objects.filter(
+            appointment_date__gte=today,
+        ).exclude(
+            appointment_date__in=editable_dates
         ).delete()
-        for day in parsed_dates:
+        for day in editable_dates:
             GlobalAppointmentDate.objects.update_or_create(
                 appointment_date=day,
                 defaults={
@@ -1000,8 +1004,15 @@ def _save_global_appointment_dates(parsed_dates, user):
 def _validate_and_save_global_appointment_dates(dates_raw, user):
     parsed_dates = _parse_appointment_dates(dates_raw)
     today = timezone.localdate()
-    if any(d < today for d in parsed_dates):
-        return False
+    submitted_past_dates = {day for day in parsed_dates if day < today}
+    if submitted_past_dates:
+        locked_past_dates = set(
+            GlobalAppointmentDate.objects.filter(
+                appointment_date__lt=today
+            ).values_list("appointment_date", flat=True)
+        )
+        if not submitted_past_dates.issubset(locked_past_dates):
+            return False
     _save_global_appointment_dates(parsed_dates, user)
     return True
 
@@ -1334,7 +1345,11 @@ def post_list(request):
             show_appointment_modal = True
             dates_raw = (request.POST.get('appointment_dates') or '').strip()
             if not _validate_and_save_global_appointment_dates(dates_raw, request.user):
-                messages.error(request, "Past dates are not allowed.", extra_tags="post_list")
+                messages.error(
+                    request,
+                    "Past appointment dates are locked and cannot be changed.",
+                    extra_tags="post_list",
+                )
             else:
                 messages.success(request, "Appointment dates saved.", extra_tags="post_list")
                 return redirect(reverse('dogadoption_admin:post_list'))
@@ -1362,17 +1377,6 @@ def post_list(request):
     _set_post_form_barangay_source(post_form)
 
     now = timezone.now()
-    post_table = Post._meta.db_table
-    claim_deadline_expr = RawSQL(
-        f"DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY)",
-        [],
-        output_field=DateTimeField(),
-    )
-    adopt_deadline_expr = RawSQL(
-        f"DATE_ADD(DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY), INTERVAL %s DAY)",
-        [Post.ADOPTION_DAYS],
-        output_field=DateTimeField(),
-    )
     active_statuses = ["rescued", "under_care"]
 
     base_qs = Post.with_pending_request_state(
@@ -1392,9 +1396,6 @@ def post_list(request):
             'rescued_date',
             'claim_days',
             'created_at',
-        ).annotate(
-            claim_deadline_db=claim_deadline_expr,
-            adopt_deadline_db=adopt_deadline_expr,
         )
     )
 
@@ -1453,9 +1454,9 @@ def post_list(request):
         )
         deadline = None
         if phase == 'claim' and not is_pending_review:
-            deadline = getattr(post, "claim_deadline_db", None) or post.claim_deadline()
+            deadline = post.claim_deadline()
         elif phase == 'adopt' and not is_pending_review:
-            deadline = getattr(post, "adopt_deadline_db", None) or post.adoption_deadline()
+            deadline = post.adoption_deadline()
 
         if deadline and phase in {'claim', 'adopt'}:
             total_seconds = max(int((deadline - now).total_seconds()), 0)
@@ -1507,31 +1508,45 @@ def post_list(request):
         params[page_param] = str(page_num)
         return params.urlencode()
 
-    claim_qs = _with_request_count(
-        base_qs.filter(
-            status__in=active_statuses,
-        ).filter(
-            Q(claim_deadline_db__gte=now)
-            | Q(has_pending_claim_request=True)
-        ),
-        "claim",
-        "claim_count",
-    ).order_by("-claim_count", "-created_at", "-id")
-    adoption_qs = _with_request_count(
-        base_qs.filter(
-            status__in=active_statuses,
-        ).filter(
-            Q(has_pending_adopt_request=True)
-            | (
-                Q(claim_deadline_db__lt=now)
-                & Q(adopt_deadline_db__gte=now)
-            )
-        ),
-        "adopt",
-        "adopt_count",
-    ).order_by("-adopt_count", "-created_at", "-id")
-    reunited_qs = base_qs.filter(status='reunited').order_by("-created_at", "-id")
-    adopted_qs = base_qs.filter(status='adopted').order_by("-created_at", "-id")
+    active_post_candidates = list(
+        _with_request_count(
+            _with_request_count(
+                base_qs.filter(status__in=active_statuses),
+                "claim",
+                "claim_count",
+            ),
+            "adopt",
+            "adopt_count",
+        ).order_by("-created_at", "-id")
+    )
+    active_appointment_dates = Post.attach_active_appointment_dates(active_post_candidates)
+
+    claim_qs = [
+        post
+        for post in active_post_candidates
+        if post.current_phase() == "claim" or getattr(post, "has_pending_claim_request", False)
+    ]
+    claim_qs.sort(
+        key=lambda post: (
+            -int(getattr(post, "claim_count", 0) or 0),
+            -post.created_at.timestamp(),
+            -post.id,
+        )
+    )
+    adoption_qs = [
+        post
+        for post in active_post_candidates
+        if post.current_phase() == "adopt" or getattr(post, "has_pending_adopt_request", False)
+    ]
+    adoption_qs.sort(
+        key=lambda post: (
+            -int(getattr(post, "adopt_count", 0) or 0),
+            -post.created_at.timestamp(),
+            -post.id,
+        )
+    )
+    reunited_qs = list(base_qs.filter(status='reunited').order_by("-created_at", "-id"))
+    adopted_qs = list(base_qs.filter(status='adopted').order_by("-created_at", "-id"))
 
     history_total = len(_get_cached_post_history_ids())
 
@@ -1580,6 +1595,10 @@ def post_list(request):
                 "user__last_name",
             )
             .order_by("-created_at")
+        )
+        Post.attach_active_appointment_dates(
+            [req.post for req in paged_requests if getattr(req, "post", None)],
+            active_appointment_dates,
         )
 
         requests_by_post_id = defaultdict(lambda: {"claim": [], "adopt": []})
@@ -1649,7 +1668,7 @@ def post_list(request):
 
     paged_all_posts = list(modal_posts_by_id.values())
 
-    global_dates = _get_active_global_appointment_dates()
+    global_dates = active_appointment_dates
 
     return render(request, 'admin_home/post_list.html', {
         'all_posts': paged_all_posts,
@@ -1707,7 +1726,7 @@ def appointment_calendar(request):
     if request.method == 'POST':
         dates_raw = (request.POST.get('appointment_dates') or '').strip()
         if not _validate_and_save_global_appointment_dates(dates_raw, request.user):
-            messages.error(request, "Past dates are not allowed.")
+            messages.error(request, "Past appointment dates are locked and cannot be changed.")
         else:
             messages.success(request, "Appointment dates saved.")
     global_dates = _get_active_global_appointment_dates()

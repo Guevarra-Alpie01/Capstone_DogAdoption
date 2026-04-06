@@ -1,23 +1,47 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_confirm.css' %}?v=20260403a">
+<link rel="stylesheet" href="{% static 'css/adopt_confirm.css' %}?v=20260406reserve-adoption">
 {% endblock %}
 {% block content %}
 <div class="adoption-review-page">
     <section class="adoption-review-shell">
         <header class="adoption-review-header">
             <div>
-                <span class="adoption-review-kicker">Adoption Request</span>
-                <h1 class="adoption-review-title">Adoption Review</h1>
-                <p class="adoption-review-intro">Check the dog details, choose one available appointment date, and send your request.</p>
+                <span class="adoption-review-kicker">
+                    {% if post.current_phase == 'claim' %}Adoption Reservation{% else %}Adoption Request{% endif %}
+                </span>
+                <h1 class="adoption-review-title">
+                    {% if post.current_phase == 'claim' %}Reserve Adoption{% else %}Adoption Review{% endif %}
+                </h1>
+                <p class="adoption-review-intro">
+                    {% if post.current_phase == 'claim' %}
+                    Choose one available appointment date to reserve your adoption request. If no owner claim is approved, your request moves forward once the claim window closes.
+                    {% else %}
+                    Check the dog details, choose one available appointment date, and send your request.
+                    {% endif %}
+                </p>
             </div>
-            <a href="{{ status_url }}" class="adoption-review-status-link">View My Adoption Requests</a>
+            <a href="{{ status_url }}" class="adoption-review-status-link">
+                <i class="bi bi-house-door" aria-hidden="true"></i>
+                <span>View My Adoption Requests</span>
+            </a>
         </header>
 
         <section class="adoption-review-section adoption-review-overview">
             <div class="adoption-review-copy">
                 <h2 class="adoption-review-section-title">{{ post.display_title|default:"Dog Listing" }}</h2>
+                {% if post.current_phase == 'claim' %}
+                <div class="adoption-review-highlight" role="note">
+                    <span class="adoption-review-highlight-icon" aria-hidden="true">
+                        <i class="bi bi-heart-fill"></i>
+                    </span>
+                    <div class="adoption-review-highlight-copy">
+                        <strong>Reserved while the claim window is still open</strong>
+                        <span>This keeps your adoption request queued in case the dog is not claimed by an owner.</span>
+                    </div>
+                </div>
+                {% endif %}
                 <div class="adoption-review-meta">
                     {% if post.display_breed %}
                         <div class="review-meta-card">
@@ -88,7 +112,13 @@
 
         <section class="adoption-review-section adoption-review-schedule">
             <h2 class="adoption-review-section-title">Preferred Appointment Date</h2>
-            <p class="adoption-review-section-note">Choose one available date to continue. After submission, the post stays visible and admin approval opens after a 1-day verification window.</p>
+            <p class="adoption-review-section-note">
+                {% if post.current_phase == 'claim' %}
+                Reserve one available date now. The request stays on hold during the owner-claim period and only becomes reviewable if the dog is still unclaimed after that window.
+                {% else %}
+                Choose one available date to continue. After submission, the post stays visible and admin approval opens after a 1-day verification window.
+                {% endif %}
+            </p>
 
             <form method="post" id="adoptForm" class="adoption-review-form">
                 {% csrf_token %}
@@ -102,7 +132,8 @@
                     </a>
 
                     <button type="submit" id="confirm_btn" class="btn btn-success adoption-review-btn" {% if not available_dates %}disabled{% endif %}>
-                        Confirm Request
+                        <i class="bi {% if post.current_phase == 'claim' %}bi-heart-fill{% else %}bi-house-heart{% endif %}" aria-hidden="true"></i>
+                        <span>{% if post.current_phase == 'claim' %}Reserve Adoption{% else %}Confirm Request{% endif %}</span>
                     </button>
                 </div>
             </form>

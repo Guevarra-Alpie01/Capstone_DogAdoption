@@ -1972,6 +1972,10 @@ def _create_post_request_with_images(request, post, request_type, appointment_da
     return req
 
 
+def _resolve_request_message(message_or_callable, post):
+    return message_or_callable(post) if callable(message_or_callable) else message_or_callable
+
+
 def _handle_confirm_request(
     request,
     post_id,
@@ -1984,6 +1988,9 @@ def _handle_confirm_request(
 ):
     """Handle request confirmation flows for claim and adoption actions."""
     post = get_object_or_404(Post, id=post_id)
+    not_open_message = _resolve_request_message(not_open_message, post)
+    duplicate_message = _resolve_request_message(duplicate_message, post)
+    success_message = _resolve_request_message(success_message, post)
     available_dates = _get_available_appointment_dates()
     history_url = _request_history_route_name(request_type)
     listing_url = _public_listing_route_name(request_type)
@@ -3795,7 +3802,7 @@ def adopt_confirm(request, post_id):
     """Confirm and submit an adoption request for a staff-managed post."""
     access_response = _require_public_member_or_auth_modal(
         request,
-        next_url=reverse("user:adopt_confirm", args=[post_id]),
+        next_url=request.get_full_path(),
     )
     if access_response is not None:
         return access_response
@@ -3804,10 +3811,22 @@ def adopt_confirm(request, post_id):
         post_id=post_id,
         request_type="adopt",
         template_name="adopt/adopt_confirm.html",
-        is_open_fn=lambda post: post.is_open_for_adoption(),
-        not_open_message="Adoption is not open yet or has already closed.",
-        duplicate_message="You already submitted an adoption request.",
-        success_message="Adoption request submitted. The post stays visible while admin verification runs for 1 day.",
+        is_open_fn=lambda post: post.current_phase() in {"claim", "adopt"},
+        not_open_message=lambda post: (
+            "Adoption is not available for this post anymore."
+            if post.current_phase() == "closed"
+            else "Adoption is not open for this post yet."
+        ),
+        duplicate_message=lambda post: (
+            "You already reserved adoption for this dog."
+            if post.current_phase() == "claim"
+            else "You already submitted an adoption request."
+        ),
+        success_message=lambda post: (
+            "Adoption reserved. If no owner claim is approved, admin review opens after the claim window closes."
+            if post.current_phase() == "claim"
+            else "Adoption request submitted. The post stays visible while admin verification runs for 1 day."
+        ),
     )
 # =============================================================================
 # Navigation 4/5: Announcement

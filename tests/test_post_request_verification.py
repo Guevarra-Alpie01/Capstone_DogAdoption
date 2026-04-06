@@ -111,6 +111,42 @@ class PostRequestVerificationWindowTests(TestCase):
             if item.get("post_type") == "admin"
         ]
 
+    def test_adoption_can_be_reserved_during_claim_phase(self):
+        now = timezone.now()
+        post = self._create_post(
+            "claim",
+            created_at=now,
+            claim_days=2,
+        )
+        member_client = self._client_for(self.first_member)
+        confirm_url = reverse("user:adopt_confirm", args=[post.id])
+
+        get_response = member_client.get(confirm_url)
+
+        self.assertEqual(get_response.status_code, 200)
+        self.assertContains(get_response, "Reserve Adoption")
+        self.assertContains(get_response, "in case the dog is not claimed by an owner")
+
+        submit_response = member_client.post(
+            confirm_url,
+            {"appointment_date": self.appointment_date.isoformat()},
+            follow=True,
+        )
+
+        self.assertEqual(submit_response.status_code, 200)
+        self.assertEqual(
+            submit_response.request["PATH_INFO"],
+            reverse("user:adopt_status"),
+        )
+
+        request_record = PostRequest.objects.get(
+            user=self.first_member,
+            post=post,
+            request_type="adopt",
+        )
+        self.assertEqual(request_record.status, "pending")
+        self.assertEqual(request_record.approval_available_at, post.adoption_deadline())
+
     def test_pending_claim_requests_move_into_adoption_without_leaving_admin_review(self):
         now = timezone.now()
         post = self._create_post(

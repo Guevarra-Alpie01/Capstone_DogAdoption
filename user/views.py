@@ -1144,6 +1144,62 @@ def _split_time_left(diff):
     return days, hours, minutes
 
 
+def _clean_rescue_card_copy(value):
+    return " ".join(strip_tags(value or "").replace("\xa0", " ").split()).strip()
+
+
+def _truncate_rescue_card_copy(value, limit=148):
+    cleaned = _clean_rescue_card_copy(value)
+    if len(cleaned) <= limit:
+        return cleaned
+    truncated = cleaned[: max(limit - 1, 1)].rsplit(" ", 1)[0].rstrip(" ,.;:-")
+    return f"{truncated or cleaned[: limit - 1]}..."
+
+
+def _pluralized_time_label(value, singular):
+    return f"{value} {singular}" if value == 1 else f"{value} {singular}s"
+
+
+def _featured_time_left_emphasis(phase_payload):
+    if phase_payload["is_pending_review"]:
+        return "Pending review"
+
+    days = phase_payload["days_left"]
+    hours = phase_payload["hours_left"]
+    minutes = phase_payload["minutes_left"]
+    if days > 0:
+        return f"{_pluralized_time_label(days, 'day')} left"
+    if hours > 0:
+        return f"{_pluralized_time_label(hours, 'hour')} left"
+    if minutes > 0:
+        return f"{_pluralized_time_label(minutes, 'minute')} left"
+    return "Ending soon"
+
+
+def _featured_time_left_tone(phase_payload):
+    if phase_payload["is_pending_review"]:
+        return "review"
+
+    total_minutes = (
+        phase_payload["days_left"] * 24 * 60
+        + phase_payload["hours_left"] * 60
+        + phase_payload["minutes_left"]
+    )
+    if total_minutes <= 6 * 60:
+        return "critical"
+    if total_minutes <= 24 * 60:
+        return "urgent"
+    return "steady"
+
+
+def _featured_time_left_context(phase, phase_payload):
+    if phase_payload["is_pending_review"]:
+        return "Admin verification is underway."
+    if phase == "claim":
+        return "Before the owner-claim window closes."
+    return "Before the adoption window closes."
+
+
 def _post_phase_payload(post):
     phase = post.current_phase() if hasattr(post, "current_phase") else "closed"
     is_pending_review = (
@@ -1678,6 +1734,120 @@ def _build_home_featured_rescue_sections():
             item["next_input_id"] = input_ids[(index + 1) % len(input_ids)] if input_ids else ""
 
     return sections
+
+
+def _build_home_limited_time_rescue_section():
+    raw_open_posts = (
+        _base_public_post_queryset()
+        .filter(status__in=["rescued", "under_care"])
+    )
+    items = []
+
+    for post in raw_open_posts:
+        phase_payload = _post_phase_payload(post)
+        phase = phase_payload["phase"]
+        if phase not in {"claim", "adopt"}:
+            continue
+
+        card_item = _build_rescue_finder_card_item(post, phase_payload, 0)
+        countdown_deadline = (
+            phase_payload["pending_review_until"]
+            if phase_payload["is_pending_review"]
+            else (
+                post.claim_deadline()
+                if phase == "claim"
+                else post.adoption_deadline()
+            )
+        )
+        countdown_deadline_local = (
+            timezone.localtime(countdown_deadline)
+            if countdown_deadline and timezone.is_aware(countdown_deadline)
+            else countdown_deadline
+        )
+        description_full = (
+            _clean_rescue_card_copy(post.caption)
+            or "This rescue listing has no additional notes yet."
+        )
+        time_left_emphasis = _featured_time_left_emphasis(phase_payload)
+        time_left_context = _featured_time_left_context(phase, phase_payload)
+        countdown_date_heading = (
+            "Verification Until"
+            if phase_payload["is_pending_review"]
+            else ("Claim Ends" if phase == "claim" else "Adoption Ends")
+        )
+        countdown_date_label = (
+            phase_payload["pending_review_until_label"]
+            if phase_payload["is_pending_review"]
+            else (
+                countdown_deadline_local.strftime("%b %d, %Y %I:%M %p")
+                if countdown_deadline_local
+                else "Date pending"
+            )
+        )
+        summary_facts = [
+            {"label": "Breed", "value": card_item["breed_label"]},
+            {"label": "Age", "value": card_item["age_label"]},
+            {"label": "Sex", "value": card_item["gender_label"]},
+            {"label": "Size", "value": card_item["size_label"]},
+            {"label": "Location", "value": card_item["location_label"]},
+        ]
+        detail_facts = summary_facts + [
+            {"label": "Phase", "value": card_item["phase_title"]},
+            {
+                "label": "Review Status" if phase_payload["is_pending_review"] else "Time Left",
+                "value": time_left_emphasis,
+            },
+            {"label": countdown_date_heading, "value": countdown_date_label},
+            {"label": "Coat", "value": card_item["coat_label"]},
+            {"label": "Color", "value": card_item["color_label"]},
+            {
+                "label": "Rescue Date",
+                "value": (
+                    post.rescued_date.strftime("%b %d, %Y")
+                    if post.rescued_date
+                    else post.created_at.strftime("%b %d, %Y")
+                ),
+            },
+            {"label": "Posted", "value": _format_datetime_label(post.created_at)},
+        ]
+        items.append({
+            **card_item,
+            "detail_url": reverse("user:post_detail", args=[post.id]),
+            "home_action_url": f'{card_item["action_url"]}?return_to=home',
+            "name_label": card_item["title"] or f"Rescue Dog #{post.id}",
+            "time_left_emphasis": time_left_emphasis,
+            "time_left_context": time_left_context,
+            "urgency_tone": _featured_time_left_tone(phase_payload),
+            "countdown_date_heading": countdown_date_heading,
+            "countdown_date_label": countdown_date_label,
+            "description_short": _truncate_rescue_card_copy(description_full, 132),
+            "description_full": description_full,
+            "summary_facts": summary_facts,
+            "detail_facts": detail_facts,
+            "image_alt": f'{card_item["title"]} dog photo',
+            "sort_deadline": countdown_deadline or post.created_at,
+        })
+
+    items.sort(key=lambda item: (
+        item["sort_deadline"],
+        0 if item["phase"] == "claim" else 1,
+        -item["post"].created_at.timestamp(),
+        item["post"].id,
+    ))
+
+    for index, item in enumerate(items, start=1):
+        item["panel_id"] = f"home-limited-dog-{index}-details"
+        item["card_id"] = f"home-limited-dog-{index}"
+
+    return {
+        "title": "Limited-Time Claim & Adoption",
+        "eyebrow": "Urgent Rescue Windows",
+        "description": "All active rescue posts with live claim, adoption, or verification countdowns.",
+        "empty_message": "No rescue posts are currently on a live claim or adoption timer.",
+        "items": items,
+        "claim_url": reverse("user:claim_list"),
+        "adopt_url": reverse("user:adopt_list"),
+    }
 
 
 def _create_user_adoption_images(request, post):
@@ -2794,6 +2964,7 @@ def _build_user_home_context(
     return {
         "posts": combined_posts,
         "featured_dog_sections": _build_home_featured_rescue_sections(),
+        "limited_time_rescue_section": _build_home_limited_time_rescue_section(),
         "page_obj": page_obj,
         "query": query,
         "feed_token": feed_token,

@@ -1689,8 +1689,8 @@ def post_list(request):
 
         remaining_time = timedelta(seconds=0)
         if is_active_section and not is_pending_review:
-            timeline_phase = post.timeline_phase()
-            if timeline_phase == section_key:
+            active_phase = post.current_phase(now)
+            if active_phase == section_key:
                 remaining_time = post.time_left(now)
             elif deadline:
                 remaining_time = deadline - now

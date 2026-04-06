@@ -434,17 +434,38 @@ class Post(models.Model):
             remaining += day_end - max(now, day_start)
         return remaining
 
+    @classmethod
+    def _scheduled_window_active(cls, schedule_dates, now):
+        return cls._remaining_scheduled_time(schedule_dates, now) > timedelta(seconds=0)
+
     def _legacy_claim_deadline(self):
         if self.created_at and self.claim_days is not None:
             claim_days = max(int(self.claim_days), 0)
             return self.created_at + timedelta(days=claim_days)
         return None
 
+    def _manual_appointment_dates(self, started_at):
+        active_dates = getattr(self, "_prefetched_global_appointment_dates", None)
+        if active_dates is None:
+            active_dates = self.active_appointment_dates()
+        else:
+            active_dates = list(active_dates)
+
+        eligible_dates = []
+        for schedule_date in active_dates:
+            day_end = self._schedule_day_end_exclusive(schedule_date)
+            if day_end and day_end > started_at:
+                eligible_dates.append(schedule_date)
+        return eligible_dates
+
     def _manual_phase_schedule(self, now=None):
         if self.status in ["reunited", "adopted"]:
             return {
                 "is_active": False,
                 "current_phase": "closed",
+                "use_calendar_schedule": False,
+                "claim_dates": [],
+                "adoption_dates": [],
                 "claim_deadline": None,
                 "adoption_deadline": None,
             }
@@ -455,31 +476,62 @@ class Post(models.Model):
             return {
                 "is_active": False,
                 "current_phase": "",
+                "use_calendar_schedule": False,
+                "claim_dates": [],
+                "adoption_dates": [],
                 "claim_deadline": None,
                 "adoption_deadline": None,
             }
 
         now = now or timezone.now()
-        reset_delta = timedelta(days=self.MANUAL_PHASE_RESET_DAYS)
+        manual_phase_days = self.MANUAL_PHASE_RESET_DAYS
+        use_calendar_schedule = False
+        claim_dates = []
+        adoption_dates = []
         claim_deadline = None
         adoption_deadline = None
         current_phase = "closed"
 
-        if phase == "claim":
-            claim_deadline = started_at + reset_delta
-            adoption_deadline = claim_deadline + reset_delta
-            if now <= claim_deadline:
+        eligible_dates = self._manual_appointment_dates(started_at)
+        if eligible_dates:
+            use_calendar_schedule = True
+            if phase == "claim":
+                claim_dates = eligible_dates[:manual_phase_days]
+                adoption_dates = eligible_dates[
+                    manual_phase_days:manual_phase_days + manual_phase_days
+                ]
+            else:
+                adoption_dates = eligible_dates[:manual_phase_days]
+
+            if claim_dates:
+                claim_deadline = self._schedule_deadline_for_date(claim_dates[-1])
+            if adoption_dates:
+                adoption_deadline = self._schedule_deadline_for_date(adoption_dates[-1])
+
+            if phase == "claim" and self._scheduled_window_active(claim_dates, now):
                 current_phase = "claim"
-            elif now <= adoption_deadline:
+            elif self._scheduled_window_active(adoption_dates, now):
                 current_phase = "adopt"
         else:
-            adoption_deadline = started_at + reset_delta
-            if now <= adoption_deadline:
-                current_phase = "adopt"
+            reset_delta = timedelta(days=manual_phase_days)
+            if phase == "claim":
+                claim_deadline = started_at + reset_delta
+                adoption_deadline = claim_deadline + reset_delta
+                if now <= claim_deadline:
+                    current_phase = "claim"
+                elif now <= adoption_deadline:
+                    current_phase = "adopt"
+            else:
+                adoption_deadline = started_at + reset_delta
+                if now <= adoption_deadline:
+                    current_phase = "adopt"
 
         return {
             "is_active": current_phase in {"claim", "adopt"},
             "current_phase": current_phase,
+            "use_calendar_schedule": use_calendar_schedule,
+            "claim_dates": claim_dates,
+            "adoption_dates": adoption_dates,
             "claim_deadline": claim_deadline,
             "adoption_deadline": adoption_deadline,
         }
@@ -569,7 +621,7 @@ class Post(models.Model):
     def adoption_deadline(self):
         """Deadline for adoption window after the claim window ends."""
         manual_schedule = self._manual_phase_schedule()
-        if manual_schedule["adoption_deadline"]:
+        if self.phase_override in {"claim", "adopt"} and manual_schedule["adoption_deadline"]:
             return manual_schedule["adoption_deadline"]
         return self._timeline_schedule()["adoption_deadline"]
 
@@ -633,32 +685,39 @@ class Post(models.Model):
             return "adopt"
         return "closed"
 
-    def current_phase(self):
+    def current_phase(self, now=None):
         """
         Returns one of:
         - claim
         - adopt
         - closed
         """
-        manual_schedule = self._manual_phase_schedule()
+        now = now or timezone.now()
+        manual_schedule = self._manual_phase_schedule(now)
         if self.phase_override in {"claim", "adopt"} and manual_schedule["current_phase"]:
             return manual_schedule["current_phase"]
         if self.phase_override in {"claim", "adopt"} and not manual_schedule["is_active"]:
             return "closed"
-        return self.timeline_phase()
+        return self.timeline_phase(now)
 
     def time_left(self, now=None):
         """Return remaining time in the active phase."""
         now = now or timezone.now()
         manual_schedule = self._manual_phase_schedule(now)
         if self.phase_override in {"claim", "adopt"}:
-            if manual_schedule["current_phase"] == "claim" and manual_schedule["claim_deadline"]:
-                return max(manual_schedule["claim_deadline"] - now, timedelta(seconds=0))
-            if manual_schedule["current_phase"] == "adopt" and manual_schedule["adoption_deadline"]:
-                return max(manual_schedule["adoption_deadline"] - now, timedelta(seconds=0))
+            if manual_schedule["current_phase"] == "claim":
+                if manual_schedule["use_calendar_schedule"]:
+                    return self._remaining_scheduled_time(manual_schedule["claim_dates"], now)
+                if manual_schedule["claim_deadline"]:
+                    return max(manual_schedule["claim_deadline"] - now, timedelta(seconds=0))
+            if manual_schedule["current_phase"] == "adopt":
+                if manual_schedule["use_calendar_schedule"]:
+                    return self._remaining_scheduled_time(manual_schedule["adoption_dates"], now)
+                if manual_schedule["adoption_deadline"]:
+                    return max(manual_schedule["adoption_deadline"] - now, timedelta(seconds=0))
             return timedelta(seconds=0)
 
-        phase = self.timeline_phase(now)
+        phase = self.current_phase(now)
         schedule = self._timeline_schedule()
 
         if phase == 'claim':

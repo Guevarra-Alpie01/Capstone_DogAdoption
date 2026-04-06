@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q
+from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q
 from django.db import IntegrityError, transaction
 import os
 import base64
@@ -1228,7 +1228,7 @@ def _base_public_post_queryset():
     return Post.with_pending_request_state(
         Post.objects.select_related(
             "user", "user__profile"
-        ).prefetch_related("images")
+        ).filter(is_history=False).prefetch_related("images")
     ).order_by("-created_at")
 
 
@@ -1967,7 +1967,7 @@ def _handle_confirm_request(
     success_message,
 ):
     """Handle request confirmation flows for claim and adoption actions."""
-    post = get_object_or_404(Post, id=post_id)
+    post = get_object_or_404(Post.objects.filter(is_history=False), id=post_id)
     not_open_message = _resolve_request_message(not_open_message, post)
     duplicate_message = _resolve_request_message(duplicate_message, post)
     success_message = _resolve_request_message(success_message, post)
@@ -2144,7 +2144,7 @@ def _active_admin_posts_queryset(query=""):
         request_type__in=["claim", "adopt"],
     )
     admin_qs = Post.with_pending_request_state(
-        Post.objects.exclude(status__in=["reunited", "adopted"])
+        Post.objects.filter(is_history=False).exclude(status__in=["reunited", "adopted"])
         .annotate(
             has_accepted_request=Exists(accepted_post_requests),
         )
@@ -3201,7 +3201,12 @@ def delete_missing_dog_post(request, post_id):
 
 def post_detail(request, post_id):
     """Render a post detail page used by shared or linked home posts."""
-    post = get_object_or_404(Post.with_pending_request_state(Post.objects.all()), id=post_id)
+    post = get_object_or_404(
+        Post.with_pending_request_state(Post.objects.filter(is_history=False)),
+        id=post_id,
+    )
+    Post.objects.filter(id=post.id).update(view_count=F("view_count") + 1)
+    post.view_count = int(getattr(post, "view_count", 0) or 0) + 1
     return render(request, 'home/post_detail.html', {'post': post})
 
 

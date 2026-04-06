@@ -257,245 +257,103 @@
 <section class="status-dashboard">
     <h4 class="status-dashboard-title">Status Cards</h4>
     <div class="status-cards-grid">
-        <div class="status-card status-claim">
-            <div class="status-card-head">
-                <span>Claim</span>
-                <span class="status-count">{{ claim_total }}</span>
-            </div>
-            <div class="status-card-body">
-                {% if claim_posts %}
-                    <div class="table-responsive">
-                        <table class="table table-sm status-mini-table mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Breed</th>
-                                    <th>Barangay</th>
-                                    <th>Time Left</th>
-                                    <th>Requests</th>
-                                    <th>View</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in claim_posts %}
-                                    {% with post=item.post %}
-                                    <tr>
-                                        <td>{{ post.display_title|default:"Unlisted Breed" }}</td>
-                                        <td>{{ post.location|default:"-" }}</td>
-                                        <td>{{ item.time_left_label }}</td>
-                                        <td>
-                                            <button type="button" class="btn btn-outline-secondary btn-sm request-cta" data-bs-toggle="modal" data-bs-target="#claimRequestUsers{{ post.id }}">
-                                                Requests ({{ item.claim_requests|length }})
-                                            </button>
-                                        </td>
-                                        <td>
-                                            <button type="button" class="btn btn-dark btn-sm view-cta" data-bs-toggle="modal" data-bs-target="#postDetails{{ post.id }}">
-                                                View
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    {% endwith %}
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% if claim_page_obj.paginator.num_pages > 1 %}
-                    <div class="card-pagination">
-                        {% if claim_page_obj.has_previous %}
-                            <a href="?{{ claim_prev_qs }}" class="card-page-btn">Prev</a>
-                        {% else %}
-                            <span class="card-page-btn disabled">Prev</span>
-                        {% endif %}
-                        <span class="card-page-info">Page {{ claim_page_obj.number }} of {{ claim_page_obj.paginator.num_pages }}</span>
-                        {% if claim_page_obj.has_next %}
-                            <a href="?{{ claim_next_qs }}" class="card-page-btn">Next</a>
-                        {% else %}
-                            <span class="card-page-btn disabled">Next</span>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                {% else %}
-                    <p class="text-muted mb-0">No posts in claim window.</p>
-                {% endif %}
-            </div>
-        </div>
+        {% for section in status_sections %}
+            <div class="status-card {{ section.tone }}">
+                <div class="status-card-head">
+                    <span>{{ section.title }}</span>
+                    <span class="status-count">{{ section.count }}</span>
+                </div>
+                <div class="status-card-body">
+                    {% if section.items %}
+                        <div class="status-card-grid">
+                            {% for item in section.items %}
+                                {% with post=item.post %}
+                                <article class="status-post-card">
+                                    <button
+                                        type="button"
+                                        class="status-image-trigger"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#{{ item.detail_modal_id }}"
+                                        aria-label="View {{ post.display_title|default:'dog post' }}"
+                                    >
+                                        {% if item.primary_image_url %}
+                                            <img src="{{ item.primary_image_url }}" alt="{{ post.display_title|default:'Dog listing' }}" class="status-post-image">
+                                        {% else %}
+                                            <span class="status-post-image-fallback">No image</span>
+                                        {% endif %}
+                                    </button>
 
-        <div class="status-card status-adopt">
-            <div class="status-card-head">
-                <span>Adoption</span>
-                <span class="status-count">{{ adoption_total }}</span>
-            </div>
-            <div class="status-card-body">
-                {% if adoption_posts %}
-                    <div class="table-responsive">
-                        <table class="table table-sm status-mini-table mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Breed</th>
-                                    <th>Barangay</th>
-                                    <th>Time Left</th>
-                                    <th>Requests</th>
-                                    <th>View</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in adoption_posts %}
-                                    {% with post=item.post %}
-                                    <tr>
-                                        <td>{{ post.display_title|default:"Unlisted Breed" }}</td>
-                                        <td>{{ post.location|default:"-" }}</td>
-                                        <td>{{ item.time_left_label }}</td>
-                                        <td>
-                                            <button type="button" class="btn btn-outline-secondary btn-sm request-cta" data-bs-toggle="modal" data-bs-target="#adoptRequestUsers{{ post.id }}">
-                                                Requests ({{ item.adopt_requests|length }})
-                                            </button>
-                                        </td>
-                                        <td>
-                                            <button type="button" class="btn btn-dark btn-sm view-cta" data-bs-toggle="modal" data-bs-target="#postDetails{{ post.id }}">
-                                                View
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    {% endwith %}
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% if adoption_page_obj.paginator.num_pages > 1 %}
-                    <div class="card-pagination">
-                        {% if adoption_page_obj.has_previous %}
-                            <a href="?{{ adoption_prev_qs }}" class="card-page-btn">Prev</a>
-                        {% else %}
-                            <span class="card-page-btn disabled">Prev</span>
-                        {% endif %}
-                        <span class="card-page-info">Page {{ adoption_page_obj.number }} of {{ adoption_page_obj.paginator.num_pages }}</span>
-                        {% if adoption_page_obj.has_next %}
-                            <a href="?{{ adoption_next_qs }}" class="card-page-btn">Next</a>
-                        {% else %}
-                            <span class="card-page-btn disabled">Next</span>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                {% else %}
-                    <p class="text-muted mb-0">No posts in adoption window.</p>
-                {% endif %}
-            </div>
-        </div>
+                                    <div class="status-metric-grid">
+                                        <div class="status-metric-card status-metric-card--wide">
+                                            <span>Time Left</span>
+                                            <strong>{{ item.time_left_label }}</strong>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            class="status-metric-card status-metric-card--button"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#{{ item.request_modal_id }}"
+                                        >
+                                            <span>Requests</span>
+                                            <strong>{{ item.request_count }}</strong>
+                                        </button>
+                                        <div class="status-metric-card">
+                                            <span>Views</span>
+                                            <strong>{{ item.view_count }}</strong>
+                                        </div>
+                                    </div>
 
-        <div class="status-card status-reunited">
-            <div class="status-card-head">
-                <span>Reclaimed</span>
-                <span class="status-count">{{ reunited_total }}</span>
-            </div>
-            <div class="status-card-body">
-                {% if reunited_posts %}
-                    <div class="table-responsive">
-                        <table class="table table-sm status-mini-table mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Breed</th>
-                                    <th>Rescued Date</th>
-                                    <th>Claimed By</th>
-                                    <th>User Barangay</th>
-                                    <th>View</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in reunited_posts %}
-                                    {% with post=item.post %}
-                                    <tr>
-                                        <td>{{ post.display_title|default:"Unlisted Breed" }}</td>
-                                        <td>{{ post.rescued_date|date:"M d, Y"|default:"-" }}</td>
-                                        <td>{{ item.finalized_user_name|default:"-" }}</td>
-                                        <td>{{ item.finalized_user_barangay|default:"-" }}</td>
-                                        <td>
-                                            <button type="button" class="btn btn-dark btn-sm view-cta" data-bs-toggle="modal" data-bs-target="#postDetails{{ post.id }}">
-                                                View
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    {% endwith %}
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% if reunited_page_obj.paginator.num_pages > 1 %}
-                    <div class="card-pagination">
-                        {% if reunited_page_obj.has_previous %}
-                            <a href="?{{ reunited_prev_qs }}" class="card-page-btn">Prev</a>
-                        {% else %}
-                            <span class="card-page-btn disabled">Prev</span>
-                        {% endif %}
-                        <span class="card-page-info">Page {{ reunited_page_obj.number }} of {{ reunited_page_obj.paginator.num_pages }}</span>
-                        {% if reunited_page_obj.has_next %}
-                            <a href="?{{ reunited_next_qs }}" class="card-page-btn">Next</a>
-                        {% else %}
-                            <span class="card-page-btn disabled">Next</span>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                {% else %}
-                    <p class="text-muted mb-0">No reclaimed posts yet.</p>
-                {% endif %}
-            </div>
-        </div>
+                                    <div class="status-card-actions">
+                                        <a href="{{ item.edit_url }}?next={{ return_to|urlencode }}" class="btn btn-outline-primary btn-sm status-action-btn">
+                                            Edit
+                                        </a>
+                                        {% if item.allow_toggle %}
+                                            <form method="post" action="{{ item.toggle_url }}" class="status-action-form">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ return_to }}">
+                                                <input type="hidden" name="phase" value="{{ item.toggle_phase }}">
+                                                <button type="submit" class="btn btn-outline-dark btn-sm status-action-btn">
+                                                    {{ item.toggle_label }}
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-danger btn-sm status-action-btn"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#postDeleteModal"
+                                            data-delete-action="{{ item.delete_url }}"
+                                            data-delete-title="{{ post.display_title|default:'Dog Listing'|escape }}"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </article>
+                                {% endwith %}
+                            {% endfor %}
+                        </div>
 
-        <div class="status-card status-adopted">
-            <div class="status-card-head">
-                <span>Adopted</span>
-                <span class="status-count">{{ adopted_total }}</span>
-            </div>
-            <div class="status-card-body">
-                {% if adopted_posts %}
-                    <div class="table-responsive">
-                        <table class="table table-sm status-mini-table mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Breed</th>
-                                    <th>Rescued Date</th>
-                                    <th>Adopted By</th>
-                                    <th>User Barangay</th>
-                                    <th>View</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in adopted_posts %}
-                                    {% with post=item.post %}
-                                    <tr>
-                                        <td>{{ post.display_title|default:"Unlisted Breed" }}</td>
-                                        <td>{{ post.rescued_date|date:"M d, Y"|default:"-" }}</td>
-                                        <td>{{ item.finalized_user_name|default:"-" }}</td>
-                                        <td>{{ item.finalized_user_barangay|default:"-" }}</td>
-                                        <td>
-                                            <button type="button" class="btn btn-dark btn-sm view-cta" data-bs-toggle="modal" data-bs-target="#postDetails{{ post.id }}">
-                                                View
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    {% endwith %}
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% if adopted_page_obj.paginator.num_pages > 1 %}
-                    <div class="card-pagination">
-                        {% if adopted_page_obj.has_previous %}
-                            <a href="?{{ adopted_prev_qs }}" class="card-page-btn">Prev</a>
-                        {% else %}
-                            <span class="card-page-btn disabled">Prev</span>
+                        {% if section.page_obj.paginator.num_pages > 1 %}
+                        <div class="card-pagination">
+                            {% if section.page_obj.has_previous %}
+                                <a href="?{{ section.prev_qs }}" class="card-page-btn">Prev</a>
+                            {% else %}
+                                <span class="card-page-btn disabled">Prev</span>
+                            {% endif %}
+                            <span class="card-page-info">Page {{ section.page_obj.number }} of {{ section.page_obj.paginator.num_pages }}</span>
+                            {% if section.page_obj.has_next %}
+                                <a href="?{{ section.next_qs }}" class="card-page-btn">Next</a>
+                            {% else %}
+                                <span class="card-page-btn disabled">Next</span>
+                            {% endif %}
+                        </div>
                         {% endif %}
-                        <span class="card-page-info">Page {{ adopted_page_obj.number }} of {{ adopted_page_obj.paginator.num_pages }}</span>
-                        {% if adopted_page_obj.has_next %}
-                            <a href="?{{ adopted_next_qs }}" class="card-page-btn">Next</a>
-                        {% else %}
-                            <span class="card-page-btn disabled">Next</span>
-                        {% endif %}
-                    </div>
+                    {% else %}
+                        <p class="text-muted mb-0">{{ section.empty_message }}</p>
                     {% endif %}
-                {% else %}
-                    <p class="text-muted mb-0">No adopted posts yet.</p>
-                {% endif %}
+                </div>
             </div>
-        </div>
+        {% endfor %}
     </div>
 </section>
 {% endif %}
@@ -555,7 +413,17 @@
                             </div>
                             <div class="detail-stat">
                                 <span class="detail-label">Status</span>
-                                <strong class="detail-value detail-pill detail-pill--{{ post.status|slugify }}">{{ post.get_status_display }}</strong>
+                                <strong class="detail-value detail-pill detail-pill--{{ item.section_key|slugify }}">
+                                    {% if item.section_key == 'claim' %}
+                                        For Redeem
+                                    {% elif item.section_key == 'adopt' %}
+                                        For Adoption
+                                    {% elif item.section_key == 'reunited' %}
+                                        Redeemed
+                                    {% else %}
+                                        Adopted
+                                    {% endif %}
+                                </strong>
                             </div>
                             <div class="detail-stat detail-stat--wide">
                                 <span class="detail-label">{% if item.is_pending_review %}Verification{% else %}Time Left{% endif %}</span>
@@ -774,6 +642,34 @@
                 <button type="button" class="btn btn-cancel-action" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="requestConfirmSubmit">Continue</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade app-confirm-modal" id="postDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content app-confirm-card">
+            <form method="post" id="postDeleteForm">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ return_to }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="postDeleteTitle">Delete Post</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="app-confirm-message mb-3" id="postDeleteBody">Move this post to history, or check the box below to delete it permanently.</p>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="1" id="postDeletePermanent" name="permanent_delete">
+                        <label class="form-check-label" for="postDeletePermanent">
+                            Permanently delete this post
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer app-confirm-actions">
+                    <button type="button" class="btn btn-cancel-action" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -1145,6 +1041,31 @@
 
             confirmModalEl.addEventListener("hidden.bs.modal", () => {
                 pendingActionForm = null;
+            });
+        }
+
+        const deleteModalEl = document.getElementById("postDeleteModal");
+        const deleteFormEl = document.getElementById("postDeleteForm");
+        const deleteTitleEl = document.getElementById("postDeleteTitle");
+        const deleteBodyEl = document.getElementById("postDeleteBody");
+        if (deleteModalEl && deleteFormEl && deleteTitleEl && deleteBodyEl) {
+            deleteModalEl.addEventListener("show.bs.modal", (event) => {
+                const trigger = event.relatedTarget;
+                if (!trigger) {
+                    return;
+                }
+                const deleteTitle = trigger.getAttribute("data-delete-title") || "this post";
+                const deleteAction = trigger.getAttribute("data-delete-action") || "";
+                deleteFormEl.setAttribute("action", deleteAction);
+                deleteTitleEl.textContent = `Delete ${deleteTitle}`;
+                deleteBodyEl.textContent = `Move ${deleteTitle} to history, or check the box below to delete it permanently.`;
+            });
+
+            deleteModalEl.addEventListener("hidden.bs.modal", () => {
+                deleteFormEl.setAttribute("action", "");
+                deleteFormEl.reset();
+                deleteTitleEl.textContent = "Delete Post";
+                deleteBodyEl.textContent = "Move this post to history, or check the box below to delete it permanently.";
             });
         }
     });

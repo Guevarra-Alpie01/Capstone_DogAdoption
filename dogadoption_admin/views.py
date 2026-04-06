@@ -151,21 +151,42 @@ def _get_cached_post_history_ids():
     if history_candidate_ids is not None:
         return history_candidate_ids
 
+    archived_ids = list(
+        Post.objects.filter(is_history=True)
+        .order_by("-created_at", "-id")
+        .values_list("id", flat=True)
+    )
     history_candidate_posts = list(
         Post.with_pending_request_state(
             Post.objects.filter(
+                is_history=False,
                 status__in=["rescued", "under_care"],
             )
         )
-        .only("id", "status", "created_at", "claim_days")
+        .only(
+            "id",
+            "status",
+            "created_at",
+            "claim_days",
+            "is_history",
+            "phase_override",
+            "phase_override_started_at",
+        )
         .order_by("-created_at")
     )
     Post.attach_active_appointment_dates(history_candidate_posts)
-    history_candidate_ids = [
+    expired_ids = [
         post.id
         for post in history_candidate_posts
         if post.is_expired()
     ]
+    seen_ids = set()
+    history_candidate_ids = []
+    for post_id in [*archived_ids, *expired_ids]:
+        if post_id in seen_ids:
+            continue
+        seen_ids.add(post_id)
+        history_candidate_ids.append(post_id)
     cache.set(
         POST_HISTORY_CACHE_KEY,
         history_candidate_ids,
@@ -185,7 +206,17 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
         post_map = {
             post.id: post
             for post in Post.objects.filter(id__in=page_ids)
-            .only("id", "caption", "location", "status", "created_at", "claim_days")
+            .only(
+                "id",
+                "caption",
+                "location",
+                "status",
+                "created_at",
+                "claim_days",
+                "is_history",
+                "phase_override",
+                "phase_override_started_at",
+            )
         }
         Post.attach_active_appointment_dates(post_map.values())
         primary_image_by_post_id = {}
@@ -200,12 +231,13 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
             post = post_map.get(post_id)
             if not post:
                 continue
+            is_archived = bool(getattr(post, "is_history", False))
             history_posts.append({
                 "post": post,
-                "status_label": "Unresolved",
-                "status_tone": "warning",
+                "status_label": "Archived" if is_archived else "Unresolved",
+                "status_tone": "neutral" if is_archived else "warning",
                 "base_status_label": post.get_status_display(),
-                "closed_date": post.adoption_deadline(),
+                "closed_date": post.created_at if is_archived else post.adoption_deadline(),
                 "primary_image_url": primary_image_by_post_id.get(post_id, ""),
             })
 
@@ -973,6 +1005,83 @@ def _set_post_form_barangay_source(post_form):
     return post_form
 
 
+def _is_truthy(value):
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _safe_next_url(request):
+    next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return next_url
+    return ""
+
+
+def _redirect_to_safe_next(request, fallback_name, *args):
+    next_url = _safe_next_url(request)
+    if next_url:
+        return redirect(next_url)
+    return redirect(fallback_name, *args)
+
+
+def _touch_post_board_cache():
+    cache.delete(POST_HISTORY_CACHE_KEY)
+    bump_user_home_feed_namespace()
+    invalidate_user_notification_content()
+
+
+def _annotate_post_request_count(qs, annotation_name, request_type=None):
+    request_qs = PostRequest.objects.filter(post_id=OuterRef("pk"))
+    if request_type:
+        request_qs = request_qs.filter(request_type=request_type)
+    request_count_subquery = (
+        request_qs.order_by()
+        .values("post_id")
+        .annotate(total=Count("id"))
+        .values("total")[:1]
+    )
+    return qs.annotate(
+        **{
+            annotation_name: Coalesce(
+                Subquery(request_count_subquery, output_field=IntegerField()),
+                Value(0),
+            )
+        }
+    )
+
+
+def _build_post_form_page_context(post_form, *, post=None, form_action="", form_mode="create"):
+    _set_post_form_barangay_source(post_form)
+    existing_images = []
+    if post is not None:
+        for image in post.images.only("image").order_by("id"):
+            image_url = _safe_media_url(getattr(image, "image", None))
+            if image_url:
+                existing_images.append(image_url)
+    is_edit_mode = form_mode == "edit"
+    return {
+        "post_form": post_form,
+        "post": post,
+        "form_action": form_action,
+        "form_mode": form_mode,
+        "form_title": "Edit Dog Post" if is_edit_mode else "Create Dog Adoption Post",
+        "submit_label": "Save Changes" if is_edit_mode else "Publish Post",
+        "submit_icon": "fas fa-save" if is_edit_mode else "fas fa-paper-plane",
+        "confirm_title": "Confirm Save" if is_edit_mode else "Confirm Publish",
+        "confirm_body": (
+            "Save these changes to the post now?"
+            if is_edit_mode
+            else "Publish this post now?"
+        ),
+        "confirm_submit_label": "Save" if is_edit_mode else "Publish",
+        "require_images": not is_edit_mode,
+        "existing_images": existing_images,
+    }
+
+
 def _parse_appointment_dates(dates_raw):
     parsed_dates = []
     for value in [v.strip() for v in (dates_raw or "").split(",") if v.strip()]:
@@ -1077,7 +1186,7 @@ def _build_request_redirect_or_next(request, req):
 
 
 def _render_post_request_list(request, post_id, request_type, template_name):
-    post = get_object_or_404(Post, id=post_id)
+    post = get_object_or_404(Post.objects.filter(is_history=False), id=post_id)
     return render(request, template_name, {
         "post": post,
         "requests_meta": _build_requests_with_meta(post, request_type),
@@ -1310,18 +1419,125 @@ def create_post(request):
             for image in request.FILES.getlist('images'):
                 PostImage.objects.create(post=post, image=image)
 
-            bump_user_home_feed_namespace()
-            invalidate_user_notification_content()
+            _touch_post_board_cache()
             messages.success(request, "Post created successfully.", extra_tags="post_list")
             return redirect('dogadoption_admin:post_list')
     else:
         post_form = PostForm()
 
-    _set_post_form_barangay_source(post_form)
+    return render(
+        request,
+        'admin_home/create_post.html',
+        _build_post_form_page_context(
+            post_form,
+            form_action=reverse("dogadoption_admin:create_post"),
+            form_mode="create",
+        ),
+    )
 
-    return render(request, 'admin_home/create_post.html', {
-        'post_form': post_form
-    })
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def update_post(request, post_id):
+    """Edit an existing rescue post from the admin home module."""
+    access = getattr(request, "admin_access", get_admin_access(request.user))
+    if not access.get("can_create_posts"):
+        messages.error(request, "You do not have permission to edit posts.")
+        return redirect(access.get("landing_url") or reverse("dogadoption_admin:post_list"))
+
+    post = get_object_or_404(Post.objects.prefetch_related("images").filter(is_history=False), id=post_id)
+
+    if request.method == "POST":
+        post_form = PostForm(request.POST, instance=post)
+        if post_form.is_valid():
+            post = post_form.save()
+            for image in request.FILES.getlist("images"):
+                PostImage.objects.create(post=post, image=image)
+            _touch_post_board_cache()
+            messages.success(request, "Post updated successfully.", extra_tags="post_list")
+            return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+    else:
+        post_form = PostForm(instance=post)
+
+    return render(
+        request,
+        "admin_home/create_post.html",
+        _build_post_form_page_context(
+            post_form,
+            post=post,
+            form_action=reverse("dogadoption_admin:update_post", args=[post.id]),
+            form_mode="edit",
+        ),
+    )
+
+
+@admin_required
+@require_POST
+def toggle_post_phase(request, post_id):
+    """Manually move an active rescue post between the redeem and adoption groups."""
+    access = getattr(request, "admin_access", get_admin_access(request.user))
+    if not access.get("can_create_posts"):
+        messages.error(request, "You do not have permission to update posts.", extra_tags="post_list")
+        return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+    post = get_object_or_404(Post.objects.filter(is_history=False), id=post_id)
+    if post.status in {"reunited", "adopted"}:
+        messages.warning(request, "Finalized posts can no longer switch between redeem and adoption.", extra_tags="post_list")
+        return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+    timeline_phase = post.timeline_phase()
+    if timeline_phase == "closed":
+        messages.warning(request, "This post is already outside the active redeem/adoption window.", extra_tags="post_list")
+        return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+    current_phase = post.current_phase()
+    target_phase = (request.POST.get("phase") or "").strip().lower()
+    if target_phase not in {"claim", "adopt"}:
+        if current_phase == "claim":
+            target_phase = "adopt"
+        elif current_phase == "adopt":
+            target_phase = "claim"
+
+    if target_phase not in {"claim", "adopt"}:
+        messages.error(request, "Invalid target status selected.", extra_tags="post_list")
+        return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+    post.phase_override = target_phase
+    post.phase_override_started_at = timezone.now()
+    post.save(update_fields=["phase_override", "phase_override_started_at"])
+    _touch_post_board_cache()
+    messages.success(
+        request,
+        f'Post moved to {"For Redeem" if target_phase == "claim" else "For Adoption"}.',
+        extra_tags="post_list",
+    )
+    return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+
+@admin_required
+@require_POST
+def delete_post(request, post_id):
+    """Archive a rescue post or permanently remove it from the system."""
+    access = getattr(request, "admin_access", get_admin_access(request.user))
+    if not access.get("can_create_posts"):
+        messages.error(request, "You do not have permission to delete posts.", extra_tags="post_list")
+        return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+    post = get_object_or_404(Post, id=post_id)
+    post_name = post.display_title or post.caption or f"Post {post.id}"
+    permanent_delete = _is_truthy(request.POST.get("permanent_delete"))
+
+    if permanent_delete:
+        post.delete()
+        messages.success(request, f'Post "{post_name}" was permanently deleted.', extra_tags="post_list")
+    else:
+        if not post.is_history:
+            post.is_history = True
+            post.save(update_fields=["is_history"])
+        messages.success(request, f'Post "{post_name}" was moved to history.', extra_tags="post_list")
+
+    _touch_post_board_cache()
+    return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
 
 @admin_required
 def post_list(request):
@@ -1368,9 +1584,7 @@ def post_list(request):
                 for image in request.FILES.getlist('images'):
                     PostImage.objects.create(post=post, image=image)
 
-                cache.delete(POST_HISTORY_CACHE_KEY)
-                bump_user_home_feed_namespace()
-                invalidate_user_notification_content()
+                _touch_post_board_cache()
                 messages.success(request, "Post created successfully.", extra_tags="post_list")
                 return redirect(reverse('dogadoption_admin:post_list'))
 
@@ -1378,9 +1592,48 @@ def post_list(request):
 
     now = timezone.now()
     active_statuses = ["rescued", "under_care"]
+    rows_per_page = 10
+    section_definitions = (
+        {
+            "key": "claim",
+            "title": "For Redeem",
+            "tone": "status-claim",
+            "page_param": "claim_page",
+            "request_type": "claim",
+            "allow_toggle": True,
+            "empty_message": "No posts are currently queued for redeem.",
+        },
+        {
+            "key": "adopt",
+            "title": "For Adoption",
+            "tone": "status-adopt",
+            "page_param": "adoption_page",
+            "request_type": "adopt",
+            "allow_toggle": True,
+            "empty_message": "No posts are currently queued for adoption.",
+        },
+        {
+            "key": "reunited",
+            "title": "Redeemed",
+            "tone": "status-reunited",
+            "page_param": "reunited_page",
+            "request_type": "claim",
+            "allow_toggle": False,
+            "empty_message": "No redeemed posts yet.",
+        },
+        {
+            "key": "adopted",
+            "title": "Adopted",
+            "tone": "status-adopted",
+            "page_param": "adopted_page",
+            "request_type": "adopt",
+            "allow_toggle": False,
+            "empty_message": "No adopted posts yet.",
+        },
+    )
 
     base_qs = Post.with_pending_request_state(
-        Post.objects.only(
+        Post.objects.filter(is_history=False).only(
             'id',
             'caption',
             'breed',
@@ -1396,54 +1649,30 @@ def post_list(request):
             'rescued_date',
             'claim_days',
             'created_at',
+            'phase_override',
+            'phase_override_started_at',
+            'is_history',
+            'view_count',
         )
     )
+    base_qs = _annotate_post_request_count(base_qs, "claim_count", "claim")
+    base_qs = _annotate_post_request_count(base_qs, "adopt_count", "adopt")
+    base_qs = _annotate_post_request_count(base_qs, "total_request_count")
 
-    def _with_request_count(qs, request_type, annotation_name):
-        request_count_subquery = (
-            PostRequest.objects.filter(post_id=OuterRef("pk"), request_type=request_type)
-            .order_by()
-            .values("post_id")
-            .annotate(total=Count("id"))
-            .values("total")[:1]
-        )
-        return qs.annotate(
-            **{
-                annotation_name: Coalesce(
-                    Subquery(request_count_subquery, output_field=IntegerField()),
-                    Value(0),
-                )
-            }
-        )
+    def _build_page_qs(page_param, page_num):
+        params = request.GET.copy()
+        params[page_param] = str(page_num)
+        return params.urlencode()
 
-    def format_posted_label(dt):
-        if not dt:
-            return ""
-        now = timezone.now()
-        delta = now - dt
-        if delta < timedelta(minutes=1):
-            return "Just now"
-        if delta < timedelta(hours=1):
-            minutes = max(int(delta.total_seconds() // 60), 1)
-            return f"{minutes}m"
-        if delta < timedelta(days=1):
-            hours = max(int(delta.total_seconds() // 3600), 1)
-            return f"{hours}h"
-        if delta < timedelta(days=7):
-            days = max(int(delta.total_seconds() // 86400), 1)
-            return f"{days}d"
-        return dt.strftime("%b %d, %Y")
-
-    rows_per_page = 10
-
-    def _build_post_item(post, phase):
+    def _build_post_item(post, section_key, request_type, allow_toggle):
         days = hours = minutes = 0
+        is_active_section = section_key in {"claim", "adopt"}
         is_pending_review = (
-            phase in {"claim", "adopt"}
-            and bool(getattr(post, f"has_pending_{phase}_request", False))
+            is_active_section
+            and bool(getattr(post, f"has_pending_{section_key}_request", False))
         )
         pending_review_until = (
-            post.pending_request_review_available_at(phase)
+            post.pending_request_review_available_at(section_key)
             if is_pending_review
             else None
         )
@@ -1453,16 +1682,18 @@ def post_list(request):
             else ""
         )
         deadline = None
-        if phase == 'claim' and not is_pending_review:
+        if section_key == "claim" and not is_pending_review:
             deadline = post.claim_deadline()
-        elif phase == 'adopt' and not is_pending_review:
+        elif section_key == "adopt" and not is_pending_review:
             deadline = post.adoption_deadline()
 
         remaining_time = timedelta(seconds=0)
-        if phase in {'claim', 'adopt'} and not is_pending_review:
-            remaining_time = post.time_left(now)
-
-        if remaining_time and phase in {'claim', 'adopt'}:
+        if is_active_section and not is_pending_review:
+            timeline_phase = post.timeline_phase()
+            if timeline_phase == section_key:
+                remaining_time = post.time_left(now)
+            elif deadline:
+                remaining_time = deadline - now
             total_seconds = max(int(remaining_time.total_seconds()), 0)
             days = total_seconds // 86400
             remainder = total_seconds % 86400
@@ -1470,104 +1701,130 @@ def post_list(request):
             remainder = remainder % 3600
             minutes = remainder // 60
 
+        time_left_label = "Completed"
+        if is_pending_review:
+            time_left_label = (
+                f"Verification until {pending_review_until_label}"
+                if pending_review_until_label
+                else "Pending admin review"
+            )
+        elif is_active_section:
+            time_left_label = (
+                f"{days:02d}d {hours:02d}h {minutes:02d}m"
+                if deadline
+                else "No active time window"
+            )
+
+        toggle_phase = ""
+        toggle_label = ""
+        if allow_toggle:
+            toggle_phase = "adopt" if section_key == "claim" else "claim"
+            toggle_label = "Switch to Adoption" if section_key == "claim" else "Switch to Redeem"
+
+        request_count = int(getattr(post, "total_request_count", 0) or 0)
+        if request_type == "claim":
+            request_count = int(getattr(post, "claim_count", 0) or 0)
+        elif request_type == "adopt":
+            request_count = int(getattr(post, "adopt_count", 0) or 0)
+
         return {
-            'post': post,
-            'days_left': days,
-            'hours_left': hours,
-            'minutes_left': minutes,
-            'phase': phase,
-            'is_pending_review': is_pending_review,
-            'show_countdown': bool(deadline and phase in {'claim', 'adopt'}),
-            'pending_review_until': pending_review_until,
-            'pending_review_until_label': pending_review_until_label,
-            'posted_label': format_posted_label(post.created_at),
-            'deadline_iso': deadline.isoformat() if deadline else "",
-            'time_left_label': (
-                (
-                    f"Verification until {pending_review_until_label}"
-                    if pending_review_until_label
-                    else "Pending admin review"
-                )
-                if is_pending_review
-                else (
-                    f"{days:02d}d {hours:02d}h {minutes:02d}m"
-                    if phase in ['claim', 'adopt']
-                    else "No active time window"
-                )
-            ),
-            'claim_request_count': int(getattr(post, "claim_count", 0) or 0),
-            'adopt_request_count': int(getattr(post, "adopt_count", 0) or 0),
-            'claim_requests': [],
-            'adopt_requests': [],
-            'primary_image_url': "",
+            "post": post,
+            "section_key": section_key,
+            "request_type": request_type,
+            "request_count": request_count,
+            "total_request_count": int(getattr(post, "total_request_count", 0) or 0),
+            "claim_request_count": int(getattr(post, "claim_count", 0) or 0),
+            "adopt_request_count": int(getattr(post, "adopt_count", 0) or 0),
+            "view_count": int(getattr(post, "view_count", 0) or 0),
+            "days_left": days,
+            "hours_left": hours,
+            "minutes_left": minutes,
+            "is_pending_review": is_pending_review,
+            "pending_review_until": pending_review_until,
+            "pending_review_until_label": pending_review_until_label,
+            "deadline_iso": deadline.isoformat() if deadline else "",
+            "time_left_label": time_left_label,
+            "claim_requests": [],
+            "adopt_requests": [],
+            "primary_image_url": "",
+            "finalized_user_name": "-",
+            "finalized_user_barangay": "-",
+            "detail_modal_id": f"postDetails{post.id}",
+            "request_modal_id": f"{request_type}RequestUsers{post.id}",
+            "edit_url": reverse("dogadoption_admin:update_post", args=[post.id]),
+            "toggle_url": reverse("dogadoption_admin:toggle_post_phase", args=[post.id]),
+            "toggle_phase": toggle_phase,
+            "toggle_label": toggle_label,
+            "delete_url": reverse("dogadoption_admin:delete_post", args=[post.id]),
+            "allow_toggle": allow_toggle,
         }
 
-    def _paginate_status(qs, page_param, phase):
-        paginator = Paginator(qs, rows_per_page)
-        page_obj = paginator.get_page(request.GET.get(page_param, 1))
-        return page_obj, [_build_post_item(post, phase) for post in page_obj.object_list]
-
-    def _build_page_qs(page_param, page_num):
-        params = request.GET.copy()
-        params[page_param] = str(page_num)
-        return params.urlencode()
+    def _paginate_status(posts, section_definition):
+        paginator = Paginator(posts, rows_per_page)
+        page_obj = paginator.get_page(request.GET.get(section_definition["page_param"], 1))
+        items = [
+            _build_post_item(
+                post,
+                section_definition["key"],
+                section_definition["request_type"],
+                section_definition["allow_toggle"],
+            )
+            for post in page_obj.object_list
+        ]
+        return page_obj, items
 
     active_post_candidates = list(
-        _with_request_count(
-            _with_request_count(
-                base_qs.filter(status__in=active_statuses),
-                "claim",
-                "claim_count",
-            ),
-            "adopt",
-            "adopt_count",
-        ).order_by("-created_at", "-id")
+        base_qs.filter(status__in=active_statuses).order_by("-created_at", "-id")
     )
     active_appointment_dates = Post.attach_active_appointment_dates(active_post_candidates)
 
-    claim_qs = [
-        post
-        for post in active_post_candidates
-        if post.current_phase() == "claim" or getattr(post, "has_pending_claim_request", False)
-    ]
-    claim_qs.sort(
-        key=lambda post: (
-            -int(getattr(post, "claim_count", 0) or 0),
-            -post.created_at.timestamp(),
-            -post.id,
+    open_posts_by_phase = {"claim": [], "adopt": []}
+    for post in active_post_candidates:
+        phase = post.current_phase()
+        if phase in open_posts_by_phase:
+            open_posts_by_phase[phase].append(post)
+
+    for phase_key, posts in open_posts_by_phase.items():
+        posts.sort(
+            key=lambda post: (
+                -int(getattr(post, "total_request_count", 0) or 0),
+                -post.created_at.timestamp(),
+                -post.id,
+            )
         )
-    )
-    adoption_qs = [
-        post
-        for post in active_post_candidates
-        if post.current_phase() == "adopt" or getattr(post, "has_pending_adopt_request", False)
-    ]
-    adoption_qs.sort(
-        key=lambda post: (
-            -int(getattr(post, "adopt_count", 0) or 0),
-            -post.created_at.timestamp(),
-            -post.id,
-        )
-    )
-    reunited_qs = list(base_qs.filter(status='reunited').order_by("-created_at", "-id"))
-    adopted_qs = list(base_qs.filter(status='adopted').order_by("-created_at", "-id"))
+
+    section_post_map = {
+        "claim": open_posts_by_phase["claim"],
+        "adopt": open_posts_by_phase["adopt"],
+        "reunited": list(base_qs.filter(status='reunited').order_by("-created_at", "-id")),
+        "adopted": list(base_qs.filter(status='adopted').order_by("-created_at", "-id")),
+    }
 
     history_total = len(_get_cached_post_history_ids())
-
-    claim_page_obj, claim_posts = _paginate_status(claim_qs, "claim_page", "claim")
-    adoption_page_obj, adoption_posts = _paginate_status(adoption_qs, "adoption_page", "adopt")
-    reunited_page_obj, reunited_posts = _paginate_status(reunited_qs, "reunited_page", "closed")
-    adopted_page_obj, adopted_posts = _paginate_status(adopted_qs, "adopted_page", "closed")
-    claim_total = claim_page_obj.paginator.count
-    adoption_total = adoption_page_obj.paginator.count
-    reunited_total = reunited_page_obj.paginator.count
-    adopted_total = adopted_page_obj.paginator.count
-
+    status_sections = []
     modal_posts_by_id = {}
-    for item in claim_posts + adoption_posts + reunited_posts + adopted_posts:
-        post_id = item["post"].id
-        if post_id not in modal_posts_by_id:
-            modal_posts_by_id[post_id] = item
+    for section_definition in section_definitions:
+        page_obj, items = _paginate_status(section_post_map[section_definition["key"]], section_definition)
+        section_payload = {
+            **section_definition,
+            "count": page_obj.paginator.count,
+            "items": items,
+            "page_obj": page_obj,
+            "prev_qs": (
+                _build_page_qs(section_definition["page_param"], page_obj.previous_page_number())
+                if page_obj.has_previous()
+                else ""
+            ),
+            "next_qs": (
+                _build_page_qs(section_definition["page_param"], page_obj.next_page_number())
+                if page_obj.has_next()
+                else ""
+            ),
+        }
+        status_sections.append(section_payload)
+        for item in items:
+            modal_posts_by_id.setdefault(item["post"].id, item)
+
     for item in modal_posts_by_id.values():
         item["claim_requests"] = []
         item["adopt_requests"] = []
@@ -1676,30 +1933,11 @@ def post_list(request):
 
     return render(request, 'admin_home/post_list.html', {
         'all_posts': paged_all_posts,
+        'status_sections': status_sections,
         'post_form': post_form,
         'show_create_modal': show_create_modal,
         'appointment_dates': [d.strftime('%Y-%m-%d') for d in global_dates],
         'show_appointment_modal': show_appointment_modal,
-        'claim_total': claim_total,
-        'adoption_total': adoption_total,
-        'reunited_total': reunited_total,
-        'adopted_total': adopted_total,
-        'claim_posts': claim_posts,
-        'adoption_posts': adoption_posts,
-        'reunited_posts': reunited_posts,
-        'adopted_posts': adopted_posts,
-        'claim_page_obj': claim_page_obj,
-        'adoption_page_obj': adoption_page_obj,
-        'reunited_page_obj': reunited_page_obj,
-        'adopted_page_obj': adopted_page_obj,
-        'claim_prev_qs': _build_page_qs("claim_page", claim_page_obj.previous_page_number()) if claim_page_obj.has_previous() else "",
-        'claim_next_qs': _build_page_qs("claim_page", claim_page_obj.next_page_number()) if claim_page_obj.has_next() else "",
-        'adoption_prev_qs': _build_page_qs("adoption_page", adoption_page_obj.previous_page_number()) if adoption_page_obj.has_previous() else "",
-        'adoption_next_qs': _build_page_qs("adoption_page", adoption_page_obj.next_page_number()) if adoption_page_obj.has_next() else "",
-        'reunited_prev_qs': _build_page_qs("reunited_page", reunited_page_obj.previous_page_number()) if reunited_page_obj.has_previous() else "",
-        'reunited_next_qs': _build_page_qs("reunited_page", reunited_page_obj.next_page_number()) if reunited_page_obj.has_next() else "",
-        'adopted_prev_qs': _build_page_qs("adopted_page", adopted_page_obj.previous_page_number()) if adopted_page_obj.has_previous() else "",
-        'adopted_next_qs': _build_page_qs("adopted_page", adopted_page_obj.next_page_number()) if adopted_page_obj.has_next() else "",
         'history_total': history_total,
         'return_to': request.get_full_path(),
     })
@@ -1817,7 +2055,9 @@ def update_request(request, req_id, action):
                 post.status = 'reunited'
             elif req.request_type == 'adopt':
                 post.status = 'adopted'
-            post.save(update_fields=['status'])
+            post.phase_override = ""
+            post.phase_override_started_at = None
+            post.save(update_fields=['status', 'phase_override', 'phase_override_started_at'])
 
             post.requests.filter(status='pending').exclude(id=req.id).update(
                 status='rejected',

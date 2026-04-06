@@ -85,6 +85,9 @@ STAFF_PERMISSION_GROUPS = (
 ADMIN_ROUTE_RULES = {
     "post_list": {"any_of": ("can_access_posts_dashboard",)},
     "create_post": {"any_of": ("can_create_posts",)},
+    "update_post": {"any_of": ("can_create_posts",)},
+    "toggle_post_phase": {"any_of": ("can_create_posts",)},
+    "delete_post": {"any_of": ("can_create_posts",)},
     "post_history": {"any_of": ("can_view_post_history",)},
     "claim_requests": {"any_of": ("can_view_status_cards",)},
     "adoption_requests": {"any_of": ("can_view_status_cards",)},

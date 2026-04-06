@@ -115,6 +115,12 @@ class Post(models.Model):
         ('adopted', 'Adopted'),
     ]
 
+    PHASE_OVERRIDE_CHOICES = [
+        ("claim", "Redeem"),
+        ("adopt", "Adoption"),
+    ]
+    MANUAL_PHASE_RESET_DAYS = 3
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     caption = models.TextField()
     breed = models.CharField(max_length=40, choices=BREED_CHOICES, blank=True, default="")
@@ -134,6 +140,15 @@ class Post(models.Model):
     )
 
     rescued_date = models.DateField(blank=True, null=True)
+    phase_override = models.CharField(
+        max_length=10,
+        choices=PHASE_OVERRIDE_CHOICES,
+        blank=True,
+        default="",
+    )
+    phase_override_started_at = models.DateTimeField(blank=True, null=True)
+    is_history = models.BooleanField(default=False)
+    view_count = models.PositiveIntegerField(default=0)
 
     claim_days = models.PositiveIntegerField(
         default=3,
@@ -425,6 +440,50 @@ class Post(models.Model):
             return self.created_at + timedelta(days=claim_days)
         return None
 
+    def _manual_phase_schedule(self, now=None):
+        if self.status in ["reunited", "adopted"]:
+            return {
+                "is_active": False,
+                "current_phase": "closed",
+                "claim_deadline": None,
+                "adoption_deadline": None,
+            }
+
+        phase = (self.phase_override or "").strip()
+        started_at = self.phase_override_started_at
+        if phase not in {"claim", "adopt"} or not started_at:
+            return {
+                "is_active": False,
+                "current_phase": "",
+                "claim_deadline": None,
+                "adoption_deadline": None,
+            }
+
+        now = now or timezone.now()
+        reset_delta = timedelta(days=self.MANUAL_PHASE_RESET_DAYS)
+        claim_deadline = None
+        adoption_deadline = None
+        current_phase = "closed"
+
+        if phase == "claim":
+            claim_deadline = started_at + reset_delta
+            adoption_deadline = claim_deadline + reset_delta
+            if now <= claim_deadline:
+                current_phase = "claim"
+            elif now <= adoption_deadline:
+                current_phase = "adopt"
+        else:
+            adoption_deadline = started_at + reset_delta
+            if now <= adoption_deadline:
+                current_phase = "adopt"
+
+        return {
+            "is_active": current_phase in {"claim", "adopt"},
+            "current_phase": current_phase,
+            "claim_deadline": claim_deadline,
+            "adoption_deadline": adoption_deadline,
+        }
+
     def _timeline_schedule(self):
         active_dates = getattr(self, "_prefetched_global_appointment_dates", None)
         if active_dates is None:
@@ -502,10 +561,16 @@ class Post(models.Model):
 
     def claim_deadline(self):
         """Deadline for owner claim window."""
+        manual_schedule = self._manual_phase_schedule()
+        if self.phase_override == "claim" and manual_schedule["claim_deadline"]:
+            return manual_schedule["claim_deadline"]
         return self._timeline_schedule()["claim_deadline"]
 
     def adoption_deadline(self):
         """Deadline for adoption window after the claim window ends."""
+        manual_schedule = self._manual_phase_schedule()
+        if manual_schedule["adoption_deadline"]:
+            return manual_schedule["adoption_deadline"]
         return self._timeline_schedule()["adoption_deadline"]
 
     def _phase_schedule_dates(self, phase):
@@ -575,11 +640,24 @@ class Post(models.Model):
         - adopt
         - closed
         """
+        manual_schedule = self._manual_phase_schedule()
+        if self.phase_override in {"claim", "adopt"} and manual_schedule["current_phase"]:
+            return manual_schedule["current_phase"]
+        if self.phase_override in {"claim", "adopt"} and not manual_schedule["is_active"]:
+            return "closed"
         return self.timeline_phase()
 
     def time_left(self, now=None):
         """Return remaining time in the active phase."""
         now = now or timezone.now()
+        manual_schedule = self._manual_phase_schedule(now)
+        if self.phase_override in {"claim", "adopt"}:
+            if manual_schedule["current_phase"] == "claim" and manual_schedule["claim_deadline"]:
+                return max(manual_schedule["claim_deadline"] - now, timedelta(seconds=0))
+            if manual_schedule["current_phase"] == "adopt" and manual_schedule["adoption_deadline"]:
+                return max(manual_schedule["adoption_deadline"] - now, timedelta(seconds=0))
+            return timedelta(seconds=0)
+
         phase = self.timeline_phase(now)
         schedule = self._timeline_schedule()
 
@@ -587,12 +665,12 @@ class Post(models.Model):
             if schedule["use_calendar_schedule"]:
                 return self._remaining_scheduled_time(schedule["claim_dates"], now)
             claim_deadline = schedule["claim_deadline"]
-            return claim_deadline - now if claim_deadline else timedelta(seconds=0)
+            return max(claim_deadline - now, timedelta(seconds=0)) if claim_deadline else timedelta(seconds=0)
         if phase == 'adopt':
             if schedule["use_calendar_schedule"]:
                 return self._remaining_scheduled_time(schedule["adoption_dates"], now)
             adoption_deadline = schedule["adoption_deadline"]
-            return adoption_deadline - now if adoption_deadline else timedelta(seconds=0)
+            return max(adoption_deadline - now, timedelta(seconds=0)) if adoption_deadline else timedelta(seconds=0)
         return timedelta(seconds=0)
 
     def is_expired(self):
@@ -628,6 +706,7 @@ class Post(models.Model):
         indexes = [
             models.Index(fields=["created_at"], name="post_created_idx"),
             models.Index(fields=["status", "created_at"], name="post_status_created_idx"),
+            models.Index(fields=["is_history", "status", "created_at"], name="post_hist_status_created_idx"),
         ]
 
 

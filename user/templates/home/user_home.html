@@ -35,6 +35,76 @@
         </div>
     </section>
 
+    {% if pinned_admin_spotlight %}
+    <section class="home-admin-spotlight-shell" aria-labelledby="homePinnedSpotlightTitle">
+        <div class="home-admin-spotlight home-reveal">
+            <a href="{{ pinned_admin_spotlight.detail_url }}" class="home-admin-spotlight__media">
+                {% if pinned_admin_spotlight.main_image_url %}
+                    <img src="{{ pinned_admin_spotlight.main_image_url }}" alt="{{ pinned_admin_spotlight.image_alt }}">
+                {% else %}
+                    <div class="home-admin-spotlight__media-fallback">
+                        <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
+                        <span>Pinned rescue spotlight</span>
+                    </div>
+                {% endif %}
+                <div class="home-admin-spotlight__media-overlay">
+                    <span class="home-admin-spotlight__media-badge">
+                        <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
+                        <span>Homepage Spotlight</span>
+                    </span>
+                    <span class="home-admin-spotlight__media-date">Pinned {{ pinned_admin_spotlight.pinned_on_label }}</span>
+                </div>
+            </a>
+
+            <div class="home-admin-spotlight__copy">
+                <span class="home-admin-spotlight__eyebrow">
+                    <i class="bi bi-stars" aria-hidden="true"></i>
+                    <span>{{ pinned_admin_spotlight.support_title }}</span>
+                </span>
+                <h2 class="home-admin-spotlight__title" id="homePinnedSpotlightTitle">{{ pinned_admin_spotlight.title }}</h2>
+                <p class="home-admin-spotlight__text">{{ pinned_admin_spotlight.spotlight_copy }}</p>
+
+                <div class="home-admin-spotlight__chips">
+                    <span class="home-admin-spotlight__chip home-admin-spotlight__chip--phase">{{ pinned_admin_spotlight.phase_title }}</span>
+                    <span class="home-admin-spotlight__chip">{{ pinned_admin_spotlight.time_left_badge }}</span>
+                    <span class="home-admin-spotlight__chip">{{ pinned_admin_spotlight.location_label }}</span>
+                </div>
+
+                <div class="home-admin-spotlight__facts" role="list">
+                    {% for fact in pinned_admin_spotlight.facts %}
+                    <div class="home-admin-spotlight__fact" role="listitem">
+                        <span>{{ fact.label }}</span>
+                        <strong>{{ fact.value }}</strong>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <p class="home-admin-spotlight__context">{{ pinned_admin_spotlight.time_left_context }}</p>
+
+                <div class="home-admin-spotlight__actions">
+                    <a
+                        href="{{ pinned_admin_spotlight.primary_cta_url }}"
+                        class="home-admin-spotlight__btn home-admin-spotlight__btn--primary"
+                        {% if pinned_admin_spotlight.primary_requires_auth and not request.user.is_authenticated %}
+                        data-auth-modal-trigger="login"
+                        data-auth-next-url="{{ pinned_admin_spotlight.primary_cta_url }}"
+                        {% endif %}
+                    >
+                        <span>{{ pinned_admin_spotlight.primary_cta_label }}</span>
+                        <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+                    </a>
+                    <a href="{{ pinned_admin_spotlight.secondary_cta_url }}" class="home-admin-spotlight__btn home-admin-spotlight__btn--secondary">
+                        <span>{{ pinned_admin_spotlight.secondary_cta_label }}</span>
+                    </a>
+                    <a href="{{ pinned_admin_spotlight.browse_url }}" class="home-admin-spotlight__btn home-admin-spotlight__btn--ghost">
+                        <span>Browse More Dogs</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
 <section class="home-featured-shell container" aria-label="Featured rescue dogs">
     <div class="home-featured-grid">
         {% for section in featured_dog_sections %}
@@ -99,6 +169,7 @@
                                             {% endif %}
                                         >
                                             {{ item.action_label }} Dog
+                                            <span class="visually-hidden">Open Post Page</span>
                                         </a>
                                         <button
                                             type="button"
@@ -133,7 +204,7 @@
                                 <ul class="dog-scale-carousel__facts" role="list">
                                     <li><span>Barangay</span><strong>{{ item.barangay_label }}</strong></li>
                                     <li><span>{{ item.countdown_date_heading }}</span><strong>{{ item.countdown_date_label }}</strong></li>
-                                    <li><span>Time Left</span><strong>{{ item.time_left_badge }}</strong></li>
+                                    <li><span>{% if item.is_pending_review %}Review Status{% else %}Time Left{% endif %}</span><strong>{{ item.time_left_badge }}</strong></li>
                                     <li><span>Age</span><strong>{{ item.age_label }}</strong></li>
                                     <li><span>Size</span><strong>{{ item.size_label }}</strong></li>
                                     <li><span>Gender</span><strong>{{ item.gender_label }}</strong></li>
@@ -176,6 +247,7 @@
         {% endfor %}
     </div>
 </section>
+{% include 'home/_limited_time_rescue_section.html' with section=limited_time_rescue_section %}
 {% if request.user.is_authenticated %}
 <div class="modal fade post-create-modal" id="createPostModal" tabindex="-1" aria-labelledby="createPostModalLabel" aria-hidden="true" data-open-on-load="{% if open_create_modal %}1{% else %}0{% endif %}">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
@@ -495,6 +567,259 @@
         });
 
         startAutoplay();
+    });
+
+    document.querySelectorAll('[data-limited-dog-carousel]').forEach((carousel) => {
+        if (carousel.dataset.carouselReady === '1') {
+            return;
+        }
+        carousel.dataset.carouselReady = '1';
+
+        const viewport = carousel.querySelector('[data-limited-dog-viewport]');
+        const slides = Array.from(carousel.querySelectorAll('[data-limited-dog-slide]'));
+        const indicators = Array.from(carousel.querySelectorAll('[data-limited-dog-indicator]'));
+        const prevButton = carousel.querySelector('[data-limited-dog-nav="prev"]');
+        const nextButton = carousel.querySelector('[data-limited-dog-nav="next"]');
+        const finePointer = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+        let currentIndex = Math.max(slides.findIndex((slide) => slide.classList.contains('is-active')), 0);
+        let scrollFrame = null;
+
+        if (!viewport || !slides.length) {
+            return;
+        }
+
+        const setDetailState = (slide, isOpen, { pinned = false } = {}) => {
+            const toggle = slide.querySelector('[data-limited-dog-detail-toggle]');
+            const panel = slide.querySelector('[data-limited-dog-detail-panel]');
+            slide.classList.toggle('is-details-open', isOpen);
+            if (toggle) {
+                toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            }
+            if (panel) {
+                panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+            }
+            if (isOpen && pinned) {
+                slide.dataset.detailPinned = '1';
+            } else {
+                delete slide.dataset.detailPinned;
+            }
+        };
+
+        const closeAllDetails = ({ except = null } = {}) => {
+            slides.forEach((slide) => {
+                if (slide === except) {
+                    return;
+                }
+                setDetailState(slide, false);
+            });
+        };
+
+        const syncIndicators = (index) => {
+            indicators.forEach((indicator, indicatorIndex) => {
+                const isActive = indicatorIndex === index;
+                indicator.classList.toggle('is-active', isActive);
+                indicator.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+        };
+
+        const syncActiveState = (index) => {
+            currentIndex = index;
+            slides.forEach((slide, slideIndex) => {
+                const isActive = slideIndex === index;
+                slide.classList.toggle('is-active', isActive);
+                slide.setAttribute('tabindex', isActive ? '0' : '-1');
+            });
+            syncIndicators(index);
+        };
+
+        const centerSlide = (slide, behavior = prefersReducedMotion ? 'auto' : 'smooth') => {
+            if (!slide) {
+                return;
+            }
+
+            const viewportRect = viewport.getBoundingClientRect();
+            const slideRect = slide.getBoundingClientRect();
+            const offset = slideRect.left - viewportRect.left - ((viewportRect.width - slideRect.width) / 2);
+
+            viewport.scrollBy({
+                left: offset,
+                behavior,
+            });
+        };
+
+        const activateIndex = (index, { scroll = true, behavior = prefersReducedMotion ? 'auto' : 'smooth' } = {}) => {
+            if (!slides[index]) {
+                return;
+            }
+            syncActiveState(index);
+            if (scroll) {
+                centerSlide(slides[index], behavior);
+            }
+        };
+
+        const findNearestIndex = () => {
+            const viewportRect = viewport.getBoundingClientRect();
+            const center = viewportRect.left + (viewportRect.width / 2);
+            let nearestIndex = 0;
+            let smallestDistance = Number.POSITIVE_INFINITY;
+
+            slides.forEach((slide, index) => {
+                const rect = slide.getBoundingClientRect();
+                const distance = Math.abs((rect.left + (rect.width / 2)) - center);
+                if (distance < smallestDistance) {
+                    smallestDistance = distance;
+                    nearestIndex = index;
+                }
+            });
+
+            return nearestIndex;
+        };
+
+        const syncActiveFromScroll = () => {
+            syncActiveState(findNearestIndex());
+        };
+
+        const openDetails = (slide, { pinned = false } = {}) => {
+            slides.forEach((currentSlide) => {
+                setDetailState(currentSlide, currentSlide === slide, {
+                    pinned: currentSlide === slide ? pinned : false,
+                });
+            });
+            activateIndex(slides.indexOf(slide));
+        };
+
+        const goByStep = (step) => {
+            closeAllDetails();
+            activateIndex((currentIndex + step + slides.length) % slides.length);
+        };
+
+        slides.forEach((slide, index) => {
+            const toggle = slide.querySelector('[data-limited-dog-detail-toggle]');
+            const closeButton = slide.querySelector('[data-limited-dog-detail-close]');
+
+            slide.setAttribute('tabindex', index === currentIndex ? '0' : '-1');
+
+            slide.addEventListener('click', (event) => {
+                if (event.target.closest('a, button, input, textarea, select, label')) {
+                    return;
+                }
+                activateIndex(index);
+            });
+
+            if (toggle) {
+                toggle.addEventListener('mouseenter', () => {
+                    if (finePointer) {
+                        openDetails(slide);
+                    }
+                });
+                toggle.addEventListener('focus', () => {
+                    openDetails(slide);
+                });
+                toggle.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    const isPinnedOpen = slide.classList.contains('is-details-open') && slide.dataset.detailPinned === '1';
+                    if (isPinnedOpen) {
+                        setDetailState(slide, false);
+                    } else {
+                        openDetails(slide, { pinned: true });
+                    }
+                });
+            }
+
+            if (closeButton) {
+                closeButton.addEventListener('click', () => {
+                    setDetailState(slide, false);
+                });
+            }
+
+            slide.addEventListener('mouseleave', () => {
+                if (finePointer && slide.dataset.detailPinned !== '1' && !slide.contains(document.activeElement)) {
+                    setDetailState(slide, false);
+                }
+            });
+
+            slide.addEventListener('focusout', () => {
+                window.setTimeout(() => {
+                    if (slide.dataset.detailPinned !== '1' && !slide.contains(document.activeElement)) {
+                        setDetailState(slide, false);
+                    }
+                }, 0);
+            });
+        });
+
+        indicators.forEach((indicator) => {
+            indicator.addEventListener('click', () => {
+                const nextIndex = Number(indicator.dataset.limitedDogIndex);
+                if (!Number.isNaN(nextIndex)) {
+                    closeAllDetails();
+                    activateIndex(nextIndex);
+                }
+            });
+        });
+
+        if (prevButton) {
+            prevButton.addEventListener('click', () => {
+                goByStep(-1);
+            });
+        }
+
+        if (nextButton) {
+            nextButton.addEventListener('click', () => {
+                goByStep(1);
+            });
+        }
+
+        viewport.addEventListener('scroll', () => {
+            if (scrollFrame !== null) {
+                window.cancelAnimationFrame(scrollFrame);
+            }
+            scrollFrame = window.requestAnimationFrame(() => {
+                syncActiveFromScroll();
+                scrollFrame = null;
+            });
+        }, { passive: true });
+
+        carousel.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                goByStep(1);
+                return;
+            }
+
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                goByStep(-1);
+                return;
+            }
+
+            if (event.key === 'Home') {
+                event.preventDefault();
+                closeAllDetails();
+                activateIndex(0);
+                return;
+            }
+
+            if (event.key === 'End') {
+                event.preventDefault();
+                closeAllDetails();
+                activateIndex(slides.length - 1);
+                return;
+            }
+
+            if (event.key === 'Escape') {
+                closeAllDetails();
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            centerSlide(slides[currentIndex], 'auto');
+        });
+
+        syncActiveState(currentIndex);
+        window.requestAnimationFrame(() => {
+            centerSlide(slides[currentIndex], 'auto');
+            syncActiveFromScroll();
+        });
     });
 })();
 </script>

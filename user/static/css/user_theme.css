@@ -51,8 +51,60 @@ body {
 }
 
 .app-topbar {
-    box-shadow: 0 10px 24px rgba(20, 35, 59, 0.08);
-    backdrop-filter: blur(12px);
+    position: relative;
+    isolation: isolate;
+    background:
+        linear-gradient(180deg, #ffdd4f 0%, #f7c600 58%, #e0ad00 100%) !important;
+    border-bottom: 1px solid #9b8b00 !important;
+    box-shadow:
+        0 10px 24px rgba(120, 103, 0, 0.18),
+        inset 0 1px 0 rgba(255, 246, 184, 0.5);
+    backdrop-filter: blur(0) saturate(1);
+    -webkit-backdrop-filter: blur(0) saturate(1);
+    transition:
+        background 0.28s ease,
+        border-color 0.28s ease,
+        box-shadow 0.28s ease,
+        backdrop-filter 0.28s ease,
+        -webkit-backdrop-filter 0.28s ease;
+}
+
+.app-topbar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.08) 34%, transparent 100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+}
+
+.app-topbar.is-scrolled {
+    background:
+        linear-gradient(180deg, rgba(255, 221, 79, 0.76) 0%, rgba(247, 198, 0, 0.7) 58%, rgba(224, 173, 0, 0.66) 100%) !important;
+    border-bottom-color: rgba(155, 139, 0, 0.54) !important;
+    box-shadow:
+        0 16px 32px rgba(120, 103, 0, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.36);
+    backdrop-filter: blur(16px) saturate(1.45);
+    -webkit-backdrop-filter: blur(16px) saturate(1.45);
+}
+
+.app-topbar.is-scrolled::before {
+    opacity: 1;
+}
+
+.user-topbar-shell {
+    position: relative;
+    z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-topbar,
+    .app-topbar::before {
+        transition: none;
+    }
 }
 
 .app-topbar .nav-bell {

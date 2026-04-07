@@ -15,41 +15,66 @@
 .history-page-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 26px 28px;
-}
-
-.history-page-title {
-    margin: 0;
-    color: #10243e;
-    font-size: clamp(1.9rem, 4vw, 2.5rem);
-    font-weight: 800;
-    letter-spacing: -0.04em;
+    justify-content: flex-start;
+    padding: 18px 22px;
 }
 
 .history-back-link {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-height: 42px;
-    padding: 0 16px;
-    border: 1px solid #1f4d8f;
-    border-radius: 12px;
-    background: linear-gradient(180deg, #2f66c9 0%, #1f4d8f 100%);
-    color: #ffffff;
-    font-size: 0.92rem;
-    font-weight: 800;
+    gap: 14px;
+    min-height: 56px;
+    padding: 10px 18px 10px 12px;
+    border: 1px solid rgba(31, 77, 143, 0.12);
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at top left, rgba(110, 168, 254, 0.24), transparent 52%),
+        linear-gradient(135deg, #ffffff 0%, #f3f8ff 100%);
+    color: #10243e;
     text-decoration: none;
     white-space: nowrap;
-    box-shadow: 0 12px 24px rgba(47, 102, 201, 0.18);
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
 .history-back-link:hover {
+    color: #10243e;
+    border-color: rgba(31, 77, 143, 0.24);
+    box-shadow: 0 18px 34px rgba(31, 78, 151, 0.14);
+    transform: translateY(-1px);
+}
+
+.history-back-link-icon {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #2f66c9 0%, #1f4d8f 100%);
     color: #ffffff;
-    background: linear-gradient(180deg, #2759b3 0%, #163f75 100%);
-    border-color: #163f75;
+    box-shadow: 0 10px 22px rgba(47, 102, 201, 0.24);
+}
+
+.history-back-link-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    line-height: 1.1;
+}
+
+.history-back-link-copy small {
+    color: #64748b;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.history-back-link-copy strong {
+    color: #10243e;
+    font-size: 1rem;
+    font-weight: 800;
 }
 
 .history-page-summary {
@@ -57,18 +82,51 @@
     align-items: center;
     justify-content: flex-start;
     gap: 12px;
+    flex-wrap: wrap;
 }
 
 .history-summary-pill {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 14px;
+    padding: 12px 18px;
     border-radius: 999px;
     background: #edf4ff;
     border: 1px solid #d2def0;
     color: #1f4d8f;
     font-weight: 800;
+    text-decoration: none;
+    box-shadow: 0 12px 24px rgba(148, 163, 184, 0.08);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.history-summary-pill:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 28px rgba(148, 163, 184, 0.16);
+}
+
+.history-summary-pill.is-active {
+    border-color: rgba(15, 23, 42, 0.22);
+    box-shadow: 0 18px 32px rgba(31, 78, 151, 0.16);
+    transform: translateY(-1px);
+}
+
+.history-summary-pill--adopted {
+    background: #eefbf2;
+    border-color: #c9e8d0;
+    color: #18794e;
+}
+
+.history-summary-pill--redeemed {
+    background: #eef6ff;
+    border-color: #cddff5;
+    color: #1f4d8f;
+}
+
+.history-summary-pill--unresolved {
+    background: #fff8e6;
+    border-color: #f0ddab;
+    color: #8a6116;
 }
 
 .history-page-card {
@@ -172,6 +230,24 @@
     border: 1px solid #ecd48d;
 }
 
+.history-status-neutral {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #d7dee7;
+}
+
+.history-status-adopted {
+    background: #eefbf2;
+    color: #18794e;
+    border: 1px solid #c9e8d0;
+}
+
+.history-status-reunited {
+    background: #edf4ff;
+    color: #1f4d8f;
+    border: 1px solid #cddff5;
+}
+
 .history-pagination {
     margin-top: 18px;
     display: flex;
@@ -249,6 +325,7 @@
 @media (max-width: 991.98px) {
     .history-back-link {
         width: 100%;
+        justify-content: flex-start;
     }
 }
 
@@ -260,11 +337,15 @@
     }
 
     .history-page-header {
-        flex-direction: column;
-        align-items: stretch;
+        padding: 16px;
     }
 
     .history-pagination {
         justify-content: center;
+    }
+
+    .history-summary-pill {
+        width: 100%;
+        justify-content: space-between;
     }
 }

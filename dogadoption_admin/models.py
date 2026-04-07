@@ -1,30 +1,53 @@
 import os
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from uuid import uuid4
 
 from django.contrib.auth.models import User
 from django.db import models
+from django.db.models import DateTimeField, Exists, OuterRef, Subquery
 from django.utils import timezone
 
 class Post(models.Model):
     ADOPTION_DAYS = 3
+    REQUEST_VERIFICATION_DAYS = 1
     BREED_OTHER = "other"
     COLOR_OTHER = "other"
 
     BREED_CHOICES = [
         ("aspin", "Aspin / Mixed Local Breed"),
+        ("american_bully", "American Bully"),
+        ("american_staffordshire_terrier", "American Staffordshire Terrier"),
         ("beagle", "Beagle"),
+        ("belgian_malinois", "Belgian Malinois"),
+        ("border_collie", "Border Collie"),
+        ("boxer", "Boxer"),
+        ("bull_terrier", "Bull Terrier"),
         ("chihuahua", "Chihuahua"),
+        ("chow_chow", "Chow Chow"),
+        ("cocker_spaniel", "Cocker Spaniel"),
+        ("corgi", "Corgi"),
+        ("dalmatian", "Dalmatian"),
         ("dachshund", "Dachshund"),
+        ("doberman", "Doberman Pinscher"),
         ("french_bulldog", "French Bulldog"),
         ("german_shepherd", "German Shepherd"),
         ("golden_retriever", "Golden Retriever"),
+        ("great_dane", "Great Dane"),
         ("husky", "Siberian Husky"),
+        ("jack_russell_terrier", "Jack Russell Terrier"),
+        ("japanese_spitz", "Japanese Spitz"),
         ("labrador", "Labrador Retriever"),
+        ("maltese", "Maltese"),
+        ("miniature_pinscher", "Miniature Pinscher"),
+        ("pit_bull", "Pit Bull"),
         ("pomeranian", "Pomeranian"),
         ("poodle", "Poodle"),
+        ("pug", "Pug"),
         ("rottweiler", "Rottweiler"),
+        ("samoyed", "Samoyed"),
+        ("schnauzer", "Schnauzer"),
         ("shih_tzu", "Shih Tzu"),
+        ("yorkshire_terrier", "Yorkshire Terrier"),
         (BREED_OTHER, "Other"),
     ]
 
@@ -60,14 +83,28 @@ class Post(models.Model):
         ("black", "Black"),
         ("white", "White"),
         ("brown", "Brown"),
+        ("chocolate", "Chocolate"),
         ("tan", "Tan"),
         ("cream", "Cream"),
         ("gold", "Gold"),
         ("gray", "Gray"),
+        ("silver", "Silver"),
+        ("blue", "Blue / Slate"),
         ("red", "Red"),
+        ("orange", "Orange"),
+        ("yellow", "Yellow"),
+        ("fawn", "Fawn"),
+        ("sable", "Sable"),
+        ("apricot", "Apricot"),
+        ("liver", "Liver"),
+        ("lilac", "Lilac"),
         ("brindle", "Brindle"),
         ("merle", "Merle"),
+        ("bicolor", "Bicolor"),
         ("tricolor", "Tricolor"),
+        ("spotted", "Spotted"),
+        ("patched", "Patched"),
+        ("speckled", "Speckled / Ticked"),
         (COLOR_OTHER, "Other"),
     ]
 
@@ -77,6 +114,12 @@ class Post(models.Model):
         ('reunited', 'Reclaimed'),
         ('adopted', 'Adopted'),
     ]
+
+    PHASE_OVERRIDE_CHOICES = [
+        ("claim", "Redeem"),
+        ("adopt", "Adoption"),
+    ]
+    MANUAL_PHASE_RESET_DAYS = 3
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     caption = models.TextField()
@@ -97,6 +140,17 @@ class Post(models.Model):
     )
 
     rescued_date = models.DateField(blank=True, null=True)
+    phase_override = models.CharField(
+        max_length=10,
+        choices=PHASE_OVERRIDE_CHOICES,
+        blank=True,
+        default="",
+    )
+    phase_override_started_at = models.DateTimeField(blank=True, null=True)
+    is_history = models.BooleanField(default=False)
+    is_pinned = models.BooleanField(default=False)
+    pinned_at = models.DateTimeField(blank=True, null=True)
+    view_count = models.PositiveIntegerField(default=0)
 
     claim_days = models.PositiveIntegerField(
         default=3,
@@ -110,6 +164,39 @@ class Post(models.Model):
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @classmethod
+    def with_pending_request_state(cls, queryset):
+        pending_claim_qs = PostRequest.objects.filter(
+            post_id=OuterRef("pk"),
+            request_type="claim",
+            status="pending",
+        )
+        pending_adopt_qs = PostRequest.objects.filter(
+            post_id=OuterRef("pk"),
+            request_type="adopt",
+            status="pending",
+        )
+        return queryset.annotate(
+            has_pending_claim_request=Exists(pending_claim_qs),
+            has_pending_adopt_request=Exists(pending_adopt_qs),
+            pending_claim_started_at=Subquery(
+                pending_claim_qs.order_by("created_at").values("created_at")[:1],
+                output_field=DateTimeField(),
+            ),
+            pending_claim_latest_at=Subquery(
+                pending_claim_qs.order_by("-created_at").values("created_at")[:1],
+                output_field=DateTimeField(),
+            ),
+            pending_adopt_started_at=Subquery(
+                pending_adopt_qs.order_by("created_at").values("created_at")[:1],
+                output_field=DateTimeField(),
+            ),
+            pending_adopt_latest_at=Subquery(
+                pending_adopt_qs.order_by("-created_at").values("created_at")[:1],
+                output_field=DateTimeField(),
+            ),
+        )
 
     @staticmethod
     def _clean_text(value):
@@ -163,53 +250,494 @@ class Post(models.Model):
     def display_title(self):
         return self.display_breed or self._clean_text(self.caption) or "Dog Listing"
 
-    def claim_deadline(self):
-        """Deadline for owner claim window."""
+    def _pending_request_details(self, request_type):
+        flag_attr = f"has_pending_{request_type}_request"
+        started_attr = f"pending_{request_type}_started_at"
+
+        has_pending = getattr(self, flag_attr, None)
+        started_at = getattr(self, started_attr, None)
+        if has_pending is not None:
+            return bool(has_pending), started_at
+
+        prefetched_requests = getattr(self, "_prefetched_objects_cache", {}).get("requests")
+        if prefetched_requests is not None:
+            pending_created_ats = [
+                req.created_at
+                for req in prefetched_requests
+                if req.status == "pending"
+                and req.request_type == request_type
+                and req.created_at
+            ]
+            return bool(pending_created_ats), min(pending_created_ats) if pending_created_ats else None
+
+        started_at = self.requests.filter(
+            status="pending",
+            request_type=request_type,
+        ).order_by("created_at").values_list("created_at", flat=True).first()
+        return bool(started_at), started_at
+
+    def _pending_request_created_bounds(self, request_type):
+        flag_attr = f"has_pending_{request_type}_request"
+        started_attr = f"pending_{request_type}_started_at"
+        latest_attr = f"pending_{request_type}_latest_at"
+
+        has_pending = getattr(self, flag_attr, None)
+        started_at = getattr(self, started_attr, None)
+        latest_at = getattr(self, latest_attr, None)
+        if has_pending is not None:
+            if not has_pending:
+                return False, None, None
+            return True, started_at, latest_at or started_at
+
+        prefetched_requests = getattr(self, "_prefetched_objects_cache", {}).get("requests")
+        if prefetched_requests is not None:
+            pending_created_ats = [
+                req.created_at
+                for req in prefetched_requests
+                if req.status == "pending"
+                and req.request_type == request_type
+                and req.created_at
+            ]
+            if not pending_created_ats:
+                return False, None, None
+            return True, min(pending_created_ats), max(pending_created_ats)
+
+        pending_qs = self.requests.filter(
+            status="pending",
+            request_type=request_type,
+        )
+        started_at = pending_qs.order_by("created_at").values_list("created_at", flat=True).first()
+        if not started_at:
+            return False, None, None
+        latest_at = pending_qs.order_by("-created_at").values_list("created_at", flat=True).first()
+        return True, started_at, latest_at or started_at
+
+    @property
+    def pending_review_request_type(self):
+        if self.status in ["reunited", "adopted"]:
+            return None
+
+        claim_pending, _ = self._pending_request_details("claim")
+        if claim_pending:
+            return "claim"
+
+        adopt_pending, _ = self._pending_request_details("adopt")
+        if adopt_pending:
+            return "adopt"
+
+        return None
+
+    @property
+    def pending_review_started_at(self):
+        request_type = self.pending_review_request_type
+        if not request_type:
+            return None
+        return self._pending_request_details(request_type)[1]
+
+    @property
+    def pending_review_until(self):
+        started_at = self.pending_review_started_at
+        if not started_at:
+            return None
+        return self.pending_request_review_available_at(self.pending_review_request_type)
+
+    @property
+    def has_pending_review(self):
+        return bool(self.pending_review_request_type)
+
+    def pending_request_review_available_at(self, request_type):
+        if request_type not in {"claim", "adopt"}:
+            return None
+
+        has_pending, _, latest_created_at = self._pending_request_created_bounds(request_type)
+        if not has_pending:
+            return None
+
+        schedule = self._timeline_schedule()
+        if schedule["use_calendar_schedule"]:
+            if request_type == "claim":
+                required_days = max(int(self.claim_days or 0), 0)
+                schedule_dates = schedule["claim_dates"]
+            else:
+                required_days = self.ADOPTION_DAYS
+                schedule_dates = schedule["adoption_dates"]
+
+            if len(schedule_dates) < required_days:
+                return None
+
+        ready_candidates = []
+        if latest_created_at:
+            ready_candidates.append(latest_created_at + PostRequest.verification_window())
+
+        phase_deadline = self.claim_deadline() if request_type == "claim" else self.adoption_deadline()
+        if phase_deadline:
+            ready_candidates.append(phase_deadline)
+
+        return max(ready_candidates) if ready_candidates else None
+
+    @classmethod
+    def active_appointment_dates(cls):
+        return list(
+            GlobalAppointmentDate.objects.filter(is_active=True)
+            .order_by("appointment_date")
+            .values_list("appointment_date", flat=True)
+        )
+
+    @classmethod
+    def attach_active_appointment_dates(cls, posts, appointment_dates=None):
+        dates = list(
+            appointment_dates
+            if appointment_dates is not None
+            else cls.active_appointment_dates()
+        )
+        for post in posts or []:
+            setattr(post, "_prefetched_global_appointment_dates", dates)
+        return dates
+
+    @staticmethod
+    def _schedule_deadline_for_date(schedule_date):
+        if not schedule_date:
+            return None
+        deadline = datetime.combine(schedule_date, time.max)
+        if timezone.is_naive(deadline):
+            deadline = timezone.make_aware(
+                deadline,
+                timezone.get_current_timezone(),
+            )
+        return deadline
+
+    @staticmethod
+    def _schedule_day_start(schedule_date):
+        if not schedule_date:
+            return None
+        day_start = datetime.combine(schedule_date, time.min)
+        if timezone.is_naive(day_start):
+            day_start = timezone.make_aware(
+                day_start,
+                timezone.get_current_timezone(),
+            )
+        return day_start
+
+    @classmethod
+    def _schedule_day_end_exclusive(cls, schedule_date):
+        day_start = cls._schedule_day_start(schedule_date)
+        if not day_start:
+            return None
+        return day_start + timedelta(days=1)
+
+    @classmethod
+    def _remaining_scheduled_time(cls, schedule_dates, now):
+        remaining = timedelta(seconds=0)
+        for schedule_date in schedule_dates or []:
+            day_start = cls._schedule_day_start(schedule_date)
+            day_end = cls._schedule_day_end_exclusive(schedule_date)
+            if not day_start or not day_end or now >= day_end:
+                continue
+            remaining += day_end - max(now, day_start)
+        return remaining
+
+    @classmethod
+    def _scheduled_window_active(cls, schedule_dates, now):
+        return cls._remaining_scheduled_time(schedule_dates, now) > timedelta(seconds=0)
+
+    def _legacy_claim_deadline(self):
         if self.created_at and self.claim_days is not None:
             claim_days = max(int(self.claim_days), 0)
             return self.created_at + timedelta(days=claim_days)
         return None
 
-    def adoption_deadline(self):
-        """Deadline for adoption window (claim deadline + fixed 3 days)."""
-        claim_end = self.claim_deadline()
-        if claim_end:
-            return claim_end + timedelta(days=self.ADOPTION_DAYS)
-        return None
+    def _manual_appointment_dates(self, started_at):
+        active_dates = getattr(self, "_prefetched_global_appointment_dates", None)
+        if active_dates is None:
+            active_dates = self.active_appointment_dates()
+        else:
+            active_dates = list(active_dates)
 
-    def current_phase(self):
+        eligible_dates = []
+        for schedule_date in active_dates:
+            day_end = self._schedule_day_end_exclusive(schedule_date)
+            if day_end and day_end > started_at:
+                eligible_dates.append(schedule_date)
+        return eligible_dates
+
+    def _manual_phase_schedule(self, now=None):
+        if self.status in ["reunited", "adopted"]:
+            return {
+                "is_active": False,
+                "current_phase": "closed",
+                "use_calendar_schedule": False,
+                "claim_dates": [],
+                "adoption_dates": [],
+                "claim_deadline": None,
+                "adoption_deadline": None,
+            }
+
+        phase = (self.phase_override or "").strip()
+        started_at = self.phase_override_started_at
+        if phase not in {"claim", "adopt"} or not started_at:
+            return {
+                "is_active": False,
+                "current_phase": "",
+                "use_calendar_schedule": False,
+                "claim_dates": [],
+                "adoption_dates": [],
+                "claim_deadline": None,
+                "adoption_deadline": None,
+            }
+
+        now = now or timezone.now()
+        manual_phase_days = self.MANUAL_PHASE_RESET_DAYS
+        use_calendar_schedule = False
+        claim_dates = []
+        adoption_dates = []
+        claim_deadline = None
+        adoption_deadline = None
+        current_phase = "closed"
+
+        eligible_dates = self._manual_appointment_dates(started_at)
+        if eligible_dates:
+            use_calendar_schedule = True
+            if phase == "claim":
+                claim_dates = eligible_dates[:manual_phase_days]
+                adoption_dates = eligible_dates[
+                    manual_phase_days:manual_phase_days + manual_phase_days
+                ]
+            else:
+                adoption_dates = eligible_dates[:manual_phase_days]
+
+            if claim_dates:
+                claim_deadline = self._schedule_deadline_for_date(claim_dates[-1])
+            if adoption_dates:
+                adoption_deadline = self._schedule_deadline_for_date(adoption_dates[-1])
+
+            if phase == "claim" and self._scheduled_window_active(claim_dates, now):
+                current_phase = "claim"
+            elif self._scheduled_window_active(adoption_dates, now):
+                current_phase = "adopt"
+        else:
+            reset_delta = timedelta(days=manual_phase_days)
+            if phase == "claim":
+                claim_deadline = started_at + reset_delta
+                adoption_deadline = claim_deadline + reset_delta
+                if now <= claim_deadline:
+                    current_phase = "claim"
+                elif now <= adoption_deadline:
+                    current_phase = "adopt"
+            else:
+                adoption_deadline = started_at + reset_delta
+                if now <= adoption_deadline:
+                    current_phase = "adopt"
+
+        return {
+            "is_active": current_phase in {"claim", "adopt"},
+            "current_phase": current_phase,
+            "use_calendar_schedule": use_calendar_schedule,
+            "claim_dates": claim_dates,
+            "adoption_dates": adoption_dates,
+            "claim_deadline": claim_deadline,
+            "adoption_deadline": adoption_deadline,
+        }
+
+    def _timeline_schedule(self):
+        active_dates = getattr(self, "_prefetched_global_appointment_dates", None)
+        if active_dates is None:
+            active_dates = self.active_appointment_dates()
+        else:
+            active_dates = list(active_dates)
+
+        start_date = None
+        if self.created_at:
+            start_date = (
+                timezone.localtime(self.created_at).date()
+                if timezone.is_aware(self.created_at)
+                else self.created_at.date()
+            )
+
+        claim_days = max(int(self.claim_days or 0), 0)
+        eligible_dates = (
+            [day for day in active_dates if day >= start_date]
+            if start_date
+            else []
+        )
+        cache_key = (
+            self.created_at,
+            claim_days,
+            tuple(active_dates),
+            tuple(eligible_dates),
+        )
+        cached = getattr(self, "_timeline_schedule_cache", None)
+        if cached and cached.get("key") == cache_key:
+            return cached["value"]
+
+        use_calendar_schedule = bool(active_dates)
+        claim_dates = []
+        adoption_dates = []
+
+        if use_calendar_schedule:
+            if claim_days:
+                claim_dates = eligible_dates[:claim_days]
+            adoption_start = claim_days
+            adoption_dates = eligible_dates[
+                adoption_start: adoption_start + self.ADOPTION_DAYS
+            ]
+
+        claim_deadline = (
+            self._schedule_deadline_for_date(claim_dates[-1])
+            if use_calendar_schedule and claim_dates
+            else (
+                self._legacy_claim_deadline()
+                if not use_calendar_schedule
+                else None
+            )
+        )
+        adoption_deadline = (
+            self._schedule_deadline_for_date(adoption_dates[-1])
+            if use_calendar_schedule and adoption_dates
+            else (
+                claim_deadline + timedelta(days=self.ADOPTION_DAYS)
+                if (not use_calendar_schedule and claim_deadline)
+                else None
+            )
+        )
+
+        schedule = {
+            "use_calendar_schedule": use_calendar_schedule,
+            "claim_dates": claim_dates,
+            "adoption_dates": adoption_dates,
+            "claim_deadline": claim_deadline,
+            "adoption_deadline": adoption_deadline,
+        }
+        self._timeline_schedule_cache = {
+            "key": cache_key,
+            "value": schedule,
+        }
+        return schedule
+
+    def claim_deadline(self):
+        """Deadline for owner claim window."""
+        manual_schedule = self._manual_phase_schedule()
+        if self.phase_override == "claim" and manual_schedule["claim_deadline"]:
+            return manual_schedule["claim_deadline"]
+        return self._timeline_schedule()["claim_deadline"]
+
+    def adoption_deadline(self):
+        """Deadline for adoption window after the claim window ends."""
+        manual_schedule = self._manual_phase_schedule()
+        if self.phase_override in {"claim", "adopt"} and manual_schedule["adoption_deadline"]:
+            return manual_schedule["adoption_deadline"]
+        return self._timeline_schedule()["adoption_deadline"]
+
+    def _phase_schedule_dates(self, phase):
+        schedule = self._timeline_schedule()
+        if phase == "claim":
+            return schedule["claim_dates"]
+        if phase == "adopt":
+            return schedule["adoption_dates"]
+        return []
+
+    def _phase_schedule_complete(self, phase, now=None):
+        now = now or timezone.now()
+        schedule = self._timeline_schedule()
+        if not schedule["use_calendar_schedule"]:
+            deadline = (
+                schedule["claim_deadline"]
+                if phase == "claim"
+                else schedule["adoption_deadline"]
+            )
+            return bool(deadline and now > deadline)
+
+        if phase == "claim":
+            required_days = max(int(self.claim_days or 0), 0)
+            schedule_dates = schedule["claim_dates"]
+        elif phase == "adopt":
+            required_days = self.ADOPTION_DAYS
+            schedule_dates = schedule["adoption_dates"]
+        else:
+            return True
+
+        if required_days <= 0:
+            return True
+        if len(schedule_dates) < required_days:
+            return False
+
+        return all(
+            now >= self._schedule_day_end_exclusive(schedule_date)
+            for schedule_date in schedule_dates
+        )
+
+    def timeline_phase(self, now=None):
+        if self.status in ["reunited", "adopted"]:
+            return "closed"
+
+        now = now or timezone.now()
+        schedule = self._timeline_schedule()
+        if schedule["use_calendar_schedule"]:
+            if not self._phase_schedule_complete("claim", now):
+                return "claim"
+            if not self._phase_schedule_complete("adopt", now):
+                return "adopt"
+            return "closed"
+
+        claim_end = schedule["claim_deadline"]
+        adopt_end = schedule["adoption_deadline"]
+
+        if claim_end and now <= claim_end:
+            return "claim"
+        if adopt_end and now <= adopt_end:
+            return "adopt"
+        return "closed"
+
+    def current_phase(self, now=None):
         """
         Returns one of:
         - claim
         - adopt
         - closed
         """
-        if self.status in ['reunited', 'adopted']:
-            return 'closed'
+        now = now or timezone.now()
+        manual_schedule = self._manual_phase_schedule(now)
+        if self.phase_override in {"claim", "adopt"} and manual_schedule["current_phase"]:
+            return manual_schedule["current_phase"]
+        if self.phase_override in {"claim", "adopt"} and not manual_schedule["is_active"]:
+            return "closed"
+        return self.timeline_phase(now)
 
-        now = timezone.now()
-        claim_end = self.claim_deadline()
-        adopt_end = self.adoption_deadline()
-
-        if claim_end and now <= claim_end:
-            return 'claim'
-        if adopt_end and now <= adopt_end:
-            return 'adopt'
-        return 'closed'
-
-    def time_left(self):
+    def time_left(self, now=None):
         """Return remaining time in the active phase."""
-        phase = self.current_phase()
-        now = timezone.now()
+        now = now or timezone.now()
+        manual_schedule = self._manual_phase_schedule(now)
+        if self.phase_override in {"claim", "adopt"}:
+            if manual_schedule["current_phase"] == "claim":
+                if manual_schedule["use_calendar_schedule"]:
+                    return self._remaining_scheduled_time(manual_schedule["claim_dates"], now)
+                if manual_schedule["claim_deadline"]:
+                    return max(manual_schedule["claim_deadline"] - now, timedelta(seconds=0))
+            if manual_schedule["current_phase"] == "adopt":
+                if manual_schedule["use_calendar_schedule"]:
+                    return self._remaining_scheduled_time(manual_schedule["adoption_dates"], now)
+                if manual_schedule["adoption_deadline"]:
+                    return max(manual_schedule["adoption_deadline"] - now, timedelta(seconds=0))
+            return timedelta(seconds=0)
+
+        phase = self.current_phase(now)
+        schedule = self._timeline_schedule()
 
         if phase == 'claim':
-            return self.claim_deadline() - now
+            if schedule["use_calendar_schedule"]:
+                return self._remaining_scheduled_time(schedule["claim_dates"], now)
+            claim_deadline = schedule["claim_deadline"]
+            return max(claim_deadline - now, timedelta(seconds=0)) if claim_deadline else timedelta(seconds=0)
         if phase == 'adopt':
-            return self.adoption_deadline() - now
+            if schedule["use_calendar_schedule"]:
+                return self._remaining_scheduled_time(schedule["adoption_dates"], now)
+            adoption_deadline = schedule["adoption_deadline"]
+            return max(adoption_deadline - now, timedelta(seconds=0)) if adoption_deadline else timedelta(seconds=0)
         return timedelta(seconds=0)
 
     def is_expired(self):
         """Return True if both claim and adoption windows are finished."""
+        if self.status in ["reunited", "adopted"] or self.has_pending_review:
+            return False
         deadline = self.adoption_deadline()
         return deadline and timezone.now() > deadline
 
@@ -239,6 +767,8 @@ class Post(models.Model):
         indexes = [
             models.Index(fields=["created_at"], name="post_created_idx"),
             models.Index(fields=["status", "created_at"], name="post_status_created_idx"),
+            models.Index(fields=["is_history", "status", "created_at"], name="post_hist_status_created_idx"),
+            models.Index(fields=["is_pinned", "is_history", "created_at"], name="post_pin_hist_created_idx"),
         ]
 
 
@@ -255,6 +785,7 @@ class PostImage(models.Model):
         return f"Image for post {self.post.id}"
 
 class PostRequest(models.Model):
+    VERIFICATION_WINDOW_DAYS = 1
 
     REQUEST_TYPE_CHOICES = [
         ('claim', 'Claim'),
@@ -303,6 +834,37 @@ class PostRequest(models.Model):
             models.Index(fields=["request_type", "status", "created_at"], name="postreq_type_status_cr_idx"),
             models.Index(fields=["user", "request_type", "status"], name="postreq_user_type_status_idx"),
         ]
+
+    @classmethod
+    def verification_window(cls):
+        return timedelta(days=cls.VERIFICATION_WINDOW_DAYS)
+
+    @property
+    def approval_available_at(self):
+        if self.status != "pending":
+            return None
+        post = getattr(self, "post", None)
+        if self.post_id and post is None:
+            post = self.post
+        if post is not None:
+            return post.pending_request_review_available_at(self.request_type)
+        if not self.created_at:
+            return None
+        return self.created_at + self.verification_window()
+
+    @property
+    def verification_ready(self):
+        approval_at = self.approval_available_at
+        if self.status != "pending" or not approval_at:
+            return False
+        return timezone.now() >= approval_at
+
+    @property
+    def verification_pending(self):
+        approval_at = self.approval_available_at
+        if self.status != "pending" or not approval_at:
+            return False
+        return timezone.now() < approval_at
 
     def __str__(self):
         return f"{self.user.username} - {self.request_type} ({self.status})"

@@ -385,6 +385,10 @@
                         <strong>{{ req.scheduled_appointment_date|date:"M d, Y"|default:"-" }}</strong>
                     </div>
                 </div>
+
+                {% if req.status == 'pending' and req.approval_available_at %}
+                <p class="request-meta mt-2">Admin approval opens after {{ req.approval_available_at|date:"M d, Y h:i A" }}</p>
+                {% endif %}
             </article>
             {% empty %}
             <div class="request-empty">

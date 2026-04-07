@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse_lazy
 
 from .access import STAFF_PERMISSION_FIELDS
+from .barangays import BAYAWAN_BARANGAYS, BAYAWAN_BARANGAY_CHOICES
 from .models import Barangay, Citation, Penalty, PenaltySection, Post, StaffAccess
 
 
@@ -73,15 +74,10 @@ class PostForm(forms.ModelForm):
         })
     )
 
-    location = forms.CharField(
+    location = forms.ChoiceField(
         required=False,
-        widget=forms.TextInput(attrs={
-            'placeholder': 'Enter Barangay',
-            'autocomplete': 'off',
-            'data-barangay-autocomplete': 'true',
-            'data-barangay-suggestions-id': 'location-suggestions',
-            'data-barangay-strict': 'true',
-        })
+        choices=[("", "Select barangay"), *BAYAWAN_BARANGAY_CHOICES],
+        widget=forms.Select(),
     )
 
     claim_days = forms.IntegerField(
@@ -121,7 +117,7 @@ class PostForm(forms.ModelForm):
             "gender": "form-select",
             "coat_length": "form-select",
             "color_other": "form-control",
-            "location": "form-control",
+            "location": "form-select",
             "rescued_date": "form-control",
             "claim_days": "form-control",
         }.items():
@@ -131,18 +127,23 @@ class PostForm(forms.ModelForm):
         self.fields["colors"].widget.attrs["class"] = "post-checkbox-grid"
         if self.instance.pk and self.instance.colors:
             self.initial["colors"] = list(self.instance.colors)
+        current_location = " ".join((getattr(self.instance, "location", "") or "").split()).strip()
+        if current_location and current_location not in BAYAWAN_BARANGAYS:
+            self.fields["location"].choices = [
+                *self.fields["location"].choices,
+                (current_location, current_location),
+            ]
 
     def clean_location(self):
         value = " ".join((self.cleaned_data.get("location") or "").split()).strip()
         if not value:
             return value
-
-        normalized = "".join(ch.lower() for ch in value if ch.isalnum())
-        for name in Barangay.objects.filter(is_active=True).values_list("name", flat=True):
-            if "".join(ch.lower() for ch in name if ch.isalnum()) == normalized:
-                return name
-
-        raise forms.ValidationError("Please select a valid barangay from the suggestions.")
+        if value in BAYAWAN_BARANGAYS:
+            return value
+        current_location = " ".join((getattr(self.instance, "location", "") or "").split()).strip()
+        if value and value == current_location:
+            return value
+        raise forms.ValidationError("Please select a valid barangay from the dropdown list.")
 
     def clean(self):
         cleaned_data = super().clean()

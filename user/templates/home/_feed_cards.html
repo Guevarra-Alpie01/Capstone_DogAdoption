@@ -146,6 +146,7 @@
         {% if item.post_type == 'admin' and item.phase != 'closed' %}
             </div>
             <div class="post-timer">
+                {% if item.show_countdown %}
                 <div class="countdown-bar" data-deadline="{{ item.deadline_iso }}">
                     <div class="countdown-label">
                         {% if item.phase == 'claim' %}
@@ -168,6 +169,14 @@
                         <div class="countdown-text">Minutes</div>
                     </div>
                 </div>
+                {% else %}
+                <div class="countdown-bar countdown-bar--status">
+                    <div class="countdown-label">{{ item.pending_state_label|default:"Pending admin review" }}</div>
+                    {% if item.pending_state_detail %}
+                    <div class="countdown-status-text">{{ item.pending_state_detail }}</div>
+                    {% endif %}
+                </div>
+                {% endif %}
             </div>
             </div>
         {% else %}
@@ -249,23 +258,34 @@
                     <span class="badge bg-secondary fs-6 px-3 py-2">Adopted - No longer available</span>
                 {% else %}
                     {% if item.phase == 'claim' %}
-                        <div class="d-flex justify-content-center gap-2 admin-actions">
-                            <a href="{% url 'user:claim_confirm' post.id %}?return_to=home"
-                               class="btn btn-success btn-sm action-btn action-claim"
-                               {% if not request.user.is_authenticated %}
-                               data-auth-modal-trigger="login"
-                               data-auth-next-url="{% url 'user:claim_confirm' post.id %}?return_to=home"
-                               {% endif %}>
-                                Claim
-                            </a>
-                            <button type="button"
-                               class="btn btn-outline-secondary btn-sm action-btn action-share js-open-share"
-                               data-share-url="{{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}">
-                                <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                    <path d="M18 8a3 3 0 1 0-2.82-4H15a3 3 0 0 0 .16.95l-6.7 3.35a3 3 0 0 0-2.46-1.3 3 3 0 1 0 0 6c.88 0 1.67-.38 2.22-.97l6.96 3.48A3 3 0 0 0 15 16a3 3 0 1 0 .18-1.02l-6.98-3.49A3 3 0 0 0 9 10c0-.36-.06-.7-.18-1.02l6.97-3.48c.55.62 1.35 1 2.21 1z"></path>
-                                </svg>
-                                <span>Share</span>
-                               </button>
+                        <div class="admin-actions-stack">
+                            <div class="d-flex justify-content-center gap-2 admin-actions">
+                                <a href="{% url 'user:claim_confirm' post.id %}?return_to=home"
+                                   class="btn btn-success btn-sm action-btn action-claim"
+                                   {% if not request.user.is_authenticated %}
+                                   data-auth-modal-trigger="login"
+                                   data-auth-next-url="{% url 'user:claim_confirm' post.id %}?return_to=home"
+                                   {% endif %}>
+                                    <i class="bi bi-shield-check" aria-hidden="true"></i>
+                                    <span>Claim</span>
+                                </a>
+                                <a href="{% url 'user:adopt_confirm' post.id %}?return_to=home"
+                                   class="btn btn-sm action-btn action-reserve"
+                                   {% if not request.user.is_authenticated %}
+                                   data-auth-modal-trigger="login"
+                                   data-auth-next-url="{% url 'user:adopt_confirm' post.id %}?return_to=home"
+                                   {% endif %}>
+                                    <i class="bi bi-heart-fill" aria-hidden="true"></i>
+                                    <span>Reserve Adoption</span>
+                                </a>
+                                <button type="button"
+                                   class="btn btn-outline-secondary btn-sm action-btn action-share js-open-share"
+                                   data-share-url="{{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}">
+                                    <i class="bi bi-share" aria-hidden="true"></i>
+                                    <span>Share</span>
+                                   </button>
+                            </div>
+                            <p class="admin-actions-note">Reserve adoption now in case no owner claim is approved.</p>
                         </div>
                     {% elif item.phase == 'adopt' %}
                         <div class="d-flex justify-content-center gap-2 admin-actions">
@@ -275,14 +295,13 @@
                                data-auth-modal-trigger="login"
                                data-auth-next-url="{% url 'user:adopt_confirm' post.id %}"
                                {% endif %}>
-                                Adopt
+                                <i class="bi bi-house-heart" aria-hidden="true"></i>
+                                <span>Adopt</span>
                             </a>
                             <button type="button"
                                class="btn btn-outline-secondary btn-sm action-btn action-share js-open-share"
                                data-share-url="{{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}">
-                                <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                    <path d="M18 8a3 3 0 1 0-2.82-4H15a3 3 0 0 0 .16.95l-6.7 3.35a3 3 0 0 0-2.46-1.3 3 3 0 1 0 0 6c.88 0 1.67-.38 2.22-.97l6.96 3.48A3 3 0 0 0 15 16a3 3 0 1 0 .18-1.02l-6.98-3.49A3 3 0 0 0 9 10c0-.36-.06-.7-.18-1.02l6.97-3.48c.55.62 1.35 1 2.21 1z"></path>
-                                </svg>
+                                <i class="bi bi-share" aria-hidden="true"></i>
                                 <span>Share</span>
                                </button>
                         </div>

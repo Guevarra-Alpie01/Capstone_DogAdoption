@@ -32,7 +32,7 @@
     {% if not user.is_authenticated %}
     <link rel="stylesheet" href="{% static 'css/auth_modal.css' %}?v=20260330j">
     {% endif %}
-    <link rel="stylesheet" href="{% static 'css/user_theme.css' %}?v=20260407topbar-no-oval">
+    <link rel="stylesheet" href="{% static 'css/user_theme.css' %}?v=20260407topbar-glass-scroll">
     <link rel="stylesheet" href="{% static 'css/notification_menu.css' %}?v=20260330b">
     <link rel="stylesheet" href="{% static 'css/user_button_skin.css' %}?v=20260324a">
     <style>
@@ -1003,6 +1003,36 @@ document.addEventListener('DOMContentLoaded', function () {
         pendingForm = null;
         pendingButton = null;
     });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const topbar = document.querySelector('.app-topbar');
+
+    if (!topbar) {
+        return;
+    }
+
+    let ticking = false;
+
+    function syncTopbarGlass() {
+        topbar.classList.toggle('is-scrolled', window.scrollY > 12);
+        ticking = false;
+    }
+
+    function requestSync() {
+        if (ticking) {
+            return;
+        }
+
+        ticking = true;
+        window.requestAnimationFrame(syncTopbarGlass);
+    }
+
+    syncTopbarGlass();
+    window.addEventListener('scroll', requestSync, { passive: true });
+    window.addEventListener('resize', requestSync, { passive: true });
 });
 </script>
 

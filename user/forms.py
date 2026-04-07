@@ -1,6 +1,7 @@
 # forms.py
 from django import forms
 
+from dogadoption_admin.barangays import BAYAWAN_BARANGAY_CHOICES
 from dogadoption_admin.models import Post
 
 from .models import MissingDogPost, UserAdoptionPost
@@ -48,10 +49,18 @@ class RescueFinderForm(forms.Form):
         self.fields["gender"].choices = [("", "Any gender"), *Post.GENDER_CHOICES]
         self.fields["coat_length"].choices = [("", "Any coat"), *Post.COAT_LENGTH_CHOICES]
         self.fields["color"].choices = [("", "Any color"), *Post.COLOR_CHOICES]
-        self.fields["location"].choices = [
-            ("", "Any location"),
-            *((value, value) for value in (location_choices or [])),
-        ]
+        merged_locations = []
+        seen_locations = set()
+        for value in [name for name, _label in BAYAWAN_BARANGAY_CHOICES] + list(location_choices or []):
+            cleaned = " ".join((value or "").split()).strip()
+            if not cleaned:
+                continue
+            key = cleaned.casefold()
+            if key in seen_locations:
+                continue
+            seen_locations.add(key)
+            merged_locations.append((cleaned, cleaned))
+        self.fields["location"].choices = [("", "Any location"), *merged_locations]
 
 
 class UserAdoptionPostForm(forms.ModelForm):

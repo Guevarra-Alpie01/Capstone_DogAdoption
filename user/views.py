@@ -11,9 +11,8 @@ from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, DateTimeField, Exists, OuterRef, Prefetch, Q
+from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q
 from django.db import IntegrityError, transaction
-from django.db.models.expressions import RawSQL
 import os
 import base64
 import binascii
@@ -41,6 +40,7 @@ from urllib.parse import urlencode
 
 # Shared models from the admin app
 from dogadoption_admin.access import get_staff_landing_url
+from dogadoption_admin.barangays import BAYAWAN_BARANGAYS
 from dogadoption_admin.models import (
     AdminNotification,
     AnnouncementComment,
@@ -88,6 +88,7 @@ HOME_FEED_SESSION_TOKEN_KEY = "user_home_feed_token"
 BARANGAY_API_DEFAULT_LIMIT = 200
 BARANGAY_API_MAX_LIMIT = 200
 DEFAULT_REQUEST_CITY = "Bayawan City"
+ADMIN_POST_HISTORY_CACHE_KEY = "dogadoption_admin_post_history_ids_v1"
 DOG_SURRENDER_REQUEST_TYPE = "surrender"
 DOG_ONLINE_SUBMISSION_TYPE = "online"
 DOG_EXACT_GPS_MAX_ACCURACY_METERS = 100
@@ -1125,6 +1126,13 @@ def _format_posted_label(dt):
     return dt.strftime("%b %d, %Y")
 
 
+def _format_datetime_label(dt):
+    if not dt:
+        return ""
+    localized = timezone.localtime(dt) if timezone.is_aware(dt) else dt
+    return localized.strftime("%b %d, %Y %I:%M %p")
+
+
 def _split_time_left(diff):
     total_seconds = max(int(diff.total_seconds()), 0)
     days = total_seconds // 86400
@@ -1135,18 +1143,93 @@ def _split_time_left(diff):
     return days, hours, minutes
 
 
+def _clean_rescue_card_copy(value):
+    return " ".join(strip_tags(value or "").replace("\xa0", " ").split()).strip()
+
+
+def _truncate_rescue_card_copy(value, limit=148):
+    cleaned = _clean_rescue_card_copy(value)
+    if len(cleaned) <= limit:
+        return cleaned
+    truncated = cleaned[: max(limit - 1, 1)].rsplit(" ", 1)[0].rstrip(" ,.;:-")
+    return f"{truncated or cleaned[: limit - 1]}..."
+
+
+def _pluralized_time_label(value, singular):
+    return f"{value} {singular}" if value == 1 else f"{value} {singular}s"
+
+
+def _featured_time_left_emphasis(phase_payload):
+    if phase_payload["is_pending_review"]:
+        return "Pending review"
+
+    days = phase_payload["days_left"]
+    hours = phase_payload["hours_left"]
+    minutes = phase_payload["minutes_left"]
+    if days > 0:
+        return f"{_pluralized_time_label(days, 'day')} left"
+    if hours > 0:
+        return f"{_pluralized_time_label(hours, 'hour')} left"
+    if minutes > 0:
+        return f"{_pluralized_time_label(minutes, 'minute')} left"
+    return "Ending soon"
+
+
+def _featured_time_left_tone(phase_payload):
+    if phase_payload["is_pending_review"]:
+        return "review"
+
+    total_minutes = (
+        phase_payload["days_left"] * 24 * 60
+        + phase_payload["hours_left"] * 60
+        + phase_payload["minutes_left"]
+    )
+    if total_minutes <= 6 * 60:
+        return "critical"
+    if total_minutes <= 24 * 60:
+        return "urgent"
+    return "steady"
+
+
+def _featured_time_left_context(phase, phase_payload):
+    if phase_payload["is_pending_review"]:
+        return "Admin verification is underway."
+    if phase == "claim":
+        return "Before the owner-claim window closes."
+    return "Before the adoption window closes."
+
+
 def _post_phase_payload(post):
     phase = post.current_phase() if hasattr(post, "current_phase") else "closed"
+    is_pending_review = (
+        phase in {"claim", "adopt"}
+        and bool(getattr(post, f"has_pending_{phase}_request", False))
+    )
+    pending_review_until = (
+        post.pending_request_review_available_at(phase)
+        if is_pending_review and hasattr(post, "pending_request_review_available_at")
+        else None
+    )
     days = hours = minutes = 0
-    if phase in {"claim", "adopt"}:
+    if phase in {"claim", "adopt"} and not is_pending_review:
         days, hours, minutes = _split_time_left(post.time_left())
-    return phase, days, hours, minutes
+    return {
+        "phase": phase,
+        "days_left": days,
+        "hours_left": hours,
+        "minutes_left": minutes,
+        "is_pending_review": is_pending_review,
+        "pending_review_until": pending_review_until,
+        "pending_review_until_label": _format_datetime_label(pending_review_until),
+    }
 
 
 def _base_public_post_queryset():
-    return Post.objects.select_related(
-        "user", "user__profile"
-    ).prefetch_related("images").order_by("-created_at")
+    return Post.with_pending_request_state(
+        Post.objects.select_related(
+            "user", "user__profile"
+        ).filter(is_history=False).prefetch_related("images")
+    ).order_by("-created_at")
 
 
 def _base_user_adoption_post_queryset():
@@ -1170,6 +1253,22 @@ def _finder_default_purpose(listing_mode):
 
 def _normalize_rescue_location(value):
     return " ".join((value or "").split()).casefold()
+
+
+def _merge_rescue_finder_locations(*location_groups):
+    merged = []
+    seen = set()
+    for group in location_groups:
+        for value in group or []:
+            cleaned = " ".join((value or "").split()).strip()
+            if not cleaned:
+                continue
+            key = _normalize_rescue_location(cleaned)
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(cleaned)
+    return merged
 
 
 def _rescue_finder_choice_map(field):
@@ -1211,28 +1310,44 @@ def _rescue_finder_title(post):
     return " ".join((post.display_title or "Dog Listing").split())
 
 
-def _build_rescue_finder_card_item(post, phase, days, hours, minutes, match_score):
+def _build_rescue_finder_card_item(post, phase_payload, match_score):
+    phase = phase_payload["phase"]
+    days = phase_payload["days_left"]
+    hours = phase_payload["hours_left"]
+    minutes = phase_payload["minutes_left"]
+    is_pending_review = phase_payload["is_pending_review"]
+    pending_review_until_label = phase_payload["pending_review_until_label"]
+    phase_title = "Ready for Claim" if phase == "claim" else "Ready for Adoption"
+    location_label = " ".join((post.location or "").split()) or "Location not listed"
+    countdown_deadline = (
+        phase_payload["pending_review_until"]
+        if is_pending_review
+        else (
+            post.claim_deadline()
+            if phase == "claim"
+            else post.adoption_deadline()
+        )
+    )
+    countdown_deadline_local = (
+        timezone.localtime(countdown_deadline)
+        if countdown_deadline and timezone.is_aware(countdown_deadline)
+        else countdown_deadline
+    )
+    pending_state_detail = (
+        f"Verification until {pending_review_until_label}"
+        if is_pending_review and pending_review_until_label
+        else ""
+    )
     action_url = (
         reverse("user:claim_confirm", args=[post.id])
         if phase == "claim"
         else reverse("user:adopt_confirm", args=[post.id])
     )
-    countdown_deadline = (
-        post.claim_deadline()
-        if phase == "claim"
-        else post.adoption_deadline()
-    )
-    countdown_deadline_local = (
-        timezone.localtime(countdown_deadline)
-        if countdown_deadline
-        else None
-    )
-    location_label = " ".join((post.location or "").split()) or "Location not listed"
     return {
         "post": post,
         "phase": phase,
         "phase_label": "Claim" if phase == "claim" else "Adopt",
-        "phase_title": "Ready for Claim" if phase == "claim" else "Ready for Adoption",
+        "phase_title": phase_title,
         "days_left": days,
         "hours_left": hours,
         "minutes_left": minutes,
@@ -1249,14 +1364,31 @@ def _build_rescue_finder_card_item(post, phase, days, hours, minutes, match_scor
         "detail_url": reverse("user:post_detail", args=[post.id]),
         "action_label": "Claim" if phase == "claim" else "Adopt",
         "action_url": action_url,
-        "time_left_badge": f"{days}d {hours}h {minutes}m left",
-        "countdown_date_heading": "Claim Ends" if phase == "claim" else "Adoption Ends",
+        "time_left_badge": (
+            "Pending Admin Review"
+            if is_pending_review
+            else f"{days}d {hours}h {minutes}m left"
+        ),
+        "countdown_date_heading": (
+            "Verification Until"
+            if is_pending_review
+            else ("Claim Ends" if phase == "claim" else "Adoption Ends")
+        ),
         "countdown_date_label": (
-            countdown_deadline_local.strftime("%b %d, %Y")
-            if countdown_deadline_local
-            else "Date pending"
+            pending_review_until_label
+            if is_pending_review and pending_review_until_label
+            else (
+                countdown_deadline_local.strftime("%b %d, %Y")
+                if countdown_deadline_local
+                else "Date pending"
+            )
         ),
         "match_score": match_score,
+        "is_pending_review": is_pending_review,
+        "show_countdown": not is_pending_review,
+        "pending_state_label": "Pending admin review" if is_pending_review else "",
+        "pending_state_detail": pending_state_detail,
+        "pending_review_until_label": pending_review_until_label,
     }
 
 
@@ -1306,75 +1438,53 @@ def _build_rescue_finder_selected_chips(form, selected_filters):
 
 
 def _filter_public_posts(posts_qs, listing_mode, filter_type):
-    now = timezone.now()
-    post_table = Post._meta.db_table
+    posts = list(posts_qs)
+    Post.attach_active_appointment_dates(posts)
     active_statuses = ["rescued", "under_care"]
-
-    claim_deadline_expr = RawSQL(
-        f"DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY)",
-        [],
-        output_field=DateTimeField(),
-    )
-    adopt_deadline_expr = RawSQL(
-        f"DATE_ADD(DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY), INTERVAL %s DAY)",
-        [Post.ADOPTION_DAYS],
-        output_field=DateTimeField(),
-    )
 
     if listing_mode == "claim":
         allowed_filters = {"all", "ready_claim", "reunited"}
         if filter_type not in allowed_filters:
             filter_type = "all"
 
-        if filter_type in {"all", "ready_claim"}:
-            posts_qs = posts_qs.annotate(claim_deadline_db=claim_deadline_expr)
-
         if filter_type == "ready_claim":
-            posts_qs = posts_qs.filter(
-                status__in=active_statuses,
-                claim_deadline_db__gte=now,
-            )
+            posts = [
+                post
+                for post in posts
+                if post.status in active_statuses and post.current_phase() == "claim"
+            ]
         elif filter_type == "reunited":
-            posts_qs = posts_qs.filter(status="reunited")
+            posts = [post for post in posts if post.status == "reunited"]
         else:
-            posts_qs = posts_qs.filter(
-                Q(status="reunited")
-                | (
-                    Q(status__in=active_statuses)
-                    & Q(claim_deadline_db__gte=now)
-                )
-            )
-        return posts_qs, filter_type
+            posts = [
+                post
+                for post in posts
+                if post.status == "reunited"
+                or (post.status in active_statuses and post.current_phase() == "claim")
+            ]
+        return posts, filter_type
 
     allowed_filters = {"all", "ready_adopt", "adopted"}
     if filter_type not in allowed_filters:
         filter_type = "all"
 
-    if filter_type in {"all", "ready_adopt"}:
-        posts_qs = posts_qs.annotate(
-            claim_deadline_db=claim_deadline_expr,
-            adopt_deadline_db=adopt_deadline_expr,
-        )
-
     if filter_type == "ready_adopt":
-        posts_qs = posts_qs.filter(
-            status__in=active_statuses,
-            claim_deadline_db__lt=now,
-            adopt_deadline_db__gte=now,
-        )
+        posts = [
+            post
+            for post in posts
+            if post.status in active_statuses and post.current_phase() == "adopt"
+        ]
     elif filter_type == "adopted":
-        posts_qs = posts_qs.filter(status="adopted")
+        posts = [post for post in posts if post.status == "adopted"]
     else:
-        posts_qs = posts_qs.filter(
-            Q(status="adopted")
-            | (
-                Q(status__in=active_statuses)
-                & Q(claim_deadline_db__lt=now)
-                & Q(adopt_deadline_db__gte=now)
-            )
-        )
+        posts = [
+            post
+            for post in posts
+            if post.status == "adopted"
+            or (post.status in active_statuses and post.current_phase() == "adopt")
+        ]
 
-    return posts_qs, filter_type
+    return posts, filter_type
 
 
 def _filter_user_adoption_posts(posts_qs, filter_type):
@@ -1393,19 +1503,21 @@ def _filter_user_adoption_posts(posts_qs, filter_type):
 def _build_public_post_listing(request, listing_mode):
     """Build the rescue finder page using real rescue-post phases and profile filters."""
     preferred_purpose = _finder_default_purpose(listing_mode)
-    raw_open_posts = (
+    raw_open_posts = list(
         _base_public_post_queryset()
         .filter(status__in=["rescued", "under_care"])
     )
+    Post.attach_active_appointment_dates(raw_open_posts)
 
     open_post_rows = []
     location_map = {}
     phase_counts = {"all": 0, "claim": 0, "adopt": 0}
     for post in raw_open_posts:
-        phase, days, hours, minutes = _post_phase_payload(post)
+        phase_payload = _post_phase_payload(post)
+        phase = phase_payload["phase"]
         if phase not in {"claim", "adopt"}:
             continue
-        open_post_rows.append((post, phase, days, hours, minutes))
+        open_post_rows.append((post, phase_payload))
         phase_counts["all"] += 1
         phase_counts[phase] += 1
         location_value = " ".join((post.location or "").split())
@@ -1413,7 +1525,10 @@ def _build_public_post_listing(request, listing_mode):
             location_map.setdefault(_normalize_rescue_location(location_value), location_value)
 
     finder_form = _build_rescue_finder_form(
-        location_choices=sorted(location_map.values(), key=str.lower),
+        location_choices=_merge_rescue_finder_locations(
+            BAYAWAN_BARANGAYS,
+            sorted(location_map.values(), key=str.lower),
+        ),
         default_purpose=preferred_purpose,
     )
     purpose_choice_map = _rescue_finder_choice_map(finder_form.fields["purpose"])
@@ -1431,17 +1546,15 @@ def _build_public_post_listing(request, listing_mode):
     active_filter_count = len(active_filter_chips)
 
     candidate_items = []
-    for post, phase, days, hours, minutes in open_post_rows:
+    for post, phase_payload in open_post_rows:
+        phase = phase_payload["phase"]
         if selected_purpose != "all" and phase != selected_purpose:
             continue
         match_score = _rescue_finder_match_score(post, selected_filters)
         candidate_items.append(
             _build_rescue_finder_card_item(
                 post,
-                phase,
-                days,
-                hours,
-                minutes,
+                phase_payload,
                 match_score,
             )
         )
@@ -1542,20 +1655,23 @@ def _build_public_post_listing(request, listing_mode):
 
 
 def _build_home_featured_rescue_sections():
-    raw_open_posts = (
+    raw_open_posts = list(
         _base_public_post_queryset()
         .filter(status__in=["rescued", "under_care"])
     )
+    Post.attach_active_appointment_dates(raw_open_posts)
     section_items = {"claim": [], "adopt": []}
 
     for post in raw_open_posts:
-        phase, days, hours, minutes = _post_phase_payload(post)
+        phase_payload = _post_phase_payload(post)
+        phase = phase_payload["phase"]
         if phase not in section_items or len(section_items[phase]) >= HOME_FEATURED_CAROUSEL_LIMIT:
             continue
 
-        card_item = _build_rescue_finder_card_item(post, phase, days, hours, minutes, 0)
+        card_item = _build_rescue_finder_card_item(post, phase_payload, 0)
         card_item.update({
             "home_action_url": f'{card_item["action_url"]}?return_to=home',
+            "barangay_label": card_item["location_label"],
         })
         section_items[phase].append(card_item)
 
@@ -1594,6 +1710,242 @@ def _build_home_featured_rescue_sections():
             item["next_input_id"] = input_ids[(index + 1) % len(input_ids)] if input_ids else ""
 
     return sections
+
+
+def _build_home_pinned_rescue_spotlight():
+    pinned_posts = list(
+        _base_public_post_queryset()
+        .filter(is_pinned=True, status__in=["rescued", "under_care"])
+        .order_by("-pinned_at", "-created_at")
+    )
+    if not pinned_posts:
+        return None
+
+    Post.attach_active_appointment_dates(pinned_posts)
+    for post in pinned_posts:
+        phase_payload = _post_phase_payload(post)
+        phase = phase_payload["phase"]
+        if phase not in {"claim", "adopt"}:
+            continue
+
+        card_item = _build_rescue_finder_card_item(post, phase_payload, 0)
+        countdown_deadline = (
+            phase_payload["pending_review_until"]
+            if phase_payload["is_pending_review"]
+            else (
+                post.claim_deadline()
+                if phase == "claim"
+                else post.adoption_deadline()
+            )
+        )
+        countdown_deadline_local = (
+            timezone.localtime(countdown_deadline)
+            if countdown_deadline and timezone.is_aware(countdown_deadline)
+            else countdown_deadline
+        )
+        pinned_at_local = (
+            timezone.localtime(post.pinned_at)
+            if post.pinned_at and timezone.is_aware(post.pinned_at)
+            else post.pinned_at
+        )
+        countdown_date_heading = (
+            "Verification Until"
+            if phase_payload["is_pending_review"]
+            else ("Claim Ends" if phase == "claim" else "Adoption Ends")
+        )
+        countdown_date_label = (
+            phase_payload["pending_review_until_label"]
+            if phase_payload["is_pending_review"]
+            else (
+                countdown_deadline_local.strftime("%b %d, %Y %I:%M %p")
+                if countdown_deadline_local
+                else "Date pending"
+            )
+        )
+        time_left_badge = (
+            "Pending Admin Review"
+            if phase_payload["is_pending_review"]
+            else (
+                f'{phase_payload["days_left"]}d {phase_payload["hours_left"]}h '
+                f'{phase_payload["minutes_left"]}m left'
+            )
+        )
+        if phase_payload["is_pending_review"]:
+            spotlight_copy = "Bayawan Vet pinned this rescue while the current request is under admin verification."
+            primary_cta_label = "View Rescue Status"
+            primary_cta_url = reverse("user:post_detail", args=[post.id])
+            primary_requires_auth = False
+        elif phase == "claim":
+            spotlight_copy = "Bayawan Vet highlighted this rescue so the rightful owner can still catch the remaining claim window."
+            primary_cta_label = "Claim This Dog"
+            primary_cta_url = f'{card_item["action_url"]}?return_to=home'
+            primary_requires_auth = True
+        else:
+            spotlight_copy = "Bayawan Vet highlighted this rescue to help the dog find a safe home faster while the adoption window is still open."
+            primary_cta_label = "Meet This Dog"
+            primary_cta_url = f'{card_item["action_url"]}?return_to=home'
+            primary_requires_auth = True
+
+        return {
+            "post": post,
+            "title": card_item["title"] or f"Rescue Dog #{post.id}",
+            "detail_url": reverse("user:post_detail", args=[post.id]),
+            "browse_url": reverse("user:claim_list" if phase == "claim" else "user:adopt_list"),
+            "main_image_url": card_item["main_image_url"],
+            "image_alt": f'{card_item["title"] or "Pinned rescue"} dog photo',
+            "phase": phase,
+            "phase_title": card_item["phase_title"],
+            "location_label": card_item["location_label"],
+            "breed_label": card_item["breed_label"],
+            "age_label": card_item["age_label"],
+            "size_label": card_item["size_label"],
+            "gender_label": card_item["gender_label"],
+            "time_left_badge": time_left_badge,
+            "time_left_context": _featured_time_left_context(phase, phase_payload),
+            "countdown_date_heading": countdown_date_heading,
+            "countdown_date_label": countdown_date_label,
+            "support_title": "Pinned by Bayawan Vet",
+            "spotlight_copy": spotlight_copy,
+            "primary_cta_label": primary_cta_label,
+            "primary_cta_url": primary_cta_url,
+            "primary_requires_auth": primary_requires_auth,
+            "secondary_cta_label": "View Full Post",
+            "secondary_cta_url": reverse("user:post_detail", args=[post.id]),
+            "pinned_on_label": (
+                pinned_at_local.strftime("%b %d, %Y")
+                if pinned_at_local
+                else _format_datetime_label(post.created_at)
+            ),
+            "facts": [
+                {"label": "Breed", "value": card_item["breed_label"]},
+                {"label": "Barangay", "value": card_item["location_label"]},
+                {"label": "Age", "value": card_item["age_label"]},
+                {"label": "Size", "value": card_item["size_label"]},
+                {"label": countdown_date_heading, "value": countdown_date_label},
+                {"label": "Pinned On", "value": (
+                    pinned_at_local.strftime("%b %d, %Y")
+                    if pinned_at_local
+                    else _format_datetime_label(post.created_at)
+                )},
+            ],
+        }
+
+    return None
+
+
+def _build_home_limited_time_rescue_section():
+    raw_open_posts = list(
+        _base_public_post_queryset()
+        .filter(status__in=["rescued", "under_care"])
+    )
+    Post.attach_active_appointment_dates(raw_open_posts)
+    items = []
+
+    for post in raw_open_posts:
+        phase_payload = _post_phase_payload(post)
+        phase = phase_payload["phase"]
+        if phase not in {"claim", "adopt"}:
+            continue
+
+        card_item = _build_rescue_finder_card_item(post, phase_payload, 0)
+        countdown_deadline = (
+            phase_payload["pending_review_until"]
+            if phase_payload["is_pending_review"]
+            else (
+                post.claim_deadline()
+                if phase == "claim"
+                else post.adoption_deadline()
+            )
+        )
+        countdown_deadline_local = (
+            timezone.localtime(countdown_deadline)
+            if countdown_deadline and timezone.is_aware(countdown_deadline)
+            else countdown_deadline
+        )
+        description_full = (
+            _clean_rescue_card_copy(post.caption)
+            or "This rescue listing has no additional notes yet."
+        )
+        time_left_emphasis = _featured_time_left_emphasis(phase_payload)
+        time_left_context = _featured_time_left_context(phase, phase_payload)
+        countdown_date_heading = (
+            "Verification Until"
+            if phase_payload["is_pending_review"]
+            else ("Claim Ends" if phase == "claim" else "Adoption Ends")
+        )
+        countdown_date_label = (
+            phase_payload["pending_review_until_label"]
+            if phase_payload["is_pending_review"]
+            else (
+                countdown_deadline_local.strftime("%b %d, %Y %I:%M %p")
+                if countdown_deadline_local
+                else "Date pending"
+            )
+        )
+        summary_facts = [
+            {"label": "Breed", "value": card_item["breed_label"]},
+            {"label": "Age", "value": card_item["age_label"]},
+            {"label": "Sex", "value": card_item["gender_label"]},
+            {"label": "Size", "value": card_item["size_label"]},
+            {"label": "Location", "value": card_item["location_label"]},
+        ]
+        detail_facts = summary_facts + [
+            {"label": "Phase", "value": card_item["phase_title"]},
+            {
+                "label": "Review Status" if phase_payload["is_pending_review"] else "Time Left",
+                "value": time_left_emphasis,
+            },
+            {"label": countdown_date_heading, "value": countdown_date_label},
+            {"label": "Coat", "value": card_item["coat_label"]},
+            {"label": "Color", "value": card_item["color_label"]},
+            {
+                "label": "Rescue Date",
+                "value": (
+                    post.rescued_date.strftime("%b %d, %Y")
+                    if post.rescued_date
+                    else post.created_at.strftime("%b %d, %Y")
+                ),
+            },
+            {"label": "Posted", "value": _format_datetime_label(post.created_at)},
+        ]
+        items.append({
+            **card_item,
+            "detail_url": reverse("user:post_detail", args=[post.id]),
+            "home_action_url": f'{card_item["action_url"]}?return_to=home',
+            "name_label": card_item["title"] or f"Rescue Dog #{post.id}",
+            "time_left_emphasis": time_left_emphasis,
+            "time_left_context": time_left_context,
+            "urgency_tone": _featured_time_left_tone(phase_payload),
+            "countdown_date_heading": countdown_date_heading,
+            "countdown_date_label": countdown_date_label,
+            "description_short": _truncate_rescue_card_copy(description_full, 132),
+            "description_full": description_full,
+            "summary_facts": summary_facts,
+            "detail_facts": detail_facts,
+            "image_alt": f'{card_item["title"]} dog photo',
+            "sort_deadline": countdown_deadline or post.created_at,
+        })
+
+    items.sort(key=lambda item: (
+        item["sort_deadline"],
+        0 if item["phase"] == "claim" else 1,
+        -item["post"].created_at.timestamp(),
+        item["post"].id,
+    ))
+
+    for index, item in enumerate(items, start=1):
+        item["panel_id"] = f"home-limited-dog-{index}-details"
+        item["card_id"] = f"home-limited-dog-{index}"
+
+    return {
+        "title": "Limited-Time Claim & Adoption",
+        "eyebrow": "Urgent Rescue Windows",
+        "description": "All active rescue posts with live claim, adoption, or verification countdowns.",
+        "empty_message": "No rescue posts are currently on a live claim or adoption timer.",
+        "items": items,
+        "claim_url": reverse("user:claim_list"),
+        "adopt_url": reverse("user:adopt_list"),
+    }
 
 
 def _create_user_adoption_images(request, post):
@@ -1718,6 +2070,10 @@ def _create_post_request_with_images(request, post, request_type, appointment_da
     return req
 
 
+def _resolve_request_message(message_or_callable, post):
+    return message_or_callable(post) if callable(message_or_callable) else message_or_callable
+
+
 def _handle_confirm_request(
     request,
     post_id,
@@ -1729,7 +2085,10 @@ def _handle_confirm_request(
     success_message,
 ):
     """Handle request confirmation flows for claim and adoption actions."""
-    post = get_object_or_404(Post, id=post_id)
+    post = get_object_or_404(Post.objects.filter(is_history=False), id=post_id)
+    not_open_message = _resolve_request_message(not_open_message, post)
+    duplicate_message = _resolve_request_message(duplicate_message, post)
+    success_message = _resolve_request_message(success_message, post)
     available_dates = _get_available_appointment_dates()
     history_url = _request_history_route_name(request_type)
     listing_url = _public_listing_route_name(request_type)
@@ -1763,6 +2122,8 @@ def _handle_confirm_request(
             return _render_confirm_page(request, template_name, post, available_dates, request_type)
 
         _create_post_request_with_images(request, post, request_type, appointment_date)
+        cache.delete(ADMIN_POST_HISTORY_CACHE_KEY)
+        bump_user_home_feed_namespace()
         messages.success(request, success_message)
         return redirect(history_url)
 
@@ -1777,7 +2138,7 @@ def _user_post_requests(user, request_type):
 
 
 FEED_CACHE_TTL_SECONDS = 90
-FEED_CACHE_VERSION = "v5"
+FEED_CACHE_VERSION = "v6"
 FEED_POSTS_PER_PAGE = 12
 FEED_ADMIN_CANDIDATE_LIMIT = 700
 FEED_ANNOUNCEMENT_CANDIDATE_LIMIT = 300
@@ -1900,40 +2261,35 @@ def _active_admin_posts_queryset(query=""):
         status="accepted",
         request_type__in=["claim", "adopt"],
     )
-    post_table = Post._meta.db_table
-    claim_deadline_expr = RawSQL(
-        f"DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY)",
-        [],
-        output_field=DateTimeField(),
-    )
-    adopt_deadline_expr = RawSQL(
-        f"DATE_ADD(DATE_ADD({post_table}.created_at, INTERVAL {post_table}.claim_days DAY), INTERVAL %s DAY)",
-        [Post.ADOPTION_DAYS],
-        output_field=DateTimeField(),
-    )
-    now = timezone.now()
-    admin_qs = (
-        Post.objects.exclude(status__in=["reunited", "adopted"])
+    admin_qs = Post.with_pending_request_state(
+        Post.objects.filter(is_history=False).exclude(status__in=["reunited", "adopted"])
         .annotate(
             has_accepted_request=Exists(accepted_post_requests),
-            claim_deadline_db=claim_deadline_expr,
-            adopt_deadline_db=adopt_deadline_expr,
         )
-        .filter(
-            Q(has_accepted_request=False)
-            & (
-                Q(claim_deadline_db__gte=now)
-                | (Q(claim_deadline_db__lt=now) & Q(adopt_deadline_db__gte=now))
-            )
-        )
-    )
+    ).filter(has_accepted_request=False)
     if query:
         admin_qs = admin_qs.filter(
-            Q(caption__icontains=query)
+            Q(user__username__icontains=query)
+            | Q(user__first_name__icontains=query)
+            | Q(user__last_name__icontains=query)
+            | Q(caption__icontains=query)
             | Q(location__icontains=query)
             | Q(status__icontains=query)
         )
-    return admin_qs
+    return admin_qs.order_by("-created_at", "-id")
+
+
+def _active_admin_posts(query="", candidate_limit=None):
+    admin_qs = _active_admin_posts_queryset(query)
+    if candidate_limit is not None:
+        admin_qs = admin_qs[:candidate_limit]
+    posts = list(admin_qs)
+    Post.attach_active_appointment_dates(posts)
+    return [
+        post
+        for post in posts
+        if post.current_phase() in {"claim", "adopt"}
+    ]
 
 
 def _active_admin_candidate_ids_with_cache(query):
@@ -1942,11 +2298,13 @@ def _active_admin_candidate_ids_with_cache(query):
     if cached_ids is not None:
         return cached_ids
 
-    active_ids = list(
-        _active_admin_posts_queryset(query)
-        .order_by("-created_at")
-        .values_list("id", flat=True)[:FEED_ADMIN_CANDIDATE_LIMIT]
-    )
+    active_ids = [
+        post.id
+        for post in _active_admin_posts(
+            query,
+            candidate_limit=FEED_ADMIN_CANDIDATE_LIMIT,
+        )
+    ]
     cache.set(cache_key, active_ids, FEED_CACHE_TTL_SECONDS)
     return active_ids
 
@@ -2039,7 +2397,10 @@ def _build_search_home_rows(query, dogs_only=False, viewer_id=None):
     if cached_rows is not None:
         return cached_rows
 
-    admin_qs = _active_admin_posts_queryset(query)
+    admin_posts = _active_admin_posts(
+        query,
+        candidate_limit=SEARCH_CANDIDATE_LIMIT,
+    )
     announcement_qs = DogAnnouncement.objects.all()
     user_qs = UserAdoptionPost.objects.filter(status="available")
     missing_qs = MissingDogPost.objects.filter(status="missing")
@@ -2073,21 +2434,14 @@ def _build_search_home_rows(query, dogs_only=False, viewer_id=None):
             | Q(owner__last_name__icontains=query)
         )
 
-        admin_qs = admin_qs.filter(
-            Q(user__username__icontains=query)
-            | Q(user__first_name__icontains=query)
-            | Q(user__last_name__icontains=query)
-            | Q(caption__icontains=query)
-            | Q(location__icontains=query)
-            | Q(status__icontains=query)
-        )
         announcement_qs = announcement_qs.filter(announcement_filters)
         user_qs = user_qs.filter(user_filters)
         missing_qs = missing_qs.filter(missing_filters)
 
-    admin_rows = list(
-        admin_qs.order_by("-created_at").values("id", "created_at")[:SEARCH_CANDIDATE_LIMIT]
-    )
+    admin_rows = [
+        {"id": post.id, "created_at": post.created_at}
+        for post in admin_posts
+    ]
     announcement_rows = []
     if not dogs_only:
         announcement_rows = list(
@@ -2140,14 +2494,16 @@ def _hydrate_home_feed_items(request, feed_rows):
 
     admin_map = {
         post.id: post
-        for post in Post.objects.select_related(
-            "user", "user__profile"
-        ).only(
-            "id", "caption", "breed", "breed_other", "age_group", "size_group", "gender",
-            "coat_length", "colors", "color_other", "location", "status", "rescued_date",
-            "created_at", "claim_days",
-            "user__id", "user__username", "user__first_name", "user__last_name",
-            "user__profile__profile_image",
+        for post in Post.with_pending_request_state(
+            Post.objects.select_related(
+                "user", "user__profile"
+            ).only(
+                "id", "caption", "breed", "breed_other", "age_group", "size_group", "gender",
+                "coat_length", "colors", "color_other", "location", "status", "rescued_date",
+                "created_at", "claim_days",
+                "user__id", "user__username", "user__first_name", "user__last_name",
+                "user__profile__profile_image",
+            )
         ).prefetch_related(
             Prefetch(
                 "images",
@@ -2156,6 +2512,7 @@ def _hydrate_home_feed_items(request, feed_rows):
             )
         ).filter(id__in=ids_by_type["admin"])
     }
+    Post.attach_active_appointment_dates(admin_map.values())
     announcement_map = {
         post.id: post
         for post in DogAnnouncement.objects.select_related(
@@ -2241,13 +2598,14 @@ def _hydrate_home_feed_items(request, feed_rows):
             gallery_images = list(getattr(p, "prefetched_images", []))
             main_image = gallery_images[0] if gallery_images else None
 
-            phase, days, hours, minutes = _post_phase_payload(p)
+            phase_payload = _post_phase_payload(p)
+            phase = phase_payload["phase"]
             is_open_for_adoption = phase in ["claim", "adopt"]
 
             deadline = None
-            if phase == "claim":
+            if phase == "claim" and not phase_payload["is_pending_review"]:
                 deadline = p.claim_deadline()
-            elif phase == "adopt":
+            elif phase == "adopt" and not phase_payload["is_pending_review"]:
                 deadline = p.adoption_deadline()
 
             combined_posts.append({
@@ -2256,11 +2614,21 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "author_avatar_url": _profile_image_url_or_default(
                     p.user, default_admin_avatar_url
                 ),
-                "days_left": days,
-                "hours_left": hours,
-                "minutes_left": minutes,
+                "days_left": phase_payload["days_left"],
+                "hours_left": phase_payload["hours_left"],
+                "minutes_left": phase_payload["minutes_left"],
                 "is_open_for_adoption": is_open_for_adoption,
                 "phase": phase,
+                "is_pending_review": phase_payload["is_pending_review"],
+                "show_countdown": bool(deadline),
+                "pending_review_until": phase_payload["pending_review_until"],
+                "pending_review_until_label": phase_payload["pending_review_until_label"],
+                "pending_state_label": "Pending admin review" if phase_payload["is_pending_review"] else "",
+                "pending_state_detail": (
+                    f'Verification until {phase_payload["pending_review_until_label"]}'
+                    if phase_payload["is_pending_review"] and phase_payload["pending_review_until_label"]
+                    else ""
+                ),
                 "posted_label": _format_posted_label(p.created_at),
                 "deadline_iso": deadline.isoformat() if deadline else "",
                 "image_count": len(gallery_images),
@@ -2695,7 +3063,9 @@ def _build_user_home_context(
 
     return {
         "posts": combined_posts,
+        "pinned_admin_spotlight": _build_home_pinned_rescue_spotlight(),
         "featured_dog_sections": _build_home_featured_rescue_sections(),
+        "limited_time_rescue_section": _build_home_limited_time_rescue_section(),
         "page_obj": page_obj,
         "query": query,
         "feed_token": feed_token,
@@ -2950,70 +3320,8 @@ def delete_missing_dog_post(request, post_id):
 
 def post_detail(request, post_id):
     """Render a post detail page used by shared or linked home posts."""
-    post = get_object_or_404(_base_public_post_queryset(), id=post_id)
-    phase, days, hours, minutes = _post_phase_payload(post)
-    location_label = " ".join((post.location or "").split()) or "Location not listed"
-
-    if phase == "claim":
-        phase_title = "Ready for Claim"
-        countdown_heading = "Claim Ends"
-        countdown_deadline = post.claim_deadline()
-        time_left_badge = f"{days}d {hours}h {minutes}m left"
-        theme = "claim"
-    elif phase == "adopt":
-        phase_title = "Ready for Adoption"
-        countdown_heading = "Adoption Ends"
-        countdown_deadline = post.adoption_deadline()
-        time_left_badge = f"{days}d {hours}h {minutes}m left"
-        theme = "adopt"
-    else:
-        phase_title = post.get_status_display() or "Closed"
-        countdown_heading = "Status"
-        countdown_deadline = post.adoption_deadline() or post.claim_deadline()
-        time_left_badge = "Closed"
-        theme = "closed"
-
-    countdown_deadline_local = (
-        timezone.localtime(countdown_deadline)
-        if countdown_deadline
-        else None
-    )
-    summary = " ".join((post.caption or "").split())
-    if summary.casefold() == (post.display_breed or "").casefold():
-        summary = ""
-
-    back_url = _safe_preview_back_url(request, request.GET.get("next", "")) or reverse("user:user_home")
-    finder_urls = {reverse("user:adopt_list"), reverse("user:claim_list")}
-    back_label = "Back to Find a Dog" if any(back_url.startswith(url) for url in finder_urls) else "Back to feed"
-
-    context = {
-        "post": post,
-        "back_url": back_url,
-        "back_label": back_label,
-        "detail": {
-            "theme": theme,
-            "title": _rescue_finder_title(post),
-            "location_label": location_label,
-            "phase_title": phase_title,
-            "time_left_badge": time_left_badge,
-            "main_image_url": _first_prefetched_image_url(post.images.all()),
-            "summary": summary,
-            "facts": [
-                {"label": "Breed", "value": post.display_breed or "Unknown Breed"},
-                {"label": "Barangay", "value": location_label},
-                {
-                    "label": countdown_heading,
-                    "value": countdown_deadline_local.strftime("%b %d, %Y")
-                    if countdown_deadline_local
-                    else "Date pending",
-                },
-                {"label": "Time Left", "value": time_left_badge},
-                {"label": "Age", "value": post.display_age_group or "Age not listed"},
-                {"label": "Size", "value": post.display_size_group or "Size not listed"},
-            ],
-        },
-    }
-    return render(request, "home/post_detail.html", context)
+    post = get_object_or_404(Post, id=post_id)
+    return render(request, 'home/post_detail.html', {'post': post})
 
 
 # =============================================================================
@@ -3588,7 +3896,7 @@ def adopt_confirm(request, post_id):
     """Confirm and submit an adoption request for a staff-managed post."""
     access_response = _require_public_member_or_auth_modal(
         request,
-        next_url=reverse("user:adopt_confirm", args=[post_id]),
+        next_url=request.get_full_path(),
     )
     if access_response is not None:
         return access_response
@@ -3597,10 +3905,22 @@ def adopt_confirm(request, post_id):
         post_id=post_id,
         request_type="adopt",
         template_name="adopt/adopt_confirm.html",
-        is_open_fn=lambda post: post.is_open_for_adoption(),
-        not_open_message="Adoption is not open yet or has already closed.",
-        duplicate_message="You already submitted an adoption request.",
-        success_message="Adoption request submitted successfully! ðŸ¾",
+        is_open_fn=lambda post: post.current_phase() in {"claim", "adopt"},
+        not_open_message=lambda post: (
+            "Adoption is not available for this post anymore."
+            if post.current_phase() == "closed"
+            else "Adoption is not open for this post yet."
+        ),
+        duplicate_message=lambda post: (
+            "You already reserved adoption for this dog."
+            if post.current_phase() == "claim"
+            else "You already submitted an adoption request."
+        ),
+        success_message=lambda post: (
+            "Adoption reserved. If no owner claim is approved, admin review opens after the claim window closes."
+            if post.current_phase() == "claim"
+            else "Adoption request submitted. The post stays visible while admin verification runs for 1 day."
+        ),
     )
 # =============================================================================
 # Navigation 4/5: Announcement
@@ -3836,5 +4156,5 @@ def claim_confirm(request, post_id):
         is_open_fn=lambda post: post.is_open_for_claim(),
         not_open_message="Claim period has ended for this post.",
         duplicate_message="You already submitted a claim for this dog.",
-        success_message="Claim submitted successfully! Admin will review it carefully ðŸ¾",
+        success_message="Claim submitted. The post stays visible while admin verification runs for 1 day.",
     )

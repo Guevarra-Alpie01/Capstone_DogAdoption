@@ -2,26 +2,40 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/admin_home/post_history.css' %}?v=20260324b">
+<link rel="stylesheet" href="{% static 'css/admin_home/post_history.css' %}?v=20260407a">
 {% endblock %}
 
 {% block content %}
 <section class="history-page">
     <div class="history-page-header">
         <a href="{% url 'dogadoption_admin:post_list' %}" class="history-back-link">
-            <i class="fas fa-arrow-left" aria-hidden="true"></i>
-            Back to Posts
+            <span class="history-back-link-icon">
+                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+            </span>
+            <span class="history-back-link-copy">
+                <small>Return</small>
+                <strong>Back to Posts</strong>
+            </span>
         </a>
-        <div>
-            <h1 class="history-page-title">Unclaimed and Unadopted Dogs</h1>
-        </div>
     </div>
 
     <div class="history-page-summary">
-        <div class="history-summary-pill">
+        <a href="?{{ history_all_qs }}" class="history-summary-pill{% if history_active_filter == 'all' %} is-active{% endif %}">
             <strong>{{ history_total }}</strong>
-            <span>Archived post{{ history_total|pluralize }}</span>
-        </div>
+            <span>Total record{{ history_total|pluralize }}</span>
+        </a>
+        <a href="?{{ history_adopted_qs }}" class="history-summary-pill history-summary-pill--adopted{% if history_active_filter == 'adopted' %} is-active{% endif %}">
+            <strong>{{ history_adopted_total }}</strong>
+            <span>Adopted</span>
+        </a>
+        <a href="?{{ history_redeemed_qs }}" class="history-summary-pill history-summary-pill--redeemed{% if history_active_filter == 'redeemed' %} is-active{% endif %}">
+            <strong>{{ history_redeemed_total }}</strong>
+            <span>Redeemed</span>
+        </a>
+        <a href="?{{ history_unresolved_qs }}" class="history-summary-pill history-summary-pill--unresolved{% if history_active_filter == 'unresolved' %} is-active{% endif %}">
+            <strong>{{ history_unresolved_total }}</strong>
+            <span>Not Adopted / Redeemed</span>
+        </a>
     </div>
 
     <section class="history-page-card">
@@ -33,8 +47,9 @@
                             <th>Image</th>
                             <th>Breed / Post</th>
                             <th>Date Posted</th>
-                            <th>Status</th>
-                            <th>Closed</th>
+                            <th>History Type</th>
+                            <th>Status Snapshot</th>
+                            <th>Record Details</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -71,11 +86,28 @@
                                 </td>
                                 <td>
                                     <div class="history-status-cell">
-                                        <span class="history-status-badge history-status-{{ item.status_tone }}">{{ item.status_label }}</span>
-                                        <small>{{ item.base_status_label }}</small>
+                                        <span class="history-status-badge history-status-{{ item.record_tone }}">{{ item.record_label }}</span>
+                                        <small>{{ item.record_source_label }}</small>
                                     </div>
                                 </td>
-                                <td>{{ item.closed_date|date:"M d, Y"|default:"-" }}</td>
+                                <td>
+                                    <div class="history-copy-cell">
+                                        <strong>{{ item.base_status_label }}</strong>
+                                        <span>{{ item.post.status|upper }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="history-copy-cell">
+                                        <strong>{{ item.record_note }}</strong>
+                                        <span>
+                                            {% if item.recorded_on %}
+                                                Recorded {{ item.recorded_on|date:"M d, Y" }}
+                                            {% else %}
+                                                No recorded completion date
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -100,8 +132,8 @@
         {% else %}
             <div class="history-empty-state">
                 <i class="fas fa-history" aria-hidden="true"></i>
-                <h3>No archived unresolved posts</h3>
-                <p>Posts will appear here once their claim and adoption windows close without being finalized.</p>
+                <h3>No history records yet</h3>
+                <p>No records were found for this selected dashboard view.</p>
             </div>
         {% endif %}
     </section>

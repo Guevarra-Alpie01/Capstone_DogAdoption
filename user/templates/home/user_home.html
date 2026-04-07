@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260406reserve-admin-posts">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260407pinned-spotlight">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -34,6 +34,76 @@
             </div>
         </div>
     </section>
+
+    {% if pinned_admin_spotlight %}
+    <section class="home-admin-spotlight-shell" aria-labelledby="homePinnedSpotlightTitle">
+        <div class="home-admin-spotlight home-reveal">
+            <a href="{{ pinned_admin_spotlight.detail_url }}" class="home-admin-spotlight__media">
+                {% if pinned_admin_spotlight.main_image_url %}
+                    <img src="{{ pinned_admin_spotlight.main_image_url }}" alt="{{ pinned_admin_spotlight.image_alt }}">
+                {% else %}
+                    <div class="home-admin-spotlight__media-fallback">
+                        <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
+                        <span>Pinned rescue spotlight</span>
+                    </div>
+                {% endif %}
+                <div class="home-admin-spotlight__media-overlay">
+                    <span class="home-admin-spotlight__media-badge">
+                        <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
+                        <span>Homepage Spotlight</span>
+                    </span>
+                    <span class="home-admin-spotlight__media-date">Pinned {{ pinned_admin_spotlight.pinned_on_label }}</span>
+                </div>
+            </a>
+
+            <div class="home-admin-spotlight__copy">
+                <span class="home-admin-spotlight__eyebrow">
+                    <i class="bi bi-stars" aria-hidden="true"></i>
+                    <span>{{ pinned_admin_spotlight.support_title }}</span>
+                </span>
+                <h2 class="home-admin-spotlight__title" id="homePinnedSpotlightTitle">{{ pinned_admin_spotlight.title }}</h2>
+                <p class="home-admin-spotlight__text">{{ pinned_admin_spotlight.spotlight_copy }}</p>
+
+                <div class="home-admin-spotlight__chips">
+                    <span class="home-admin-spotlight__chip home-admin-spotlight__chip--phase">{{ pinned_admin_spotlight.phase_title }}</span>
+                    <span class="home-admin-spotlight__chip">{{ pinned_admin_spotlight.time_left_badge }}</span>
+                    <span class="home-admin-spotlight__chip">{{ pinned_admin_spotlight.location_label }}</span>
+                </div>
+
+                <div class="home-admin-spotlight__facts" role="list">
+                    {% for fact in pinned_admin_spotlight.facts %}
+                    <div class="home-admin-spotlight__fact" role="listitem">
+                        <span>{{ fact.label }}</span>
+                        <strong>{{ fact.value }}</strong>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <p class="home-admin-spotlight__context">{{ pinned_admin_spotlight.time_left_context }}</p>
+
+                <div class="home-admin-spotlight__actions">
+                    <a
+                        href="{{ pinned_admin_spotlight.primary_cta_url }}"
+                        class="home-admin-spotlight__btn home-admin-spotlight__btn--primary"
+                        {% if pinned_admin_spotlight.primary_requires_auth and not request.user.is_authenticated %}
+                        data-auth-modal-trigger="login"
+                        data-auth-next-url="{{ pinned_admin_spotlight.primary_cta_url }}"
+                        {% endif %}
+                    >
+                        <span>{{ pinned_admin_spotlight.primary_cta_label }}</span>
+                        <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+                    </a>
+                    <a href="{{ pinned_admin_spotlight.secondary_cta_url }}" class="home-admin-spotlight__btn home-admin-spotlight__btn--secondary">
+                        <span>{{ pinned_admin_spotlight.secondary_cta_label }}</span>
+                    </a>
+                    <a href="{{ pinned_admin_spotlight.browse_url }}" class="home-admin-spotlight__btn home-admin-spotlight__btn--ghost">
+                        <span>Browse More Dogs</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+    {% endif %}
 
 <section class="home-featured-shell container" aria-label="Featured rescue dogs">
     <div class="home-featured-grid">

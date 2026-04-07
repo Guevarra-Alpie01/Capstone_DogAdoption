@@ -1607,6 +1607,54 @@ def update_post(request, post_id):
 
 @admin_required
 @require_POST
+def toggle_post_pin(request, post_id):
+    """Pin or unpin a rescue post for the public home spotlight."""
+    access = getattr(request, "admin_access", get_admin_access(request.user))
+    if not access.get("can_create_posts"):
+        messages.error(request, "You do not have permission to pin posts.", extra_tags="post_list")
+        return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+    post = get_object_or_404(Post.objects.filter(is_history=False), id=post_id)
+    if post.status not in {"rescued", "under_care"}:
+        messages.warning(
+            request,
+            "Only active rescue posts can be pinned to the homepage.",
+            extra_tags="post_list",
+        )
+        return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+    post_name = post.display_title or post.caption or f"Post {post.id}"
+    if post.is_pinned:
+        post.is_pinned = False
+        post.pinned_at = None
+        post.save(update_fields=["is_pinned", "pinned_at"])
+        messages.success(
+            request,
+            f'Post "{post_name}" was removed from the homepage spotlight.',
+            extra_tags="post_list",
+        )
+    else:
+        now = timezone.now()
+        with transaction.atomic():
+            Post.objects.filter(is_pinned=True).exclude(pk=post.pk).update(
+                is_pinned=False,
+                pinned_at=None,
+            )
+            post.is_pinned = True
+            post.pinned_at = now
+            post.save(update_fields=["is_pinned", "pinned_at"])
+        messages.success(
+            request,
+            f'Post "{post_name}" is now pinned on the homepage spotlight.',
+            extra_tags="post_list",
+        )
+
+    _touch_post_board_cache()
+    return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+
+@admin_required
+@require_POST
 def toggle_post_phase(request, post_id):
     """Manually move an active rescue post between the redeem and adoption groups."""
     access = getattr(request, "admin_access", get_admin_access(request.user))
@@ -1667,7 +1715,9 @@ def delete_post(request, post_id):
     else:
         if not post.is_history:
             post.is_history = True
-            post.save(update_fields=["is_history"])
+            post.is_pinned = False
+            post.pinned_at = None
+            post.save(update_fields=["is_history", "is_pinned", "pinned_at"])
         messages.success(request, f'Post "{post_name}" was moved to history.', extra_tags="post_list")
 
     _touch_post_board_cache()
@@ -1768,6 +1818,8 @@ def post_list(request):
             'phase_override',
             'phase_override_started_at',
             'is_history',
+            'is_pinned',
+            'pinned_at',
             'view_count',
         )
     )
@@ -1860,6 +1912,7 @@ def post_list(request):
             "pending_review_until_label": pending_review_until_label,
             "deadline_iso": deadline.isoformat() if deadline else "",
             "time_left_label": time_left_label,
+            "is_pinned": bool(getattr(post, "is_pinned", False)),
             "claim_requests": [],
             "adopt_requests": [],
             "primary_image_url": "",
@@ -1867,6 +1920,12 @@ def post_list(request):
             "finalized_user_barangay": "-",
             "detail_modal_id": f"postDetails{post.id}",
             "request_modal_id": f"{request_type}RequestUsers{post.id}",
+            "pin_url": reverse("dogadoption_admin:toggle_post_pin", args=[post.id]),
+            "pin_label": (
+                "Unpin post from homepage spotlight"
+                if getattr(post, "is_pinned", False)
+                else "Pin post to homepage spotlight"
+            ),
             "edit_url": reverse("dogadoption_admin:update_post", args=[post.id]),
             "toggle_url": reverse("dogadoption_admin:toggle_post_phase", args=[post.id]),
             "toggle_phase": toggle_phase,
@@ -1903,6 +1962,8 @@ def post_list(request):
     for phase_key, posts in open_posts_by_phase.items():
         posts.sort(
             key=lambda post: (
+                -int(bool(getattr(post, "is_pinned", False))),
+                -int(getattr(post, "pinned_at", None).timestamp()) if getattr(post, "pinned_at", None) else 0,
                 -int(getattr(post, "total_request_count", 0) or 0),
                 -post.created_at.timestamp(),
                 -post.id,

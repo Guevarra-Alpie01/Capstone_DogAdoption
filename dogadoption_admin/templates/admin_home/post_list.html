@@ -2,51 +2,56 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260407b">
+<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260407pinspotlight">
 
 <div class="post-toolbar-shell">
     <div class="post-toolbar">
-        {% if admin_access.can_create_posts %}
-            <button
-                type="button"
-                class="post-toolbar-icon-btn"
-                data-bs-toggle="modal"
-                data-bs-target="#createPostModal"
-                data-bs-placement="bottom"
-                title="Create Post"
-                aria-label="Create Post"
-            >
-                <i class="fas fa-plus-circle" aria-hidden="true"></i>
-            </button>
-        {% endif %}
-        {% if admin_access.is_full_admin %}
-            <button
-                type="button"
-                class="post-toolbar-icon-btn"
-                data-bs-toggle="modal"
-                data-bs-target="#appointmentDateModal"
-                data-bs-placement="bottom"
-                title="Set Appointment Date"
-                aria-label="Set Appointment Date"
-            >
-                <i class="fas fa-calendar-alt" aria-hidden="true"></i>
-            </button>
-        {% endif %}
-        {% if admin_access.can_view_post_history %}
-            <a
-                href="{% url 'dogadoption_admin:post_history' %}"
-                class="post-toolbar-icon-btn post-toolbar-icon-btn--history"
-                data-bs-toggle="tooltip"
-                data-bs-placement="bottom"
-                title="History ({{ history_total }} records)"
-                aria-label="History"
-            >
-                <i class="fas fa-history" aria-hidden="true"></i>
-                <span class="post-toolbar-badge">{{ history_total }}</span>
-            </a>
-        {% endif %}
+        <div class="post-toolbar-start">
+            {% if admin_access.can_create_posts %}
+                <button
+                    type="button"
+                    class="post-toolbar-icon-btn"
+                    data-bs-toggle="modal"
+                    data-bs-target="#createPostModal"
+                    data-bs-placement="bottom"
+                    title="Create Post"
+                    aria-label="Create Post"
+                >
+                    <i class="fas fa-plus-circle" aria-hidden="true"></i>
+                </button>
+            {% endif %}
+            {% if admin_access.is_full_admin %}
+                <button
+                    type="button"
+                    class="post-toolbar-icon-btn"
+                    data-bs-toggle="modal"
+                    data-bs-target="#appointmentDateModal"
+                    data-bs-placement="bottom"
+                    title="Set Appointment Date"
+                    aria-label="Set Appointment Date"
+                >
+                    <i class="fas fa-calendar-alt" aria-hidden="true"></i>
+                </button>
+            {% endif %}
+        </div>
+        <div class="post-toolbar-end">
+            {% if admin_access.can_view_post_history %}
+                <a
+                    href="{% url 'dogadoption_admin:post_history' %}"
+                    class="post-toolbar-icon-btn post-toolbar-icon-btn--history"
+                    data-bs-toggle="tooltip"
+                    data-bs-placement="bottom"
+                    title="History ({{ history_total }} records)"
+                    aria-label="History"
+                >
+                    <i class="fas fa-history" aria-hidden="true"></i>
+                    <span class="post-toolbar-badge">{{ history_total }}</span>
+                </a>
+            {% endif %}
+        </div>
     </div>
 </div>
+<div class="post-toolbar-spacer" aria-hidden="true"></div>
 
 {% if admin_access.can_create_posts %}
 <div class="modal fade create-post-modal" id="createPostModal" tabindex="-1" aria-labelledby="createPostModalLabel" aria-hidden="true">
@@ -287,6 +292,9 @@
                             <table class="table status-board-table mb-0">
                                 <thead>
                                     <tr>
+                                        <th class="status-board-pin-head">
+                                            <span class="visually-hidden">Pin</span>
+                                        </th>
                                         <th>Image</th>
                                         <th>Dog Details</th>
                                         <th>Requests</th>
@@ -296,7 +304,21 @@
                                 <tbody>
                                     {% for item in section.items %}
                                         {% with post=item.post %}
-                                        <tr>
+                                        <tr{% if item.is_pinned %} class="status-board-row--pinned"{% endif %}>
+                                            <td class="status-board-pin-col">
+                                                <form method="post" action="{{ item.pin_url }}" class="status-pin-form">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="next" value="{{ return_to }}">
+                                                    <button
+                                                        type="submit"
+                                                        class="status-pin-btn{% if item.is_pinned %} is-active{% endif %}"
+                                                        title="{{ item.pin_label }}"
+                                                        aria-label="{{ item.pin_label }}"
+                                                    >
+                                                        <i class="bi {% if item.is_pinned %}bi-pin-angle-fill{% else %}bi-pin-angle{% endif %}" aria-hidden="true"></i>
+                                                    </button>
+                                                </form>
+                                            </td>
                                             <td class="status-board-media-col">
                                                 <button
                                                     type="button"
@@ -318,6 +340,12 @@
                                             </td>
                                             <td>
                                                 <div class="status-dog-cell">
+                                                    {% if item.is_pinned %}
+                                                        <span class="status-pinned-badge">
+                                                            <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
+                                                            <span>Pinned on Home</span>
+                                                        </span>
+                                                    {% endif %}
                                                     <strong>{{ post.display_title|default:"Dog listing" }}</strong>
                                                     <span>{{ post.location|default:"Location unavailable" }}</span>
                                                     <span>{{ post.display_breed|default:"-" }}{% if post.gender %} | {{ post.get_gender_display }}{% endif %}</span>

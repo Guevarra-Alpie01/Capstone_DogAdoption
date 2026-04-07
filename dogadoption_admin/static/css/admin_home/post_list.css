@@ -4,48 +4,58 @@
 }
 
 .post-toolbar-shell {
-    display: block;
-    margin-bottom: 18px;
-    width: min(100%, var(--admin-page-max-width, 1180px));
-    margin-left: auto;
-    margin-right: auto;
+    position: fixed;
+    top: var(--admin-shell-topbar-height, 56px);
+    left: 0;
+    right: 0;
+    z-index: 1020;
     box-sizing: border-box;
+    padding-inline: var(--admin-shell-content-gutter, clamp(16px, 2.2vw, 32px));
+    background: rgba(249, 251, 253, 0.94);
+    border-bottom: 1px solid rgba(217, 227, 239, 0.96);
+    box-shadow: 0 6px 14px rgba(20, 35, 59, 0.05);
+    backdrop-filter: blur(12px);
 }
 
 .post-toolbar {
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 12px 2px 10px;
-    scrollbar-width: none;
+    justify-content: space-between;
+    gap: 14px;
+    width: min(100%, var(--admin-page-max-width, 1180px));
+    margin-inline: auto;
+    min-height: 52px;
+    padding: 4px 0;
 }
 
-.post-toolbar::-webkit-scrollbar {
-    display: none;
+.post-toolbar-start,
+.post-toolbar-end {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+    min-width: 0;
 }
 
 .post-toolbar-icon-btn {
-    width: 54px;
-    height: 54px;
+    width: 44px;
+    height: 44px;
     flex: 0 0 auto;
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 18px;
+    border-radius: 14px;
     border: 1px solid rgba(217, 227, 239, 0.92);
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(247, 250, 252, 0.98) 100%);
     color: #1f4d8f;
     text-decoration: none;
-    box-shadow: 0 12px 24px rgba(20, 35, 59, 0.08);
+    box-shadow: 0 8px 18px rgba(20, 35, 59, 0.07);
     transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .post-toolbar-icon-btn i {
-    font-size: 1.1rem;
+    font-size: 1rem;
 }
 
 .post-toolbar-icon-btn:hover,
@@ -62,10 +72,10 @@
 
 .post-toolbar-badge {
     position: absolute;
-    top: -4px;
-    right: -4px;
-    min-width: 20px;
-    height: 20px;
+    top: -3px;
+    right: -3px;
+    min-width: 18px;
+    height: 18px;
     padding: 0 6px;
     border-radius: 999px;
     display: inline-flex;
@@ -73,9 +83,13 @@
     justify-content: center;
     background: #1f4d8f;
     color: #ffffff;
-    font-size: 0.68rem;
+    font-size: 0.64rem;
     font-weight: 800;
     box-shadow: 0 6px 14px rgba(31, 77, 143, 0.22);
+}
+
+.post-toolbar-spacer {
+    height: 60px;
 }
 
 .create-post-modal .modal-content {
@@ -1342,6 +1356,7 @@
     border-radius: 18px;
     overflow: hidden;
     background: #ffffff;
+    min-width: 760px;
 }
 
 .status-board-table thead th {
@@ -1356,10 +1371,64 @@
     white-space: nowrap;
 }
 
+.status-board-pin-head,
+.status-board-pin-col {
+    width: 60px;
+    text-align: center;
+}
+
 .status-board-table tbody td {
     vertical-align: middle;
     padding: 14px 12px;
     border-color: #edf2f7;
+}
+
+.status-board-row--pinned td {
+    background:
+        linear-gradient(90deg, rgba(255, 247, 221, 0.7) 0%, rgba(255, 255, 255, 0.96) 88%);
+}
+
+.status-pin-form {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+}
+
+.status-pin-btn {
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    border: 1px solid #dbe3ee;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    color: #1f4d8f;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+
+.status-pin-btn:hover,
+.status-pin-btn:focus-visible {
+    transform: translateY(-1px);
+    border-color: #93c5fd;
+    color: #1d4ed8;
+    box-shadow: 0 12px 22px rgba(37, 99, 235, 0.12);
+}
+
+.status-pin-btn.is-active {
+    border-color: rgba(218, 165, 32, 0.48);
+    background: linear-gradient(180deg, #fff2be 0%, #f4c84a 100%);
+    color: #7a4d00;
+    box-shadow: 0 12px 22px rgba(214, 158, 46, 0.18);
+}
+
+.status-pin-btn.is-active:hover,
+.status-pin-btn.is-active:focus-visible {
+    border-color: rgba(196, 140, 13, 0.56);
+    color: #663f00;
+    box-shadow: 0 14px 24px rgba(196, 140, 13, 0.2);
 }
 
 .status-board-table .status-board-media-col {
@@ -1423,12 +1492,28 @@
     min-width: 0;
 }
 
+.status-pinned-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    margin-bottom: 2px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(255, 242, 190, 0.72);
+    color: #7a4d00;
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
 .status-dog-cell strong {
     color: #0f172a;
     font-size: 1rem;
 }
 
-.status-dog-cell span {
+.status-dog-cell > span:not(.status-pinned-badge) {
     color: #64748b;
     font-size: 0.85rem;
 }
@@ -1461,7 +1546,8 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    white-space: nowrap;
 }
 
 .status-icon-actions .status-action-form {
@@ -1559,6 +1645,32 @@
 }
 
 @media (max-width: 767.98px) {
+    .post-toolbar-shell {
+        top: var(--admin-shell-topbar-mobile-height, 66px);
+        padding-inline: 16px;
+    }
+
+    .post-toolbar {
+        min-height: 48px;
+        gap: 10px;
+        padding-block: 4px;
+    }
+
+    .post-toolbar-start,
+    .post-toolbar-end {
+        gap: 8px;
+    }
+
+    .post-toolbar-icon-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+    }
+
+    .post-toolbar-spacer {
+        height: 56px;
+    }
+
     .status-card-head {
         padding: 14px 16px;
     }
@@ -1571,6 +1683,11 @@
         min-width: 112px;
     }
 
+    .status-board-pin-head,
+    .status-board-pin-col {
+        width: 52px;
+    }
+
     .status-board-table .status-image-trigger {
         width: 78px;
         height: 64px;
@@ -1581,9 +1698,36 @@
         font-size: 0.94rem;
     }
 
-    .status-dog-cell span,
+    .status-dog-cell > span:not(.status-pinned-badge),
     .status-image-time strong {
         font-size: 0.78rem;
+    }
+
+    .status-board-table tbody td {
+        padding: 12px 10px;
+    }
+
+    .status-pin-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+    }
+
+    .status-request-chip {
+        min-width: 58px;
+        min-height: 38px;
+        padding: 0 12px;
+        gap: 6px;
+    }
+
+    .status-icon-actions {
+        gap: 6px;
+    }
+
+    .status-icon-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
     }
 }
 
@@ -1950,10 +2094,6 @@
 }
 
 @media (max-width: 700px) {
-    .post-toolbar-shell {
-        align-items: stretch;
-    }
-
     .history-toolbar-btn {
         width: 100%;
         justify-content: center;

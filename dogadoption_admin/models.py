@@ -148,6 +148,8 @@ class Post(models.Model):
     )
     phase_override_started_at = models.DateTimeField(blank=True, null=True)
     is_history = models.BooleanField(default=False)
+    is_pinned = models.BooleanField(default=False)
+    pinned_at = models.DateTimeField(blank=True, null=True)
     view_count = models.PositiveIntegerField(default=0)
 
     claim_days = models.PositiveIntegerField(
@@ -766,6 +768,7 @@ class Post(models.Model):
             models.Index(fields=["created_at"], name="post_created_idx"),
             models.Index(fields=["status", "created_at"], name="post_status_created_idx"),
             models.Index(fields=["is_history", "status", "created_at"], name="post_hist_status_created_idx"),
+            models.Index(fields=["is_pinned", "is_history", "created_at"], name="post_pin_hist_created_idx"),
         ]
 
 

@@ -16,6 +16,7 @@ urlpatterns = [
     path('post-history/', views.post_history, name='post_history'),
     path('create/', views.create_post, name='create_post'),
     path('posts/<adminpostid:post_id>/edit/', views.update_post, name='update_post'),
+    path('posts/<adminpostid:post_id>/pin/', views.toggle_post_pin, name='toggle_post_pin'),
     path('posts/<adminpostid:post_id>/phase/', views.toggle_post_phase, name='toggle_post_phase'),
     path('posts/<adminpostid:post_id>/delete/', views.delete_post, name='delete_post'),
     path('post/<adminpostid:post_id>/requests/', views.adoption_requests, name='adoption_requests'),

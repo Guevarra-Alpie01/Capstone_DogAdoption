@@ -202,14 +202,50 @@ def _get_cached_post_history_ids():
 
 def _build_post_history_page(request, page_param="page", rows_per_page=10):
     history_candidate_ids = _get_cached_post_history_ids()
-    paginator = Paginator(history_candidate_ids, rows_per_page)
+    filter_type = (request.GET.get("record_type") or "all").strip().lower()
+    if filter_type not in {"all", "adopted", "redeemed", "unresolved"}:
+        filter_type = "all"
+
+    history_meta_map = {
+        post.id: post
+        for post in Post.objects.filter(id__in=history_candidate_ids).only("id", "status", "is_history")
+    }
+
+    adopted_total = 0
+    redeemed_total = 0
+    unresolved_total = 0
+    for post_id in history_candidate_ids:
+        post = history_meta_map.get(post_id)
+        if not post:
+            continue
+        if post.status == "adopted":
+            adopted_total += 1
+        elif post.status == "reunited":
+            redeemed_total += 1
+        else:
+            unresolved_total += 1
+
+    history_total = len(history_candidate_ids)
+
+    def _matches_filter(post):
+        if filter_type == "adopted":
+            return post.status == "adopted"
+        if filter_type == "redeemed":
+            return post.status == "reunited"
+        if filter_type == "unresolved":
+            return post.status not in {"adopted", "reunited"}
+        return True
+
+    filtered_history_ids = [
+        post_id
+        for post_id in history_candidate_ids
+        if (post := history_meta_map.get(post_id)) and _matches_filter(post)
+    ]
+
+    paginator = Paginator(filtered_history_ids, rows_per_page)
     page_obj = paginator.get_page(request.GET.get(page_param, 1))
     page_ids = list(page_obj.object_list)
     history_posts = []
-    adopted_total = Post.objects.filter(status="adopted").count()
-    redeemed_total = Post.objects.filter(status="reunited").count()
-    history_total = len(history_candidate_ids)
-    unresolved_total = max(history_total - adopted_total - redeemed_total, 0)
 
     if page_ids:
         post_map = {
@@ -336,6 +372,8 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
         "history_adopted_total": adopted_total,
         "history_redeemed_total": redeemed_total,
         "history_unresolved_total": unresolved_total,
+        "history_active_filter": filter_type,
+        "history_filtered_total": len(filtered_history_ids),
         "history_posts": history_posts,
         "history_page_obj": page_obj,
     }
@@ -2027,10 +2065,20 @@ def post_history(request):
         params["page"] = str(page_num)
         return params.urlencode()
 
+    def _build_filter_qs(filter_name):
+        params = request.GET.copy()
+        params["record_type"] = filter_name
+        params["page"] = "1"
+        return params.urlencode()
+
     return render(request, "admin_home/post_history.html", {
         **history_context,
         "history_prev_qs": _build_page_qs(page_obj.previous_page_number()) if page_obj.has_previous() else "",
         "history_next_qs": _build_page_qs(page_obj.next_page_number()) if page_obj.has_next() else "",
+        "history_all_qs": _build_filter_qs("all"),
+        "history_adopted_qs": _build_filter_qs("adopted"),
+        "history_redeemed_qs": _build_filter_qs("redeemed"),
+        "history_unresolved_qs": _build_filter_qs("unresolved"),
     })
 
 

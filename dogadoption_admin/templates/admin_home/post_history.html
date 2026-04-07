@@ -9,32 +9,33 @@
 <section class="history-page">
     <div class="history-page-header">
         <a href="{% url 'dogadoption_admin:post_list' %}" class="history-back-link">
-            <i class="fas fa-arrow-left" aria-hidden="true"></i>
-            Back to Posts
+            <span class="history-back-link-icon">
+                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+            </span>
+            <span class="history-back-link-copy">
+                <small>Return</small>
+                <strong>Back to Posts</strong>
+            </span>
         </a>
-        <div>
-            <h1 class="history-page-title">Post History</h1>
-            <p class="history-page-subtitle mb-0">Stored admin records for adopted, redeemed, and unresolved posts.</p>
-        </div>
     </div>
 
     <div class="history-page-summary">
-        <div class="history-summary-pill">
+        <a href="?{{ history_all_qs }}" class="history-summary-pill{% if history_active_filter == 'all' %} is-active{% endif %}">
             <strong>{{ history_total }}</strong>
             <span>Total record{{ history_total|pluralize }}</span>
-        </div>
-        <div class="history-summary-pill history-summary-pill--adopted">
+        </a>
+        <a href="?{{ history_adopted_qs }}" class="history-summary-pill history-summary-pill--adopted{% if history_active_filter == 'adopted' %} is-active{% endif %}">
             <strong>{{ history_adopted_total }}</strong>
             <span>Adopted</span>
-        </div>
-        <div class="history-summary-pill history-summary-pill--redeemed">
+        </a>
+        <a href="?{{ history_redeemed_qs }}" class="history-summary-pill history-summary-pill--redeemed{% if history_active_filter == 'redeemed' %} is-active{% endif %}">
             <strong>{{ history_redeemed_total }}</strong>
             <span>Redeemed</span>
-        </div>
-        <div class="history-summary-pill history-summary-pill--unresolved">
+        </a>
+        <a href="?{{ history_unresolved_qs }}" class="history-summary-pill history-summary-pill--unresolved{% if history_active_filter == 'unresolved' %} is-active{% endif %}">
             <strong>{{ history_unresolved_total }}</strong>
             <span>Not Adopted / Redeemed</span>
-        </div>
+        </a>
     </div>
 
     <section class="history-page-card">
@@ -132,7 +133,7 @@
             <div class="history-empty-state">
                 <i class="fas fa-history" aria-hidden="true"></i>
                 <h3>No history records yet</h3>
-                <p>Adopted, redeemed, and unresolved records will appear here once posts move out of the active workflow.</p>
+                <p>No records were found for this selected dashboard view.</p>
             </div>
         {% endif %}
     </section>

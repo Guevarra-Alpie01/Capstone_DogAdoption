@@ -2,11 +2,33 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260404finder-top-subnav-tight">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260407finder-clean-refine">
 {% endblock %}
 
 {% block content %}
 <div class="finder-page">
+    <section class="finder-hero">
+        <div class="finder-hero__copy">
+            <h1 class="finder-hero__title">{{ page_title }}</h1>
+        </div>
+
+        <div class="finder-hero__actions">
+            {% for link in request_links %}
+            <a
+                href="{{ link.url }}"
+                class="finder-hero__link"
+                {% if not request.user.is_authenticated %}
+                data-auth-modal-trigger="login"
+                data-auth-next-url="{{ link.url }}"
+                {% endif %}
+            >
+                <i class="{{ link.icon_class }}" aria-hidden="true"></i>
+                <span>{{ link.label }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+
     <form method="get" class="finder-layout" data-finder-layout>
         <section class="finder-filter-shell">
             <div class="finder-filter-shell__head">
@@ -144,32 +166,6 @@
         </section>
     </form>
 
-    <section class="finder-hero">
-        <div class="finder-hero__copy">
-            <span class="finder-hero__eyebrow">
-                <i class="bi bi-heart" aria-hidden="true"></i>
-                Rescue Finder
-            </span>
-            <h1 class="finder-hero__title">{{ page_title }}</h1>
-        </div>
-
-        <div class="finder-hero__actions">
-            {% for link in request_links %}
-            <a
-                href="{{ link.url }}"
-                class="finder-hero__link"
-                {% if not request.user.is_authenticated %}
-                data-auth-modal-trigger="login"
-                data-auth-next-url="{{ link.url }}"
-                {% endif %}
-            >
-                <i class="{{ link.icon_class }}" aria-hidden="true"></i>
-                <span>{{ link.label }}</span>
-            </a>
-            {% endfor %}
-        </div>
-    </section>
-
     <div class="finder-content">
         {% if active_filter_count %}
         <section class="finder-recommended">
@@ -203,7 +199,6 @@
             <div class="finder-section__head">
                 <div>
                     <h2 class="finder-section__title">{{ results_title }}</h2>
-                    <p class="finder-section__text">{{ results_description }}</p>
                 </div>
                 <p class="finder-section__meta">{{ page_obj.paginator.count }} dog{{ page_obj.paginator.count|pluralize }}</p>
             </div>
@@ -255,6 +250,7 @@
     const lightboxImg = document.getElementById('finderImageLightboxImg');
     const lightboxClose = lightbox?.querySelector('.finder-lightbox__close');
     const zoomTriggers = document.querySelectorAll('.js-finder-zoom');
+    const finderCards = Array.from(document.querySelectorAll('.finder-card'));
 
     function closeFilterGroups(exceptGroup = null) {
         filterGroups.forEach((group) => {
@@ -414,6 +410,49 @@
         document.body.classList.remove('lightbox-open');
     }
 
+    function setFinderDetailState(card, isOpen) {
+        if (!card) return;
+        const toggle = card.querySelector('[data-finder-detail-toggle]');
+        const label = card.querySelector('[data-finder-detail-label]');
+        const panel = card.querySelector('[data-finder-detail-panel]');
+        card.classList.toggle('is-details-open', isOpen);
+        if (toggle) {
+            toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
+        if (label) {
+            label.textContent = isOpen ? 'Hide Details' : 'View Details';
+        }
+        if (panel) {
+            panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+        }
+    }
+
+    function closeAllFinderDetails(exceptCard = null) {
+        finderCards.forEach((card) => {
+            setFinderDetailState(card, card === exceptCard && card.classList.contains('is-details-open'));
+        });
+    }
+
+    finderCards.forEach((card) => {
+        const toggle = card.querySelector('[data-finder-detail-toggle]');
+        const closeButton = card.querySelector('[data-finder-detail-close]');
+
+        if (toggle) {
+            toggle.addEventListener('click', (event) => {
+                event.preventDefault();
+                const shouldOpen = !card.classList.contains('is-details-open');
+                finderCards.forEach((currentCard) => setFinderDetailState(currentCard, false));
+                setFinderDetailState(card, shouldOpen);
+            });
+        }
+
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                setFinderDetailState(card, false);
+            });
+        }
+    });
+
     zoomTriggers.forEach((trigger) => {
         trigger.addEventListener('click', (event) => {
             event.preventDefault();
@@ -436,6 +475,7 @@
         }
         closeFilterGroups();
         closePurposeMenu();
+        finderCards.forEach((card) => setFinderDetailState(card, false));
         if (lightbox && !lightbox.hidden) closeLightbox();
     });
 })();

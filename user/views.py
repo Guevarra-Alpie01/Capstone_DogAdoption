@@ -1165,7 +1165,7 @@ def _build_rescue_finder_form(*args, location_choices=None, default_purpose="all
 
 
 def _finder_default_purpose(listing_mode):
-    return "claim" if listing_mode == "claim" else "adopt"
+    return "all"
 
 
 def _normalize_rescue_location(value):
@@ -1217,6 +1217,17 @@ def _build_rescue_finder_card_item(post, phase, days, hours, minutes, match_scor
         if phase == "claim"
         else reverse("user:adopt_confirm", args=[post.id])
     )
+    countdown_deadline = (
+        post.claim_deadline()
+        if phase == "claim"
+        else post.adoption_deadline()
+    )
+    countdown_deadline_local = (
+        timezone.localtime(countdown_deadline)
+        if countdown_deadline
+        else None
+    )
+    location_label = " ".join((post.location or "").split()) or "Location not listed"
     return {
         "post": post,
         "phase": phase,
@@ -1233,9 +1244,18 @@ def _build_rescue_finder_card_item(post, phase, days, hours, minutes, match_scor
         "gender_label": post.get_gender_display() if post.gender else "Gender not listed",
         "coat_label": post.display_coat_length or "Coat not listed",
         "color_label": post.display_colors or "Color not listed",
-        "location_label": " ".join((post.location or "").split()) or "Location not listed",
+        "location_label": location_label,
+        "barangay_label": location_label,
+        "detail_url": reverse("user:post_detail", args=[post.id]),
         "action_label": "Claim" if phase == "claim" else "Adopt",
         "action_url": action_url,
+        "time_left_badge": f"{days}d {hours}h {minutes}m left",
+        "countdown_date_heading": "Claim Ends" if phase == "claim" else "Adoption Ends",
+        "countdown_date_label": (
+            countdown_deadline_local.strftime("%b %d, %Y")
+            if countdown_deadline_local
+            else "Date pending"
+        ),
         "match_score": match_score,
     }
 
@@ -1534,27 +1554,8 @@ def _build_home_featured_rescue_sections():
             continue
 
         card_item = _build_rescue_finder_card_item(post, phase, days, hours, minutes, 0)
-        countdown_deadline = (
-            post.claim_deadline()
-            if phase == "claim"
-            else post.adoption_deadline()
-        )
-        countdown_deadline_local = (
-            timezone.localtime(countdown_deadline)
-            if countdown_deadline
-            else None
-        )
         card_item.update({
-            "detail_url": reverse("user:post_detail", args=[post.id]),
             "home_action_url": f'{card_item["action_url"]}?return_to=home',
-            "time_left_badge": f"{days}d {hours}h {minutes}m left",
-            "barangay_label": card_item["location_label"],
-            "countdown_date_heading": "Claim Ends" if phase == "claim" else "Adoption Ends",
-            "countdown_date_label": (
-                countdown_deadline_local.strftime("%b %d, %Y")
-                if countdown_deadline_local
-                else "Date pending"
-            ),
         })
         section_items[phase].append(card_item)
 
@@ -2949,8 +2950,70 @@ def delete_missing_dog_post(request, post_id):
 
 def post_detail(request, post_id):
     """Render a post detail page used by shared or linked home posts."""
-    post = get_object_or_404(Post, id=post_id)
-    return render(request, 'home/post_detail.html', {'post': post})
+    post = get_object_or_404(_base_public_post_queryset(), id=post_id)
+    phase, days, hours, minutes = _post_phase_payload(post)
+    location_label = " ".join((post.location or "").split()) or "Location not listed"
+
+    if phase == "claim":
+        phase_title = "Ready for Claim"
+        countdown_heading = "Claim Ends"
+        countdown_deadline = post.claim_deadline()
+        time_left_badge = f"{days}d {hours}h {minutes}m left"
+        theme = "claim"
+    elif phase == "adopt":
+        phase_title = "Ready for Adoption"
+        countdown_heading = "Adoption Ends"
+        countdown_deadline = post.adoption_deadline()
+        time_left_badge = f"{days}d {hours}h {minutes}m left"
+        theme = "adopt"
+    else:
+        phase_title = post.get_status_display() or "Closed"
+        countdown_heading = "Status"
+        countdown_deadline = post.adoption_deadline() or post.claim_deadline()
+        time_left_badge = "Closed"
+        theme = "closed"
+
+    countdown_deadline_local = (
+        timezone.localtime(countdown_deadline)
+        if countdown_deadline
+        else None
+    )
+    summary = " ".join((post.caption or "").split())
+    if summary.casefold() == (post.display_breed or "").casefold():
+        summary = ""
+
+    back_url = _safe_preview_back_url(request, request.GET.get("next", "")) or reverse("user:user_home")
+    finder_urls = {reverse("user:adopt_list"), reverse("user:claim_list")}
+    back_label = "Back to Find a Dog" if any(back_url.startswith(url) for url in finder_urls) else "Back to feed"
+
+    context = {
+        "post": post,
+        "back_url": back_url,
+        "back_label": back_label,
+        "detail": {
+            "theme": theme,
+            "title": _rescue_finder_title(post),
+            "location_label": location_label,
+            "phase_title": phase_title,
+            "time_left_badge": time_left_badge,
+            "main_image_url": _first_prefetched_image_url(post.images.all()),
+            "summary": summary,
+            "facts": [
+                {"label": "Breed", "value": post.display_breed or "Unknown Breed"},
+                {"label": "Barangay", "value": location_label},
+                {
+                    "label": countdown_heading,
+                    "value": countdown_deadline_local.strftime("%b %d, %Y")
+                    if countdown_deadline_local
+                    else "Date pending",
+                },
+                {"label": "Time Left", "value": time_left_badge},
+                {"label": "Age", "value": post.display_age_group or "Age not listed"},
+                {"label": "Size", "value": post.display_size_group or "Size not listed"},
+            ],
+        },
+    }
+    return render(request, "home/post_detail.html", context)
 
 
 # =============================================================================

@@ -479,6 +479,36 @@ class UserHomeFeedTests(TestCase):
         )
         self.assertNotContains(response, 'data-auth-modal-trigger="login"', html=False)
 
+    def test_claim_list_renders_deadline_and_detail_action_in_overlay_card(self):
+        staff_user = User.objects.create_user(
+            username="claimlistoverlaystaff",
+            password="secret123",
+            is_staff=True,
+        )
+        post = Post.objects.create(
+            user=staff_user,
+            caption="Overlay Claim Dog",
+            breed="golden_retriever",
+            location="Villareal",
+            age_group="young",
+            size_group="large",
+            gender="male",
+            claim_days=3,
+        )
+        claim_deadline_label = timezone.localtime(post.claim_deadline()).strftime("%b %d, %Y")
+
+        response = self.client.get(reverse("user:claim_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "View Details")
+        self.assertContains(
+            response,
+            f'href="{reverse("user:post_detail", args=[post.id])}"',
+            html=False,
+        )
+        self.assertContains(response, "Claim Ends")
+        self.assertContains(response, claim_deadline_label)
+
     def test_adopt_list_defaults_to_adoption_phase_in_rescue_finder(self):
         staff_user = User.objects.create_user(
             username="finderadoptstaff",

@@ -2,42 +2,46 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260330c">
+<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260407request-history-refine">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container requests-page-shell">
     <div class="requests-page-header">
         <h1 class="requests-page-title">Requests</h1>
     </div>
 
     <div class="card request-wizard-card">
         <div class="request-hero">
-            <span class="request-eyebrow">Dog Surrender Form</span>
-            <button
-                type="button"
-                class="request-history-trigger"
-                {% if request.user.is_authenticated %}
-                data-bs-toggle="modal"
-                data-bs-target="#requestHistoryModal"
-                {% else %}
-                data-auth-modal-trigger="login"
-                data-auth-next-url="{% url 'user:dog_capture_request' %}"
-                {% endif %}
-                aria-label="Open request history"
-            >
-                <span class="request-history-trigger-icon">
-                    <i class="bi bi-clock-history" aria-hidden="true"></i>
-                </span>
-                <span class="request-history-trigger-copy">
-                    <strong>Tracking</strong>
-                    <small>View your requests</small>
-                </span>
-                <span class="request-history-trigger-count">
-                    {{ pending_total|add:accepted_total|add:declined_total|add:captured_total }}
-                </span>
-            </button>
+            <div class="request-hero-copy">
+                <span class="request-eyebrow">Dog Surrender Form</span>
+            </div>
+            <div class="request-hero-side">
+                <button
+                    type="button"
+                    class="request-history-trigger"
+                    {% if request.user.is_authenticated %}
+                    data-bs-toggle="modal"
+                    data-bs-target="#requestHistoryModal"
+                    {% else %}
+                    data-auth-modal-trigger="login"
+                    data-auth-next-url="{% url 'user:dog_capture_request' %}"
+                    {% endif %}
+                    aria-label="Open request history"
+                >
+                    <span class="request-history-trigger-icon">
+                        <i class="bi bi-clock-history" aria-hidden="true"></i>
+                    </span>
+                    <span class="request-history-trigger-copy">
+                        <strong>Tracking</strong>
+                        <small>View your requests</small>
+                    </span>
+                    <span class="request-history-trigger-count">
+                        {{ pending_total|add:accepted_total|add:declined_total|add:captured_total }}
+                    </span>
+                </button>
+            </div>
         </div>
 
         <div class="step-indicator" aria-label="Request progress">
@@ -520,6 +524,42 @@ let requestDialogDismissValue = false;
 let requestDialogSuspendedModals = [];
 let exactLocationRequestInFlight = false;
 let exactLocationAutoCaptureTimer = null;
+
+function moveRequestModalToBody(modalEl) {
+    if (!modalEl || modalEl.parentElement === document.body) return;
+    document.body.appendChild(modalEl);
+}
+
+function syncRequestModalBackdrop() {
+    const requestModalOpen = document.querySelector(
+        '.request-history-modal.show, .request-dialog-modal.show, .request-view-modal.show'
+    );
+    document.querySelectorAll('.modal-backdrop').forEach((backdrop, index, allBackdrops) => {
+        const isLatest = index === allBackdrops.length - 1;
+        backdrop.classList.toggle('request-modal-backdrop', Boolean(requestModalOpen) && isLatest);
+    });
+}
+
+moveRequestModalToBody(requestHistoryModalEl);
+moveRequestModalToBody(requestDialogModalEl);
+
+document.addEventListener('show.bs.modal', (event) => {
+    const modalEl = event.target;
+    if (!modalEl?.matches?.('.request-history-modal, .request-dialog-modal, .request-view-modal')) return;
+    moveRequestModalToBody(modalEl);
+    window.setTimeout(syncRequestModalBackdrop, 0);
+});
+
+document.addEventListener('shown.bs.modal', (event) => {
+    if (!event.target?.matches?.('.request-history-modal, .request-dialog-modal, .request-view-modal')) return;
+    syncRequestModalBackdrop();
+});
+
+document.addEventListener('hidden.bs.modal', (event) => {
+    if (!event.target?.matches?.('.request-history-modal, .request-dialog-modal, .request-view-modal')) return;
+    window.setTimeout(syncRequestModalBackdrop, 0);
+});
+
 function getSelectedRequestType() {
     return document.querySelector('input[name="request_type"]')?.value || 'surrender';
 }

@@ -151,6 +151,11 @@ def _get_cached_post_history_ids():
     if history_candidate_ids is not None:
         return history_candidate_ids
 
+    finalized_ids = list(
+        Post.objects.filter(status__in=["reunited", "adopted"])
+        .order_by("-created_at", "-id")
+        .values_list("id", flat=True)
+    )
     archived_ids = list(
         Post.objects.filter(is_history=True)
         .order_by("-created_at", "-id")
@@ -182,7 +187,7 @@ def _get_cached_post_history_ids():
     ]
     seen_ids = set()
     history_candidate_ids = []
-    for post_id in [*archived_ids, *expired_ids]:
+    for post_id in [*finalized_ids, *archived_ids, *expired_ids]:
         if post_id in seen_ids:
             continue
         seen_ids.add(post_id)
@@ -201,6 +206,10 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
     page_obj = paginator.get_page(request.GET.get(page_param, 1))
     page_ids = list(page_obj.object_list)
     history_posts = []
+    adopted_total = Post.objects.filter(status="adopted").count()
+    redeemed_total = Post.objects.filter(status="reunited").count()
+    history_total = len(history_candidate_ids)
+    unresolved_total = max(history_total - adopted_total - redeemed_total, 0)
 
     if page_ids:
         post_map = {
@@ -227,22 +236,106 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
             if image_url:
                 primary_image_by_post_id[image.post_id] = image_url
 
+        accepted_request_map = {}
+        accepted_requests = list(
+            PostRequest.objects.filter(
+                post_id__in=page_ids,
+                status="accepted",
+                request_type__in=["claim", "adopt"],
+            )
+            .select_related("user")
+            .only(
+                "id",
+                "post_id",
+                "request_type",
+                "created_at",
+                "scheduled_appointment_date",
+                "user__username",
+                "user__first_name",
+                "user__last_name",
+            )
+            .order_by("-created_at", "-id")
+        )
+        for req in accepted_requests:
+            request_bucket = accepted_request_map.setdefault(req.post_id, {})
+            request_bucket.setdefault(req.request_type, req)
+
         for post_id in page_ids:
             post = post_map.get(post_id)
             if not post:
                 continue
             is_archived = bool(getattr(post, "is_history", False))
+            accepted_req = None
+            record_label = "Not Adopted / Redeemed"
+            record_tone = "warning"
+            record_source_label = "Expired listing"
+            record_note = "No final adoption or redeem record."
+            recorded_on = post.adoption_deadline()
+
+            if post.status == "adopted":
+                accepted_req = accepted_request_map.get(post_id, {}).get("adopt")
+                adopter_name = "-"
+                if accepted_req:
+                    adopter_name = (
+                        f"{(accepted_req.user.first_name or '').strip()} {(accepted_req.user.last_name or '').strip()}".strip()
+                        or accepted_req.user.username
+                    )
+                record_label = "Adopted"
+                record_tone = "adopted"
+                record_source_label = "Finalized adoption"
+                record_note = (
+                    f"Adopted by {adopter_name}"
+                    if adopter_name != "-"
+                    else "Adoption request was completed."
+                )
+                recorded_on = (
+                    accepted_req.scheduled_appointment_date
+                    if accepted_req and accepted_req.scheduled_appointment_date
+                    else accepted_req.created_at if accepted_req else post.created_at
+                )
+            elif post.status == "reunited":
+                accepted_req = accepted_request_map.get(post_id, {}).get("claim")
+                owner_name = "-"
+                if accepted_req:
+                    owner_name = (
+                        f"{(accepted_req.user.first_name or '').strip()} {(accepted_req.user.last_name or '').strip()}".strip()
+                        or accepted_req.user.username
+                    )
+                record_label = "Redeemed"
+                record_tone = "reunited"
+                record_source_label = "Finalized redeem"
+                record_note = (
+                    f"Redeemed by {owner_name}"
+                    if owner_name != "-"
+                    else "Claim request was completed."
+                )
+                recorded_on = (
+                    accepted_req.scheduled_appointment_date
+                    if accepted_req and accepted_req.scheduled_appointment_date
+                    else accepted_req.created_at if accepted_req else post.created_at
+                )
+            elif is_archived:
+                record_tone = "neutral"
+                record_source_label = "Archived record"
+                record_note = "Moved to history without a final adoption or redeem."
+                recorded_on = post.created_at
+
             history_posts.append({
                 "post": post,
-                "status_label": "Archived" if is_archived else "Unresolved",
-                "status_tone": "neutral" if is_archived else "warning",
+                "record_label": record_label,
+                "record_tone": record_tone,
+                "record_source_label": record_source_label,
+                "record_note": record_note,
                 "base_status_label": post.get_status_display(),
-                "closed_date": post.created_at if is_archived else post.adoption_deadline(),
+                "recorded_on": recorded_on,
                 "primary_image_url": primary_image_by_post_id.get(post_id, ""),
             })
 
     return {
-        "history_total": len(history_candidate_ids),
+        "history_total": history_total,
+        "history_adopted_total": adopted_total,
+        "history_redeemed_total": redeemed_total,
+        "history_unresolved_total": unresolved_total,
         "history_posts": history_posts,
         "history_page_obj": page_obj,
     }
@@ -1612,24 +1705,6 @@ def post_list(request):
             "allow_toggle": True,
             "empty_message": "No posts are currently queued for adoption.",
         },
-        {
-            "key": "reunited",
-            "title": "Redeemed",
-            "tone": "status-reunited",
-            "page_param": "reunited_page",
-            "request_type": "claim",
-            "allow_toggle": False,
-            "empty_message": "No redeemed posts yet.",
-        },
-        {
-            "key": "adopted",
-            "title": "Adopted",
-            "tone": "status-adopted",
-            "page_param": "adopted_page",
-            "request_type": "adopt",
-            "allow_toggle": False,
-            "empty_message": "No adopted posts yet.",
-        },
     )
 
     base_qs = Post.with_pending_request_state(
@@ -1796,8 +1871,6 @@ def post_list(request):
     section_post_map = {
         "claim": open_posts_by_phase["claim"],
         "adopt": open_posts_by_phase["adopt"],
-        "reunited": list(base_qs.filter(status='reunited').order_by("-created_at", "-id")),
-        "adopted": list(base_qs.filter(status='adopted').order_by("-created_at", "-id")),
     }
 
     history_total = len(_get_cached_post_history_ids())

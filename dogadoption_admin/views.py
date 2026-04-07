@@ -1723,7 +1723,7 @@ def post_list(request):
 
     now = timezone.now()
     active_statuses = ["rescued", "under_care"]
-    rows_per_page = 10
+    rows_per_page = 8
     section_definitions = (
         {
             "key": "claim",
@@ -1921,6 +1921,14 @@ def post_list(request):
             "count": page_obj.paginator.count,
             "items": items,
             "page_obj": page_obj,
+            "page_links": [
+                {
+                    "number": page_number,
+                    "qs": _build_page_qs(section_definition["page_param"], page_number),
+                    "is_active": page_number == page_obj.number,
+                }
+                for page_number in page_obj.paginator.page_range
+            ],
             "prev_qs": (
                 _build_page_qs(section_definition["page_param"], page_obj.previous_page_number())
                 if page_obj.has_previous()

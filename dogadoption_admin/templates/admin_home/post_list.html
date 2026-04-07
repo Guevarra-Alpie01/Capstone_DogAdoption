@@ -255,8 +255,8 @@
 
 {% if admin_access.can_view_status_cards %}
 <section class="status-dashboard">
-    <h4 class="status-dashboard-title">Status Cards</h4>
-    <div class="status-cards-grid">
+    <h4 class="status-dashboard-title">Active Post Board</h4>
+    <div class="status-table-stack">
         {% for section in status_sections %}
             <div class="status-card {{ section.tone }}">
                 <div class="status-card-head">
@@ -265,86 +265,132 @@
                 </div>
                 <div class="status-card-body">
                     {% if section.items %}
-                        <div class="status-card-grid">
-                            {% for item in section.items %}
-                                {% with post=item.post %}
-                                <article class="status-post-card">
-                                    <button
-                                        type="button"
-                                        class="status-image-trigger"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#{{ item.detail_modal_id }}"
-                                        aria-label="View {{ post.display_title|default:'dog post' }}"
-                                    >
-                                        {% if item.primary_image_url %}
-                                            <img src="{{ item.primary_image_url }}" alt="{{ post.display_title|default:'Dog listing' }}" class="status-post-image">
-                                        {% else %}
-                                            <span class="status-post-image-fallback">No image</span>
-                                        {% endif %}
-                                    </button>
-
-                                    <div class="status-metric-grid">
-                                        <div class="status-metric-card status-metric-card--wide">
-                                            <span>Time Left</span>
-                                            <strong>{{ item.time_left_label }}</strong>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            class="status-metric-card status-metric-card--button"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#{{ item.request_modal_id }}"
-                                        >
-                                            <span>Requests</span>
-                                            <strong>{{ item.request_count }}</strong>
-                                        </button>
-                                        <div class="status-metric-card">
-                                            <span>Views</span>
-                                            <strong>{{ item.view_count }}</strong>
-                                        </div>
-                                    </div>
-
-                                    <div class="status-card-actions">
-                                        <a href="{{ item.edit_url }}?next={{ return_to|urlencode }}" class="btn btn-outline-primary btn-sm status-action-btn">
-                                            Edit
-                                        </a>
-                                        {% if item.allow_toggle %}
-                                            <form method="post" action="{{ item.toggle_url }}" class="status-action-form">
-                                                {% csrf_token %}
-                                                <input type="hidden" name="next" value="{{ return_to }}">
-                                                <input type="hidden" name="phase" value="{{ item.toggle_phase }}">
-                                                <button type="submit" class="btn btn-outline-dark btn-sm status-action-btn">
-                                                    {{ item.toggle_label }}
+                        <div class="table-responsive">
+                            <table class="table status-board-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Image</th>
+                                        <th>Dog Details</th>
+                                        <th>Requests</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in section.items %}
+                                        {% with post=item.post %}
+                                        <tr>
+                                            <td class="status-board-media-col">
+                                                <button
+                                                    type="button"
+                                                    class="status-image-trigger"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#{{ item.detail_modal_id }}"
+                                                    aria-label="View {{ post.display_title|default:'dog post' }}"
+                                                >
+                                                    {% if item.primary_image_url %}
+                                                        <img src="{{ item.primary_image_url }}" alt="{{ post.display_title|default:'Dog listing' }}" class="status-post-image">
+                                                    {% else %}
+                                                        <span class="status-post-image-fallback">No image</span>
+                                                    {% endif %}
                                                 </button>
-                                            </form>
-                                        {% endif %}
-                                        <button
-                                            type="button"
-                                            class="btn btn-outline-danger btn-sm status-action-btn"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#postDeleteModal"
-                                            data-delete-action="{{ item.delete_url }}"
-                                            data-delete-title="{{ post.display_title|default:'Dog Listing'|escape }}"
-                                        >
-                                            Delete
-                                        </button>
-                                    </div>
-                                </article>
-                                {% endwith %}
-                            {% endfor %}
+                                                <div class="status-image-time">
+                                                    <small>Time Left</small>
+                                                    <strong>{{ item.time_left_label }}</strong>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="status-dog-cell">
+                                                    <strong>{{ post.display_title|default:"Dog listing" }}</strong>
+                                                    <span>{{ post.location|default:"Location unavailable" }}</span>
+                                                    <span>{{ post.display_breed|default:"-" }}{% if post.gender %} | {{ post.get_gender_display }}{% endif %}</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <button
+                                                    type="button"
+                                                    class="status-request-chip"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#{{ item.request_modal_id }}"
+                                                >
+                                                    <i class="fas fa-inbox" aria-hidden="true"></i>
+                                                    <span>{{ item.request_count }}</span>
+                                                </button>
+                                            </td>
+                                            <td>
+                                                <div class="status-icon-actions">
+                                                    <a
+                                                        href="{{ item.edit_url }}?next={{ return_to|urlencode }}"
+                                                        class="status-icon-btn"
+                                                        title="Edit post"
+                                                        aria-label="Edit post"
+                                                    >
+                                                        <i class="fas fa-pen" aria-hidden="true"></i>
+                                                    </a>
+                                                    {% if item.allow_toggle %}
+                                                        <form method="post" action="{{ item.toggle_url }}" class="status-action-form">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="next" value="{{ return_to }}">
+                                                            <input type="hidden" name="phase" value="{{ item.toggle_phase }}">
+                                                            <button
+                                                                type="submit"
+                                                                class="status-icon-btn status-icon-btn--switch"
+                                                                title="{{ item.toggle_label }}"
+                                                                aria-label="{{ item.toggle_label }}"
+                                                            >
+                                                                <i class="fas fa-repeat" aria-hidden="true"></i>
+                                                            </button>
+                                                        </form>
+                                                    {% endif %}
+                                                    <button
+                                                        type="button"
+                                                        class="status-icon-btn status-icon-btn--danger"
+                                                        title="Delete post"
+                                                        aria-label="Delete post"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#postDeleteModal"
+                                                        data-delete-action="{{ item.delete_url }}"
+                                                        data-delete-title="{{ post.display_title|default:'Dog Listing'|escape }}"
+                                                    >
+                                                        <i class="fas fa-trash" aria-hidden="true"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endwith %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
 
                         {% if section.page_obj.paginator.num_pages > 1 %}
-                        <div class="card-pagination">
+                        <div class="card-pagination card-pagination--carousel">
                             {% if section.page_obj.has_previous %}
-                                <a href="?{{ section.prev_qs }}" class="card-page-btn">Prev</a>
+                                <a href="?{{ section.prev_qs }}" class="card-page-btn card-page-btn--arrow" aria-label="Previous {{ section.title }} page">
+                                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                                </a>
                             {% else %}
-                                <span class="card-page-btn disabled">Prev</span>
+                                <span class="card-page-btn card-page-btn--arrow disabled" aria-hidden="true">
+                                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                                </span>
                             {% endif %}
-                            <span class="card-page-info">Page {{ section.page_obj.number }} of {{ section.page_obj.paginator.num_pages }}</span>
+                            <div class="card-page-dots" aria-label="{{ section.title }} pages">
+                                {% for page_link in section.page_links %}
+                                    <a
+                                        href="?{{ page_link.qs }}"
+                                        class="card-page-dot{% if page_link.is_active %} is-active{% endif %}"
+                                        aria-label="{{ section.title }} page {{ page_link.number }}"
+                                        {% if page_link.is_active %}aria-current="page"{% endif %}
+                                    ></a>
+                                {% endfor %}
+                            </div>
                             {% if section.page_obj.has_next %}
-                                <a href="?{{ section.next_qs }}" class="card-page-btn">Next</a>
+                                <a href="?{{ section.next_qs }}" class="card-page-btn card-page-btn--arrow" aria-label="Next {{ section.title }} page">
+                                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                                </a>
                             {% else %}
-                                <span class="card-page-btn disabled">Next</span>
+                                <span class="card-page-btn card-page-btn--arrow disabled" aria-hidden="true">
+                                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                                </span>
                             {% endif %}
                         </div>
                         {% endif %}

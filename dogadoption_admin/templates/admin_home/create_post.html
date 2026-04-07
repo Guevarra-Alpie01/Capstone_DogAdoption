@@ -2,22 +2,30 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/admin_home/create_post.css' %}?v=20260403a">
+<link rel="stylesheet" href="{% static 'css/admin_home/create_post.css' %}?v=20260407a">
 
 <div class="form-shell">
-    <div class="mb-4">
-        <h1 class="h3 mb-1">{{ form_title|default:"Create Dog Adoption Post" }}</h1>
-        <p class="text-muted mb-0">
-            {% if form_mode == "edit" %}
-                Update the rescue post details and upload extra photos if needed.
-            {% else %}
-                Publish a new rescue post for the admin feed.
-            {% endif %}
-        </p>
+    <div class="form-shell-head mb-4">
+        <div>
+            <h1 class="h3 mb-1">{{ form_title|default:"Create Dog Adoption Post" }}</h1>
+            <p class="text-muted mb-0">
+                {% if form_mode == "edit" %}
+                    Update the rescue post details and upload extra photos if needed.
+                {% else %}
+                    Publish a new rescue post for the admin feed.
+                {% endif %}
+            </p>
+        </div>
+        {% if form_mode == "edit" %}
+            <a href="{{ back_url }}" class="form-close-link" aria-label="Back to posts" title="Back to posts">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </a>
+        {% endif %}
     </div>
 
     <form method="POST" enctype="multipart/form-data" class="post-form" id="create-post-form" action="{{ form_action|default:'' }}">
         {% csrf_token %}
+        <input type="hidden" name="next" value="{{ back_url }}">
 
         <div class="form-grid">
             <div class="form-group">

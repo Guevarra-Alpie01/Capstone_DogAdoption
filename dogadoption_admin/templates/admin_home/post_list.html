@@ -2,32 +2,50 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260407a">
+<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260407b">
 
 <div class="post-toolbar-shell">
     <div class="post-toolbar">
         {% if admin_access.can_create_posts %}
-            <button type="button" class="btn btn-primary btn-lg create-post-btn app-btn-fit app-btn-mobile-full" data-bs-toggle="modal" data-bs-target="#createPostModal">
-                <i class="fas fa-plus-circle me-2"></i> Create Post
+            <button
+                type="button"
+                class="post-toolbar-icon-btn"
+                data-bs-toggle="modal"
+                data-bs-target="#createPostModal"
+                data-bs-placement="bottom"
+                title="Create Post"
+                aria-label="Create Post"
+            >
+                <i class="fas fa-plus-circle" aria-hidden="true"></i>
             </button>
         {% endif %}
         {% if admin_access.is_full_admin %}
-            <button type="button" class="btn btn-primary btn-lg create-post-btn app-btn-fit app-btn-mobile-full" data-bs-toggle="modal" data-bs-target="#appointmentDateModal">
-                <i class="fas fa-calendar-alt me-2"></i> Set Appointment Date
+            <button
+                type="button"
+                class="post-toolbar-icon-btn"
+                data-bs-toggle="modal"
+                data-bs-target="#appointmentDateModal"
+                data-bs-placement="bottom"
+                title="Set Appointment Date"
+                aria-label="Set Appointment Date"
+            >
+                <i class="fas fa-calendar-alt" aria-hidden="true"></i>
             </button>
         {% endif %}
-    </div>
-    {% if admin_access.can_view_post_history %}
-        <a href="{% url 'dogadoption_admin:post_history' %}" class="history-toolbar-btn" aria-label="View post history">
-            <span class="history-toolbar-icon">
+        {% if admin_access.can_view_post_history %}
+            <a
+                href="{% url 'dogadoption_admin:post_history' %}"
+                class="post-toolbar-icon-btn post-toolbar-icon-btn--history"
+                data-bs-toggle="tooltip"
+                data-bs-placement="bottom"
+                title="History ({{ history_total }} records)"
+                aria-label="History"
+            >
                 <i class="fas fa-history" aria-hidden="true"></i>
-            </span>
-            <span class="history-toolbar-copy">
-                <strong>History</strong>
-                <small>{{ history_total }} records</small>
-            </span>
-        </a>
-    {% endif %}
+                <span class="post-toolbar-badge">{{ history_total }}</span>
+            </a>
+        {% endif %}
+    </div>
 </div>
 
 {% if admin_access.can_create_posts %}
@@ -793,6 +811,19 @@
         }
     }
 
+    function initToolbarTooltips() {
+        if (!window.bootstrap || !window.bootstrap.Tooltip) {
+            return;
+        }
+        document.querySelectorAll(".post-toolbar [title]").forEach((element) => {
+            try {
+                window.bootstrap.Tooltip.getOrCreateInstance(element);
+            } catch (e) {
+                console.error("Bootstrap tooltip error:", e);
+            }
+        });
+    }
+
     function initAppointmentCalendar() {
         const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         const monthLabel = document.getElementById("month_label");
@@ -893,7 +924,8 @@
 
     document.addEventListener("DOMContentLoaded", () => {
         try {
-            initAppointmentCalendar();
+        initToolbarTooltips();
+        initAppointmentCalendar();
         } catch (e) {
             console.error("Appointment calendar script error:", e);
         }

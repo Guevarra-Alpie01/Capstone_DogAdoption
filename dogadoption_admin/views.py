@@ -1184,7 +1184,7 @@ def _annotate_post_request_count(qs, annotation_name, request_type=None):
     )
 
 
-def _build_post_form_page_context(post_form, *, post=None, form_action="", form_mode="create"):
+def _build_post_form_page_context(post_form, *, post=None, form_action="", form_mode="create", back_url=""):
     _set_post_form_barangay_source(post_form)
     existing_images = []
     if post is not None:
@@ -1208,6 +1208,7 @@ def _build_post_form_page_context(post_form, *, post=None, form_action="", form_
             else "Publish this post now?"
         ),
         "confirm_submit_label": "Save" if is_edit_mode else "Publish",
+        "back_url": back_url or reverse("dogadoption_admin:post_list"),
         "require_images": not is_edit_mode,
         "existing_images": existing_images,
     }
@@ -1563,6 +1564,7 @@ def create_post(request):
             post_form,
             form_action=reverse("dogadoption_admin:create_post"),
             form_mode="create",
+            back_url=reverse("dogadoption_admin:post_list"),
         ),
     )
 
@@ -1598,6 +1600,7 @@ def update_post(request, post_id):
             post=post,
             form_action=reverse("dogadoption_admin:update_post", args=[post.id]),
             form_mode="edit",
+            back_url=_safe_next_url(request) or reverse("dogadoption_admin:post_list"),
         ),
     )
 

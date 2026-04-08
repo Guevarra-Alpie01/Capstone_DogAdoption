@@ -5174,6 +5174,7 @@ def med_record(request, registration_id):
 
         sync_expiry_notifications()
         cache.delete(ADMIN_NOTIFICATIONS_CACHE_KEY)
+        invalidate_user_notification_content()
         return redirect('dogadoption_admin:med_records', registration_id=registration.id)
 
     context = {

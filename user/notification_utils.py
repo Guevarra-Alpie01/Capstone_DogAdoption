@@ -1,12 +1,13 @@
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.core.cache import cache
+from django.db.models.functions import Lower, Trim
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import strip_tags
 
-from dogadoption_admin.models import DogAnnouncement, Post, PostRequest
+from dogadoption_admin.models import Dog, DogAnnouncement, DogRegistration, Post, PostRequest, VaccinationRecord
 from user.models import UserAdoptionPost, UserAdoptionRequest
 
 
@@ -31,6 +32,8 @@ USER_NOTIFICATIONS_COMMUNITY_POST_IDS_CACHE_KEY = "user_notifications_community_
 USER_NOTIFICATION_REVIEW_TIMESTAMP_TTL_SECONDS = 60 * 60 * 24 * 30
 USER_NOTIFICATIONS_MAX_READ_KEYS = 200
 USER_HOME_FEED_NAMESPACE_KEY = "user_home_feed_namespace_v1"
+USER_VACCINATION_REMINDER_LEAD_DAYS = 30
+USER_VACCINATION_REMINDER_MAX_ITEMS = 4
 
 
 def _current_version_token():
@@ -201,6 +204,193 @@ def _format_notification_time(dt):
     if delta.days < 7:
         return f"{delta.days}d ago"
     return timezone.localtime(dt).strftime("%b %d, %Y")
+
+
+def _normalize_person_name(value):
+    return " ".join((value or "").split()).strip().casefold()
+
+
+def _registered_dog_anchor_id(dog_id):
+    return f"registered-dog-{dog_id}"
+
+
+def _registered_dog_detail_url(dog_id):
+    return f"{reverse('user:edit_profile')}#{_registered_dog_anchor_id(dog_id)}"
+
+
+def _vaccination_effective_expiry_date(record):
+    candidates = [
+        expiry_date
+        for expiry_date in (
+            getattr(record, "vaccination_expiry_date", None),
+            getattr(record, "vaccine_expiry_date", None),
+        )
+        if expiry_date
+    ]
+    return min(candidates) if candidates else None
+
+
+def build_user_registered_dog_vaccination_status_map(user, dogs=None):
+    if not user or not user.is_authenticated or user.is_staff:
+        return {}
+
+    registered_dogs = list(
+        dogs
+        if dogs is not None
+        else Dog.objects.filter(owner_user=user).only(
+            "id",
+            "name",
+            "owner_name",
+            "owner_name_key",
+            "date_registered",
+        )
+    )
+    if not registered_dogs:
+        return {}
+
+    owner_keys = set()
+    pet_keys = set()
+    dog_signatures = {}
+    for dog in registered_dogs:
+        owner_key = _normalize_person_name(
+            getattr(dog, "owner_name_key", "") or getattr(dog, "owner_name", "")
+        )
+        pet_key = _normalize_person_name(getattr(dog, "name", ""))
+        signature = (owner_key, pet_key)
+        dog_signatures[dog.id] = signature
+        if owner_key and pet_key:
+            owner_keys.add(owner_key)
+            pet_keys.add(pet_key)
+
+    if not owner_keys or not pet_keys:
+        return {}
+
+    registration_signature_by_id = {}
+    registration_ids = []
+    matching_registrations = DogRegistration.objects.annotate(
+        owner_name_normalized=Lower(Trim("owner_name")),
+        pet_name_normalized=Lower(Trim("name_of_pet")),
+    ).filter(
+        owner_name_normalized__in=owner_keys,
+        pet_name_normalized__in=pet_keys,
+    ).only("id", "owner_name", "name_of_pet")
+    for registration in matching_registrations:
+        signature = (
+            getattr(registration, "owner_name_normalized", ""),
+            getattr(registration, "pet_name_normalized", ""),
+        )
+        registration_signature_by_id[registration.id] = signature
+        registration_ids.append(registration.id)
+
+    if not registration_ids:
+        return {}
+
+    latest_vaccination_by_signature = {}
+    vaccinations = (
+        VaccinationRecord.objects.filter(registration_id__in=registration_ids)
+        .only(
+            "id",
+            "registration_id",
+            "date",
+            "vaccine_name",
+            "vaccine_expiry_date",
+            "vaccination_expiry_date",
+        )
+        .order_by("-date", "-id")
+    )
+    for vaccination in vaccinations:
+        signature = registration_signature_by_id.get(vaccination.registration_id)
+        if signature and signature not in latest_vaccination_by_signature:
+            latest_vaccination_by_signature[signature] = vaccination
+
+    today = timezone.localdate()
+    status_map = {}
+    for dog in registered_dogs:
+        signature = dog_signatures.get(dog.id)
+        vaccination = latest_vaccination_by_signature.get(signature)
+        expiry_date = _vaccination_effective_expiry_date(vaccination) if vaccination else None
+        days_until_expiry = (expiry_date - today).days if expiry_date else None
+        has_vaccination_record = vaccination is not None and expiry_date is not None
+
+        if not has_vaccination_record:
+            status_key = "no_record"
+            status_label = "No Vaccination Record"
+            status_message = "No vaccination record is on file yet for this registered dog."
+        elif expiry_date < today:
+            status_key = "expired"
+            status_label = "Expired"
+            status_message = f"Vaccination expired on {expiry_date.strftime('%b %d, %Y')}."
+        elif days_until_expiry <= USER_VACCINATION_REMINDER_LEAD_DAYS:
+            status_key = "due_soon"
+            status_label = "Due Soon"
+            day_word = "day" if days_until_expiry == 1 else "days"
+            status_message = (
+                f"Vaccination expires in {days_until_expiry} {day_word} "
+                f"on {expiry_date.strftime('%b %d, %Y')}."
+            )
+        else:
+            status_key = "active"
+            status_label = "Active"
+            status_message = f"Vaccination is active until {expiry_date.strftime('%b %d, %Y')}."
+
+        status_map[dog.id] = {
+            "has_vaccination_record": has_vaccination_record,
+            "vaccination_date": getattr(vaccination, "date", None),
+            "expiry_date": expiry_date,
+            "days_until_expiry": days_until_expiry,
+            "status_key": status_key,
+            "status_label": status_label,
+            "status_message": status_message,
+            "detail_url": _registered_dog_detail_url(dog.id),
+            "anchor_id": _registered_dog_anchor_id(dog.id),
+        }
+
+    return status_map
+
+
+def build_user_vaccination_reminders(user, *, limit=USER_VACCINATION_REMINDER_MAX_ITEMS):
+    status_map = build_user_registered_dog_vaccination_status_map(user)
+    if not status_map:
+        return []
+
+    reminder_rows = []
+    for dog in Dog.objects.filter(owner_user=user).only("id", "name"):
+        status = status_map.get(dog.id)
+        if not status or status["status_key"] not in {"expired", "due_soon"}:
+            continue
+        reminder_rows.append({
+            "dog_id": dog.id,
+            "pet_name": (dog.name or "Unnamed Dog").strip() or "Unnamed Dog",
+            "status_key": status["status_key"],
+            "status_label": status["status_label"],
+            "expiry_date": status["expiry_date"],
+            "days_until_expiry": status["days_until_expiry"],
+            "message": status["status_message"],
+            "detail_url": status["detail_url"],
+            "anchor_id": status["anchor_id"],
+            "vaccination_date": status["vaccination_date"],
+        })
+
+    reminder_rows.sort(
+        key=lambda row: (
+            0 if row["status_key"] == "expired" else 1,
+            row["days_until_expiry"] if row["days_until_expiry"] is not None else 10**6,
+            row["pet_name"].casefold(),
+        )
+    )
+    if limit is not None:
+        reminder_rows = reminder_rows[:limit]
+    return reminder_rows
+
+
+def build_user_vaccination_reminder_summary(user):
+    reminders = build_user_vaccination_reminders(user, limit=None)
+    return {
+        "items": reminders[:USER_VACCINATION_REMINDER_MAX_ITEMS],
+        "expired_count": sum(1 for item in reminders if item["status_key"] == "expired"),
+        "due_soon_count": sum(1 for item in reminders if item["status_key"] == "due_soon"),
+        "profile_url": f"{reverse('user:edit_profile')}#registered",
+    }
 
 
 def _post_phase_url(post):
@@ -381,6 +571,47 @@ def _build_community_post_items(user):
     return items
 
 
+def _build_vaccination_reminder_items(user):
+    reminders = build_user_vaccination_reminders(user, limit=USER_VACCINATION_REMINDER_MAX_ITEMS)
+    if not reminders:
+        return []
+
+    now = timezone.now()
+    total = len(reminders)
+    items = []
+    for index, reminder in enumerate(reminders):
+        created_at = now + timedelta(minutes=total - index)
+        if reminder["status_key"] == "expired":
+            kind = "vaccination_expired"
+            title = "Vaccination expired"
+            message = (
+                f"{reminder['pet_name']}'s vaccination expired on "
+                f"{reminder['expiry_date'].strftime('%b %d, %Y')}."
+            )
+            created_label = f"Expired {reminder['expiry_date'].strftime('%b %d, %Y')}"
+        else:
+            kind = "vaccination_due"
+            days_left = reminder["days_until_expiry"]
+            day_word = "day" if days_left == 1 else "days"
+            title = "Vaccination due soon"
+            message = (
+                f"{reminder['pet_name']}'s vaccination expires in {days_left} {day_word} "
+                f"on {reminder['expiry_date'].strftime('%b %d, %Y')}."
+            )
+            created_label = f"Due {reminder['expiry_date'].strftime('%b %d, %Y')}"
+
+        items.append({
+            "key": f"{kind}-{reminder['dog_id']}-{reminder['expiry_date'].isoformat()}",
+            "kind": kind,
+            "title": title,
+            "message": message,
+            "url": reminder["detail_url"],
+            "created_at": created_at,
+            "created_label": created_label,
+        })
+    return items
+
+
 def build_user_notification_payload(user):
     if not user or not user.is_authenticated or user.is_staff:
         return {"items": []}
@@ -395,6 +626,7 @@ def build_user_notification_payload(user):
     for bucket in (
         _build_incoming_user_request_items(user),
         _build_request_acceptance_items(user),
+        _build_vaccination_reminder_items(user),
         _build_announcement_items(),
         _build_admin_post_items(),
         _build_community_post_items(user),

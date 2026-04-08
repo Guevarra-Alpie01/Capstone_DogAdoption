@@ -965,6 +965,52 @@
         color: #6b7280;
     }
 
+    .profile-registered-status-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+    }
+
+    .profile-registered-status-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .profile-registered-status-badge--expired {
+        background: #b91c1c;
+        color: #ffffff;
+    }
+
+    .profile-registered-status-badge--due_soon {
+        background: #f59e0b;
+        color: #111827;
+    }
+
+    .profile-registered-status-badge--active {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .profile-registered-status-badge--no_record {
+        background: #e5e7eb;
+        color: #4b5563;
+    }
+
+    .profile-registered-status-text {
+        color: #4b5563;
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
+
     .profile-registered-meta {
         margin: 0;
         color: #4b5563;
@@ -1543,10 +1589,16 @@
                     {% if registered_dogs %}
                     <div class="profile-registered-list">
                         {% for dog in registered_dogs %}
-                        <article class="profile-registered-card">
+                        <article class="profile-registered-card" id="{{ dog.card_id }}">
                             <div class="profile-registered-head">
                                 <h3 class="profile-registered-name">{{ dog.name }}</h3>
                                 <span class="profile-registered-date">Registered {{ dog.date_registered|date:"M d, Y" }}</span>
+                            </div>
+                            <div class="profile-registered-status-row">
+                                <span class="profile-registered-status-badge profile-registered-status-badge--{{ dog.vaccination_status_key }}">
+                                    {{ dog.vaccination_status_label }}
+                                </span>
+                                <span class="profile-registered-status-text">{{ dog.vaccination_status_message }}</span>
                             </div>
                             <p class="profile-registered-meta">
                                 <strong>Species:</strong> {{ dog.species }}
@@ -1948,6 +2000,13 @@
             } else if (hashTarget && hashTarget.matches("details.profile-post-request-toggle")) {
                 setActiveTab("posts");
                 hashTarget.open = true;
+            } else if (hashTarget && hashTarget.matches(".profile-registered-card")) {
+                setActiveTab("registered");
+            } else {
+                const hashKey = window.location.hash.replace(/^#/, "").trim();
+                if (hashKey && document.querySelector(`[data-tab-panel="${hashKey}"]`)) {
+                    setActiveTab(hashKey);
+                }
             }
         }
     });

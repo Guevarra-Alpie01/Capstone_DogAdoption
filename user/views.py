@@ -66,6 +66,8 @@ from .forms import MissingDogPostForm, RescueFinderForm, UserAdoptionPostForm
 from .avatar_cache import invalidate_cached_profile_avatar
 from .notification_utils import (
     build_user_notification_payload,
+    build_user_registered_dog_vaccination_status_map,
+    build_user_vaccination_reminder_summary,
     bump_user_home_feed_namespace,
     get_user_home_feed_namespace,
     get_user_notification_read_keys,
@@ -398,10 +400,11 @@ def _has_pending_signup_face_progress(request):
     )
 
 
-def _build_registered_dog_payloads(dogs):
+def _build_registered_dog_payloads(dogs, vaccination_status_by_dog_id=None):
     """Convert registered dog rows into template-friendly profile cards."""
     rows = []
     for dog in dogs:
+        vaccination_status = (vaccination_status_by_dog_id or {}).get(dog.id, {})
         photo_urls = []
         for image in dog.images.all():
             image_url = _safe_media_url(getattr(image, "image", None))
@@ -419,6 +422,19 @@ def _build_registered_dog_payloads(dogs):
             "location": dog.barangay or dog.owner_address or "",
             "photo_urls": photo_urls,
             "photo_count": len(photo_urls),
+            "card_id": vaccination_status.get("anchor_id") or f"registered-dog-{dog.id}",
+            "vaccination_status_key": vaccination_status.get("status_key", "no_record"),
+            "vaccination_status_label": vaccination_status.get(
+                "status_label",
+                "No Vaccination Record",
+            ),
+            "vaccination_status_message": vaccination_status.get(
+                "status_message",
+                "No vaccination record is on file yet for this registered dog.",
+            ),
+            "vaccination_expiry_date": vaccination_status.get("expiry_date"),
+            "vaccination_date": vaccination_status.get("vaccination_date"),
+            "has_vaccination_record": vaccination_status.get("has_vaccination_record", False),
         })
     return rows
 
@@ -694,8 +710,15 @@ def _build_profile_registered_dogs(profile_user):
         )
         .order_by("-date_registered", "-id")[:registered_dogs_limit]
     )
+    vaccination_status_by_dog_id = build_user_registered_dog_vaccination_status_map(
+        profile_user,
+        registered_dogs_qs,
+    )
     return {
-        "registered_dogs": _build_registered_dog_payloads(registered_dogs_qs),
+        "registered_dogs": _build_registered_dog_payloads(
+            registered_dogs_qs,
+            vaccination_status_by_dog_id=vaccination_status_by_dog_id,
+        ),
         "registered_dogs_limit": registered_dogs_limit,
         "registered_dogs_total": Dog.objects.filter(owner_user=profile_user).count(),
     }
@@ -3069,6 +3092,11 @@ def _build_user_home_context(
         "pinned_admin_spotlight": _build_home_pinned_rescue_spotlight(),
         "featured_dog_sections": _build_home_featured_rescue_sections(),
         "limited_time_rescue_section": _build_home_limited_time_rescue_section(),
+        "vaccination_reminder_summary": (
+            build_user_vaccination_reminder_summary(request.user)
+            if request.user.is_authenticated and not request.user.is_staff
+            else {"items": [], "expired_count": 0, "due_soon_count": 0, "profile_url": ""}
+        ),
         "page_obj": page_obj,
         "query": query,
         "feed_token": feed_token,

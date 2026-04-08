@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260407pinned-spotlight">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260408vaccination-reminders">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -34,6 +34,60 @@
             </div>
         </div>
     </section>
+
+    {% if request.user.is_authenticated and vaccination_reminder_summary.items %}
+    <section class="home-vaccine-reminder-shell home-reveal" aria-labelledby="homeVaccinationReminderTitle">
+        <div class="home-vaccine-reminder">
+            <div class="home-vaccine-reminder__copy">
+                <span class="home-vaccine-reminder__eyebrow">Pet Health Reminder</span>
+                <h2 class="home-vaccine-reminder__title" id="homeVaccinationReminderTitle">
+                    Vaccination reminders for your registered dogs
+                </h2>
+                <p class="home-vaccine-reminder__text">
+                    We start reminding you 30 days before a vaccination expires so you have time to renew it.
+                </p>
+            </div>
+
+            <div class="home-vaccine-reminder__chips">
+                {% if vaccination_reminder_summary.expired_count %}
+                <span class="home-vaccine-reminder__chip home-vaccine-reminder__chip--expired">
+                    {{ vaccination_reminder_summary.expired_count }} expired
+                </span>
+                {% endif %}
+                {% if vaccination_reminder_summary.due_soon_count %}
+                <span class="home-vaccine-reminder__chip home-vaccine-reminder__chip--due">
+                    {{ vaccination_reminder_summary.due_soon_count }} due within 30 days
+                </span>
+                {% endif %}
+            </div>
+
+            <div class="home-vaccine-reminder__grid">
+                {% for reminder in vaccination_reminder_summary.items %}
+                <a
+                    href="{{ reminder.detail_url }}"
+                    class="home-vaccine-reminder__card home-vaccine-reminder__card--{{ reminder.status_key }}"
+                >
+                    <span class="home-vaccine-reminder__status home-vaccine-reminder__status--{{ reminder.status_key }}">
+                        {{ reminder.status_label }}
+                    </span>
+                    <h3>{{ reminder.pet_name }}</h3>
+                    <p>{{ reminder.message }}</p>
+                    <span class="home-vaccine-reminder__link">
+                        Open registered dog record
+                        <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+
+            <div class="home-vaccine-reminder__actions">
+                <a href="{{ vaccination_reminder_summary.profile_url }}" class="home-vaccine-reminder__action-btn">
+                    Review all registered dogs
+                </a>
+            </div>
+        </div>
+    </section>
+    {% endif %}
 
     {% if pinned_admin_spotlight %}
     <section class="home-admin-spotlight-shell" aria-labelledby="homePinnedSpotlightTitle">

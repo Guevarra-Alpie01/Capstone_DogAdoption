@@ -20,7 +20,7 @@
                         <input
                             type="text"
                             id="certificate-owner-search"
-                            placeholder="Search by first name, last name, or username"
+                            placeholder="Search by owner name, last name, or username"
                             autocomplete="off"
                             data-user-search-url="{% url 'dogadoption_admin:registration_user_search_api' %}"
                             data-responsive-search-input
@@ -39,6 +39,7 @@
     <div class="form-card">
         <form method="post" action="{% url 'dogadoption_admin:dog_certificate' %}" id="dog-certificate-form">
             {% csrf_token %}
+            <input type="hidden" name="owner_user_id" id="certificate_owner_user_id" value="">
 
             <div class="field-group field-reg-no">
                 <label for="reg_no">Registration Number</label>
@@ -61,6 +62,10 @@
                     <div class="field-group">
                         <label for="name_of_pet">Pet Name</label>
                         <input type="text" name="name_of_pet" id="name_of_pet" required placeholder="Name">
+                        <div id="certificate-pet-suggestions" class="suggestions-box" style="display:none;"></div>
+                        <small id="certificate-pet-hint" class="certificate-field-hint" style="display:none;">
+                            Suggestions are based on the selected owner's registered pets.
+                        </small>
                     </div>
                     <div class="field-group">
                         <label for="breed">Breed</label>
@@ -189,12 +194,38 @@
         const searchInput = document.getElementById('certificate-owner-search');
         const searchBtn = document.getElementById('certificate-owner-search-btn');
         const suggestionsBox = document.getElementById('certificate-owner-suggestions');
+        const ownerUserIdInput = document.getElementById('certificate_owner_user_id');
         const ownerFirstName = document.getElementById('owner_first_name');
         const ownerLastName = document.getElementById('owner_last_name');
         const barangayInput = document.getElementById('barangay');
         const contactInput = document.getElementById('contact_no');
+        const petNameInput = document.getElementById('name_of_pet');
+        const petSuggestionsBox = document.getElementById('certificate-pet-suggestions');
+        const petSuggestionHint = document.getElementById('certificate-pet-hint');
+        const breedInput = document.getElementById('breed');
+        const dobInput = document.getElementById('dob');
+        const sexInput = document.getElementById('sex');
+        const statusInput = document.getElementById('status');
+        const colorInput = document.getElementById('color_markings');
 
-        if (!searchInput || !searchBtn || !suggestionsBox || !ownerFirstName || !ownerLastName || !barangayInput || !contactInput) {
+        if (
+            !searchInput ||
+            !searchBtn ||
+            !suggestionsBox ||
+            !ownerUserIdInput ||
+            !ownerFirstName ||
+            !ownerLastName ||
+            !barangayInput ||
+            !contactInput ||
+            !petNameInput ||
+            !petSuggestionsBox ||
+            !petSuggestionHint ||
+            !breedInput ||
+            !dobInput ||
+            !sexInput ||
+            !statusInput ||
+            !colorInput
+        ) {
             return;
         }
 
@@ -204,10 +235,137 @@
         }
 
         let debounceTimer = null;
+        let selectedOwnerPets = [];
 
         function clearSuggestions() {
             suggestionsBox.innerHTML = '';
             suggestionsBox.style.display = 'none';
+        }
+
+        function clearPetSuggestions() {
+            petSuggestionsBox.innerHTML = '';
+            petSuggestionsBox.style.display = 'none';
+        }
+
+        function syncPetHint() {
+            petSuggestionHint.style.display = selectedOwnerPets.length ? 'block' : 'none';
+        }
+
+        function clearSelectedOwnerPets() {
+            selectedOwnerPets = [];
+            clearPetSuggestions();
+            syncPetHint();
+        }
+
+        function normalizeSuggestionText(value) {
+            return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+        }
+
+        function applyPetSelection(pet) {
+            petNameInput.value = pet.name || '';
+            if (pet.breed) {
+                breedInput.value = pet.breed;
+            }
+            if (pet.dob) {
+                dobInput.value = pet.dob;
+            }
+            if (pet.sex) {
+                sexInput.value = pet.sex;
+            }
+            if (pet.status && Array.from(statusInput.options).some((option) => option.value === pet.status)) {
+                statusInput.value = pet.status;
+            }
+            if (pet.color) {
+                colorInput.value = pet.color;
+            }
+            if (pet.barangay && !barangayInput.value.trim()) {
+                barangayInput.value = pet.barangay;
+            }
+            clearPetSuggestions();
+        }
+
+        function renderPetSuggestions(pets) {
+            petSuggestionsBox.innerHTML = '';
+
+            if (!pets.length) {
+                clearPetSuggestions();
+                return;
+            }
+
+            pets.forEach((pet, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'owner-search-item';
+                button.dataset.petIndex = String(index);
+
+                const title = document.createElement('strong');
+                title.textContent = pet.name || 'Unnamed pet';
+                const meta = document.createElement('span');
+                const metaParts = [
+                    pet.species || '',
+                    pet.sex === 'M' ? 'Male' : pet.sex === 'F' ? 'Female' : '',
+                    pet.status || '',
+                ].filter(Boolean);
+                meta.textContent = metaParts.join(' | ');
+
+                button.appendChild(title);
+                if (meta.textContent) {
+                    button.appendChild(meta);
+                }
+                button.addEventListener('click', function () {
+                    applyPetSelection(pet);
+                });
+                petSuggestionsBox.appendChild(button);
+            });
+
+            petSuggestionsBox.style.display = 'block';
+        }
+
+        function getMatchingPets(query) {
+            const normalizedQuery = normalizeSuggestionText(query);
+            if (!selectedOwnerPets.length) {
+                return [];
+            }
+            if (!normalizedQuery) {
+                return selectedOwnerPets;
+            }
+            return selectedOwnerPets.filter((pet) => {
+                return normalizeSuggestionText(pet.name).includes(normalizedQuery);
+            });
+        }
+
+        function selectTopPetSuggestion() {
+            if (petSuggestionsBox.style.display === 'none') {
+                return false;
+            }
+            const topSuggestion = petSuggestionsBox.querySelector('button.owner-search-item');
+            if (!topSuggestion) {
+                return false;
+            }
+            topSuggestion.click();
+            return true;
+        }
+
+        function updatePetSuggestions() {
+            const matches = getMatchingPets(petNameInput.value || '');
+            renderPetSuggestions(matches);
+        }
+
+        function applyOwnerSelection(row) {
+            ownerFirstName.value = row.first_name || '';
+            ownerLastName.value = row.last_name || '';
+            ownerUserIdInput.value = row.id ? String(row.id) : '';
+            if (row.barangay) {
+                barangayInput.value = row.barangay;
+            }
+            contactInput.value = row.phone_number
+                ? formatContactNumber(row.phone_number)
+                : '09';
+            searchInput.value = row.full_name || row.username || '';
+            selectedOwnerPets = Array.isArray(row.registered_pets) ? row.registered_pets : [];
+            syncPetHint();
+            clearSuggestions();
+            updatePetSuggestions();
         }
 
         function renderSuggestions(results) {
@@ -230,21 +388,26 @@
                 const fullName = document.createElement('strong');
                 fullName.textContent = row.full_name || '';
                 const username = document.createElement('span');
-                username.textContent = '@' + (row.username || '');
+                const summaryParts = [];
+                if (row.username) {
+                    summaryParts.push('@' + row.username);
+                }
+                if (row.source_label) {
+                    summaryParts.push(row.source_label);
+                }
+                if (row.registered_pet_count) {
+                    summaryParts.push(
+                        row.registered_pet_count + ' registered pet' + (row.registered_pet_count === 1 ? '' : 's')
+                    );
+                }
+                username.textContent = summaryParts.join(' | ');
 
                 button.appendChild(fullName);
-                button.appendChild(username);
+                if (username.textContent) {
+                    button.appendChild(username);
+                }
                 button.addEventListener('click', function () {
-                    ownerFirstName.value = row.first_name || '';
-                    ownerLastName.value = row.last_name || '';
-                    if (row.barangay) {
-                        barangayInput.value = row.barangay;
-                    }
-                    contactInput.value = row.phone_number
-                        ? formatContactNumber(row.phone_number)
-                        : '09';
-                    searchInput.value = row.full_name || row.username || '';
-                    clearSuggestions();
+                    applyOwnerSelection(row);
                 });
                 suggestionsBox.appendChild(button);
             });
@@ -268,6 +431,7 @@
             const query = (searchInput.value || '').trim();
             if (query.length < 2) {
                 clearSuggestions();
+                clearSelectedOwnerPets();
                 return;
             }
 
@@ -291,8 +455,18 @@
 
         searchBtn.addEventListener('click', runSearch);
         searchInput.addEventListener('input', function () {
+            ownerUserIdInput.value = '';
+            clearSelectedOwnerPets();
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(runSearch, 200);
+        });
+        ownerFirstName.addEventListener('input', function () {
+            ownerUserIdInput.value = '';
+            clearSelectedOwnerPets();
+        });
+        ownerLastName.addEventListener('input', function () {
+            ownerUserIdInput.value = '';
+            clearSelectedOwnerPets();
         });
         searchInput.addEventListener('keydown', function (event) {
             if (event.key === 'Enter') {
@@ -307,7 +481,20 @@
             if (!suggestionsBox.contains(event.target) && event.target !== searchInput && event.target !== searchBtn) {
                 clearSuggestions();
             }
+            if (!petSuggestionsBox.contains(event.target) && event.target !== petNameInput) {
+                clearPetSuggestions();
+            }
         });
+
+        petNameInput.addEventListener('input', updatePetSuggestions);
+        petNameInput.addEventListener('focus', updatePetSuggestions);
+        petNameInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' && selectTopPetSuggestion()) {
+                event.preventDefault();
+            }
+        });
+
+        syncPetHint();
     })();
 
     const breedList = [

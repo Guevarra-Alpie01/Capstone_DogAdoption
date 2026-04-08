@@ -798,6 +798,239 @@ def _resolve_registration_owner_identity(owner_first_name, owner_last_name, owne
     return canonical_owner_name, canonical_owner_key, resolved_owner_user
 
 
+def _split_owner_name_parts(owner_name):
+    cleaned = " ".join((owner_name or "").split()).strip()
+    if not cleaned:
+        return "", ""
+    parts = cleaned.split()
+    return parts[0], " ".join(parts[1:])
+
+
+def _certificate_status_from_neutering(value):
+    normalized = " ".join((value or "").split()).strip()
+    return {
+        "C": "Castrated",
+        "S": "Spayed",
+        "No": "Intact",
+    }.get(normalized, "")
+
+
+def _serialize_registered_pet(dog):
+    pet_name = " ".join((getattr(dog, "name", "") or "").split()).strip()
+    return {
+        "id": getattr(dog, "id", None),
+        "name": pet_name,
+        "species": (getattr(dog, "species", "") or "").strip(),
+        "sex": (getattr(dog, "sex", "") or "").strip(),
+        "status": _certificate_status_from_neutering(getattr(dog, "neutering_status", "")),
+        "color": (getattr(dog, "color", "") or "").strip(),
+        "barangay": _resolve_barangay_name(getattr(dog, "barangay", "") or "") or "",
+    }
+
+
+def _owner_name_matches_query(owner_name, query_tokens, query):
+    normalized_owner_name = _normalize_person_name(owner_name)
+    normalized_query = _normalize_person_name(query)
+    if not normalized_owner_name or not normalized_query:
+        return False
+    if normalized_query in normalized_owner_name:
+        return True
+    return all(
+        _normalize_person_name(token) in normalized_owner_name
+        for token in query_tokens
+        if _normalize_person_name(token)
+    )
+
+
+def _build_registration_owner_search_results(query, limit):
+    tokens = query.split()
+    results = []
+
+    users = User.objects.filter(is_active=True, is_staff=False)
+    if len(tokens) >= 2:
+        users = users.filter(
+            (Q(first_name__istartswith=tokens[0]) & Q(last_name__istartswith=tokens[-1]))
+            | Q(username__istartswith=query)
+        )
+    else:
+        term = tokens[0]
+        users = users.filter(
+            Q(first_name__istartswith=term)
+            | Q(last_name__istartswith=term)
+            | Q(username__istartswith=term)
+        )
+
+    user_rows = list(
+        users.order_by("first_name", "last_name", "id").values(
+            "id",
+            "first_name",
+            "last_name",
+            "username",
+            "profile__address",
+            "profile__phone_number",
+        )[:limit]
+    )
+
+    user_ids = [row["id"] for row in user_rows]
+    user_owner_keys = {}
+    owner_key_to_user_id = {}
+    for row in user_rows:
+        owner_key = _registration_owner_key_from_names(
+            row.get("first_name") or "",
+            row.get("last_name") or "",
+        )
+        if owner_key:
+            user_owner_keys[row["id"]] = owner_key
+            owner_key_to_user_id.setdefault(owner_key, row["id"])
+
+    registered_pets_by_user_id = defaultdict(list)
+    seen_pet_keys_by_user_id = defaultdict(set)
+    if user_ids:
+        owner_keys = [key for key in user_owner_keys.values() if key]
+        user_dogs = Dog.objects.filter(
+            Q(owner_user_id__in=user_ids)
+            | Q(owner_name_key__in=owner_keys)
+        ).only(
+            "id",
+            "name",
+            "species",
+            "sex",
+            "neutering_status",
+            "color",
+            "owner_user_id",
+            "owner_name_key",
+            "barangay",
+        ).order_by("name", "id")
+
+        for dog in user_dogs:
+            owner_user_id = getattr(dog, "owner_user_id", None)
+            if owner_user_id not in user_ids:
+                owner_user_id = owner_key_to_user_id.get(
+                    getattr(dog, "owner_name_key", "") or ""
+                )
+            if owner_user_id not in user_ids:
+                continue
+
+            pet_payload = _serialize_registered_pet(dog)
+            pet_signature = (
+                _normalize_person_name(pet_payload["name"]),
+                pet_payload["species"],
+                pet_payload["sex"],
+                pet_payload["status"],
+                _normalize_person_name(pet_payload["color"]),
+            )
+            if pet_signature in seen_pet_keys_by_user_id[owner_user_id]:
+                continue
+            seen_pet_keys_by_user_id[owner_user_id].add(pet_signature)
+            registered_pets_by_user_id[owner_user_id].append(pet_payload)
+
+    for row in user_rows:
+        first_name = (row.get("first_name") or "").strip()
+        last_name = (row.get("last_name") or "").strip()
+        username = (row.get("username") or "").strip()
+        full_name = f"{first_name} {last_name}".strip()
+        barangay = _extract_barangay_from_address(row.get("profile__address") or "")
+        phone_number = (row.get("profile__phone_number") or "").strip()
+        registered_pets = registered_pets_by_user_id.get(row["id"], [])
+        results.append(
+            {
+                "id": row["id"],
+                "owner_key": f"user:{row['id']}",
+                "source": "user",
+                "source_label": "User account",
+                "first_name": first_name,
+                "last_name": last_name,
+                "username": username,
+                "full_name": full_name or username,
+                "barangay": barangay,
+                "phone_number": phone_number,
+                "registered_pet_count": len(registered_pets),
+                "registered_pets": registered_pets,
+            }
+        )
+
+    remaining_slots = max(limit - len(results), 0)
+    if remaining_slots:
+        manual_owner_filter = Q(owner_name__istartswith=query)
+        normalized_query = _normalize_person_name(query)
+        if normalized_query:
+            manual_owner_filter |= Q(owner_name_key__istartswith=normalized_query)
+        for token in tokens:
+            normalized_token = _normalize_person_name(token)
+            manual_owner_filter |= Q(owner_name__icontains=token)
+            if normalized_token:
+                manual_owner_filter |= Q(owner_name_key__icontains=normalized_token)
+
+        manual_dogs = list(
+            Dog.objects.filter(owner_user__isnull=True)
+            .filter(manual_owner_filter)
+            .only(
+                "id",
+                "name",
+                "species",
+                "sex",
+                "neutering_status",
+                "color",
+                "owner_name",
+                "owner_name_key",
+                "owner_address",
+                "barangay",
+            )
+            .order_by("owner_name", "name", "id")[: max(remaining_slots * 8, 24)]
+        )
+
+        seen_owner_keys = {user_owner_keys.get(row["id"], "") for row in user_rows}
+        manual_results_map = {}
+        manual_pet_keys = defaultdict(set)
+        for dog in manual_dogs:
+            owner_name = " ".join((getattr(dog, "owner_name", "") or "").split()).strip()
+            owner_name_key = getattr(dog, "owner_name_key", "") or _normalize_person_name(owner_name)
+            if not owner_name_key or owner_name_key in seen_owner_keys:
+                continue
+            if not _owner_name_matches_query(owner_name, tokens, query):
+                continue
+
+            pet_payload = _serialize_registered_pet(dog)
+            pet_signature = (
+                _normalize_person_name(pet_payload["name"]),
+                pet_payload["species"],
+                pet_payload["sex"],
+                pet_payload["status"],
+                _normalize_person_name(pet_payload["color"]),
+            )
+            if pet_signature in manual_pet_keys[owner_name_key]:
+                continue
+            manual_pet_keys[owner_name_key].add(pet_signature)
+
+            result_row = manual_results_map.setdefault(
+                owner_name_key,
+                {
+                    "id": None,
+                    "owner_key": f"name:{owner_name_key}",
+                    "source": "manual_owner",
+                    "source_label": "Registered owner",
+                    "first_name": _split_owner_name_parts(owner_name)[0],
+                    "last_name": _split_owner_name_parts(owner_name)[1],
+                    "username": "",
+                    "full_name": owner_name,
+                    "barangay": _resolve_barangay_name(getattr(dog, "barangay", "") or "")
+                    or _extract_barangay_from_address(getattr(dog, "owner_address", "") or ""),
+                    "phone_number": "",
+                    "registered_pet_count": 0,
+                    "registered_pets": [],
+                },
+            )
+            result_row["registered_pets"].append(pet_payload)
+            result_row["registered_pet_count"] = len(result_row["registered_pets"])
+
+        for owner_result in manual_results_map.values():
+            results.append(owner_result)
+            if len(results) >= limit:
+                break
+
+    return results[:limit]
+
+
 def _build_owner_limit_query(owner_name_key, owner_name, owner_user=None):
     normalized_owner_key = _normalize_person_name(owner_name_key or owner_name)
     owner_query = Q()
@@ -4460,7 +4693,7 @@ def barangay_list_api(request):
 
 @admin_required
 def registration_user_search_api(request):
-    """Search non-staff users to prefill registration owner details."""
+    """Search user accounts and registered owners to prefill registration details."""
     query = " ".join((request.GET.get("q") or "").split()).strip()
     limit = _parse_positive_int(request.GET.get("limit"))
     if len(query) < 2:
@@ -4471,49 +4704,7 @@ def registration_user_search_api(request):
     if cached is not None:
         return _cacheable_json_response({"results": cached}, max_age=60)
 
-    tokens = query.split()
-    users = User.objects.filter(is_active=True, is_staff=False)
-    if len(tokens) >= 2:
-        users = users.filter(
-            (Q(first_name__istartswith=tokens[0]) & Q(last_name__istartswith=tokens[-1]))
-            | Q(username__istartswith=query)
-        )
-    else:
-        term = tokens[0]
-        users = users.filter(
-            Q(first_name__istartswith=term)
-            | Q(last_name__istartswith=term)
-            | Q(username__istartswith=term)
-        )
-
-    rows = users.order_by("first_name", "last_name", "id").values(
-        "id",
-        "first_name",
-        "last_name",
-        "username",
-        "profile__address",
-        "profile__phone_number",
-    )[:limit]
-    results = []
-    for row in rows:
-        first_name = (row.get("first_name") or "").strip()
-        last_name = (row.get("last_name") or "").strip()
-        username = (row.get("username") or "").strip()
-        full_name = f"{first_name} {last_name}".strip()
-        barangay = _extract_barangay_from_address(row.get("profile__address") or "")
-        phone_number = (row.get("profile__phone_number") or "").strip()
-        results.append(
-            {
-                "id": row["id"],
-                "first_name": first_name,
-                "last_name": last_name,
-                "username": username,
-                "full_name": full_name or username,
-                "barangay": barangay,
-                "phone_number": phone_number,
-            }
-        )
-
+    results = _build_registration_owner_search_results(query, limit)
     cache.set(cache_key, results, 60)
     return _cacheable_json_response({"results": results}, max_age=60)
 
@@ -4919,10 +5110,16 @@ def dog_certificate(request):
         address_line = (request.POST.get("address") or "").strip()
         owner_first_name = (request.POST.get("owner_first_name") or "").strip()
         owner_last_name = (request.POST.get("owner_last_name") or "").strip()
+        owner_user_id = (request.POST.get("owner_user_id") or "").strip()
         owner_name = _build_owner_full_name(
             owner_first_name,
             owner_last_name,
             (request.POST.get("owner_name") or "").strip(),
+        )
+        owner_name, owner_name_key, _owner_user = _resolve_registration_owner_identity(
+            owner_first_name,
+            owner_last_name,
+            owner_user_id=owner_user_id,
         )
         status = (request.POST.get("status") or "").strip()
 
@@ -4942,7 +5139,7 @@ def dog_certificate(request):
             messages.error(request, "Please select a valid status.")
             return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
 
-        if not owner_name:
+        if not owner_name or not owner_name_key:
             messages.error(request, "Owner First and Last Name are required.")
             return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
 

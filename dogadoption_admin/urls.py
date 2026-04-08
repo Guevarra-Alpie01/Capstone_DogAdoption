@@ -18,6 +18,7 @@ urlpatterns = [
     path('posts/<adminpostid:post_id>/edit/', views.update_post, name='update_post'),
     path('posts/<adminpostid:post_id>/pin/', views.toggle_post_pin, name='toggle_post_pin'),
     path('posts/<adminpostid:post_id>/phase/', views.toggle_post_phase, name='toggle_post_phase'),
+    path('posts/<adminpostid:post_id>/finalize/', views.finalize_post, name='finalize_post'),
     path('posts/<adminpostid:post_id>/delete/', views.delete_post, name='delete_post'),
     path('post/<adminpostid:post_id>/requests/', views.adoption_requests, name='adoption_requests'),
     path('request/<adoptionreqid:req_id>/<str:action>/', views.update_request, name='update_request'),
@@ -26,7 +27,6 @@ urlpatterns = [
     # Navigation 2/5: Request
     path('dog-capture/requests/', views.admin_dog_capture_requests, name='requests'),
     path('dog-capture/request/<captureid:pk>/update/', views.update_dog_capture_request, name='update_dog_capture_request'),
-    path('user/<userid:user_id>/faceauth/', views.view_faceauth, name='view_faceauth'),
 
     # Navigation 3/5: Register
     # Register link 1/5: Registration

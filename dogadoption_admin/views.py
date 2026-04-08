@@ -97,7 +97,6 @@ from .models import (
 from user.models import (
     DogCaptureRequest,
     DogCaptureRequestImage,
-    FaceImage,
     Profile,
 )
 
@@ -318,12 +317,12 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
                     )
                 record_label = "Adopted"
                 record_tone = "adopted"
-                record_source_label = "Finalized adoption"
-                record_note = (
-                    f"Adopted by {adopter_name}"
-                    if adopter_name != "-"
-                    else "Adoption request was completed."
-                )
+                if accepted_req:
+                    record_source_label = "Finalized adoption"
+                    record_note = f"Adopted by {adopter_name}"
+                else:
+                    record_source_label = "Admin-completed adoption"
+                    record_note = "Marked as adopted by admin without a request record."
                 recorded_on = (
                     accepted_req.scheduled_appointment_date
                     if accepted_req and accepted_req.scheduled_appointment_date
@@ -339,12 +338,12 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
                     )
                 record_label = "Redeemed"
                 record_tone = "reunited"
-                record_source_label = "Finalized redeem"
-                record_note = (
-                    f"Redeemed by {owner_name}"
-                    if owner_name != "-"
-                    else "Claim request was completed."
-                )
+                if accepted_req:
+                    record_source_label = "Finalized redeem"
+                    record_note = f"Redeemed by {owner_name}"
+                else:
+                    record_source_label = "Admin-completed redeem"
+                    record_note = "Marked as redeemed by admin without a request record."
                 recorded_on = (
                     accepted_req.scheduled_appointment_date
                     if accepted_req and accepted_req.scheduled_appointment_date
@@ -1408,18 +1407,13 @@ def _build_requests_with_meta(post, request_type):
     user_ids = [req.user_id for req in requests]
 
     profiles = Profile.objects.filter(user_id__in=user_ids)
-    faceauth = FaceImage.objects.filter(user_id__in=user_ids)
     profile_by_user_id = {profile.user_id: profile for profile in profiles}
-    faceauth_by_user_id = defaultdict(list)
-    for image in faceauth:
-        faceauth_by_user_id[image.user_id].append(image)
 
     requests_with_meta = []
     for req in requests:
         requests_with_meta.append({
             "req": req,
             "profile": profile_by_user_id.get(req.user_id),
-            "face_images": faceauth_by_user_id.get(req.user_id, []),
         })
     return requests_with_meta
 
@@ -1822,6 +1816,78 @@ def toggle_post_phase(request, post_id):
 
 @admin_required
 @require_POST
+def finalize_post(request, post_id):
+    """Manually complete an active rescue post and remove it from the live board."""
+    access = getattr(request, "admin_access", get_admin_access(request.user))
+    if not access.get("can_create_posts"):
+        messages.error(request, "You do not have permission to finalize posts.", extra_tags="post_list")
+        return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+    with transaction.atomic():
+        post = get_object_or_404(
+            Post.objects.select_for_update().filter(is_history=False),
+            id=post_id,
+        )
+        post_name = post.display_title or post.caption or f"Post {post.id}"
+
+        if post.status in {"reunited", "adopted"}:
+            messages.warning(request, "This post has already been finalized.", extra_tags="post_list")
+            return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+        current_phase = post.current_phase()
+        if current_phase not in {"claim", "adopt"}:
+            messages.warning(
+                request,
+                "Only active redeem or adoption posts can be finalized from the board.",
+                extra_tags="post_list",
+            )
+            return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+        expected_status = "reunited" if current_phase == "claim" else "adopted"
+        target_status = (request.POST.get("status") or "").strip().lower() or expected_status
+        if target_status != expected_status:
+            messages.error(request, "Invalid finalize action selected for this post.", extra_tags="post_list")
+            return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+        post.status = target_status
+        post.phase_override = ""
+        post.phase_override_started_at = None
+        post.is_pinned = False
+        post.pinned_at = None
+        post.save(
+            update_fields=[
+                "status",
+                "phase_override",
+                "phase_override_started_at",
+                "is_pinned",
+                "pinned_at",
+            ]
+        )
+
+        pending_requests = list(post.requests.filter(status="pending").only("id", "user_id"))
+        if pending_requests:
+            post.requests.filter(id__in=[req.id for req in pending_requests]).update(
+                status="rejected",
+                scheduled_appointment_date=None,
+            )
+            for pending_req in pending_requests:
+                invalidate_user_notification_payload(pending_req.user_id)
+
+    _touch_post_board_cache()
+    messages.success(
+        request,
+        (
+            f'Post "{post_name}" was marked as redeemed and moved out of the active board.'
+            if target_status == "reunited"
+            else f'Post "{post_name}" was marked as adopted and moved out of the active board.'
+        ),
+        extra_tags="post_list",
+    )
+    return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+
+@admin_required
+@require_POST
 def delete_post(request, post_id):
     """Archive a rescue post or permanently remove it from the system."""
     access = getattr(request, "admin_access", get_admin_access(request.user))
@@ -2054,6 +2120,10 @@ def post_list(request):
             "toggle_url": reverse("dogadoption_admin:toggle_post_phase", args=[post.id]),
             "toggle_phase": toggle_phase,
             "toggle_label": toggle_label,
+            "finalize_url": reverse("dogadoption_admin:finalize_post", args=[post.id]),
+            "finalize_status": "reunited" if section_key == "claim" else "adopted",
+            "finalize_label": "Mark as Redeemed" if section_key == "claim" else "Mark as Adopted",
+            "finalize_icon": "fas fa-home" if section_key == "claim" else "fas fa-heart",
             "delete_url": reverse("dogadoption_admin:delete_post", args=[post.id]),
             "allow_toggle": allow_toggle,
         }
@@ -2178,7 +2248,6 @@ def post_list(request):
 
         profile_image_by_user_id = {}
         profile_address_by_user_id = {}
-        face_auth_count_by_user_id = {}
         if request_user_ids:
             for profile in Profile.objects.filter(user_id__in=request_user_ids).only(
                 "user_id",
@@ -2190,13 +2259,6 @@ def post_list(request):
                 if image_url:
                     profile_image_by_user_id[profile.user_id] = image_url
 
-            face_auth_count_by_user_id = dict(
-                FaceImage.objects.filter(user_id__in=request_user_ids)
-                .values("user_id")
-                .annotate(total=Count("id"))
-                .values_list("user_id", "total")
-            )
-
         for req in paged_requests:
             display_name = f"{(req.user.first_name or '').strip()} {(req.user.last_name or '').strip()}".strip()
             if not display_name:
@@ -2204,7 +2266,6 @@ def post_list(request):
             req.user_display_name = display_name
             req.user_initials = _owner_initials(display_name)
             req.user_profile_image_url = profile_image_by_user_id.get(req.user_id, "")
-            req.face_auth_count = face_auth_count_by_user_id.get(req.user_id, 0)
 
         primary_image_by_post_id = {}
         for image in PostImage.objects.filter(post_id__in=paged_post_ids).only("post_id", "image").order_by("id"):
@@ -2396,26 +2457,6 @@ def update_request(request, req_id, action):
 # Navigation 2/5: Request
 # Covers capture-request operations and supporting request review tools.
 # =============================================================================
-
-@admin_required
-def view_faceauth(request, user_id):
-    """Show a user's stored face images while reviewing their request data."""
-    user = get_object_or_404(User, id=user_id)
-
-    face_images = FaceImage.objects.filter(user=user).only("image", "created_at").order_by("-created_at")
-    profile = Profile.objects.filter(user=user).only(
-        "user_id",
-        "address",
-        "age",
-        "middle_initial",
-        "profile_image",
-    ).first()
-
-    return render(request, 'admin_home/view_faceauth.html', {
-        'user': user,
-        'profile': profile,
-        'face_images': face_images,
-    })
 
 @admin_required
 @require_http_methods(["GET", "POST"])
@@ -4322,7 +4363,6 @@ def registration_owner_profile(request, user_id):
             "profile": manual_profile,
             "registered_dogs": registered_dogs,
             "registered_dogs_total": len(registered_dogs),
-            "face_images": [],
             "violation_summary": {
                 "manual": 0,
                 "claims": 0,
@@ -4365,7 +4405,6 @@ def registration_owner_profile(request, user_id):
     )
     registered_dogs = _build_registered_dog_payloads(registered_dogs_qs)
 
-    face_images = FaceImage.objects.filter(user=profile_user).only("id", "image").order_by("-created_at", "-id")
     violation_summary = (
         _admin_user_management_queryset()
         .filter(pk=profile_user.pk)
@@ -4391,7 +4430,6 @@ def registration_owner_profile(request, user_id):
         "profile": profile,
         "registered_dogs": registered_dogs,
         "registered_dogs_total": len(registered_dogs),
-        "face_images": face_images,
         "violation_summary": {
             "manual": violation_summary.get("managed_violation_count", 0),
             "claims": violation_summary.get("claim_violation_count", 0),

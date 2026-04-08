@@ -3,7 +3,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/register/registration.css' %}?v=20260328a">
-<link rel="stylesheet" href="{% static 'css/register/registration_record.css' %}?v=20260331a">
+<link rel="stylesheet" href="{% static 'css/register/registration_record.css' %}?v=20260408a">
 <link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260330d">
 {% endblock extra_css %}
 
@@ -171,7 +171,7 @@
                 </thead>
                 <tbody>
                     {% for dog in dogs %}
-                    <tr>
+                    <tr{% if dog.vaccination_expired %} class="registration-row--expired-vaccination"{% endif %}>
                         <td class="owner-profile-cell">
                             {% if dog.show_owner_fields %}
                                 <a
@@ -189,7 +189,17 @@
                         </td>
                         <td>{% if dog.owner_display_number %}{{ dog.owner_display_number }}{% endif %}</td>
                         <td>{{ dog.date_registered|date:"m-d-Y" }}</td>
-                        <td>{{ dog.name }}</td>
+                        <td class="pet-name-cell{% if dog.vaccination_expired %} pet-name-cell--expired{% endif %}">
+                            <span class="pet-name-text">{{ dog.name }}</span>
+                            {% if dog.vaccination_expired %}
+                                <span
+                                    class="vaccination-status-badge"
+                                    title="Latest vaccination expired on {{ dog.latest_vaccination_expiry_date|date:'m-d-Y' }}"
+                                >
+                                    Vaccination Expired
+                                </span>
+                            {% endif %}
+                        </td>
                         <td>{{ dog.species }}</td>
                         <td>{{ dog.sex }}</td>
                         <td>{{ dog.age }}</td>
@@ -234,6 +244,7 @@
             <div>C - Castrated</div>
             <div>S - Spaying</div>
             <div>No - Not castrated nor spayed</div>
+            <div>Red row badge - Latest vaccination already expired</div>
         </div>
     </div>
 </div>

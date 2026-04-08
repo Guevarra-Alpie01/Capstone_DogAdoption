@@ -4436,6 +4436,98 @@ def _attach_registration_owner_metadata(dogs):
     return owner_keys_by_dog_id
 
 
+def _attach_registration_vaccination_metadata(dogs):
+    today = timezone.localdate()
+    candidate_owner_keys = set()
+    candidate_pet_keys = set()
+    dog_signature_by_id = {}
+
+    for dog in dogs:
+        owner_key = _normalize_person_name(
+            getattr(dog, "owner_name_key", "") or getattr(dog, "owner_name", "")
+        )
+        pet_key = _normalize_person_name(getattr(dog, "name", ""))
+        signature = (owner_key, pet_key)
+        dog_signature_by_id[dog.id] = signature
+        dog.has_vaccination_record = False
+        dog.vaccination_expired = False
+        dog.latest_vaccination_date = None
+        dog.latest_vaccination_expiry_date = None
+
+        if owner_key and pet_key:
+            candidate_owner_keys.add(owner_key)
+            candidate_pet_keys.add(pet_key)
+
+    if not candidate_owner_keys or not candidate_pet_keys:
+        return dogs
+
+    matching_registrations = (
+        DogRegistration.objects.annotate(
+            owner_name_normalized=Lower(Trim("owner_name")),
+            pet_name_normalized=Lower(Trim("name_of_pet")),
+        )
+        .filter(
+            owner_name_normalized__in=candidate_owner_keys,
+            pet_name_normalized__in=candidate_pet_keys,
+        )
+        .only("id", "date_registered")
+    )
+
+    registration_signature_by_id = {}
+    registration_ids = []
+    for registration in matching_registrations:
+        signature = (
+            getattr(registration, "owner_name_normalized", ""),
+            getattr(registration, "pet_name_normalized", ""),
+        )
+        if not signature[0] or not signature[1]:
+            continue
+        registration_signature_by_id[registration.id] = signature
+        registration_ids.append(registration.id)
+
+    if not registration_ids:
+        return dogs
+
+    latest_vaccination_by_signature = {}
+    vaccinations = (
+        VaccinationRecord.objects.filter(registration_id__in=registration_ids)
+        .only(
+            "id",
+            "registration_id",
+            "date",
+            "vaccine_expiry_date",
+            "vaccination_expiry_date",
+        )
+        .order_by("-date", "-id")
+    )
+
+    for vaccination in vaccinations:
+        signature = registration_signature_by_id.get(vaccination.registration_id)
+        if signature and signature not in latest_vaccination_by_signature:
+            latest_vaccination_by_signature[signature] = vaccination
+
+    for dog in dogs:
+        signature = dog_signature_by_id.get(dog.id)
+        vaccination = latest_vaccination_by_signature.get(signature)
+        if not vaccination:
+            continue
+
+        dog.has_vaccination_record = True
+        dog.latest_vaccination_date = vaccination.date
+        dog.latest_vaccination_expiry_date = (
+            vaccination.vaccination_expiry_date or vaccination.vaccine_expiry_date
+        )
+        dog.vaccination_expired = bool(
+            (vaccination.vaccine_expiry_date and vaccination.vaccine_expiry_date < today)
+            or (
+                vaccination.vaccination_expiry_date
+                and vaccination.vaccination_expiry_date < today
+            )
+        )
+
+    return dogs
+
+
 def _paginate_registration_record_rows(request, dogs_qs):
     page_number = (request.GET.get("page") or "1").strip()
     paginator = Paginator(dogs_qs, 100)
@@ -4490,6 +4582,7 @@ def registration_record(request):
     owner_rank_by_key = _build_registration_owner_rank_lookup(dogs_qs)
     page_obj, dogs = _paginate_registration_record_rows(request, dogs_qs)
     owner_keys_by_dog_id = _attach_registration_owner_metadata(dogs)
+    dogs = _attach_registration_vaccination_metadata(dogs)
     dogs = _apply_registration_owner_row_display(
         dogs,
         owner_keys_by_dog_id,

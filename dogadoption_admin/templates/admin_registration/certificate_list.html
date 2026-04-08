@@ -18,24 +18,20 @@
                     <i class="bi bi-search search-input-icon" aria-hidden="true"></i>
                     <input
                         type="text"
-                        name="barangay"
-                        id="certificate-list-barangay"
+                        name="q"
+                        id="certificate-list-query"
                         class="medical-record-filter-input"
-                        placeholder="Search other..."
-                        value="{{ selected_barangay|default:'' }}"
+                        placeholder="Search reg no, pet, owner, user, barangay..."
+                        value="{{ selected_query|default:'' }}"
                         autocomplete="off"
                         enterkeyhint="search"
-                        data-barangay-autocomplete="true"
-                        data-barangay-source-url="{% url 'dogadoption_admin:barangay_list_api' %}"
-                        data-barangay-suggestions-id="certificate-list-suggestions"
                         data-responsive-search-input
                     >
                 </div>
-                <button type="submit" class="medical-record-filter-btn" data-barangay-search-target="certificate-list-barangay" data-responsive-search-toggle>
+                <button type="submit" class="medical-record-filter-btn" data-responsive-search-toggle>
                     <i class="fas fa-search" aria-hidden="true"></i>
                     Search
                 </button>
-                <div id="certificate-list-suggestions" class="suggestions-box medical-record-suggestions-box" style="display:none;"></div>
             </form>
         </div>
 
@@ -50,25 +46,138 @@
                     <i class="fas fa-print" aria-hidden="true"></i>
                     Print Selected Certificates
                 </button>
+                <div class="certificate-table-sort-panel">
+                    <label for="certificate-list-sort" class="medical-record-filter-label">Sort by</label>
+                    <select
+                        name="sort"
+                        id="certificate-list-sort"
+                        class="medical-record-filter-select medical-record-filter-select--sort"
+                        form="certificate-list-search-form"
+                    >
+                        {% for value, label in sort_options %}
+                        <option value="{{ value }}"{% if selected_sort == value %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
         </div>
 
         <div class="medical-record-table-meta">
             <span class="medical-record-chip">
-                {{ page_obj.paginator.count }} Record{{ page_obj.paginator.count|pluralize }}
+                {% if is_grouped_sort %}
+                    {{ total_owner_groups }} Owner / User Group{{ total_owner_groups|pluralize }}
+                {% else %}
+                    {{ total_vaccination_records }} Record{{ total_vaccination_records|pluralize }}
+                {% endif %}
             </span>
-            {% if selected_barangay %}
+            {% if is_grouped_sort %}
+            <span class="medical-record-chip">
+                {{ total_vaccination_records }} Vaccination Card{{ total_vaccination_records|pluralize }}
+            </span>
+            {% endif %}
+            {% if selected_query %}
             <span class="medical-record-chip medical-record-chip-filtered">
-                Filtered: {{ selected_barangay }}
+                Search: {{ selected_query }}
             </span>
             {% endif %}
         </div>
 
+        {% if is_grouped_sort %}
+        {% if page_obj.paginator.count %}
+        <div class="certificate-owner-groups">
+            {% for owner_group in page_obj %}
+            <section class="certificate-owner-group">
+                <div class="certificate-owner-group-head">
+                    <div class="certificate-owner-identity">
+                        {% if owner_group.profile_available %}
+                        <a
+                            href="{{ owner_group.profile_url }}"
+                            class="certificate-profile-avatar-link"
+                            title="View {{ owner_group.owner_name }} profile"
+                        >
+                            {% if owner_group.profile_image_url %}
+                            <img src="{{ owner_group.profile_image_url }}" alt="{{ owner_group.owner_name }} profile" class="certificate-profile-avatar">
+                            {% else %}
+                            <span class="certificate-profile-avatar certificate-profile-avatar-fallback">{{ owner_group.owner_initials }}</span>
+                            {% endif %}
+                        </a>
+                        {% else %}
+                        <span class="certificate-profile-avatar-link is-static" title="Profile preview unavailable">
+                            {% if owner_group.profile_image_url %}
+                            <img src="{{ owner_group.profile_image_url }}" alt="{{ owner_group.owner_name }} profile" class="certificate-profile-avatar">
+                            {% else %}
+                            <span class="certificate-profile-avatar certificate-profile-avatar-fallback">{{ owner_group.owner_initials }}</span>
+                            {% endif %}
+                        </span>
+                        {% endif %}
+
+                        <div class="certificate-owner-copy">
+                            <h4>{{ owner_group.owner_name }}</h4>
+                            <p>{{ owner_group.vaccinated_pet_count }} vaccinated pet{{ owner_group.vaccinated_pet_count|pluralize }} | {{ owner_group.vaccination_card_count }} vaccination card{{ owner_group.vaccination_card_count|pluralize }} | {{ owner_group.owner_type_label }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-container combined-table-container">
+                    <table class="records-table combined-record-table combined-record-table--owner">
+                        <thead>
+                            <tr>
+                                <th>Select</th>
+                                <th>Reg No</th>
+                                <th>Pet Name</th>
+                                <th>Barangay</th>
+                                <th>Address</th>
+                                <th>Date Issued</th>
+                                <th>Date Vaccinated</th>
+                                <th>Vaccine</th>
+                                <th>Vaccine Expiry</th>
+                                <th>Dog Vaccination Expiry</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in owner_group.rows %}
+                            <tr class="{% if row.is_expired %}combined-row-expired{% endif %}">
+                                <td>
+                                    <input type="checkbox"
+                                           class="select-cert"
+                                           value="{{ row.registration_id }}">
+                                </td>
+                                <td><strong>{{ row.reg_no }}</strong></td>
+                                <td>{{ row.pet_name }}</td>
+                                <td>{{ row.barangay }}</td>
+                                <td>{{ row.address }}</td>
+                                <td>{{ row.date_issued|date:"M d, Y" }}</td>
+                                <td>{{ row.vaccination_date|date:"M d, Y" }}</td>
+                                <td>{{ row.vaccine_name }}</td>
+                                <td>{{ row.vaccine_expiry_date|date:"M d, Y" }}</td>
+                                <td>{{ row.dog_vaccination_expiry_date|date:"M d, Y" }}</td>
+                                <td>
+                                    <a href="{% url 'dogadoption_admin:certificate_print' row.registration_id %}"
+                                       class="action-btn-print">
+                                        <i class="fas fa-print"></i> Print
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="certificate-empty-state">
+            No vaccination records found.
+        </div>
+        {% endif %}
+        {% else %}
         <div class="table-container combined-table-container">
             <table class="records-table combined-record-table">
                 <thead>
                     <tr>
                         <th>Select</th>
+                        <th>Profile</th>
                         <th>Reg No</th>
                         <th>Pet Name</th>
                         <th>Owner</th>
@@ -90,6 +199,29 @@
                                    class="select-cert"
                                    value="{{ row.registration_id }}">
                         </td>
+                        <td class="certificate-profile-cell">
+                            {% if row.profile_available %}
+                            <a
+                                href="{{ row.profile_url }}"
+                                class="certificate-profile-avatar-link"
+                                title="View {{ row.owner_name }} profile"
+                            >
+                                {% if row.profile_image_url %}
+                                <img src="{{ row.profile_image_url }}" alt="{{ row.owner_name }} profile" class="certificate-profile-avatar">
+                                {% else %}
+                                <span class="certificate-profile-avatar certificate-profile-avatar-fallback">{{ row.owner_initials }}</span>
+                                {% endif %}
+                            </a>
+                            {% else %}
+                            <span class="certificate-profile-avatar-link is-static" title="Profile preview unavailable">
+                                {% if row.profile_image_url %}
+                                <img src="{{ row.profile_image_url }}" alt="{{ row.owner_name }} profile" class="certificate-profile-avatar">
+                                {% else %}
+                                <span class="certificate-profile-avatar certificate-profile-avatar-fallback">{{ row.owner_initials }}</span>
+                                {% endif %}
+                            </span>
+                            {% endif %}
+                        </td>
                         <td><strong>{{ row.reg_no }}</strong></td>
                         <td>{{ row.pet_name }}</td>
                         <td>{{ row.owner_name }}</td>
@@ -109,7 +241,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="12" class="empty-row">
+                        <td colspan="13" class="empty-row">
                             No vaccination records found.
                         </td>
                     </tr>
@@ -117,11 +249,12 @@
                 </tbody>
             </table>
         </div>
+        {% endif %}
 
         {% if page_obj and page_obj.paginator.num_pages > 1 %}
         <div class="certificate-pagination">
             {% if page_obj.has_previous %}
-                <a class="certificate-pagination-btn" href="?page={{ page_obj.previous_page_number }}{% if selected_barangay %}&barangay={{ selected_barangay|urlencode }}{% endif %}">
+                <a class="certificate-pagination-btn" href="?page={{ page_obj.previous_page_number }}{% if selected_query %}&q={{ selected_query|urlencode }}{% endif %}{% if selected_sort %}&sort={{ selected_sort|urlencode }}{% endif %}">
                     <i class="fas fa-chevron-left" aria-hidden="true"></i>
                     Previous
                 </a>
@@ -134,7 +267,7 @@
             </span>
 
             {% if page_obj.has_next %}
-                <a class="certificate-pagination-btn" href="?page={{ page_obj.next_page_number }}{% if selected_barangay %}&barangay={{ selected_barangay|urlencode }}{% endif %}">
+                <a class="certificate-pagination-btn" href="?page={{ page_obj.next_page_number }}{% if selected_query %}&q={{ selected_query|urlencode }}{% endif %}{% if selected_sort %}&sort={{ selected_sort|urlencode }}{% endif %}">
                     Next
                     <i class="fas fa-chevron-right" aria-hidden="true"></i>
                 </a>
@@ -170,7 +303,6 @@
     </section>
 </div>
 
-<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 <script>
 function getCertificatePageRoot() {
     return document.getElementById('certificate-list-page');
@@ -299,9 +431,9 @@ function initMedicalRecordFilter(root) {
         return;
     }
 
-    const input = filterForm.querySelector('#certificate-list-barangay');
+    const input = filterForm.querySelector('#certificate-list-query');
+    const sortSelect = root.querySelector('#certificate-list-sort');
     const clearBtn = filterForm.querySelector('#certificate-list-search-clear');
-    const suggestions = filterForm.querySelector('#certificate-list-suggestions');
     const baseAction = filterForm.getAttribute('action') || window.location.pathname;
 
     const toggleClearButton = () => {
@@ -330,10 +462,6 @@ function initMedicalRecordFilter(root) {
     if (input && clearBtn) {
         clearBtn.addEventListener('click', function() {
             input.value = '';
-            if (suggestions) {
-                suggestions.innerHTML = '';
-                suggestions.style.display = 'none';
-            }
             toggleClearButton();
 
             const url = new URL(baseAction, window.location.origin);
@@ -343,6 +471,16 @@ function initMedicalRecordFilter(root) {
         input.addEventListener('input', toggleClearButton);
         toggleClearButton();
     }
+
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function() {
+            if (typeof filterForm.requestSubmit === 'function') {
+                filterForm.requestSubmit();
+                return;
+            }
+            filterForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        });
+    }
 }
 
 function initCertificateListPage() {
@@ -351,9 +489,6 @@ function initCertificateListPage() {
         return;
     }
 
-    if (typeof window.initBarangayAutocomplete === 'function') {
-        window.initBarangayAutocomplete(root);
-    }
     initSelectAll(root);
     initPrintSelected(root);
     initAsyncPagination(root);

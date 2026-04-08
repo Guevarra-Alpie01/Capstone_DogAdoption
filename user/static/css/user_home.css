@@ -507,6 +507,491 @@
     color: #374151;
 }
 
+/* Pinned dog spotlight on the home page. */
+.home-pinned-dog-shell {
+    width: auto;
+    max-width: none;
+    position: relative;
+    z-index: 2;
+    margin: -148px calc(50% - 50vw) 34px;
+    padding: 0 clamp(16px, 3vw, 32px);
+    box-sizing: border-box;
+}
+
+.home-pinned-dog {
+    width: min(100%, 1380px);
+    margin: 0 auto;
+}
+
+.home-pinned-dog__grid {
+    display: grid;
+    gap: 20px;
+    align-items: stretch;
+    justify-content: center;
+}
+
+.home-pinned-dog__grid--count-1 {
+    max-width: 580px;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.home-pinned-dog__grid--count-2 {
+    max-width: 980px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.home-pinned-dog__grid--count-3 {
+    max-width: 1180px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.home-pinned-dog__grid--count-4 {
+    max-width: 1360px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.home-pinned-dog__carousel {
+    position: relative;
+    padding: 0 48px 26px;
+}
+
+.home-pinned-dog__viewport {
+    display: flex;
+    align-items: stretch;
+    gap: 20px;
+    overflow-x: auto;
+    padding: 4px max(12px, calc(50% - 160px)) 12px;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    cursor: grab;
+}
+
+.home-pinned-dog__viewport::-webkit-scrollbar {
+    display: none;
+}
+
+.home-pinned-dog__viewport:active {
+    cursor: grabbing;
+}
+
+.home-pinned-dog__nav {
+    position: absolute;
+    top: 50%;
+    z-index: 4;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #173a2c;
+    background: rgba(255, 255, 248, 0.94);
+    box-shadow: 0 18px 32px rgba(15, 23, 42, 0.16);
+    transform: translateY(-50%);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.home-pinned-dog__nav:hover,
+.home-pinned-dog__nav:focus-visible {
+    transform: translateY(-50%) scale(1.03);
+    background: #ffffff;
+    box-shadow: 0 22px 36px rgba(15, 23, 42, 0.2);
+}
+
+.home-pinned-dog__nav:disabled {
+    opacity: 0.45;
+    cursor: default;
+    box-shadow: none;
+    transform: translateY(-50%);
+}
+
+.home-pinned-dog__nav--prev {
+    left: 0;
+}
+
+.home-pinned-dog__nav--next {
+    right: 0;
+}
+
+.home-pinned-dog__indicators {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.home-pinned-dog__indicator {
+    width: 10px;
+    height: 10px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(23, 58, 44, 0.2);
+    transition: transform 0.18s ease, background-color 0.18s ease;
+}
+
+.home-pinned-dog__indicator:hover,
+.home-pinned-dog__indicator:focus-visible {
+    background: rgba(23, 58, 44, 0.44);
+    transform: scale(1.08);
+}
+
+.home-pinned-dog__indicator.is-active {
+    background: #24523f;
+    transform: scale(1.16);
+}
+
+.home-pinned-dog__card {
+    position: relative;
+    min-width: 0;
+    min-height: clamp(300px, 32vw, 380px);
+    overflow: hidden;
+    border: 1px solid rgba(208, 220, 212, 0.94);
+    border-radius: 28px;
+    background:
+        radial-gradient(circle at top left, rgba(255, 243, 201, 0.72), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(203, 228, 214, 0.5), transparent 34%),
+        linear-gradient(180deg, #fffef8 0%, #f8fbf7 44%, #f2f7f4 100%);
+    box-shadow: 0 28px 56px rgba(15, 23, 42, 0.1);
+    isolation: isolate;
+}
+
+.home-pinned-dog__carousel .home-pinned-dog__card {
+    flex: 0 0 clamp(252px, 27vw, 320px);
+    max-width: 320px;
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+}
+
+.home-pinned-dog__media {
+    position: relative;
+    display: block;
+    width: 100%;
+    min-height: inherit;
+    height: 100%;
+    overflow: hidden;
+    text-decoration: none;
+    background: linear-gradient(135deg, #dbeee3 0%, #edf6f0 100%);
+}
+
+.home-pinned-dog__image-link {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: block;
+    text-decoration: none;
+}
+
+.home-pinned-dog__media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scale(1.01);
+    transition: transform 0.45s ease;
+}
+
+.home-pinned-dog__media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(12, 25, 18, 0.02) 0%, rgba(12, 25, 18, 0.18) 54%, rgba(12, 25, 18, 0.56) 100%);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.home-pinned-dog__media-overlay {
+    position: absolute;
+    inset: 14px 14px auto 14px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.home-pinned-dog__badge,
+.home-pinned-dog__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    color: #fffef0;
+    background: rgba(10, 23, 15, 0.34);
+    border: 1px solid rgba(255, 253, 208, 0.28);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.home-pinned-dog__badge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.home-pinned-dog__meta {
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
+.home-pinned-dog__media-fallback {
+    width: 100%;
+    height: 100%;
+    min-height: inherit;
+    display: grid;
+    place-items: center;
+    gap: 10px;
+    color: #173a2c;
+    text-align: center;
+    font-weight: 800;
+}
+
+.home-pinned-dog__media-fallback i {
+    font-size: 2.4rem;
+    color: #24523f;
+}
+
+.home-pinned-dog__copy {
+    display: grid;
+    gap: 12px;
+    position: absolute;
+    inset: auto 0 0 0;
+    z-index: 3;
+    padding: clamp(18px, 2.4vw, 24px) clamp(18px, 2.4vw, 24px) clamp(28px, 4vw, 40px);
+    background:
+        linear-gradient(180deg, rgba(8, 18, 12, 0) 0%, rgba(8, 18, 12, 0.58) 42%, rgba(8, 18, 12, 0.84) 100%);
+    color: #ffffff;
+}
+
+.home-pinned-dog__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    min-height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.home-pinned-dog__title {
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(1.45rem, 2vw, 2.1rem);
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+    font-weight: 800;
+    text-wrap: balance;
+}
+
+.home-pinned-dog__breed {
+    display: none;
+    gap: 5px;
+    width: 100%;
+    max-width: 100%;
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.home-pinned-dog__breed span {
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.home-pinned-dog__breed strong {
+    color: #ffffff;
+    font-size: 0.94rem;
+    line-height: 1.35;
+}
+
+.home-pinned-dog__text {
+    margin: 0;
+    max-width: 38rem;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 1rem;
+    line-height: 1.8;
+}
+
+.home-pinned-dog__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 2px;
+}
+
+.home-pinned-dog__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    max-width: 100%;
+    padding: 0 16px;
+    border-radius: 14px;
+    border: 1px solid transparent;
+    font-size: 0.88rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.home-pinned-dog__btn:hover,
+.home-pinned-dog__btn:focus-visible {
+    transform: translateY(-1px);
+}
+
+.home-pinned-dog__btn--primary {
+    background: linear-gradient(180deg, #f3f5ef 0%, #dfe6d9 100%);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #173a2c;
+    box-shadow: 0 14px 26px rgba(0, 0, 0, 0.18);
+}
+
+.home-pinned-dog__btn--primary:hover,
+.home-pinned-dog__btn--primary:focus-visible {
+    color: #102418;
+    background: #ffffff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .home-pinned-dog__card:hover .home-pinned-dog__media img {
+        transform: scale(1.05);
+    }
+}
+
+@media (max-width: 1199.98px) {
+    .home-pinned-dog-shell {
+        margin: -122px calc(50% - 50vw) 28px;
+    }
+
+    .home-pinned-dog__grid--count-4 {
+        max-width: 1040px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .home-pinned-dog__carousel {
+        padding-inline: 38px;
+    }
+
+    .home-pinned-dog__carousel .home-pinned-dog__card {
+        flex-basis: clamp(260px, 34vw, 320px);
+    }
+}
+
+@media (max-width: 991.98px) {
+    .home-pinned-dog-shell {
+        margin: -92px calc(50% - 50vw) 24px;
+        padding: 0 16px;
+    }
+
+    .home-pinned-dog__grid {
+        max-width: 880px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .home-pinned-dog__grid--count-1 {
+        max-width: 580px;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .home-pinned-dog__carousel {
+        padding-inline: 30px;
+    }
+
+    .home-pinned-dog__nav {
+        width: 40px;
+        height: 40px;
+    }
+
+    .home-pinned-dog__media-overlay {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        inset: 14px 14px auto 14px;
+    }
+
+    .home-pinned-dog__copy {
+        padding: 18px 18px 30px;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .home-pinned-dog-shell {
+        margin: -54px calc(50% - 50vw) 22px;
+    }
+
+    .home-pinned-dog__grid {
+        grid-template-columns: minmax(0, 1fr);
+        max-width: 560px;
+    }
+
+    .home-pinned-dog__carousel {
+        padding: 0 0 22px;
+    }
+
+    .home-pinned-dog__nav {
+        display: none;
+    }
+
+    .home-pinned-dog__viewport {
+        gap: 16px;
+        padding: 4px max(16px, calc(50% - 136px)) 10px;
+    }
+
+    .home-pinned-dog__carousel .home-pinned-dog__card {
+        flex-basis: min(82vw, 300px);
+    }
+
+    .home-pinned-dog__card {
+        min-height: clamp(300px, 84vw, 370px);
+    }
+
+    .home-pinned-dog__title {
+        font-size: clamp(1.42rem, 5.8vw, 1.88rem);
+    }
+
+    .home-pinned-dog__btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .home-pinned-dog-shell {
+        margin: -34px calc(50% - 50vw) 20px;
+    }
+
+    .home-pinned-dog__viewport {
+        padding-inline: max(12px, calc(50% - 124px));
+    }
+
+    .home-pinned-dog__btn {
+        width: 100%;
+    }
+}
+
 @media (hover: hover) and (pointer: fine) {
     .home-admin-spotlight__media:hover img {
         transform: scale(1.04);

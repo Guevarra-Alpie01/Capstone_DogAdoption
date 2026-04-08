@@ -1722,6 +1722,8 @@ def _build_home_pinned_rescue_spotlight():
         return None
 
     Post.attach_active_appointment_dates(pinned_posts)
+    items = []
+
     for post in pinned_posts:
         phase_payload = _post_phase_payload(post)
         phase = phase_payload["phase"]
@@ -1786,7 +1788,7 @@ def _build_home_pinned_rescue_spotlight():
             primary_cta_url = f'{card_item["action_url"]}?return_to=home'
             primary_requires_auth = True
 
-        return {
+        items.append({
             "post": post,
             "title": card_item["title"] or f"Rescue Dog #{post.id}",
             "detail_url": reverse("user:post_detail", args=[post.id]),
@@ -1828,9 +1830,17 @@ def _build_home_pinned_rescue_spotlight():
                     else _format_datetime_label(post.created_at)
                 )},
             ],
-        }
+        })
 
-    return None
+    if not items:
+        return None
+
+    return {
+        "cards": items,
+        "count": len(items),
+        "use_carousel": len(items) > 4,
+        "static_count_class": min(len(items), 4),
+    }
 
 
 def _build_home_limited_time_rescue_section():

@@ -829,6 +829,130 @@ def _build_registration_record_owner_key(dog, matched_owner_user_id=None):
     return f"dog:{getattr(dog, 'id', 'unknown')}"
 
 
+def _certificate_reg_no_sort_key(reg_no):
+    reg_no_text = " ".join(str(reg_no or "").split()).strip()
+    numeric_parts = [int(part) for part in re.findall(r"\d+", reg_no_text)]
+    if not numeric_parts:
+        return (0, 0, 0, reg_no_text.casefold())
+
+    numeric_parts = numeric_parts[-3:]
+    while len(numeric_parts) < 3:
+        numeric_parts.insert(0, 0)
+    return (*numeric_parts, reg_no_text.casefold())
+
+
+def _build_certificate_manual_owner_preview_keys(owner_names):
+    normalized_names = {_normalize_person_name(name) for name in owner_names if name}
+    if not normalized_names:
+        return set()
+
+    return set(
+        Dog.objects.annotate(
+            owner_lookup_key=Case(
+                When(
+                    Q(owner_name_key__isnull=False) & ~Q(owner_name_key=""),
+                    then=Lower(Trim("owner_name_key")),
+                ),
+                default=Lower(Trim("owner_name")),
+                output_field=CharField(),
+            )
+        )
+        .filter(owner_lookup_key__in=normalized_names)
+        .values_list("owner_lookup_key", flat=True)
+        .distinct()
+    )
+
+
+def _attach_certificate_owner_metadata(rows):
+    owner_names = [row.get("owner_name") for row in rows if row.get("owner_name")]
+    owner_profile_lookup = _build_owner_profile_lookup(owner_names)
+    manual_owner_preview_keys = _build_certificate_manual_owner_preview_keys(owner_names)
+    default_owner_profile_image_url = static("images/default-user-image.jpg")
+
+    for row in rows:
+        owner_name = " ".join((row.get("owner_name") or "").split()).strip() or "Unknown Owner"
+        normalized_owner = _normalize_person_name(owner_name)
+        matched_owner_profile = owner_profile_lookup.get(normalized_owner, {})
+        matched_owner_user_id = matched_owner_profile.get("user_id")
+
+        row["owner_name"] = owner_name
+        row["profile_image_url"] = (
+            matched_owner_profile.get("image_url")
+            or default_owner_profile_image_url
+        )
+        row["owner_initials"] = _owner_initials(owner_name)
+        row["owner_type_label"] = "User" if matched_owner_user_id else "Owner"
+
+        if matched_owner_user_id:
+            row["owner_group_key"] = f"user:{matched_owner_user_id}"
+            row["profile_url"] = reverse(
+                "dogadoption_admin:registration_owner_profile",
+                args=[matched_owner_user_id],
+            )
+        else:
+            owner_key = normalized_owner or f"registration:{row.get('registration_id', 'unknown')}"
+            row["owner_group_key"] = f"name:{owner_key}"
+            if normalized_owner in manual_owner_preview_keys:
+                row["profile_url"] = (
+                    f"{reverse('dogadoption_admin:registration_owner_profile', args=[0])}"
+                    f"?{urlencode({'owner_key': normalized_owner, 'owner_name': owner_name})}"
+                )
+            else:
+                row["profile_url"] = ""
+
+        row["profile_available"] = bool(row["profile_url"])
+
+    return rows
+
+
+def _build_certificate_owner_groups(rows):
+    grouped_rows = defaultdict(list)
+    for row in rows:
+        grouped_rows[row["owner_group_key"]].append(row)
+
+    owner_groups = []
+    for owner_group_key, items in grouped_rows.items():
+        sorted_items = sorted(
+            items,
+            key=lambda item: (
+                _certificate_reg_no_sort_key(item.get("reg_no")),
+                item.get("vaccination_date") or datetime.min.date(),
+                item.get("registration_id") or 0,
+            ),
+            reverse=True,
+        )
+        first_item = sorted_items[0]
+        unique_registration_ids = {
+            item.get("registration_id")
+            for item in sorted_items
+            if item.get("registration_id") is not None
+        }
+        owner_groups.append(
+            {
+                "owner_group_key": owner_group_key,
+                "owner_name": first_item.get("owner_name") or "Unknown Owner",
+                "profile_image_url": first_item.get("profile_image_url") or "",
+                "owner_initials": first_item.get("owner_initials") or "?",
+                "profile_url": first_item.get("profile_url") or "",
+                "profile_available": bool(first_item.get("profile_url")),
+                "owner_type_label": first_item.get("owner_type_label") or "Owner",
+                "vaccinated_pet_count": len(unique_registration_ids),
+                "vaccination_card_count": len(sorted_items),
+                "rows": sorted_items,
+            }
+        )
+
+    owner_groups.sort(
+        key=lambda group: (
+            -group["vaccinated_pet_count"],
+            -group["vaccination_card_count"],
+            group["owner_name"].casefold(),
+            group["owner_group_key"],
+        )
+    )
+    return owner_groups
+
+
 def _format_cert_date(value):
     if not value:
         return ""
@@ -4881,16 +5005,30 @@ def certificate_list(request):
         .order_by('sort_order', 'name')
         .values_list('name', flat=True)
     )
-    selected_barangay = _clean_barangay(request.GET.get('barangay'))
+    selected_query = " ".join(
+        (
+            request.GET.get("q")
+            or request.GET.get("barangay")
+            or ""
+        ).split()
+    ).strip()
+    selected_sort = " ".join((request.GET.get("sort") or "reg_no").split()).strip().lower()
+    if selected_sort not in {"reg_no", "owner_user"}:
+        selected_sort = "reg_no"
 
     medical_records_qs = (
         VaccinationRecord.objects.select_related('registration')
         .filter(registration__isnull=False)
-        .order_by('-date', '-id')
     )
 
-    if selected_barangay:
-        medical_records_qs = medical_records_qs.filter(registration__address__icontains=selected_barangay)
+    if selected_query:
+        medical_records_qs = medical_records_qs.filter(
+            Q(registration__reg_no__icontains=selected_query)
+            | Q(registration__name_of_pet__icontains=selected_query)
+            | Q(registration__owner_name__icontains=selected_query)
+            | Q(registration__address__icontains=selected_query)
+            | Q(vaccine_name__icontains=selected_query)
+        )
 
     combined_rows = []
     for record in medical_records_qs:
@@ -4913,7 +5051,19 @@ def certificate_list(request):
             ),
         })
 
-    page_obj = Paginator(combined_rows, 10).get_page(request.GET.get('page'))
+    _attach_certificate_owner_metadata(combined_rows)
+    combined_rows.sort(
+        key=lambda row: (
+            _certificate_reg_no_sort_key(row.get("reg_no")),
+            row.get("vaccination_date") or datetime.min.date(),
+            row.get("registration_id") or 0,
+        ),
+        reverse=True,
+    )
+
+    owner_groups = _build_certificate_owner_groups(combined_rows)
+    page_items = owner_groups if selected_sort == "owner_user" else combined_rows
+    page_obj = Paginator(page_items, 10).get_page(request.GET.get('page'))
 
     expired_vaccinations = (
         VaccinationRecord.objects.select_related('registration')
@@ -4950,7 +5100,15 @@ def certificate_list(request):
 
     return render(request, 'admin_registration/certificate_list.html', {
         'page_obj': page_obj,
-        'selected_barangay': selected_barangay,
+        'selected_query': selected_query,
+        'selected_sort': selected_sort,
+        'sort_options': (
+            ("reg_no", "Reg. No."),
+            ("owner_user", "Owner / User"),
+        ),
+        'is_grouped_sort': selected_sort == "owner_user",
+        'total_vaccination_records': len(combined_rows),
+        'total_owner_groups': len(owner_groups),
         'barangay_names': barangay_names,
         'barangay_expiry_tracker': barangay_expiry_tracker,
     })

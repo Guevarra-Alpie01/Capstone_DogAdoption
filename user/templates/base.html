@@ -275,23 +275,54 @@
     <div id="page-content-wrapper" class="flex-grow-1">
         <div class="content-container">
             <div class="container-fluid pt-4 pb-5 mt-4">
-                {% if messages %}
-                <div class="flash-toast-stack" id="flash-toast-stack" aria-live="polite" aria-atomic="true">
-                    {% for message in messages %}
-                    {% with tags=message.tags|default:'' %}
-                    <div
-                        class="flash-toast {% if 'error' in tags %}is-error{% elif 'warning' in tags %}is-warning{% elif 'success' in tags %}is-success{% else %}is-info{% endif %}"
-                        data-flash-toast
-                        role="status"
-                    >
-                        <div class="flash-toast__text">{{ message }}</div>
-                        <button type="button" class="flash-toast__close" data-flash-toast-close aria-label="Close">&times;</button>
+                <main class="site-content">
+                    {% if messages %}
+                    <div class="flash-toast-stack" id="flash-toast-stack" aria-live="polite" aria-atomic="true">
+                        {% for message in messages %}
+                        {% with tags=message.tags|default:'' %}
+                        <div
+                            class="flash-toast {% if 'error' in tags %}is-error{% elif 'warning' in tags %}is-warning{% elif 'success' in tags %}is-success{% else %}is-info{% endif %}"
+                            data-flash-toast
+                            role="status"
+                        >
+                            <div class="flash-toast__text">{{ message }}</div>
+                            <button type="button" class="flash-toast__close" data-flash-toast-close aria-label="Close">&times;</button>
+                        </div>
+                        {% endwith %}
+                        {% endfor %}
                     </div>
-                    {% endwith %}
-                    {% endfor %}
-                </div>
-                {% endif %}
-                {% block content %}{% endblock %}
+                    {% endif %}
+                    {% block content %}{% endblock %}
+                </main>
+
+                <footer class="site-footer" aria-label="Site footer">
+                    <div class="site-footer__panel">
+                        <div class="site-footer__brand">
+                            <span class="site-footer__mark" aria-hidden="true">
+                                <i class="bi bi-shield-heart"></i>
+                            </span>
+                            <div class="site-footer__brand-copy">
+                                <p class="site-footer__eyebrow">Bayawan Vet</p>
+                                <p class="site-footer__copy">
+                                    Helping residents report, track, and respond to rescue dogs across the city.
+                                </p>
+                            </div>
+                        </div>
+
+                        <nav class="site-footer__links" aria-label="Footer quick links">
+                            <a href="{% url 'user:user_home' %}">Home</a>
+                            <a href="{% url 'user:claim_list' %}">Claim Dogs</a>
+                            <a href="{% url 'user:adopt_list' %}">Adopt Dogs</a>
+                            <a href="{% url 'user:announcement_list' %}">Announcements</a>
+                            <a href="{% url 'user:dog_capture_request' %}">Report a Dog</a>
+                        </nav>
+
+                        <div class="site-footer__meta">
+                            <span>© {% now "Y" %} Bayawan Vet</span>
+                            <span>Rescue, claim, and adoption support.</span>
+                        </div>
+                    </div>
+                </footer>
             </div>
         </div>
     </div>

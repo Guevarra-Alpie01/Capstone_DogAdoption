@@ -236,6 +236,103 @@ class UserHomeFeedTests(TestCase):
         self.assertNotContains(response, "author-avatar-img", html=False)
         self.assertNotContains(response, 'class="author-name"', html=False)
 
+    def test_home_page_renders_pinned_dog_spotlight_with_image_breed_and_button(self):
+        with self.settings(MEDIA_ROOT=self._temp_media_root):
+            staff_user = User.objects.create_user(
+                username="pinnedspotlightstaff",
+                password="secret123",
+                is_staff=True,
+            )
+            post = Post.objects.create(
+                user=staff_user,
+                caption="Pinned Home Dog",
+                breed="beagle",
+                location="Bayawan",
+                status="rescued",
+                is_pinned=True,
+                claim_days=3,
+            )
+            image = PostImage.objects.create(
+                post=post,
+                image=SimpleUploadedFile(
+                    "pinned-home-dog.jpg",
+                    b"fake-image-bytes",
+                    content_type="image/jpeg",
+                ),
+            )
+
+            response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["pinned_admin_spotlight"]["count"], 1)
+        self.assertFalse(response.context["pinned_admin_spotlight"]["use_carousel"])
+        self.assertContains(response, 'class="home-pinned-dog"', html=False)
+        self.assertContains(response, 'class="home-pinned-dog__grid home-pinned-dog__grid--count-1"', html=False)
+        self.assertContains(response, 'class="home-pinned-dog__card"', html=False)
+        self.assertContains(response, 'class="home-pinned-dog__media"', html=False)
+        self.assertContains(response, 'class="home-pinned-dog__image-link"', html=False)
+        self.assertContains(response, 'class="home-pinned-dog__copy"', html=False)
+        self.assertContains(response, 'class="home-pinned-dog__breed"', html=False)
+        self.assertContains(response, 'class="home-pinned-dog__btn home-pinned-dog__btn--primary"', html=False)
+        self.assertNotContains(response, "data-home-pinned-carousel", html=False)
+        self.assertContains(response, image.image.url)
+        self.assertContains(response, post.display_breed)
+
+    def test_home_page_uses_static_grid_for_up_to_four_pinned_dogs(self):
+        staff_user = User.objects.create_user(
+            username="pinnedgridstaff",
+            password="secret123",
+            is_staff=True,
+        )
+
+        for index in range(4):
+            Post.objects.create(
+                user=staff_user,
+                caption=f"Pinned Grid Dog {index + 1}",
+                breed="beagle",
+                location="Bayawan",
+                status="rescued",
+                is_pinned=True,
+                claim_days=3,
+            )
+
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["pinned_admin_spotlight"]["count"], 4)
+        self.assertFalse(response.context["pinned_admin_spotlight"]["use_carousel"])
+        self.assertContains(response, 'class="home-pinned-dog__grid home-pinned-dog__grid--count-4"', html=False)
+        self.assertContains(response, "data-home-pinned-card", count=4, html=False)
+        self.assertNotContains(response, "data-home-pinned-carousel", html=False)
+
+    def test_home_page_uses_carousel_for_more_than_four_pinned_dogs(self):
+        staff_user = User.objects.create_user(
+            username="pinnedcarouselstaff",
+            password="secret123",
+            is_staff=True,
+        )
+
+        for index in range(5):
+            Post.objects.create(
+                user=staff_user,
+                caption=f"Pinned Carousel Dog {index + 1}",
+                breed="beagle",
+                location="Bayawan",
+                status="rescued",
+                is_pinned=True,
+                claim_days=3,
+            )
+
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["pinned_admin_spotlight"]["count"], 5)
+        self.assertTrue(response.context["pinned_admin_spotlight"]["use_carousel"])
+        self.assertContains(response, "data-home-pinned-carousel", html=False)
+        self.assertContains(response, "data-home-pinned-viewport", html=False)
+        self.assertContains(response, "data-home-pinned-card", count=5, html=False)
+        self.assertContains(response, "data-home-pinned-indicator", count=5, html=False)
+
     def test_home_page_renders_claim_and_adopt_featured_carousels(self):
         staff_user = User.objects.create_user(
             username="carouselstaff",

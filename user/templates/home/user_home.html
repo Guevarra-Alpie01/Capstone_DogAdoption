@@ -98,71 +98,78 @@
     </section>
     {% endif %}
 
-    {% if pinned_admin_spotlight %}
-    <section class="home-admin-spotlight-shell" aria-labelledby="homePinnedSpotlightTitle">
-        <div class="home-admin-spotlight home-reveal">
-            <a href="{{ pinned_admin_spotlight.detail_url }}" class="home-admin-spotlight__media">
-                {% if pinned_admin_spotlight.main_image_url %}
-                    <img src="{{ pinned_admin_spotlight.main_image_url }}" alt="{{ pinned_admin_spotlight.image_alt }}">
-                {% else %}
-                    <div class="home-admin-spotlight__media-fallback">
-                        <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
-                        <span>Pinned rescue spotlight</span>
-                    </div>
-                {% endif %}
-                <div class="home-admin-spotlight__media-overlay">
-                    <span class="home-admin-spotlight__media-badge">
+    {% if pinned_admin_spotlights %}
+    <section class="home-pinned-spotlights-shell" aria-labelledby="homePinnedSpotlightsTitle">
+        <div class="home-pinned-spotlights home-reveal">
+            <div class="home-pinned-spotlights__head">
+                <div class="home-pinned-spotlights__copy">
+                    <span class="home-pinned-spotlights__eyebrow">
                         <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
-                        <span>Homepage Spotlight</span>
+                        <span>Pinned by Bayawan Vet</span>
                     </span>
-                    <span class="home-admin-spotlight__media-date">Pinned {{ pinned_admin_spotlight.pinned_on_label }}</span>
+                    <h2 id="homePinnedSpotlightsTitle">Pinned Dogs</h2>
+                    <p>Up to four highlighted rescues shown as framed cards for faster browsing.</p>
                 </div>
-            </a>
-
-            <div class="home-admin-spotlight__copy">
-                <span class="home-admin-spotlight__eyebrow">
-                    <i class="bi bi-stars" aria-hidden="true"></i>
-                    <span>{{ pinned_admin_spotlight.support_title }}</span>
-                </span>
-                <h2 class="home-admin-spotlight__title" id="homePinnedSpotlightTitle">{{ pinned_admin_spotlight.title }}</h2>
-                <p class="home-admin-spotlight__text">{{ pinned_admin_spotlight.spotlight_copy }}</p>
-
-                <div class="home-admin-spotlight__chips">
-                    <span class="home-admin-spotlight__chip home-admin-spotlight__chip--phase">{{ pinned_admin_spotlight.phase_title }}</span>
-                    <span class="home-admin-spotlight__chip">{{ pinned_admin_spotlight.time_left_badge }}</span>
-                    <span class="home-admin-spotlight__chip">{{ pinned_admin_spotlight.location_label }}</span>
+                <div class="home-pinned-spotlights__meta">
+                    <span class="home-pinned-spotlights__count">{{ pinned_admin_spotlights|length }} pinned</span>
                 </div>
+            </div>
 
-                <div class="home-admin-spotlight__facts" role="list">
-                    {% for fact in pinned_admin_spotlight.facts %}
-                    <div class="home-admin-spotlight__fact" role="listitem">
-                        <span>{{ fact.label }}</span>
-                        <strong>{{ fact.value }}</strong>
-                    </div>
-                    {% endfor %}
-                </div>
-
-                <p class="home-admin-spotlight__context">{{ pinned_admin_spotlight.time_left_context }}</p>
-
-                <div class="home-admin-spotlight__actions">
-                    <a
-                        href="{{ pinned_admin_spotlight.primary_cta_url }}"
-                        class="home-admin-spotlight__btn home-admin-spotlight__btn--primary"
-                        {% if pinned_admin_spotlight.primary_requires_auth and not request.user.is_authenticated %}
-                        data-auth-modal-trigger="login"
-                        data-auth-next-url="{{ pinned_admin_spotlight.primary_cta_url }}"
+            <div class="home-pinned-spotlights__grid">
+                {% for spotlight in pinned_admin_spotlights %}
+                <article class="home-pinned-spotlights__card">
+                    <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__frame" aria-label="Open {{ spotlight.title }} post">
+                        {% if spotlight.main_image_url %}
+                            <img src="{{ spotlight.main_image_url }}" alt="{{ spotlight.image_alt }}">
+                        {% else %}
+                            <div class="home-pinned-spotlights__fallback">
+                                <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
+                                <span>Pinned rescue spotlight</span>
+                            </div>
                         {% endif %}
-                    >
-                        <span>{{ pinned_admin_spotlight.primary_cta_label }}</span>
-                        <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+                        <span class="home-pinned-spotlights__pin">
+                            <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
+                            <span>Pinned</span>
+                        </span>
                     </a>
-                    <a href="{{ pinned_admin_spotlight.secondary_cta_url }}" class="home-admin-spotlight__btn home-admin-spotlight__btn--secondary">
-                        <span>{{ pinned_admin_spotlight.secondary_cta_label }}</span>
-                    </a>
-                    <a href="{{ pinned_admin_spotlight.browse_url }}" class="home-admin-spotlight__btn home-admin-spotlight__btn--ghost">
-                        <span>Browse More Dogs</span>
-                    </a>
-                </div>
+
+                    <div class="home-pinned-spotlights__body">
+                        <div class="home-pinned-spotlights__headline">
+                            <div class="home-pinned-spotlights__copy-block">
+                                <span class="home-pinned-spotlights__status home-pinned-spotlights__status--{{ spotlight.phase }}">
+                                    {{ spotlight.phase_title }}
+                                </span>
+                                <h3>{{ spotlight.title }}</h3>
+                            </div>
+                            <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
+                        </div>
+
+                        <p class="home-pinned-spotlights__text">{{ spotlight.spotlight_copy }}</p>
+
+                        <div class="home-pinned-spotlights__meta-line">
+                            <span>{{ spotlight.location_label }}</span>
+                            <span>Pinned {{ spotlight.pinned_on_label }}</span>
+                        </div>
+
+                        <div class="home-pinned-spotlights__actions">
+                            <a
+                                href="{{ spotlight.primary_cta_url }}"
+                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--primary"
+                                {% if spotlight.primary_requires_auth and not request.user.is_authenticated %}
+                                data-auth-modal-trigger="login"
+                                data-auth-next-url="{{ spotlight.primary_cta_url }}"
+                                {% endif %}
+                            >
+                                <span>{{ spotlight.primary_cta_label }}</span>
+                                <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+                            </a>
+                            <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary">
+                                <span>View Post</span>
+                            </a>
+                        </div>
+                    </div>
+                </article>
+                {% endfor %}
             </div>
         </div>
     </section>

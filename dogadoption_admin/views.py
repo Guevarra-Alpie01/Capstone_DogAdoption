@@ -130,6 +130,7 @@ from user.notification_utils import (
 
 POST_HISTORY_CACHE_KEY = "dogadoption_admin_post_history_ids_v1"
 POST_HISTORY_CACHE_TTL_SECONDS = 120
+HOME_SPOTLIGHT_PIN_LIMIT = 4
 VIOLATION_WARNING_THRESHOLD = 3
 VIOLATION_OFFICE_NAME = "CITY VETERINARY OFFICE"
 VIOLATION_OFFICE_ADDRESS_LINES = (
@@ -1986,11 +1987,15 @@ def toggle_post_pin(request, post_id):
         )
     else:
         now = timezone.now()
-        with transaction.atomic():
-            Post.objects.filter(is_pinned=True).exclude(pk=post.pk).update(
-                is_pinned=False,
-                pinned_at=None,
+        pinned_count = Post.objects.filter(is_pinned=True).exclude(pk=post.pk).count()
+        if pinned_count >= HOME_SPOTLIGHT_PIN_LIMIT:
+            messages.warning(
+                request,
+                f"Only {HOME_SPOTLIGHT_PIN_LIMIT} dogs can be pinned at once.",
+                extra_tags="post_list",
             )
+            return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+        with transaction.atomic():
             post.is_pinned = True
             post.pinned_at = now
             post.save(update_fields=["is_pinned", "pinned_at"])

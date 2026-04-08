@@ -1738,16 +1738,17 @@ def _build_home_featured_rescue_sections():
     return sections
 
 
-def _build_home_pinned_rescue_spotlight():
+def _build_home_pinned_rescue_spotlights():
     pinned_posts = list(
         _base_public_post_queryset()
         .filter(is_pinned=True, status__in=["rescued", "under_care"])
-        .order_by("-pinned_at", "-created_at")
+        .order_by("-pinned_at", "-created_at")[:4]
     )
     if not pinned_posts:
-        return None
+        return []
 
     Post.attach_active_appointment_dates(pinned_posts)
+    pinned_spotlights = []
     for post in pinned_posts:
         phase_payload = _post_phase_payload(post)
         phase = phase_payload["phase"]
@@ -1789,7 +1790,7 @@ def _build_home_pinned_rescue_spotlight():
             )
         )
         time_left_badge = (
-            "Pending Admin Review"
+            "Pending admin review"
             if phase_payload["is_pending_review"]
             else (
                 f'{phase_payload["days_left"]}d {phase_payload["hours_left"]}h '
@@ -1797,26 +1798,25 @@ def _build_home_pinned_rescue_spotlight():
             )
         )
         if phase_payload["is_pending_review"]:
-            spotlight_copy = "Bayawan Vet pinned this rescue while the current request is under admin verification."
-            primary_cta_label = "View Rescue Status"
+            spotlight_copy = "Pinned while the request is still under admin verification."
+            primary_cta_label = "View Status"
             primary_cta_url = reverse("user:post_detail", args=[post.id])
             primary_requires_auth = False
         elif phase == "claim":
-            spotlight_copy = "Bayawan Vet highlighted this rescue so the rightful owner can still catch the remaining claim window."
-            primary_cta_label = "Claim This Dog"
+            spotlight_copy = "Still within the owner claim window."
+            primary_cta_label = "Claim Dog"
             primary_cta_url = f'{card_item["action_url"]}?return_to=home'
             primary_requires_auth = True
         else:
-            spotlight_copy = "Bayawan Vet highlighted this rescue to help the dog find a safe home faster while the adoption window is still open."
-            primary_cta_label = "Meet This Dog"
+            spotlight_copy = "Ready for a new family to adopt."
+            primary_cta_label = "Adopt Dog"
             primary_cta_url = f'{card_item["action_url"]}?return_to=home'
             primary_requires_auth = True
 
-        return {
+        pinned_spotlights.append({
             "post": post,
             "title": card_item["title"] or f"Rescue Dog #{post.id}",
             "detail_url": reverse("user:post_detail", args=[post.id]),
-            "browse_url": reverse("user:claim_list" if phase == "claim" else "user:adopt_list"),
             "main_image_url": card_item["main_image_url"],
             "image_alt": f'{card_item["title"] or "Pinned rescue"} dog photo',
             "phase": phase,
@@ -1827,7 +1827,6 @@ def _build_home_pinned_rescue_spotlight():
             "size_label": card_item["size_label"],
             "gender_label": card_item["gender_label"],
             "time_left_badge": time_left_badge,
-            "time_left_context": _featured_time_left_context(phase, phase_payload),
             "countdown_date_heading": countdown_date_heading,
             "countdown_date_label": countdown_date_label,
             "support_title": "Pinned by Bayawan Vet",
@@ -1835,28 +1834,14 @@ def _build_home_pinned_rescue_spotlight():
             "primary_cta_label": primary_cta_label,
             "primary_cta_url": primary_cta_url,
             "primary_requires_auth": primary_requires_auth,
-            "secondary_cta_label": "View Full Post",
-            "secondary_cta_url": reverse("user:post_detail", args=[post.id]),
             "pinned_on_label": (
                 pinned_at_local.strftime("%b %d, %Y")
                 if pinned_at_local
                 else _format_datetime_label(post.created_at)
             ),
-            "facts": [
-                {"label": "Breed", "value": card_item["breed_label"]},
-                {"label": "Barangay", "value": card_item["location_label"]},
-                {"label": "Age", "value": card_item["age_label"]},
-                {"label": "Size", "value": card_item["size_label"]},
-                {"label": countdown_date_heading, "value": countdown_date_label},
-                {"label": "Pinned On", "value": (
-                    pinned_at_local.strftime("%b %d, %Y")
-                    if pinned_at_local
-                    else _format_datetime_label(post.created_at)
-                )},
-            ],
-        }
+        })
 
-    return None
+    return pinned_spotlights
 
 
 def _create_user_adoption_images(request, post):
@@ -2974,7 +2959,7 @@ def _build_user_home_context(
 
     return {
         "posts": combined_posts,
-        "pinned_admin_spotlight": _build_home_pinned_rescue_spotlight(),
+        "pinned_admin_spotlights": _build_home_pinned_rescue_spotlights(),
         "featured_dog_sections": _build_home_featured_rescue_sections(),
         "vaccination_reminder_summary": (
             build_user_vaccination_reminder_summary(request.user)

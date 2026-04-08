@@ -108,7 +108,6 @@
                         <span>Pinned by Bayawan Vet</span>
                     </span>
                     <h2 id="homePinnedSpotlightsTitle">Pinned Dogs</h2>
-                    <p>Up to four highlighted rescues shown as framed cards for faster browsing.</p>
                 </div>
                 <div class="home-pinned-spotlights__meta">
                     <span class="home-pinned-spotlights__count">{{ pinned_admin_spotlights|length }} pinned</span>
@@ -117,39 +116,17 @@
 
             <div class="home-pinned-spotlights__grid">
                 {% for spotlight in pinned_admin_spotlights %}
-                <article class="home-pinned-spotlights__card">
-                    <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__frame" aria-label="Open {{ spotlight.title }} post">
-                        {% if spotlight.main_image_url %}
-                            <img src="{{ spotlight.main_image_url }}" alt="{{ spotlight.image_alt }}">
-                        {% else %}
-                            <div class="home-pinned-spotlights__fallback">
-                                <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
-                                <span>Pinned rescue spotlight</span>
-                            </div>
-                        {% endif %}
-                        <span class="home-pinned-spotlights__pin">
-                            <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
-                            <span>Pinned</span>
+                <article class="home-pinned-spotlights__item">
+                    <div class="home-pinned-spotlights__details">
+                        <span class="home-pinned-spotlights__status home-pinned-spotlights__status--{{ spotlight.phase }}">
+                            {{ spotlight.phase_title }}
                         </span>
-                    </a>
-
-                    <div class="home-pinned-spotlights__body">
-                        <div class="home-pinned-spotlights__headline">
-                            <div class="home-pinned-spotlights__copy-block">
-                                <span class="home-pinned-spotlights__status home-pinned-spotlights__status--{{ spotlight.phase }}">
-                                    {{ spotlight.phase_title }}
-                                </span>
-                                <h3>{{ spotlight.title }}</h3>
-                            </div>
-                            <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
+                        <h3>{{ spotlight.title }}</h3>
+                        <div class="home-pinned-spotlights__breed-row">
+                            <span class="home-pinned-spotlights__breed-label">Breed</span>
+                            <span class="home-pinned-spotlights__breed-value">{{ spotlight.breed_label }}</span>
                         </div>
-
-                        <p class="home-pinned-spotlights__text">{{ spotlight.spotlight_copy }}</p>
-
-                        <div class="home-pinned-spotlights__meta-line">
-                            <span>{{ spotlight.location_label }}</span>
-                            <span>Pinned {{ spotlight.pinned_on_label }}</span>
-                        </div>
+                        <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
 
                         <div class="home-pinned-spotlights__actions">
                             <a
@@ -168,6 +145,17 @@
                             </a>
                         </div>
                     </div>
+
+                    <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__media" aria-label="Open {{ spotlight.title }} post">
+                        {% if spotlight.main_image_url %}
+                            <img src="{{ spotlight.main_image_url }}" alt="{{ spotlight.image_alt }}">
+                        {% else %}
+                            <div class="home-pinned-spotlights__fallback">
+                                <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
+                                <span>Pinned rescue spotlight</span>
+                            </div>
+                        {% endif %}
+                    </a>
                 </article>
                 {% endfor %}
             </div>

@@ -101,6 +101,8 @@ _signup_username_validator = ASCIIUsernameValidator()
 RESCUE_FINDER_PAGE_SIZE = 12
 RESCUE_FINDER_RECOMMENDATION_LIMIT = 4
 HOME_FEATURED_CAROUSEL_LIMIT = 5
+HOME_SPOTLIGHT_DISPLAY_LIMIT = 4
+HOME_SPOTLIGHT_URGENCY_THRESHOLD_SECONDS = 24 * 60 * 60
 
 
 def _safe_media_url(file_field):
@@ -1704,18 +1706,18 @@ def _build_home_featured_rescue_sections():
     sections = [
         {
             "key": "claim",
-            "title": "Ready for Claim",
+            "title": "Claim Ready",
             "eyebrow": "Owner Claim Window",
-            "description": "",
+            "description": "Dogs still within the owner claim window.",
             "browse_url": reverse("user:claim_list"),
             "empty_message": "No dogs are currently in the claim window.",
             "items": section_items["claim"],
         },
         {
             "key": "adopt",
-            "title": "Ready for Adoption",
-            "eyebrow": "Ready For Adoption",
-            "description": "Dogs whose claim window has ended and are now ready to meet a new family.",
+            "title": "Adoption Ready",
+            "eyebrow": "Ready for Adoption",
+            "description": "Dogs ready to meet their next family.",
             "browse_url": reverse("user:adopt_list"),
             "empty_message": "No dogs are currently ready for adoption.",
             "items": section_items["adopt"],
@@ -1735,178 +1737,132 @@ def _build_home_featured_rescue_sections():
     return sections
 
 
-def _build_home_pinned_rescue_spotlight():
-    pinned_posts = list(
-        _base_public_post_queryset()
-        .filter(is_pinned=True, status__in=["rescued", "under_care"])
-        .order_by("-pinned_at", "-created_at")
+def _home_spotlight_remaining_seconds(post, phase_payload):
+    if phase_payload["is_pending_review"]:
+        deadline = phase_payload["pending_review_until"]
+        if deadline:
+            return max(int((deadline - timezone.now()).total_seconds()), 0)
+        return 0
+    return max(int(post.time_left().total_seconds()), 0)
+
+
+def _home_spotlight_sort_key(item):
+    post, phase_payload = item
+    return (
+        1 if phase_payload["is_pending_review"] else 0,
+        _home_spotlight_remaining_seconds(post, phase_payload),
+        post.created_at.timestamp() if post.created_at else 0,
+        post.id,
     )
-    if not pinned_posts:
-        return None
 
-    Post.attach_active_appointment_dates(pinned_posts)
-    items = []
 
-    for post in pinned_posts:
-        phase_payload = _post_phase_payload(post)
-        phase = phase_payload["phase"]
-        if phase not in {"claim", "adopt"}:
-            continue
+def _home_spotlight_has_urgent_remaining_time(item):
+    return _home_spotlight_remaining_seconds(*item) <= HOME_SPOTLIGHT_URGENCY_THRESHOLD_SECONDS
 
-        card_item = _build_rescue_finder_card_item(post, phase_payload, 0)
-        countdown_deadline = (
-            phase_payload["pending_review_until"]
-            if phase_payload["is_pending_review"]
-            else (
-                post.claim_deadline()
-                if phase == "claim"
-                else post.adoption_deadline()
-            )
+
+def _home_spotlight_random_fill(candidate_pairs, limit):
+    shuffled_pairs = list(candidate_pairs)
+    random.shuffle(shuffled_pairs)
+    return shuffled_pairs[:limit]
+
+
+def _home_spotlight_pick_auto_pairs(candidate_pairs, limit):
+    if not candidate_pairs or limit <= 0:
+        return []
+
+    urgent_pairs = [item for item in candidate_pairs if _home_spotlight_has_urgent_remaining_time(item)]
+    if urgent_pairs:
+        urgent_pairs.sort(key=_home_spotlight_sort_key)
+        selected_pairs = urgent_pairs[:limit]
+        if len(selected_pairs) >= limit:
+            return selected_pairs
+
+        selected_ids = {post.id for post, _ in selected_pairs}
+        remaining_pairs = [item for item in candidate_pairs if item[0].id not in selected_ids]
+        selected_pairs.extend(_home_spotlight_random_fill(remaining_pairs, limit - len(selected_pairs)))
+        return selected_pairs
+
+    return _home_spotlight_random_fill(candidate_pairs, limit)
+
+
+def _build_home_spotlight_card(post, phase_payload, *, is_auto_highlighted=False):
+    phase = phase_payload["phase"]
+    card_item = _build_rescue_finder_card_item(post, phase_payload, 0)
+    countdown_deadline = (
+        phase_payload["pending_review_until"]
+        if phase_payload["is_pending_review"]
+        else (
+            post.claim_deadline()
+            if phase == "claim"
+            else post.adoption_deadline()
         )
-        countdown_deadline_local = (
-            timezone.localtime(countdown_deadline)
-            if countdown_deadline and timezone.is_aware(countdown_deadline)
-            else countdown_deadline
+    )
+    countdown_deadline_local = (
+        timezone.localtime(countdown_deadline)
+        if countdown_deadline and timezone.is_aware(countdown_deadline)
+        else countdown_deadline
+    )
+    pinned_at_local = (
+        timezone.localtime(post.pinned_at)
+        if post.pinned_at and timezone.is_aware(post.pinned_at)
+        else post.pinned_at
+    )
+
+    if phase_payload["is_pending_review"]:
+        spotlight_copy = (
+            "Auto-highlighted because it is still awaiting admin verification."
+            if is_auto_highlighted
+            else "Pinned while the request is still under admin verification."
         )
-        pinned_at_local = (
-            timezone.localtime(post.pinned_at)
-            if post.pinned_at and timezone.is_aware(post.pinned_at)
-            else post.pinned_at
+        primary_cta_label = "View Status"
+        primary_cta_url = reverse("user:post_detail", args=[post.id])
+        primary_requires_auth = False
+    elif phase == "claim":
+        spotlight_copy = (
+            "Auto-highlighted because it has the least time left before the claim window closes."
+            if is_auto_highlighted
+            else "Still within the owner claim window."
         )
-        countdown_date_heading = (
-            "Verification Until"
-            if phase_payload["is_pending_review"]
-            else ("Claim Ends" if phase == "claim" else "Adoption Ends")
+        primary_cta_label = "Claim Dog"
+        primary_cta_url = f'{card_item["action_url"]}?return_to=home'
+        primary_requires_auth = True
+    else:
+        spotlight_copy = (
+            "Auto-highlighted because it has the least time left before adoption closes."
+            if is_auto_highlighted
+            else "Ready for a new family to adopt."
         )
-        countdown_date_label = (
-            phase_payload["pending_review_until_label"]
-            if phase_payload["is_pending_review"]
-            else (
-                countdown_deadline_local.strftime("%b %d, %Y %I:%M %p")
-                if countdown_deadline_local
-                else "Date pending"
-            )
-        )
-        time_left_badge = (
-            "Pending Admin Review"
+        primary_cta_label = "Adopt Dog"
+        primary_cta_url = f'{card_item["action_url"]}?return_to=home'
+        primary_requires_auth = True
+
+    return {
+        "post": post,
+        "title": card_item["title"] or f"Rescue Dog #{post.id}",
+        "detail_url": reverse("user:post_detail", args=[post.id]),
+        "main_image_url": card_item["main_image_url"],
+        "image_alt": f'{card_item["title"] or "Pinned rescue"} dog photo',
+        "phase": phase,
+        "phase_title": card_item["phase_title"],
+        "location_label": card_item["location_label"],
+        "breed_label": card_item["breed_label"],
+        "age_label": card_item["age_label"],
+        "size_label": card_item["size_label"],
+        "gender_label": card_item["gender_label"],
+        "time_left_badge": (
+            "Pending admin review"
             if phase_payload["is_pending_review"]
             else (
                 f'{phase_payload["days_left"]}d {phase_payload["hours_left"]}h '
                 f'{phase_payload["minutes_left"]}m left'
             )
-        )
-        if phase_payload["is_pending_review"]:
-            spotlight_copy = "Bayawan Vet pinned this rescue while the current request is under admin verification."
-            primary_cta_label = "View Rescue Status"
-            primary_cta_url = reverse("user:post_detail", args=[post.id])
-            primary_requires_auth = False
-        elif phase == "claim":
-            spotlight_copy = "Bayawan Vet highlighted this rescue so the rightful owner can still catch the remaining claim window."
-            primary_cta_label = "Claim This Dog"
-            primary_cta_url = f'{card_item["action_url"]}?return_to=home'
-            primary_requires_auth = True
-        else:
-            spotlight_copy = "Bayawan Vet highlighted this rescue to help the dog find a safe home faster while the adoption window is still open."
-            primary_cta_label = "Meet This Dog"
-            primary_cta_url = f'{card_item["action_url"]}?return_to=home'
-            primary_requires_auth = True
-
-        items.append({
-            "post": post,
-            "title": card_item["title"] or f"Rescue Dog #{post.id}",
-            "detail_url": reverse("user:post_detail", args=[post.id]),
-            "browse_url": reverse("user:claim_list" if phase == "claim" else "user:adopt_list"),
-            "main_image_url": card_item["main_image_url"],
-            "image_alt": f'{card_item["title"] or "Pinned rescue"} dog photo',
-            "phase": phase,
-            "phase_title": card_item["phase_title"],
-            "location_label": card_item["location_label"],
-            "breed_label": card_item["breed_label"],
-            "age_label": card_item["age_label"],
-            "size_label": card_item["size_label"],
-            "gender_label": card_item["gender_label"],
-            "time_left_badge": time_left_badge,
-            "time_left_context": _featured_time_left_context(phase, phase_payload),
-            "countdown_date_heading": countdown_date_heading,
-            "countdown_date_label": countdown_date_label,
-            "support_title": "Pinned by Bayawan Vet",
-            "spotlight_copy": spotlight_copy,
-            "primary_cta_label": primary_cta_label,
-            "primary_cta_url": primary_cta_url,
-            "primary_requires_auth": primary_requires_auth,
-            "secondary_cta_label": "View Full Post",
-            "secondary_cta_url": reverse("user:post_detail", args=[post.id]),
-            "pinned_on_label": (
-                pinned_at_local.strftime("%b %d, %Y")
-                if pinned_at_local
-                else _format_datetime_label(post.created_at)
-            ),
-            "facts": [
-                {"label": "Breed", "value": card_item["breed_label"]},
-                {"label": "Barangay", "value": card_item["location_label"]},
-                {"label": "Age", "value": card_item["age_label"]},
-                {"label": "Size", "value": card_item["size_label"]},
-                {"label": countdown_date_heading, "value": countdown_date_label},
-                {"label": "Pinned On", "value": (
-                    pinned_at_local.strftime("%b %d, %Y")
-                    if pinned_at_local
-                    else _format_datetime_label(post.created_at)
-                )},
-            ],
-        })
-
-    if not items:
-        return None
-
-    return {
-        "cards": items,
-        "count": len(items),
-        "use_carousel": len(items) > 4,
-        "static_count_class": min(len(items), 4),
-    }
-
-
-def _build_home_limited_time_rescue_section():
-    raw_open_posts = list(
-        _base_public_post_queryset()
-        .filter(status__in=["rescued", "under_care"])
-    )
-    Post.attach_active_appointment_dates(raw_open_posts)
-    items = []
-
-    for post in raw_open_posts:
-        phase_payload = _post_phase_payload(post)
-        phase = phase_payload["phase"]
-        if phase not in {"claim", "adopt"}:
-            continue
-
-        card_item = _build_rescue_finder_card_item(post, phase_payload, 0)
-        countdown_deadline = (
-            phase_payload["pending_review_until"]
-            if phase_payload["is_pending_review"]
-            else (
-                post.claim_deadline()
-                if phase == "claim"
-                else post.adoption_deadline()
-            )
-        )
-        countdown_deadline_local = (
-            timezone.localtime(countdown_deadline)
-            if countdown_deadline and timezone.is_aware(countdown_deadline)
-            else countdown_deadline
-        )
-        description_full = (
-            _clean_rescue_card_copy(post.caption)
-            or "This rescue listing has no additional notes yet."
-        )
-        time_left_emphasis = _featured_time_left_emphasis(phase_payload)
-        time_left_context = _featured_time_left_context(phase, phase_payload)
-        countdown_date_heading = (
+        ),
+        "countdown_date_heading": (
             "Verification Until"
             if phase_payload["is_pending_review"]
             else ("Claim Ends" if phase == "claim" else "Adoption Ends")
-        )
-        countdown_date_label = (
+        ),
+        "countdown_date_label": (
             phase_payload["pending_review_until_label"]
             if phase_payload["is_pending_review"]
             else (
@@ -1914,70 +1870,97 @@ def _build_home_limited_time_rescue_section():
                 if countdown_deadline_local
                 else "Date pending"
             )
+        ),
+        "support_title": (
+            "Auto-highlighted by Bayawan Vet"
+            if is_auto_highlighted
+            else "Pinned by Bayawan Vet"
+        ),
+        "spotlight_copy": spotlight_copy,
+        "primary_cta_label": primary_cta_label,
+        "primary_cta_url": primary_cta_url,
+        "primary_requires_auth": primary_requires_auth,
+        "pinned_on_label": (
+            "Auto-selected from soonest deadline"
+            if is_auto_highlighted
+            else (
+                pinned_at_local.strftime("%b %d, %Y")
+                if pinned_at_local
+                else _format_datetime_label(post.created_at)
+            )
+        ),
+        "is_auto_highlighted": is_auto_highlighted,
+    }
+
+
+def _build_home_pinned_rescue_spotlights():
+    pinned_posts = list(
+        _base_public_post_queryset()
+        .filter(is_pinned=True, status__in=["rescued", "under_care"])
+        .order_by("-pinned_at", "-created_at")[:HOME_SPOTLIGHT_DISPLAY_LIMIT]
+    )
+    spotlight_items = []
+    if pinned_posts:
+        Post.attach_active_appointment_dates(pinned_posts)
+        for post in pinned_posts:
+            phase_payload = _post_phase_payload(post)
+            phase = phase_payload["phase"]
+            if phase not in {"claim", "adopt"}:
+                continue
+            spotlight_items.append(_build_home_spotlight_card(post, phase_payload))
+    remaining_slots = HOME_SPOTLIGHT_DISPLAY_LIMIT - len(spotlight_items)
+    if remaining_slots > 0:
+        fallback_candidates = list(
+            _base_public_post_queryset()
+            .filter(is_pinned=False, status__in=["rescued", "under_care"])
         )
-        summary_facts = [
-            {"label": "Breed", "value": card_item["breed_label"]},
-            {"label": "Age", "value": card_item["age_label"]},
-            {"label": "Sex", "value": card_item["gender_label"]},
-            {"label": "Size", "value": card_item["size_label"]},
-            {"label": "Location", "value": card_item["location_label"]},
-        ]
-        detail_facts = summary_facts + [
-            {"label": "Phase", "value": card_item["phase_title"]},
-            {
-                "label": "Review Status" if phase_payload["is_pending_review"] else "Time Left",
-                "value": time_left_emphasis,
-            },
-            {"label": countdown_date_heading, "value": countdown_date_label},
-            {"label": "Coat", "value": card_item["coat_label"]},
-            {"label": "Color", "value": card_item["color_label"]},
-            {
-                "label": "Rescue Date",
-                "value": (
-                    post.rescued_date.strftime("%b %d, %Y")
-                    if post.rescued_date
-                    else post.created_at.strftime("%b %d, %Y")
-                ),
-            },
-            {"label": "Posted", "value": _format_datetime_label(post.created_at)},
-        ]
-        items.append({
-            **card_item,
-            "detail_url": reverse("user:post_detail", args=[post.id]),
-            "home_action_url": f'{card_item["action_url"]}?return_to=home',
-            "name_label": card_item["title"] or f"Rescue Dog #{post.id}",
-            "time_left_emphasis": time_left_emphasis,
-            "time_left_context": time_left_context,
-            "urgency_tone": _featured_time_left_tone(phase_payload),
-            "countdown_date_heading": countdown_date_heading,
-            "countdown_date_label": countdown_date_label,
-            "description_short": _truncate_rescue_card_copy(description_full, 132),
-            "description_full": description_full,
-            "summary_facts": summary_facts,
-            "detail_facts": detail_facts,
-            "image_alt": f'{card_item["title"]} dog photo',
-            "sort_deadline": countdown_deadline or post.created_at,
-        })
+        Post.attach_active_appointment_dates(fallback_candidates)
+        candidate_pairs = []
+        for post in fallback_candidates:
+            phase_payload = _post_phase_payload(post)
+            if phase_payload["phase"] not in {"claim", "adopt"}:
+                continue
+            candidate_pairs.append((post, phase_payload))
 
-    items.sort(key=lambda item: (
-        item["sort_deadline"],
-        0 if item["phase"] == "claim" else 1,
-        -item["post"].created_at.timestamp(),
-        item["post"].id,
-    ))
+        if candidate_pairs:
+            for post, phase_payload in _home_spotlight_pick_auto_pairs(candidate_pairs, remaining_slots):
+                spotlight_items.append(
+                    _build_home_spotlight_card(
+                        post,
+                        phase_payload,
+                        is_auto_highlighted=True,
+                    )
+                )
 
-    for index, item in enumerate(items, start=1):
-        item["panel_id"] = f"home-limited-dog-{index}-details"
-        item["card_id"] = f"home-limited-dog-{index}"
+    spotlight_count = len(spotlight_items)
+    has_manual_pins = any(not item["is_auto_highlighted"] for item in spotlight_items)
+    has_auto_spotlights = any(item["is_auto_highlighted"] for item in spotlight_items)
+    if has_manual_pins and has_auto_spotlights:
+        spotlight_mode = "mixed"
+    elif has_manual_pins:
+        spotlight_mode = "manual"
+    else:
+        spotlight_mode = "auto"
+
+    if spotlight_mode == "manual":
+        spotlight_title = "Pinned Dogs"
+        spotlight_eyebrow = "Pinned by Bayawan Vet"
+        spotlight_count_label = f"{spotlight_count} pinned"
+    elif spotlight_mode == "auto":
+        spotlight_title = "Highlighted Dogs"
+        spotlight_eyebrow = "Auto-highlighted by Bayawan Vet"
+        spotlight_count_label = f"{spotlight_count} highlighted"
+    else:
+        spotlight_title = "Pinned Dogs"
+        spotlight_eyebrow = "Pinned first, auto-filled by Bayawan Vet"
+        spotlight_count_label = f"{spotlight_count} spotlighted"
 
     return {
-        "title": "Limited-Time Claim & Adoption",
-        "eyebrow": "Urgent Rescue Windows",
-        "description": "All active rescue posts with live claim, adoption, or verification countdowns.",
-        "empty_message": "No rescue posts are currently on a live claim or adoption timer.",
-        "items": items,
-        "claim_url": reverse("user:claim_list"),
-        "adopt_url": reverse("user:adopt_list"),
+        "pinned_admin_spotlights": spotlight_items,
+        "pinned_admin_spotlights_mode": spotlight_mode,
+        "pinned_admin_spotlights_title": spotlight_title,
+        "pinned_admin_spotlights_eyebrow": spotlight_eyebrow,
+        "pinned_admin_spotlights_count_label": spotlight_count_label,
     }
 
 
@@ -3096,9 +3079,8 @@ def _build_user_home_context(
 
     return {
         "posts": combined_posts,
-        "pinned_admin_spotlight": _build_home_pinned_rescue_spotlight(),
+        **_build_home_pinned_rescue_spotlights(),
         "featured_dog_sections": _build_home_featured_rescue_sections(),
-        "limited_time_rescue_section": _build_home_limited_time_rescue_section(),
         "vaccination_reminder_summary": (
             build_user_vaccination_reminder_summary(request.user)
             if request.user.is_authenticated and not request.user.is_staff

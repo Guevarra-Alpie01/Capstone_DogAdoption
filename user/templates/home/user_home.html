@@ -2,11 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<<<<<<< HEAD
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260408pinned-dogs-hide-breed">
-=======
 <link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260408vaccination-reminders">
->>>>>>> 3b65ac98dd0324ae1e2d1a7de67616c8dd2bfed7
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -102,62 +98,67 @@
     </section>
     {% endif %}
 
-    {% if pinned_admin_spotlight %}
-    <section class="home-pinned-dog-shell home-reveal" aria-labelledby="homePinnedDogTitle">
-        <h2 class="visually-hidden" id="homePinnedDogTitle">Pinned rescue dogs</h2>
-        <div class="home-pinned-dog">
-            {% if pinned_admin_spotlight.use_carousel %}
-            <div class="home-pinned-dog__carousel" data-home-pinned-carousel>
-                <button
-                    type="button"
-                    class="home-pinned-dog__nav home-pinned-dog__nav--prev"
-                    data-home-pinned-nav="prev"
-                    aria-label="Show previous pinned dogs"
-                >
-                    <i class="bi bi-chevron-left" aria-hidden="true"></i>
-                </button>
-
-                <div
-                    class="home-pinned-dog__viewport"
-                    id="homePinnedDogViewport"
-                    data-home-pinned-viewport
-                    tabindex="0"
-                    aria-label="Pinned dogs carousel"
-                >
-                    {% for pinned_dog in pinned_admin_spotlight.cards %}
-                        {% include 'home/_pinned_dog_card.html' with pinned_dog=pinned_dog %}
-                    {% endfor %}
+    {% if pinned_admin_spotlights %}
+    <section class="home-pinned-spotlights-shell" aria-labelledby="homePinnedSpotlightsTitle">
+        <div class="home-pinned-spotlights home-reveal">
+            <div class="home-pinned-spotlights__head">
+                <div class="home-pinned-spotlights__copy">
+                    <span class="home-pinned-spotlights__eyebrow">
+                        <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
+                        <span>{{ pinned_admin_spotlights_eyebrow }}</span>
+                    </span>
+                    <h2 id="homePinnedSpotlightsTitle">{{ pinned_admin_spotlights_title }}</h2>
                 </div>
-
-                <button
-                    type="button"
-                    class="home-pinned-dog__nav home-pinned-dog__nav--next"
-                    data-home-pinned-nav="next"
-                    aria-label="Show next pinned dogs"
-                >
-                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                </button>
-
-                <div class="home-pinned-dog__indicators" aria-label="Pinned dog navigation">
-                    {% for pinned_dog in pinned_admin_spotlight.cards %}
-                    <button
-                        type="button"
-                        class="home-pinned-dog__indicator{% if forloop.first %} is-active{% endif %}"
-                        data-home-pinned-indicator
-                        data-home-pinned-index="{{ forloop.counter0 }}"
-                        aria-label="Show pinned dog {{ forloop.counter }}"
-                        aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"
-                    ></button>
-                    {% endfor %}
+                <div class="home-pinned-spotlights__meta">
+                    <span class="home-pinned-spotlights__count">{{ pinned_admin_spotlights_count_label }}</span>
                 </div>
             </div>
-            {% else %}
-            <div class="home-pinned-dog__grid home-pinned-dog__grid--count-{{ pinned_admin_spotlight.static_count_class }}">
-                {% for pinned_dog in pinned_admin_spotlight.cards %}
-                    {% include 'home/_pinned_dog_card.html' with pinned_dog=pinned_dog %}
+
+            <div class="home-pinned-spotlights__grid">
+                {% for spotlight in pinned_admin_spotlights %}
+                <article class="home-pinned-spotlights__item">
+                    <div class="home-pinned-spotlights__details">
+                        <span class="home-pinned-spotlights__status home-pinned-spotlights__status--{{ spotlight.phase }}">
+                            {{ spotlight.phase_title }}
+                        </span>
+                        <h3>{{ spotlight.title }}</h3>
+                        <div class="home-pinned-spotlights__breed-row">
+                            <span class="home-pinned-spotlights__breed-label">Breed</span>
+                            <span class="home-pinned-spotlights__breed-value">{{ spotlight.breed_label }}</span>
+                        </div>
+                        <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
+
+                        <div class="home-pinned-spotlights__actions">
+                            <a
+                                href="{{ spotlight.primary_cta_url }}"
+                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--primary"
+                                {% if spotlight.primary_requires_auth and not request.user.is_authenticated %}
+                                data-auth-modal-trigger="login"
+                                data-auth-next-url="{{ spotlight.primary_cta_url }}"
+                                {% endif %}
+                            >
+                                <span>{{ spotlight.primary_cta_label }}</span>
+                                <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+                            </a>
+                            <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary">
+                                <span>View Post</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__media" aria-label="Open {{ spotlight.title }} post">
+                        {% if spotlight.main_image_url %}
+                            <img src="{{ spotlight.main_image_url }}" alt="{{ spotlight.image_alt }}">
+                        {% else %}
+                            <div class="home-pinned-spotlights__fallback">
+                                <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
+                                <span>Pinned rescue spotlight</span>
+                            </div>
+                        {% endif %}
+                    </a>
+                </article>
                 {% endfor %}
             </div>
-            {% endif %}
         </div>
     </section>
     {% endif %}
@@ -168,9 +169,15 @@
         <section class="home-featured-section home-featured-section--{{ section.key }} home-reveal" aria-label="{{ section.title }}">
             <div class="home-featured-section__head">
                 <div class="home-featured-section__copy">
+                    {% if section.eyebrow %}
+                    <span class="home-featured-section__eyebrow">{{ section.eyebrow }}</span>
+                    {% endif %}
                     <h2>{{ section.title }}</h2>
+                    {% if section.description %}
+                    <p>{{ section.description }}</p>
+                    {% endif %}
                 </div>
-                <a href="{{ section.browse_url }}" class="home-featured-section__see-all">See All</a>
+                <a href="{{ section.browse_url }}" class="home-featured-section__see-all">Browse All</a>
             </div>
 
             {% if section.items %}
@@ -207,14 +214,8 @@
                                 <div class="dog-scale-carousel__media-bottom">
                                     <div class="dog-scale-carousel__media-copy">
                                         <h3>{{ item.title }}</h3>
-                                        <p>{{ item.phase_title }}</p>
+                                        <p>{{ item.breed_label }} • {{ item.location_label }}</p>
                                     </div>
-
-                                    <ul class="dog-scale-carousel__media-facts" role="list">
-                                        <li><span>Breed</span><strong>{{ item.breed_label }}</strong></li>
-                                        <li><span>Barangay</span><strong>{{ item.barangay_label }}</strong></li>
-                                        <li><span>{{ item.countdown_date_heading }}</span><strong>{{ item.countdown_date_label }}</strong></li>
-                                    </ul>
 
                                     <div class="dog-scale-carousel__actions dog-scale-carousel__actions--overlay">
                                         <a
@@ -225,7 +226,7 @@
                                             data-auth-next-url="{{ item.home_action_url }}"
                                             {% endif %}
                                         >
-                                            {{ item.action_label }} Dog
+                                            {{ item.action_label }} Now
                                             <span class="visually-hidden">Open Post Page</span>
                                         </a>
                                         <button
@@ -235,7 +236,7 @@
                                             aria-controls="{{ item.input_id }}-details"
                                             aria-expanded="false"
                                         >
-                                            <span data-dog-detail-label>View Details</span>
+                                            <span data-dog-detail-label>Details</span>
                                         </button>
                                     </div>
                                 </div>
@@ -304,8 +305,7 @@
         {% endfor %}
     </div>
 </section>
-{% include 'home/_limited_time_rescue_section.html' with section=limited_time_rescue_section %}
-{% if request.user.is_authenticated %}
+    {% if request.user.is_authenticated %}
 <div class="modal fade post-create-modal" id="createPostModal" tabindex="-1" aria-labelledby="createPostModalLabel" aria-hidden="true" data-open-on-load="{% if open_create_modal %}1{% else %}0{% endif %}">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content post-create-shell">
@@ -789,258 +789,6 @@
         startAutoplay();
     });
 
-    document.querySelectorAll('[data-limited-dog-carousel]').forEach((carousel) => {
-        if (carousel.dataset.carouselReady === '1') {
-            return;
-        }
-        carousel.dataset.carouselReady = '1';
-
-        const viewport = carousel.querySelector('[data-limited-dog-viewport]');
-        const slides = Array.from(carousel.querySelectorAll('[data-limited-dog-slide]'));
-        const indicators = Array.from(carousel.querySelectorAll('[data-limited-dog-indicator]'));
-        const prevButton = carousel.querySelector('[data-limited-dog-nav="prev"]');
-        const nextButton = carousel.querySelector('[data-limited-dog-nav="next"]');
-        const finePointer = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-        let currentIndex = Math.max(slides.findIndex((slide) => slide.classList.contains('is-active')), 0);
-        let scrollFrame = null;
-
-        if (!viewport || !slides.length) {
-            return;
-        }
-
-        const setDetailState = (slide, isOpen, { pinned = false } = {}) => {
-            const toggle = slide.querySelector('[data-limited-dog-detail-toggle]');
-            const panel = slide.querySelector('[data-limited-dog-detail-panel]');
-            slide.classList.toggle('is-details-open', isOpen);
-            if (toggle) {
-                toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-            }
-            if (panel) {
-                panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
-            }
-            if (isOpen && pinned) {
-                slide.dataset.detailPinned = '1';
-            } else {
-                delete slide.dataset.detailPinned;
-            }
-        };
-
-        const closeAllDetails = ({ except = null } = {}) => {
-            slides.forEach((slide) => {
-                if (slide === except) {
-                    return;
-                }
-                setDetailState(slide, false);
-            });
-        };
-
-        const syncIndicators = (index) => {
-            indicators.forEach((indicator, indicatorIndex) => {
-                const isActive = indicatorIndex === index;
-                indicator.classList.toggle('is-active', isActive);
-                indicator.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-            });
-        };
-
-        const syncActiveState = (index) => {
-            currentIndex = index;
-            slides.forEach((slide, slideIndex) => {
-                const isActive = slideIndex === index;
-                slide.classList.toggle('is-active', isActive);
-                slide.setAttribute('tabindex', isActive ? '0' : '-1');
-            });
-            syncIndicators(index);
-        };
-
-        const centerSlide = (slide, behavior = prefersReducedMotion ? 'auto' : 'smooth') => {
-            if (!slide) {
-                return;
-            }
-
-            const viewportRect = viewport.getBoundingClientRect();
-            const slideRect = slide.getBoundingClientRect();
-            const offset = slideRect.left - viewportRect.left - ((viewportRect.width - slideRect.width) / 2);
-
-            viewport.scrollBy({
-                left: offset,
-                behavior,
-            });
-        };
-
-        const activateIndex = (index, { scroll = true, behavior = prefersReducedMotion ? 'auto' : 'smooth' } = {}) => {
-            if (!slides[index]) {
-                return;
-            }
-            syncActiveState(index);
-            if (scroll) {
-                centerSlide(slides[index], behavior);
-            }
-        };
-
-        const findNearestIndex = () => {
-            const viewportRect = viewport.getBoundingClientRect();
-            const center = viewportRect.left + (viewportRect.width / 2);
-            let nearestIndex = 0;
-            let smallestDistance = Number.POSITIVE_INFINITY;
-
-            slides.forEach((slide, index) => {
-                const rect = slide.getBoundingClientRect();
-                const distance = Math.abs((rect.left + (rect.width / 2)) - center);
-                if (distance < smallestDistance) {
-                    smallestDistance = distance;
-                    nearestIndex = index;
-                }
-            });
-
-            return nearestIndex;
-        };
-
-        const syncActiveFromScroll = () => {
-            syncActiveState(findNearestIndex());
-        };
-
-        const openDetails = (slide, { pinned = false } = {}) => {
-            slides.forEach((currentSlide) => {
-                setDetailState(currentSlide, currentSlide === slide, {
-                    pinned: currentSlide === slide ? pinned : false,
-                });
-            });
-            activateIndex(slides.indexOf(slide));
-        };
-
-        const goByStep = (step) => {
-            closeAllDetails();
-            activateIndex((currentIndex + step + slides.length) % slides.length);
-        };
-
-        slides.forEach((slide, index) => {
-            const toggle = slide.querySelector('[data-limited-dog-detail-toggle]');
-            const closeButton = slide.querySelector('[data-limited-dog-detail-close]');
-
-            slide.setAttribute('tabindex', index === currentIndex ? '0' : '-1');
-
-            slide.addEventListener('click', (event) => {
-                if (event.target.closest('a, button, input, textarea, select, label')) {
-                    return;
-                }
-                activateIndex(index);
-            });
-
-            if (toggle) {
-                toggle.addEventListener('mouseenter', () => {
-                    if (finePointer) {
-                        openDetails(slide);
-                    }
-                });
-                toggle.addEventListener('focus', () => {
-                    openDetails(slide);
-                });
-                toggle.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    const isPinnedOpen = slide.classList.contains('is-details-open') && slide.dataset.detailPinned === '1';
-                    if (isPinnedOpen) {
-                        setDetailState(slide, false);
-                    } else {
-                        openDetails(slide, { pinned: true });
-                    }
-                });
-            }
-
-            if (closeButton) {
-                closeButton.addEventListener('click', () => {
-                    setDetailState(slide, false);
-                });
-            }
-
-            slide.addEventListener('mouseleave', () => {
-                if (finePointer && slide.dataset.detailPinned !== '1' && !slide.contains(document.activeElement)) {
-                    setDetailState(slide, false);
-                }
-            });
-
-            slide.addEventListener('focusout', () => {
-                window.setTimeout(() => {
-                    if (slide.dataset.detailPinned !== '1' && !slide.contains(document.activeElement)) {
-                        setDetailState(slide, false);
-                    }
-                }, 0);
-            });
-        });
-
-        indicators.forEach((indicator) => {
-            indicator.addEventListener('click', () => {
-                const nextIndex = Number(indicator.dataset.limitedDogIndex);
-                if (!Number.isNaN(nextIndex)) {
-                    closeAllDetails();
-                    activateIndex(nextIndex);
-                }
-            });
-        });
-
-        if (prevButton) {
-            prevButton.addEventListener('click', () => {
-                goByStep(-1);
-            });
-        }
-
-        if (nextButton) {
-            nextButton.addEventListener('click', () => {
-                goByStep(1);
-            });
-        }
-
-        viewport.addEventListener('scroll', () => {
-            if (scrollFrame !== null) {
-                window.cancelAnimationFrame(scrollFrame);
-            }
-            scrollFrame = window.requestAnimationFrame(() => {
-                syncActiveFromScroll();
-                scrollFrame = null;
-            });
-        }, { passive: true });
-
-        carousel.addEventListener('keydown', (event) => {
-            if (event.key === 'ArrowRight') {
-                event.preventDefault();
-                goByStep(1);
-                return;
-            }
-
-            if (event.key === 'ArrowLeft') {
-                event.preventDefault();
-                goByStep(-1);
-                return;
-            }
-
-            if (event.key === 'Home') {
-                event.preventDefault();
-                closeAllDetails();
-                activateIndex(0);
-                return;
-            }
-
-            if (event.key === 'End') {
-                event.preventDefault();
-                closeAllDetails();
-                activateIndex(slides.length - 1);
-                return;
-            }
-
-            if (event.key === 'Escape') {
-                closeAllDetails();
-            }
-        });
-
-        window.addEventListener('resize', () => {
-            centerSlide(slides[currentIndex], 'auto');
-        });
-
-        syncActiveState(currentIndex);
-        window.requestAnimationFrame(() => {
-            centerSlide(slides[currentIndex], 'auto');
-            syncActiveFromScroll();
-        });
-    });
 })();
 </script>
 {% include 'home/_feed_enhancements.html' %}

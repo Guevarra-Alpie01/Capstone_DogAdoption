@@ -79,51 +79,29 @@
     }
 
     .claim-summary-item {
-        border: 1px solid #e5ebf5;
-        border-radius: 10px;
-        background: #ffffff;
-        padding: 8px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 0 2px;
     }
 
     .claim-summary-label {
         display: block;
-        font-size: 0.68rem;
-        letter-spacing: 0.06em;
+        font-size: 0.7rem;
+        letter-spacing: 0.07em;
         text-transform: uppercase;
         color: #64748b;
         font-weight: 700;
-        margin-bottom: 2px;
+        margin: 0;
     }
 
     .claim-summary-value {
         margin: 0;
         font-size: 0.9rem;
-        line-height: 1.35;
+        line-height: 1.4;
         color: #0f172a;
         font-weight: 600;
         word-break: break-word;
-    }
-
-    .claim-preview-gallery {
-        padding: 0 12px 12px;
-    }
-
-    .claim-preview-gallery-title {
-        margin: 0 0 6px;
-        font-size: 0.72rem;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: #64748b;
-        font-weight: 700;
-    }
-
-    .claim-photo {
-        width: 68px;
-        height: 68px;
-        object-fit: cover;
-        border-radius: 8px;
-        border: 1px solid #d7deea;
-        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
     }
 
     .claim-form .form-label {
@@ -135,10 +113,6 @@
     .claim-form .form-control {
         font-size: 0.9rem;
         padding: 0.4rem 0.65rem;
-    }
-
-    .claim-form textarea.form-control {
-        min-height: 84px;
     }
 
     .claim-actions {
@@ -199,6 +173,48 @@
         }
     }
 
+    @media (max-width: 768px) {
+        .claim-content {
+            padding: 12px;
+        }
+
+        .claim-theme-header {
+            padding: 14px 16px;
+        }
+
+        .claim-theme-header h4 {
+            font-size: 1.15rem;
+        }
+
+        .claim-summary-list {
+            padding: 10px 10px 12px;
+            gap: 10px;
+        }
+
+        .claim-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .claim-actions .btn {
+            width: 100%;
+            min-width: 0;
+        }
+
+        .claim-form .row {
+            gap: 10px !important;
+        }
+
+        .claim-form .form-control,
+        .claim-form .form-label {
+            font-size: 0.95rem;
+        }
+
+        .claim-form .text-muted.small {
+            font-size: 0.82rem;
+        }
+    }
+
 </style>
 
 <div class="container py-2">
@@ -206,7 +222,7 @@
         <div class="claim-theme-header px-4 py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>
                 <h4 class="mb-1 fw-bold text-dark">Submit Ownership Claim</h4>
-                <p class="mb-0 text-dark small">Provide supporting details so the admin can validate your claim.</p>
+                <p class="mb-0 text-dark small">Upload optional proof and choose a verification date.</p>
             </div>
             <span class="claim-badge">Claim Window Open</span>
         </div>
@@ -275,16 +291,6 @@
                         {% endif %}
                     </div>
 
-                    {% if post.images.exists %}
-                        <div class="claim-preview-gallery">
-                            <p class="claim-preview-gallery-title">Reference Photos</p>
-                            <div class="d-flex flex-wrap gap-2">
-                                {% for image in post.images.all|slice:":4" %}
-                                    <img src="{{ image.image.url }}" alt="Dog photo" class="claim-photo">
-                                {% endfor %}
-                            </div>
-                        </div>
-                    {% endif %}
                 </div>
 
                 <form method="post" enctype="multipart/form-data" id="claimForm" class="claim-form">
@@ -294,32 +300,12 @@
                     {% endif %}
 
                     <div class="mb-2">
-                        <label for="id_explanation" class="form-label">Explanation (optional)</label>
-                        <textarea
-                            id="id_explanation"
-                            name="explanation"
-                            class="form-control"
-                            rows="3"
-                            placeholder="Where and when did you lose the dog? Any unique marks or behavior?"
-                        ></textarea>
-                    </div>
-
-                    <div class="row g-2">
-                        <div class="col-md-7">
-                            <label for="id_last_known_location" class="form-label">Last Known Location (optional)</label>
-                            <input
-                                id="id_last_known_location"
-                                type="text"
-                                name="last_known_location"
-                                class="form-control"
-                                placeholder="Example: Near Barangay Hall, Main Street"
-                            >
-                        </div>
-
-                        <div class="col-md-5">
-                            <label for="id_images" class="form-label">Upload Photos (optional)</label>
-                            <input id="id_images" type="file" name="images" class="form-control" multiple accept="image/*">
-                        </div>
+                        <label for="id_images" class="form-label">Supporting Proof (optional)</label>
+                        <input id="id_images" type="file" name="images" class="form-control" multiple accept="image/*">
+                        <small class="text-muted d-block mt-1">
+                            You can upload vaccination card photos, registration photos, or photos of the dog or you with the dog.
+                            Upload once and add multiple images if needed.
+                        </small>
                     </div>
 
                     <div class="mb-2 mt-2">
@@ -327,7 +313,7 @@
                     </div>
 
                     <p class="text-muted small mt-2 mb-2">
-                        You can submit this claim even without photos or explanation. The post stays visible, and admin approval opens after a 1-day verification window.
+                        Proof photos are optional. You can still submit the claim without them, and admin verification opens after a 1-day window.
                     </p>
 
                     <div class="claim-actions">

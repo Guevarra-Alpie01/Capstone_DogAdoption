@@ -255,6 +255,14 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
             .only(
                 "id",
                 "caption",
+                "breed",
+                "breed_other",
+                "age_group",
+                "size_group",
+                "gender",
+                "coat_length",
+                "colors",
+                "color_other",
                 "location",
                 "status",
                 "created_at",
@@ -354,7 +362,25 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
             elif is_archived:
                 record_source_label = "Archived record"
                 record_note = "Moved to history without a final adoption or redeem."
-                recorded_on = post.created_at
+                recorded_on = post.adoption_deadline() or post.created_at
+
+            detail_rows = []
+            detail_sources = [
+                ("Breed", post.display_breed),
+                ("Color", post.display_colors),
+                ("Age", post.display_age_group),
+                ("Size", post.display_size_group),
+                ("Coat", post.display_coat_length),
+                ("Gender", post.get_gender_display() if post.gender else ""),
+                ("Location", post.location or ""),
+            ]
+            for label, value in detail_sources:
+                cleaned_value = (value or "").strip()
+                if cleaned_value:
+                    detail_rows.append({
+                        "label": label,
+                        "value": cleaned_value,
+                    })
 
             record_actions = []
             if record_tone == "warning":
@@ -387,7 +413,10 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
                 "record_note": record_note,
                 "base_status_label": post.get_status_display(),
                 "recorded_on": recorded_on,
+                "record_date_label": "Expired on" if record_tone == "warning" else "Recorded on",
                 "primary_image_url": primary_image_by_post_id.get(post_id, ""),
+                "post_detail_rows": detail_rows,
+                "post_title": post.display_title,
                 "can_record_final_status": bool(record_actions),
                 "record_actions": record_actions,
                 "record_action_url": reverse("dogadoption_admin:record_history_status", args=[post.id]),

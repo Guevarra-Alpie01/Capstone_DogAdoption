@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/admin_home/post_history.css' %}?v=20260409a">
+<link rel="stylesheet" href="{% static 'css/admin_home/post_history.css' %}?v=20260409b">
 {% endblock %}
 
 {% block content %}
@@ -47,9 +47,8 @@
                             <th>Image</th>
                             <th>Breed / Post</th>
                             <th>Date Posted</th>
-                            <th>History Type</th>
+                            <th>Removed / Expired</th>
                             <th>Action</th>
-                            <th>Record Details</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -64,6 +63,14 @@
                                             data-bs-target="#historyImageModal"
                                             data-image-src="{{ item.primary_image_url }}"
                                             data-image-alt="{{ item.post.caption|default:'Dog photo' }}"
+                                            data-post-title="{{ item.post_title }}"
+                                            data-post-breed="{{ item.post.display_breed|default:'Not specified' }}"
+                                            data-post-colors="{{ item.post.display_colors|default:'Not specified' }}"
+                                            data-post-age="{{ item.post.display_age_group|default:'Not specified' }}"
+                                            data-post-size="{{ item.post.display_size_group|default:'Not specified' }}"
+                                            data-post-coat="{{ item.post.display_coat_length|default:'Not specified' }}"
+                                            data-post-gender="{{ item.post.get_gender_display|default:'Not specified' }}"
+                                            data-post-location="{{ item.post.location|default:'Location unavailable' }}"
                                         >
                                             <img src="{{ item.primary_image_url }}" alt="{{ item.post.caption|default:'Dog photo' }}" class="history-thumb">
                                             <span>View</span>
@@ -74,7 +81,7 @@
                                 </td>
                                 <td>
                                     <div class="history-copy-cell">
-                                        <strong>{{ item.post.caption|default:"Unnamed Dog" }}</strong>
+                                        <strong>{{ item.post_title }}</strong>
                                         <span>{{ item.post.location|default:"Location unavailable" }}</span>
                                     </div>
                                 </td>
@@ -85,9 +92,15 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="history-status-cell">
-                                        <span class="history-status-badge history-status-{{ item.record_tone }}">{{ item.record_label }}</span>
-                                        <small>{{ item.record_source_label }}</small>
+                                    <div class="history-copy-cell">
+                                        <strong>{{ item.record_date_label }}</strong>
+                                        <span>
+                                            {% if item.recorded_on %}
+                                                {{ item.recorded_on|date:"M d, Y" }}
+                                            {% else %}
+                                                No date available
+                                            {% endif %}
+                                        </span>
                                     </div>
                                 </td>
                                 <td>
@@ -114,7 +127,6 @@
                                                     </form>
                                                 {% endfor %}
                                             </div>
-                                            <small class="history-action-hint">Fallback only for expired unresolved posts.</small>
                                         </div>
                                     {% else %}
                                         <div class="history-copy-cell">
@@ -122,18 +134,6 @@
                                             <span>Already recorded</span>
                                         </div>
                                     {% endif %}
-                                </td>
-                                <td>
-                                    <div class="history-copy-cell">
-                                        <strong>{{ item.record_note }}</strong>
-                                        <span>
-                                            {% if item.recorded_on %}
-                                                Recorded {{ item.recorded_on|date:"M d, Y" }}
-                                            {% else %}
-                                                No recorded completion date
-                                            {% endif %}
-                                        </span>
-                                    </div>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -175,6 +175,38 @@
             </div>
             <div class="modal-body">
                 <img src="" alt="Posted dog image preview" id="historyImagePreview" class="history-image-preview">
+                <div class="history-image-details">
+                    <div class="history-image-details-head">
+                        <strong id="historyDetailTitle">Dog Listing</strong>
+                        <span id="historyDetailLocation">Location unavailable</span>
+                    </div>
+                    <div class="history-image-detail-list">
+                        <div class="history-image-detail-row">
+                            <span>Breed</span>
+                            <strong id="historyDetailBreed">Not specified</strong>
+                        </div>
+                        <div class="history-image-detail-row">
+                            <span>Color</span>
+                            <strong id="historyDetailColor">Not specified</strong>
+                        </div>
+                        <div class="history-image-detail-row">
+                            <span>Age</span>
+                            <strong id="historyDetailAge">Not specified</strong>
+                        </div>
+                        <div class="history-image-detail-row">
+                            <span>Size</span>
+                            <strong id="historyDetailSize">Not specified</strong>
+                        </div>
+                        <div class="history-image-detail-row">
+                            <span>Coat</span>
+                            <strong id="historyDetailCoat">Not specified</strong>
+                        </div>
+                        <div class="history-image-detail-row">
+                            <span>Gender</span>
+                            <strong id="historyDetailGender">Not specified</strong>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -184,6 +216,14 @@
     document.addEventListener("DOMContentLoaded", () => {
         const imageModal = document.getElementById("historyImageModal");
         const imagePreview = document.getElementById("historyImagePreview");
+        const detailTitle = document.getElementById("historyDetailTitle");
+        const detailLocation = document.getElementById("historyDetailLocation");
+        const detailBreed = document.getElementById("historyDetailBreed");
+        const detailColor = document.getElementById("historyDetailColor");
+        const detailAge = document.getElementById("historyDetailAge");
+        const detailSize = document.getElementById("historyDetailSize");
+        const detailCoat = document.getElementById("historyDetailCoat");
+        const detailGender = document.getElementById("historyDetailGender");
         if (!imageModal || !imagePreview) {
             return;
         }
@@ -195,10 +235,26 @@
             }
             imagePreview.src = trigger.getAttribute("data-image-src") || "";
             imagePreview.alt = trigger.getAttribute("data-image-alt") || "Posted dog image preview";
+            if (detailTitle) detailTitle.textContent = trigger.getAttribute("data-post-title") || "Dog Listing";
+            if (detailLocation) detailLocation.textContent = trigger.getAttribute("data-post-location") || "Location unavailable";
+            if (detailBreed) detailBreed.textContent = trigger.getAttribute("data-post-breed") || "Not specified";
+            if (detailColor) detailColor.textContent = trigger.getAttribute("data-post-colors") || "Not specified";
+            if (detailAge) detailAge.textContent = trigger.getAttribute("data-post-age") || "Not specified";
+            if (detailSize) detailSize.textContent = trigger.getAttribute("data-post-size") || "Not specified";
+            if (detailCoat) detailCoat.textContent = trigger.getAttribute("data-post-coat") || "Not specified";
+            if (detailGender) detailGender.textContent = trigger.getAttribute("data-post-gender") || "Not specified";
         });
 
         imageModal.addEventListener("hidden.bs.modal", () => {
             imagePreview.src = "";
+            if (detailTitle) detailTitle.textContent = "Dog Listing";
+            if (detailLocation) detailLocation.textContent = "Location unavailable";
+            if (detailBreed) detailBreed.textContent = "Not specified";
+            if (detailColor) detailColor.textContent = "Not specified";
+            if (detailAge) detailAge.textContent = "Not specified";
+            if (detailSize) detailSize.textContent = "Not specified";
+            if (detailCoat) detailCoat.textContent = "Not specified";
+            if (detailGender) detailGender.textContent = "Not specified";
         });
     });
 </script>

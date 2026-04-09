@@ -8,6 +8,8 @@ urlpatterns = [
     # Shared admin passthrough and authentication routes
     path('admin/', admin.site.urls),
     path('user-login/', views.login_view, name="login"),
+    path('facebook/start/', views.facebook_auth_start, name="facebook_auth_start"),
+    path('facebook/callback/', views.facebook_auth_callback, name="facebook_auth_callback"),
     path('logout/', views.logout_view, name='logout'),
     path('notifications/open/', views.open_notification, name='open_notification'),
     path('notifications/summary/', views.notification_summary, name='notification_summary'),

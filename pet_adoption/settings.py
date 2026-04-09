@@ -233,6 +233,9 @@ LOGIN_REDIRECT_URL = 'user:user_home'
 LOGIN_URL = 'user:login'
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID", "").strip()
+FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET", "").strip()
+FACEBOOK_GRAPH_API_VERSION = os.getenv("FACEBOOK_GRAPH_API_VERSION", "v20.0").strip() or "v20.0"
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "").strip().rstrip("/")
 
 EMAIL_BACKEND = os.getenv(

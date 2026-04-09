@@ -30,7 +30,11 @@ def user_notifications(request):
 
 def auth_ui(request):
     google_client_id = (getattr(settings, "GOOGLE_CLIENT_ID", "") or "").strip()
+    facebook_app_id = (getattr(settings, "FACEBOOK_APP_ID", "") or "").strip()
+    facebook_app_secret = (getattr(settings, "FACEBOOK_APP_SECRET", "") or "").strip()
     return {
         "google_signup_enabled": bool(google_client_id),
         "google_client_id": google_client_id,
+        "facebook_auth_enabled": bool(facebook_app_id and facebook_app_secret),
+        "facebook_app_id": facebook_app_id,
     }

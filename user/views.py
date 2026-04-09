@@ -6,7 +6,7 @@ from django.contrib.auth.validators import ASCIIUsernameValidator
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.models import User
@@ -17,6 +17,7 @@ import os
 import base64
 import binascii
 import hashlib
+import re
 import random
 import secrets
 import shutil
@@ -37,6 +38,7 @@ from django.utils.http import (
 from django.templatetags.static import static
 from django.utils.html import strip_tags
 from urllib.parse import urlencode
+import requests
 
 # Shared models from the admin app
 from dogadoption_admin.access import get_staff_landing_url
@@ -103,6 +105,8 @@ RESCUE_FINDER_RECOMMENDATION_LIMIT = 4
 HOME_FEATURED_CAROUSEL_LIMIT = 5
 HOME_SPOTLIGHT_DISPLAY_LIMIT = 4
 HOME_SPOTLIGHT_URGENCY_THRESHOLD_SECONDS = 24 * 60 * 60
+FACEBOOK_OAUTH_SESSION_KEY = "facebook_oauth_state"
+FACEBOOK_SIGNUP_SESSION_KEY = "facebook_signup_data"
 
 
 def _safe_media_url(file_field):
@@ -188,10 +192,103 @@ def _build_signup_form_data(*, username="", first_name="", last_name="", raw_bar
 def _auth_ui_context():
     """Expose the public auth template flags shared by login and signup views."""
     google_client_id = (getattr(settings, "GOOGLE_CLIENT_ID", "") or "").strip()
+    facebook_app_id = (getattr(settings, "FACEBOOK_APP_ID", "") or "").strip()
+    facebook_app_secret = (getattr(settings, "FACEBOOK_APP_SECRET", "") or "").strip()
     return {
         "google_signup_enabled": bool(google_client_id),
         "google_client_id": google_client_id,
+        "facebook_auth_enabled": bool(facebook_app_id and facebook_app_secret),
+        "facebook_app_id": facebook_app_id,
     }
+
+
+def _facebook_oauth_config():
+    """Return the Facebook OAuth settings used by the social auth flow."""
+    app_id = (getattr(settings, "FACEBOOK_APP_ID", "") or "").strip()
+    app_secret = (getattr(settings, "FACEBOOK_APP_SECRET", "") or "").strip()
+    api_version = (getattr(settings, "FACEBOOK_GRAPH_API_VERSION", "") or "v20.0").strip() or "v20.0"
+    return {
+        "enabled": bool(app_id and app_secret),
+        "app_id": app_id,
+        "app_secret": app_secret,
+        "api_version": api_version,
+    }
+
+
+def _build_facebook_signup_username(*, email="", first_name="", last_name="", social_id=""):
+    """Suggest a safe username when Facebook pre-fills a signup form."""
+    candidates = [
+        (email or "").split("@", 1)[0],
+        f"{first_name}.{last_name}".strip("."),
+        f"{first_name}{last_name}",
+        social_id,
+    ]
+    for candidate in candidates:
+        candidate = re.sub(r"[^A-Za-z0-9.@_+-]+", "", (candidate or "").strip())
+        candidate = candidate.strip(".@_+-")
+        if len(candidate) >= SIGNUP_USERNAME_MIN_LENGTH:
+            return candidate[:SIGNUP_USERNAME_MAX_LENGTH]
+    fallback = f"facebook_{(social_id or secrets.token_hex(4))[:10]}"
+    return fallback[:SIGNUP_USERNAME_MAX_LENGTH]
+
+
+def _facebook_oauth_redirect_uri(request):
+    """Build the absolute redirect URI used for Facebook callbacks."""
+    return request.build_absolute_uri(reverse("user:facebook_auth_callback"))
+
+
+def _store_facebook_signup_payload(request, payload, *, next_url=""):
+    """Persist Facebook identity data so the signup page can prefill fields."""
+    signup_data = {
+        "email": payload.get("email", ""),
+        "facebook_id": payload.get("facebook_id", ""),
+        "first_name": payload.get("first_name", ""),
+        "last_name": payload.get("last_name", ""),
+        "full_name": payload.get("full_name", ""),
+        "username": payload.get("username", ""),
+    }
+    request.session[FACEBOOK_SIGNUP_SESSION_KEY] = signup_data
+    if next_url:
+        request.session[FACEBOOK_OAUTH_SESSION_KEY] = {
+            "mode": "signup",
+            "next": next_url,
+        }
+    request.session.modified = True
+
+
+def _clear_facebook_oauth_session(request):
+    """Remove temporary Facebook auth data from the session."""
+    request.session.pop(FACEBOOK_OAUTH_SESSION_KEY, None)
+    request.session.pop(FACEBOOK_SIGNUP_SESSION_KEY, None)
+
+
+def _facebook_start_error_redirect(request, mode, message):
+    """Redirect back to the appropriate auth page with a visible error."""
+    messages.error(request, message)
+    if mode == "signup":
+        return redirect("user:signup")
+    return redirect("user:login")
+
+
+def _merge_facebook_signup_data(request, signup_form_data=None):
+    """Prefill signup fields from the most recent Facebook auth callback."""
+    facebook_signup_data = request.session.get(FACEBOOK_SIGNUP_SESSION_KEY) or {}
+    merged = {
+        "username": facebook_signup_data.get("username", ""),
+        "first_name": facebook_signup_data.get("first_name", ""),
+        "last_name": facebook_signup_data.get("last_name", ""),
+        "address": "",
+    }
+    if signup_form_data:
+        merged.update(signup_form_data)
+    return merged
+
+
+def _facebook_api_get(url, **kwargs):
+    """Perform a small authenticated Facebook API request."""
+    response = requests.get(url, timeout=12, **kwargs)
+    response.raise_for_status()
+    return response
 
 
 def _render_signup_error(request, signup_form_data, message):
@@ -229,12 +326,13 @@ def _render_login_page(request, *, error="", login_form_data=None, next_url=""):
 
 def _render_signup_page(request, *, error="", signup_form_data=None, next_url=""):
     """Render the dedicated signup page used for standalone auth flows."""
+    merged_form_data = _merge_facebook_signup_data(request, signup_form_data)
     return render(
         request,
         "signup.html",
         {
             "error": error,
-            "signup_form_data": signup_form_data or {},
+            "signup_form_data": merged_form_data,
             "auth_next": next_url,
             **_auth_ui_context(),
         },
@@ -362,6 +460,100 @@ def _verify_google_signup_credential(raw_credential):
         "sub": google_sub,
         "given_name": (google_payload.get("given_name") or "").strip(),
         "family_name": (google_payload.get("family_name") or "").strip(),
+    }
+
+
+def _build_facebook_auth_url(request, *, mode="login", next_url=""):
+    """Create the Facebook authorization URL for the selected auth mode."""
+    config = _facebook_oauth_config()
+    if not config["enabled"]:
+        return ""
+
+    state = secrets.token_urlsafe(24)
+    request.session[FACEBOOK_OAUTH_SESSION_KEY] = {
+        "state": state,
+        "mode": mode,
+        "next": next_url,
+    }
+    request.session.modified = True
+
+    auth_params = {
+        "client_id": config["app_id"],
+        "redirect_uri": _facebook_oauth_redirect_uri(request),
+        "state": state,
+        "response_type": "code",
+        "scope": "email,public_profile",
+    }
+    return (
+        f"https://www.facebook.com/{config['api_version']}/dialog/oauth?"
+        f"{urlencode(auth_params)}"
+    )
+
+
+def _facebook_auth_login_redirect(request, mode, next_url):
+    """Start the Facebook auth flow or show a helpful error if missing config."""
+    auth_url = _build_facebook_auth_url(request, mode=mode, next_url=next_url)
+    if not auth_url:
+        return _facebook_start_error_redirect(
+            request,
+            mode,
+            "Facebook sign-in is not configured yet. Please contact the administrator.",
+        )
+    return redirect(auth_url)
+
+
+def _facebook_exchange_code(request, code):
+    """Exchange a Facebook auth code for an access token."""
+    config = _facebook_oauth_config()
+    token_url = f"https://graph.facebook.com/{config['api_version']}/oauth/access_token"
+    response = _facebook_api_get(
+        token_url,
+        params={
+            "client_id": config["app_id"],
+            "client_secret": config["app_secret"],
+            "redirect_uri": _facebook_oauth_redirect_uri(request),
+            "code": code,
+        },
+    )
+    payload = response.json()
+    access_token = (payload.get("access_token") or "").strip()
+    if not access_token:
+        raise ValidationError("Facebook did not return an access token. Please try again.")
+    return access_token
+
+
+def _facebook_fetch_profile(access_token):
+    """Fetch the Facebook user identity used for signup/login matching."""
+    config = _facebook_oauth_config()
+    me_url = f"https://graph.facebook.com/{config['api_version']}/me"
+    response = _facebook_api_get(
+        me_url,
+        params={
+            "fields": "id,first_name,last_name,name,email",
+            "access_token": access_token,
+        },
+    )
+    profile = response.json()
+    email = _normalize_signup_email(profile.get("email"))
+    if not email:
+        raise ValidationError("Your Facebook account did not return an email address.")
+
+    first_name = (profile.get("first_name") or "").strip()
+    last_name = (profile.get("last_name") or "").strip()
+    full_name = (profile.get("name") or "").strip()
+    facebook_id = (profile.get("id") or "").strip()
+    return {
+        "email": email,
+        "facebook_id": facebook_id,
+        "first_name": first_name,
+        "last_name": last_name,
+        "full_name": full_name,
+        "username": _build_facebook_signup_username(
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            social_id=facebook_id,
+        ),
     }
 
 
@@ -944,6 +1136,118 @@ def login_view(request):
         return render_login_error("Invalid username or password", username)
 
     return _render_login_page(request, next_url=next_url)
+
+
+@require_http_methods(["GET"])
+def facebook_auth_start(request):
+    """Begin the Facebook OAuth flow for either login or signup."""
+    mode = (request.GET.get("mode") or "login").strip().lower()
+    if mode not in {"login", "signup"}:
+        mode = "login"
+
+    next_url = _get_safe_next_url(request, request.GET.get("next"))
+    return _facebook_auth_login_redirect(request, mode, next_url)
+
+
+@require_http_methods(["GET"])
+def facebook_auth_callback(request):
+    """Handle the Facebook OAuth callback and route the user appropriately."""
+    oauth_state = request.session.get(FACEBOOK_OAUTH_SESSION_KEY) or {}
+    expected_state = (oauth_state.get("state") or "").strip()
+    mode = (oauth_state.get("mode") or "login").strip().lower()
+    next_url = _get_safe_next_url(request, oauth_state.get("next") or request.GET.get("next"))
+
+    if request.GET.get("error"):
+        _clear_facebook_oauth_session(request)
+        return _facebook_start_error_redirect(
+            request,
+            mode,
+            "Facebook login was cancelled or could not be completed.",
+        )
+
+    code = (request.GET.get("code") or "").strip()
+    state = (request.GET.get("state") or "").strip()
+    if not code or not state or not expected_state or state != expected_state:
+        _clear_facebook_oauth_session(request)
+        return _facebook_start_error_redirect(
+            request,
+            mode,
+            "Facebook could not verify the sign-in request. Please try again.",
+        )
+
+    config = _facebook_oauth_config()
+    if not config["enabled"]:
+        _clear_facebook_oauth_session(request)
+        return _facebook_start_error_redirect(
+            request,
+            mode,
+            "Facebook sign-in is not configured yet. Please contact the administrator.",
+        )
+
+    try:
+        access_token = _facebook_exchange_code(request, code)
+        facebook_profile = _facebook_fetch_profile(access_token)
+    except ValidationError as exc:
+        _clear_facebook_oauth_session(request)
+        return _facebook_start_error_redirect(request, mode, " ".join(exc.messages))
+    except Exception:
+        _clear_facebook_oauth_session(request)
+        return _facebook_start_error_redirect(
+            request,
+            mode,
+            "We couldn't reach Facebook right now. Please try again later.",
+        )
+
+    facebook_email = facebook_profile["email"]
+    existing_user = (
+        User.objects.select_related("profile")
+        .filter(email__iexact=facebook_email)
+        .order_by("id")
+        .first()
+    )
+
+    if existing_user:
+        profile, _ = Profile.objects.get_or_create(
+            user=existing_user,
+            defaults={
+                "address": "",
+                "age": 18,
+                "consent_given": True,
+                "email_verified": True,
+            },
+        )
+        profile_updates = []
+        if not profile.email_verified:
+            profile.email_verified = True
+            profile_updates.append("email_verified")
+        if profile_updates:
+            profile.save(update_fields=profile_updates)
+
+        user_updates = []
+        if not existing_user.is_active:
+            existing_user.is_active = True
+            user_updates.append("is_active")
+        if user_updates:
+            existing_user.save(update_fields=user_updates)
+
+        login(request, existing_user)
+        _clear_facebook_oauth_session(request)
+        messages.success(request, "Signed in with Facebook.")
+        if next_url:
+            return redirect(next_url)
+        if existing_user.is_staff:
+            return redirect(get_staff_landing_url(existing_user))
+        return redirect("user:user_home")
+
+    _store_facebook_signup_payload(request, facebook_profile, next_url=next_url)
+    messages.info(
+        request,
+        "We found your Facebook account. Please finish creating your account with a username and password.",
+    )
+    signup_url = reverse("user:signup")
+    if next_url:
+        signup_url = f"{signup_url}?{urlencode({'next': next_url})}"
+    return redirect(signup_url)
 
 
 @require_POST
@@ -2840,18 +3144,35 @@ def signup_view(request):
                 "First name and last name are required.",
             )
 
-        try:
-            google_account = _verify_google_signup_credential(request.POST.get("google_credential"))
-        except ValidationError as exc:
-            return _render_signup_error(request, signup_form_data, " ".join(exc.messages))
+        facebook_signup_data = request.session.get(FACEBOOK_SIGNUP_SESSION_KEY) or {}
+        google_account = None
+        if facebook_signup_data:
+            social_email = _normalize_signup_email(facebook_signup_data.get("email"))
+            if not social_email:
+                return _render_signup_error(
+                    request,
+                    signup_form_data,
+                    "Facebook did not provide a usable email address. Please try again.",
+                )
+            if User.objects.filter(email__iexact=social_email).exists():
+                return _render_signup_error(
+                    request,
+                    signup_form_data,
+                    "An account already exists with this Facebook email address.",
+                )
+        else:
+            try:
+                google_account = _verify_google_signup_credential(request.POST.get("google_credential"))
+            except ValidationError as exc:
+                return _render_signup_error(request, signup_form_data, " ".join(exc.messages))
 
-        google_email = google_account["email"]
-        if User.objects.filter(email__iexact=google_email).exists():
-            return _render_signup_error(
-                request,
-                signup_form_data,
-                "An account already exists with this Google email address.",
-            )
+            social_email = google_account["email"]
+            if User.objects.filter(email__iexact=social_email).exists():
+                return _render_signup_error(
+                    request,
+                    signup_form_data,
+                    "An account already exists with this Google email address.",
+                )
 
         try:
             with transaction.atomic():
@@ -2860,7 +3181,7 @@ def signup_view(request):
                     password=password,
                     first_name=first_name,
                     last_name=last_name,
-                    email=google_email,
+                    email=social_email,
                     is_active=False,
                 )
 
@@ -2880,6 +3201,7 @@ def signup_view(request):
                     raise RuntimeError(
                         "We couldn't send the verification email. Please try again later."
                     ) from exc
+                _clear_facebook_oauth_session(request)
         except IntegrityError:
             return _render_signup_error(
                 request,
@@ -2895,7 +3217,7 @@ def signup_view(request):
 
         messages.success(
             request,
-            f"Account created for {google_email}. Check your email to verify your account before logging in.",
+            f"Account created for {social_email}. Check your email to verify your account before logging in.",
         )
         login_url = reverse("user:login")
         if next_url:

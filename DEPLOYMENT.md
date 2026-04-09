@@ -16,6 +16,17 @@ You can also set:
 
 - `PYTHONANYWHERE_DOMAIN=<your-username>.pythonanywhere.com`
 
+For a quick local test in PowerShell without editing `.env`, you can set the Facebook variables only for the current terminal session:
+
+```powershell
+$env:FACEBOOK_APP_ID="your_app_id_here"
+$env:FACEBOOK_APP_SECRET="your_app_secret_here"
+$env:FACEBOOK_GRAPH_API_VERSION="v20.0"
+python manage.py runserver
+```
+
+These values disappear when you close that terminal window.
+
 If `DJANGO_CSRF_TRUSTED_ORIGINS` is left blank, it is auto-derived from `ALLOWED_HOSTS` (HTTPS origins only, excluding localhost).
 
 ## 2. Cache choice

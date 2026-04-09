@@ -2,7 +2,11 @@
 {% load static %}
 
 {% block extra_css %}
+<<<<<<< HEAD
 <link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260408pinned-dogs-hide-breed">
+=======
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260408vaccination-reminders">
+>>>>>>> 3b65ac98dd0324ae1e2d1a7de67616c8dd2bfed7
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -11,29 +15,92 @@
     <section class="home-hero" aria-labelledby="homeHeroTitle">
         <div class="home-hero__inner">
             <div class="home-hero__content">
-                <span class="home-hero__eyebrow">Bayawan City Dog Adoption</span>
+                <span class="home-hero__eyebrow">
+                    <i class="bi bi-stars" aria-hidden="true"></i>
+                    <span>Welcome to Bayawan Vet</span>
+                </span>
                 <h1 class="home-hero__title" id="homeHeroTitle">
-                    <span>Open Your Home.</span>
-                    <span>Change a Dog&rsquo;s Future.</span>
+                    <span>Find loving homes</span>
+                    <span>for every good dog.</span>
                 </h1>
                 <p class="home-hero__text">
-                    Give a rescued dog the love, safety, and family they deserve.
+                    Browse adoptable dogs, send rescue requests, and support safer streets for pets in one friendly place.
                 </p>
 
                 <div class="home-hero__actions">
                     <a href="{% url 'user:adopt_list' %}" class="home-hero__btn home-hero__btn--primary">
-                        <i class="bi bi-heart-fill" aria-hidden="true"></i>
-                        <span>Find Your New Best Friend</span>
-                    </a>
-                    <a href="{% url 'user:dog_capture_request' %}" class="home-hero__btn home-hero__btn--secondary">
-                        <i class="bi bi-life-preserver" aria-hidden="true"></i>
-                        <span>Save a Life Today</span>
+                        <i class="bi bi-stars" aria-hidden="true"></i>
+                        <span>Available Dogs</span>
                     </a>
                 </div>
+            </div>
 
+            <div class="home-hero__media">
+                <div class="home-hero__media-ring"></div>
+                <div class="home-hero__media-frame">
+                    <img
+                        src="{% static 'images/finalbackground2.png' %}"
+                        alt="Group of dogs ready for rescue and adoption"
+                        class="home-hero__image"
+                    >
+                </div>
             </div>
         </div>
     </section>
+
+    {% if request.user.is_authenticated and vaccination_reminder_summary.items %}
+    <section class="home-vaccine-reminder-shell home-reveal" aria-labelledby="homeVaccinationReminderTitle">
+        <div class="home-vaccine-reminder">
+            <div class="home-vaccine-reminder__copy">
+                <span class="home-vaccine-reminder__eyebrow">Pet Health Reminder</span>
+                <h2 class="home-vaccine-reminder__title" id="homeVaccinationReminderTitle">
+                    Vaccination reminders for your registered dogs
+                </h2>
+                <p class="home-vaccine-reminder__text">
+                    We start reminding you 30 days before a vaccination expires so you have time to renew it.
+                </p>
+            </div>
+
+            <div class="home-vaccine-reminder__chips">
+                {% if vaccination_reminder_summary.expired_count %}
+                <span class="home-vaccine-reminder__chip home-vaccine-reminder__chip--expired">
+                    {{ vaccination_reminder_summary.expired_count }} expired
+                </span>
+                {% endif %}
+                {% if vaccination_reminder_summary.due_soon_count %}
+                <span class="home-vaccine-reminder__chip home-vaccine-reminder__chip--due">
+                    {{ vaccination_reminder_summary.due_soon_count }} due within 30 days
+                </span>
+                {% endif %}
+            </div>
+
+            <div class="home-vaccine-reminder__grid">
+                {% for reminder in vaccination_reminder_summary.items %}
+                <a
+                    href="{{ reminder.detail_url }}"
+                    class="home-vaccine-reminder__card home-vaccine-reminder__card--{{ reminder.status_key }}"
+                >
+                    <span class="home-vaccine-reminder__status home-vaccine-reminder__status--{{ reminder.status_key }}">
+                        {{ reminder.status_label }}
+                    </span>
+                    <h3>{{ reminder.pet_name }}</h3>
+                    <p>{{ reminder.message }}</p>
+                    <span class="home-vaccine-reminder__link">
+                        Open registered dog record
+                        <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+
+            <div class="home-vaccine-reminder__actions">
+                <a href="{{ vaccination_reminder_summary.profile_url }}" class="home-vaccine-reminder__action-btn">
+                    Review all registered dogs
+                </a>
+            </div>
+        </div>
+    </section>
+    {% endif %}
 
     {% if pinned_admin_spotlight %}
     <section class="home-pinned-dog-shell home-reveal" aria-labelledby="homePinnedDogTitle">

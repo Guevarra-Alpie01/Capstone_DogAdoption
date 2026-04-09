@@ -97,7 +97,6 @@ from .models import (
 from user.models import (
     DogCaptureRequest,
     DogCaptureRequestImage,
-    FaceImage,
     Profile,
 )
 
@@ -318,12 +317,12 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
                     )
                 record_label = "Adopted"
                 record_tone = "adopted"
-                record_source_label = "Finalized adoption"
-                record_note = (
-                    f"Adopted by {adopter_name}"
-                    if adopter_name != "-"
-                    else "Adoption request was completed."
-                )
+                if accepted_req:
+                    record_source_label = "Finalized adoption"
+                    record_note = f"Adopted by {adopter_name}"
+                else:
+                    record_source_label = "Admin-completed adoption"
+                    record_note = "Marked as adopted by admin without a request record."
                 recorded_on = (
                     accepted_req.scheduled_appointment_date
                     if accepted_req and accepted_req.scheduled_appointment_date
@@ -339,12 +338,12 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
                     )
                 record_label = "Redeemed"
                 record_tone = "reunited"
-                record_source_label = "Finalized redeem"
-                record_note = (
-                    f"Redeemed by {owner_name}"
-                    if owner_name != "-"
-                    else "Claim request was completed."
-                )
+                if accepted_req:
+                    record_source_label = "Finalized redeem"
+                    record_note = f"Redeemed by {owner_name}"
+                else:
+                    record_source_label = "Admin-completed redeem"
+                    record_note = "Marked as redeemed by admin without a request record."
                 recorded_on = (
                     accepted_req.scheduled_appointment_date
                     if accepted_req and accepted_req.scheduled_appointment_date
@@ -797,6 +796,239 @@ def _resolve_registration_owner_identity(owner_first_name, owner_last_name, owne
     canonical_owner_key = _normalize_person_name(canonical_owner_name)
 
     return canonical_owner_name, canonical_owner_key, resolved_owner_user
+
+
+def _split_owner_name_parts(owner_name):
+    cleaned = " ".join((owner_name or "").split()).strip()
+    if not cleaned:
+        return "", ""
+    parts = cleaned.split()
+    return parts[0], " ".join(parts[1:])
+
+
+def _certificate_status_from_neutering(value):
+    normalized = " ".join((value or "").split()).strip()
+    return {
+        "C": "Castrated",
+        "S": "Spayed",
+        "No": "Intact",
+    }.get(normalized, "")
+
+
+def _serialize_registered_pet(dog):
+    pet_name = " ".join((getattr(dog, "name", "") or "").split()).strip()
+    return {
+        "id": getattr(dog, "id", None),
+        "name": pet_name,
+        "species": (getattr(dog, "species", "") or "").strip(),
+        "sex": (getattr(dog, "sex", "") or "").strip(),
+        "status": _certificate_status_from_neutering(getattr(dog, "neutering_status", "")),
+        "color": (getattr(dog, "color", "") or "").strip(),
+        "barangay": _resolve_barangay_name(getattr(dog, "barangay", "") or "") or "",
+    }
+
+
+def _owner_name_matches_query(owner_name, query_tokens, query):
+    normalized_owner_name = _normalize_person_name(owner_name)
+    normalized_query = _normalize_person_name(query)
+    if not normalized_owner_name or not normalized_query:
+        return False
+    if normalized_query in normalized_owner_name:
+        return True
+    return all(
+        _normalize_person_name(token) in normalized_owner_name
+        for token in query_tokens
+        if _normalize_person_name(token)
+    )
+
+
+def _build_registration_owner_search_results(query, limit):
+    tokens = query.split()
+    results = []
+
+    users = User.objects.filter(is_active=True, is_staff=False)
+    if len(tokens) >= 2:
+        users = users.filter(
+            (Q(first_name__istartswith=tokens[0]) & Q(last_name__istartswith=tokens[-1]))
+            | Q(username__istartswith=query)
+        )
+    else:
+        term = tokens[0]
+        users = users.filter(
+            Q(first_name__istartswith=term)
+            | Q(last_name__istartswith=term)
+            | Q(username__istartswith=term)
+        )
+
+    user_rows = list(
+        users.order_by("first_name", "last_name", "id").values(
+            "id",
+            "first_name",
+            "last_name",
+            "username",
+            "profile__address",
+            "profile__phone_number",
+        )[:limit]
+    )
+
+    user_ids = [row["id"] for row in user_rows]
+    user_owner_keys = {}
+    owner_key_to_user_id = {}
+    for row in user_rows:
+        owner_key = _registration_owner_key_from_names(
+            row.get("first_name") or "",
+            row.get("last_name") or "",
+        )
+        if owner_key:
+            user_owner_keys[row["id"]] = owner_key
+            owner_key_to_user_id.setdefault(owner_key, row["id"])
+
+    registered_pets_by_user_id = defaultdict(list)
+    seen_pet_keys_by_user_id = defaultdict(set)
+    if user_ids:
+        owner_keys = [key for key in user_owner_keys.values() if key]
+        user_dogs = Dog.objects.filter(
+            Q(owner_user_id__in=user_ids)
+            | Q(owner_name_key__in=owner_keys)
+        ).only(
+            "id",
+            "name",
+            "species",
+            "sex",
+            "neutering_status",
+            "color",
+            "owner_user_id",
+            "owner_name_key",
+            "barangay",
+        ).order_by("name", "id")
+
+        for dog in user_dogs:
+            owner_user_id = getattr(dog, "owner_user_id", None)
+            if owner_user_id not in user_ids:
+                owner_user_id = owner_key_to_user_id.get(
+                    getattr(dog, "owner_name_key", "") or ""
+                )
+            if owner_user_id not in user_ids:
+                continue
+
+            pet_payload = _serialize_registered_pet(dog)
+            pet_signature = (
+                _normalize_person_name(pet_payload["name"]),
+                pet_payload["species"],
+                pet_payload["sex"],
+                pet_payload["status"],
+                _normalize_person_name(pet_payload["color"]),
+            )
+            if pet_signature in seen_pet_keys_by_user_id[owner_user_id]:
+                continue
+            seen_pet_keys_by_user_id[owner_user_id].add(pet_signature)
+            registered_pets_by_user_id[owner_user_id].append(pet_payload)
+
+    for row in user_rows:
+        first_name = (row.get("first_name") or "").strip()
+        last_name = (row.get("last_name") or "").strip()
+        username = (row.get("username") or "").strip()
+        full_name = f"{first_name} {last_name}".strip()
+        barangay = _extract_barangay_from_address(row.get("profile__address") or "")
+        phone_number = (row.get("profile__phone_number") or "").strip()
+        registered_pets = registered_pets_by_user_id.get(row["id"], [])
+        results.append(
+            {
+                "id": row["id"],
+                "owner_key": f"user:{row['id']}",
+                "source": "user",
+                "source_label": "User account",
+                "first_name": first_name,
+                "last_name": last_name,
+                "username": username,
+                "full_name": full_name or username,
+                "barangay": barangay,
+                "phone_number": phone_number,
+                "registered_pet_count": len(registered_pets),
+                "registered_pets": registered_pets,
+            }
+        )
+
+    remaining_slots = max(limit - len(results), 0)
+    if remaining_slots:
+        manual_owner_filter = Q(owner_name__istartswith=query)
+        normalized_query = _normalize_person_name(query)
+        if normalized_query:
+            manual_owner_filter |= Q(owner_name_key__istartswith=normalized_query)
+        for token in tokens:
+            normalized_token = _normalize_person_name(token)
+            manual_owner_filter |= Q(owner_name__icontains=token)
+            if normalized_token:
+                manual_owner_filter |= Q(owner_name_key__icontains=normalized_token)
+
+        manual_dogs = list(
+            Dog.objects.filter(owner_user__isnull=True)
+            .filter(manual_owner_filter)
+            .only(
+                "id",
+                "name",
+                "species",
+                "sex",
+                "neutering_status",
+                "color",
+                "owner_name",
+                "owner_name_key",
+                "owner_address",
+                "barangay",
+            )
+            .order_by("owner_name", "name", "id")[: max(remaining_slots * 8, 24)]
+        )
+
+        seen_owner_keys = {user_owner_keys.get(row["id"], "") for row in user_rows}
+        manual_results_map = {}
+        manual_pet_keys = defaultdict(set)
+        for dog in manual_dogs:
+            owner_name = " ".join((getattr(dog, "owner_name", "") or "").split()).strip()
+            owner_name_key = getattr(dog, "owner_name_key", "") or _normalize_person_name(owner_name)
+            if not owner_name_key or owner_name_key in seen_owner_keys:
+                continue
+            if not _owner_name_matches_query(owner_name, tokens, query):
+                continue
+
+            pet_payload = _serialize_registered_pet(dog)
+            pet_signature = (
+                _normalize_person_name(pet_payload["name"]),
+                pet_payload["species"],
+                pet_payload["sex"],
+                pet_payload["status"],
+                _normalize_person_name(pet_payload["color"]),
+            )
+            if pet_signature in manual_pet_keys[owner_name_key]:
+                continue
+            manual_pet_keys[owner_name_key].add(pet_signature)
+
+            result_row = manual_results_map.setdefault(
+                owner_name_key,
+                {
+                    "id": None,
+                    "owner_key": f"name:{owner_name_key}",
+                    "source": "manual_owner",
+                    "source_label": "Registered owner",
+                    "first_name": _split_owner_name_parts(owner_name)[0],
+                    "last_name": _split_owner_name_parts(owner_name)[1],
+                    "username": "",
+                    "full_name": owner_name,
+                    "barangay": _resolve_barangay_name(getattr(dog, "barangay", "") or "")
+                    or _extract_barangay_from_address(getattr(dog, "owner_address", "") or ""),
+                    "phone_number": "",
+                    "registered_pet_count": 0,
+                    "registered_pets": [],
+                },
+            )
+            result_row["registered_pets"].append(pet_payload)
+            result_row["registered_pet_count"] = len(result_row["registered_pets"])
+
+        for owner_result in manual_results_map.values():
+            results.append(owner_result)
+            if len(results) >= limit:
+                break
+
+    return results[:limit]
 
 
 def _build_owner_limit_query(owner_name_key, owner_name, owner_user=None):
@@ -1408,18 +1640,13 @@ def _build_requests_with_meta(post, request_type):
     user_ids = [req.user_id for req in requests]
 
     profiles = Profile.objects.filter(user_id__in=user_ids)
-    faceauth = FaceImage.objects.filter(user_id__in=user_ids)
     profile_by_user_id = {profile.user_id: profile for profile in profiles}
-    faceauth_by_user_id = defaultdict(list)
-    for image in faceauth:
-        faceauth_by_user_id[image.user_id].append(image)
 
     requests_with_meta = []
     for req in requests:
         requests_with_meta.append({
             "req": req,
             "profile": profile_by_user_id.get(req.user_id),
-            "face_images": faceauth_by_user_id.get(req.user_id, []),
         })
     return requests_with_meta
 
@@ -1822,6 +2049,78 @@ def toggle_post_phase(request, post_id):
 
 @admin_required
 @require_POST
+def finalize_post(request, post_id):
+    """Manually complete an active rescue post and remove it from the live board."""
+    access = getattr(request, "admin_access", get_admin_access(request.user))
+    if not access.get("can_create_posts"):
+        messages.error(request, "You do not have permission to finalize posts.", extra_tags="post_list")
+        return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+    with transaction.atomic():
+        post = get_object_or_404(
+            Post.objects.select_for_update().filter(is_history=False),
+            id=post_id,
+        )
+        post_name = post.display_title or post.caption or f"Post {post.id}"
+
+        if post.status in {"reunited", "adopted"}:
+            messages.warning(request, "This post has already been finalized.", extra_tags="post_list")
+            return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+        current_phase = post.current_phase()
+        if current_phase not in {"claim", "adopt"}:
+            messages.warning(
+                request,
+                "Only active redeem or adoption posts can be finalized from the board.",
+                extra_tags="post_list",
+            )
+            return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+        expected_status = "reunited" if current_phase == "claim" else "adopted"
+        target_status = (request.POST.get("status") or "").strip().lower() or expected_status
+        if target_status != expected_status:
+            messages.error(request, "Invalid finalize action selected for this post.", extra_tags="post_list")
+            return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+        post.status = target_status
+        post.phase_override = ""
+        post.phase_override_started_at = None
+        post.is_pinned = False
+        post.pinned_at = None
+        post.save(
+            update_fields=[
+                "status",
+                "phase_override",
+                "phase_override_started_at",
+                "is_pinned",
+                "pinned_at",
+            ]
+        )
+
+        pending_requests = list(post.requests.filter(status="pending").only("id", "user_id"))
+        if pending_requests:
+            post.requests.filter(id__in=[req.id for req in pending_requests]).update(
+                status="rejected",
+                scheduled_appointment_date=None,
+            )
+            for pending_req in pending_requests:
+                invalidate_user_notification_payload(pending_req.user_id)
+
+    _touch_post_board_cache()
+    messages.success(
+        request,
+        (
+            f'Post "{post_name}" was marked as redeemed and moved out of the active board.'
+            if target_status == "reunited"
+            else f'Post "{post_name}" was marked as adopted and moved out of the active board.'
+        ),
+        extra_tags="post_list",
+    )
+    return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
+
+
+@admin_required
+@require_POST
 def delete_post(request, post_id):
     """Archive a rescue post or permanently remove it from the system."""
     access = getattr(request, "admin_access", get_admin_access(request.user))
@@ -2054,6 +2353,10 @@ def post_list(request):
             "toggle_url": reverse("dogadoption_admin:toggle_post_phase", args=[post.id]),
             "toggle_phase": toggle_phase,
             "toggle_label": toggle_label,
+            "finalize_url": reverse("dogadoption_admin:finalize_post", args=[post.id]),
+            "finalize_status": "reunited" if section_key == "claim" else "adopted",
+            "finalize_label": "Mark as Redeemed" if section_key == "claim" else "Mark as Adopted",
+            "finalize_icon": "fas fa-home" if section_key == "claim" else "fas fa-heart",
             "delete_url": reverse("dogadoption_admin:delete_post", args=[post.id]),
             "allow_toggle": allow_toggle,
         }
@@ -2178,7 +2481,6 @@ def post_list(request):
 
         profile_image_by_user_id = {}
         profile_address_by_user_id = {}
-        face_auth_count_by_user_id = {}
         if request_user_ids:
             for profile in Profile.objects.filter(user_id__in=request_user_ids).only(
                 "user_id",
@@ -2190,13 +2492,6 @@ def post_list(request):
                 if image_url:
                     profile_image_by_user_id[profile.user_id] = image_url
 
-            face_auth_count_by_user_id = dict(
-                FaceImage.objects.filter(user_id__in=request_user_ids)
-                .values("user_id")
-                .annotate(total=Count("id"))
-                .values_list("user_id", "total")
-            )
-
         for req in paged_requests:
             display_name = f"{(req.user.first_name or '').strip()} {(req.user.last_name or '').strip()}".strip()
             if not display_name:
@@ -2204,7 +2499,6 @@ def post_list(request):
             req.user_display_name = display_name
             req.user_initials = _owner_initials(display_name)
             req.user_profile_image_url = profile_image_by_user_id.get(req.user_id, "")
-            req.face_auth_count = face_auth_count_by_user_id.get(req.user_id, 0)
 
         primary_image_by_post_id = {}
         for image in PostImage.objects.filter(post_id__in=paged_post_ids).only("post_id", "image").order_by("id"):
@@ -2396,26 +2690,6 @@ def update_request(request, req_id, action):
 # Navigation 2/5: Request
 # Covers capture-request operations and supporting request review tools.
 # =============================================================================
-
-@admin_required
-def view_faceauth(request, user_id):
-    """Show a user's stored face images while reviewing their request data."""
-    user = get_object_or_404(User, id=user_id)
-
-    face_images = FaceImage.objects.filter(user=user).only("image", "created_at").order_by("-created_at")
-    profile = Profile.objects.filter(user=user).only(
-        "user_id",
-        "address",
-        "age",
-        "middle_initial",
-        "profile_image",
-    ).first()
-
-    return render(request, 'admin_home/view_faceauth.html', {
-        'user': user,
-        'profile': profile,
-        'face_images': face_images,
-    })
 
 @admin_required
 @require_http_methods(["GET", "POST"])
@@ -4162,6 +4436,98 @@ def _attach_registration_owner_metadata(dogs):
     return owner_keys_by_dog_id
 
 
+def _attach_registration_vaccination_metadata(dogs):
+    today = timezone.localdate()
+    candidate_owner_keys = set()
+    candidate_pet_keys = set()
+    dog_signature_by_id = {}
+
+    for dog in dogs:
+        owner_key = _normalize_person_name(
+            getattr(dog, "owner_name_key", "") or getattr(dog, "owner_name", "")
+        )
+        pet_key = _normalize_person_name(getattr(dog, "name", ""))
+        signature = (owner_key, pet_key)
+        dog_signature_by_id[dog.id] = signature
+        dog.has_vaccination_record = False
+        dog.vaccination_expired = False
+        dog.latest_vaccination_date = None
+        dog.latest_vaccination_expiry_date = None
+
+        if owner_key and pet_key:
+            candidate_owner_keys.add(owner_key)
+            candidate_pet_keys.add(pet_key)
+
+    if not candidate_owner_keys or not candidate_pet_keys:
+        return dogs
+
+    matching_registrations = (
+        DogRegistration.objects.annotate(
+            owner_name_normalized=Lower(Trim("owner_name")),
+            pet_name_normalized=Lower(Trim("name_of_pet")),
+        )
+        .filter(
+            owner_name_normalized__in=candidate_owner_keys,
+            pet_name_normalized__in=candidate_pet_keys,
+        )
+        .only("id", "date_registered")
+    )
+
+    registration_signature_by_id = {}
+    registration_ids = []
+    for registration in matching_registrations:
+        signature = (
+            getattr(registration, "owner_name_normalized", ""),
+            getattr(registration, "pet_name_normalized", ""),
+        )
+        if not signature[0] or not signature[1]:
+            continue
+        registration_signature_by_id[registration.id] = signature
+        registration_ids.append(registration.id)
+
+    if not registration_ids:
+        return dogs
+
+    latest_vaccination_by_signature = {}
+    vaccinations = (
+        VaccinationRecord.objects.filter(registration_id__in=registration_ids)
+        .only(
+            "id",
+            "registration_id",
+            "date",
+            "vaccine_expiry_date",
+            "vaccination_expiry_date",
+        )
+        .order_by("-date", "-id")
+    )
+
+    for vaccination in vaccinations:
+        signature = registration_signature_by_id.get(vaccination.registration_id)
+        if signature and signature not in latest_vaccination_by_signature:
+            latest_vaccination_by_signature[signature] = vaccination
+
+    for dog in dogs:
+        signature = dog_signature_by_id.get(dog.id)
+        vaccination = latest_vaccination_by_signature.get(signature)
+        if not vaccination:
+            continue
+
+        dog.has_vaccination_record = True
+        dog.latest_vaccination_date = vaccination.date
+        dog.latest_vaccination_expiry_date = (
+            vaccination.vaccination_expiry_date or vaccination.vaccine_expiry_date
+        )
+        dog.vaccination_expired = bool(
+            (vaccination.vaccine_expiry_date and vaccination.vaccine_expiry_date < today)
+            or (
+                vaccination.vaccination_expiry_date
+                and vaccination.vaccination_expiry_date < today
+            )
+        )
+
+    return dogs
+
+
 def _paginate_registration_record_rows(request, dogs_qs):
     page_number = (request.GET.get("page") or "1").strip()
     paginator = Paginator(dogs_qs, 100)
@@ -4216,6 +4582,7 @@ def registration_record(request):
     owner_rank_by_key = _build_registration_owner_rank_lookup(dogs_qs)
     page_obj, dogs = _paginate_registration_record_rows(request, dogs_qs)
     owner_keys_by_dog_id = _attach_registration_owner_metadata(dogs)
+    dogs = _attach_registration_vaccination_metadata(dogs)
     dogs = _apply_registration_owner_row_display(
         dogs,
         owner_keys_by_dog_id,
@@ -4322,7 +4689,6 @@ def registration_owner_profile(request, user_id):
             "profile": manual_profile,
             "registered_dogs": registered_dogs,
             "registered_dogs_total": len(registered_dogs),
-            "face_images": [],
             "violation_summary": {
                 "manual": 0,
                 "claims": 0,
@@ -4365,7 +4731,6 @@ def registration_owner_profile(request, user_id):
     )
     registered_dogs = _build_registered_dog_payloads(registered_dogs_qs)
 
-    face_images = FaceImage.objects.filter(user=profile_user).only("id", "image").order_by("-created_at", "-id")
     violation_summary = (
         _admin_user_management_queryset()
         .filter(pk=profile_user.pk)
@@ -4391,7 +4756,6 @@ def registration_owner_profile(request, user_id):
         "profile": profile,
         "registered_dogs": registered_dogs,
         "registered_dogs_total": len(registered_dogs),
-        "face_images": face_images,
         "violation_summary": {
             "manual": violation_summary.get("managed_violation_count", 0),
             "claims": violation_summary.get("claim_violation_count", 0),
@@ -4422,7 +4786,7 @@ def barangay_list_api(request):
 
 @admin_required
 def registration_user_search_api(request):
-    """Search non-staff users to prefill registration owner details."""
+    """Search user accounts and registered owners to prefill registration details."""
     query = " ".join((request.GET.get("q") or "").split()).strip()
     limit = _parse_positive_int(request.GET.get("limit"))
     if len(query) < 2:
@@ -4433,49 +4797,7 @@ def registration_user_search_api(request):
     if cached is not None:
         return _cacheable_json_response({"results": cached}, max_age=60)
 
-    tokens = query.split()
-    users = User.objects.filter(is_active=True, is_staff=False)
-    if len(tokens) >= 2:
-        users = users.filter(
-            (Q(first_name__istartswith=tokens[0]) & Q(last_name__istartswith=tokens[-1]))
-            | Q(username__istartswith=query)
-        )
-    else:
-        term = tokens[0]
-        users = users.filter(
-            Q(first_name__istartswith=term)
-            | Q(last_name__istartswith=term)
-            | Q(username__istartswith=term)
-        )
-
-    rows = users.order_by("first_name", "last_name", "id").values(
-        "id",
-        "first_name",
-        "last_name",
-        "username",
-        "profile__address",
-        "profile__phone_number",
-    )[:limit]
-    results = []
-    for row in rows:
-        first_name = (row.get("first_name") or "").strip()
-        last_name = (row.get("last_name") or "").strip()
-        username = (row.get("username") or "").strip()
-        full_name = f"{first_name} {last_name}".strip()
-        barangay = _extract_barangay_from_address(row.get("profile__address") or "")
-        phone_number = (row.get("profile__phone_number") or "").strip()
-        results.append(
-            {
-                "id": row["id"],
-                "first_name": first_name,
-                "last_name": last_name,
-                "username": username,
-                "full_name": full_name or username,
-                "barangay": barangay,
-                "phone_number": phone_number,
-            }
-        )
-
+    results = _build_registration_owner_search_results(query, limit)
     cache.set(cache_key, results, 60)
     return _cacheable_json_response({"results": results}, max_age=60)
 
@@ -4852,6 +5174,7 @@ def med_record(request, registration_id):
 
         sync_expiry_notifications()
         cache.delete(ADMIN_NOTIFICATIONS_CACHE_KEY)
+        invalidate_user_notification_content()
         return redirect('dogadoption_admin:med_records', registration_id=registration.id)
 
     context = {
@@ -4881,10 +5204,16 @@ def dog_certificate(request):
         address_line = (request.POST.get("address") or "").strip()
         owner_first_name = (request.POST.get("owner_first_name") or "").strip()
         owner_last_name = (request.POST.get("owner_last_name") or "").strip()
+        owner_user_id = (request.POST.get("owner_user_id") or "").strip()
         owner_name = _build_owner_full_name(
             owner_first_name,
             owner_last_name,
             (request.POST.get("owner_name") or "").strip(),
+        )
+        owner_name, owner_name_key, _owner_user = _resolve_registration_owner_identity(
+            owner_first_name,
+            owner_last_name,
+            owner_user_id=owner_user_id,
         )
         status = (request.POST.get("status") or "").strip()
 
@@ -4904,7 +5233,7 @@ def dog_certificate(request):
             messages.error(request, "Please select a valid status.")
             return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
 
-        if not owner_name:
+        if not owner_name or not owner_name_key:
             messages.error(request, "Owner First and Last Name are required.")
             return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
 

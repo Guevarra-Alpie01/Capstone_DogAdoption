@@ -387,6 +387,21 @@
                                                             </button>
                                                         </form>
                                                     {% endif %}
+                                                    <form method="post" action="{{ item.finalize_url }}" class="status-action-form">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="next" value="{{ return_to }}">
+                                                        <input type="hidden" name="status" value="{{ item.finalize_status }}">
+                                                        <button
+                                                            type="button"
+                                                            class="status-icon-btn status-icon-btn--complete js-confirm-action"
+                                                            title="{{ item.finalize_label }}"
+                                                            aria-label="{{ item.finalize_label }}"
+                                                            data-confirm-title="{{ item.finalize_label }}"
+                                                            data-confirm-body="Save this record as {% if item.finalize_status == 'reunited' %}redeemed{% else %}adopted{% endif %} and remove it from the active post board?"
+                                                        >
+                                                            <i class="{{ item.finalize_icon }}" aria-hidden="true"></i>
+                                                        </button>
+                                                    </form>
                                                     <button
                                                         type="button"
                                                         class="status-icon-btn status-icon-btn--danger"
@@ -546,7 +561,6 @@
                                         <th>Name</th>
                                         <th>Status</th>
                                         <th>Requested</th>
-                                        <th>Face Auth</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
@@ -554,25 +568,20 @@
                                     {% for req in item.claim_requests %}
                                         <tr>
                                             <td>
-                                                <a href="{% url 'dogadoption_admin:view_faceauth' req.user.id %}" class="request-user-avatar-link" title="View face authentication">
+                                                <span class="request-user-avatar-link">
                                                     {% if req.user_profile_image_url %}
                                                         <img src="{{ req.user_profile_image_url }}" class="request-user-avatar" alt="{{ req.user.username }}">
                                                     {% else %}
                                                         <span class="request-user-avatar-fallback">{{ req.user_initials }}</span>
                                                     {% endif %}
-                                                </a>
+                                                </span>
                                             </td>
                                             <td>
-                                                <a href="{% url 'dogadoption_admin:view_faceauth' req.user.id %}" class="request-user-link">{{ req.user.username }}</a>
+                                                <span class="request-user-link">{{ req.user.username }}</span>
                                             </td>
                                             <td>{{ req.user_display_name }}</td>
                                             <td>{{ req.get_status_display }}</td>
                                             <td>{{ req.created_at|date:"M d, Y H:i" }}</td>
-                                            <td>
-                                                <a href="{% url 'dogadoption_admin:view_faceauth' req.user.id %}" class="btn btn-outline-dark btn-sm faceauth-btn">
-                                                    View ({{ req.face_auth_count }})
-                                                </a>
-                                            </td>
                                             <td>
                                                 {% if req.status == 'pending' %}
                                                     <div class="request-action-cell">
@@ -641,7 +650,6 @@
                                         <th>Name</th>
                                         <th>Status</th>
                                         <th>Requested</th>
-                                        <th>Face Auth</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
@@ -649,25 +657,20 @@
                                     {% for req in item.adopt_requests %}
                                         <tr>
                                             <td>
-                                                <a href="{% url 'dogadoption_admin:view_faceauth' req.user.id %}" class="request-user-avatar-link" title="View face authentication">
+                                                <span class="request-user-avatar-link">
                                                     {% if req.user_profile_image_url %}
                                                         <img src="{{ req.user_profile_image_url }}" class="request-user-avatar" alt="{{ req.user.username }}">
                                                     {% else %}
                                                         <span class="request-user-avatar-fallback">{{ req.user_initials }}</span>
                                                     {% endif %}
-                                                </a>
+                                                </span>
                                             </td>
                                             <td>
-                                                <a href="{% url 'dogadoption_admin:view_faceauth' req.user.id %}" class="request-user-link">{{ req.user.username }}</a>
+                                                <span class="request-user-link">{{ req.user.username }}</span>
                                             </td>
                                             <td>{{ req.user_display_name }}</td>
                                             <td>{{ req.get_status_display }}</td>
                                             <td>{{ req.created_at|date:"M d, Y H:i" }}</td>
-                                            <td>
-                                                <a href="{% url 'dogadoption_admin:view_faceauth' req.user.id %}" class="btn btn-outline-dark btn-sm faceauth-btn">
-                                                    View ({{ req.face_auth_count }})
-                                                </a>
-                                            </td>
                                             <td>
                                                 {% if req.status == 'pending' %}
                                                     <div class="request-action-cell">

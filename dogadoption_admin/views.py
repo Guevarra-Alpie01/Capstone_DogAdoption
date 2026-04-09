@@ -205,6 +205,7 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
     filter_type = (request.GET.get("record_type") or "all").strip().lower()
     if filter_type not in {"all", "adopted", "redeemed", "unresolved"}:
         filter_type = "all"
+    history_return_to = request.get_full_path()
 
     history_meta_map = {
         post.id: post
@@ -351,10 +352,32 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
                     else accepted_req.created_at if accepted_req else post.created_at
                 )
             elif is_archived:
-                record_tone = "neutral"
                 record_source_label = "Archived record"
                 record_note = "Moved to history without a final adoption or redeem."
                 recorded_on = post.created_at
+
+            record_actions = []
+            if record_tone == "warning":
+                record_actions = [
+                    {
+                        "status": "adopted",
+                        "label": "Record Adopted",
+                        "confirm_title": "Record as Adopted",
+                        "confirm_message": "Record this expired post as adopted and keep it in history?",
+                        "confirm_submit_label": "Record Adopted",
+                        "button_class": "history-action-btn--adopted",
+                        "icon": "fas fa-heart",
+                    },
+                    {
+                        "status": "reunited",
+                        "label": "Record Redeemed",
+                        "confirm_title": "Record as Redeemed",
+                        "confirm_message": "Record this expired post as redeemed and keep it in history?",
+                        "confirm_submit_label": "Record Redeemed",
+                        "button_class": "history-action-btn--redeemed",
+                        "icon": "fas fa-hand-holding-heart",
+                    },
+                ]
 
             history_posts.append({
                 "post": post,
@@ -365,6 +388,9 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
                 "base_status_label": post.get_status_display(),
                 "recorded_on": recorded_on,
                 "primary_image_url": primary_image_by_post_id.get(post_id, ""),
+                "can_record_final_status": bool(record_actions),
+                "record_actions": record_actions,
+                "record_action_url": reverse("dogadoption_admin:record_history_status", args=[post.id]),
             })
 
     return {
@@ -376,6 +402,7 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
         "history_filtered_total": len(filtered_history_ids),
         "history_posts": history_posts,
         "history_page_obj": page_obj,
+        "history_return_to": history_return_to,
     }
 
 CAT_BREED_KEYWORDS = {
@@ -2575,6 +2602,75 @@ def post_history(request):
         "history_redeemed_qs": _build_filter_qs("redeemed"),
         "history_unresolved_qs": _build_filter_qs("unresolved"),
     })
+
+
+@admin_required
+@require_POST
+def record_history_status(request, post_id):
+    """Record an expired unresolved post as adopted or redeemed."""
+    access = getattr(request, "admin_access", get_admin_access(request.user))
+    if not access.get("can_create_posts"):
+        messages.error(request, "You do not have permission to update history records.", extra_tags="post_list")
+        return _redirect_to_safe_next(request, "dogadoption_admin:post_history")
+
+    target_status = (request.POST.get("status") or "").strip().lower()
+    if target_status not in {"adopted", "reunited"}:
+        messages.error(request, "Invalid history status selected.", extra_tags="post_list")
+        return _redirect_to_safe_next(request, "dogadoption_admin:post_history")
+
+    with transaction.atomic():
+        post = get_object_or_404(Post.objects.select_for_update(), id=post_id)
+        post_name = post.display_title or post.caption or f"Post {post.id}"
+
+        if post.status in {"reunited", "adopted"}:
+            messages.warning(request, "This post has already been recorded as a final history entry.", extra_tags="post_list")
+            return _redirect_to_safe_next(request, "dogadoption_admin:post_history")
+
+        if not (post.is_history or post.is_expired()):
+            messages.warning(
+                request,
+                "Only expired or archived unresolved posts can be recorded from history.",
+                extra_tags="post_list",
+            )
+            return _redirect_to_safe_next(request, "dogadoption_admin:post_history")
+
+        post.status = target_status
+        post.phase_override = ""
+        post.phase_override_started_at = None
+        post.is_history = True
+        post.is_pinned = False
+        post.pinned_at = None
+        post.save(
+            update_fields=[
+                "status",
+                "phase_override",
+                "phase_override_started_at",
+                "is_history",
+                "is_pinned",
+                "pinned_at",
+            ]
+        )
+
+        pending_requests = list(post.requests.filter(status="pending").only("id", "user_id"))
+        if pending_requests:
+            post.requests.filter(id__in=[req.id for req in pending_requests]).update(
+                status="rejected",
+                scheduled_appointment_date=None,
+            )
+            for pending_req in pending_requests:
+                invalidate_user_notification_payload(pending_req.user_id)
+
+    _touch_post_board_cache()
+    messages.success(
+        request,
+        (
+            f'Post "{post_name}" was recorded as redeemed in history.'
+            if target_status == "reunited"
+            else f'Post "{post_name}" was recorded as adopted in history.'
+        ),
+        extra_tags="post_list",
+    )
+    return _redirect_to_safe_next(request, "dogadoption_admin:post_history")
 
 
 @admin_required

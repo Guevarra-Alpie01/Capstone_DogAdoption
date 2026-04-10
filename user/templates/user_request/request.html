@@ -14,40 +14,44 @@
 
     <div class="card request-wizard-card">
         <div class="request-hero">
-            <span class="request-eyebrow">Dog Surrender Form</span>
-            <button
-                type="button"
-                class="request-history-trigger"
-                {% if request.user.is_authenticated %}
-                data-bs-toggle="modal"
-                data-bs-target="#requestHistoryModal"
-                {% else %}
-                data-auth-modal-trigger="login"
-                data-auth-next-url="{% url 'user:dog_capture_request' %}"
-                {% endif %}
-                aria-label="Open request history"
-            >
-                <span class="request-history-trigger-icon">
-                    <i class="bi bi-clock-history" aria-hidden="true"></i>
-                </span>
-                <span class="request-history-trigger-copy">
-                    <strong>Tracking</strong>
-                    <small>View your requests</small>
-                </span>
-                <span class="request-history-trigger-count">
-                    {{ pending_total|add:accepted_total|add:declined_total|add:captured_total }}
-                </span>
-            </button>
-        </div>
-
-        <div class="step-indicator" aria-label="Request progress">
-            <div class="step-dot active" data-step-dot="1">
-                <span class="step-dot-number">1</span>
-                <span class="step-dot-label">Photo</span>
+            <div class="request-hero-copy">
+                <span class="request-eyebrow">Dog Surrender Request</span>
+                <p class="request-hero-text">
+                    Use this one-page form to request assistance from the dog catcher or Bayawan Vet when surrendering a dog.
+                    Fill it out once with the photo, contact number, and location details.
+                </p>
             </div>
-            <div class="step-dot" data-step-dot="2">
-                <span class="step-dot-number">2</span>
-                <span class="step-dot-label">Details</span>
+            <div class="request-hero-side">
+                <button
+                    type="button"
+                    class="request-history-trigger"
+                    {% if request.user.is_authenticated %}
+                    data-bs-toggle="modal"
+                    data-bs-target="#requestHistoryModal"
+                    {% else %}
+                    data-auth-modal-trigger="login"
+                    data-auth-next-url="{% url 'user:dog_capture_request' %}"
+                    {% endif %}
+                    aria-label="Open request history"
+                >
+                    <span class="request-history-trigger-icon">
+                        <i class="bi bi-clock-history" aria-hidden="true"></i>
+                    </span>
+                    <span class="request-history-trigger-copy">
+                        <strong>Tracking</strong>
+                        <small>View your requests</small>
+                    </span>
+                    <span class="request-history-trigger-count">
+                        {{ pending_total|add:accepted_total|add:declined_total|add:captured_total }}
+                    </span>
+                </button>
+                <div class="info-card">
+                    <i class="bi bi-info-circle-fill info-card-icon" aria-hidden="true"></i>
+                    <div>
+                        <strong>One submission</strong>
+                        <small>Complete the request in one pass. Photo, contact, and location all stay in the same form.</small>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -62,10 +66,9 @@
                         <i class="bi bi-camera-fill" aria-hidden="true"></i>
                     </div>
                     <div>
-                        <p class="step-kicker">Step 1</p>
                         <h3 id="step1Title">Add a photo of the dog</h3>
                         <p class="step-description" id="step1Description">
-                            Upload or take a photo of the dog being surrendered. This is optional, but it helps the shelter team prepare.
+                            Upload or take a photo of the dog being surrendered. This helps the dog catcher or Bayawan Vet prepare for the request.
                         </p>
                     </div>
                 </div>
@@ -123,18 +126,16 @@
                     <div id="photoSummaryList" class="photo-summary-list"></div>
                 </div>
             </div>
-            {% comment %}
-
-                                <small>Submit online and share the dog’s location so the dog catcher can be dispatched.</small>
-            {% endcomment %}
-            <div class="step-panel" data-step="2" hidden>
+            <div class="step-panel" data-step="2">
                 <div class="step-panel-header">
                     <div class="step-panel-icon">
                         <i class="bi bi-ui-checks-grid" aria-hidden="true"></i>
                     </div>
                     <div>
-                        <p class="step-kicker">Step 2</p>
                         <h3>Contact information and request details</h3>
+                        <p class="step-description">
+                            Share the contact and location details needed to help Bayawan Vet or the dog catcher respond to the surrender request.
+                        </p>
                     </div>
                 </div>
 
@@ -268,11 +269,11 @@
                         <div class="location-card-head">
                             <div>
                                 <h4>Dog surrender details</h4>
-                                <p>Share any important notes that can help the shelter team prepare for the surrender.</p>
+                                <p>Share any important notes that can help the dog catcher or Bayawan Vet prepare for the surrender.</p>
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="surrenderDescriptionField">Surrender Notes (optional)</label>
+                            <label for="surrenderDescriptionField">Additional notes (optional)</label>
                             <div class="input-with-icon textarea-with-icon">
                                 <span class="input-icon">
                                     <i class="bi bi-chat-left-text-fill" aria-hidden="true"></i>
@@ -281,10 +282,10 @@
                                     name="description"
                                     id="surrenderDescriptionField"
                                     rows="4"
-                                    placeholder="Optional: Share why the dog is being surrendered or any important handling notes."
+                                    placeholder="Optional: Share why the dog is being surrendered or any important handling notes for the dog catcher or Bayawan Vet."
                                 ></textarea>
                             </div>
-                            <small class="helper-text">This is optional, but it can help the shelter team prepare for follow-up.</small>
+                            <small class="helper-text">This is optional, but it can help the team prepare before they respond.</small>
                         </div>
 
                     </div>
@@ -292,15 +293,7 @@
             </div>
 
             <div class="wizard-actions">
-                <button type="button" class="btn-secondary" id="prevBtn" hidden>
-                    <i class="bi bi-arrow-left" aria-hidden="true"></i>
-                    <span>Back</span>
-                </button>
-                <button type="button" class="btn-primary" id="nextBtn">
-                    <span>Next</span>
-                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
-                </button>
-                <button type="submit" class="btn-primary" id="submitBtn" hidden>
+                <button type="submit" class="btn-primary" id="submitBtn">
                     <i class="bi bi-send-fill" aria-hidden="true"></i>
                     <span>Submit Request</span>
                 </button>
@@ -458,7 +451,7 @@
 <script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 <script>
 let currentStep = 1;
-const MAX_REQUEST_STEPS = 2;
+const MAX_REQUEST_STEPS = 1;
 let stream = null;
 let map;
 let marker;
@@ -726,7 +719,7 @@ function hasSavedExactLocationFix() {
 
 function shouldAutoDetectDeviceLocation() {
     const locationMode = document.querySelector('input[name="location_mode"]:checked')?.value || 'exact';
-    return currentStep === MAX_REQUEST_STEPS && getSelectedSubmissionType() === 'online' && locationMode === 'exact';
+    return getSelectedSubmissionType() === 'online' && locationMode === 'exact';
 }
 
 function cancelAutoDeviceLocationDetection() {
@@ -929,7 +922,7 @@ function syncRequestFlowUI() {
     if (surrenderDescriptionField) surrenderDescriptionField.disabled = false;
     syncSubmitButtonState();
 
-    if (currentStep === MAX_REQUEST_STEPS) {
+    if (getSelectedSubmissionType() === 'online' && document.querySelector('input[name="location_mode"]:checked')?.value === 'exact') {
         window.setTimeout(() => ensureRequestMapReady(), 140);
     }
 
@@ -937,36 +930,22 @@ function syncRequestFlowUI() {
 }
 
 function setStep(step) {
-    const previousStep = currentStep;
-    if (previousStep === 1 && step !== 1) {
-        stopCamera({ hideSection: true });
-    }
-    currentStep = step;
+    currentStep = 1;
     stepPanels.forEach((panel) => {
-        panel.hidden = Number(panel.dataset.step) !== step;
+        panel.hidden = false;
     });
 
     stepDots.forEach((dot) => {
-        const dotStep = Number(dot.dataset.stepDot);
-        dot.classList.toggle('active', dotStep === step);
-        dot.classList.toggle('complete', dotStep < step);
+        dot.classList.remove('active', 'complete');
     });
 
-    prevBtn.hidden = step <= 1;
-    nextBtn.hidden = step >= MAX_REQUEST_STEPS;
-    submitBtn.hidden = step !== MAX_REQUEST_STEPS;
+    if (prevBtn) prevBtn.hidden = true;
+    if (nextBtn) nextBtn.hidden = true;
+    if (submitBtn) submitBtn.hidden = false;
     syncRequestFlowUI();
 }
 
 function validateStep(step) {
-    if (step === 1) {
-        return true;
-    }
-
-    if (step === 2) {
-        return validatePhoneField();
-    }
-
     return true;
 }
 
@@ -1037,7 +1016,7 @@ function syncStepOneContent() {
     if (step1Title) step1Title.textContent = 'Add a photo of the dog';
     if (step1Description) {
         step1Description.textContent =
-            'Upload or take a photo of the dog being surrendered. This is optional, but it helps the shelter team prepare.';
+            'Upload or take a photo of the dog being surrendered. This helps the dog catcher or Bayawan Vet prepare for the request.';
     }
     if (step1HelperNote) step1HelperNote.textContent = 'Optional, but recommended.';
     if (uploadActionLabel) uploadActionLabel.textContent = 'Upload Photo';

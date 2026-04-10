@@ -23,32 +23,6 @@
         return (form.dataset.googleClientId || "").trim();
     }
 
-    function getLoginUri(form) {
-        const baseUri = (form.dataset.googleLoginUri || "").trim();
-        if (!baseUri) {
-            return "";
-        }
-        let absoluteBaseUri = baseUri;
-        try {
-            absoluteBaseUri = new URL(baseUri, window.location.href).toString();
-        } catch (error) {
-            absoluteBaseUri = baseUri;
-        }
-        const nextField = form.querySelector("[data-auth-next-field]");
-        const nextValue = nextField ? (nextField.value || "").trim() : "";
-        if (!nextValue) {
-            return absoluteBaseUri;
-        }
-        try {
-            const loginUrl = new URL(absoluteBaseUri);
-            loginUrl.searchParams.set("next", nextValue);
-            return loginUrl.toString();
-        } catch (error) {
-            const separator = absoluteBaseUri.indexOf("?") === -1 ? "?" : "&";
-            return `${absoluteBaseUri}${separator}next=${encodeURIComponent(nextValue)}`;
-        }
-    }
-
     function getCredentialInput(form) {
         return form.querySelector('input[name="google_credential"]');
     }

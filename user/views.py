@@ -18,6 +18,7 @@ import os
 import base64
 import binascii
 import hashlib
+import json
 import re
 import random
 import secrets
@@ -203,9 +204,65 @@ def _build_signup_form_data(*, username="", first_name="", last_name="", raw_bar
     }
 
 
+def _google_client_ids():
+    """Return configured Google OAuth web client IDs as a deduplicated ordered list."""
+    raw_values = []
+    primary = getattr(settings, "GOOGLE_CLIENT_ID", "")
+    if isinstance(primary, (list, tuple)):
+        raw_values.extend(primary)
+    else:
+        raw_values.append(primary)
+
+    extra = getattr(settings, "GOOGLE_CLIENT_IDS", [])
+    if isinstance(extra, str):
+        raw_values.extend(extra.split(","))
+    elif isinstance(extra, (list, tuple)):
+        raw_values.extend(extra)
+
+    result = []
+    seen = set()
+    for raw in raw_values:
+        value = (raw or "").strip()
+        if value and value not in seen:
+            seen.add(value)
+            result.append(value)
+    return result
+
+
+def _primary_google_client_id():
+    """Return the preferred Google client ID used to render GIS buttons."""
+    client_ids = _google_client_ids()
+    return client_ids[0] if client_ids else ""
+
+
+def _peek_google_token_audience(raw_credential):
+    """Best-effort audience extraction used for clearer Google mismatch errors."""
+    token = (raw_credential or "").strip()
+    parts = token.split(".")
+    if len(parts) < 2:
+        return ""
+
+    payload_part = parts[1]
+    payload_part += "=" * ((4 - len(payload_part) % 4) % 4)
+    try:
+        payload_raw = base64.urlsafe_b64decode(payload_part.encode("ascii"))
+        payload = json.loads(payload_raw.decode("utf-8"))
+    except Exception:
+        return ""
+
+    aud = payload.get("aud")
+    if isinstance(aud, list):
+        for value in aud:
+            normalized = (value or "").strip()
+            if normalized:
+                return normalized
+        return ""
+    return (aud or "").strip()
+
+
 def _auth_ui_context():
     """Expose the public auth template flags shared by login and signup views."""
-    google_client_id = (getattr(settings, "GOOGLE_CLIENT_ID", "") or "").strip()
+    google_client_id = _primary_google_client_id()
     facebook_app_id = (getattr(settings, "FACEBOOK_APP_ID", "") or "").strip()
     facebook_app_secret = (getattr(settings, "FACEBOOK_APP_SECRET", "") or "").strip()
     return {
@@ -504,8 +561,8 @@ def _verify_google_identity_credential(
     if not credential:
         raise ValidationError(missing_message)
 
-    google_client_id = (getattr(settings, "GOOGLE_CLIENT_ID", "") or "").strip()
-    if not google_client_id:
+    google_client_ids = _google_client_ids()
+    if not google_client_ids:
         raise ValidationError(config_message)
 
     try:
@@ -518,10 +575,18 @@ def _verify_google_identity_credential(
         google_payload = id_token.verify_oauth2_token(
             credential,
             google_requests.Request(),
-            google_client_id,
+            None,
         )
     except ValueError as exc:
-        raise ValidationError("Google could not verify the selected account. Please try again.") from exc
+        raise ValidationError(
+            "Google could not verify the selected account. Check your GOOGLE_CLIENT_ID Web client value and try again."
+        ) from exc
+
+    token_audience = _peek_google_token_audience(credential)
+    if token_audience and token_audience not in google_client_ids:
+        raise ValidationError(
+            "Google client ID mismatch. Update GOOGLE_CLIENT_ID in your .env to the Web client ID used in Google Cloud."
+        )
 
     if google_payload.get("iss") not in {"accounts.google.com", "https://accounts.google.com"}:
         raise ValidationError("Google could not verify the selected account. Please try again.")

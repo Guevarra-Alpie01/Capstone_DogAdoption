@@ -14,6 +14,7 @@ urlpatterns = [
     # Navigation 1/5: Home
     path('post-list/', views.post_list, name='post_list'),
     path('post-history/', views.post_history, name='post_history'),
+    path('posts/<adminpostid:post_id>/history-record/', views.record_history_status, name='record_history_status'),
     path('create/', views.create_post, name='create_post'),
     path('posts/<adminpostid:post_id>/edit/', views.update_post, name='update_post'),
     path('posts/<adminpostid:post_id>/pin/', views.toggle_post_pin, name='toggle_post_pin'),

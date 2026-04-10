@@ -635,7 +635,6 @@ class UserHomeFeedTests(TestCase):
         )
         self.assertNotContains(response, 'data-auth-modal-trigger="login"', html=False)
 
-<<<<<<< HEAD
     def test_claim_list_renders_deadline_and_detail_action_in_overlay_card(self):
         staff_user = User.objects.create_user(
             username="claimlistoverlaystaff",
@@ -653,7 +652,19 @@ class UserHomeFeedTests(TestCase):
             claim_days=3,
         )
         claim_deadline_label = timezone.localtime(post.claim_deadline()).strftime("%b %d, %Y")
-=======
+
+        response = self.client.get(reverse("user:claim_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "View Details")
+        self.assertContains(
+            response,
+            f'href="{reverse("user:post_detail", args=[post.id])}"',
+            html=False,
+        )
+        self.assertContains(response, "Claim Ends")
+        self.assertContains(response, claim_deadline_label)
+
     def test_claim_list_shows_reserve_adoption_button_for_claim_phase_posts(self):
         staff_user = User.objects.create_user(
             username="claimlistreservestaff",
@@ -671,28 +682,16 @@ class UserHomeFeedTests(TestCase):
             claim_days=3,
         )
         self.client.force_login(member)
->>>>>>> f9e65bd575c46d5751b57e605847f8ae52ddc5a6
 
         response = self.client.get(reverse("user:claim_list"))
 
         self.assertEqual(response.status_code, 200)
-<<<<<<< HEAD
-        self.assertContains(response, "View Details")
-        self.assertContains(
-            response,
-            f'href="{reverse("user:post_detail", args=[post.id])}"',
-            html=False,
-        )
-        self.assertContains(response, "Claim Ends")
-        self.assertContains(response, claim_deadline_label)
-=======
         self.assertContains(response, "Reserve Adoption")
         self.assertContains(
             response,
             f'href="{reverse("user:adopt_confirm", args=[post.id])}"',
             html=False,
         )
->>>>>>> f9e65bd575c46d5751b57e605847f8ae52ddc5a6
 
     def test_adopt_list_defaults_to_adoption_phase_in_rescue_finder(self):
         staff_user = User.objects.create_user(

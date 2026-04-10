@@ -175,6 +175,22 @@
                         Google signup is not configured yet. Add <code>GOOGLE_CLIENT_ID</code> to enable account creation.
                     </p>
                     {% endif %}
+
+                    {% if facebook_auth_enabled %}
+                    <div class="auth-social-stack auth-social-stack--signup">
+                        <a
+                            href="{% url 'user:facebook_auth_start' %}?mode=signup{% if auth_next %}&next={{ auth_next|urlencode }}{% endif %}"
+                            class="auth-social-btn auth-social-btn--facebook"
+                        >
+                            <i class="bi bi-facebook" aria-hidden="true"></i>
+                            <span>Continue with Facebook</span>
+                        </a>
+                    </div>
+                    {% else %}
+                    <p class="auth-inline-alert auth-inline-alert--static" role="alert">
+                        Facebook signup is not configured yet. Add <code>FACEBOOK_APP_ID</code> and <code>FACEBOOK_APP_SECRET</code> to enable it.
+                    </p>
+                    {% endif %}
                 </form>
 
                 <div class="auth-footer">

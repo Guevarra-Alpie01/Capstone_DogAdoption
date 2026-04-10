@@ -6,7 +6,7 @@ from django.contrib.auth.validators import ASCIIUsernameValidator
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.models import User
@@ -17,6 +17,7 @@ import os
 import base64
 import binascii
 import hashlib
+import re
 import random
 import secrets
 import shutil
@@ -37,6 +38,8 @@ from django.utils.http import (
 from django.templatetags.static import static
 from django.utils.html import strip_tags
 from urllib.parse import urlencode
+import math
+import requests
 
 # Shared models from the admin app
 from dogadoption_admin.access import get_staff_landing_url
@@ -90,10 +93,10 @@ HOME_FEED_SESSION_TOKEN_KEY = "user_home_feed_token"
 BARANGAY_API_DEFAULT_LIMIT = 200
 BARANGAY_API_MAX_LIMIT = 200
 DEFAULT_REQUEST_CITY = "Bayawan City"
+DOG_CAPTURE_MAX_ACCEPTABLE_GPS_ACCURACY_METERS = 1000
 ADMIN_POST_HISTORY_CACHE_KEY = "dogadoption_admin_post_history_ids_v1"
 DOG_SURRENDER_REQUEST_TYPE = "surrender"
 DOG_ONLINE_SUBMISSION_TYPE = "online"
-DOG_EXACT_GPS_MAX_ACCURACY_METERS = 100
 PHILIPPINES_COUNTRY_CODE = "+63"
 SIGNUP_USERNAME_MIN_LENGTH = 3
 SIGNUP_USERNAME_MAX_LENGTH = User._meta.get_field("username").max_length
@@ -103,6 +106,8 @@ RESCUE_FINDER_RECOMMENDATION_LIMIT = 4
 HOME_FEATURED_CAROUSEL_LIMIT = 5
 HOME_SPOTLIGHT_DISPLAY_LIMIT = 4
 HOME_SPOTLIGHT_URGENCY_THRESHOLD_SECONDS = 24 * 60 * 60
+FACEBOOK_OAUTH_SESSION_KEY = "facebook_oauth_state"
+FACEBOOK_SIGNUP_SESSION_KEY = "facebook_signup_data"
 
 
 def _safe_media_url(file_field):
@@ -134,6 +139,17 @@ def _build_user_profile_url(user_id, *, next_url="", back_label="Back"):
     if not query_params:
         return profile_url
     return f"{profile_url}?{urlencode(query_params)}"
+
+
+def _parse_gps_accuracy_meters(raw_value):
+    """Return a positive numeric GPS accuracy in meters, or None."""
+    try:
+        accuracy = float((raw_value or "").strip())
+    except (AttributeError, TypeError, ValueError):
+        return None
+    if not math.isfinite(accuracy) or accuracy <= 0:
+        return None
+    return accuracy
 
 
 def _build_profile_destination_url(request, user_id, *, next_url="", back_label="Back"):
@@ -188,10 +204,103 @@ def _build_signup_form_data(*, username="", first_name="", last_name="", raw_bar
 def _auth_ui_context():
     """Expose the public auth template flags shared by login and signup views."""
     google_client_id = (getattr(settings, "GOOGLE_CLIENT_ID", "") or "").strip()
+    facebook_app_id = (getattr(settings, "FACEBOOK_APP_ID", "") or "").strip()
+    facebook_app_secret = (getattr(settings, "FACEBOOK_APP_SECRET", "") or "").strip()
     return {
         "google_signup_enabled": bool(google_client_id),
         "google_client_id": google_client_id,
+        "facebook_auth_enabled": bool(facebook_app_id and facebook_app_secret),
+        "facebook_app_id": facebook_app_id,
     }
+
+
+def _facebook_oauth_config():
+    """Return the Facebook OAuth settings used by the social auth flow."""
+    app_id = (getattr(settings, "FACEBOOK_APP_ID", "") or "").strip()
+    app_secret = (getattr(settings, "FACEBOOK_APP_SECRET", "") or "").strip()
+    api_version = (getattr(settings, "FACEBOOK_GRAPH_API_VERSION", "") or "v20.0").strip() or "v20.0"
+    return {
+        "enabled": bool(app_id and app_secret),
+        "app_id": app_id,
+        "app_secret": app_secret,
+        "api_version": api_version,
+    }
+
+
+def _build_facebook_signup_username(*, email="", first_name="", last_name="", social_id=""):
+    """Suggest a safe username when Facebook pre-fills a signup form."""
+    candidates = [
+        (email or "").split("@", 1)[0],
+        f"{first_name}.{last_name}".strip("."),
+        f"{first_name}{last_name}",
+        social_id,
+    ]
+    for candidate in candidates:
+        candidate = re.sub(r"[^A-Za-z0-9.@_+-]+", "", (candidate or "").strip())
+        candidate = candidate.strip(".@_+-")
+        if len(candidate) >= SIGNUP_USERNAME_MIN_LENGTH:
+            return candidate[:SIGNUP_USERNAME_MAX_LENGTH]
+    fallback = f"facebook_{(social_id or secrets.token_hex(4))[:10]}"
+    return fallback[:SIGNUP_USERNAME_MAX_LENGTH]
+
+
+def _facebook_oauth_redirect_uri(request):
+    """Build the absolute redirect URI used for Facebook callbacks."""
+    return request.build_absolute_uri(reverse("user:facebook_auth_callback"))
+
+
+def _store_facebook_signup_payload(request, payload, *, next_url=""):
+    """Persist Facebook identity data so the signup page can prefill fields."""
+    signup_data = {
+        "email": payload.get("email", ""),
+        "facebook_id": payload.get("facebook_id", ""),
+        "first_name": payload.get("first_name", ""),
+        "last_name": payload.get("last_name", ""),
+        "full_name": payload.get("full_name", ""),
+        "username": payload.get("username", ""),
+    }
+    request.session[FACEBOOK_SIGNUP_SESSION_KEY] = signup_data
+    if next_url:
+        request.session[FACEBOOK_OAUTH_SESSION_KEY] = {
+            "mode": "signup",
+            "next": next_url,
+        }
+    request.session.modified = True
+
+
+def _clear_facebook_oauth_session(request):
+    """Remove temporary Facebook auth data from the session."""
+    request.session.pop(FACEBOOK_OAUTH_SESSION_KEY, None)
+    request.session.pop(FACEBOOK_SIGNUP_SESSION_KEY, None)
+
+
+def _facebook_start_error_redirect(request, mode, message):
+    """Redirect back to the appropriate auth page with a visible error."""
+    messages.error(request, message)
+    if mode == "signup":
+        return redirect("user:signup")
+    return redirect("user:login")
+
+
+def _merge_facebook_signup_data(request, signup_form_data=None):
+    """Prefill signup fields from the most recent Facebook auth callback."""
+    facebook_signup_data = request.session.get(FACEBOOK_SIGNUP_SESSION_KEY) or {}
+    merged = {
+        "username": facebook_signup_data.get("username", ""),
+        "first_name": facebook_signup_data.get("first_name", ""),
+        "last_name": facebook_signup_data.get("last_name", ""),
+        "address": "",
+    }
+    if signup_form_data:
+        merged.update(signup_form_data)
+    return merged
+
+
+def _facebook_api_get(url, **kwargs):
+    """Perform a small authenticated Facebook API request."""
+    response = requests.get(url, timeout=12, **kwargs)
+    response.raise_for_status()
+    return response
 
 
 def _render_signup_error(request, signup_form_data, message):
@@ -229,12 +338,13 @@ def _render_login_page(request, *, error="", login_form_data=None, next_url=""):
 
 def _render_signup_page(request, *, error="", signup_form_data=None, next_url=""):
     """Render the dedicated signup page used for standalone auth flows."""
+    merged_form_data = _merge_facebook_signup_data(request, signup_form_data)
     return render(
         request,
         "signup.html",
         {
             "error": error,
-            "signup_form_data": signup_form_data or {},
+            "signup_form_data": merged_form_data,
             "auth_next": next_url,
             **_auth_ui_context(),
         },
@@ -362,6 +472,100 @@ def _verify_google_signup_credential(raw_credential):
         "sub": google_sub,
         "given_name": (google_payload.get("given_name") or "").strip(),
         "family_name": (google_payload.get("family_name") or "").strip(),
+    }
+
+
+def _build_facebook_auth_url(request, *, mode="login", next_url=""):
+    """Create the Facebook authorization URL for the selected auth mode."""
+    config = _facebook_oauth_config()
+    if not config["enabled"]:
+        return ""
+
+    state = secrets.token_urlsafe(24)
+    request.session[FACEBOOK_OAUTH_SESSION_KEY] = {
+        "state": state,
+        "mode": mode,
+        "next": next_url,
+    }
+    request.session.modified = True
+
+    auth_params = {
+        "client_id": config["app_id"],
+        "redirect_uri": _facebook_oauth_redirect_uri(request),
+        "state": state,
+        "response_type": "code",
+        "scope": "email,public_profile",
+    }
+    return (
+        f"https://www.facebook.com/{config['api_version']}/dialog/oauth?"
+        f"{urlencode(auth_params)}"
+    )
+
+
+def _facebook_auth_login_redirect(request, mode, next_url):
+    """Start the Facebook auth flow or show a helpful error if missing config."""
+    auth_url = _build_facebook_auth_url(request, mode=mode, next_url=next_url)
+    if not auth_url:
+        return _facebook_start_error_redirect(
+            request,
+            mode,
+            "Facebook sign-in is not configured yet. Please contact the administrator.",
+        )
+    return redirect(auth_url)
+
+
+def _facebook_exchange_code(request, code):
+    """Exchange a Facebook auth code for an access token."""
+    config = _facebook_oauth_config()
+    token_url = f"https://graph.facebook.com/{config['api_version']}/oauth/access_token"
+    response = _facebook_api_get(
+        token_url,
+        params={
+            "client_id": config["app_id"],
+            "client_secret": config["app_secret"],
+            "redirect_uri": _facebook_oauth_redirect_uri(request),
+            "code": code,
+        },
+    )
+    payload = response.json()
+    access_token = (payload.get("access_token") or "").strip()
+    if not access_token:
+        raise ValidationError("Facebook did not return an access token. Please try again.")
+    return access_token
+
+
+def _facebook_fetch_profile(access_token):
+    """Fetch the Facebook user identity used for signup/login matching."""
+    config = _facebook_oauth_config()
+    me_url = f"https://graph.facebook.com/{config['api_version']}/me"
+    response = _facebook_api_get(
+        me_url,
+        params={
+            "fields": "id,first_name,last_name,name,email",
+            "access_token": access_token,
+        },
+    )
+    profile = response.json()
+    email = _normalize_signup_email(profile.get("email"))
+    if not email:
+        raise ValidationError("Your Facebook account did not return an email address.")
+
+    first_name = (profile.get("first_name") or "").strip()
+    last_name = (profile.get("last_name") or "").strip()
+    full_name = (profile.get("name") or "").strip()
+    facebook_id = (profile.get("id") or "").strip()
+    return {
+        "email": email,
+        "facebook_id": facebook_id,
+        "first_name": first_name,
+        "last_name": last_name,
+        "full_name": full_name,
+        "username": _build_facebook_signup_username(
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            social_id=facebook_id,
+        ),
     }
 
 
@@ -946,6 +1150,118 @@ def login_view(request):
     return _render_login_page(request, next_url=next_url)
 
 
+@require_http_methods(["GET"])
+def facebook_auth_start(request):
+    """Begin the Facebook OAuth flow for either login or signup."""
+    mode = (request.GET.get("mode") or "login").strip().lower()
+    if mode not in {"login", "signup"}:
+        mode = "login"
+
+    next_url = _get_safe_next_url(request, request.GET.get("next"))
+    return _facebook_auth_login_redirect(request, mode, next_url)
+
+
+@require_http_methods(["GET"])
+def facebook_auth_callback(request):
+    """Handle the Facebook OAuth callback and route the user appropriately."""
+    oauth_state = request.session.get(FACEBOOK_OAUTH_SESSION_KEY) or {}
+    expected_state = (oauth_state.get("state") or "").strip()
+    mode = (oauth_state.get("mode") or "login").strip().lower()
+    next_url = _get_safe_next_url(request, oauth_state.get("next") or request.GET.get("next"))
+
+    if request.GET.get("error"):
+        _clear_facebook_oauth_session(request)
+        return _facebook_start_error_redirect(
+            request,
+            mode,
+            "Facebook login was cancelled or could not be completed.",
+        )
+
+    code = (request.GET.get("code") or "").strip()
+    state = (request.GET.get("state") or "").strip()
+    if not code or not state or not expected_state or state != expected_state:
+        _clear_facebook_oauth_session(request)
+        return _facebook_start_error_redirect(
+            request,
+            mode,
+            "Facebook could not verify the sign-in request. Please try again.",
+        )
+
+    config = _facebook_oauth_config()
+    if not config["enabled"]:
+        _clear_facebook_oauth_session(request)
+        return _facebook_start_error_redirect(
+            request,
+            mode,
+            "Facebook sign-in is not configured yet. Please contact the administrator.",
+        )
+
+    try:
+        access_token = _facebook_exchange_code(request, code)
+        facebook_profile = _facebook_fetch_profile(access_token)
+    except ValidationError as exc:
+        _clear_facebook_oauth_session(request)
+        return _facebook_start_error_redirect(request, mode, " ".join(exc.messages))
+    except Exception:
+        _clear_facebook_oauth_session(request)
+        return _facebook_start_error_redirect(
+            request,
+            mode,
+            "We couldn't reach Facebook right now. Please try again later.",
+        )
+
+    facebook_email = facebook_profile["email"]
+    existing_user = (
+        User.objects.select_related("profile")
+        .filter(email__iexact=facebook_email)
+        .order_by("id")
+        .first()
+    )
+
+    if existing_user:
+        profile, _ = Profile.objects.get_or_create(
+            user=existing_user,
+            defaults={
+                "address": "",
+                "age": 18,
+                "consent_given": True,
+                "email_verified": True,
+            },
+        )
+        profile_updates = []
+        if not profile.email_verified:
+            profile.email_verified = True
+            profile_updates.append("email_verified")
+        if profile_updates:
+            profile.save(update_fields=profile_updates)
+
+        user_updates = []
+        if not existing_user.is_active:
+            existing_user.is_active = True
+            user_updates.append("is_active")
+        if user_updates:
+            existing_user.save(update_fields=user_updates)
+
+        login(request, existing_user)
+        _clear_facebook_oauth_session(request)
+        messages.success(request, "Signed in with Facebook.")
+        if next_url:
+            return redirect(next_url)
+        if existing_user.is_staff:
+            return redirect(get_staff_landing_url(existing_user))
+        return redirect("user:user_home")
+
+    _store_facebook_signup_payload(request, facebook_profile, next_url=next_url)
+    messages.info(
+        request,
+        "We found your Facebook account. Please finish creating your account with a username and password.",
+    )
+    signup_url = reverse("user:signup")
+    if next_url:
+        signup_url = f"{signup_url}?{urlencode({'next': next_url})}"
+    return redirect(signup_url)
+
+
 @require_POST
 def logout_view(request):
     """Log out the current session and clear any admin session cookie."""
@@ -1076,17 +1392,6 @@ def _resolve_barangay_name(value):
             ACTIVE_BARANGAY_LOOKUP_CACHE_TTL_SECONDS,
         )
     return lookup.get(normalized, "")
-
-
-def _parse_gps_accuracy_meters(value):
-    raw_value = (value or "").strip()
-    if not raw_value:
-        return None
-    try:
-        accuracy = float(raw_value)
-    except (TypeError, ValueError):
-        return None
-    return accuracy if accuracy > 0 else None
 
 
 def _ensure_default_profile_image_exists():
@@ -1335,14 +1640,13 @@ def _rescue_finder_title(post):
     return " ".join((post.display_title or "Dog Listing").split())
 
 
-def _build_rescue_finder_card_item(post, phase_payload, match_score):
+def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
     phase = phase_payload["phase"]
     days = phase_payload["days_left"]
     hours = phase_payload["hours_left"]
     minutes = phase_payload["minutes_left"]
     is_pending_review = phase_payload["is_pending_review"]
     pending_review_until_label = phase_payload["pending_review_until_label"]
-    phase_title = "Ready for Claim" if phase == "claim" else "Ready for Adoption"
     location_label = " ".join((post.location or "").split()) or "Location not listed"
     countdown_deadline = (
         phase_payload["pending_review_until"]
@@ -1363,6 +1667,10 @@ def _build_rescue_finder_card_item(post, phase_payload, match_score):
         if is_pending_review and pending_review_until_label
         else ""
     )
+    phase_title = "Ready for Claim" if phase == "claim" else "Ready for Adoption"
+    if is_pending_review:
+        phase_title = "Claim Pending Review" if phase == "claim" else "Adoption Pending Review"
+    share_url = request.build_absolute_uri(reverse("user:post_detail", args=[post.id]))
     action_url = (
         reverse("user:claim_confirm", args=[post.id])
         if phase == "claim"
@@ -1408,6 +1716,7 @@ def _build_rescue_finder_card_item(post, phase_payload, match_score):
                 else "Date pending"
             )
         ),
+        "share_url": share_url,
         "match_score": match_score,
         "is_pending_review": is_pending_review,
         "show_countdown": not is_pending_review,
@@ -1578,6 +1887,7 @@ def _build_public_post_listing(request, listing_mode):
         match_score = _rescue_finder_match_score(post, selected_filters)
         candidate_items.append(
             _build_rescue_finder_card_item(
+                request,
                 post,
                 phase_payload,
                 match_score,
@@ -1679,7 +1989,7 @@ def _build_public_post_listing(request, listing_mode):
     }
 
 
-def _build_home_featured_rescue_sections():
+def _build_home_featured_rescue_sections(request):
     raw_open_posts = list(
         _base_public_post_queryset()
         .filter(status__in=["rescued", "under_care"])
@@ -1693,7 +2003,7 @@ def _build_home_featured_rescue_sections():
         if phase not in section_items or len(section_items[phase]) >= HOME_FEATURED_CAROUSEL_LIMIT:
             continue
 
-        card_item = _build_rescue_finder_card_item(post, phase_payload, 0)
+        card_item = _build_rescue_finder_card_item(request, post, phase_payload, 0)
         card_item.update({
             "home_action_url": f'{card_item["action_url"]}?return_to=home',
             "barangay_label": card_item["location_label"],
@@ -1785,9 +2095,9 @@ def _home_spotlight_pick_auto_pairs(candidate_pairs, limit):
     return _home_spotlight_random_fill(candidate_pairs, limit)
 
 
-def _build_home_spotlight_card(post, phase_payload, *, is_auto_highlighted=False):
+def _build_home_spotlight_card(request, post, phase_payload, *, is_auto_highlighted=False):
     phase = phase_payload["phase"]
-    card_item = _build_rescue_finder_card_item(post, phase_payload, 0)
+    card_item = _build_rescue_finder_card_item(request, post, phase_payload, 0)
     countdown_deadline = (
         phase_payload["pending_review_until"]
         if phase_payload["is_pending_review"]
@@ -1841,6 +2151,7 @@ def _build_home_spotlight_card(post, phase_payload, *, is_auto_highlighted=False
         "title": card_item["title"] or f"Rescue Dog #{post.id}",
         "detail_url": reverse("user:post_detail", args=[post.id]),
         "main_image_url": card_item["main_image_url"],
+        "share_url": card_item["share_url"],
         "image_alt": f'{card_item["title"] or "Pinned rescue"} dog photo',
         "phase": phase,
         "phase_title": card_item["phase_title"],
@@ -1893,7 +2204,7 @@ def _build_home_spotlight_card(post, phase_payload, *, is_auto_highlighted=False
     }
 
 
-def _build_home_pinned_rescue_spotlights():
+def _build_home_pinned_rescue_spotlights(request):
     pinned_posts = list(
         _base_public_post_queryset()
         .filter(is_pinned=True, status__in=["rescued", "under_care"])
@@ -1907,7 +2218,7 @@ def _build_home_pinned_rescue_spotlights():
             phase = phase_payload["phase"]
             if phase not in {"claim", "adopt"}:
                 continue
-            spotlight_items.append(_build_home_spotlight_card(post, phase_payload))
+            spotlight_items.append(_build_home_spotlight_card(request, post, phase_payload))
     remaining_slots = HOME_SPOTLIGHT_DISPLAY_LIMIT - len(spotlight_items)
     if remaining_slots > 0:
         fallback_candidates = list(
@@ -1926,6 +2237,7 @@ def _build_home_pinned_rescue_spotlights():
             for post, phase_payload in _home_spotlight_pick_auto_pairs(candidate_pairs, remaining_slots):
                 spotlight_items.append(
                     _build_home_spotlight_card(
+                        request,
                         post,
                         phase_payload,
                         is_auto_highlighted=True,
@@ -2837,18 +3149,35 @@ def signup_view(request):
                 "First name and last name are required.",
             )
 
-        try:
-            google_account = _verify_google_signup_credential(request.POST.get("google_credential"))
-        except ValidationError as exc:
-            return _render_signup_error(request, signup_form_data, " ".join(exc.messages))
+        facebook_signup_data = request.session.get(FACEBOOK_SIGNUP_SESSION_KEY) or {}
+        google_account = None
+        if facebook_signup_data:
+            social_email = _normalize_signup_email(facebook_signup_data.get("email"))
+            if not social_email:
+                return _render_signup_error(
+                    request,
+                    signup_form_data,
+                    "Facebook did not provide a usable email address. Please try again.",
+                )
+            if User.objects.filter(email__iexact=social_email).exists():
+                return _render_signup_error(
+                    request,
+                    signup_form_data,
+                    "An account already exists with this Facebook email address.",
+                )
+        else:
+            try:
+                google_account = _verify_google_signup_credential(request.POST.get("google_credential"))
+            except ValidationError as exc:
+                return _render_signup_error(request, signup_form_data, " ".join(exc.messages))
 
-        google_email = google_account["email"]
-        if User.objects.filter(email__iexact=google_email).exists():
-            return _render_signup_error(
-                request,
-                signup_form_data,
-                "An account already exists with this Google email address.",
-            )
+            social_email = google_account["email"]
+            if User.objects.filter(email__iexact=social_email).exists():
+                return _render_signup_error(
+                    request,
+                    signup_form_data,
+                    "An account already exists with this Google email address.",
+                )
 
         try:
             with transaction.atomic():
@@ -2857,7 +3186,7 @@ def signup_view(request):
                     password=password,
                     first_name=first_name,
                     last_name=last_name,
-                    email=google_email,
+                    email=social_email,
                     is_active=False,
                 )
 
@@ -2877,6 +3206,7 @@ def signup_view(request):
                     raise RuntimeError(
                         "We couldn't send the verification email. Please try again later."
                     ) from exc
+                _clear_facebook_oauth_session(request)
         except IntegrityError:
             return _render_signup_error(
                 request,
@@ -2892,7 +3222,7 @@ def signup_view(request):
 
         messages.success(
             request,
-            f"Account created for {google_email}. Check your email to verify your account before logging in.",
+            f"Account created for {social_email}. Check your email to verify your account before logging in.",
         )
         login_url = reverse("user:login")
         if next_url:
@@ -3079,8 +3409,8 @@ def _build_user_home_context(
 
     return {
         "posts": combined_posts,
-        **_build_home_pinned_rescue_spotlights(),
-        "featured_dog_sections": _build_home_featured_rescue_sections(),
+        **_build_home_pinned_rescue_spotlights(request),
+        "featured_dog_sections": _build_home_featured_rescue_sections(request),
         "vaccination_reminder_summary": (
             build_user_vaccination_reminder_summary(request.user)
             if request.user.is_authenticated and not request.user.is_staff
@@ -3340,8 +3670,46 @@ def delete_missing_dog_post(request, post_id):
 
 def post_detail(request, post_id):
     """Render a post detail page used by shared or linked home posts."""
-    post = get_object_or_404(Post, id=post_id)
-    return render(request, 'home/post_detail.html', {'post': post})
+    post = get_object_or_404(
+        Post.with_pending_request_state(
+            Post.objects.filter(is_history=False).prefetch_related("images")
+        ),
+        id=post_id,
+    )
+    Post.objects.filter(id=post.id).update(view_count=F("view_count") + 1)
+    post.view_count = int(getattr(post, "view_count", 0) or 0) + 1
+    phase_payload = _post_phase_payload(post)
+    card_item = _build_rescue_finder_card_item(request, post, phase_payload, 0)
+    back_url = _safe_preview_back_url(request, request.GET.get("next", "")) or reverse("user:user_home")
+    back_label = (request.GET.get("label") or "Back to feed").strip()[:48] or "Back to feed"
+    summary = " ".join(strip_tags(post.caption or "").split())
+    if summary in {"", card_item["title"], card_item["breed_label"]}:
+        summary = ""
+
+    detail = {
+        **card_item,
+        "theme": phase_payload["phase"] if phase_payload["phase"] in {"claim", "adopt"} else "closed",
+        "summary": summary,
+        "facts": [
+            {"label": "Breed", "value": card_item["breed_label"]},
+            {"label": "Location", "value": card_item["location_label"]},
+            {"label": "Age", "value": card_item["age_label"]},
+            {"label": "Size", "value": card_item["size_label"]},
+            {"label": "Gender", "value": card_item["gender_label"]},
+            {"label": "Coat", "value": card_item["coat_label"]},
+            {"label": "Color", "value": card_item["color_label"]},
+            {
+                "label": card_item["countdown_date_heading"],
+                "value": card_item["countdown_date_label"],
+            },
+        ],
+    }
+    return render(request, 'home/post_detail.html', {
+        'post': post,
+        'detail': detail,
+        'back_url': back_url,
+        'back_label': back_label,
+    })
 
 
 # =============================================================================
@@ -3459,7 +3827,7 @@ def _build_dog_capture_request_page_context(request):
             'captured_total': 0,
             'active_status_tab': active_status_tab,
             'default_manual_city': DEFAULT_REQUEST_CITY,
-            'exact_gps_max_accuracy_meters': DOG_EXACT_GPS_MAX_ACCURACY_METERS,
+            'manual_barangays': BAYAWAN_BARANGAYS,
         }
 
     status_totals = {
@@ -3497,7 +3865,7 @@ def _build_dog_capture_request_page_context(request):
         'captured_total': status_totals.get("captured", 0),
         'active_status_tab': active_status_tab,
         'default_manual_city': DEFAULT_REQUEST_CITY,
-        'exact_gps_max_accuracy_meters': DOG_EXACT_GPS_MAX_ACCURACY_METERS,
+        'manual_barangays': BAYAWAN_BARANGAYS,
     }
 
 
@@ -3525,7 +3893,8 @@ def _handle_dog_capture_request_submission(request):
     description = (request.POST.get('description') or '').strip()
     latitude_raw = (request.POST.get('latitude') or '').strip()
     longitude_raw = (request.POST.get('longitude') or '').strip()
-    gps_accuracy_meters = _parse_gps_accuracy_meters(request.POST.get('gps_accuracy'))
+    gps_accuracy_raw = (request.POST.get('gps_accuracy') or '').strip()
+    gps_accuracy_meters = _parse_gps_accuracy_meters(gps_accuracy_raw)
     submission_type = DOG_ONLINE_SUBMISSION_TYPE
 
     location_mode = (request.POST.get('location_mode') or 'exact').strip().lower()
@@ -3549,18 +3918,7 @@ def _handle_dog_capture_request_submission(request):
         longitude_value = None
     elif submission_type == 'online':
         if not latitude_raw or not longitude_raw:
-            messages.error(request, "Please capture your exact GPS location first.")
-            return _dog_capture_request_redirect()
-        if gps_accuracy_meters is None:
-            messages.error(request, "Please capture a fresh exact GPS location before submitting this request.")
-            return _dog_capture_request_redirect()
-        if gps_accuracy_meters > DOG_EXACT_GPS_MAX_ACCURACY_METERS:
-            messages.error(
-                request,
-                f"Your GPS pin is only accurate within about {round(gps_accuracy_meters)} meters. "
-                f"Please capture your exact GPS location again until it is {DOG_EXACT_GPS_MAX_ACCURACY_METERS} meters or better, "
-                "or switch to manual barangay selection.",
-            )
+            messages.error(request, 'Please use "Locate My Location" first, or switch to manual barangay selection.')
             return _dog_capture_request_redirect()
         try:
             latitude_val = float(latitude_raw)
@@ -3571,6 +3929,20 @@ def _handle_dog_capture_request_submission(request):
 
         if not (-90 <= latitude_val <= 90 and -180 <= longitude_val <= 180):
             messages.error(request, "Coordinates are out of valid range.")
+            return _dog_capture_request_redirect()
+
+        if gps_accuracy_meters is None:
+            messages.error(
+                request,
+                'We could not verify the precision of your browser location. Please tap "Locate My Location" again or switch to manual barangay selection.',
+            )
+            return _dog_capture_request_redirect()
+
+        if gps_accuracy_meters > DOG_CAPTURE_MAX_ACCEPTABLE_GPS_ACCURACY_METERS:
+            messages.error(
+                request,
+                f'Your browser location is too coarse ({round(gps_accuracy_meters)} meters). Please turn on precise location/GPS, then tap "Locate My Location" again, or switch to manual barangay selection.',
+            )
             return _dog_capture_request_redirect()
 
         latitude_value = f"{latitude_val:.6f}"

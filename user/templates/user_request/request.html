@@ -16,6 +16,10 @@
         <div class="request-hero">
             <div class="request-hero-copy">
                 <span class="request-eyebrow">Dog Surrender Form</span>
+                <p class="request-hero-text">
+                    Request assistance from the dog catcher or Bayawan Vet when surrendering a dog.
+                    Fill it out once with the photo, contact number, and location details.
+                </p>
             </div>
             <div class="request-hero-side">
                 <button
@@ -66,10 +70,9 @@
                         <i class="bi bi-camera-fill" aria-hidden="true"></i>
                     </div>
                     <div>
-                        <p class="step-kicker">Step 1</p>
                         <h3 id="step1Title">Add a photo of the dog</h3>
                         <p class="step-description" id="step1Description">
-                            Upload or take a photo of the dog being surrendered. This is optional, but it helps the shelter team prepare.
+                            Upload or take a photo of the dog being surrendered. This helps the dog catcher or Bayawan Vet prepare for the request.
                         </p>
                     </div>
                 </div>
@@ -94,28 +97,34 @@
                     <div class="camera-preview-shell">
                         <video id="video" class="camera-preview" autoplay playsinline muted></video>
                         <div class="camera-preview-overlay" aria-hidden="true">
-                            <span>Keep the dog centered in the frame</span>
+                            <span class="camera-focus-reticle"></span>
                         </div>
+                        <button type="button" class="btn-secondary camera-floating-close" id="stopCameraBtn" disabled aria-label="Close Camera">
+                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        </button>
                     </div>
                     <p id="cameraStatus" class="helper-text camera-status" aria-live="polite">
                         Rear camera selected. Open camera to begin.
                     </p>
                     <div class="camera-action-grid">
-                        <button type="button" class="btn-primary" id="startCameraBtn">
-                            <i class="bi bi-play-circle" aria-hidden="true"></i>
-                            <span>Open Camera</span>
+                        <button type="button" class="btn-primary camera-control-btn camera-control-btn--start" id="startCameraBtn">
+                            <span class="camera-control-icon" aria-hidden="true">
+                                <i class="bi bi-camera-fill"></i>
+                            </span>
+                            <span class="camera-control-label">Open Camera</span>
                         </button>
-                        <button type="button" class="btn-secondary" id="switchCameraBtn">
-                            <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
-                            <span>Use Front Camera</span>
+                        <button type="button" class="btn-primary camera-control-btn camera-control-btn--capture" id="captureBtn" disabled>
+                            <span class="camera-capture-shutter" aria-hidden="true">
+                                <span class="camera-capture-shutter-ring"></span>
+                                <i class="bi bi-camera-fill"></i>
+                            </span>
+                            <span class="camera-control-label">Capture Photo</span>
                         </button>
-                        <button type="button" class="btn-secondary" id="stopCameraBtn" disabled>
-                            <i class="bi bi-x-circle" aria-hidden="true"></i>
-                            <span>Close Camera</span>
-                        </button>
-                        <button type="button" class="btn-primary" id="captureBtn" disabled>
-                            <i class="bi bi-camera" aria-hidden="true"></i>
-                            <span>Capture Photo</span>
+                        <button type="button" class="btn-secondary camera-control-btn camera-control-btn--switch" id="switchCameraBtn">
+                            <span class="camera-control-icon" aria-hidden="true">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </span>
+                            <span class="camera-control-label">Use Front Camera</span>
                         </button>
                     </div>
                     <canvas id="canvas" class="photo-input-hidden" aria-hidden="true"></canvas>
@@ -127,18 +136,16 @@
                     <div id="photoSummaryList" class="photo-summary-list"></div>
                 </div>
             </div>
-            {% comment %}
-
-                                <small>Submit online and share the dog’s location so the dog catcher can be dispatched.</small>
-            {% endcomment %}
-            <div class="step-panel" data-step="2" hidden>
+            <div class="step-panel" data-step="2">
                 <div class="step-panel-header">
                     <div class="step-panel-icon">
                         <i class="bi bi-ui-checks-grid" aria-hidden="true"></i>
                     </div>
                     <div>
-                        <p class="step-kicker">Step 2</p>
                         <h3>Contact information and request details</h3>
+                        <p class="step-description">
+                            Share the contact and location details needed to help Bayawan Vet or the dog catcher respond to the surrender request.
+                        </p>
                     </div>
                 </div>
 
@@ -172,7 +179,6 @@
                             <span class="location-mode-icon"><i class="bi bi-crosshair" aria-hidden="true"></i></span>
                             <span class="location-mode-copy">
                                 <strong>GPS Location Tracking</strong>
-                                <small>Automatically detect the reported area.</small>
                             </span>
                         </label>
                         <label class="location-mode-card">
@@ -180,24 +186,22 @@
                             <span class="location-mode-icon"><i class="bi bi-house-door-fill" aria-hidden="true"></i></span>
                             <span class="location-mode-copy">
                                 <strong>Manual Barangay Selection</strong>
-                                <small>Use this if GPS is unavailable.</small>
                             </span>
                         </label>
                     </div>
 
                     <div id="exactLocationBox" class="location-card">
-                        <div class="location-card-head">
-                            <div>
-                                <h4>Exact device location</h4>
-                                <p>We will detect the device location automatically. Keep GPS or Precise Location turned on for the most accurate pin.</p>
-                            </div>
+                        <p class="location-card-instruction">
+                            Press the button below the map to use your browser location. It will try a saved browser fix first, then refresh if needed.
+                        </p>
+                        <div id="requestMap"></div>
+                        <div class="location-action-row">
                             <button type="button" class="btn-secondary" id="getLocationBtn">
                                 <i class="bi bi-crosshair2" aria-hidden="true"></i>
-                                <span>Refresh Device Location</span>
+                                <span>Locate My Location</span>
                             </button>
                         </div>
-                        <p id="gpsStatus" class="helper-text">Device location will be detected automatically.</p>
-                        <div id="requestMap"></div>
+                        <p id="gpsStatus" class="helper-text location-status">No location selected yet.</p>
                         <input type="hidden" name="latitude" id="latitude">
                         <input type="hidden" name="longitude" id="longitude">
                         <input type="hidden" name="city" id="cityField" value="{{ default_manual_city }}">
@@ -219,30 +223,28 @@
                                         placeholder="Optional: Purok 3, Sitio Riverside, near the barangay hall"
                                     ></textarea>
                                 </div>
-                                <small class="helper-text">Optional, but helpful when the dog is hard to locate inside the barangay.</small>
                             </div>
 
-                            <div class="form-group barangay-autocomplete-wrap">
+                            <div class="form-group barangay-select-wrap">
                                 <label for="barangayField">Barangay</label>
-                                <div class="input-with-icon">
+                                <div class="input-with-icon select-with-icon">
                                     <span class="input-icon">
                                         <i class="bi bi-pin-map-fill" aria-hidden="true"></i>
                                     </span>
-                                    <input
-                                        type="text"
+                                    <select
                                         id="barangayField"
                                         name="barangay"
-                                        value=""
-                                        placeholder="Select barangay"
-                                        autocomplete="off"
-                                        data-barangay-autocomplete="true"
-                                        data-barangay-source-url="{% url 'user:barangay_list_api' %}"
-                                        data-barangay-suggestions-id="request-barangay-suggestions"
-                                        data-barangay-strict="true"
+                                        class="barangay-select"
                                     >
+                                        <option value="" selected disabled>Select barangay</option>
+                                        {% for barangay in manual_barangays %}
+                                            <option value="{{ barangay }}">{{ barangay }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <span class="select-chevron" aria-hidden="true">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </span>
                                 </div>
-                                <div id="request-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
-                                <small class="helper-text">Required. Start typing to choose a barangay from the system list.</small>
                             </div>
 
                             <div class="form-group manual-landmark-upload-group">
@@ -259,7 +261,6 @@
                                         multiple
                                     >
                                 </div>
-                                <small class="upload-hint">Optional photo of a nearby crossing, store, or landmark that can help the team find the area.</small>
                             </div>
                         </div>
                     </div>
@@ -267,44 +268,10 @@
 
                 <input type="hidden" name="reason" value="stray">
 
-                <div id="surrenderDetailsSection" class="request-detail-branch">
-                    <div class="location-card">
-                        <div class="location-card-head">
-                            <div>
-                                <h4>Dog surrender details</h4>
-                                <p>Share any important notes that can help the shelter team prepare for the surrender.</p>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="surrenderDescriptionField">Surrender Notes (optional)</label>
-                            <div class="input-with-icon textarea-with-icon">
-                                <span class="input-icon">
-                                    <i class="bi bi-chat-left-text-fill" aria-hidden="true"></i>
-                                </span>
-                                <textarea
-                                    name="description"
-                                    id="surrenderDescriptionField"
-                                    rows="4"
-                                    placeholder="Optional: Share why the dog is being surrendered or any important handling notes."
-                                ></textarea>
-                            </div>
-                            <small class="helper-text">This is optional, but it can help the shelter team prepare for follow-up.</small>
-                        </div>
-
-                    </div>
-                </div>
             </div>
 
             <div class="wizard-actions">
-                <button type="button" class="btn-secondary" id="prevBtn" hidden>
-                    <i class="bi bi-arrow-left" aria-hidden="true"></i>
-                    <span>Back</span>
-                </button>
-                <button type="button" class="btn-primary" id="nextBtn">
-                    <span>Next</span>
-                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
-                </button>
-                <button type="submit" class="btn-primary" id="submitBtn" hidden>
+                <button type="submit" class="btn-primary" id="submitBtn">
                     <i class="bi bi-send-fill" aria-hidden="true"></i>
                     <span>Submit Request</span>
                 </button>
@@ -459,10 +426,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 <script>
-let currentStep = 1;
-const MAX_REQUEST_STEPS = 2;
 let stream = null;
 let map;
 let marker;
@@ -470,13 +434,10 @@ let accuracyCircle;
 let locationWatchId = null;
 const BAYAWAN_CITY_CENTER = [9.3668, 122.8055];
 const DEFAULT_REQUEST_MAP_ZOOM = 13;
-const GPS_TARGET_ACCURACY_METERS = 35;
-const GPS_ACCEPTABLE_ACCURACY_METERS = {{ exact_gps_max_accuracy_meters|default:100 }};
-const GPS_MAX_WAIT_MS = 6000;
-const GPS_FALLBACK_TIMEOUT_MS = 3500;
-const GPS_QUICK_TIMEOUT_MS = 2000;
-const GPS_CACHED_FIX_MAX_AGE_MS = 30000;
-const GPS_AUTO_CAPTURE_DELAY_MS = 250;
+const GPS_BROWSER_TIMEOUT_MS = 8000;
+const GPS_FRESH_TIMEOUT_MS = 15000;
+const GPS_CACHED_FIX_MAX_AGE_MS = 300000;
+const GPS_EXACT_MAX_ACCEPTABLE_ACCURACY_METERS = 1000;
 const REVERSE_GEOCODE_TIMEOUT_MS = 3500;
 const REQUEST_MAP_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const REQUEST_MAP_TILE_OPTIONS = {
@@ -488,10 +449,6 @@ function addRequestMapBaseLayer(mapInstance) {
     L.tileLayer(REQUEST_MAP_TILE_URL, REQUEST_MAP_TILE_OPTIONS).addTo(mapInstance);
 }
 
-const stepPanels = document.querySelectorAll('.step-panel');
-const stepDots = document.querySelectorAll('.step-dot');
-const prevBtn = document.getElementById('prevBtn');
-const nextBtn = document.getElementById('nextBtn');
 const submitBtn = document.getElementById('submitBtn');
 const requestSubmitRequiresAuth = {{ request.user.is_authenticated|yesno:'false,true' }};
 const requestAuthNextUrl = "{% url 'user:dog_capture_request' %}";
@@ -501,14 +458,12 @@ const captureForm = document.getElementById('captureForm');
 const requestTypeInputs = document.querySelectorAll('input[name="request_type"]');
 const submissionTypeInputs = document.querySelectorAll('input[name="submission_type"]');
 const onlineDetailsSection = document.getElementById('onlineDetailsSection');
-const surrenderDetailsSection = document.getElementById('surrenderDetailsSection');
 const requestHistoryModalEl = document.getElementById('requestHistoryModal');
 const barangayField = document.getElementById('barangayField');
 const cityField = document.getElementById('cityField');
 const gpsAccuracyField = document.getElementById('gpsAccuracyField');
 const manualFullAddressField = document.getElementById('manualFullAddressField');
 const locationLandmarkImageField = document.getElementById('locationLandmarkImageField');
-const surrenderDescriptionField = document.getElementById('surrenderDescriptionField');
 const step1Title = document.getElementById('step1Title');
 const step1Description = document.getElementById('step1Description');
 const step1HelperNote = document.getElementById('step1HelperNote');
@@ -559,7 +514,6 @@ document.addEventListener('hidden.bs.modal', (event) => {
     if (!event.target?.matches?.('.request-history-modal, .request-dialog-modal, .request-view-modal')) return;
     window.setTimeout(syncRequestModalBackdrop, 0);
 });
-
 function getSelectedRequestType() {
     return document.querySelector('input[name="request_type"]')?.value || 'surrender';
 }
@@ -753,27 +707,25 @@ function formatGpsAccuracy(accuracy) {
     return `within about ${Math.round(numericAccuracy)} meters`;
 }
 
-function getSavedGpsAccuracyMeters() {
-    const numericAccuracy = Number(gpsAccuracyField?.value || 0);
-    return Number.isFinite(numericAccuracy) && numericAccuracy > 0 ? numericAccuracy : 0;
+function isGpsAccuracyAcceptable(accuracy, maxMeters = GPS_EXACT_MAX_ACCEPTABLE_ACCURACY_METERS) {
+    const numericAccuracy = Number(accuracy);
+    const numericLimit = Number(maxMeters);
+    return Number.isFinite(numericAccuracy)
+        && numericAccuracy > 0
+        && Number.isFinite(numericLimit)
+        && numericLimit > 0
+        && numericAccuracy <= numericLimit;
 }
 
 function hasSavedExactLocationFix() {
     const latitudeValue = document.getElementById('latitude')?.value || '';
     const longitudeValue = document.getElementById('longitude')?.value || '';
-    return Boolean(latitudeValue && longitudeValue && getSavedGpsAccuracyMeters() <= GPS_ACCEPTABLE_ACCURACY_METERS);
+    return Boolean(latitudeValue && longitudeValue);
 }
 
 function shouldAutoDetectDeviceLocation() {
     const locationMode = document.querySelector('input[name="location_mode"]:checked')?.value || 'exact';
-    return currentStep === MAX_REQUEST_STEPS && getSelectedSubmissionType() === 'online' && locationMode === 'exact';
-}
-
-function cancelAutoDeviceLocationDetection() {
-    if (exactLocationAutoCaptureTimer !== null) {
-        window.clearTimeout(exactLocationAutoCaptureTimer);
-        exactLocationAutoCaptureTimer = null;
-    }
+    return getSelectedSubmissionType() === 'online' && locationMode === 'exact';
 }
 
 function setCapturedCoordinates(lat, lng) {
@@ -833,191 +785,152 @@ function buildLocationPermissionHelpMessage(permissionState = '') {
         : '';
 
     if (!window.isSecureContext) {
-        return 'Exact GPS access requires a secure connection. Open this site over HTTPS or localhost to let the browser access location.' + mobileHelp;
+        return 'Browser location needs HTTPS or localhost before it can locate your device.' + mobileHelp;
     }
 
     if (permissionState === 'denied') {
-        return 'Location access is blocked for this site. Please allow location permission in your browser settings, then turn on precise or high-accuracy location before trying again.' + mobileHelp;
+        return 'Location access is blocked in your browser. Allow it in browser settings, then tap "Locate My Location" again.' + mobileHelp;
     }
 
-    return 'Please allow location access when your browser asks for permission, and keep precise or high-accuracy location enabled for the most accurate GPS pin.' + mobileHelp;
+    return 'Allow location access in your browser when asked, then tap "Locate My Location" again.' + mobileHelp;
 }
 
-async function getGeolocationPermissionState() {
-    if (!navigator.permissions || typeof navigator.permissions.query !== 'function') {
-        return '';
-    }
-
-    try {
-        const status = await navigator.permissions.query({ name: 'geolocation' });
-        return status?.state || '';
-    } catch (error) {
-        return '';
-    }
-}
-
-function requestBestGeolocationFix(statusEl) {
+function getCurrentPositionOnce(options) {
     return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-            reject(new Error('unsupported'));
-            return;
-        }
+        navigator.geolocation.getCurrentPosition(resolve, reject, options);
+    });
+}
 
-        let bestPosition = null;
+function getWatchPositionOnce(options) {
+    const {
+        targetAccuracyMeters = 0,
+        ...geolocationOptions
+    } = options || {};
+
+    return new Promise((resolve, reject) => {
         let settled = false;
-        let expiryTimer = null;
+        let timeoutId = null;
+        let watchId = null;
+        let bestPosition = null;
 
-        const finish = (position, error = null) => {
+        const finish = (handler, value) => {
             if (settled) return;
             settled = true;
-            clearRequestLocationWatch();
-            if (expiryTimer) {
-                clearTimeout(expiryTimer);
+            if (timeoutId !== null) {
+                window.clearTimeout(timeoutId);
             }
-            if (position) {
-                resolve(position);
-            } else {
-                reject(error || new Error('unavailable'));
-            }
-        };
-
-        const acceptPosition = (position) => {
-            const accuracy = Number(position?.coords?.accuracy || Infinity);
-            const bestAccuracy = Number(bestPosition?.coords?.accuracy || Infinity);
-
-            if (!bestPosition || accuracy < bestAccuracy) {
-                bestPosition = position;
-                const accuracyText = formatGpsAccuracy(accuracy);
-                if (statusEl) {
-                    if (accuracyText) {
-                        statusEl.textContent = accuracy <= GPS_ACCEPTABLE_ACCURACY_METERS
-                            ? `Device location found ${accuracyText}.`
-                            : `Device location found ${accuracyText}. Improving accuracy...`;
-                    } else {
-                        statusEl.textContent = 'Device location found.';
-                    }
+            if (watchId !== null && navigator.geolocation) {
+                navigator.geolocation.clearWatch(watchId);
+                if (locationWatchId === watchId) {
+                    locationWatchId = null;
                 }
             }
+            handler(value);
+        };
 
-            if (!Number.isFinite(accuracy)) {
+        const rememberBestPosition = (position) => {
+            const currentAccuracy = Number(position?.coords?.accuracy || 0);
+            if (!Number.isFinite(currentAccuracy) || currentAccuracy <= 0) {
                 return;
             }
 
-            if (accuracy <= GPS_ACCEPTABLE_ACCURACY_METERS) {
-                finish(bestPosition || position);
+            const bestAccuracy = Number(bestPosition?.coords?.accuracy || 0);
+            if (!bestPosition || !Number.isFinite(bestAccuracy) || bestAccuracy <= 0 || currentAccuracy < bestAccuracy) {
+                bestPosition = position;
             }
         };
 
         const handleError = (error) => {
+            const errorCode = Number(error?.code);
+            if (errorCode === 1) {
+                finish(reject, error);
+            }
+        };
+
+        watchId = navigator.geolocation.watchPosition(
+            (position) => {
+                rememberBestPosition(position);
+                const accuracy = Number(position?.coords?.accuracy || 0);
+                if (!targetAccuracyMeters || isGpsAccuracyAcceptable(accuracy, targetAccuracyMeters)) {
+                    finish(resolve, position);
+                }
+            },
+            handleError,
+            geolocationOptions,
+        );
+        locationWatchId = watchId;
+
+        timeoutId = window.setTimeout(() => {
             if (bestPosition) {
-                const bestAccuracy = Number(bestPosition?.coords?.accuracy || Infinity);
-                if (Number.isFinite(bestAccuracy) && bestAccuracy <= GPS_ACCEPTABLE_ACCURACY_METERS) {
-                    finish(bestPosition);
+                const bestAccuracy = Number(bestPosition?.coords?.accuracy || 0);
+                if (targetAccuracyMeters && isGpsAccuracyAcceptable(bestAccuracy, targetAccuracyMeters)) {
+                    finish(resolve, bestPosition);
                     return;
                 }
-            } else {
-                const normalizedError = error instanceof Error ? error : new Error('unavailable');
-                finish(null, normalizedError);
+
+                const accuracyError = new Error('accuracy_too_low');
+                accuracyError.reason = 'accuracy_too_low';
+                accuracyError.accuracy = bestAccuracy;
+                accuracyError.position = bestPosition;
+                finish(reject, accuracyError);
                 return;
             }
 
-            const normalizedError = new Error('insufficient_accuracy');
-            normalizedError.code = 'insufficient_accuracy';
-            finish(null, normalizedError);
-        };
-
-        const liveGeoOptions = {
-            enableHighAccuracy: true,
-            timeout: GPS_FALLBACK_TIMEOUT_MS,
-            maximumAge: 0,
-        };
-        const quickGeoOptions = {
-            enableHighAccuracy: false,
-            timeout: GPS_QUICK_TIMEOUT_MS,
-            maximumAge: GPS_CACHED_FIX_MAX_AGE_MS,
-        };
-
-        locationWatchId = navigator.geolocation.watchPosition(
-            acceptPosition,
-            handleError,
-            liveGeoOptions,
-        );
-
-        navigator.geolocation.getCurrentPosition(
-            acceptPosition,
-            handleError,
-            quickGeoOptions,
-        );
-
-        expiryTimer = window.setTimeout(() => {
-            const bestAccuracy = Number(bestPosition?.coords?.accuracy || Infinity);
-            if (bestPosition && Number.isFinite(bestAccuracy) && bestAccuracy <= GPS_ACCEPTABLE_ACCURACY_METERS) {
-                finish(bestPosition);
-            } else {
-                const timeoutError = new Error(bestPosition ? 'insufficient_accuracy' : 'timeout');
-                timeoutError.code = bestPosition ? 'insufficient_accuracy' : 'timeout';
-                finish(null, timeoutError);
-            }
-        }, GPS_MAX_WAIT_MS);
+            finish(reject, new Error('timeout'));
+        }, geolocationOptions.timeout || GPS_FRESH_TIMEOUT_MS);
     });
+}
+
+async function requestBestGeolocationFix(statusEl) {
+    if (!navigator.geolocation) {
+        throw new Error('unsupported');
+    }
+
+    const quickGeoOptions = {
+        enableHighAccuracy: false,
+        timeout: GPS_BROWSER_TIMEOUT_MS,
+        maximumAge: GPS_CACHED_FIX_MAX_AGE_MS,
+    };
+    const freshGeoOptions = {
+        enableHighAccuracy: true,
+        timeout: GPS_FRESH_TIMEOUT_MS,
+        maximumAge: 0,
+        targetAccuracyMeters: GPS_EXACT_MAX_ACCEPTABLE_ACCURACY_METERS,
+    };
+
+    try {
+        if (statusEl) statusEl.textContent = 'Checking your browser location...';
+        const quickPosition = await getCurrentPositionOnce(quickGeoOptions);
+        const quickAccuracy = Number(quickPosition?.coords?.accuracy || 0);
+        if (isGpsAccuracyAcceptable(quickAccuracy)) {
+            return quickPosition;
+        }
+        if (statusEl) {
+            statusEl.textContent = quickAccuracy > 0
+                ? `Quick browser location is still about ${Math.round(quickAccuracy)} meters. Getting a more precise GPS fix...`
+                : 'Getting a more precise GPS fix...';
+        }
+    } catch (error) {
+        if (Number(error?.code) === 1) {
+            throw error;
+        }
+        if (statusEl) statusEl.textContent = 'Trying a more precise GPS fix...';
+    }
+
+    return getWatchPositionOnce(freshGeoOptions);
 }
 
 function syncRequestFlowUI() {
     syncStepOneContent();
     if (onlineDetailsSection) onlineDetailsSection.hidden = false;
-    if (surrenderDetailsSection) surrenderDetailsSection.hidden = false;
-    if (surrenderDescriptionField) surrenderDescriptionField.disabled = false;
     syncSubmitButtonState();
 
-    if (currentStep === MAX_REQUEST_STEPS) {
+    if (getSelectedSubmissionType() === 'online' && document.querySelector('input[name="location_mode"]:checked')?.value === 'exact') {
         window.setTimeout(() => ensureRequestMapReady(), 140);
     }
 
     applyCreateLocationMode();
 }
-
-function setStep(step) {
-    const previousStep = currentStep;
-    if (previousStep === 1 && step !== 1) {
-        stopCamera({ hideSection: true });
-    }
-    currentStep = step;
-    stepPanels.forEach((panel) => {
-        panel.hidden = Number(panel.dataset.step) !== step;
-    });
-
-    stepDots.forEach((dot) => {
-        const dotStep = Number(dot.dataset.stepDot);
-        dot.classList.toggle('active', dotStep === step);
-        dot.classList.toggle('complete', dotStep < step);
-    });
-
-    prevBtn.hidden = step <= 1;
-    nextBtn.hidden = step >= MAX_REQUEST_STEPS;
-    submitBtn.hidden = step !== MAX_REQUEST_STEPS;
-    syncRequestFlowUI();
-}
-
-function validateStep(step) {
-    if (step === 1) {
-        return true;
-    }
-
-    if (step === 2) {
-        return validatePhoneField();
-    }
-
-    return true;
-}
-
-nextBtn?.addEventListener('click', () => {
-    if (!validateStep(currentStep)) return;
-    if (currentStep < MAX_REQUEST_STEPS) setStep(currentStep + 1);
-});
-
-prevBtn?.addEventListener('click', () => {
-    if (currentStep > 1) setStep(currentStep - 1);
-});
 
 phoneNumberField?.addEventListener('blur', () => {
     if (!phoneNumberField.value.trim()) {
@@ -1077,7 +990,7 @@ function syncStepOneContent() {
     if (step1Title) step1Title.textContent = 'Add a photo of the dog';
     if (step1Description) {
         step1Description.textContent =
-            'Upload or take a photo of the dog being surrendered. This is optional, but it helps the shelter team prepare.';
+            'Upload or take a photo of the dog being surrendered. This helps the dog catcher or Bayawan Vet prepare for the request.';
     }
     if (step1HelperNote) step1HelperNote.textContent = 'Optional, but recommended.';
     if (uploadActionLabel) uploadActionLabel.textContent = 'Upload Photo';
@@ -1124,9 +1037,27 @@ function updateCameraStatus(message) {
     cameraStatus.textContent = message;
 }
 
+function getCameraControlLabel(button) {
+    return button?.querySelector('.camera-control-label') || null;
+}
+
+function getCameraControlIcon(button) {
+    return button?.querySelector('.camera-control-icon i') || null;
+}
+
+function setCameraControlIcon(button, iconClass) {
+    const iconEl = getCameraControlIcon(button);
+    if (!iconEl) return;
+    iconEl.className = `bi ${iconClass}`;
+}
+
 function updateSwitchCameraButton() {
     if (!switchCameraBtn) return;
-    switchCameraBtn.querySelector('span').textContent = nextFacingMode() === 'user' ? 'Use Front Camera' : 'Use Rear Camera';
+    const label = getCameraControlLabel(switchCameraBtn);
+    if (label) {
+        label.textContent = nextFacingMode() === 'user' ? 'Use Front Camera' : 'Use Rear Camera';
+    }
+    setCameraControlIcon(switchCameraBtn, 'bi-arrow-repeat');
 }
 
 function applyMirrorCompensation() {
@@ -1163,13 +1094,17 @@ function updateCameraButtons() {
     const canSwitch = isLikelyMobileDevice || availableVideoInputCount > 1;
 
     if (startCameraBtn) {
-        startCameraBtn.querySelector('span').textContent = isStreaming ? 'Restart Camera' : 'Open Camera';
+        const label = getCameraControlLabel(startCameraBtn);
+        if (label) label.textContent = isStreaming ? 'Restart Camera' : 'Open Camera';
+        setCameraControlIcon(startCameraBtn, isStreaming ? 'bi-arrow-clockwise' : 'bi-camera-fill');
+        startCameraBtn.classList.toggle('is-streaming', isStreaming);
     }
     if (stopCameraBtn) {
         stopCameraBtn.disabled = !isStreaming;
     }
     if (captureBtn) {
         captureBtn.disabled = !isStreaming;
+        captureBtn.classList.toggle('is-active', isStreaming);
     }
     if (switchCameraBtn) {
         switchCameraBtn.disabled = !canSwitch;
@@ -1468,7 +1403,6 @@ captureBtn?.addEventListener('click', () => {
 });
 
 window.addEventListener('beforeunload', () => {
-    cancelAutoDeviceLocationDetection();
     stopCamera();
     clearRequestLocationWatch();
 });
@@ -1492,9 +1426,7 @@ function applyCreateLocationMode() {
     if (locationLandmarkImageField) locationLandmarkImageField.required = false;
     if (isExact) {
         setResolvedCity(cityField?.value || defaultRequestCity);
-        scheduleAutoDeviceLocationDetection();
     } else {
-        cancelAutoDeviceLocationDetection();
         clearRequestLocationWatch();
     }
 }
@@ -1574,23 +1506,15 @@ async function detectDeviceLocation(options = {}) {
         return;
     }
 
-    const permissionState = await getGeolocationPermissionState();
-    if (permissionState === 'denied') {
-        if (status) status.textContent = 'Location permission is blocked.';
+    if (!window.isSecureContext) {
+        if (status) status.textContent = 'Browser location needs HTTPS or localhost.';
         if (userInitiated) {
             await showRequestNotice(
-                buildLocationPermissionHelpMessage(permissionState),
-                { title: 'Location Permission Required', tone: 'warning' }
+                'Browser location works on HTTPS or localhost only. Open this page on a secure address, then tap the button again.',
+                { title: 'Location Unavailable', tone: 'warning' }
             );
         }
         return;
-    }
-
-    if (userInitiated && isLikelyMobileDevice && permissionState !== 'granted') {
-        await showRequestNotice(
-            'When your phone asks for location access, tap Allow and keep GPS or Precise location turned on so we can pin the request as accurately as possible.',
-            { title: 'Enable Phone Location', tone: 'info' }
-        );
     }
 
     exactLocationRequestInFlight = true;
@@ -1601,9 +1525,7 @@ async function detectDeviceLocation(options = {}) {
         setGpsAccuracy('');
     }
     if (status) {
-        status.textContent = permissionState === 'granted'
-            ? 'Detecting device location...'
-            : 'Allow location access when prompted so we can detect the device location.';
+        status.textContent = 'Getting your browser location...';
     }
     if (locationButton) {
         locationButton.disabled = true;
@@ -1622,8 +1544,8 @@ async function detectDeviceLocation(options = {}) {
 
         if (status) {
             status.textContent = accuracyText
-                ? `Device location detected ${accuracyText}. Resolving address...`
-                : `Device location detected: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                ? `Location found ${accuracyText}. Resolving address...`
+                : `Location found: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
         }
 
         try {
@@ -1636,25 +1558,19 @@ async function detectDeviceLocation(options = {}) {
             const label = [resolved.barangay, resolved.city].filter(Boolean).join(', ');
             if (status) {
                 status.textContent = label
-                    ? `Device location detected: ${label}${accuracyText ? ` (${accuracyText})` : ''}`
-                    : `Device location detected: ${lat.toFixed(6)}, ${lng.toFixed(6)}${accuracyText ? ` (${accuracyText})` : ''}`;
+                    ? `Location found: ${label}${accuracyText ? ` (${accuracyText})` : ''}`
+                    : `Location found: ${lat.toFixed(6)}, ${lng.toFixed(6)}${accuracyText ? ` (${accuracyText})` : ''}`;
             }
         } catch (error) {
             setResolvedCity(defaultRequestCity);
             if (status) {
                 status.textContent = accuracyText
-                    ? `Device location detected ${accuracyText}. Address lookup is unavailable right now.`
-                    : `Device location detected: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                    ? `Location found ${accuracyText}. Address lookup is unavailable right now.`
+                    : `Location found: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
             }
         }
-
-        if (userInitiated && Number.isFinite(accuracy) && accuracy > GPS_TARGET_ACCURACY_METERS) {
-            await showRequestNotice(
-                `The device location is already usable, but it is only ${formatGpsAccuracy(accuracy)}. For an even tighter pin, move to an open area and tap "Refresh Device Location" again until it reaches ${GPS_TARGET_ACCURACY_METERS} meters or better.`,
-                { title: 'GPS Accuracy Improved', tone: 'info' }
-            );
-        }
     } catch (error) {
+        const errorCode = Number(error?.code);
         if (hadUsableSavedFix) {
             if (latitudeInput) latitudeInput.value = previousLatitude;
             if (longitudeInput) longitudeInput.value = previousLongitude;
@@ -1665,16 +1581,19 @@ async function detectDeviceLocation(options = {}) {
             setGpsAccuracy('');
         }
         if (status) {
-            status.textContent = error?.code === 'insufficient_accuracy'
-                ? `Unable to detect a usable device location within ${GPS_ACCEPTABLE_ACCURACY_METERS} meters.`
-                : 'Unable to retrieve accurate location. Please try again.';
+            status.textContent = error?.reason === 'accuracy_too_low'
+                ? 'Your browser location is too coarse for exact tracking. Please try again with precise GPS or use manual barangay selection.'
+                : 'We could not get your browser location. Try the button again or use manual barangay selection.';
         }
-        if (userInitiated) {
+        if (userInitiated && errorCode === 1) {
             await showRequestNotice(
-                error?.code === 'insufficient_accuracy'
-                    ? `We could not detect a usable device location within ${GPS_ACCEPTABLE_ACCURACY_METERS} meters. Move to an open area, keep precise location enabled, and tap "Refresh Device Location" again. If the signal stays weak, switch to manual barangay selection instead.`
-                    : buildLocationPermissionHelpMessage(permissionState),
-                { title: 'Location Error', tone: 'warning' }
+                buildLocationPermissionHelpMessage('denied'),
+                { title: 'Location Permission Required', tone: 'warning' }
+            );
+        } else if (userInitiated && error?.reason === 'accuracy_too_low') {
+            await showRequestNotice(
+                `Your browser location is too coarse (${Math.round(Number(error.accuracy || 0))} meters). Turn on Precise Location/GPS or switch to manual barangay selection.`,
+                { title: 'Location Too Coarse', tone: 'warning' }
             );
         }
     } finally {
@@ -1683,16 +1602,6 @@ async function detectDeviceLocation(options = {}) {
             locationButton.disabled = false;
         }
     }
-}
-
-function scheduleAutoDeviceLocationDetection() {
-    cancelAutoDeviceLocationDetection();
-    if (!shouldAutoDetectDeviceLocation() || hasSavedExactLocationFix()) {
-        return;
-    }
-    exactLocationAutoCaptureTimer = window.setTimeout(() => {
-        detectDeviceLocation();
-    }, GPS_AUTO_CAPTURE_DELAY_MS);
 }
 
 document.getElementById('getLocationBtn').addEventListener('click', async () => {
@@ -1722,18 +1631,18 @@ captureForm?.addEventListener('submit', async (e) => {
         if (mode === 'exact') {
             const lat = document.getElementById('latitude').value;
             const lng = document.getElementById('longitude').value;
-            const gpsAccuracyMeters = getSavedGpsAccuracyMeters();
+            const accuracy = Number(gpsAccuracyField?.value || 0);
             if (!lat || !lng) {
                 showRequestNotice(
-                    'Please capture the exact GPS location first.',
+                    'Please tap "Locate My Location" below the map first, or switch to manual barangay selection.',
                     { title: 'GPS Location Required', tone: 'warning' }
                 );
                 return;
             }
-            if (!gpsAccuracyMeters || gpsAccuracyMeters > GPS_ACCEPTABLE_ACCURACY_METERS) {
+            if (!isGpsAccuracyAcceptable(accuracy)) {
                 showRequestNotice(
-                    `The saved GPS pin is only ${formatGpsAccuracy(gpsAccuracyMeters) || 'roughly located'}. Tap "Refresh Device Location" again until it reaches ${GPS_ACCEPTABLE_ACCURACY_METERS} meters or better, or switch to manual barangay selection.`,
-                    { title: 'Exact GPS Needed', tone: 'warning' }
+                    `Your browser location is too coarse${accuracy > 0 ? ` (${Math.round(accuracy)} meters)` : ''} for exact tracking. Please try again or use manual barangay selection.`,
+                    { title: 'Location Too Coarse', tone: 'warning' }
                 );
                 return;
             }
@@ -2088,12 +1997,8 @@ function initRequestTrackingUI(root = getRequestHistoryContentRoot() || document
 initRequestTrackingUI();
 initRequestHistoryPagination();
 applyCreateLocationMode();
-setStep(1);
 renderPhotoSummary();
 primePhoneField();
-if (window.initBarangayAutocomplete) {
-    window.initBarangayAutocomplete(document);
-}
 </script>
 
 {% endblock %}

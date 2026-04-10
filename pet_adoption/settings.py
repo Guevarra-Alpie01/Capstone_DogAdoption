@@ -18,7 +18,26 @@ try:
     from dotenv import load_dotenv
     load_dotenv(BASE_DIR / ".env")
 except Exception:
-    pass
+    def _load_env_file(path):
+        try:
+            contents = path.read_text(encoding="utf-8")
+        except OSError:
+            return
+
+        for raw_line in contents.splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            if not key:
+                continue
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+                value = value[1:-1]
+            os.environ.setdefault(key, value)
+
+    _load_env_file(BASE_DIR / ".env")
 
 
 def env_bool(name, default=False):
@@ -233,6 +252,9 @@ LOGIN_REDIRECT_URL = 'user:user_home'
 LOGIN_URL = 'user:login'
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID", "").strip()
+FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET", "").strip()
+FACEBOOK_GRAPH_API_VERSION = os.getenv("FACEBOOK_GRAPH_API_VERSION", "v20.0").strip() or "v20.0"
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "").strip().rstrip("/")
 
 EMAIL_BACKEND = os.getenv(

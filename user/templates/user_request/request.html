@@ -82,28 +82,34 @@
                     <div class="camera-preview-shell">
                         <video id="video" class="camera-preview" autoplay playsinline muted></video>
                         <div class="camera-preview-overlay" aria-hidden="true">
-                            <span>Keep the dog centered in the frame</span>
+                            <span class="camera-focus-reticle"></span>
                         </div>
+                        <button type="button" class="btn-secondary camera-floating-close" id="stopCameraBtn" disabled aria-label="Close Camera">
+                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        </button>
                     </div>
                     <p id="cameraStatus" class="helper-text camera-status" aria-live="polite">
                         Rear camera selected. Open camera to begin.
                     </p>
                     <div class="camera-action-grid">
-                        <button type="button" class="btn-primary" id="startCameraBtn">
-                            <i class="bi bi-play-circle" aria-hidden="true"></i>
-                            <span>Open Camera</span>
+                        <button type="button" class="btn-primary camera-control-btn camera-control-btn--start" id="startCameraBtn">
+                            <span class="camera-control-icon" aria-hidden="true">
+                                <i class="bi bi-camera-fill"></i>
+                            </span>
+                            <span class="camera-control-label">Open Camera</span>
                         </button>
-                        <button type="button" class="btn-secondary" id="switchCameraBtn">
-                            <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
-                            <span>Use Front Camera</span>
+                        <button type="button" class="btn-primary camera-control-btn camera-control-btn--capture" id="captureBtn" disabled>
+                            <span class="camera-capture-shutter" aria-hidden="true">
+                                <span class="camera-capture-shutter-ring"></span>
+                                <i class="bi bi-camera-fill"></i>
+                            </span>
+                            <span class="camera-control-label">Capture Photo</span>
                         </button>
-                        <button type="button" class="btn-secondary" id="stopCameraBtn" disabled>
-                            <i class="bi bi-x-circle" aria-hidden="true"></i>
-                            <span>Close Camera</span>
-                        </button>
-                        <button type="button" class="btn-primary" id="captureBtn" disabled>
-                            <i class="bi bi-camera" aria-hidden="true"></i>
-                            <span>Capture Photo</span>
+                        <button type="button" class="btn-secondary camera-control-btn camera-control-btn--switch" id="switchCameraBtn">
+                            <span class="camera-control-icon" aria-hidden="true">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </span>
+                            <span class="camera-control-label">Use Front Camera</span>
                         </button>
                     </div>
                     <canvas id="canvas" class="photo-input-hidden" aria-hidden="true"></canvas>
@@ -981,9 +987,27 @@ function updateCameraStatus(message) {
     cameraStatus.textContent = message;
 }
 
+function getCameraControlLabel(button) {
+    return button?.querySelector('.camera-control-label') || null;
+}
+
+function getCameraControlIcon(button) {
+    return button?.querySelector('.camera-control-icon i') || null;
+}
+
+function setCameraControlIcon(button, iconClass) {
+    const iconEl = getCameraControlIcon(button);
+    if (!iconEl) return;
+    iconEl.className = `bi ${iconClass}`;
+}
+
 function updateSwitchCameraButton() {
     if (!switchCameraBtn) return;
-    switchCameraBtn.querySelector('span').textContent = nextFacingMode() === 'user' ? 'Use Front Camera' : 'Use Rear Camera';
+    const label = getCameraControlLabel(switchCameraBtn);
+    if (label) {
+        label.textContent = nextFacingMode() === 'user' ? 'Use Front Camera' : 'Use Rear Camera';
+    }
+    setCameraControlIcon(switchCameraBtn, 'bi-arrow-repeat');
 }
 
 function applyMirrorCompensation() {
@@ -1020,13 +1044,17 @@ function updateCameraButtons() {
     const canSwitch = isLikelyMobileDevice || availableVideoInputCount > 1;
 
     if (startCameraBtn) {
-        startCameraBtn.querySelector('span').textContent = isStreaming ? 'Restart Camera' : 'Open Camera';
+        const label = getCameraControlLabel(startCameraBtn);
+        if (label) label.textContent = isStreaming ? 'Restart Camera' : 'Open Camera';
+        setCameraControlIcon(startCameraBtn, isStreaming ? 'bi-arrow-clockwise' : 'bi-camera-fill');
+        startCameraBtn.classList.toggle('is-streaming', isStreaming);
     }
     if (stopCameraBtn) {
         stopCameraBtn.disabled = !isStreaming;
     }
     if (captureBtn) {
         captureBtn.disabled = !isStreaming;
+        captureBtn.classList.toggle('is-active', isStreaming);
     }
     if (switchCameraBtn) {
         switchCameraBtn.disabled = !canSwitch;

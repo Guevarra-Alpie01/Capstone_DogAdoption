@@ -210,26 +210,26 @@
                                 </div>
                             </div>
 
-                            <div class="form-group barangay-autocomplete-wrap">
+                            <div class="form-group barangay-select-wrap">
                                 <label for="barangayField">Barangay</label>
-                                <div class="input-with-icon">
+                                <div class="input-with-icon select-with-icon">
                                     <span class="input-icon">
                                         <i class="bi bi-pin-map-fill" aria-hidden="true"></i>
                                     </span>
-                                    <input
-                                        type="text"
+                                    <select
                                         id="barangayField"
                                         name="barangay"
-                                        value=""
-                                        placeholder="Select barangay"
-                                        autocomplete="off"
-                                        data-barangay-autocomplete="true"
-                                        data-barangay-source-url="{% url 'user:barangay_list_api' %}"
-                                        data-barangay-suggestions-id="request-barangay-suggestions"
-                                        data-barangay-strict="true"
+                                        class="barangay-select"
                                     >
+                                        <option value="" selected disabled>Select barangay</option>
+                                        {% for barangay in manual_barangays %}
+                                            <option value="{{ barangay }}">{{ barangay }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <span class="select-chevron" aria-hidden="true">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </span>
                                 </div>
-                                <div id="request-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
                             </div>
 
                             <div class="form-group manual-landmark-upload-group">
@@ -411,7 +411,6 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 <script>
 let stream = null;
 let map;
@@ -1949,9 +1948,6 @@ initRequestHistoryPagination();
 applyCreateLocationMode();
 renderPhotoSummary();
 primePhoneField();
-if (window.initBarangayAutocomplete) {
-    window.initBarangayAutocomplete(document);
-}
 </script>
 
 {% endblock %}

@@ -3790,6 +3790,7 @@ def _build_dog_capture_request_page_context(request):
             'captured_total': 0,
             'active_status_tab': active_status_tab,
             'default_manual_city': DEFAULT_REQUEST_CITY,
+            'manual_barangays': BAYAWAN_BARANGAYS,
         }
 
     status_totals = {
@@ -3827,6 +3828,7 @@ def _build_dog_capture_request_page_context(request):
         'captured_total': status_totals.get("captured", 0),
         'active_status_tab': active_status_tab,
         'default_manual_city': DEFAULT_REQUEST_CITY,
+        'manual_barangays': BAYAWAN_BARANGAYS,
     }
 
 

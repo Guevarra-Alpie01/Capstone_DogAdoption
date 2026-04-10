@@ -1640,13 +1640,14 @@ def _rescue_finder_title(post):
     return " ".join((post.display_title or "Dog Listing").split())
 
 
-def _build_rescue_finder_card_item(post, phase_payload, match_score):
+def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
     phase = phase_payload["phase"]
     days = phase_payload["days_left"]
     hours = phase_payload["hours_left"]
     minutes = phase_payload["minutes_left"]
     is_pending_review = phase_payload["is_pending_review"]
     pending_review_until_label = phase_payload["pending_review_until_label"]
+    share_url = request.build_absolute_uri(reverse("user:post_detail", args=[post.id]))
     action_url = (
         reverse("user:claim_confirm", args=[post.id])
         if phase == "claim"
@@ -1681,6 +1682,7 @@ def _build_rescue_finder_card_item(post, phase_payload, match_score):
         "location_label": " ".join((post.location or "").split()) or "Location not listed",
         "action_label": "Claim" if phase == "claim" else "Adopt",
         "action_url": action_url,
+        "share_url": share_url,
         "match_score": match_score,
         "is_pending_review": is_pending_review,
         "show_countdown": not is_pending_review,
@@ -1851,6 +1853,7 @@ def _build_public_post_listing(request, listing_mode):
         match_score = _rescue_finder_match_score(post, selected_filters)
         candidate_items.append(
             _build_rescue_finder_card_item(
+                request,
                 post,
                 phase_payload,
                 match_score,
@@ -1966,7 +1969,7 @@ def _build_home_featured_rescue_sections():
         if phase not in section_items or len(section_items[phase]) >= HOME_FEATURED_CAROUSEL_LIMIT:
             continue
 
-        card_item = _build_rescue_finder_card_item(post, phase_payload, 0)
+        card_item = _build_rescue_finder_card_item(request, post, phase_payload, 0)
         countdown_deadline = None
         if not phase_payload["is_pending_review"]:
             countdown_deadline = (
@@ -2095,7 +2098,7 @@ def _home_spotlight_pick_auto_pairs(candidate_pairs, limit):
 
 def _build_home_spotlight_card(post, phase_payload, *, is_auto_highlighted=False):
     phase = phase_payload["phase"]
-    card_item = _build_rescue_finder_card_item(post, phase_payload, 0)
+    card_item = _build_rescue_finder_card_item(request, post, phase_payload, 0)
     countdown_deadline = (
         phase_payload["pending_review_until"]
         if phase_payload["is_pending_review"]

@@ -171,7 +171,7 @@
 
                     <div id="exactLocationBox" class="location-card">
                         <p class="location-card-instruction">
-                            Press the button below the map to use your browser location. Allow location access when your browser asks.
+                            Press the button below the map to use your browser location. It will try a saved browser fix first, then refresh if needed.
                         </p>
                         <div id="requestMap"></div>
                         <div class="location-action-row">
@@ -416,9 +416,10 @@ let accuracyCircle;
 let locationWatchId = null;
 const BAYAWAN_CITY_CENTER = [9.3668, 122.8055];
 const DEFAULT_REQUEST_MAP_ZOOM = 13;
-const GPS_BROWSER_TIMEOUT_MS = 3500;
-const GPS_FRESH_TIMEOUT_MS = 7000;
+const GPS_BROWSER_TIMEOUT_MS = 8000;
+const GPS_FRESH_TIMEOUT_MS = 15000;
 const GPS_CACHED_FIX_MAX_AGE_MS = 300000;
+const GPS_EXACT_MAX_ACCEPTABLE_ACCURACY_METERS = 1000;
 const REVERSE_GEOCODE_TIMEOUT_MS = 3500;
 const REQUEST_MAP_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const REQUEST_MAP_TILE_OPTIONS = {
@@ -656,6 +657,16 @@ function formatGpsAccuracy(accuracy) {
     return `within about ${Math.round(numericAccuracy)} meters`;
 }
 
+function isGpsAccuracyAcceptable(accuracy, maxMeters = GPS_EXACT_MAX_ACCEPTABLE_ACCURACY_METERS) {
+    const numericAccuracy = Number(accuracy);
+    const numericLimit = Number(maxMeters);
+    return Number.isFinite(numericAccuracy)
+        && numericAccuracy > 0
+        && Number.isFinite(numericLimit)
+        && numericLimit > 0
+        && numericAccuracy <= numericLimit;
+}
+
 function getSavedGpsAccuracyMeters() {
     const numericAccuracy = Number(gpsAccuracyField?.value || 0);
     return Number.isFinite(numericAccuracy) && numericAccuracy > 0 ? numericAccuracy : 0;
@@ -741,22 +752,89 @@ function buildLocationPermissionHelpMessage(permissionState = '') {
     return 'Allow location access in your browser when asked, then tap "Locate My Location" again.' + mobileHelp;
 }
 
-async function getGeolocationPermissionState() {
-    if (!navigator.permissions || typeof navigator.permissions.query !== 'function') {
-        return '';
-    }
-
-    try {
-        const status = await navigator.permissions.query({ name: 'geolocation' });
-        return status?.state || '';
-    } catch (error) {
-        return '';
-    }
-}
-
 function getCurrentPositionOnce(options) {
     return new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, options);
+    });
+}
+
+function getWatchPositionOnce(options) {
+    const {
+        targetAccuracyMeters = 0,
+        ...geolocationOptions
+    } = options || {};
+
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        let timeoutId = null;
+        let watchId = null;
+        let bestPosition = null;
+
+        const finish = (handler, value) => {
+            if (settled) return;
+            settled = true;
+            if (timeoutId !== null) {
+                window.clearTimeout(timeoutId);
+            }
+            if (watchId !== null && navigator.geolocation) {
+                navigator.geolocation.clearWatch(watchId);
+                if (locationWatchId === watchId) {
+                    locationWatchId = null;
+                }
+            }
+            handler(value);
+        };
+
+        const rememberBestPosition = (position) => {
+            const currentAccuracy = Number(position?.coords?.accuracy || 0);
+            if (!Number.isFinite(currentAccuracy) || currentAccuracy <= 0) {
+                return;
+            }
+
+            const bestAccuracy = Number(bestPosition?.coords?.accuracy || 0);
+            if (!bestPosition || !Number.isFinite(bestAccuracy) || bestAccuracy <= 0 || currentAccuracy < bestAccuracy) {
+                bestPosition = position;
+            }
+        };
+
+        const handleError = (error) => {
+            const errorCode = Number(error?.code);
+            if (errorCode === 1) {
+                finish(reject, error);
+            }
+        };
+
+        watchId = navigator.geolocation.watchPosition(
+            (position) => {
+                rememberBestPosition(position);
+                const accuracy = Number(position?.coords?.accuracy || 0);
+                if (!targetAccuracyMeters || isGpsAccuracyAcceptable(accuracy, targetAccuracyMeters)) {
+                    finish(resolve, position);
+                }
+            },
+            handleError,
+            geolocationOptions,
+        );
+        locationWatchId = watchId;
+
+        timeoutId = window.setTimeout(() => {
+            if (bestPosition) {
+                const bestAccuracy = Number(bestPosition?.coords?.accuracy || 0);
+                if (targetAccuracyMeters && isGpsAccuracyAcceptable(bestAccuracy, targetAccuracyMeters)) {
+                    finish(resolve, bestPosition);
+                    return;
+                }
+
+                const accuracyError = new Error('accuracy_too_low');
+                accuracyError.reason = 'accuracy_too_low';
+                accuracyError.accuracy = bestAccuracy;
+                accuracyError.position = bestPosition;
+                finish(reject, accuracyError);
+                return;
+            }
+
+            finish(reject, new Error('timeout'));
+        }, geolocationOptions.timeout || GPS_FRESH_TIMEOUT_MS);
     });
 }
 
@@ -774,15 +852,29 @@ async function requestBestGeolocationFix(statusEl) {
         enableHighAccuracy: true,
         timeout: GPS_FRESH_TIMEOUT_MS,
         maximumAge: 0,
+        targetAccuracyMeters: GPS_EXACT_MAX_ACCEPTABLE_ACCURACY_METERS,
     };
 
     try {
         if (statusEl) statusEl.textContent = 'Checking your browser location...';
-        return await getCurrentPositionOnce(quickGeoOptions);
+        const quickPosition = await getCurrentPositionOnce(quickGeoOptions);
+        const quickAccuracy = Number(quickPosition?.coords?.accuracy || 0);
+        if (isGpsAccuracyAcceptable(quickAccuracy)) {
+            return quickPosition;
+        }
+        if (statusEl) {
+            statusEl.textContent = quickAccuracy > 0
+                ? `Quick browser location is still about ${Math.round(quickAccuracy)} meters. Getting a more precise GPS fix...`
+                : 'Getting a more precise GPS fix...';
+        }
     } catch (error) {
-        if (statusEl) statusEl.textContent = 'Trying a fresh location fix...';
-        return getCurrentPositionOnce(freshGeoOptions);
+        if (Number(error?.code) === 1) {
+            throw error;
+        }
+        if (statusEl) statusEl.textContent = 'Trying a more precise GPS fix...';
     }
+
+    return getWatchPositionOnce(freshGeoOptions);
 }
 
 function syncRequestFlowUI() {
@@ -1380,23 +1472,15 @@ async function detectDeviceLocation(options = {}) {
         return;
     }
 
-    const permissionState = await getGeolocationPermissionState();
-    if (permissionState === 'denied') {
-        if (status) status.textContent = 'Location access is blocked in your browser.';
+    if (!window.isSecureContext) {
+        if (status) status.textContent = 'Browser location needs HTTPS or localhost.';
         if (userInitiated) {
             await showRequestNotice(
-                buildLocationPermissionHelpMessage(permissionState),
-                { title: 'Location Permission Required', tone: 'warning' }
+                'Browser location works on HTTPS or localhost only. Open this page on a secure address, then tap the button again.',
+                { title: 'Location Unavailable', tone: 'warning' }
             );
         }
         return;
-    }
-
-    if (userInitiated && isLikelyMobileDevice && permissionState !== 'granted') {
-        await showRequestNotice(
-            'When your phone asks for location access, tap Allow so the browser can locate you quickly.',
-            { title: 'Enable Phone Location', tone: 'info' }
-        );
     }
 
     exactLocationRequestInFlight = true;
@@ -1407,9 +1491,7 @@ async function detectDeviceLocation(options = {}) {
         setGpsAccuracy('');
     }
     if (status) {
-        status.textContent = permissionState === 'granted'
-            ? 'Getting your location...'
-            : 'Allow location access when prompted, then wait a moment.';
+        status.textContent = 'Getting your browser location...';
     }
     if (locationButton) {
         locationButton.disabled = true;
@@ -1454,6 +1536,7 @@ async function detectDeviceLocation(options = {}) {
             }
         }
     } catch (error) {
+        const errorCode = Number(error?.code);
         if (hadUsableSavedFix) {
             if (latitudeInput) latitudeInput.value = previousLatitude;
             if (longitudeInput) longitudeInput.value = previousLongitude;
@@ -1464,14 +1547,19 @@ async function detectDeviceLocation(options = {}) {
             setGpsAccuracy('');
         }
         if (status) {
-            status.textContent = 'We could not get your browser location. Try the button again or use manual barangay selection.';
+            status.textContent = error?.reason === 'accuracy_too_low'
+                ? 'Your browser location is too coarse for exact tracking. Please try again with precise GPS or use manual barangay selection.'
+                : 'We could not get your browser location. Try the button again or use manual barangay selection.';
         }
-        if (userInitiated) {
+        if (userInitiated && errorCode === 1) {
             await showRequestNotice(
-                permissionState === 'denied'
-                    ? buildLocationPermissionHelpMessage(permissionState)
-                    : 'We could not get your location quickly from the browser. Try tapping "Locate My Location" again, or switch to manual barangay selection.',
-                { title: 'Location Error', tone: 'warning' }
+                buildLocationPermissionHelpMessage('denied'),
+                { title: 'Location Permission Required', tone: 'warning' }
+            );
+        } else if (userInitiated && error?.reason === 'accuracy_too_low') {
+            await showRequestNotice(
+                `Your browser location is too coarse (${Math.round(Number(error.accuracy || 0))} meters). Turn on Precise Location/GPS or switch to manual barangay selection.`,
+                { title: 'Location Too Coarse', tone: 'warning' }
             );
         }
     } finally {
@@ -1509,10 +1597,18 @@ captureForm?.addEventListener('submit', async (e) => {
         if (mode === 'exact') {
             const lat = document.getElementById('latitude').value;
             const lng = document.getElementById('longitude').value;
+            const accuracy = Number(gpsAccuracyField?.value || 0);
             if (!lat || !lng) {
                 showRequestNotice(
                     'Please tap "Locate My Location" below the map first, or switch to manual barangay selection.',
                     { title: 'GPS Location Required', tone: 'warning' }
+                );
+                return;
+            }
+            if (!isGpsAccuracyAcceptable(accuracy)) {
+                showRequestNotice(
+                    `Your browser location is too coarse${accuracy > 0 ? ` (${Math.round(accuracy)} meters)` : ''} for exact tracking. Please try again or use manual barangay selection.`,
+                    { title: 'Location Too Coarse', tone: 'warning' }
                 );
                 return;
             }

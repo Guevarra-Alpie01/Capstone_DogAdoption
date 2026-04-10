@@ -38,6 +38,7 @@ from django.utils.http import (
 from django.templatetags.static import static
 from django.utils.html import strip_tags
 from urllib.parse import urlencode
+import math
 import requests
 
 # Shared models from the admin app
@@ -92,6 +93,7 @@ HOME_FEED_SESSION_TOKEN_KEY = "user_home_feed_token"
 BARANGAY_API_DEFAULT_LIMIT = 200
 BARANGAY_API_MAX_LIMIT = 200
 DEFAULT_REQUEST_CITY = "Bayawan City"
+DOG_CAPTURE_MAX_ACCEPTABLE_GPS_ACCURACY_METERS = 1000
 ADMIN_POST_HISTORY_CACHE_KEY = "dogadoption_admin_post_history_ids_v1"
 DOG_SURRENDER_REQUEST_TYPE = "surrender"
 DOG_ONLINE_SUBMISSION_TYPE = "online"
@@ -137,6 +139,17 @@ def _build_user_profile_url(user_id, *, next_url="", back_label="Back"):
     if not query_params:
         return profile_url
     return f"{profile_url}?{urlencode(query_params)}"
+
+
+def _parse_gps_accuracy_meters(raw_value):
+    """Return a positive numeric GPS accuracy in meters, or None."""
+    try:
+        accuracy = float((raw_value or "").strip())
+    except (AttributeError, TypeError, ValueError):
+        return None
+    if not math.isfinite(accuracy) or accuracy <= 0:
+        return None
+    return accuracy
 
 
 def _build_profile_destination_url(request, user_id, *, next_url="", back_label="Back"):
@@ -3841,6 +3854,8 @@ def _handle_dog_capture_request_submission(request):
     description = (request.POST.get('description') or '').strip()
     latitude_raw = (request.POST.get('latitude') or '').strip()
     longitude_raw = (request.POST.get('longitude') or '').strip()
+    gps_accuracy_raw = (request.POST.get('gps_accuracy') or '').strip()
+    gps_accuracy_meters = _parse_gps_accuracy_meters(gps_accuracy_raw)
     submission_type = DOG_ONLINE_SUBMISSION_TYPE
 
     location_mode = (request.POST.get('location_mode') or 'exact').strip().lower()
@@ -3875,6 +3890,20 @@ def _handle_dog_capture_request_submission(request):
 
         if not (-90 <= latitude_val <= 90 and -180 <= longitude_val <= 180):
             messages.error(request, "Coordinates are out of valid range.")
+            return _dog_capture_request_redirect()
+
+        if gps_accuracy_meters is None:
+            messages.error(
+                request,
+                'We could not verify the precision of your browser location. Please tap "Locate My Location" again or switch to manual barangay selection.',
+            )
+            return _dog_capture_request_redirect()
+
+        if gps_accuracy_meters > DOG_CAPTURE_MAX_ACCEPTABLE_GPS_ACCURACY_METERS:
+            messages.error(
+                request,
+                f'Your browser location is too coarse ({round(gps_accuracy_meters)} meters). Please turn on precise location/GPS, then tap "Locate My Location" again, or switch to manual barangay selection.',
+            )
             return _dog_capture_request_redirect()
 
         latitude_value = f"{latitude_val:.6f}"

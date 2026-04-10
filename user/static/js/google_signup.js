@@ -53,16 +53,28 @@
         return form.querySelector('input[name="google_credential"]');
     }
 
+    function getAuthScope(form) {
+        return form.closest(".auth-panel") || form.parentElement || document;
+    }
+
+    function queryAuthScope(form, selector) {
+        const scope = getAuthScope(form);
+        if (!scope) {
+            return null;
+        }
+        return scope.querySelector(selector);
+    }
+
     function getButtonTarget(form) {
-        return form.querySelector("[data-google-auth-button], [data-google-signup-button]");
+        return queryAuthScope(form, "[data-google-auth-button], [data-google-signup-button]");
     }
 
     function getErrorOutput(form) {
-        return form.querySelector("[data-google-auth-error], [data-google-signup-error]");
+        return queryAuthScope(form, "[data-google-auth-error], [data-google-signup-error]");
     }
 
     function getButtonShell(form) {
-        return form.querySelector(".google-signup-shell");
+        return queryAuthScope(form, ".google-signup-shell");
     }
 
     function getRenderContext(form) {
@@ -150,6 +162,11 @@
             return;
         }
 
+        buttonTarget.style.width = "100%";
+        buttonTarget.style.display = "flex";
+        buttonTarget.style.justifyContent = "center";
+        buttonTarget.style.minHeight = "44px";
+
         if (pendingSignup) {
             const buttonShell = getButtonShell(form);
             if (buttonShell) {
@@ -198,10 +215,10 @@
             type: "standard",
             theme: "outline",
             size: "large",
-            text: mode === "login" ? "continue_with" : "signup_with",
+            text: mode === "login" ? "signin_with" : "signup_with",
             shape: "rectangular",
             logo_alignment: "left",
-            width: String(buttonWidth),
+            width: buttonWidth,
         };
 
         if (mode === "login") {
@@ -209,11 +226,6 @@
                 client_id: clientId,
                 callback: function (response) {
                     clearError(form);
-
-                    if (!form.reportValidity()) {
-                        setError(form, "Complete the required fields, then continue with Google again.");
-                        return;
-                    }
 
                     if (!response || !response.credential) {
                         setError(form, "Google could not confirm your account. Please try again.");

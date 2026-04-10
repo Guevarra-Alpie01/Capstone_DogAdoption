@@ -757,6 +757,37 @@ class UserHomeFeedTests(TestCase):
         self.assertContains(response, "Username is required.")
         self.assertContains(response, f'value="{claim_url}"', html=False)
 
+    def test_login_page_shows_google_button_markup_when_configured(self):
+        with self.settings(
+            GOOGLE_CLIENT_ID="test-google-client-id.apps.googleusercontent.com",
+        ):
+            response = self.client.get(reverse("user:login"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "login.html")
+        self.assertContains(response, 'data-google-auth-button', html=False)
+        self.assertContains(
+            response,
+            'data-google-client-id="test-google-client-id.apps.googleusercontent.com"',
+            html=False,
+        )
+        self.assertContains(response, "https://accounts.google.com/gsi/client", html=False)
+        self.assertNotContains(response, "Google sign-in is not configured yet.", html=False)
+
+    def test_login_page_shows_google_config_message_when_client_id_missing(self):
+        with self.settings(GOOGLE_CLIENT_ID=""):
+            response = self.client.get(reverse("user:login"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "login.html")
+        self.assertContains(
+            response,
+            "Google sign-in is not configured yet. Add",
+            html=False,
+        )
+        self.assertNotContains(response, 'data-google-auth-button', html=False)
+        self.assertNotContains(response, "https://accounts.google.com/gsi/client", html=False)
+
     def test_signup_requires_google_credential(self):
         response = self.client.post(
             reverse("user:signup"),

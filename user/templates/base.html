@@ -32,7 +32,7 @@
     {% if not user.is_authenticated %}
     <link rel="stylesheet" href="{% static 'css/auth_modal.css' %}?v=20260330j">
     {% endif %}
-    <link rel="stylesheet" href="{% static 'css/user_theme.css' %}?v=20260407topbar-glass-scroll">
+    <link rel="stylesheet" href="{% static 'css/user_theme.css' %}?v=20260410footer-green">
     <link rel="stylesheet" href="{% static 'css/notification_menu.css' %}?v=20260330b">
     <link rel="stylesheet" href="{% static 'css/user_button_skin.css' %}?v=20260324a">
     <style>
@@ -297,29 +297,40 @@
 
                 <footer class="site-footer" aria-label="Site footer">
                     <div class="site-footer__panel">
-                        <div class="site-footer__brand">
-                            <span class="site-footer__mark" aria-hidden="true">
-                                <i class="bi bi-shield-heart"></i>
-                            </span>
-                            <div class="site-footer__brand-copy">
-                                <p class="site-footer__eyebrow">Bayawan Vet</p>
-                                <p class="site-footer__copy">
-                                    Helping residents report, track, and respond to rescue dogs across the city.
-                                </p>
+                        <div class="site-footer__main">
+                            <a href="{% url 'user:user_home' %}" class="site-footer__brand">
+                                <span class="site-footer__mark" aria-hidden="true">
+                                    <i class="bi bi-shield-heart"></i>
+                                </span>
+                                <span class="site-footer__brand-copy">
+                                    <span class="site-footer__brand-name">Bayawan Vet</span>
+                                    <span class="site-footer__brand-tag">Rescue, claim, and adoption support.</span>
+                                </span>
+                            </a>
+
+                            <nav class="site-footer__links" aria-label="Footer quick links">
+                                <a href="{% url 'user:user_home' %}">Home</a>
+                                <a href="{% url 'user:claim_list' %}">Claim Dogs</a>
+                                <a href="{% url 'user:adopt_list' %}">Adopt Dogs</a>
+                                <a href="{% url 'user:announcement_list' %}">Announcements</a>
+                                <a href="{% url 'user:dog_capture_request' %}">Report a Dog</a>
+                            </nav>
+
+                            <div class="site-footer__social" aria-label="Footer shortcuts">
+                                <a href="{% url 'user:user_home' %}" aria-label="Go to home">
+                                    <i class="bi bi-house-door"></i>
+                                </a>
+                                <a href="{% url 'user:announcement_list' %}" aria-label="View announcements">
+                                    <i class="bi bi-megaphone"></i>
+                                </a>
+                                <a href="{% url 'user:dog_capture_request' %}" aria-label="Report a dog">
+                                    <i class="bi bi-send"></i>
+                                </a>
                             </div>
                         </div>
 
-                        <nav class="site-footer__links" aria-label="Footer quick links">
-                            <a href="{% url 'user:user_home' %}">Home</a>
-                            <a href="{% url 'user:claim_list' %}">Claim Dogs</a>
-                            <a href="{% url 'user:adopt_list' %}">Adopt Dogs</a>
-                            <a href="{% url 'user:announcement_list' %}">Announcements</a>
-                            <a href="{% url 'user:dog_capture_request' %}">Report a Dog</a>
-                        </nav>
-
-                        <div class="site-footer__meta">
-                            <span>© {% now "Y" %} Bayawan Vet</span>
-                            <span>Rescue, claim, and adoption support.</span>
+                        <div class="site-footer__bottom">
+                            <p class="site-footer__copyright">&copy; {% now "Y" %} Bayawan Vet. All rights reserved.</p>
                         </div>
                     </div>
                 </footer>
@@ -333,26 +344,11 @@
     {% include 'partials/auth_modals.html' %}
 {% endif %}
 
-<div class="modal fade app-confirm-modal" id="sharedConfirmModal" tabindex="-1" aria-labelledby="sharedConfirmModalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content app-confirm-card">
-            <div class="modal-header">
-                <h5 class="modal-title" id="sharedConfirmModalTitle">Confirm Action</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p class="app-confirm-message" id="sharedConfirmModalMessage">Please confirm to continue.</p>
-            </div>
-            <div class="modal-footer app-confirm-actions">
-                <button type="button" class="btn btn-cancel-action" id="sharedConfirmModalCancel" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="sharedConfirmModalSubmit">OK</button>
-            </div>
-        </div>
-    </div>
-</div>
+{% include 'partials/shared_confirm_modal.html' %}
 
 <!-- ================= SCRIPTS ================= -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{% static 'js/shared_confirm_modal.js' %}?v=20260409shared-confirm"></script>
 
 <script>
 function ensureSharedModalCloseButtons(root) {
@@ -935,107 +931,6 @@ document.addEventListener('DOMContentLoaded', function () {
         responsiveSearchMediaQuery.addListener(syncResponsiveSearch);
     }
 
-    const confirmModalEl = document.getElementById('sharedConfirmModal');
-    const confirmTitleEl = document.getElementById('sharedConfirmModalTitle');
-    const confirmMessageEl = document.getElementById('sharedConfirmModalMessage');
-    const confirmSubmitBtn = document.getElementById('sharedConfirmModalSubmit');
-
-    if (!confirmModalEl || !confirmSubmitBtn || !window.bootstrap) {
-        return;
-    }
-
-    const confirmModal = bootstrap.Modal.getOrCreateInstance(confirmModalEl);
-    let pendingForm = null;
-    let pendingButton = null;
-
-    function openSharedConfirm(title, message, submitLabel) {
-        if (confirmTitleEl) {
-            confirmTitleEl.textContent = title || 'Confirm Action';
-        }
-        if (confirmMessageEl) {
-            confirmMessageEl.textContent = message || 'Please confirm to continue.';
-        }
-        confirmSubmitBtn.textContent = submitLabel || 'OK';
-        confirmModal.show();
-    }
-
-    document.querySelectorAll('form[data-confirm-modal]').forEach(function (form) {
-        form.addEventListener('submit', function (event) {
-            if (form.dataset.confirmedSubmit === '1') {
-                form.dataset.confirmedSubmit = '0';
-                return;
-            }
-
-            event.preventDefault();
-            pendingForm = form;
-            pendingButton = null;
-            openSharedConfirm(
-                form.dataset.confirmTitle,
-                form.dataset.confirmMessage,
-                form.dataset.confirmSubmitLabel
-            );
-        });
-    });
-
-    document.querySelectorAll('[data-confirm-button]').forEach(function (button) {
-        button.addEventListener('click', function (event) {
-            if (button.dataset.confirmedClick === '1') {
-                button.dataset.confirmedClick = '0';
-                return;
-            }
-
-            event.preventDefault();
-            pendingForm = null;
-            pendingButton = button;
-            openSharedConfirm(
-                button.dataset.confirmTitle,
-                button.dataset.confirmMessage,
-                button.dataset.confirmSubmitLabel
-            );
-        });
-    });
-
-    confirmSubmitBtn.addEventListener('click', function () {
-        if (pendingButton) {
-            const buttonToSubmit = pendingButton;
-            const targetForm = buttonToSubmit.form;
-            pendingButton = null;
-            pendingForm = null;
-            buttonToSubmit.dataset.confirmedClick = '1';
-            confirmModal.hide();
-
-            if (targetForm && typeof targetForm.requestSubmit === 'function') {
-                targetForm.requestSubmit(buttonToSubmit);
-                return;
-            }
-
-            if (targetForm) {
-                targetForm.submit();
-            }
-            return;
-        }
-
-        if (!pendingForm) {
-            return;
-        }
-
-        const formToSubmit = pendingForm;
-        pendingForm = null;
-        formToSubmit.dataset.confirmedSubmit = '1';
-        confirmModal.hide();
-
-        if (typeof formToSubmit.requestSubmit === 'function') {
-            formToSubmit.requestSubmit();
-            return;
-        }
-
-        formToSubmit.submit();
-    });
-
-    confirmModalEl.addEventListener('hidden.bs.modal', function () {
-        pendingForm = null;
-        pendingButton = null;
-    });
 });
 </script>
 

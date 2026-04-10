@@ -23,7 +23,17 @@
         {% endif %}
     </div>
 
-    <form method="POST" enctype="multipart/form-data" class="post-form" id="create-post-form" action="{{ form_action|default:'' }}">
+    <form
+        method="POST"
+        enctype="multipart/form-data"
+        class="post-form"
+        id="create-post-form"
+        action="{{ form_action|default:'' }}"
+        data-confirm-modal
+        data-confirm-title="{{ confirm_title|default:'Confirm Publish' }}"
+        data-confirm-message="{{ confirm_body|default:'Publish this post now?' }}"
+        data-confirm-submit-label="{{ confirm_submit_label|default:'Publish' }}"
+    >
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ back_url }}">
 
@@ -163,24 +173,6 @@
     </form>
 </div>
 
-<div class="modal fade app-confirm-modal" id="publishConfirmModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content app-confirm-card">
-            <div class="modal-header">
-                <h5 class="modal-title">{{ confirm_title|default:"Confirm Publish" }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                {{ confirm_body|default:"Publish this post now?" }}
-            </div>
-            <div class="modal-footer app-confirm-actions">
-                <button type="button" class="btn btn-cancel-action" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="publishConfirmSubmit">{{ confirm_submit_label|default:"Publish" }}</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script>
     const claimDaysInput = document.getElementById("{{ post_form.claim_days.id_for_label }}");
     const breedSelect = document.getElementById("{{ post_form.breed.id_for_label }}");
@@ -189,9 +181,6 @@
     const colorOptionInputs = document.querySelectorAll("#postColorOptions input[type='checkbox']");
     const form = document.getElementById("create-post-form");
     const claimDaysStorageKey = "admin_create_post_claim_days";
-    const publishConfirmModalEl = document.getElementById("publishConfirmModal");
-    const publishConfirmSubmitBtn = document.getElementById("publishConfirmSubmit");
-    let publishConfirmed = false;
 
     function toggleFieldGroup(group, shouldShow) {
         if (!group) {
@@ -244,41 +233,11 @@
     }
 
     if (form) {
-        form.addEventListener('submit', (e) => {
+        form.addEventListener('submit', () => {
             const value = claimDaysInput ? claimDaysInput.value : "";
             if (value) {
                 window.localStorage.setItem(claimDaysStorageKey, value);
             }
-
-            if (publishConfirmed) {
-                return;
-            }
-
-            if (publishConfirmModalEl && window.bootstrap) {
-                e.preventDefault();
-                const modal = bootstrap.Modal.getOrCreateInstance(publishConfirmModalEl);
-                modal.show();
-            }
-        });
-    }
-
-    if (form && publishConfirmModalEl && publishConfirmSubmitBtn && window.bootstrap) {
-        publishConfirmSubmitBtn.addEventListener('click', () => {
-            publishConfirmed = true;
-            const modal = bootstrap.Modal.getOrCreateInstance(publishConfirmModalEl);
-            modal.hide();
-            if (typeof form.requestSubmit === "function") {
-                form.requestSubmit();
-            } else {
-                form.submit();
-            }
-        });
-
-        publishConfirmModalEl.addEventListener('hidden.bs.modal', () => {
-            if (!publishConfirmed) {
-                return;
-            }
-            publishConfirmed = false;
         });
     }
 </script>

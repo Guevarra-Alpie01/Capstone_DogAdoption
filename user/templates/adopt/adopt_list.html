@@ -2,12 +2,40 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260408finder-card-share-info">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260410finder-toggle-placement">
 {% endblock %}
 
 {% block content %}
 <div class="finder-page">
     <form method="get" class="finder-layout" data-finder-layout>
+        <section class="finder-hero">
+            <div class="finder-hero__copy">
+                <span class="finder-hero__eyebrow">
+                    <i class="bi bi-heart" aria-hidden="true"></i>
+                    Rescue Finder
+                </span>
+                <h1 class="finder-hero__title">{{ page_title }}</h1>
+
+                {% if request_links %}
+                <div class="finder-hero__actions">
+                    {% for link in request_links %}
+                    <a
+                        href="{{ link.url }}"
+                        class="finder-hero__link"
+                        {% if not request.user.is_authenticated %}
+                        data-auth-modal-trigger="login"
+                        data-auth-next-url="{{ link.url }}"
+                        {% endif %}
+                    >
+                        <i class="{{ link.icon_class }}" aria-hidden="true"></i>
+                        <span>{{ link.label }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </section>
+
         <section class="finder-filter-shell">
             <div class="finder-filter-shell__head">
                 <div class="finder-filter-shell__actions">
@@ -16,217 +44,196 @@
                     {% endif %}
                     <button
                         type="button"
-                        class="finder-mobile-toggle"
-                        data-finder-filter-open
-                        aria-expanded="false"
+                        class="finder-filter-toggle"
+                        data-finder-filter-toggle
+                        aria-expanded="true"
                         aria-controls="finderFiltersPanel"
                     >
-                        <i class="bi bi-sliders" aria-hidden="true"></i>
-                        <span>Filter Search</span>
-                        {% if active_filter_count %}
-                        <span class="finder-mobile-toggle__count">{{ active_filter_count }}</span>
-                        {% endif %}
+                        <span class="finder-filter-toggle__icon" aria-hidden="true">
+                            <i class="bi bi-sliders"></i>
+                        </span>
+                        <span class="finder-filter-toggle__label" data-finder-filter-toggle-label>Hide Filters</span>
+                        <span class="finder-filter-toggle__caret" aria-hidden="true">
+                            <i class="bi bi-chevron-up"></i>
+                        </span>
                     </button>
                 </div>
             </div>
 
             <div class="finder-filter-backdrop" data-finder-filter-close aria-hidden="true"></div>
 
-            <nav class="finder-toolbar" id="finderFiltersPanel" data-finder-toolbar aria-label="Dog search filters">
-                <div class="finder-toolbar__header">
-                    <div>
-                        <h3 class="finder-toolbar__title">Filter Search</h3>
-                        <p class="finder-toolbar__text">Tap a filter to see all available choices, then apply your preferences.</p>
-                    </div>
-                    <button type="button" class="finder-toolbar__close" data-finder-filter-close aria-label="Close filters">
-                        <i class="bi bi-x-lg" aria-hidden="true"></i>
-                    </button>
-                </div>
-
-                <div class="finder-toolbar__controls">
-                    <details class="finder-purpose-menu" data-purpose-menu>
-                        <summary class="finder-purpose-menu__summary">
-                            <span class="finder-purpose-menu__summary-icon">
-                                {% include "adopt/_finder_icon.html" with icon_name="all" %}
-                            </span>
-                            <span class="finder-purpose-menu__summary-copy">
-                                <span class="finder-purpose-menu__summary-title">Purpose</span>
-                                <span class="finder-purpose-menu__summary-label" data-purpose-current-label title="{{ current_purpose_label }}">{{ current_purpose_label }}</span>
-                            </span>
-                            <span class="finder-purpose-menu__summary-count" data-purpose-current-count>{{ current_purpose_count }}</span>
-                            <span class="finder-purpose-menu__summary-caret" aria-hidden="true">
-                                <i class="bi bi-chevron-down"></i>
-                            </span>
-                        </summary>
-
-                        <div class="finder-purpose-menu__options">
-                            <select id="finderPurpose" name="purpose" class="finder-purpose__native" hidden>
-                                {% for value, label in purpose_choices %}
-                                <option value="{{ value }}"{% if current_purpose == value %} selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
-
-                            {% for option in purpose_options %}
-                            <button
-                                type="button"
-                                class="finder-purpose-option{% if current_purpose == option.value %} is-active{% endif %}"
-                                data-purpose-option
-                                data-purpose="{{ option.value }}"
-                                data-purpose-label="{{ option.label }}"
-                                data-purpose-count="{{ option.count }}"
-                            >
-                                <span class="finder-purpose-option__icon">
-                                    {% include "adopt/_finder_icon.html" with icon_name=option.icon_key %}
-                                </span>
-                                <span class="finder-purpose-option__label">{{ option.label }}</span>
-                                <span class="finder-purpose-option__count">{{ option.count }}</span>
-                            </button>
-                            {% endfor %}
+            <div class="finder-filter-shell__panel" data-finder-filter-panel>
+                <nav class="finder-toolbar" id="finderFiltersPanel" data-finder-toolbar aria-label="Dog search filters">
+                    <div class="finder-toolbar__header">
+                        <div>
+                            <h3 class="finder-toolbar__title">Filter Search</h3>
+                            <p class="finder-toolbar__text">Tap a filter to see all available choices, then apply your preferences.</p>
                         </div>
-                    </details>
+                        <button type="button" class="finder-toolbar__close" data-finder-filter-close aria-label="Close filters">
+                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        </button>
+                    </div>
 
-                    <div class="finder-filter-groups" aria-label="Dog filters">
-                        {% for section in filter_sections %}
-                        <details class="finder-filter-group">
-                            <summary class="finder-filter-group__summary">
-                                <span class="finder-filter-group__content">
-                                    <span class="finder-filter-group__icon">
-                                        {% include "adopt/_finder_icon.html" with icon_name=section.key %}
-                                    </span>
-                                    <span class="finder-filter-group__copy">
-                                        <span class="finder-filter-group__title">{{ section.label }}</span>
-                                        <span class="finder-filter-group__value" data-default-label="{{ section.clear_label }}" title="{{ section.value_label|default:section.clear_label }}">{{ section.value_label|default:section.clear_label }}</span>
-                                    </span>
+                    <div class="finder-toolbar__controls">
+                        <details class="finder-purpose-menu" data-purpose-menu>
+                            <summary class="finder-purpose-menu__summary">
+                                <span class="finder-purpose-menu__summary-icon">
+                                    {% include "adopt/_finder_icon.html" with icon_name="all" %}
                                 </span>
-                                <span class="finder-filter-group__caret" aria-hidden="true">
+                                <span class="finder-purpose-menu__summary-copy">
+                                    <span class="finder-purpose-menu__summary-title">Purpose</span>
+                                    <span class="finder-purpose-menu__summary-label" data-purpose-current-label title="{{ current_purpose_label }}">{{ current_purpose_label }}</span>
+                                </span>
+                                <span class="finder-purpose-menu__summary-count" data-purpose-current-count>{{ current_purpose_count }}</span>
+                                <span class="finder-purpose-menu__summary-caret" aria-hidden="true">
                                     <i class="bi bi-chevron-down"></i>
                                 </span>
                             </summary>
 
-                            <div class="finder-filter-options">
-                                <label class="finder-filter-option{% if not section.value %} is-selected{% endif %}">
-                                    <input type="radio" name="{{ section.key }}" value=""{% if not section.value %} checked{% endif %}>
-                                    <span class="finder-filter-option__box">
-                                        <i class="bi bi-check2" aria-hidden="true"></i>
+                            <div class="finder-purpose-menu__options">
+                                <select id="finderPurpose" name="purpose" class="finder-purpose__native" hidden>
+                                    {% for value, label in purpose_choices %}
+                                    <option value="{{ value }}"{% if current_purpose == value %} selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+
+                                {% for option in purpose_options %}
+                                <button
+                                    type="button"
+                                    class="finder-purpose-option{% if current_purpose == option.value %} is-active{% endif %}"
+                                    data-purpose-option
+                                    data-purpose="{{ option.value }}"
+                                    data-purpose-label="{{ option.label }}"
+                                    data-purpose-count="{{ option.count }}"
+                                >
+                                    <span class="finder-purpose-option__icon">
+                                        {% include "adopt/_finder_icon.html" with icon_name=option.icon_key %}
                                     </span>
-                                    <span class="finder-filter-option__label">{{ section.clear_label }}</span>
-                                </label>
-                                {% for option in section.options %}
-                                <label class="finder-filter-option{% if section.value == option.value %} is-selected{% endif %}">
-                                    <input type="radio" name="{{ section.key }}" value="{{ option.value }}"{% if section.value == option.value %} checked{% endif %}>
-                                    <span class="finder-filter-option__box">
-                                        <i class="bi bi-check2" aria-hidden="true"></i>
-                                    </span>
-                                    <span class="finder-filter-option__label">{{ option.label }}</span>
-                                </label>
+                                    <span class="finder-purpose-option__label">{{ option.label }}</span>
+                                    <span class="finder-purpose-option__count">{{ option.count }}</span>
+                                </button>
                                 {% endfor %}
                             </div>
                         </details>
-                        {% endfor %}
-                    </div>
 
-                    <div class="finder-toolbar__footer">
-                        <a href="{{ clear_filters_url }}" class="finder-toolbar__action finder-toolbar__action--clear">
-                            <span class="finder-toolbar__action-icon">
-                                {% include "adopt/_finder_icon.html" with icon_name="clear" %}
-                            </span>
-                            <span class="finder-toolbar__action-text">Clear</span>
-                        </a>
-                        <button type="submit" class="finder-toolbar__action finder-toolbar__action--apply">
-                            <span class="finder-toolbar__action-icon">
-                                {% include "adopt/_finder_icon.html" with icon_name="apply" %}
-                            </span>
-                            <span class="finder-toolbar__action-text">Search</span>
-                        </button>
+                        <div class="finder-filter-groups" aria-label="Dog filters">
+                            {% for section in filter_sections %}
+                            <details class="finder-filter-group">
+                                <summary class="finder-filter-group__summary">
+                                    <span class="finder-filter-group__content">
+                                        <span class="finder-filter-group__icon">
+                                            {% include "adopt/_finder_icon.html" with icon_name=section.key %}
+                                        </span>
+                                        <span class="finder-filter-group__copy">
+                                            <span class="finder-filter-group__title">{{ section.label }}</span>
+                                            <span class="finder-filter-group__value" data-default-label="{{ section.clear_label }}" title="{{ section.value_label|default:section.clear_label }}">{{ section.value_label|default:section.clear_label }}</span>
+                                        </span>
+                                    </span>
+                                    <span class="finder-filter-group__caret" aria-hidden="true">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </span>
+                                </summary>
+
+                                <div class="finder-filter-options">
+                                    <label class="finder-filter-option{% if not section.value %} is-selected{% endif %}">
+                                        <input type="radio" name="{{ section.key }}" value=""{% if not section.value %} checked{% endif %}>
+                                        <span class="finder-filter-option__box">
+                                            <i class="bi bi-check2" aria-hidden="true"></i>
+                                        </span>
+                                        <span class="finder-filter-option__label">{{ section.clear_label }}</span>
+                                    </label>
+                                    {% for option in section.options %}
+                                    <label class="finder-filter-option{% if section.value == option.value %} is-selected{% endif %}">
+                                        <input type="radio" name="{{ section.key }}" value="{{ option.value }}"{% if section.value == option.value %} checked{% endif %}>
+                                        <span class="finder-filter-option__box">
+                                            <i class="bi bi-check2" aria-hidden="true"></i>
+                                        </span>
+                                        <span class="finder-filter-option__label">{{ option.label }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </details>
+                            {% endfor %}
+                        </div>
+
+                        <div class="finder-toolbar__footer">
+                            <a href="{{ clear_filters_url }}" class="finder-toolbar__action finder-toolbar__action--clear">
+                                <span class="finder-toolbar__action-icon">
+                                    {% include "adopt/_finder_icon.html" with icon_name="clear" %}
+                                </span>
+                                <span class="finder-toolbar__action-text">Clear</span>
+                            </a>
+                            <button type="submit" class="finder-toolbar__action finder-toolbar__action--apply">
+                                <span class="finder-toolbar__action-icon">
+                                    {% include "adopt/_finder_icon.html" with icon_name="apply" %}
+                                </span>
+                                <span class="finder-toolbar__action-text">Search</span>
+                            </button>
+                        </div>
                     </div>
-                </div>
-            </nav>
+                </nav>
+            </div>
         </section>
-    <section class="finder-hero">
-        <div class="finder-hero__copy">
-            <span class="finder-hero__eyebrow">
-                <i class="bi bi-heart" aria-hidden="true"></i>
-                Rescue Finder
-            </span>
-            <h1 class="finder-hero__title">{{ page_title }}</h1>
-        </div>
 
-        <div class="finder-hero__actions">
-            {% for link in request_links %}
-            <a
-                href="{{ link.url }}"
-                class="finder-hero__link"
-                {% if not request.user.is_authenticated %}
-                data-auth-modal-trigger="login"
-                data-auth-next-url="{{ link.url }}"
+        <div class="finder-content">
+            {% if active_filter_count %}
+            <section class="finder-recommended">
+                <div class="finder-section__head">
+                    <div>
+                        <span class="finder-section__eyebrow">
+                            <i class="bi bi-stars" aria-hidden="true"></i>
+                            Recommended for you
+                        </span>
+                        <h2 class="finder-section__title">Best matches from your selected filters</h2>
+                    </div>
+                    <p class="finder-section__meta">{{ active_filter_count }} active filter{{ active_filter_count|pluralize }}</p>
+                </div>
+
+                {% if recommended_posts %}
+                <div class="finder-card-grid">
+                    {% for item in recommended_posts %}
+                    {% include "adopt/_finder_card.html" with item=item featured=True active_filter_count=active_filter_count %}
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="finder-empty finder-empty--inline">
+                    <h3>No close matches yet</h3>
+                    <p>Try changing one preference to widen the rescue search.</p>
+                </div>
                 {% endif %}
-            >
-                <i class="{{ link.icon_class }}" aria-hidden="true"></i>
-                <span>{{ link.label }}</span>
-            </a>
-            {% endfor %}
+            </section>
+            {% endif %}
+
+            <section class="finder-results">
+                <div class="finder-section__head">
+                    <div>
+                        <h2 class="finder-section__title">{{ results_title }}</h2>
+                        <p class="finder-section__text">{{ results_description }}</p>
+                    </div>
+                    <p class="finder-section__meta">{{ page_obj.paginator.count }} dog{{ page_obj.paginator.count|pluralize }}</p>
+                </div>
+
+                {% if posts %}
+                <div class="finder-card-grid">
+                    {% for item in posts %}
+                    {% include "adopt/_finder_card.html" with item=item active_filter_count=active_filter_count %}
+                    {% endfor %}
+                </div>
+
+                {% if page_obj.has_next %}
+                <div class="finder-load-more">
+                    <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ page_obj.next_page_number }}" class="finder-load-more__link">Load more dogs</a>
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="finder-empty">
+                    <h3>No rescue dogs found</h3>
+                    <p>There are no active rescue dogs for this view right now. Check back again soon.</p>
+                    <a href="{{ clear_filters_url }}" class="finder-empty__link">Reset search</a>
+                </div>
+                {% endif %}
+            </section>
         </div>
-    </section>
-
-    <div class="finder-content">
-        {% if active_filter_count %}
-        <section class="finder-recommended">
-            <div class="finder-section__head">
-                <div>
-                    <span class="finder-section__eyebrow">
-                        <i class="bi bi-stars" aria-hidden="true"></i>
-                        Recommended for you
-                    </span>
-                    <h2 class="finder-section__title">Best matches from your selected filters</h2>
-                </div>
-                <p class="finder-section__meta">{{ active_filter_count }} active filter{{ active_filter_count|pluralize }}</p>
-            </div>
-
-            {% if recommended_posts %}
-            <div class="finder-card-grid">
-                {% for item in recommended_posts %}
-                {% include "adopt/_finder_card.html" with item=item featured=True active_filter_count=active_filter_count %}
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="finder-empty finder-empty--inline">
-                <h3>No close matches yet</h3>
-                <p>Try changing one preference to widen the rescue search.</p>
-            </div>
-            {% endif %}
-        </section>
-        {% endif %}
-
-        <section class="finder-results">
-            <div class="finder-section__head">
-                <div>
-                    <h2 class="finder-section__title">{{ results_title }}</h2>
-                    <p class="finder-section__text">{{ results_description }}</p>
-                </div>
-                <p class="finder-section__meta">{{ page_obj.paginator.count }} dog{{ page_obj.paginator.count|pluralize }}</p>
-            </div>
-
-            {% if posts %}
-            <div class="finder-card-grid">
-                {% for item in posts %}
-                {% include "adopt/_finder_card.html" with item=item active_filter_count=active_filter_count %}
-                {% endfor %}
-            </div>
-
-            {% if page_obj.has_next %}
-            <div class="finder-load-more">
-                <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ page_obj.next_page_number }}" class="finder-load-more__link">Load more dogs</a>
-            </div>
-            {% endif %}
-            {% else %}
-            <div class="finder-empty">
-                <h3>No rescue dogs found</h3>
-                <p>There are no active rescue dogs for this view right now. Check back again soon.</p>
-                <a href="{{ clear_filters_url }}" class="finder-empty__link">Reset search</a>
-            </div>
-            {% endif %}
-        </section>
-    </div>
     </form>
 </div>
 
@@ -241,8 +248,10 @@
 <script>
 (function () {
     const layout = document.querySelector('[data-finder-layout]');
+    const filterPanel = layout?.querySelector('[data-finder-filter-panel]');
     const filterToolbar = layout?.querySelector('[data-finder-toolbar]');
-    const filterOpenTrigger = layout?.querySelector('[data-finder-filter-open]');
+    const filterToggleButtons = layout ? Array.from(layout.querySelectorAll('[data-finder-filter-toggle]')) : [];
+    const filterToggleLabels = layout ? Array.from(layout.querySelectorAll('[data-finder-filter-toggle-label]')) : [];
     const filterCloseTriggers = layout?.querySelectorAll('[data-finder-filter-close]');
     const filterGroups = layout ? Array.from(layout.querySelectorAll('.finder-filter-group')) : [];
     const purposeMenu = layout?.querySelector('[data-purpose-menu]');
@@ -276,6 +285,27 @@
     function resetTransientFilterUi() {
         closeFilterGroups();
         closePurposeMenu();
+    }
+
+    function syncFilterToggleUi() {
+        if (!layout) return;
+        const isExpanded = mobileQuery.matches
+            ? layout.classList.contains('is-filter-open')
+            : !layout.classList.contains('is-filter-collapsed');
+        const nextLabel = isExpanded ? 'Hide Filters' : 'Show Filters';
+
+        if (filterToolbar) {
+            filterToolbar.setAttribute('aria-hidden', isExpanded ? 'false' : 'true');
+        }
+
+        filterToggleButtons.forEach((button) => {
+            button.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+            button.classList.toggle('is-active', isExpanded);
+        });
+
+        filterToggleLabels.forEach((label) => {
+            label.textContent = nextLabel;
+        });
     }
 
     function syncFilterGroupState(group) {
@@ -328,18 +358,28 @@
         }
     }
 
+    function setDesktopFiltersCollapsed(shouldCollapse) {
+        if (!layout || !filterPanel || mobileQuery.matches) return;
+        const isCollapsed = Boolean(shouldCollapse);
+        layout.classList.toggle('is-filter-collapsed', isCollapsed);
+        if (isCollapsed) {
+            resetTransientFilterUi();
+        }
+        syncFilterToggleUi();
+    }
+
     function setMobileFiltersOpen(shouldOpen) {
-        if (!layout || !filterToolbar || !filterOpenTrigger) return;
+        if (!layout || !filterToolbar) return;
         const isOpen = Boolean(shouldOpen) && mobileQuery.matches;
         layout.classList.toggle('is-filter-open', isOpen);
         document.body.classList.toggle('finder-filter-open', isOpen);
-        filterOpenTrigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         if (isOpen) {
             filterToolbar.scrollTop = 0;
         }
         if (!isOpen) {
             resetTransientFilterUi();
         }
+        syncFilterToggleUi();
     }
 
     filterGroups.forEach((group) => {
@@ -364,6 +404,7 @@
     purposeSelect?.addEventListener('change', syncPurposeOptions);
 
     resetTransientFilterUi();
+    syncFilterToggleUi();
 
     purposeMenu?.addEventListener('toggle', () => {
         if (purposeMenu.open && !mobileQuery.matches) {
@@ -382,8 +423,14 @@
         });
     });
 
-    filterOpenTrigger?.addEventListener('click', () => {
-        setMobileFiltersOpen(true);
+    filterToggleButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            if (mobileQuery.matches) {
+                setMobileFiltersOpen(!layout?.classList.contains('is-filter-open'));
+                return;
+            }
+            setDesktopFiltersCollapsed(!layout?.classList.contains('is-filter-collapsed'));
+        });
     });
 
     filterCloseTriggers?.forEach((trigger) => {
@@ -400,14 +447,10 @@
         }
     });
 
-    const handleViewportChange = (event) => {
-        if (event.matches) {
-            resetTransientFilterUi();
-            return;
-        }
-        if (!event.matches) {
-            setMobileFiltersOpen(false);
-        }
+    const handleViewportChange = () => {
+        resetTransientFilterUi();
+        setMobileFiltersOpen(false);
+        syncFilterToggleUi();
     };
 
     if (typeof mobileQuery.addEventListener === 'function') {
@@ -419,6 +462,7 @@
     window.addEventListener('pageshow', () => {
         resetTransientFilterUi();
         setMobileFiltersOpen(false);
+        syncFilterToggleUi();
     });
 
     function announceShareStatus(message) {

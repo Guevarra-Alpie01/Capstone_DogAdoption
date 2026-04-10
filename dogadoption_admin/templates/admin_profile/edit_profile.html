@@ -111,7 +111,15 @@
                 </div>
                 <p class="admin-profile-panel-intro">Only the username and password can be changed here.</p>
 
-                <form method="POST" class="admin-profile-form" id="admin-profile-form">
+                <form
+                    method="POST"
+                    class="admin-profile-form"
+                    id="admin-profile-form"
+                    data-confirm-modal
+                    data-confirm-title="Confirm Profile Changes"
+                    data-confirm-message="Save the updated username and password changes now?"
+                    data-confirm-submit-label="Confirm Save"
+                >
                     {% csrf_token %}
                     <input type="hidden" name="action" value="update_profile">
 
@@ -160,10 +168,8 @@
 
                     <div class="admin-profile-form-actions">
                         <button
-                            type="button"
+                            type="submit"
                             class="admin-profile-save-btn"
-                            data-bs-toggle="modal"
-                            data-bs-target="#adminProfileConfirmModal"
                         >
                             Save Changes
                         </button>
@@ -379,23 +385,6 @@
     </section>
 </div>
 
-<div class="modal fade app-confirm-modal" id="adminProfileConfirmModal" tabindex="-1" aria-labelledby="adminProfileConfirmModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content app-confirm-card">
-            <div class="modal-header">
-                <h5 class="modal-title" id="adminProfileConfirmModalLabel">Confirm Profile Changes</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                Save the updated username and password changes now?
-            </div>
-            <div class="modal-footer app-confirm-actions">
-                <button type="button" class="btn btn-cancel-action" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-primary" form="admin-profile-form">Confirm Save</button>
-            </div>
-        </div>
-    </div>
-</div>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const root = document.querySelector('[data-admin-profile-tabs]');

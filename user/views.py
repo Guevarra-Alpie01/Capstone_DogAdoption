@@ -95,7 +95,6 @@ DEFAULT_REQUEST_CITY = "Bayawan City"
 ADMIN_POST_HISTORY_CACHE_KEY = "dogadoption_admin_post_history_ids_v1"
 DOG_SURRENDER_REQUEST_TYPE = "surrender"
 DOG_ONLINE_SUBMISSION_TYPE = "online"
-DOG_EXACT_GPS_MAX_ACCURACY_METERS = 100
 PHILIPPINES_COUNTRY_CODE = "+63"
 SIGNUP_USERNAME_MIN_LENGTH = 3
 SIGNUP_USERNAME_MAX_LENGTH = User._meta.get_field("username").max_length
@@ -1380,17 +1379,6 @@ def _resolve_barangay_name(value):
             ACTIVE_BARANGAY_LOOKUP_CACHE_TTL_SECONDS,
         )
     return lookup.get(normalized, "")
-
-
-def _parse_gps_accuracy_meters(value):
-    raw_value = (value or "").strip()
-    if not raw_value:
-        return None
-    try:
-        accuracy = float(raw_value)
-    except (TypeError, ValueError):
-        return None
-    return accuracy if accuracy > 0 else None
 
 
 def _ensure_default_profile_image_exists():
@@ -3789,7 +3777,6 @@ def _build_dog_capture_request_page_context(request):
             'captured_total': 0,
             'active_status_tab': active_status_tab,
             'default_manual_city': DEFAULT_REQUEST_CITY,
-            'exact_gps_max_accuracy_meters': DOG_EXACT_GPS_MAX_ACCURACY_METERS,
         }
 
     status_totals = {
@@ -3827,7 +3814,6 @@ def _build_dog_capture_request_page_context(request):
         'captured_total': status_totals.get("captured", 0),
         'active_status_tab': active_status_tab,
         'default_manual_city': DEFAULT_REQUEST_CITY,
-        'exact_gps_max_accuracy_meters': DOG_EXACT_GPS_MAX_ACCURACY_METERS,
     }
 
 
@@ -3855,7 +3841,6 @@ def _handle_dog_capture_request_submission(request):
     description = (request.POST.get('description') or '').strip()
     latitude_raw = (request.POST.get('latitude') or '').strip()
     longitude_raw = (request.POST.get('longitude') or '').strip()
-    gps_accuracy_meters = _parse_gps_accuracy_meters(request.POST.get('gps_accuracy'))
     submission_type = DOG_ONLINE_SUBMISSION_TYPE
 
     location_mode = (request.POST.get('location_mode') or 'exact').strip().lower()
@@ -3879,18 +3864,7 @@ def _handle_dog_capture_request_submission(request):
         longitude_value = None
     elif submission_type == 'online':
         if not latitude_raw or not longitude_raw:
-            messages.error(request, "Please capture your exact GPS location first.")
-            return _dog_capture_request_redirect()
-        if gps_accuracy_meters is None:
-            messages.error(request, "Please capture a fresh exact GPS location before submitting this request.")
-            return _dog_capture_request_redirect()
-        if gps_accuracy_meters > DOG_EXACT_GPS_MAX_ACCURACY_METERS:
-            messages.error(
-                request,
-                f"Your GPS pin is only accurate within about {round(gps_accuracy_meters)} meters. "
-                f"Please capture your exact GPS location again until it is {DOG_EXACT_GPS_MAX_ACCURACY_METERS} meters or better, "
-                "or switch to manual barangay selection.",
-            )
+            messages.error(request, 'Please use "Locate My Location" first, or switch to manual barangay selection.')
             return _dog_capture_request_redirect()
         try:
             latitude_val = float(latitude_raw)

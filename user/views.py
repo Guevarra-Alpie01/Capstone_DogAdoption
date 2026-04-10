@@ -1955,7 +1955,7 @@ def _build_public_post_listing(request, listing_mode):
     }
 
 
-def _build_home_featured_rescue_sections():
+def _build_home_featured_rescue_sections(request):
     raw_open_posts = list(
         _base_public_post_queryset()
         .filter(status__in=["rescued", "under_care"])
@@ -2096,7 +2096,7 @@ def _home_spotlight_pick_auto_pairs(candidate_pairs, limit):
     return _home_spotlight_random_fill(candidate_pairs, limit)
 
 
-def _build_home_spotlight_card(post, phase_payload, *, is_auto_highlighted=False):
+def _build_home_spotlight_card(request, post, phase_payload, *, is_auto_highlighted=False):
     phase = phase_payload["phase"]
     card_item = _build_rescue_finder_card_item(request, post, phase_payload, 0)
     countdown_deadline = (
@@ -2152,6 +2152,7 @@ def _build_home_spotlight_card(post, phase_payload, *, is_auto_highlighted=False
         "title": card_item["title"] or f"Rescue Dog #{post.id}",
         "detail_url": reverse("user:post_detail", args=[post.id]),
         "main_image_url": card_item["main_image_url"],
+        "share_url": card_item["share_url"],
         "image_alt": f'{card_item["title"] or "Pinned rescue"} dog photo',
         "phase": phase,
         "phase_title": card_item["phase_title"],
@@ -2204,7 +2205,7 @@ def _build_home_spotlight_card(post, phase_payload, *, is_auto_highlighted=False
     }
 
 
-def _build_home_pinned_rescue_spotlights():
+def _build_home_pinned_rescue_spotlights(request):
     pinned_posts = list(
         _base_public_post_queryset()
         .filter(is_pinned=True, status__in=["rescued", "under_care"])
@@ -2218,7 +2219,7 @@ def _build_home_pinned_rescue_spotlights():
             phase = phase_payload["phase"]
             if phase not in {"claim", "adopt"}:
                 continue
-            spotlight_items.append(_build_home_spotlight_card(post, phase_payload))
+            spotlight_items.append(_build_home_spotlight_card(request, post, phase_payload))
     remaining_slots = HOME_SPOTLIGHT_DISPLAY_LIMIT - len(spotlight_items)
     if remaining_slots > 0:
         fallback_candidates = list(
@@ -2237,6 +2238,7 @@ def _build_home_pinned_rescue_spotlights():
             for post, phase_payload in _home_spotlight_pick_auto_pairs(candidate_pairs, remaining_slots):
                 spotlight_items.append(
                     _build_home_spotlight_card(
+                        request,
                         post,
                         phase_payload,
                         is_auto_highlighted=True,
@@ -3408,8 +3410,8 @@ def _build_user_home_context(
 
     return {
         "posts": combined_posts,
-        **_build_home_pinned_rescue_spotlights(),
-        "featured_dog_sections": _build_home_featured_rescue_sections(),
+        **_build_home_pinned_rescue_spotlights(request),
+        "featured_dog_sections": _build_home_featured_rescue_sections(request),
         "vaccination_reminder_summary": (
             build_user_vaccination_reminder_summary(request.user)
             if request.user.is_authenticated and not request.user.is_staff
@@ -3675,6 +3677,8 @@ def post_detail(request, post_id):
     )
     Post.objects.filter(id=post.id).update(view_count=F("view_count") + 1)
     post.view_count = int(getattr(post, "view_count", 0) or 0) + 1
+    main_image = post.images.first()
+    post.share_image_url = request.build_absolute_uri(main_image.image.url) if main_image else ""
     return render(request, 'home/post_detail.html', {'post': post})
 
 

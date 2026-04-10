@@ -407,8 +407,6 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 <script>
-let currentStep = 1;
-const MAX_REQUEST_STEPS = 1;
 let stream = null;
 let map;
 let marker;
@@ -431,10 +429,6 @@ function addRequestMapBaseLayer(mapInstance) {
     L.tileLayer(REQUEST_MAP_TILE_URL, REQUEST_MAP_TILE_OPTIONS).addTo(mapInstance);
 }
 
-const stepPanels = document.querySelectorAll('.step-panel');
-const stepDots = document.querySelectorAll('.step-dot');
-const prevBtn = document.getElementById('prevBtn');
-const nextBtn = document.getElementById('nextBtn');
 const submitBtn = document.getElementById('submitBtn');
 const requestSubmitRequiresAuth = {{ request.user.is_authenticated|yesno:'false,true' }};
 const requestAuthNextUrl = "{% url 'user:dog_capture_request' %}";
@@ -667,11 +661,6 @@ function isGpsAccuracyAcceptable(accuracy, maxMeters = GPS_EXACT_MAX_ACCEPTABLE_
         && numericAccuracy <= numericLimit;
 }
 
-function getSavedGpsAccuracyMeters() {
-    const numericAccuracy = Number(gpsAccuracyField?.value || 0);
-    return Number.isFinite(numericAccuracy) && numericAccuracy > 0 ? numericAccuracy : 0;
-}
-
 function hasSavedExactLocationFix() {
     const latitudeValue = document.getElementById('latitude')?.value || '';
     const longitudeValue = document.getElementById('longitude')?.value || '';
@@ -682,8 +671,6 @@ function shouldAutoDetectDeviceLocation() {
     const locationMode = document.querySelector('input[name="location_mode"]:checked')?.value || 'exact';
     return getSelectedSubmissionType() === 'online' && locationMode === 'exact';
 }
-
-function cancelAutoDeviceLocationDetection() {}
 
 function setCapturedCoordinates(lat, lng) {
     const latitudeInput = document.getElementById('latitude');
@@ -888,35 +875,6 @@ function syncRequestFlowUI() {
 
     applyCreateLocationMode();
 }
-
-function setStep(step) {
-    currentStep = 1;
-    stepPanels.forEach((panel) => {
-        panel.hidden = false;
-    });
-
-    stepDots.forEach((dot) => {
-        dot.classList.remove('active', 'complete');
-    });
-
-    if (prevBtn) prevBtn.hidden = true;
-    if (nextBtn) nextBtn.hidden = true;
-    if (submitBtn) submitBtn.hidden = false;
-    syncRequestFlowUI();
-}
-
-function validateStep(step) {
-    return true;
-}
-
-nextBtn?.addEventListener('click', () => {
-    if (!validateStep(currentStep)) return;
-    if (currentStep < MAX_REQUEST_STEPS) setStep(currentStep + 1);
-});
-
-prevBtn?.addEventListener('click', () => {
-    if (currentStep > 1) setStep(currentStep - 1);
-});
 
 phoneNumberField?.addEventListener('blur', () => {
     if (!phoneNumberField.value.trim()) {
@@ -1367,7 +1325,6 @@ captureBtn?.addEventListener('click', () => {
 });
 
 window.addEventListener('beforeunload', () => {
-    cancelAutoDeviceLocationDetection();
     stopCamera();
     clearRequestLocationWatch();
 });
@@ -1392,7 +1349,6 @@ function applyCreateLocationMode() {
     if (isExact) {
         setResolvedCity(cityField?.value || defaultRequestCity);
     } else {
-        cancelAutoDeviceLocationDetection();
         clearRequestLocationWatch();
     }
 }
@@ -1963,7 +1919,6 @@ function initRequestTrackingUI(root = getRequestHistoryContentRoot() || document
 initRequestTrackingUI();
 initRequestHistoryPagination();
 applyCreateLocationMode();
-setStep(1);
 renderPhotoSummary();
 primePhoneField();
 if (window.initBarangayAutocomplete) {

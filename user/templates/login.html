@@ -43,9 +43,17 @@ body {
                 </div>
                 {% endif %}
 
-                <form method="post" class="login-form">
+                <form
+                    method="post"
+                    class="login-form"
+                    data-google-auth-form
+                    data-google-auth-mode="login"
+                    data-google-login-uri="{% url 'user:google_auth_login' %}"
+                    data-google-client-id="{{ google_client_id|default:'' }}"
+                >
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{{ auth_next|default:'' }}" data-auth-next-field>
+                    <input type="hidden" name="google_credential" value="">
 
                     <div class="mb-3 input-group">
                         <label for="loginPageUsername" class="auth-field-label">Username</label>
@@ -80,13 +88,20 @@ body {
                     </button>
                 </form>
 
-                <p class="auth-helper-copy auth-helper-copy--compact">
-                    Only accounts with a verified email address can log in.
-                </p>
-
                 <div class="auth-divider" aria-hidden="true">
                     <span>or</span>
                 </div>
+
+                {% if google_auth_enabled %}
+                <div class="google-signup-shell">
+                    <div class="google-signup-button" data-google-auth-button data-google-signup-button></div>
+                    <p class="auth-inline-alert auth-inline-alert--static d-none" data-google-auth-error data-google-signup-error role="alert"></p>
+                </div>
+                {% else %}
+                <p class="auth-inline-alert auth-inline-alert--static" role="alert">
+                    Google sign-in is not configured yet. Add <code>GOOGLE_CLIENT_ID</code> to enable it.
+                </p>
+                {% endif %}
 
                 {% if facebook_auth_enabled %}
                 <div class="auth-social-stack">

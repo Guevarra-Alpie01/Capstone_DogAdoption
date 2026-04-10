@@ -21,10 +21,19 @@
                         </div>
                         {% endif %}
 
-                        <form method="post" action="{% url 'user:login' %}" class="login-form">
+                        <form
+                            method="post"
+                            action="{% url 'user:login' %}"
+                            class="login-form"
+                            data-google-auth-form
+                            data-google-auth-mode="login"
+                            data-google-login-uri="{% url 'user:google_auth_login' %}"
+                            data-google-client-id="{{ google_client_id|default:'' }}"
+                        >
                             {% csrf_token %}
                             <input type="hidden" name="auth_source" value="modal">
                             <input type="hidden" name="next" value="{{ auth_next|default:'' }}" data-auth-next-field>
+                            <input type="hidden" name="google_credential" value="">
 
                             <div class="mb-3 input-group">
                                 <label for="loginModalUsername" class="auth-field-label">Username</label>
@@ -59,13 +68,20 @@
                             </button>
                         </form>
 
-                        <p class="auth-helper-copy auth-helper-copy--compact">
-                            Only accounts with a verified email address can log in.
-                        </p>
-
                         <div class="auth-divider" aria-hidden="true">
                             <span>or</span>
                         </div>
+
+                        {% if google_auth_enabled %}
+                        <div class="google-signup-shell">
+                            <div class="google-signup-button" data-google-auth-button data-google-signup-button></div>
+                            <p class="auth-inline-alert auth-inline-alert--static d-none" data-google-auth-error data-google-signup-error role="alert"></p>
+                        </div>
+                        {% else %}
+                        <p class="auth-inline-alert auth-inline-alert--static" role="alert">
+                            Google sign-in is not configured yet. Add <code>GOOGLE_CLIENT_ID</code> to enable it.
+                        </p>
+                        {% endif %}
 
                         {% if facebook_auth_enabled %}
                         <div class="auth-social-stack">
@@ -121,6 +137,9 @@
                             method="post"
                             action="{% url 'user:signup' %}"
                             class="signup-form"
+                            data-google-auth-form
+                            data-google-auth-mode="signup"
+                            data-google-auth-pending="{{ social_signup_pending|yesno:'1,0' }}"
                             data-google-signup-form
                             data-google-client-id="{{ google_client_id|default:'' }}"
                         >
@@ -244,14 +263,25 @@
                                 <span>Finish Registration</span>
                             </div>
 
+                            {% if social_signup_pending %}
+                            <p class="auth-inline-alert auth-inline-alert--static" role="status">
+                                {% if social_signup_source == "google" %}
+                                You are already using your Google account. Finish choosing a username and password below.
+                                {% elif social_signup_source == "facebook" %}
+                                You are already using your Facebook account. Finish choosing a username and password below.
+                                {% else %}
+                                You are already using a social account. Finish choosing a username and password below.
+                                {% endif %}
+                            </p>
+                            {% else %}
                             <p class="auth-helper-copy">
-                                Continue with Google to attach the email address we will verify before your first login.
+                                Choose a username and password below to create your account.
                             </p>
 
                             {% if google_signup_enabled %}
                             <div class="google-signup-shell">
-                                <div class="google-signup-button" data-google-signup-button></div>
-                                <p class="auth-inline-alert auth-inline-alert--static d-none" data-google-signup-error role="alert"></p>
+                                <div class="google-signup-button" data-google-auth-button data-google-signup-button></div>
+                                <p class="auth-inline-alert auth-inline-alert--static d-none" data-google-auth-error data-google-signup-error role="alert"></p>
                             </div>
                             {% else %}
                             <p class="auth-inline-alert auth-inline-alert--static" role="alert">
@@ -266,9 +296,10 @@
                                     class="auth-social-btn auth-social-btn--facebook"
                                 >
                                     <i class="bi bi-facebook" aria-hidden="true"></i>
-                                    <span>Continue with Facebook</span>
+                                    <span>Use Facebook</span>
                                 </a>
                             </div>
+                            {% endif %}
                             {% endif %}
                         </form>
 

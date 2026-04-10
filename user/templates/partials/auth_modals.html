@@ -137,16 +137,10 @@
                             method="post"
                             action="{% url 'user:signup' %}"
                             class="signup-form"
-                            data-google-auth-form
-                            data-google-auth-mode="signup"
-                            data-google-auth-pending="{{ social_signup_pending|yesno:'1,0' }}"
-                            data-google-signup-form
-                            data-google-client-id="{{ google_client_id|default:'' }}"
                         >
                             {% csrf_token %}
                             <input type="hidden" name="auth_source" value="modal">
                             <input type="hidden" name="next" value="{{ auth_next|default:'' }}" data-auth-next-field>
-                            <input type="hidden" name="google_credential" value="">
 
                             <div class="mb-2 input-group">
                                 <label for="signupModalUsername" class="auth-field-label">Username</label>
@@ -277,29 +271,6 @@
                             <p class="auth-helper-copy">
                                 Choose a username and password below to create your account.
                             </p>
-
-                            {% if google_signup_enabled %}
-                            <div class="google-signup-shell">
-                                <div class="google-signup-button" data-google-auth-button data-google-signup-button></div>
-                                <p class="auth-inline-alert auth-inline-alert--static d-none" data-google-auth-error data-google-signup-error role="alert"></p>
-                            </div>
-                            {% else %}
-                            <p class="auth-inline-alert auth-inline-alert--static" role="alert">
-                                Google signup is not configured yet. Add <code>GOOGLE_CLIENT_ID</code> to enable account creation.
-                            </p>
-                            {% endif %}
-
-                            {% if facebook_auth_enabled %}
-                            <div class="auth-social-stack auth-social-stack--signup">
-                                <a
-                                    href="{% url 'user:facebook_auth_start' %}?mode=signup{% if auth_next %}&next={{ auth_next|urlencode }}{% endif %}"
-                                    class="auth-social-btn auth-social-btn--facebook"
-                                >
-                                    <i class="bi bi-facebook" aria-hidden="true"></i>
-                                    <span>Use Facebook</span>
-                                </a>
-                            </div>
-                            {% endif %}
                             {% endif %}
                         </form>
 
@@ -318,3 +289,4 @@
         </div>
     </div>
 </div>
+

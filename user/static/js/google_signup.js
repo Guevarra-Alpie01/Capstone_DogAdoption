@@ -28,13 +28,25 @@
         if (!baseUri) {
             return "";
         }
+        let absoluteBaseUri = baseUri;
+        try {
+            absoluteBaseUri = new URL(baseUri, window.location.href).toString();
+        } catch (error) {
+            absoluteBaseUri = baseUri;
+        }
         const nextField = form.querySelector("[data-auth-next-field]");
         const nextValue = nextField ? (nextField.value || "").trim() : "";
         if (!nextValue) {
-            return baseUri;
+            return absoluteBaseUri;
         }
-        const separator = baseUri.indexOf("?") === -1 ? "?" : "&";
-        return `${baseUri}${separator}next=${encodeURIComponent(nextValue)}`;
+        try {
+            const loginUrl = new URL(absoluteBaseUri);
+            loginUrl.searchParams.set("next", nextValue);
+            return loginUrl.toString();
+        } catch (error) {
+            const separator = absoluteBaseUri.indexOf("?") === -1 ? "?" : "&";
+            return `${absoluteBaseUri}${separator}next=${encodeURIComponent(nextValue)}`;
+        }
     }
 
     function getCredentialInput(form) {
@@ -177,6 +189,11 @@
         clearError(form);
         buttonTarget.innerHTML = "";
 
+        const buttonWidth = Math.max(
+            200,
+            Math.min(400, Math.round(buttonTarget.getBoundingClientRect().width) || 320)
+        );
+
         const renderOptions = {
             type: "standard",
             theme: "outline",
@@ -184,22 +201,37 @@
             text: mode === "login" ? "continue_with" : "signup_with",
             shape: "rectangular",
             logo_alignment: "left",
+            width: String(buttonWidth),
         };
 
         if (mode === "login") {
-            const loginUri = getLoginUri(form);
-            if (!loginUri) {
-                setError(form, "Google sign-in is not configured yet. Please contact the administrator.");
-                setRenderedContext(form, renderContext);
-                return;
-            }
-
             window.google.accounts.id.initialize({
                 client_id: clientId,
-                ux_mode: "redirect",
-                login_uri: loginUri,
+                callback: function (response) {
+                    clearError(form);
+
+                    if (!form.reportValidity()) {
+                        setError(form, "Complete the required fields, then continue with Google again.");
+                        return;
+                    }
+
+                    if (!response || !response.credential) {
+                        setError(form, "Google could not confirm your account. Please try again.");
+                        return;
+                    }
+
+                    const credentialInput = getCredentialInput(form);
+                    if (!credentialInput) {
+                        setError(form, "Google could not confirm your account. Please try again.");
+                        return;
+                    }
+
+                    credentialInput.value = response.credential;
+                    form.submit();
+                },
                 auto_select: false,
                 cancel_on_tap_outside: true,
+                ux_mode: "popup",
             });
             window.google.accounts.id.renderButton(buttonTarget, renderOptions);
             setRenderedContext(form, renderContext);

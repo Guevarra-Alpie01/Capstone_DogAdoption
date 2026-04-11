@@ -252,6 +252,7 @@ LOGIN_REDIRECT_URL = 'user:user_home'
 LOGIN_URL = 'user:login'
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_IDS = env_list("GOOGLE_CLIENT_IDS", "")
 FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID", "").strip()
 FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET", "").strip()
 FACEBOOK_GRAPH_API_VERSION = os.getenv("FACEBOOK_GRAPH_API_VERSION", "v20.0").strip() or "v20.0"
@@ -284,6 +285,10 @@ SECURE_REFERRER_POLICY = os.getenv(
 )
 X_FRAME_OPTIONS = os.getenv("DJANGO_X_FRAME_OPTIONS", "DENY")
 SECURE_CONTENT_TYPE_NOSNIFF = env_bool("DJANGO_SECURE_CONTENT_TYPE_NOSNIFF", True)
+SECURE_CROSS_ORIGIN_OPENER_POLICY = (
+    os.getenv("DJANGO_SECURE_CROSS_ORIGIN_OPENER_POLICY", "same-origin-allow-popups").strip()
+    or "same-origin-allow-popups"
+)
 CSP_FRAME_ANCESTORS = os.getenv("DJANGO_CSP_FRAME_ANCESTORS", "'none'")
 
 RATE_LIMIT_ENABLED = env_bool("RATE_LIMIT_ENABLED", True)

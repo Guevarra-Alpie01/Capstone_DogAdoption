@@ -13,10 +13,12 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q
 from django.db import IntegrityError, transaction
+from django.views.decorators.csrf import csrf_exempt
 import os
 import base64
 import binascii
 import hashlib
+import json
 import re
 import random
 import secrets
@@ -108,6 +110,7 @@ HOME_SPOTLIGHT_DISPLAY_LIMIT = 4
 HOME_SPOTLIGHT_URGENCY_THRESHOLD_SECONDS = 24 * 60 * 60
 FACEBOOK_OAUTH_SESSION_KEY = "facebook_oauth_state"
 FACEBOOK_SIGNUP_SESSION_KEY = "facebook_signup_data"
+GOOGLE_SIGNUP_SESSION_KEY = "google_signup_data"
 
 
 def _safe_media_url(file_field):
@@ -201,12 +204,69 @@ def _build_signup_form_data(*, username="", first_name="", last_name="", raw_bar
     }
 
 
+def _google_client_ids():
+    """Return configured Google OAuth web client IDs as a deduplicated ordered list."""
+    raw_values = []
+    primary = getattr(settings, "GOOGLE_CLIENT_ID", "")
+    if isinstance(primary, (list, tuple)):
+        raw_values.extend(primary)
+    else:
+        raw_values.append(primary)
+
+    extra = getattr(settings, "GOOGLE_CLIENT_IDS", [])
+    if isinstance(extra, str):
+        raw_values.extend(extra.split(","))
+    elif isinstance(extra, (list, tuple)):
+        raw_values.extend(extra)
+
+    result = []
+    seen = set()
+    for raw in raw_values:
+        value = (raw or "").strip()
+        if value and value not in seen:
+            seen.add(value)
+            result.append(value)
+    return result
+
+
+def _primary_google_client_id():
+    """Return the preferred Google client ID used to render GIS buttons."""
+    client_ids = _google_client_ids()
+    return client_ids[0] if client_ids else ""
+
+
+def _peek_google_token_audience(raw_credential):
+    """Best-effort audience extraction used for clearer Google mismatch errors."""
+    token = (raw_credential or "").strip()
+    parts = token.split(".")
+    if len(parts) < 2:
+        return ""
+
+    payload_part = parts[1]
+    payload_part += "=" * ((4 - len(payload_part) % 4) % 4)
+    try:
+        payload_raw = base64.urlsafe_b64decode(payload_part.encode("ascii"))
+        payload = json.loads(payload_raw.decode("utf-8"))
+    except Exception:
+        return ""
+
+    aud = payload.get("aud")
+    if isinstance(aud, list):
+        for value in aud:
+            normalized = (value or "").strip()
+            if normalized:
+                return normalized
+        return ""
+    return (aud or "").strip()
+
+
 def _auth_ui_context():
     """Expose the public auth template flags shared by login and signup views."""
-    google_client_id = (getattr(settings, "GOOGLE_CLIENT_ID", "") or "").strip()
+    google_client_id = _primary_google_client_id()
     facebook_app_id = (getattr(settings, "FACEBOOK_APP_ID", "") or "").strip()
     facebook_app_secret = (getattr(settings, "FACEBOOK_APP_SECRET", "") or "").strip()
     return {
+        "google_auth_enabled": bool(google_client_id),
         "google_signup_enabled": bool(google_client_id),
         "google_client_id": google_client_id,
         "facebook_auth_enabled": bool(facebook_app_id and facebook_app_secret),
@@ -244,13 +304,50 @@ def _build_facebook_signup_username(*, email="", first_name="", last_name="", so
     return fallback[:SIGNUP_USERNAME_MAX_LENGTH]
 
 
+def _build_google_signup_username(*, email="", first_name="", last_name="", social_id=""):
+    """Suggest a safe username when Google pre-fills a signup form."""
+    candidates = [
+        (email or "").split("@", 1)[0],
+        f"{first_name}.{last_name}".strip("."),
+        f"{first_name}{last_name}",
+        social_id,
+    ]
+    for candidate in candidates:
+        candidate = re.sub(r"[^A-Za-z0-9.@_+-]+", "", (candidate or "").strip())
+        candidate = candidate.strip(".@_+-")
+        if len(candidate) >= SIGNUP_USERNAME_MIN_LENGTH:
+            return candidate[:SIGNUP_USERNAME_MAX_LENGTH]
+    fallback = f"google_{(social_id or secrets.token_hex(4))[:10]}"
+    return fallback[:SIGNUP_USERNAME_MAX_LENGTH]
+
+
 def _facebook_oauth_redirect_uri(request):
     """Build the absolute redirect URI used for Facebook callbacks."""
     return request.build_absolute_uri(reverse("user:facebook_auth_callback"))
 
 
+def _clear_social_signup_session(request):
+    """Remove any cached social signup payloads from the session."""
+    request.session.pop(FACEBOOK_SIGNUP_SESSION_KEY, None)
+    request.session.pop(GOOGLE_SIGNUP_SESSION_KEY, None)
+
+
+def _get_social_signup_state(request):
+    """Return the latest social signup source and its cached payload."""
+    google_signup_data = request.session.get(GOOGLE_SIGNUP_SESSION_KEY) or {}
+    if google_signup_data:
+        return "google", google_signup_data
+
+    facebook_signup_data = request.session.get(FACEBOOK_SIGNUP_SESSION_KEY) or {}
+    if facebook_signup_data:
+        return "facebook", facebook_signup_data
+
+    return "", {}
+
+
 def _store_facebook_signup_payload(request, payload, *, next_url=""):
     """Persist Facebook identity data so the signup page can prefill fields."""
+    _clear_social_signup_session(request)
     signup_data = {
         "email": payload.get("email", ""),
         "facebook_id": payload.get("facebook_id", ""),
@@ -268,6 +365,26 @@ def _store_facebook_signup_payload(request, payload, *, next_url=""):
     request.session.modified = True
 
 
+def _store_google_signup_payload(request, payload):
+    """Persist Google identity data so the signup page can prefill fields."""
+    _clear_social_signup_session(request)
+    signup_data = {
+        "email": payload.get("email", ""),
+        "google_sub": payload.get("sub", ""),
+        "first_name": payload.get("given_name", ""),
+        "last_name": payload.get("family_name", ""),
+        "full_name": payload.get("name", ""),
+        "username": _build_google_signup_username(
+            email=payload.get("email", ""),
+            first_name=payload.get("given_name", ""),
+            last_name=payload.get("family_name", ""),
+            social_id=payload.get("sub", ""),
+        ),
+    }
+    request.session[GOOGLE_SIGNUP_SESSION_KEY] = signup_data
+    request.session.modified = True
+
+
 def _clear_facebook_oauth_session(request):
     """Remove temporary Facebook auth data from the session."""
     request.session.pop(FACEBOOK_OAUTH_SESSION_KEY, None)
@@ -282,13 +399,13 @@ def _facebook_start_error_redirect(request, mode, message):
     return redirect("user:login")
 
 
-def _merge_facebook_signup_data(request, signup_form_data=None):
-    """Prefill signup fields from the most recent Facebook auth callback."""
-    facebook_signup_data = request.session.get(FACEBOOK_SIGNUP_SESSION_KEY) or {}
+def _merge_social_signup_data(request, signup_form_data=None):
+    """Prefill signup fields from the most recent social auth callback."""
+    _, social_signup_data = _get_social_signup_state(request)
     merged = {
-        "username": facebook_signup_data.get("username", ""),
-        "first_name": facebook_signup_data.get("first_name", ""),
-        "last_name": facebook_signup_data.get("last_name", ""),
+        "username": social_signup_data.get("username", ""),
+        "first_name": social_signup_data.get("first_name", ""),
+        "last_name": social_signup_data.get("last_name", ""),
         "address": "",
     }
     if signup_form_data:
@@ -338,7 +455,8 @@ def _render_login_page(request, *, error="", login_form_data=None, next_url=""):
 
 def _render_signup_page(request, *, error="", signup_form_data=None, next_url=""):
     """Render the dedicated signup page used for standalone auth flows."""
-    merged_form_data = _merge_facebook_signup_data(request, signup_form_data)
+    merged_form_data = _merge_social_signup_data(request, signup_form_data)
+    social_signup_source, _ = _get_social_signup_state(request)
     return render(
         request,
         "signup.html",
@@ -346,6 +464,8 @@ def _render_signup_page(request, *, error="", signup_form_data=None, next_url=""
             "error": error,
             "signup_form_data": merged_form_data,
             "auth_next": next_url,
+            "social_signup_pending": bool(social_signup_source),
+            "social_signup_source": social_signup_source,
             **_auth_ui_context(),
         },
     )
@@ -429,30 +549,44 @@ def _send_signup_verification_email(request, user, *, next_url=""):
         raise RuntimeError("We couldn't send the verification email. Please try again later.")
 
 
-def _verify_google_signup_credential(raw_credential):
-    """Validate the Google Identity Services ID token used during signup."""
+def _verify_google_identity_credential(
+    raw_credential,
+    *,
+    missing_message,
+    config_message,
+    unavailable_message,
+):
+    """Validate the Google Identity Services ID token for auth flows."""
     credential = (raw_credential or "").strip()
     if not credential:
-        raise ValidationError("Continue with Google is required to finish creating your account.")
+        raise ValidationError(missing_message)
 
-    google_client_id = (getattr(settings, "GOOGLE_CLIENT_ID", "") or "").strip()
-    if not google_client_id:
-        raise ValidationError("Google signup is not configured yet. Please contact the administrator.")
+    google_client_ids = _google_client_ids()
+    if not google_client_ids:
+        raise ValidationError(config_message)
 
     try:
         from google.auth.transport import requests as google_requests
         from google.oauth2 import id_token
     except ImportError as exc:
-        raise ValidationError("Google signup is unavailable because the server dependency is missing.") from exc
+        raise ValidationError(unavailable_message) from exc
 
     try:
         google_payload = id_token.verify_oauth2_token(
             credential,
             google_requests.Request(),
-            google_client_id,
+            None,
         )
     except ValueError as exc:
-        raise ValidationError("Google could not verify the selected account. Please try again.") from exc
+        raise ValidationError(
+            "Google could not verify the selected account. Check your GOOGLE_CLIENT_ID Web client value and try again."
+        ) from exc
+
+    token_audience = _peek_google_token_audience(credential)
+    if token_audience and token_audience not in google_client_ids:
+        raise ValidationError(
+            "Google client ID mismatch. Update GOOGLE_CLIENT_ID in your .env to the Web client ID used in Google Cloud."
+        )
 
     if google_payload.get("iss") not in {"accounts.google.com", "https://accounts.google.com"}:
         raise ValidationError("Google could not verify the selected account. Please try again.")
@@ -473,6 +607,94 @@ def _verify_google_signup_credential(raw_credential):
         "given_name": (google_payload.get("given_name") or "").strip(),
         "family_name": (google_payload.get("family_name") or "").strip(),
     }
+
+
+def _verify_google_signup_credential(raw_credential):
+    """Validate the Google Identity Services ID token used during signup."""
+    return _verify_google_identity_credential(
+        raw_credential,
+        missing_message="Sign up with Google is required to finish creating your account.",
+        config_message="Google signup is not configured yet. Please contact the administrator.",
+        unavailable_message="Google signup is unavailable because the server dependency is missing.",
+    )
+
+
+def _verify_google_login_credential(raw_credential):
+    """Validate the Google Identity Services ID token used during login."""
+    return _verify_google_identity_credential(
+        raw_credential,
+        missing_message="Continue with Google is required to finish signing in.",
+        config_message="Google sign-in is not configured yet. Please contact the administrator.",
+        unavailable_message="Google sign-in is unavailable because the server dependency is missing.",
+    )
+
+
+def _verify_google_redirect_csrf(request):
+    """Validate the anti-CSRF token that Google posts back in redirect mode."""
+    form_token = (request.POST.get("g_csrf_token") or "").strip()
+    cookie_token = (request.COOKIES.get("g_csrf_token") or "").strip()
+    if not form_token or not cookie_token or form_token != cookie_token:
+        raise ValidationError("Google sign-in could not be verified. Please try again.")
+
+
+def _complete_google_login(request, google_account, *, next_url=""):
+    """Log in an existing Google user or bridge them into signup."""
+    google_email = google_account["email"]
+    existing_user = (
+        User.objects.select_related("profile")
+        .filter(email__iexact=google_email)
+        .order_by("id")
+        .first()
+    )
+
+    if existing_user is not None:
+        profile, _ = Profile.objects.get_or_create(
+            user=existing_user,
+            defaults={
+                "address": "",
+                "age": 18,
+                "consent_given": True,
+                "email_verified": True,
+            },
+        )
+        profile_updates = []
+        if not profile.email_verified:
+            profile.email_verified = True
+            profile_updates.append("email_verified")
+        if profile_updates:
+            profile.save(update_fields=profile_updates)
+
+        user_updates = []
+        if not existing_user.is_active:
+            existing_user.is_active = True
+            user_updates.append("is_active")
+        if user_updates:
+            existing_user.save(update_fields=user_updates)
+
+        login(request, existing_user)
+        _clear_social_signup_session(request)
+        messages.success(request, "Signed in with Google.")
+        if next_url:
+            response = redirect(next_url)
+        elif existing_user.is_staff:
+            response = redirect(get_staff_landing_url(existing_user))
+        else:
+            response = redirect("user:user_home")
+        if existing_user.is_staff:
+            response.set_cookie("admin_sessionid", request.session.session_key)
+        else:
+            response.delete_cookie("admin_sessionid")
+        return response
+
+    _store_google_signup_payload(request, google_account)
+    messages.info(
+        request,
+        "We found your Google account. Please finish creating your account with a username and password.",
+    )
+    signup_url = reverse("user:signup")
+    if next_url:
+        signup_url = f"{signup_url}?{urlencode({'next': next_url})}"
+    return redirect(signup_url)
 
 
 def _build_facebook_auth_url(request, *, mode="login", next_url=""):
@@ -1099,7 +1321,7 @@ def login_view(request):
 
     next_url = _get_safe_next_url(
         request,
-        request.POST.get("next") if request.method == "POST" else request.GET.get("next"),
+        (request.POST.get("next") if request.method == "POST" else request.GET.get("next")) or request.GET.get("next"),
     )
     auth_source = (request.POST.get("auth_source") or "").strip() if request.method == "POST" else ""
 
@@ -1121,6 +1343,14 @@ def login_view(request):
         )
 
     if request.method == "POST":
+        google_credential = (request.POST.get("google_credential") or request.POST.get("credential") or "").strip()
+        if google_credential:
+            try:
+                google_account = _verify_google_login_credential(google_credential)
+            except ValidationError as exc:
+                return render_login_error(" ".join(exc.messages))
+            return _complete_google_login(request, google_account, next_url=next_url)
+
         username = (request.POST.get("username") or "").strip()
         password = request.POST.get("password")
 
@@ -1148,6 +1378,29 @@ def login_view(request):
         return render_login_error("Invalid username or password", username)
 
     return _render_login_page(request, next_url=next_url)
+
+
+@csrf_exempt
+@require_POST
+def google_auth_login_view(request):
+    """Handle the Google redirect-based login POST from the GIS button."""
+    next_url = _get_safe_next_url(
+        request,
+        request.GET.get("next") or request.POST.get("next"),
+    )
+
+    try:
+        _verify_google_redirect_csrf(request)
+        google_credential = (request.POST.get("credential") or request.POST.get("google_credential") or "").strip()
+        google_account = _verify_google_login_credential(google_credential)
+    except ValidationError as exc:
+        messages.error(request, " ".join(exc.messages))
+        login_url = reverse("user:login")
+        if next_url:
+            login_url = f"{login_url}?{urlencode({'next': next_url})}"
+        return redirect(login_url)
+
+    return _complete_google_login(request, google_account, next_url=next_url)
 
 
 @require_http_methods(["GET"])
@@ -3149,10 +3402,23 @@ def signup_view(request):
                 "First name and last name are required.",
             )
 
-        facebook_signup_data = request.session.get(FACEBOOK_SIGNUP_SESSION_KEY) or {}
-        google_account = None
-        if facebook_signup_data:
-            social_email = _normalize_signup_email(facebook_signup_data.get("email"))
+        social_signup_source, social_signup_data = _get_social_signup_state(request)
+        if social_signup_source == "google":
+            social_email = _normalize_signup_email(social_signup_data.get("email"))
+            if not social_email:
+                return _render_signup_error(
+                    request,
+                    signup_form_data,
+                    "Google did not provide a usable email address. Please try again.",
+                )
+            if User.objects.filter(email__iexact=social_email).exists():
+                return _render_signup_error(
+                    request,
+                    signup_form_data,
+                    "An account already exists with this Google email address.",
+                )
+        elif social_signup_source == "facebook":
+            social_email = _normalize_signup_email(social_signup_data.get("email"))
             if not social_email:
                 return _render_signup_error(
                     request,
@@ -3167,11 +3433,11 @@ def signup_view(request):
                 )
         else:
             try:
-                google_account = _verify_google_signup_credential(request.POST.get("google_credential"))
+                social_signup_data = _verify_google_signup_credential(request.POST.get("google_credential"))
             except ValidationError as exc:
                 return _render_signup_error(request, signup_form_data, " ".join(exc.messages))
 
-            social_email = google_account["email"]
+            social_email = social_signup_data["email"]
             if User.objects.filter(email__iexact=social_email).exists():
                 return _render_signup_error(
                     request,
@@ -3206,6 +3472,7 @@ def signup_view(request):
                     raise RuntimeError(
                         "We couldn't send the verification email. Please try again later."
                     ) from exc
+                _clear_social_signup_session(request)
                 _clear_facebook_oauth_session(request)
         except IntegrityError:
             return _render_signup_error(

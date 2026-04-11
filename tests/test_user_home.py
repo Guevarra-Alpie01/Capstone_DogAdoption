@@ -884,6 +884,37 @@ class UserHomeFeedTests(TestCase):
         self.assertContains(response, "Username is required.")
         self.assertContains(response, f'value="{claim_url}"', html=False)
 
+    def test_login_page_shows_google_button_markup_when_configured(self):
+        with self.settings(
+            GOOGLE_CLIENT_ID="test-google-client-id.apps.googleusercontent.com",
+        ):
+            response = self.client.get(reverse("user:login"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "login.html")
+        self.assertContains(response, 'data-google-auth-button', html=False)
+        self.assertContains(
+            response,
+            'data-google-client-id="test-google-client-id.apps.googleusercontent.com"',
+            html=False,
+        )
+        self.assertContains(response, "https://accounts.google.com/gsi/client", html=False)
+        self.assertNotContains(response, "Google sign-in is not configured yet.", html=False)
+
+    def test_login_page_shows_google_config_message_when_client_id_missing(self):
+        with self.settings(GOOGLE_CLIENT_ID=""):
+            response = self.client.get(reverse("user:login"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "login.html")
+        self.assertContains(
+            response,
+            "Google sign-in is not configured yet. Add",
+            html=False,
+        )
+        self.assertNotContains(response, 'data-google-auth-button', html=False)
+        self.assertNotContains(response, "https://accounts.google.com/gsi/client", html=False)
+
     def test_signup_requires_google_credential(self):
         response = self.client.post(
             reverse("user:signup"),
@@ -899,7 +930,7 @@ class UserHomeFeedTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "signup.html")
-        self.assertContains(response, "Continue with Google is required to finish creating your account.")
+        self.assertContains(response, "Sign up with Google is required to finish creating your account.")
         self.assertFalse(User.objects.filter(username="freshsignupuser").exists())
 
     @patch(
@@ -953,6 +984,184 @@ class UserHomeFeedTests(TestCase):
 
         self.assertEqual(login_response.status_code, 200)
         self.assertContains(login_response, "Please verify your email address before logging in.")
+
+    @patch(
+        "user.views._verify_google_login_credential",
+        return_value={
+            "email": "googlelogin@example.com",
+            "sub": "google-login-sub-123",
+            "given_name": "Google",
+            "family_name": "Login",
+        },
+    )
+    def test_google_login_logs_in_existing_user_directly(self, mocked_google_verify):
+        user = User.objects.create_user(
+            username="googleloginuser",
+            password="Secret123!x",
+            first_name="Google",
+            last_name="Login",
+            email="googlelogin@example.com",
+            is_active=False,
+        )
+        Profile.objects.create(
+            user=user,
+            address="Tinago",
+            age=18,
+            consent_given=True,
+            email_verified=False,
+        )
+
+        response = self.client.post(
+            reverse("user:login"),
+            {
+                "google_credential": "mock-google-login-token",
+            },
+        )
+
+        mocked_google_verify.assert_called_once_with("mock-google-login-token")
+        self.assertRedirects(response, reverse("user:user_home"), fetch_redirect_response=False)
+
+        user.refresh_from_db()
+        user.profile.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertTrue(user.profile.email_verified)
+        self.assertEqual(self.client.session.get("_auth_user_id"), str(user.pk))
+
+    @patch(
+        "user.views._verify_google_login_credential",
+        return_value={
+            "email": "newgooglelogin@example.com",
+            "sub": "google-login-sub-456",
+            "given_name": "New",
+            "family_name": "Google",
+        },
+    )
+    def test_google_login_redirects_new_user_to_signup_with_session(self, mocked_google_verify):
+        response = self.client.post(
+            reverse("user:login"),
+            {
+                "google_credential": "mock-google-login-token",
+            },
+            follow=True,
+        )
+
+        mocked_google_verify.assert_called_once_with("mock-google-login-token")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.request["PATH_INFO"], reverse("user:signup"))
+        self.assertTemplateUsed(response, "signup.html")
+        self.assertContains(response, "You are already using your Google account.")
+
+        social_signup_data = self.client.session.get("google_signup_data") or {}
+        self.assertEqual(social_signup_data.get("email"), "newgooglelogin@example.com")
+        self.assertTrue(social_signup_data.get("username"))
+
+    @patch(
+        "user.views._verify_google_login_credential",
+        return_value={
+            "email": "redirectlogin@example.com",
+            "sub": "google-login-sub-789",
+            "given_name": "Redirect",
+            "family_name": "Login",
+        },
+    )
+    def test_google_redirect_login_logs_in_existing_user_directly(self, mocked_google_verify):
+        user = User.objects.create_user(
+            username="redirectgoogleloginuser",
+            password="Secret123!x",
+            first_name="Redirect",
+            last_name="Login",
+            email="redirectlogin@example.com",
+            is_active=False,
+        )
+        Profile.objects.create(
+            user=user,
+            address="Tinago",
+            age=18,
+            consent_given=True,
+            email_verified=False,
+        )
+
+        self.client.cookies["g_csrf_token"] = "csrf-token-123"
+        response = self.client.post(
+            reverse("user:google_auth_login"),
+            {
+                "credential": "mock-google-login-token",
+                "g_csrf_token": "csrf-token-123",
+            },
+        )
+
+        mocked_google_verify.assert_called_once_with("mock-google-login-token")
+        self.assertRedirects(response, reverse("user:user_home"), fetch_redirect_response=False)
+
+        user.refresh_from_db()
+        user.profile.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertTrue(user.profile.email_verified)
+        self.assertEqual(self.client.session.get("_auth_user_id"), str(user.pk))
+
+    @patch(
+        "user.views._verify_google_login_credential",
+        return_value={
+            "email": "redirectnew@example.com",
+            "sub": "google-login-sub-790",
+            "given_name": "Redirect",
+            "family_name": "New",
+        },
+    )
+    def test_google_redirect_login_bridges_new_user_to_signup(self, mocked_google_verify):
+        self.client.cookies["g_csrf_token"] = "csrf-token-456"
+        response = self.client.post(
+            reverse("user:google_auth_login"),
+            {
+                "credential": "mock-google-login-token",
+                "g_csrf_token": "csrf-token-456",
+            },
+            follow=True,
+        )
+
+        mocked_google_verify.assert_called_once_with("mock-google-login-token")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.request["PATH_INFO"], reverse("user:signup"))
+        self.assertTemplateUsed(response, "signup.html")
+        self.assertContains(response, "You are already using your Google account.")
+
+        social_signup_data = self.client.session.get("google_signup_data") or {}
+        self.assertEqual(social_signup_data.get("email"), "redirectnew@example.com")
+        self.assertTrue(social_signup_data.get("username"))
+
+    def test_google_signup_session_can_complete_without_reverifying_token(self):
+        session = self.client.session
+        session["google_signup_data"] = {
+            "email": "sessiongoogle@example.com",
+            "google_sub": "google-session-sub-789",
+            "first_name": "Session",
+            "last_name": "Google",
+            "full_name": "Session Google",
+            "username": "sessiongoogle",
+        }
+        session.save()
+
+        response = self.client.post(
+            reverse("user:signup"),
+            {
+                "username": "sessiongoogleuser",
+                "password": "Secret123!x",
+                "confirm_password": "Secret123!x",
+                "first_name": "Session",
+                "last_name": "Google",
+                "address": "Tinago",
+            },
+        )
+
+        self.assertRedirects(response, reverse("user:login"), fetch_redirect_response=False)
+
+        user = User.objects.get(username="sessiongoogleuser")
+        self.assertEqual(user.email, "sessiongoogle@example.com")
+        self.assertFalse(user.is_active)
+        self.assertFalse(user.profile.email_verified)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(user.email, mail.outbox[0].to)
+        self.assertNotIn("google_signup_data", self.client.session)
 
     def test_verify_email_activates_user_and_allows_login(self):
         user = User.objects.create_user(

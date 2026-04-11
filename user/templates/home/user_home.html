@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260411pinned-spotlights-two-columns">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260412details-popup-portal">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -44,76 +44,121 @@
                 </div>
             </div>
         </div>
-        {% if pinned_admin_spotlights %}
-        <div class="home-hero__footer">
-            <section class="home-pinned-spotlights-shell" aria-labelledby="homePinnedSpotlightsTitle">
-                <div class="home-pinned-spotlights home-reveal">
-                    <div class="home-pinned-spotlights__head">
-                        <div class="home-pinned-spotlights__copy">
-                            <span class="home-pinned-spotlights__eyebrow">
-                                <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
-                                <span>{{ pinned_admin_spotlights_eyebrow }}</span>
-                            </span>
-                            <h2 id="homePinnedSpotlightsTitle">{{ pinned_admin_spotlights_title }}</h2>
-                        </div>
-                        <div class="home-pinned-spotlights__meta">
-                            <span class="home-pinned-spotlights__count">{{ pinned_admin_spotlights_count_label }}</span>
+    </section>
+
+    {% if pinned_admin_spotlights %}
+    <section class="home-pinned-spotlights-shell" aria-labelledby="homePinnedSpotlightsTitle">
+        <div class="home-pinned-spotlights home-reveal">
+            <div class="home-pinned-spotlights__head">
+                <div class="home-pinned-spotlights__copy">
+                    <span class="home-pinned-spotlights__eyebrow">
+                        <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
+                        <span>{{ pinned_admin_spotlights_eyebrow }}</span>
+                    </span>
+                    <h2 id="homePinnedSpotlightsTitle">{{ pinned_admin_spotlights_title }}</h2>
+                </div>
+            </div>
+
+            <div class="home-pinned-spotlights__grid">
+                {% for spotlight in pinned_admin_spotlights %}
+                <article class="home-pinned-spotlights__item home-reveal" style="--home-stagger: {{ forloop.counter0 }};" data-home-spotlight-card>
+                    <div class="home-pinned-spotlights__details">
+                        <span class="home-pinned-spotlights__status home-pinned-spotlights__status--{{ spotlight.phase }}">
+                            {{ spotlight.phase_title }}
+                        </span>
+                        <h3>{{ spotlight.title }}</h3>
+                        <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
+
+                        <div class="home-pinned-spotlights__actions">
+                            <a
+                                href="{{ spotlight.primary_cta_url }}"
+                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--primary"
+                                {% if spotlight.primary_requires_auth and not request.user.is_authenticated %}
+                                data-auth-modal-trigger="login"
+                                data-auth-next-url="{{ spotlight.primary_cta_url }}"
+                                {% elif spotlight.primary_cta_label == "View Status" %}
+                                data-home-spotlight-detail-toggle
+                                aria-controls="home-spotlight-{{ forloop.counter0 }}-details"
+                                aria-expanded="false"
+                                {% endif %}
+                            >
+                                <span>{{ spotlight.primary_cta_label }}</span>
+                            </a>
+                            <button
+                                type="button"
+                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--share js-open-share"
+                                data-share-url="{{ spotlight.share_url }}"
+                                aria-label="Share {{ spotlight.title }}"
+                            >
+                                <span>Share</span>
+                            </button>
+                            <a
+                                href="{{ spotlight.detail_url }}"
+                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary"
+                                data-home-spotlight-detail-toggle
+                                aria-controls="home-spotlight-{{ forloop.counter0 }}-details"
+                                aria-expanded="false"
+                            >
+                                <span>View Post</span>
+                            </a>
                         </div>
                     </div>
 
-                    <div class="home-pinned-spotlights__grid">
-                        {% for spotlight in pinned_admin_spotlights %}
-                        <article class="home-pinned-spotlights__item">
-                            <div class="home-pinned-spotlights__details">
-                                <span class="home-pinned-spotlights__status home-pinned-spotlights__status--{{ spotlight.phase }}">
-                                    {{ spotlight.phase_title }}
-                                </span>
-                                <h3>{{ spotlight.title }}</h3>
-                                <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
+                    <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__media" aria-label="Open {{ spotlight.title }} post">
+                        {% if spotlight.main_image_url %}
+                            <img src="{{ spotlight.main_image_url }}" alt="{{ spotlight.image_alt }}">
+                        {% else %}
+                            <div class="home-pinned-spotlights__fallback">
+                                <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
+                                <span>Pinned rescue spotlight</span>
+                            </div>
+                        {% endif %}
+                    </a>
 
-                                <div class="home-pinned-spotlights__actions">
-                                    <a
-                                        href="{{ spotlight.primary_cta_url }}"
-                                        class="home-pinned-spotlights__btn home-pinned-spotlights__btn--primary"
-                                        {% if spotlight.primary_requires_auth and not request.user.is_authenticated %}
-                                        data-auth-modal-trigger="login"
-                                        data-auth-next-url="{{ spotlight.primary_cta_url }}"
-                                        {% endif %}
-                                    >
-                                        <span>{{ spotlight.primary_cta_label }}</span>
-                                    </a>
-                                    <button
-                                        type="button"
-                                        class="home-pinned-spotlights__btn home-pinned-spotlights__btn--share js-open-share"
-                                        data-share-url="{{ spotlight.share_url }}"
-                                        aria-label="Share {{ spotlight.title }}"
-                                    >
-                                        <span>Share</span>
-                                    </button>
-                                    <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary">
-                                        <span>View Post</span>
-                                    </a>
+                    <div
+                        class="dog-scale-carousel__details"
+                        id="home-spotlight-{{ forloop.counter0 }}-details"
+                        data-home-spotlight-detail-panel
+                        aria-hidden="true"
+                        aria-labelledby="home-spotlight-{{ forloop.counter0 }}-title"
+                        role="dialog"
+                        aria-modal="true"
+                        tabindex="-1"
+                    >
+                        <div class="dog-scale-carousel__details-card">
+                            <div class="dog-scale-carousel__details-head">
+                                <div class="dog-scale-carousel__copy">
+                                    <h3 id="home-spotlight-{{ forloop.counter0 }}-title">{{ spotlight.title }}</h3>
+                                    <p>{{ spotlight.location_label }}</p>
                                 </div>
+                                <button type="button" class="dog-scale-carousel__detail-close" data-home-spotlight-detail-close aria-label="Hide details">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
                             </div>
 
-                            <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__media" aria-label="Open {{ spotlight.title }} post">
-                                {% if spotlight.main_image_url %}
-                                    <img src="{{ spotlight.main_image_url }}" alt="{{ spotlight.image_alt }}">
-                                {% else %}
-                                    <div class="home-pinned-spotlights__fallback">
-                                        <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
-                                        <span>Pinned rescue spotlight</span>
-                                    </div>
-                                {% endif %}
-                            </a>
-                        </article>
-                        {% endfor %}
+                            <div class="dog-scale-carousel__chips dog-scale-carousel__chips--details">
+                                <span class="dog-scale-carousel__chip dog-scale-carousel__chip--phase">{{ spotlight.phase_title }}</span>
+                                <span class="dog-scale-carousel__chip">{{ spotlight.time_left_badge }}</span>
+                            </div>
+
+                            <ul class="dog-scale-carousel__facts" role="list">
+                                <li><span>Breed</span><strong>{{ spotlight.breed_label }}</strong></li>
+                                <li><span>Location</span><strong>{{ spotlight.location_label }}</strong></li>
+                                <li><span>Age</span><strong>{{ spotlight.age_label }}</strong></li>
+                                <li><span>Size</span><strong>{{ spotlight.size_label }}</strong></li>
+                                <li><span>Gender</span><strong>{{ spotlight.gender_label }}</strong></li>
+                                <li><span>Coat</span><strong>{{ spotlight.coat_label }}</strong></li>
+                                <li><span>Color</span><strong>{{ spotlight.color_label }}</strong></li>
+                                <li><span>{{ spotlight.countdown_date_heading }}</span><strong>{{ spotlight.countdown_date_label }}</strong></li>
+                            </ul>
+                        </div>
                     </div>
-                </div>
-            </section>
+                </article>
+                {% endfor %}
+            </div>
         </div>
-        {% endif %}
     </section>
+    {% endif %}
 
     {% if request.user.is_authenticated and vaccination_reminder_summary.items %}
     <section class="home-vaccine-reminder-shell home-reveal" aria-labelledby="homeVaccinationReminderTitle">
@@ -172,7 +217,7 @@
 <section class="home-featured-shell container" aria-label="Featured rescue dogs">
     <div class="home-featured-grid">
         {% for section in featured_dog_sections %}
-        <section class="home-featured-section home-featured-section--{{ section.key }} home-reveal" aria-label="{{ section.title }}">
+        <section class="home-featured-section home-featured-section--{{ section.key }} home-reveal" style="--home-stagger: {{ forloop.counter0 }};" aria-label="{{ section.title }}">
             <div class="home-featured-section__head">
                 <div class="home-featured-section__copy">
                     {% if section.eyebrow %}
@@ -220,7 +265,7 @@
                                 <div class="dog-scale-carousel__media-bottom">
                                     <div class="dog-scale-carousel__media-copy">
                                         <h3>{{ item.title }}</h3>
-                                        <p>{{ item.breed_label }} • {{ item.location_label }}</p>
+                                        <p>{{ item.breed_label }} &bull; {{ item.location_label }}</p>
                                     </div>
 
                                     <div class="dog-scale-carousel__actions dog-scale-carousel__actions--overlay">
@@ -250,7 +295,7 @@
                                             aria-controls="{{ item.input_id }}-details"
                                             aria-expanded="false"
                                         >
-                                            <span data-dog-detail-label>Details</span>
+                                            <span data-dog-detail-label>View Details</span>
                                         </button>
                                     </div>
                                 </div>
@@ -489,6 +534,46 @@
 (() => {
     const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const revealTargets = Array.from(document.querySelectorAll('.home-reveal'));
+    const syncHomeDetailModalState = () => {
+        const hasOpenDetail = document.querySelector('.dog-scale-carousel__details--popup');
+        document.body.classList.toggle('home-details-modal-open', Boolean(hasOpenDetail));
+    };
+    const portalizeDetailPanel = (panelState, owner, panel) => {
+        if (!panel || panel.classList.contains('dog-scale-carousel__details--popup')) {
+            return panel;
+        }
+
+        const parent = panel.parentNode;
+        if (!parent) {
+            return panel;
+        }
+
+        const placeholder = document.createComment('home-detail-placeholder');
+        parent.insertBefore(placeholder, panel);
+        panelState.set(owner, { panel, parent, placeholder });
+        panel.classList.add('dog-scale-carousel__details--popup');
+        document.body.appendChild(panel);
+        return panel;
+    };
+    const restoreDetailPanel = (panelState, owner) => {
+        const state = panelState.get(owner);
+        if (!state) {
+            return null;
+        }
+
+        const { panel, parent, placeholder } = state;
+        panel.classList.remove('dog-scale-carousel__details--popup');
+
+        if (placeholder?.parentNode === parent) {
+            parent.insertBefore(panel, placeholder);
+            placeholder.remove();
+        } else if (parent) {
+            parent.appendChild(panel);
+        }
+
+        panelState.delete(owner);
+        return panel;
+    };
 
     if (revealTargets.length) {
         if (prefersReducedMotion || !('IntersectionObserver' in window)) {
@@ -691,14 +776,13 @@
 
         const autoplayMs = Number(carousel.getAttribute('data-autoplay-ms')) || 3000;
         let intervalId = null;
-        const setPageDetailModalState = (isOpen) => {
-            document.body.classList.toggle('home-details-modal-open', isOpen);
-        };
+        const detailPanelState = new WeakMap();
+        const getDetailPanel = (slide) => slide.querySelector('[data-dog-detail-panel]') || detailPanelState.get(slide)?.panel || null;
 
         const setDetailState = (slide, isOpen) => {
             const toggle = slide.querySelector('[data-dog-detail-toggle]');
             const label = slide.querySelector('[data-dog-detail-label]');
-            const panel = slide.querySelector('[data-dog-detail-panel]');
+            const panel = getDetailPanel(slide);
             slide.classList.toggle('is-details-open', isOpen);
             if (toggle) {
                 toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
@@ -714,8 +798,9 @@
         const closeAllDetails = ({ restartAutoplay = true } = {}) => {
             slides.forEach((slide) => {
                 setDetailState(slide, false);
+                restoreDetailPanel(detailPanelState, slide);
             });
-            setPageDetailModalState(false);
+            syncHomeDetailModalState();
             delete carousel.dataset.autoplaySuspended;
             if (restartAutoplay) {
                 startAutoplay();
@@ -726,12 +811,12 @@
             slides.forEach((currentSlide) => {
                 setDetailState(currentSlide, currentSlide === slide);
             });
-            setPageDetailModalState(true);
+            const panel = portalizeDetailPanel(detailPanelState, slide, getDetailPanel(slide));
+            syncHomeDetailModalState();
             carousel.dataset.autoplaySuspended = '1';
             stopAutoplay();
             window.requestAnimationFrame(() => {
                 const closeButton = slide.querySelector('[data-dog-detail-close]');
-                const panel = slide.querySelector('[data-dog-detail-panel]');
                 if (closeButton) {
                     closeButton.focus();
                 } else if (panel) {
@@ -826,6 +911,12 @@
             }
         });
 
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && carousel.dataset.autoplaySuspended === '1') {
+                closeAllDetails();
+            }
+        });
+
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 stopAutoplay();
@@ -836,6 +927,84 @@
 
         startAutoplay();
     });
+
+    const spotlightCards = Array.from(document.querySelectorAll('[data-home-spotlight-card]'));
+    if (spotlightCards.length) {
+        const spotlightPanelState = new WeakMap();
+        const getSpotlightPanel = (card) => card.querySelector('[data-home-spotlight-detail-panel]') || spotlightPanelState.get(card)?.panel || null;
+        const setSpotlightDetailState = (card, isOpen) => {
+            const panel = getSpotlightPanel(card);
+            card.classList.toggle('is-details-open', isOpen);
+
+            card.querySelectorAll('[data-home-spotlight-detail-toggle]').forEach((toggle) => {
+                toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            });
+
+            if (panel) {
+                panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+            }
+        };
+        const closeAllSpotlightDetails = () => {
+            spotlightCards.forEach((card) => {
+                setSpotlightDetailState(card, false);
+                restoreDetailPanel(spotlightPanelState, card);
+            });
+            syncHomeDetailModalState();
+        };
+        const openSpotlightDetails = (card) => {
+            spotlightCards.forEach((currentCard) => {
+                setSpotlightDetailState(currentCard, currentCard === card);
+            });
+
+            const panel = portalizeDetailPanel(spotlightPanelState, card, getSpotlightPanel(card));
+            syncHomeDetailModalState();
+
+            window.requestAnimationFrame(() => {
+                const closeButton = card.querySelector('[data-home-spotlight-detail-close]');
+                if (closeButton) {
+                    closeButton.focus();
+                } else if (panel) {
+                    panel.focus();
+                }
+            });
+        };
+
+        spotlightCards.forEach((card) => {
+            card.querySelectorAll('[data-home-spotlight-detail-toggle]').forEach((toggle) => {
+                toggle.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    if (card.classList.contains('is-details-open')) {
+                        closeAllSpotlightDetails();
+                    } else {
+                        openSpotlightDetails(card);
+                    }
+                });
+            });
+
+            const closeButton = card.querySelector('[data-home-spotlight-detail-close]');
+            const panel = card.querySelector('[data-home-spotlight-detail-panel]');
+
+            if (closeButton) {
+                closeButton.addEventListener('click', () => {
+                    closeAllSpotlightDetails();
+                });
+            }
+
+            if (panel) {
+                panel.addEventListener('click', (event) => {
+                    if (event.target === panel) {
+                        closeAllSpotlightDetails();
+                    }
+                });
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && spotlightCards.some((card) => card.classList.contains('is-details-open'))) {
+                closeAllSpotlightDetails();
+            }
+        });
+    }
 
 })();
 </script>

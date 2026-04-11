@@ -17,7 +17,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from dogadoption_admin.barangays import BAYAWAN_BARANGAYS
-from dogadoption_admin.models import DogAnnouncement, Post, PostImage
+from dogadoption_admin.models import DogAnnouncement, Post, PostImage, PostRequest
 from user.models import Profile, UserAdoptionPost
 
 
@@ -377,6 +377,44 @@ class UserHomeFeedTests(TestCase):
         self.assertContains(response, "Barangay")
         self.assertContains(response, "Claim Ends")
         self.assertContains(response, claim_deadline_label)
+
+    def test_pinned_spotlight_view_post_and_view_status_include_popup_hooks(self):
+        staff_user = User.objects.create_user(
+            username="spotlightpopupstaff",
+            password="secret123",
+            is_staff=True,
+        )
+        member = User.objects.create_user(
+            username="spotlightpopupmember",
+            password="secret123",
+        )
+        post = Post.objects.create(
+            user=staff_user,
+            caption="Spotlight Popup Dog",
+            breed="aspin",
+            location="Villareal",
+            status="rescued",
+            is_pinned=True,
+            claim_days=3,
+        )
+        PostRequest.objects.create(
+            post=post,
+            user=member,
+            request_type="claim",
+            status="pending",
+        )
+
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "View Status")
+        self.assertContains(response, "View Post")
+        self.assertContains(response, "data-home-spotlight-card", count=1, html=False)
+        self.assertContains(response, "data-home-spotlight-detail-toggle", count=2, html=False)
+        self.assertContains(response, "data-home-spotlight-detail-panel", count=1, html=False)
+        self.assertContains(response, "Verification Until")
+        self.assertContains(response, "Coat")
+        self.assertContains(response, "Color")
 
     def test_search_results_claim_posts_show_reserve_adoption_action(self):
         staff_user = User.objects.create_user(

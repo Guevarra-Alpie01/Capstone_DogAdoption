@@ -2413,6 +2413,8 @@ def _build_home_spotlight_card(request, post, phase_payload, *, is_auto_highligh
         "age_label": card_item["age_label"],
         "size_label": card_item["size_label"],
         "gender_label": card_item["gender_label"],
+        "coat_label": card_item["coat_label"],
+        "color_label": card_item["color_label"],
         "time_left_badge": (
             "Pending admin review"
             if phase_payload["is_pending_review"]

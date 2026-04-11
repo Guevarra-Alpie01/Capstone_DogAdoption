@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260409hero-paw-pattern">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260411pinned-spotlights-two-columns">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -44,6 +44,75 @@
                 </div>
             </div>
         </div>
+        {% if pinned_admin_spotlights %}
+        <div class="home-hero__footer">
+            <section class="home-pinned-spotlights-shell" aria-labelledby="homePinnedSpotlightsTitle">
+                <div class="home-pinned-spotlights home-reveal">
+                    <div class="home-pinned-spotlights__head">
+                        <div class="home-pinned-spotlights__copy">
+                            <span class="home-pinned-spotlights__eyebrow">
+                                <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
+                                <span>{{ pinned_admin_spotlights_eyebrow }}</span>
+                            </span>
+                            <h2 id="homePinnedSpotlightsTitle">{{ pinned_admin_spotlights_title }}</h2>
+                        </div>
+                        <div class="home-pinned-spotlights__meta">
+                            <span class="home-pinned-spotlights__count">{{ pinned_admin_spotlights_count_label }}</span>
+                        </div>
+                    </div>
+
+                    <div class="home-pinned-spotlights__grid">
+                        {% for spotlight in pinned_admin_spotlights %}
+                        <article class="home-pinned-spotlights__item">
+                            <div class="home-pinned-spotlights__details">
+                                <span class="home-pinned-spotlights__status home-pinned-spotlights__status--{{ spotlight.phase }}">
+                                    {{ spotlight.phase_title }}
+                                </span>
+                                <h3>{{ spotlight.title }}</h3>
+                                <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
+
+                                <div class="home-pinned-spotlights__actions">
+                                    <a
+                                        href="{{ spotlight.primary_cta_url }}"
+                                        class="home-pinned-spotlights__btn home-pinned-spotlights__btn--primary"
+                                        {% if spotlight.primary_requires_auth and not request.user.is_authenticated %}
+                                        data-auth-modal-trigger="login"
+                                        data-auth-next-url="{{ spotlight.primary_cta_url }}"
+                                        {% endif %}
+                                    >
+                                        <span>{{ spotlight.primary_cta_label }}</span>
+                                    </a>
+                                    <button
+                                        type="button"
+                                        class="home-pinned-spotlights__btn home-pinned-spotlights__btn--share js-open-share"
+                                        data-share-url="{{ spotlight.share_url }}"
+                                        aria-label="Share {{ spotlight.title }}"
+                                    >
+                                        <span>Share</span>
+                                    </button>
+                                    <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary">
+                                        <span>View Post</span>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__media" aria-label="Open {{ spotlight.title }} post">
+                                {% if spotlight.main_image_url %}
+                                    <img src="{{ spotlight.main_image_url }}" alt="{{ spotlight.image_alt }}">
+                                {% else %}
+                                    <div class="home-pinned-spotlights__fallback">
+                                        <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
+                                        <span>Pinned rescue spotlight</span>
+                                    </div>
+                                {% endif %}
+                            </a>
+                        </article>
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+        </div>
+        {% endif %}
     </section>
 
     {% if request.user.is_authenticated and vaccination_reminder_summary.items %}
@@ -95,80 +164,6 @@
                 <a href="{{ vaccination_reminder_summary.profile_url }}" class="home-vaccine-reminder__action-btn">
                     Review all registered dogs
                 </a>
-            </div>
-        </div>
-    </section>
-    {% endif %}
-
-    {% if pinned_admin_spotlights %}
-    <section class="home-pinned-spotlights-shell" aria-labelledby="homePinnedSpotlightsTitle">
-        <div class="home-pinned-spotlights home-reveal">
-            <div class="home-pinned-spotlights__head">
-                <div class="home-pinned-spotlights__copy">
-                    <span class="home-pinned-spotlights__eyebrow">
-                        <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
-                        <span>{{ pinned_admin_spotlights_eyebrow }}</span>
-                    </span>
-                    <h2 id="homePinnedSpotlightsTitle">{{ pinned_admin_spotlights_title }}</h2>
-                </div>
-                <div class="home-pinned-spotlights__meta">
-                    <span class="home-pinned-spotlights__count">{{ pinned_admin_spotlights_count_label }}</span>
-                </div>
-            </div>
-
-            <div class="home-pinned-spotlights__grid">
-                {% for spotlight in pinned_admin_spotlights %}
-                <article class="home-pinned-spotlights__item">
-                    <div class="home-pinned-spotlights__details">
-                        <span class="home-pinned-spotlights__status home-pinned-spotlights__status--{{ spotlight.phase }}">
-                            {{ spotlight.phase_title }}
-                        </span>
-                        <h3>{{ spotlight.title }}</h3>
-                        <div class="home-pinned-spotlights__breed-row">
-                            <span class="home-pinned-spotlights__breed-label">Breed</span>
-                            <span class="home-pinned-spotlights__breed-value">{{ spotlight.breed_label }}</span>
-                        </div>
-                        <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
-
-                        <div class="home-pinned-spotlights__actions">
-                            <a
-                                href="{{ spotlight.primary_cta_url }}"
-                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--primary"
-                                {% if spotlight.primary_requires_auth and not request.user.is_authenticated %}
-                                data-auth-modal-trigger="login"
-                                data-auth-next-url="{{ spotlight.primary_cta_url }}"
-                                {% endif %}
-                            >
-                                <span>{{ spotlight.primary_cta_label }}</span>
-                                <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
-                            </a>
-                            <button
-                                type="button"
-                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary js-open-share"
-                                data-share-url="{{ spotlight.share_url }}"
-                                aria-label="Share {{ spotlight.title }}"
-                            >
-                                <i class="bi bi-share" aria-hidden="true"></i>
-                                <span>Share</span>
-                            </button>
-                            <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary">
-                                <span>View Post</span>
-                            </a>
-                        </div>
-                    </div>
-
-                    <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__media" aria-label="Open {{ spotlight.title }} post">
-                        {% if spotlight.main_image_url %}
-                            <img src="{{ spotlight.main_image_url }}" alt="{{ spotlight.image_alt }}">
-                        {% else %}
-                            <div class="home-pinned-spotlights__fallback">
-                                <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
-                                <span>Pinned rescue spotlight</span>
-                            </div>
-                        {% endif %}
-                    </a>
-                </article>
-                {% endfor %}
             </div>
         </div>
     </section>
@@ -246,7 +241,6 @@
                                             data-share-url="{{ item.share_url }}"
                                             aria-label="Share {{ item.title }}"
                                         >
-                                            <i class="bi bi-share" aria-hidden="true"></i>
                                             <span>Share</span>
                                         </button>
                                         <button
@@ -263,11 +257,20 @@
                             </div>
                         </div>
 
-                        <div class="dog-scale-carousel__details" id="{{ item.input_id }}-details" data-dog-detail-panel aria-hidden="true">
+                        <div
+                            class="dog-scale-carousel__details"
+                            id="{{ item.input_id }}-details"
+                            data-dog-detail-panel
+                            aria-hidden="true"
+                            aria-labelledby="{{ item.input_id }}-details-title"
+                            role="dialog"
+                            aria-modal="true"
+                            tabindex="-1"
+                        >
                             <div class="dog-scale-carousel__details-card">
                                 <div class="dog-scale-carousel__details-head">
                                     <div class="dog-scale-carousel__copy">
-                                        <h3>{{ item.title }}</h3>
+                                        <h3 id="{{ item.input_id }}-details-title">{{ item.title }}</h3>
                                         <p>{{ item.location_label }}</p>
                                     </div>
                                     <button type="button" class="dog-scale-carousel__detail-close" data-dog-detail-close aria-label="Hide details">
@@ -688,6 +691,9 @@
 
         const autoplayMs = Number(carousel.getAttribute('data-autoplay-ms')) || 3000;
         let intervalId = null;
+        const setPageDetailModalState = (isOpen) => {
+            document.body.classList.toggle('home-details-modal-open', isOpen);
+        };
 
         const setDetailState = (slide, isOpen) => {
             const toggle = slide.querySelector('[data-dog-detail-toggle]');
@@ -709,6 +715,7 @@
             slides.forEach((slide) => {
                 setDetailState(slide, false);
             });
+            setPageDetailModalState(false);
             delete carousel.dataset.autoplaySuspended;
             if (restartAutoplay) {
                 startAutoplay();
@@ -719,8 +726,18 @@
             slides.forEach((currentSlide) => {
                 setDetailState(currentSlide, currentSlide === slide);
             });
+            setPageDetailModalState(true);
             carousel.dataset.autoplaySuspended = '1';
             stopAutoplay();
+            window.requestAnimationFrame(() => {
+                const closeButton = slide.querySelector('[data-dog-detail-close]');
+                const panel = slide.querySelector('[data-dog-detail-panel]');
+                if (closeButton) {
+                    closeButton.focus();
+                } else if (panel) {
+                    panel.focus();
+                }
+            });
         };
 
         const activeIndex = () => {
@@ -766,6 +783,7 @@
         slides.forEach((slide) => {
             const toggle = slide.querySelector('[data-dog-detail-toggle]');
             const closeButton = slide.querySelector('[data-dog-detail-close]');
+            const panel = slide.querySelector('[data-dog-detail-panel]');
 
             if (toggle) {
                 toggle.addEventListener('click', (event) => {
@@ -781,6 +799,14 @@
             if (closeButton) {
                 closeButton.addEventListener('click', () => {
                     closeAllDetails();
+                });
+            }
+
+            if (panel) {
+                panel.addEventListener('click', (event) => {
+                    if (event.target === panel) {
+                        closeAllDetails();
+                    }
                 });
             }
         });

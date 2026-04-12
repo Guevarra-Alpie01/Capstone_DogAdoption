@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260412ordinance-separate-panels">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260412modal-imageglass">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -100,7 +100,7 @@
                                 aria-controls="home-spotlight-{{ forloop.counter0 }}-details"
                                 aria-expanded="false"
                             >
-                                <span>View Post</span>
+                                <span>Details</span>
                             </a>
                             {% endif %}
                         </div>
@@ -127,7 +127,12 @@
                         aria-modal="true"
                         tabindex="-1"
                     >
-                        <div class="dog-scale-carousel__details-card">
+                        <div
+                            class="dog-scale-carousel__details-card"
+                            {% if spotlight.main_image_url %}
+                            style="--dog-detail-bg-image: url('{{ spotlight.main_image_url }}');"
+                            {% endif %}
+                        >
                             <div class="dog-scale-carousel__details-head">
                                 <div class="dog-scale-carousel__copy">
                                     <h3 id="home-spotlight-{{ forloop.counter0 }}-title">{{ spotlight.title }}</h3>
@@ -314,7 +319,12 @@
                             aria-modal="true"
                             tabindex="-1"
                         >
-                            <div class="dog-scale-carousel__details-card">
+                            <div
+                                class="dog-scale-carousel__details-card"
+                                {% if item.main_image_url %}
+                                style="--dog-detail-bg-image: url('{{ item.main_image_url }}');"
+                                {% endif %}
+                            >
                                 <div class="dog-scale-carousel__details-head">
                                     <div class="dog-scale-carousel__copy">
                                         <h3 id="{{ item.input_id }}-details-title">{{ item.title }}</h3>
@@ -461,14 +471,14 @@
                     </div>
                 </div>
 
-                <div class="home-ordinance__list--split" role="group" aria-label="Section 29 penalties">
-                    <section class="home-ordinance__split-panel home-ordinance__split-panel--back" aria-label="Section 29 part 1">
-                        <div class="home-ordinance__split-panel-head">
-                            <span class="home-ordinance__split-panel-label">Part 1</span>
-                            <span class="home-ordinance__split-panel-nav" aria-hidden="true">&lt; Back</span>
-                        </div>
+                <div class="home-ordinance__stepper" data-home-ordinance-stepper>
+                    <div class="home-ordinance__list--split" role="group" aria-label="Section 29 penalties">
+                        <section class="home-ordinance__split-panel home-ordinance__split-panel--back is-active" aria-label="Section 29 part 1" data-home-ordinance-panel>
+                            <div class="home-ordinance__split-panel-head">
+                                <span class="home-ordinance__split-panel-label">Part 1</span>
+                            </div>
 
-                        <ol class="home-ordinance__list home-ordinance__list--cluster" role="list">
+                            <ol class="home-ordinance__list home-ordinance__list--cluster" role="list">
                             <li class="home-ordinance__item">
                                 <span class="home-ordinance__index">1</span>
                                 <div class="home-ordinance__item-copy">
@@ -567,13 +577,12 @@
                                 </div>
                                 <span class="home-ordinance__fee">PHP 5000.00</span>
                             </li>
-                        </ol>
-                    </section>
+                            </ol>
+                        </section>
 
-                    <section class="home-ordinance__split-panel home-ordinance__split-panel--next" aria-label="Section 29 part 2">
+                    <section class="home-ordinance__split-panel home-ordinance__split-panel--next" aria-label="Section 29 part 2" data-home-ordinance-panel>
                         <div class="home-ordinance__split-panel-head">
                             <span class="home-ordinance__split-panel-label">Part 2</span>
-                            <span class="home-ordinance__split-panel-nav" aria-hidden="true">Next &gt;</span>
                         </div>
 
                         <ol class="home-ordinance__list home-ordinance__list--cluster" role="list">
@@ -677,6 +686,17 @@
                             </li>
                         </ol>
                     </section>
+                    </div>
+
+                    <div class="home-ordinance__stepper-controls" role="group" aria-label="Section 29 part navigation">
+                        <button type="button" class="home-ordinance__stepper-btn" data-home-ordinance-nav="prev" aria-label="Show previous part">
+                            <span aria-hidden="true">&lt;</span>
+                        </button>
+                        <span class="home-ordinance__stepper-status" data-home-ordinance-status aria-live="polite">Part 1 of 2</span>
+                        <button type="button" class="home-ordinance__stepper-btn" data-home-ordinance-nav="next" aria-label="Show next part">
+                            <span aria-hidden="true">&gt;</span>
+                        </button>
+                    </div>
                 </div>
             </article>
         </div>
@@ -962,6 +982,72 @@
         panelState.delete(owner);
         return panel;
     };
+
+    document.querySelectorAll('[data-home-ordinance-stepper]').forEach((stepper) => {
+        if (stepper.dataset.stepperReady === '1') {
+            return;
+        }
+        stepper.dataset.stepperReady = '1';
+
+        const panels = Array.from(stepper.querySelectorAll('[data-home-ordinance-panel]'));
+        const prevButton = stepper.querySelector('[data-home-ordinance-nav="prev"]');
+        const nextButton = stepper.querySelector('[data-home-ordinance-nav="next"]');
+        const status = stepper.querySelector('[data-home-ordinance-status]');
+        let activeIndex = panels.findIndex((panel) => panel.classList.contains('is-active'));
+
+        if (panels.length <= 1 || !prevButton || !nextButton) {
+            return;
+        }
+
+        if (activeIndex < 0) {
+            activeIndex = 0;
+        }
+
+        const syncStepper = () => {
+            panels.forEach((panel, panelIndex) => {
+                const isActive = panelIndex === activeIndex;
+                panel.classList.toggle('is-active', isActive);
+                panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+            });
+
+            const currentPartLabel = panels[activeIndex]?.querySelector('.home-ordinance__split-panel-label')?.textContent?.trim() || `Part ${activeIndex + 1}`;
+            if (status) {
+                status.textContent = `${currentPartLabel} of ${panels.length}`;
+            }
+
+            prevButton.disabled = activeIndex === 0;
+            nextButton.disabled = activeIndex === panels.length - 1;
+        };
+
+        prevButton.addEventListener('click', () => {
+            if (activeIndex > 0) {
+                activeIndex -= 1;
+                syncStepper();
+            }
+        });
+
+        nextButton.addEventListener('click', () => {
+            if (activeIndex < panels.length - 1) {
+                activeIndex += 1;
+                syncStepper();
+            }
+        });
+
+        stepper.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                prevButton.click();
+                return;
+            }
+
+            if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                nextButton.click();
+            }
+        });
+
+        syncStepper();
+    });
 
     if (revealTargets.length) {
         if (prefersReducedMotion || !('IntersectionObserver' in window)) {

@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260407request-history-refine">
+<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260412request-two-step">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
 
@@ -136,7 +136,7 @@
                     <div id="photoSummaryList" class="photo-summary-list"></div>
                 </div>
             </div>
-            <div class="step-panel" data-step="2">
+            <div class="step-panel" data-step="2" hidden>
                 <div class="step-panel-header">
                     <div class="step-panel-icon">
                         <i class="bi bi-ui-checks-grid" aria-hidden="true"></i>
@@ -271,7 +271,15 @@
             </div>
 
             <div class="wizard-actions">
-                <button type="submit" class="btn-primary" id="submitBtn">
+                <button type="button" class="btn-secondary" id="prevStepBtn" hidden>
+                    <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                    <span>Back</span>
+                </button>
+                <button type="button" class="btn-secondary" id="nextStepBtn">
+                    <span>Next</span>
+                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                </button>
+                <button type="submit" class="btn-primary" id="submitBtn" hidden>
                     <i class="bi bi-send-fill" aria-hidden="true"></i>
                     <span>Submit Request</span>
                 </button>
@@ -469,6 +477,11 @@ const step1Description = document.getElementById('step1Description');
 const step1HelperNote = document.getElementById('step1HelperNote');
 const uploadActionLabel = document.getElementById('uploadActionLabel');
 const cameraActionLabel = document.getElementById('cameraActionLabel');
+const stepPanels = Array.from(document.querySelectorAll('.step-panel[data-step]'));
+const stepDots = Array.from(document.querySelectorAll('.step-dot[data-step-dot]'));
+const prevStepBtn = document.getElementById('prevStepBtn');
+const nextStepBtn = document.getElementById('nextStepBtn');
+const totalWizardSteps = stepPanels.length || 1;
 const requestDialogModalEl = document.getElementById('requestDialogModal');
 const requestDialogTitle = document.getElementById('requestDialogTitle');
 const requestDialogMessage = document.getElementById('requestDialogMessage');
@@ -479,6 +492,7 @@ let requestDialogDismissValue = false;
 let requestDialogSuspendedModals = [];
 let exactLocationRequestInFlight = false;
 let exactLocationAutoCaptureTimer = null;
+let currentWizardStep = 1;
 
 function moveRequestModalToBody(modalEl) {
     if (!modalEl || modalEl.parentElement === document.body) return;
@@ -682,6 +696,99 @@ function validatePhoneField() {
     }
     phoneNumberField.value = formatPhoneForDisplay(normalized);
     return true;
+}
+
+function getStepPanel(stepNumber) {
+    return stepPanels.find((panel) => Number(panel.dataset.step) === Number(stepNumber)) || null;
+}
+
+function validateWizardStep(stepNumber = currentWizardStep) {
+    if (Number(stepNumber) === 2) {
+        return validatePhoneField();
+    }
+    return true;
+}
+
+function syncRequestWizardUI({ focusPanel = false } = {}) {
+    stepPanels.forEach((panel) => {
+        const panelStep = Number(panel.dataset.step);
+        const isActive = panelStep === currentWizardStep;
+        panel.hidden = !isActive;
+        panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+    });
+
+    stepDots.forEach((dot) => {
+        const dotStep = Number(dot.dataset.stepDot);
+        const isActive = dotStep === currentWizardStep;
+        const isComplete = dotStep < currentWizardStep;
+
+        dot.classList.toggle('active', isActive);
+        dot.classList.toggle('complete', isComplete);
+        if (isActive) {
+            dot.setAttribute('aria-current', 'step');
+        } else {
+            dot.removeAttribute('aria-current');
+        }
+    });
+
+    if (prevStepBtn) {
+        prevStepBtn.hidden = currentWizardStep <= 1;
+    }
+    if (nextStepBtn) {
+        nextStepBtn.hidden = currentWizardStep >= totalWizardSteps;
+    }
+    if (submitBtn) {
+        submitBtn.hidden = currentWizardStep < totalWizardSteps;
+    }
+
+    syncSubmitButtonState();
+
+    if (
+        currentWizardStep === totalWizardSteps &&
+        getSelectedSubmissionType() === 'online' &&
+        document.querySelector('input[name="location_mode"]:checked')?.value === 'exact'
+    ) {
+        window.setTimeout(() => ensureRequestMapReady(), 140);
+    }
+
+    if (!focusPanel) {
+        return;
+    }
+
+    const activePanel = getStepPanel(currentWizardStep);
+    const activeHeading = activePanel?.querySelector('h3');
+    if (!activePanel || !activeHeading) {
+        return;
+    }
+
+    activeHeading.setAttribute('tabindex', '-1');
+    window.requestAnimationFrame(() => {
+        activePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        activeHeading.focus({ preventScroll: true });
+    });
+}
+
+function goToWizardStep(stepNumber, options = {}) {
+    const nextStep = Math.min(Math.max(Number(stepNumber) || 1, 1), totalWizardSteps);
+    currentWizardStep = nextStep;
+    syncRequestWizardUI(options);
+}
+
+function goToNextWizardStep() {
+    if (currentWizardStep >= totalWizardSteps) {
+        return;
+    }
+    if (!validateWizardStep(currentWizardStep)) {
+        return;
+    }
+    goToWizardStep(currentWizardStep + 1, { focusPanel: true });
+}
+
+function goToPreviousWizardStep() {
+    if (currentWizardStep <= 1) {
+        return;
+    }
+    goToWizardStep(currentWizardStep - 1, { focusPanel: true });
 }
 
 function ensureRequestMapReady() {
@@ -923,13 +1030,8 @@ async function requestBestGeolocationFix(statusEl) {
 function syncRequestFlowUI() {
     syncStepOneContent();
     if (onlineDetailsSection) onlineDetailsSection.hidden = false;
-    syncSubmitButtonState();
-
-    if (getSelectedSubmissionType() === 'online' && document.querySelector('input[name="location_mode"]:checked')?.value === 'exact') {
-        window.setTimeout(() => ensureRequestMapReady(), 140);
-    }
-
     applyCreateLocationMode();
+    syncRequestWizardUI({ focusPanel: false });
 }
 
 phoneNumberField?.addEventListener('blur', () => {
@@ -954,6 +1056,8 @@ submissionTypeInputs.forEach((input) => {
 });
 
 document.addEventListener('appointment-picker:change', syncSubmitButtonState);
+prevStepBtn?.addEventListener('click', goToPreviousWizardStep);
+nextStepBtn?.addEventListener('click', goToNextWizardStep);
 
 const cameraSection = document.getElementById('cameraSection');
 const openUploadPickerBtn = document.getElementById('openUploadPickerBtn');
@@ -1426,6 +1530,9 @@ function applyCreateLocationMode() {
     if (locationLandmarkImageField) locationLandmarkImageField.required = false;
     if (isExact) {
         setResolvedCity(cityField?.value || defaultRequestCity);
+        if (currentWizardStep === totalWizardSteps && isOnline) {
+            window.setTimeout(() => ensureRequestMapReady(), 140);
+        }
     } else {
         clearRequestLocationWatch();
     }
@@ -1610,6 +1717,11 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
 
 captureForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    if (currentWizardStep < totalWizardSteps) {
+        goToNextWizardStep();
+        return;
+    }
 
     if (requestSubmitRequiresAuth) {
         if (window.openAuthModal) {

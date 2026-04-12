@@ -56,84 +56,6 @@
         </span>
         {% endif %}
 
-        <div class="finder-card__utilities">
-            <button
-                type="button"
-                class="finder-card__utility-btn js-finder-info-toggle"
-                aria-expanded="false"
-                aria-controls="finder-card-details-{{ item.phase }}-{{ item.post.id }}-{% if featured %}featured{% else %}list{% endif %}"
-                data-finder-info-toggle
-            >
-                <span data-finder-info-label>View Info</span>
-            </button>
-            <button
-                type="button"
-                class="finder-card__utility-btn js-finder-share"
-                data-finder-share
-                data-share-url="{{ item.detail_url }}"
-                data-share-title="{{ item.breed_label }}"
-                data-share-text="{{ item.breed_label }} is {{ item.phase_title|lower }} on Bayawan Vet."
-            >
-                <span data-finder-share-label>Share</span>
-            </button>
-        </div>
-
-        <div
-            id="finder-card-details-{{ item.phase }}-{{ item.post.id }}-{% if featured %}featured{% else %}list{% endif %}"
-            class="finder-card__details"
-            data-finder-info-panel
-            hidden
-        >
-            <div class="finder-card__details-grid">
-                <div class="finder-card__detail-item">
-                    <span>Breed</span>
-                    <strong>{{ item.breed_label }}</strong>
-                </div>
-                <div class="finder-card__detail-item">
-                    <span>Location</span>
-                    <strong>{{ item.location_label }}</strong>
-                </div>
-                <div class="finder-card__detail-item">
-                    <span>Age</span>
-                    <strong>{{ item.age_label }}</strong>
-                </div>
-                <div class="finder-card__detail-item">
-                    <span>Size</span>
-                    <strong>{{ item.size_label }}</strong>
-                </div>
-                <div class="finder-card__detail-item">
-                    <span>Gender</span>
-                    <strong>{{ item.gender_label }}</strong>
-                </div>
-                <div class="finder-card__detail-item">
-                    <span>Coat</span>
-                    <strong>{{ item.coat_label }}</strong>
-                </div>
-                <div class="finder-card__detail-item">
-                    <span>Color</span>
-                    <strong>{{ item.color_label }}</strong>
-                </div>
-                <div class="finder-card__detail-item">
-                    <span>{{ item.countdown_date_heading }}</span>
-                    <strong>{{ item.countdown_date_label }}</strong>
-                </div>
-            </div>
-
-            {% if item.phase == 'claim' %}
-            <p class="finder-card__reserve-note">
-                <span class="finder-card__reserve-note-icon" aria-hidden="true">
-                    <i class="bi bi-heart-fill"></i>
-                </span>
-                <span>Reserve adoption now in case no owner claim is approved.</span>
-            </p>
-            {% endif %}
-
-            <a href="{{ item.detail_url }}" class="finder-card__details-link">
-                <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
-                <span>Open Full Post</span>
-            </a>
-        </div>
-
         <div class="finder-card__footer{% if featured %} finder-card__footer--featured{% endif %}">
             <div class="finder-card__actions{% if featured %} finder-card__actions--featured{% endif %}">
                 <a
@@ -158,9 +80,21 @@
                     <span>Reserve Adoption</span>
                 </a>
                 {% endif %}
+            </div>
+
+            <div class="finder-card__utilities">
                 <button
                     type="button"
-                    class="btn-action btn-action--share js-open-share"
+                    class="finder-card__utility-btn js-finder-info-toggle"
+                    aria-expanded="false"
+                    aria-controls="finder-card-details-{{ item.phase }}-{{ item.post.id }}-{% if featured %}featured{% else %}list{% endif %}"
+                    data-finder-info-toggle
+                >
+                    <span data-finder-info-label>View Info</span>
+                </button>
+                <button
+                    type="button"
+                    class="finder-card__utility-btn finder-card__utility-btn--share js-open-share"
                     data-share-url="{{ item.share_url }}"
                     aria-label="Share {{ item.title }}"
                 >
@@ -169,5 +103,58 @@
                 </button>
             </div>
         </div>
+
+    </div>
+
+    <div
+        id="finder-card-details-{{ item.phase }}-{{ item.post.id }}-{% if featured %}featured{% else %}list{% endif %}"
+        class="finder-card__details"
+        data-finder-info-panel
+        hidden
+    >
+        <div class="finder-card__details-grid">
+            <div class="finder-card__detail-item">
+                <span>Breed</span>
+                <strong>{{ item.breed_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>Location</span>
+                <strong>{{ item.location_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>Age</span>
+                <strong>{{ item.age_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>Size</span>
+                <strong>{{ item.size_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>Gender</span>
+                <strong>{{ item.gender_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>Coat</span>
+                <strong>{{ item.coat_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>Color</span>
+                <strong>{{ item.color_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>{{ item.countdown_date_heading }}</span>
+                <strong>{{ item.countdown_date_label }}</strong>
+            </div>
+        </div>
+
+        {% if item.phase == 'claim' %}
+        <p class="finder-card__reserve-note">
+            <span class="finder-card__reserve-note-icon" aria-hidden="true">
+                <i class="bi bi-heart-fill"></i>
+            </span>
+            <span>Reserve adoption now in case no owner claim is approved.</span>
+        </p>
+        {% endif %}
+
     </div>
 </article>

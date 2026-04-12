@@ -36,6 +36,91 @@
     <link rel="stylesheet" href="{% static 'css/notification_menu.css' %}?v=20260330b">
     <link rel="stylesheet" href="{% static 'css/user_button_skin.css' %}?v=20260324a">
     <style>
+        :root {
+            --page-transition-duration: 320ms;
+            --page-transition-ease: cubic-bezier(0.22, 1, 0.36, 1);
+            --page-transition-entry-y: 18px;
+            --page-transition-exit-y: 12px;
+            --page-transition-overlay: linear-gradient(180deg, rgba(255, 252, 246, 0.14) 0%, rgba(245, 239, 228, 0.92) 100%);
+        }
+        html.js-page-transition-ready {
+            background: #f7f3ec;
+        }
+        body {
+            transition: background-color var(--page-transition-duration) var(--page-transition-ease);
+        }
+        .page-transition-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+            pointer-events: none;
+            opacity: 0;
+            background:
+                radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.74) 0%, rgba(255, 255, 255, 0) 28%),
+                radial-gradient(circle at 82% 14%, rgba(245, 212, 161, 0.2) 0%, rgba(245, 212, 161, 0) 26%),
+                var(--page-transition-overlay);
+            backdrop-filter: blur(0px);
+            -webkit-backdrop-filter: blur(0px);
+            transition:
+                opacity var(--page-transition-duration) var(--page-transition-ease),
+                backdrop-filter var(--page-transition-duration) var(--page-transition-ease),
+                -webkit-backdrop-filter var(--page-transition-duration) var(--page-transition-ease);
+        }
+        .page-transition-overlay::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 34%);
+            opacity: 0.85;
+        }
+        [data-page-transition-surface] {
+            opacity: 1;
+            transition:
+                transform var(--page-transition-duration) var(--page-transition-ease),
+                opacity var(--page-transition-duration) var(--page-transition-ease),
+                filter var(--page-transition-duration) var(--page-transition-ease);
+        }
+        body.page-transition-entering [data-page-transition-surface],
+        body.page-transition-enter-active [data-page-transition-surface],
+        body.page-transition-exiting [data-page-transition-surface] {
+            will-change: transform, opacity, filter;
+        }
+        body.page-transition-entering [data-page-transition-surface] {
+            opacity: 0;
+            transform: translate3d(0, var(--page-transition-entry-y), 0) scale(0.992);
+            filter: blur(6px);
+        }
+        body.page-transition-enter-active [data-page-transition-surface] {
+            opacity: 1;
+            transform: translate3d(0, 0, 0) scale(1);
+            filter: blur(0);
+        }
+        body.page-transition-exiting {
+            overflow: hidden;
+        }
+        body.page-transition-exiting .page-transition-overlay {
+            opacity: 1;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        body.page-transition-exiting [data-page-transition-surface] {
+            opacity: 0;
+            transform: translate3d(0, calc(-1 * var(--page-transition-exit-y)), 0) scale(0.986);
+            filter: blur(8px);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .page-transition-overlay,
+            [data-page-transition-surface],
+            body {
+                transition: none !important;
+            }
+            body.page-transition-entering [data-page-transition-surface],
+            body.page-transition-exiting [data-page-transition-surface] {
+                opacity: 1;
+                transform: none;
+                filter: none;
+            }
+        }
         .flash-toast-stack {
             position: fixed;
             top: 84px;
@@ -94,6 +179,7 @@
 </head>
 
 <body class="{% if user.is_authenticated %}is-authenticated{% else %}is-guest{% endif %}">
+<div class="page-transition-overlay" aria-hidden="true" data-page-transition-overlay></div>
 
 <!-- ================= TOP NAVBAR ================= -->
 <nav class="navbar navbar-expand-lg fixed-top app-topbar">
@@ -101,17 +187,6 @@
 
         {% if user.is_authenticated %}
             <div class="user-topbar-start">
-                <button
-                    class="btn btn-sm text-white d-lg-none"
-                    id="sidebarToggle"
-                    type="button"
-                    aria-controls="sidebar-wrapper"
-                    aria-expanded="false"
-                    aria-label="Open navigation menu"
-                >
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-
                 <a class="navbar-brand user-brand" href="{% url 'user:user_home' %}">
                     <img src="{% static 'images/paw-logo.svg' %}"
                          alt="Bayawan Vet paw logo"
@@ -131,7 +206,6 @@
 
             <div class="user-topbar-end">
                 <div class="d-flex align-items-center gap-3 user-topbar-actions">
-
                 <!-- NOTIFICATION DROPDOWN -->
                 <div class="dropdown" data-user-notification-dropdown>
                     <a href="#"
@@ -174,8 +248,19 @@
                     </ul>
                 </div>
 
+                <button
+                    class="btn btn-sm text-white d-lg-none"
+                    id="sidebarToggle"
+                    type="button"
+                    aria-controls="sidebar-wrapper"
+                    aria-expanded="false"
+                    aria-label="Open navigation menu"
+                >
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
                 <!-- USER DROPDOWN -->
-                <div class="dropdown profile-menu-shift">
+                <div class="dropdown profile-menu-shift mobile-topbar-profile">
                     <a class="btn p-0 topbar-avatar-btn" href="#" data-bs-toggle="dropdown" aria-expanded="false">
                         {% if user_topbar_avatar_url %}
                             <img src="{{ user_topbar_avatar_url }}"
@@ -273,7 +358,7 @@
 <button type="button" class="user-sidebar-backdrop d-lg-none" data-sidebar-backdrop aria-label="Close navigation menu"></button>
 
 <!-- ================= PAGE WRAPPER ================= -->
-<div class="d-flex" id="wrapper">
+<div class="d-flex" id="wrapper" data-page-transition-surface>
 
     {% include 'sidebar.html' %}
 
@@ -356,6 +441,186 @@
 <script src="{% static 'js/shared_confirm_modal.js' %}?v=20260409shared-confirm"></script>
 
 <script>
+document.addEventListener('DOMContentLoaded', function () {
+    const html = document.documentElement;
+    const body = document.body;
+    const surface = document.querySelector('[data-page-transition-surface]');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let isNavigating = false;
+
+    if (!body || !surface) {
+        return;
+    }
+
+    html.classList.add('js-page-transition-ready');
+
+    function prefersReducedMotion() {
+        return !!reduceMotion.matches;
+    }
+
+    function isHashOnlyNavigation(currentUrl, nextUrl) {
+        return currentUrl.pathname === nextUrl.pathname
+            && currentUrl.search === nextUrl.search
+            && currentUrl.hash !== nextUrl.hash;
+    }
+
+    function isSkippableLink(link, event) {
+        if (!link || event.defaultPrevented) {
+            return true;
+        }
+
+        if (link.hasAttribute('download')) {
+            return true;
+        }
+
+        if (link.getAttribute('target') && link.getAttribute('target') !== '_self') {
+            return true;
+        }
+
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+            return true;
+        }
+
+        if (link.closest('[data-auth-modal-trigger], [data-bs-toggle], [data-bs-target], [data-no-page-transition]')) {
+            return true;
+        }
+
+        const href = link.getAttribute('href') || '';
+        if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) {
+            return true;
+        }
+
+        let nextUrl;
+        try {
+            nextUrl = new URL(link.href, window.location.href);
+        } catch (error) {
+            return true;
+        }
+
+        const currentUrl = new URL(window.location.href);
+        if (nextUrl.origin !== currentUrl.origin || isHashOnlyNavigation(currentUrl, nextUrl)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    function startEntryTransition() {
+        if (prefersReducedMotion()) {
+            body.classList.remove('page-transition-entering', 'page-transition-enter-active');
+            return;
+        }
+
+        body.classList.add('page-transition-entering');
+        window.requestAnimationFrame(function () {
+            window.requestAnimationFrame(function () {
+                body.classList.add('page-transition-enter-active');
+            });
+        });
+
+        window.setTimeout(function () {
+            body.classList.remove('page-transition-entering', 'page-transition-enter-active');
+        }, 380);
+    }
+
+    function navigateWithTransition(nextHref) {
+        if (isNavigating) {
+            return;
+        }
+
+        isNavigating = true;
+
+        if (prefersReducedMotion()) {
+            window.location.assign(nextHref);
+            return;
+        }
+
+        body.classList.add('page-transition-exiting');
+
+        window.setTimeout(function () {
+            window.location.assign(nextHref);
+        }, 260);
+    }
+
+    startEntryTransition();
+
+    window.addEventListener('pageshow', function (event) {
+        isNavigating = false;
+        body.classList.remove('page-transition-exiting');
+
+        if (event.persisted) {
+            startEntryTransition();
+        }
+    });
+
+    document.addEventListener('click', function (event) {
+        const link = event.target.closest('a[href]');
+        if (isSkippableLink(link, event)) {
+            return;
+        }
+
+        event.preventDefault();
+        navigateWithTransition(link.href);
+    });
+
+    document.addEventListener('submit', function (event) {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement) || isNavigating) {
+            return;
+        }
+
+        if (form.hasAttribute('data-no-page-transition')) {
+            return;
+        }
+
+        const method = (form.getAttribute('method') || 'get').toLowerCase();
+        const target = form.getAttribute('target') || '';
+        const action = form.getAttribute('action') || window.location.href;
+
+        if (target && target !== '_self') {
+            return;
+        }
+
+        if (form.enctype === 'multipart/form-data') {
+            return;
+        }
+
+        let actionUrl;
+        try {
+            actionUrl = new URL(action, window.location.href);
+        } catch (error) {
+            return;
+        }
+
+        if (actionUrl.origin !== window.location.origin) {
+            return;
+        }
+
+        if (prefersReducedMotion()) {
+            return;
+        }
+
+        if (method === 'get') {
+            event.preventDefault();
+            const formData = new FormData(form);
+            const params = new URLSearchParams();
+            formData.forEach(function (value, key) {
+                if (typeof value === 'string') {
+                    params.append(key, value);
+                }
+            });
+            actionUrl.search = params.toString();
+            navigateWithTransition(actionUrl.toString());
+            return;
+        }
+
+        isNavigating = true;
+        body.classList.add('page-transition-exiting');
+    });
+});
+</script>
+
+<script>
 function ensureSharedModalCloseButtons(root) {
     const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
     const modalContents = scope.classList && scope.classList.contains('modal-content')
@@ -421,6 +686,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    setSidebarOpen(false);
+
     if (sidebarToggle && wrapper) {
         sidebarToggle.addEventListener('click', function (event) {
             event.preventDefault();
@@ -436,6 +703,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelectorAll('#sidebar-wrapper a').forEach(function (link) {
         link.addEventListener('click', function () {
+            setSidebarOpen(false);
+        });
+    });
+
+    document.querySelectorAll('[data-sidebar-close]').forEach(function (button) {
+        button.addEventListener('click', function () {
             setSidebarOpen(false);
         });
     });
@@ -485,6 +758,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    setSidebarOpen(false);
+
     if (sidebarToggle && wrapper) {
         sidebarToggle.addEventListener('click', function (e) {
             e.preventDefault();
@@ -500,6 +775,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelectorAll('#sidebar-wrapper a').forEach(function (link) {
         link.addEventListener('click', function () {
+            setSidebarOpen(false);
+        });
+    });
+
+    document.querySelectorAll('[data-sidebar-close]').forEach(function (button) {
+        button.addEventListener('click', function () {
             setSidebarOpen(false);
         });
     });

@@ -258,7 +258,12 @@
 
             <div class="user-topbar-end user-topbar-end--guest">
                 <div class="d-flex align-items-center gap-2 user-topbar-auth-actions">
-                    <a href="{% url 'user:login' %}" class="auth-btn login-btn border-0">Login</a>
+                    <a href="{% url 'user:login' %}?next={{ request.get_full_path|urlencode }}"
+                       class="auth-btn login-btn border-0"
+                       data-auth-modal-trigger="login"
+                       data-auth-next-url="{{ request.get_full_path }}">
+                        Login
+                    </a>
                 </div>
             </div>
         {% endif %}

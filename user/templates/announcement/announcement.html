@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260404b">
+<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260412campaign-inline">
 {% endblock %}
 
 {% block content %}
@@ -19,13 +19,6 @@
          data-user-mobile-announcement-tabs
          data-mobile-announcement-tabs
          aria-label="Announcement sections">
-        <button type="button"
-                class="user-ann-mobile-tab announcement-mobile-tab announcement-mobile-tab--compact"
-                data-user-mobile-announcement-tab="pinned"
-                aria-pressed="false">
-            <span>Pinned</span>
-            <span class="user-ann-mobile-tab-count announcement-mobile-tab-count">{{ pinned_count }}</span>
-        </button>
         <button type="button"
                 class="user-ann-mobile-tab announcement-mobile-tab announcement-mobile-tab--compact"
                 data-user-mobile-announcement-tab="regular"
@@ -177,8 +170,7 @@
     const board = document.querySelector('[data-user-mobile-announcement-board]');
     const tabs = Array.from(document.querySelectorAll('[data-user-mobile-announcement-tab]'));
     const sections = Array.from(document.querySelectorAll('[data-user-mobile-announcement-section]'));
-    const mobileQuery = window.matchMedia('(max-width: 767.98px)');
-
+    const pinnedSection = sections.find((section) => section.getAttribute('data-user-mobile-announcement-section') === 'pinned') || null;
     function setActiveSection(sectionKey) {
         if (!board) return;
 
@@ -191,22 +183,20 @@
         });
 
         sections.forEach((section) => {
-            const isActive = section.getAttribute('data-user-mobile-announcement-section') === sectionKey;
+            const sectionKeyValue = section.getAttribute('data-user-mobile-announcement-section');
+            if (sectionKeyValue === 'pinned') {
+                section.hidden = false;
+                section.classList.remove('is-mobile-active');
+                return;
+            }
+            const isActive = sectionKeyValue === sectionKey;
             section.classList.toggle('is-mobile-active', isActive);
-            section.hidden = mobileQuery.matches ? !isActive : false;
+            section.hidden = !isActive;
         });
     }
 
     function syncMobileSections() {
         if (!board || !tabs.length || !sections.length) {
-            return;
-        }
-
-        if (!mobileQuery.matches) {
-            sections.forEach((section) => {
-                section.hidden = false;
-                section.classList.remove('is-mobile-active');
-            });
             return;
         }
 
@@ -218,12 +208,6 @@
             setActiveSection(tab.getAttribute('data-user-mobile-announcement-tab') || 'regular');
         });
     });
-
-    if (typeof mobileQuery.addEventListener === 'function') {
-        mobileQuery.addEventListener('change', syncMobileSections);
-    } else if (typeof mobileQuery.addListener === 'function') {
-        mobileQuery.addListener(syncMobileSections);
-    }
 
     syncMobileSections();
 })();

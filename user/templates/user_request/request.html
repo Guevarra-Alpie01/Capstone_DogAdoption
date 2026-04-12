@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260412request-two-step">
+<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260412request-next-green">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
 
@@ -17,8 +17,6 @@
             <div class="request-hero-copy">
                 <span class="request-eyebrow">Dog Surrender Form</span>
                 <p class="request-hero-text">
-                    Request assistance from the dog catcher or Bayawan Vet when surrendering a dog.
-                    Fill it out once with the photo, contact number, and location details.
                 </p>
             </div>
             <div class="request-hero-side">
@@ -56,6 +54,10 @@
             <div class="step-dot" data-step-dot="2">
                 <span class="step-dot-number">2</span>
                 <span class="step-dot-label">Details</span>
+            </div>
+            <div class="step-dot" data-step-dot="3">
+                <span class="step-dot-number">3</span>
+                <span class="step-dot-label">Description</span>
             </div>
         </div>
 
@@ -270,6 +272,38 @@
 
             </div>
 
+            <div class="step-panel" data-step="3" hidden>
+                <div class="step-panel-header">
+                    <div class="step-panel-icon">
+                        <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                    </div>
+                    <div>
+                        <h3>Request description (optional)</h3>
+                        <p class="step-description">
+                            Share any extra details that can help the dog catcher or Bayawan Vet respond faster.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="step-detail-stack">
+                    <div class="form-group">
+                        <label for="requestDescriptionField">Description</label>
+                        <div class="input-with-icon textarea-with-icon">
+                            <span class="input-icon">
+                                <i class="bi bi-chat-left-text" aria-hidden="true"></i>
+                            </span>
+                            <textarea
+                                id="requestDescriptionField"
+                                name="description"
+                                rows="4"
+                                placeholder="Optional: number of dogs, behavior, or exact spot details"
+                            ></textarea>
+                        </div>
+                        <small class="helper-text">Optional.</small>
+                    </div>
+                </div>
+            </div>
+
             <div class="wizard-actions">
                 <button type="button" class="btn-secondary" id="prevStepBtn" hidden>
                     <i class="bi bi-arrow-left" aria-hidden="true"></i>
@@ -482,6 +516,7 @@ const stepDots = Array.from(document.querySelectorAll('.step-dot[data-step-dot]'
 const prevStepBtn = document.getElementById('prevStepBtn');
 const nextStepBtn = document.getElementById('nextStepBtn');
 const totalWizardSteps = stepPanels.length || 1;
+const locationDetailsStep = 2;
 const requestDialogModalEl = document.getElementById('requestDialogModal');
 const requestDialogTitle = document.getElementById('requestDialogTitle');
 const requestDialogMessage = document.getElementById('requestDialogMessage');
@@ -744,7 +779,7 @@ function syncRequestWizardUI({ focusPanel = false } = {}) {
     syncSubmitButtonState();
 
     if (
-        currentWizardStep === totalWizardSteps &&
+        currentWizardStep === locationDetailsStep &&
         getSelectedSubmissionType() === 'online' &&
         document.querySelector('input[name="location_mode"]:checked')?.value === 'exact'
     ) {
@@ -1530,7 +1565,7 @@ function applyCreateLocationMode() {
     if (locationLandmarkImageField) locationLandmarkImageField.required = false;
     if (isExact) {
         setResolvedCity(cityField?.value || defaultRequestCity);
-        if (currentWizardStep === totalWizardSteps && isOnline) {
+        if (currentWizardStep === locationDetailsStep && isOnline) {
             window.setTimeout(() => ensureRequestMapReady(), 140);
         }
     } else {

@@ -8,10 +8,6 @@
 
 {% block content %}
 <div class="container requests-page-shell">
-    <div class="requests-page-header">
-        <h1 class="requests-page-title">Requests</h1>
-    </div>
-
     <div class="card request-wizard-card">
         <div class="request-hero">
             <div class="request-hero-copy">
@@ -60,13 +56,12 @@
                 <span class="step-dot-label">Description</span>
             </div>
         </div>
-
         <form method="POST" enctype="multipart/form-data" class="capture-form" id="captureForm" novalidate>
             {% csrf_token %}
             <input type="hidden" name="request_type" value="surrender">
             <input type="hidden" name="submission_type" value="online">
 
-            <div class="step-panel" data-step="1">
+            <div class="step-panel">
                 <div class="step-panel-header">
                     <div class="step-panel-icon">
                         <i class="bi bi-camera-fill" aria-hidden="true"></i>
@@ -138,7 +133,7 @@
                     <div id="photoSummaryList" class="photo-summary-list"></div>
                 </div>
             </div>
-            <div class="step-panel" data-step="2" hidden>
+            <div class="step-panel">
                 <div class="step-panel-header">
                     <div class="step-panel-icon">
                         <i class="bi bi-ui-checks-grid" aria-hidden="true"></i>
@@ -527,7 +522,6 @@ let requestDialogDismissValue = false;
 let requestDialogSuspendedModals = [];
 let exactLocationRequestInFlight = false;
 let exactLocationAutoCaptureTimer = null;
-let currentWizardStep = 1;
 
 function moveRequestModalToBody(modalEl) {
     if (!modalEl || modalEl.parentElement === document.body) return;
@@ -825,7 +819,6 @@ function goToPreviousWizardStep() {
     }
     goToWizardStep(currentWizardStep - 1, { focusPanel: true });
 }
-
 function ensureRequestMapReady() {
     if (!map) {
         map = L.map('requestMap').setView(BAYAWAN_CITY_CENTER, DEFAULT_REQUEST_MAP_ZOOM);
@@ -1066,7 +1059,6 @@ function syncRequestFlowUI() {
     syncStepOneContent();
     if (onlineDetailsSection) onlineDetailsSection.hidden = false;
     applyCreateLocationMode();
-    syncRequestWizardUI({ focusPanel: false });
 }
 
 phoneNumberField?.addEventListener('blur', () => {
@@ -1091,8 +1083,6 @@ submissionTypeInputs.forEach((input) => {
 });
 
 document.addEventListener('appointment-picker:change', syncSubmitButtonState);
-prevStepBtn?.addEventListener('click', goToPreviousWizardStep);
-nextStepBtn?.addEventListener('click', goToNextWizardStep);
 
 const cameraSection = document.getElementById('cameraSection');
 const openUploadPickerBtn = document.getElementById('openUploadPickerBtn');
@@ -1752,11 +1742,6 @@ document.getElementById('getLocationBtn').addEventListener('click', async () => 
 
 captureForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
-
-    if (currentWizardStep < totalWizardSteps) {
-        goToNextWizardStep();
-        return;
-    }
 
     if (requestSubmitRequiresAuth) {
         if (window.openAuthModal) {

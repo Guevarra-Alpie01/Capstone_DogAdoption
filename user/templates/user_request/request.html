@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260412request-next-green">
+<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260412request-single">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
 
@@ -13,6 +13,7 @@
             <div class="request-hero-copy">
                 <span class="request-eyebrow">Dog Surrender Form</span>
                 <p class="request-hero-text">
+                    Complete the photo, contact, and location in one submission.
                 </p>
             </div>
             <div class="request-hero-side">
@@ -41,34 +42,19 @@
                 </button>
             </div>
         </div>
-
-        <div class="step-indicator" aria-label="Request progress">
-            <div class="step-dot active" data-step-dot="1">
-                <span class="step-dot-number">1</span>
-                <span class="step-dot-label">Photo</span>
-            </div>
-            <div class="step-dot" data-step-dot="2">
-                <span class="step-dot-number">2</span>
-                <span class="step-dot-label">Details</span>
-            </div>
-            <div class="step-dot" data-step-dot="3">
-                <span class="step-dot-number">3</span>
-                <span class="step-dot-label">Description</span>
-            </div>
-        </div>
         <form method="POST" enctype="multipart/form-data" class="capture-form" id="captureForm" novalidate>
             {% csrf_token %}
             <input type="hidden" name="request_type" value="surrender">
             <input type="hidden" name="submission_type" value="online">
 
-            <div class="step-panel">
-                <div class="step-panel-header">
-                    <div class="step-panel-icon">
+            <div class="request-section">
+                <div class="request-section-header">
+                    <div class="request-section-icon">
                         <i class="bi bi-camera-fill" aria-hidden="true"></i>
                     </div>
                     <div>
-                        <h3 id="step1Title">Add a photo of the dog</h3>
-                        <p class="step-description" id="step1Description">
+                        <h3>Add a photo of the dog</h3>
+                        <p class="request-section-description">
                             Upload or take a photo of the dog being surrendered. This helps the dog catcher or Bayawan Vet prepare for the request.
                         </p>
                     </div>
@@ -77,14 +63,14 @@
                 <div class="capture-choice" role="group" aria-label="Photo options">
                     <button type="button" class="btn-secondary capture-action-btn" id="openUploadPickerBtn">
                         <i class="bi bi-upload" aria-hidden="true"></i>
-                        <span id="uploadActionLabel">Upload Photo</span>
+                        <span>Upload Photo</span>
                     </button>
                     <button type="button" class="btn-primary capture-action-btn" id="openCameraExperienceBtn">
                         <i class="bi bi-camera2" aria-hidden="true"></i>
-                        <span id="cameraActionLabel">Take Photo</span>
+                        <span>Take Photo</span>
                     </button>
                 </div>
-                <p class="helper-text capture-helper-note" id="step1HelperNote">
+                <p class="helper-text capture-helper-note">
                     Optional, but recommended.
                 </p>
 
@@ -133,20 +119,20 @@
                     <div id="photoSummaryList" class="photo-summary-list"></div>
                 </div>
             </div>
-            <div class="step-panel">
-                <div class="step-panel-header">
-                    <div class="step-panel-icon">
+            <div class="request-section">
+                <div class="request-section-header">
+                    <div class="request-section-icon">
                         <i class="bi bi-ui-checks-grid" aria-hidden="true"></i>
                     </div>
                     <div>
                         <h3>Contact information and request details</h3>
-                        <p class="step-description">
+                        <p class="request-section-description">
                             Share the contact and location details needed to help Bayawan Vet or the dog catcher respond to the surrender request.
                         </p>
                     </div>
                 </div>
 
-                <div class="step-detail-stack">
+                <div class="request-detail-stack">
                     <div class="form-group">
                         <label for="phoneNumberField">Contact Number</label>
                         <div class="input-with-icon phone-input-wrap">
@@ -267,48 +253,8 @@
 
             </div>
 
-            <div class="step-panel" data-step="3" hidden>
-                <div class="step-panel-header">
-                    <div class="step-panel-icon">
-                        <i class="bi bi-pencil-square" aria-hidden="true"></i>
-                    </div>
-                    <div>
-                        <h3>Request description (optional)</h3>
-                        <p class="step-description">
-                            Share any extra details that can help the dog catcher or Bayawan Vet respond faster.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="step-detail-stack">
-                    <div class="form-group">
-                        <label for="requestDescriptionField">Description</label>
-                        <div class="input-with-icon textarea-with-icon">
-                            <span class="input-icon">
-                                <i class="bi bi-chat-left-text" aria-hidden="true"></i>
-                            </span>
-                            <textarea
-                                id="requestDescriptionField"
-                                name="description"
-                                rows="4"
-                                placeholder="Optional: number of dogs, behavior, or exact spot details"
-                            ></textarea>
-                        </div>
-                        <small class="helper-text">Optional.</small>
-                    </div>
-                </div>
-            </div>
-
-            <div class="wizard-actions">
-                <button type="button" class="btn-secondary" id="prevStepBtn" hidden>
-                    <i class="bi bi-arrow-left" aria-hidden="true"></i>
-                    <span>Back</span>
-                </button>
-                <button type="button" class="btn-secondary" id="nextStepBtn">
-                    <span>Next</span>
-                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
-                </button>
-                <button type="submit" class="btn-primary" id="submitBtn" hidden>
+            <div class="request-submit-row">
+                <button type="submit" class="btn-primary request-submit-btn">
                     <i class="bi bi-send-fill" aria-hidden="true"></i>
                     <span>Submit Request</span>
                 </button>
@@ -486,14 +432,11 @@ function addRequestMapBaseLayer(mapInstance) {
     L.tileLayer(REQUEST_MAP_TILE_URL, REQUEST_MAP_TILE_OPTIONS).addTo(mapInstance);
 }
 
-const submitBtn = document.getElementById('submitBtn');
 const requestSubmitRequiresAuth = {{ request.user.is_authenticated|yesno:'false,true' }};
 const requestAuthNextUrl = "{% url 'user:dog_capture_request' %}";
 const phoneNumberField = document.getElementById('phoneNumberField');
 const defaultRequestCity = "{{ default_manual_city|escapejs }}";
 const captureForm = document.getElementById('captureForm');
-const requestTypeInputs = document.querySelectorAll('input[name="request_type"]');
-const submissionTypeInputs = document.querySelectorAll('input[name="submission_type"]');
 const onlineDetailsSection = document.getElementById('onlineDetailsSection');
 const requestHistoryModalEl = document.getElementById('requestHistoryModal');
 const barangayField = document.getElementById('barangayField');
@@ -501,17 +444,6 @@ const cityField = document.getElementById('cityField');
 const gpsAccuracyField = document.getElementById('gpsAccuracyField');
 const manualFullAddressField = document.getElementById('manualFullAddressField');
 const locationLandmarkImageField = document.getElementById('locationLandmarkImageField');
-const step1Title = document.getElementById('step1Title');
-const step1Description = document.getElementById('step1Description');
-const step1HelperNote = document.getElementById('step1HelperNote');
-const uploadActionLabel = document.getElementById('uploadActionLabel');
-const cameraActionLabel = document.getElementById('cameraActionLabel');
-const stepPanels = Array.from(document.querySelectorAll('.step-panel[data-step]'));
-const stepDots = Array.from(document.querySelectorAll('.step-dot[data-step-dot]'));
-const prevStepBtn = document.getElementById('prevStepBtn');
-const nextStepBtn = document.getElementById('nextStepBtn');
-const totalWizardSteps = stepPanels.length || 1;
-const locationDetailsStep = 2;
 const requestDialogModalEl = document.getElementById('requestDialogModal');
 const requestDialogTitle = document.getElementById('requestDialogTitle');
 const requestDialogMessage = document.getElementById('requestDialogMessage');
@@ -557,10 +489,6 @@ document.addEventListener('hidden.bs.modal', (event) => {
     if (!event.target?.matches?.('.request-history-modal, .request-dialog-modal, .request-view-modal')) return;
     window.setTimeout(syncRequestModalBackdrop, 0);
 });
-function getSelectedRequestType() {
-    return document.querySelector('input[name="request_type"]')?.value || 'surrender';
-}
-
 function getSelectedSubmissionType() {
     return document.querySelector('input[name="submission_type"]')?.value || 'online';
 }
@@ -708,11 +636,6 @@ requestDialogModalEl?.addEventListener('hidden.bs.modal', () => {
     resolve(requestDialogDismissValue);
 });
 
-function syncSubmitButtonState() {
-    if (!submitBtn) return;
-    submitBtn.disabled = false;
-}
-
 function validatePhoneField() {
     const normalized = normalizePhoneForSubmit(phoneNumberField?.value || '');
     if (!normalized) {
@@ -727,98 +650,6 @@ function validatePhoneField() {
     return true;
 }
 
-function getStepPanel(stepNumber) {
-    return stepPanels.find((panel) => Number(panel.dataset.step) === Number(stepNumber)) || null;
-}
-
-function validateWizardStep(stepNumber = currentWizardStep) {
-    if (Number(stepNumber) === 2) {
-        return validatePhoneField();
-    }
-    return true;
-}
-
-function syncRequestWizardUI({ focusPanel = false } = {}) {
-    stepPanels.forEach((panel) => {
-        const panelStep = Number(panel.dataset.step);
-        const isActive = panelStep === currentWizardStep;
-        panel.hidden = !isActive;
-        panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
-    });
-
-    stepDots.forEach((dot) => {
-        const dotStep = Number(dot.dataset.stepDot);
-        const isActive = dotStep === currentWizardStep;
-        const isComplete = dotStep < currentWizardStep;
-
-        dot.classList.toggle('active', isActive);
-        dot.classList.toggle('complete', isComplete);
-        if (isActive) {
-            dot.setAttribute('aria-current', 'step');
-        } else {
-            dot.removeAttribute('aria-current');
-        }
-    });
-
-    if (prevStepBtn) {
-        prevStepBtn.hidden = currentWizardStep <= 1;
-    }
-    if (nextStepBtn) {
-        nextStepBtn.hidden = currentWizardStep >= totalWizardSteps;
-    }
-    if (submitBtn) {
-        submitBtn.hidden = currentWizardStep < totalWizardSteps;
-    }
-
-    syncSubmitButtonState();
-
-    if (
-        currentWizardStep === locationDetailsStep &&
-        getSelectedSubmissionType() === 'online' &&
-        document.querySelector('input[name="location_mode"]:checked')?.value === 'exact'
-    ) {
-        window.setTimeout(() => ensureRequestMapReady(), 140);
-    }
-
-    if (!focusPanel) {
-        return;
-    }
-
-    const activePanel = getStepPanel(currentWizardStep);
-    const activeHeading = activePanel?.querySelector('h3');
-    if (!activePanel || !activeHeading) {
-        return;
-    }
-
-    activeHeading.setAttribute('tabindex', '-1');
-    window.requestAnimationFrame(() => {
-        activePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        activeHeading.focus({ preventScroll: true });
-    });
-}
-
-function goToWizardStep(stepNumber, options = {}) {
-    const nextStep = Math.min(Math.max(Number(stepNumber) || 1, 1), totalWizardSteps);
-    currentWizardStep = nextStep;
-    syncRequestWizardUI(options);
-}
-
-function goToNextWizardStep() {
-    if (currentWizardStep >= totalWizardSteps) {
-        return;
-    }
-    if (!validateWizardStep(currentWizardStep)) {
-        return;
-    }
-    goToWizardStep(currentWizardStep + 1, { focusPanel: true });
-}
-
-function goToPreviousWizardStep() {
-    if (currentWizardStep <= 1) {
-        return;
-    }
-    goToWizardStep(currentWizardStep - 1, { focusPanel: true });
-}
 function ensureRequestMapReady() {
     if (!map) {
         map = L.map('requestMap').setView(BAYAWAN_CITY_CENTER, DEFAULT_REQUEST_MAP_ZOOM);
@@ -1055,12 +886,6 @@ async function requestBestGeolocationFix(statusEl) {
     return getWatchPositionOnce(freshGeoOptions);
 }
 
-function syncRequestFlowUI() {
-    syncStepOneContent();
-    if (onlineDetailsSection) onlineDetailsSection.hidden = false;
-    applyCreateLocationMode();
-}
-
 phoneNumberField?.addEventListener('blur', () => {
     if (!phoneNumberField.value.trim()) {
         phoneNumberField.value = '';
@@ -1069,20 +894,6 @@ phoneNumberField?.addEventListener('blur', () => {
     const formatted = formatPhoneForDisplay(phoneNumberField.value);
     phoneNumberField.value = formatted || phoneNumberField.value.trim();
 });
-
-phoneNumberField?.addEventListener('input', () => {
-    syncSubmitButtonState();
-});
-
-requestTypeInputs.forEach((input) => {
-    input.addEventListener('change', syncRequestFlowUI);
-});
-
-submissionTypeInputs.forEach((input) => {
-    input.addEventListener('change', syncRequestFlowUI);
-});
-
-document.addEventListener('appointment-picker:change', syncSubmitButtonState);
 
 const cameraSection = document.getElementById('cameraSection');
 const openUploadPickerBtn = document.getElementById('openUploadPickerBtn');
@@ -1110,21 +921,6 @@ let activeFacingMode = '';
 let availableVideoInputCount = 0;
 let capturedImages = [];
 let mirrorCompensation = false;
-
-function hasAttachedStepOneProof() {
-    return selectedUploadFiles.length > 0 || capturedImages.length > 0;
-}
-
-function syncStepOneContent() {
-    if (step1Title) step1Title.textContent = 'Add a photo of the dog';
-    if (step1Description) {
-        step1Description.textContent =
-            'Upload or take a photo of the dog being surrendered. This helps the dog catcher or Bayawan Vet prepare for the request.';
-    }
-    if (step1HelperNote) step1HelperNote.textContent = 'Optional, but recommended.';
-    if (uploadActionLabel) uploadActionLabel.textContent = 'Upload Photo';
-    if (cameraActionLabel) cameraActionLabel.textContent = 'Take Photo';
-}
 
 function showCameraSection(visible) {
     if (!cameraSection) return;
@@ -1555,7 +1351,7 @@ function applyCreateLocationMode() {
     if (locationLandmarkImageField) locationLandmarkImageField.required = false;
     if (isExact) {
         setResolvedCity(cityField?.value || defaultRequestCity);
-        if (currentWizardStep === locationDetailsStep && isOnline) {
+        if (isOnline) {
             window.setTimeout(() => ensureRequestMapReady(), 140);
         }
     } else {
@@ -1569,7 +1365,7 @@ locationModeInputs.forEach(input => {
 
 primePhoneField();
 setResolvedCity(cityField?.value || defaultRequestCity);
-syncRequestFlowUI();
+applyCreateLocationMode();
 
 async function resolveAddressFromCoords(lat, lng) {
     const controller = typeof AbortController === 'function' ? new AbortController() : null;

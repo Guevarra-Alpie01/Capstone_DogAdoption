@@ -1,12 +1,12 @@
 <article class="finder-card{% if featured %} is-featured{% endif %}">
     <div class="finder-card__media">
         {% if item.main_image_url %}
-        <a href="{{ item.main_image_url }}" class="finder-card__media-link js-finder-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ item.title|default:'Dog image' }}" aria-label="View full image">
-            <img src="{{ item.main_image_url }}" width="320" height="320" alt="{{ item.title|default:'Dog image' }}">
+        <a href="{{ item.main_image_url }}" class="finder-card__media-link js-finder-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ item.breed_label|default:item.title|default:'Dog image' }}" aria-label="View full image">
+            <img src="{{ item.main_image_url }}" width="320" height="320" alt="{{ item.breed_label|default:item.title|default:'Dog image' }}">
         </a>
         {% else %}
         <div class="finder-card__placeholder" aria-hidden="true">
-            <span>{{ item.title|default:'Dog'|slice:':1'|upper }}</span>
+            <span>{{ item.breed_label|default:item.title|default:'Dog'|slice:':1'|upper }}</span>
             <small>No Photo</small>
         </div>
         {% endif %}
@@ -18,93 +18,123 @@
     </div>
 
     <div class="finder-card__body{% if featured %} finder-card__body--featured{% endif %}">
-        {% if featured %}
-        <div class="finder-card__featured-copy">
-            <h3 class="finder-card__featured-breed">{{ item.breed_label }}</h3>
-            <div class="finder-card__featured-gender">
-                <span class="finder-card__fact-icon is-gender" aria-hidden="true">
-                    <i class="bi {% if item.gender_label == 'Male' %}bi-gender-male{% elif item.gender_label == 'Female' %}bi-gender-female{% else %}bi-gender-ambiguous{% endif %}"></i>
-                </span>
-                <span>{{ item.gender_label }}</span>
-            </div>
-        </div>
-        {% else %}
         <div class="finder-card__head">
             <div class="finder-card__title-wrap">
-                <h3 class="finder-card__title">{{ item.title }}</h3>
+                <p class="finder-card__label">Breed</p>
+                <h3 class="finder-card__breed-title">{{ item.breed_label }}</h3>
+                {% if item.title and item.title != item.breed_label %}
+                <p class="finder-card__title">{{ item.title }}</p>
+                {% endif %}
                 <p class="finder-card__breed">
                     <span class="finder-card__breed-icon" aria-hidden="true">
-                        <i class="bi bi-tags"></i>
+                        <i class="bi bi-geo-alt-fill"></i>
                     </span>
-                    <span>{{ item.breed_label }}</span>
+                    <span>{{ item.location_label }}</span>
                 </p>
             </div>
             <span class="finder-card__phase-title">{{ item.phase_title }}</span>
         </div>
 
-        <div class="finder-card__facts">
-            <div class="finder-card__fact">
-                <span class="finder-card__fact-icon is-age" aria-hidden="true"><i class="bi bi-calendar-heart"></i></span>
-                <span>{{ item.age_label }}</span>
+        {% if item.show_countdown %}
+        <span class="finder-card__timer">
+            <span class="finder-card__timer-icon" aria-hidden="true">
+                <i class="bi bi-hourglass-split"></i>
+            </span>
+            <span>{{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m left</span>
+        </span>
+        {% else %}
+        <span class="finder-card__timer finder-card__timer--pending">
+            <span class="finder-card__timer-icon" aria-hidden="true">
+                <i class="bi bi-shield-check"></i>
+            </span>
+            <span class="finder-card__timer-copy">
+                <strong>{{ item.pending_state_label }}</strong>
+                {% if item.pending_state_detail %}
+                <small>{{ item.pending_state_detail }}</small>
+                {% endif %}
+            </span>
+        </span>
+        {% endif %}
+
+        <div class="finder-card__utilities">
+            <button
+                type="button"
+                class="finder-card__utility-btn js-finder-info-toggle"
+                aria-expanded="false"
+                aria-controls="finder-card-details-{{ item.phase }}-{{ item.post.id }}-{% if featured %}featured{% else %}list{% endif %}"
+                data-finder-info-toggle
+            >
+                <span data-finder-info-label>View Info</span>
+            </button>
+            <button
+                type="button"
+                class="finder-card__utility-btn js-finder-share"
+                data-finder-share
+                data-share-url="{{ item.detail_url }}"
+                data-share-title="{{ item.breed_label }}"
+                data-share-text="{{ item.breed_label }} is {{ item.phase_title|lower }} on Bayawan Vet."
+            >
+                <span data-finder-share-label>Share</span>
+            </button>
+        </div>
+
+        <div
+            id="finder-card-details-{{ item.phase }}-{{ item.post.id }}-{% if featured %}featured{% else %}list{% endif %}"
+            class="finder-card__details"
+            data-finder-info-panel
+            hidden
+        >
+            <div class="finder-card__details-grid">
+                <div class="finder-card__detail-item">
+                    <span>Breed</span>
+                    <strong>{{ item.breed_label }}</strong>
+                </div>
+                <div class="finder-card__detail-item">
+                    <span>Location</span>
+                    <strong>{{ item.location_label }}</strong>
+                </div>
+                <div class="finder-card__detail-item">
+                    <span>Age</span>
+                    <strong>{{ item.age_label }}</strong>
+                </div>
+                <div class="finder-card__detail-item">
+                    <span>Size</span>
+                    <strong>{{ item.size_label }}</strong>
+                </div>
+                <div class="finder-card__detail-item">
+                    <span>Gender</span>
+                    <strong>{{ item.gender_label }}</strong>
+                </div>
+                <div class="finder-card__detail-item">
+                    <span>Coat</span>
+                    <strong>{{ item.coat_label }}</strong>
+                </div>
+                <div class="finder-card__detail-item">
+                    <span>Color</span>
+                    <strong>{{ item.color_label }}</strong>
+                </div>
+                <div class="finder-card__detail-item">
+                    <span>{{ item.countdown_date_heading }}</span>
+                    <strong>{{ item.countdown_date_label }}</strong>
+                </div>
             </div>
-            <div class="finder-card__fact">
-                <span class="finder-card__fact-icon is-size" aria-hidden="true"><i class="bi bi-arrows-angle-expand"></i></span>
-                <span>{{ item.size_label }}</span>
-            </div>
-            <div class="finder-card__fact">
-                <span class="finder-card__fact-icon is-gender" aria-hidden="true">
-                    <i class="bi {% if item.gender_label == 'Male' %}bi-gender-male{% elif item.gender_label == 'Female' %}bi-gender-female{% else %}bi-gender-ambiguous{% endif %}"></i>
+
+            {% if item.phase == 'claim' %}
+            <p class="finder-card__reserve-note">
+                <span class="finder-card__reserve-note-icon" aria-hidden="true">
+                    <i class="bi bi-heart-fill"></i>
                 </span>
-                <span>{{ item.gender_label }}</span>
-            </div>
-        </div>
+                <span>Reserve adoption now in case no owner claim is approved.</span>
+            </p>
+            {% endif %}
 
-        <div class="finder-card__traits">
-            <span class="finder-card__trait">
-                <i class="bi bi-scissors" aria-hidden="true"></i>
-                <span>{{ item.coat_label }}</span>
-            </span>
-            <span class="finder-card__trait">
-                <i class="bi bi-palette" aria-hidden="true"></i>
-                <span>{{ item.color_label }}</span>
-            </span>
-            <span class="finder-card__trait">
-                <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
-                <span>{{ item.location_label }}</span>
-            </span>
+            <a href="{{ item.detail_url }}" class="finder-card__details-link">
+                <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                <span>Open Full Post</span>
+            </a>
         </div>
-
-        {% if item.phase == 'claim' %}
-        <p class="finder-card__reserve-note">
-            <span class="finder-card__reserve-note-icon" aria-hidden="true">
-                <i class="bi bi-heart-fill"></i>
-            </span>
-            <span>Reserve adoption now in case no owner claim is approved.</span>
-        </p>
-        {% endif %}
-        {% endif %}
 
         <div class="finder-card__footer{% if featured %} finder-card__footer--featured{% endif %}">
-            {% if item.show_countdown %}
-            <span class="finder-card__timer">
-                <span class="finder-card__timer-icon" aria-hidden="true">
-                    <i class="bi bi-hourglass-split"></i>
-                </span>
-                <span>{{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m left</span>
-            </span>
-            {% else %}
-            <span class="finder-card__timer finder-card__timer--pending">
-                <span class="finder-card__timer-icon" aria-hidden="true">
-                    <i class="bi bi-shield-check"></i>
-                </span>
-                <span class="finder-card__timer-copy">
-                    <strong>{{ item.pending_state_label }}</strong>
-                    {% if item.pending_state_detail %}
-                    <small>{{ item.pending_state_detail }}</small>
-                    {% endif %}
-                </span>
-            </span>
-            {% endif %}
             <div class="finder-card__actions{% if featured %} finder-card__actions--featured{% endif %}">
                 <a
                     href="{{ item.action_url }}"
@@ -114,7 +144,6 @@
                     data-auth-next-url="{{ item.action_url }}"
                     {% endif %}
                 >
-                    <i class="bi {% if featured and item.phase == 'claim' %}bi-award-fill{% elif item.phase == 'claim' %}bi-patch-check-fill{% else %}bi-house-heart-fill{% endif %}" aria-hidden="true"></i>
                     <span>{% if featured and item.phase == 'claim' %}Redeem{% else %}{{ item.action_label }}{% endif %}</span>
                 </a>
                 {% if item.phase == 'claim' %}
@@ -126,7 +155,6 @@
                     data-auth-next-url="{% url 'user:adopt_confirm' item.post.id %}"
                     {% endif %}
                 >
-                    <i class="bi bi-bookmark-heart-fill" aria-hidden="true"></i>
                     <span>Reserve Adoption</span>
                 </a>
                 {% endif %}

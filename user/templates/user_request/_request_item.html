@@ -140,133 +140,178 @@
                 <h5 class="modal-title">{{ req.get_request_type_display }}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                {% with req_images=req.images.all %}
-                    {% if req_images %}
-                        <div id="requestImagesCarousel{{ req.id }}" class="carousel slide request-modal-carousel" data-bs-ride="false">
-                            <div class="carousel-inner">
-                                {% for item in req_images %}
-                                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                        <img src="{{ item.image.url }}" class="d-block w-100 request-modal-img" alt="Request photo {{ forloop.counter }}">
-                                    </div>
-                                {% endfor %}
+            <div class="modal-body request-view-modal__body">
+                <div class="request-modal-media">
+                    {% with req_images=req.images.all %}
+                        {% if req_images %}
+                            <div id="requestImagesCarousel{{ req.id }}" class="carousel slide request-modal-carousel" data-bs-ride="false">
+                                <div class="carousel-inner">
+                                    {% for item in req_images %}
+                                        <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                            <img src="{{ item.image.url }}" class="d-block w-100 request-modal-img" alt="Request photo {{ forloop.counter }}">
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                {% if req_images|length > 1 %}
+                                    <button class="carousel-control-prev" type="button" data-bs-target="#requestImagesCarousel{{ req.id }}" data-bs-slide="prev">
+                                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                        <span class="visually-hidden">Previous</span>
+                                    </button>
+                                    <button class="carousel-control-next" type="button" data-bs-target="#requestImagesCarousel{{ req.id }}" data-bs-slide="next">
+                                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                        <span class="visually-hidden">Next</span>
+                                    </button>
+                                {% endif %}
                             </div>
-                            {% if req_images|length > 1 %}
-                                <button class="carousel-control-prev" type="button" data-bs-target="#requestImagesCarousel{{ req.id }}" data-bs-slide="prev">
-                                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                    <span class="visually-hidden">Previous</span>
-                                </button>
-                                <button class="carousel-control-next" type="button" data-bs-target="#requestImagesCarousel{{ req.id }}" data-bs-slide="next">
-                                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                    <span class="visually-hidden">Next</span>
-                                </button>
-                            {% endif %}
+                        {% elif req.image %}
+                            <img src="{{ req.image.url }}" class="request-modal-img" alt="Request photo">
+                        {% else %}
+                            <p class="request-modal-empty">No photo attached.</p>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+
+                <div class="request-modal-info">
+                    <div class="request-modal-details">
+                        <div class="request-modal-field">
+                            <span class="request-modal-label">Status:</span>
+                            <div class="request-modal-value request-modal-value--status">
+                                <span class="status-badge {{ req.status }}">
+                                    {% if req.status == 'accepted' %}
+                                        Scheduled
+                                    {% elif req.status == 'captured' %}
+                                        {% if req.request_type == 'surrender' %}Completed{% else %}Captured{% endif %}
+                                    {% else %}
+                                        {{ req.get_status_display }}
+                                    {% endif %}
+                                </span>
+                            </div>
                         </div>
-                    {% elif req.image %}
-                        <img src="{{ req.image.url }}" class="request-modal-img" alt="Request photo">
-                    {% else %}
-                        <p class="text-muted mb-2">No photo attached.</p>
-                    {% endif %}
-                {% endwith %}
-
-                <div class="request-modal-details">
-                    <p>
-                        <strong>Status:</strong>
-                        <span class="status-badge {{ req.status }}">
-                            {% if req.status == 'accepted' %}
-                                Scheduled
-                            {% elif req.status == 'captured' %}
-                                {% if req.request_type == 'surrender' %}Completed{% else %}Captured{% endif %}
-                            {% else %}
-                                {{ req.get_status_display }}
-                            {% endif %}
-                        </span>
-                    </p>
-                    <p><strong>Request Type:</strong> {{ req.get_request_type_display }}</p>
-                    {% if req.submission_type %}
-                        <p><strong>Submission Type:</strong> {{ req.get_submission_type_display }}</p>
-                    {% endif %}
-                    <p><strong>Submitted:</strong> {{ req.created_at|date:"M d, Y h:i A" }}</p>
-                    {% if req.preferred_appointment_date %}
-                        <p><strong>Requested Appointment Date:</strong> {{ req.preferred_appointment_date|date:"M d, Y" }}</p>
-                    {% endif %}
-                    {% if req.status == 'accepted' and req.scheduled_date %}
-                        <p><strong>Scheduled:</strong> {{ req.scheduled_date|date:"M d, Y h:i A" }}</p>
-                    {% endif %}
-                    {% if req.status == 'captured' %}
-                        {% if req.scheduled_date %}
-                            <p><strong>Scheduled:</strong> {{ req.scheduled_date|date:"M d, Y h:i A" }}</p>
+                        <div class="request-modal-field">
+                            <span class="request-modal-label">Request Type:</span>
+                            <div class="request-modal-value">{{ req.get_request_type_display }}</div>
+                        </div>
+                        {% if req.submission_type %}
+                            <div class="request-modal-field">
+                                <span class="request-modal-label">Submission Type:</span>
+                                <div class="request-modal-value">{{ req.get_submission_type_display }}</div>
+                            </div>
                         {% endif %}
-                        <p>
-                            <strong>{% if req.request_type == 'surrender' %}Completed:{% else %}Captured:{% endif %}</strong>
-                            {% if req.captured_at %}
-                                {{ req.captured_at|date:"M d, Y h:i A" }}
-                            {% else %}
-                                Done
-                            {% endif %}
-                        </p>
-                    {% endif %}
-                    {% if req.description %}
-                        <p><strong>Details:</strong> {{ req.description }}</p>
-                    {% endif %}
-
-                    {% if req.submission_type == 'online' %}
-                        {% if req.manual_full_address %}
-                            <p><strong>Purok / Sitio / Notes:</strong> {{ req.manual_full_address }}</p>
-                            {% if req.barangay %}
-                                <p><strong>Barangay:</strong> {{ req.barangay }}</p>
-                            {% endif %}
-                        {% elif req.barangay %}
-                            <p><strong>Barangay:</strong> {{ req.barangay }}</p>
-                        {% elif req.latitude and req.longitude %}
-                            <p><strong>Coordinates:</strong> {{ req.latitude }}, {{ req.longitude }}</p>
+                        <div class="request-modal-field">
+                            <span class="request-modal-label">Submitted:</span>
+                            <div class="request-modal-value">{{ req.created_at|date:"M d, Y h:i A" }}</div>
+                        </div>
+                        {% if req.preferred_appointment_date %}
+                            <div class="request-modal-field">
+                                <span class="request-modal-label">Requested Appointment Date:</span>
+                                <div class="request-modal-value">{{ req.preferred_appointment_date|date:"M d, Y" }}</div>
+                            </div>
                         {% endif %}
-
-                        {% with extra_landmarks=req.landmark_images.all %}
-                            {% if req.location_landmark_image or extra_landmarks %}
-                                <div class="request-manual-landmark">
-                                    {% with extras_count=extra_landmarks|length %}
-                                    <p><strong>Landmark Photo{% if req.location_landmark_image and extras_count or extras_count > 1 %}s{% endif %}:</strong></p>
-                                    <div class="request-manual-landmark-viewer" data-landmark-viewer>
-                                        {% if req.location_landmark_image %}
-                                            <img
-                                                src="{{ req.location_landmark_image.url }}"
-                                                class="landmark-viewer-image is-active"
-                                                data-landmark-image
-                                                alt="Manual location landmark 1"
-                                            >
-                                        {% endif %}
-                                        {% for landmark in extra_landmarks %}
-                                            <img
-                                                src="{{ landmark.image.url }}"
-                                                class="landmark-viewer-image {% if not req.location_landmark_image and forloop.first %}is-active{% endif %}"
-                                                data-landmark-image
-                                                alt="Manual location landmark {{ forloop.counter }}"
-                                            >
-                                        {% endfor %}
-                                        {% if req.location_landmark_image and extras_count or extras_count > 1 %}
-                                            <button type="button" class="landmark-viewer-nav prev" data-landmark-prev aria-label="Previous image">&lt;</button>
-                                            <button type="button" class="landmark-viewer-nav next" data-landmark-next aria-label="Next image">&gt;</button>
-                                            <div class="landmark-viewer-counter">
-                                                <span data-landmark-index>1</span> /
-                                                {% if req.location_landmark_image %}
-                                                    {{ extras_count|add:"1" }}
-                                                {% else %}
-                                                    {{ extras_count }}
-                                                {% endif %}
-                                            </div>
-                                        {% endif %}
-                                    </div>
-                                    {% endwith %}
+                        {% if req.status == 'accepted' and req.scheduled_date %}
+                            <div class="request-modal-field">
+                                <span class="request-modal-label">Scheduled:</span>
+                                <div class="request-modal-value">{{ req.scheduled_date|date:"M d, Y h:i A" }}</div>
+                            </div>
+                        {% endif %}
+                        {% if req.status == 'captured' %}
+                            {% if req.scheduled_date %}
+                                <div class="request-modal-field">
+                                    <span class="request-modal-label">Scheduled:</span>
+                                    <div class="request-modal-value">{{ req.scheduled_date|date:"M d, Y h:i A" }}</div>
                                 </div>
                             {% endif %}
-                        {% endwith %}
-                    {% endif %}
+                            <div class="request-modal-field">
+                                <span class="request-modal-label">{% if req.request_type == 'surrender' %}Completed:{% else %}Captured:{% endif %}</span>
+                                <div class="request-modal-value">
+                                    {% if req.captured_at %}
+                                        {{ req.captured_at|date:"M d, Y h:i A" }}
+                                    {% else %}
+                                        Done
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endif %}
+                        {% if req.description %}
+                            <div class="request-modal-field request-modal-field--wide">
+                                <span class="request-modal-label">Details:</span>
+                                <div class="request-modal-value">{{ req.description }}</div>
+                            </div>
+                        {% endif %}
 
-                    {% if req.admin_message %}
-                        <p><strong>Admin Message:</strong> {{ req.admin_message }}</p>
-                    {% endif %}
-                </div>
+                        {% if req.submission_type == 'online' %}
+                            {% if req.manual_full_address %}
+                                <div class="request-modal-field request-modal-field--wide">
+                                    <span class="request-modal-label">Purok / Sitio / Notes:</span>
+                                    <div class="request-modal-value">{{ req.manual_full_address }}</div>
+                                </div>
+                                {% if req.barangay %}
+                                    <div class="request-modal-field">
+                                        <span class="request-modal-label">Barangay:</span>
+                                        <div class="request-modal-value">{{ req.barangay }}</div>
+                                    </div>
+                                {% endif %}
+                            {% elif req.barangay %}
+                                <div class="request-modal-field">
+                                    <span class="request-modal-label">Barangay:</span>
+                                    <div class="request-modal-value">{{ req.barangay }}</div>
+                                </div>
+                            {% elif req.latitude and req.longitude %}
+                                <div class="request-modal-field request-modal-field--wide">
+                                    <span class="request-modal-label">Coordinates:</span>
+                                    <div class="request-modal-value">{{ req.latitude }}, {{ req.longitude }}</div>
+                                </div>
+                            {% endif %}
+
+                            {% with extra_landmarks=req.landmark_images.all %}
+                                {% if req.location_landmark_image or extra_landmarks %}
+                                    <div class="request-manual-landmark request-modal-field request-modal-field--wide">
+                                        {% with extras_count=extra_landmarks|length %}
+                                        <span class="request-modal-label">Landmark Photo{% if req.location_landmark_image and extras_count or extras_count > 1 %}s{% endif %}:</span>
+                                        <div class="request-modal-value request-modal-value--media">
+                                            <div class="request-manual-landmark-viewer" data-landmark-viewer>
+                                                {% if req.location_landmark_image %}
+                                                    <img
+                                                        src="{{ req.location_landmark_image.url }}"
+                                                        class="landmark-viewer-image is-active"
+                                                        data-landmark-image
+                                                        alt="Manual location landmark 1"
+                                                    >
+                                                {% endif %}
+                                                {% for landmark in extra_landmarks %}
+                                                    <img
+                                                        src="{{ landmark.image.url }}"
+                                                        class="landmark-viewer-image {% if not req.location_landmark_image and forloop.first %}is-active{% endif %}"
+                                                        data-landmark-image
+                                                        alt="Manual location landmark {{ forloop.counter }}"
+                                                    >
+                                                {% endfor %}
+                                                {% if req.location_landmark_image and extras_count or extras_count > 1 %}
+                                                    <button type="button" class="landmark-viewer-nav prev" data-landmark-prev aria-label="Previous image">&lt;</button>
+                                                    <button type="button" class="landmark-viewer-nav next" data-landmark-next aria-label="Next image">&gt;</button>
+                                                    <div class="landmark-viewer-counter">
+                                                        <span data-landmark-index>1</span> /
+                                                        {% if req.location_landmark_image %}
+                                                            {{ extras_count|add:"1" }}
+                                                        {% else %}
+                                                            {{ extras_count }}
+                                                        {% endif %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% endwith %}
+                                    </div>
+                                {% endif %}
+                            {% endwith %}
+                        {% endif %}
+
+                        {% if req.admin_message %}
+                            <div class="request-modal-field request-modal-field--wide">
+                                <span class="request-modal-label">Admin Message:</span>
+                                <div class="request-modal-value">{{ req.admin_message }}</div>
+                            </div>
+                        {% endif %}
+                    </div>
 
                 {% if req.status == 'pending' %}
                     <form
@@ -411,6 +456,7 @@
                         <input type="hidden" name="reason" value="{{ req.reason|default:'stray' }}">
                     </form>
                 {% endif %}
+                </div>
             </div>
         </div>
     </div>

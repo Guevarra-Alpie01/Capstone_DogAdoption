@@ -17,7 +17,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from dogadoption_admin.barangays import BAYAWAN_BARANGAYS
-from dogadoption_admin.models import DogAnnouncement, Post, PostImage
+from dogadoption_admin.models import DogAnnouncement, Post, PostImage, PostRequest
 from user.models import Profile, UserAdoptionPost
 
 
@@ -236,6 +236,103 @@ class UserHomeFeedTests(TestCase):
         self.assertNotContains(response, "author-avatar-img", html=False)
         self.assertNotContains(response, 'class="author-name"', html=False)
 
+    def test_home_page_renders_pinned_dog_spotlight_with_image_breed_and_button(self):
+        with self.settings(MEDIA_ROOT=self._temp_media_root):
+            staff_user = User.objects.create_user(
+                username="pinnedspotlightstaff",
+                password="secret123",
+                is_staff=True,
+            )
+            post = Post.objects.create(
+                user=staff_user,
+                caption="Pinned Home Dog",
+                breed="beagle",
+                location="Bayawan",
+                status="rescued",
+                is_pinned=True,
+                claim_days=3,
+            )
+            image = PostImage.objects.create(
+                post=post,
+                image=SimpleUploadedFile(
+                    "pinned-home-dog.jpg",
+                    b"fake-image-bytes",
+                    content_type="image/jpeg",
+                ),
+            )
+
+            response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["pinned_admin_spotlight"]["count"], 1)
+        self.assertFalse(response.context["pinned_admin_spotlight"]["use_carousel"])
+        self.assertContains(response, 'class="home-pinned-dog"', html=False)
+        self.assertContains(response, 'class="home-pinned-dog__grid home-pinned-dog__grid--count-1"', html=False)
+        self.assertContains(response, 'class="home-pinned-dog__card"', html=False)
+        self.assertContains(response, 'class="home-pinned-dog__media"', html=False)
+        self.assertContains(response, 'class="home-pinned-dog__image-link"', html=False)
+        self.assertContains(response, 'class="home-pinned-dog__copy"', html=False)
+        self.assertContains(response, 'class="home-pinned-dog__breed"', html=False)
+        self.assertContains(response, 'class="home-pinned-dog__btn home-pinned-dog__btn--primary"', html=False)
+        self.assertNotContains(response, "data-home-pinned-carousel", html=False)
+        self.assertContains(response, image.image.url)
+        self.assertContains(response, post.display_breed)
+
+    def test_home_page_uses_static_grid_for_up_to_four_pinned_dogs(self):
+        staff_user = User.objects.create_user(
+            username="pinnedgridstaff",
+            password="secret123",
+            is_staff=True,
+        )
+
+        for index in range(4):
+            Post.objects.create(
+                user=staff_user,
+                caption=f"Pinned Grid Dog {index + 1}",
+                breed="beagle",
+                location="Bayawan",
+                status="rescued",
+                is_pinned=True,
+                claim_days=3,
+            )
+
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["pinned_admin_spotlight"]["count"], 4)
+        self.assertFalse(response.context["pinned_admin_spotlight"]["use_carousel"])
+        self.assertContains(response, 'class="home-pinned-dog__grid home-pinned-dog__grid--count-4"', html=False)
+        self.assertContains(response, "data-home-pinned-card", count=4, html=False)
+        self.assertNotContains(response, "data-home-pinned-carousel", html=False)
+
+    def test_home_page_uses_carousel_for_more_than_four_pinned_dogs(self):
+        staff_user = User.objects.create_user(
+            username="pinnedcarouselstaff",
+            password="secret123",
+            is_staff=True,
+        )
+
+        for index in range(5):
+            Post.objects.create(
+                user=staff_user,
+                caption=f"Pinned Carousel Dog {index + 1}",
+                breed="beagle",
+                location="Bayawan",
+                status="rescued",
+                is_pinned=True,
+                claim_days=3,
+            )
+
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["pinned_admin_spotlight"]["count"], 5)
+        self.assertTrue(response.context["pinned_admin_spotlight"]["use_carousel"])
+        self.assertContains(response, "data-home-pinned-carousel", html=False)
+        self.assertContains(response, "data-home-pinned-viewport", html=False)
+        self.assertContains(response, "data-home-pinned-card", count=5, html=False)
+        self.assertContains(response, "data-home-pinned-indicator", count=5, html=False)
+
     def test_home_page_renders_claim_and_adopt_featured_carousels(self):
         staff_user = User.objects.create_user(
             username="carouselstaff",
@@ -280,6 +377,44 @@ class UserHomeFeedTests(TestCase):
         self.assertContains(response, "Barangay")
         self.assertContains(response, "Claim Ends")
         self.assertContains(response, claim_deadline_label)
+
+    def test_pinned_spotlight_view_post_and_view_status_include_popup_hooks(self):
+        staff_user = User.objects.create_user(
+            username="spotlightpopupstaff",
+            password="secret123",
+            is_staff=True,
+        )
+        member = User.objects.create_user(
+            username="spotlightpopupmember",
+            password="secret123",
+        )
+        post = Post.objects.create(
+            user=staff_user,
+            caption="Spotlight Popup Dog",
+            breed="aspin",
+            location="Villareal",
+            status="rescued",
+            is_pinned=True,
+            claim_days=3,
+        )
+        PostRequest.objects.create(
+            post=post,
+            user=member,
+            request_type="claim",
+            status="pending",
+        )
+
+        response = self.client.get(reverse("user:user_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "View Status")
+        self.assertContains(response, "View Post")
+        self.assertContains(response, "data-home-spotlight-card", count=1, html=False)
+        self.assertContains(response, "data-home-spotlight-detail-toggle", count=2, html=False)
+        self.assertContains(response, "data-home-spotlight-detail-panel", count=1, html=False)
+        self.assertContains(response, "Verification Until")
+        self.assertContains(response, "Coat")
+        self.assertContains(response, "Color")
 
     def test_search_results_claim_posts_show_reserve_adoption_action(self):
         staff_user = User.objects.create_user(
@@ -537,6 +672,36 @@ class UserHomeFeedTests(TestCase):
             html=False,
         )
         self.assertNotContains(response, 'data-auth-modal-trigger="login"', html=False)
+
+    def test_claim_list_renders_deadline_and_detail_action_in_overlay_card(self):
+        staff_user = User.objects.create_user(
+            username="claimlistoverlaystaff",
+            password="secret123",
+            is_staff=True,
+        )
+        post = Post.objects.create(
+            user=staff_user,
+            caption="Overlay Claim Dog",
+            breed="golden_retriever",
+            location="Villareal",
+            age_group="young",
+            size_group="large",
+            gender="male",
+            claim_days=3,
+        )
+        claim_deadline_label = timezone.localtime(post.claim_deadline()).strftime("%b %d, %Y")
+
+        response = self.client.get(reverse("user:claim_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "View Details")
+        self.assertContains(
+            response,
+            f'href="{reverse("user:post_detail", args=[post.id])}"',
+            html=False,
+        )
+        self.assertContains(response, "Claim Ends")
+        self.assertContains(response, claim_deadline_label)
 
     def test_claim_list_shows_reserve_adoption_button_for_claim_phase_posts(self):
         staff_user = User.objects.create_user(

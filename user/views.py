@@ -1831,7 +1831,7 @@ def _build_rescue_finder_form(*args, location_choices=None, default_purpose="all
 
 
 def _finder_default_purpose(listing_mode):
-    return "claim" if listing_mode == "claim" else "adopt"
+    return "all"
 
 
 def _normalize_rescue_location(value):
@@ -1900,22 +1900,35 @@ def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
     minutes = phase_payload["minutes_left"]
     is_pending_review = phase_payload["is_pending_review"]
     pending_review_until_label = phase_payload["pending_review_until_label"]
+    location_label = " ".join((post.location or "").split()) or "Location not listed"
+    countdown_deadline = (
+        phase_payload["pending_review_until"]
+        if is_pending_review
+        else (
+            post.claim_deadline()
+            if phase == "claim"
+            else post.adoption_deadline()
+        )
+    )
+    countdown_deadline_local = (
+        timezone.localtime(countdown_deadline)
+        if countdown_deadline and timezone.is_aware(countdown_deadline)
+        else countdown_deadline
+    )
+    pending_state_detail = (
+        f"Verification until {pending_review_until_label}"
+        if is_pending_review and pending_review_until_label
+        else ""
+    )
+    phase_title = "Ready for Claim" if phase == "claim" else "Ready for Adoption"
+    if is_pending_review:
+        phase_title = "Claim Pending Review" if phase == "claim" else "Adoption Pending Review"
     share_url = request.build_absolute_uri(reverse("user:post_detail", args=[post.id]))
     action_url = (
         reverse("user:claim_confirm", args=[post.id])
         if phase == "claim"
         else reverse("user:adopt_confirm", args=[post.id])
     )
-    if is_pending_review:
-        phase_title = "Claim Pending Review" if phase == "claim" else "Adoption Pending Review"
-        pending_state_detail = (
-            f"Verification until {pending_review_until_label}"
-            if pending_review_until_label
-            else "Verification in progress"
-        )
-    else:
-        phase_title = "Ready for Claim" if phase == "claim" else "Ready for Adoption"
-        pending_state_detail = ""
     return {
         "post": post,
         "phase": phase,
@@ -1932,9 +1945,30 @@ def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
         "gender_label": post.get_gender_display() if post.gender else "Gender not listed",
         "coat_label": post.display_coat_length or "Coat not listed",
         "color_label": post.display_colors or "Color not listed",
-        "location_label": " ".join((post.location or "").split()) or "Location not listed",
+        "location_label": location_label,
+        "barangay_label": location_label,
+        "detail_url": reverse("user:post_detail", args=[post.id]),
         "action_label": "Claim" if phase == "claim" else "Adopt",
         "action_url": action_url,
+        "time_left_badge": (
+            "Pending Admin Review"
+            if is_pending_review
+            else f"{days}d {hours}h {minutes}m left"
+        ),
+        "countdown_date_heading": (
+            "Verification Until"
+            if is_pending_review
+            else ("Claim Ends" if phase == "claim" else "Adoption Ends")
+        ),
+        "countdown_date_label": (
+            pending_review_until_label
+            if is_pending_review and pending_review_until_label
+            else (
+                countdown_deadline_local.strftime("%b %d, %Y")
+                if countdown_deadline_local
+                else "Date pending"
+            )
+        ),
         "share_url": share_url,
         "match_score": match_score,
         "is_pending_review": is_pending_review,
@@ -2223,44 +2257,9 @@ def _build_home_featured_rescue_sections(request):
             continue
 
         card_item = _build_rescue_finder_card_item(request, post, phase_payload, 0)
-        countdown_deadline = None
-        if not phase_payload["is_pending_review"]:
-            countdown_deadline = (
-                post.claim_deadline()
-                if phase == "claim"
-                else post.adoption_deadline()
-            )
-        countdown_deadline_local = (
-            timezone.localtime(countdown_deadline)
-            if countdown_deadline
-            else None
-        )
         card_item.update({
-            "detail_url": reverse("user:post_detail", args=[post.id]),
             "home_action_url": f'{card_item["action_url"]}?return_to=home',
-            "time_left_badge": (
-                "Pending Admin Review"
-                if phase_payload["is_pending_review"]
-                else (
-                    f'{phase_payload["days_left"]}d {phase_payload["hours_left"]}h '
-                    f'{phase_payload["minutes_left"]}m left'
-                )
-            ),
             "barangay_label": card_item["location_label"],
-            "countdown_date_heading": (
-                "Verification Until"
-                if phase_payload["is_pending_review"]
-                else ("Claim Ends" if phase == "claim" else "Adoption Ends")
-            ),
-            "countdown_date_label": (
-                phase_payload["pending_review_until_label"]
-                if phase_payload["is_pending_review"]
-                else (
-                    countdown_deadline_local.strftime("%b %d, %Y")
-                    if countdown_deadline_local
-                    else "Date pending"
-                )
-            ),
         })
         section_items[phase].append(card_item)
 
@@ -2279,8 +2278,8 @@ def _build_home_featured_rescue_sections(request):
         },
         {
             "key": "adopt",
-            "title": "Adoption Ready",
-            "eyebrow": "Ready for Adoption",
+            "title": "Ready to Adopt",
+            "eyebrow": "Adoption Window",
             "description": "Dogs ready to meet their next family.",
             "browse_url": reverse("user:adopt_list"),
             "empty_message": "No dogs are currently ready for adoption.",
@@ -2414,6 +2413,8 @@ def _build_home_spotlight_card(request, post, phase_payload, *, is_auto_highligh
         "age_label": card_item["age_label"],
         "size_label": card_item["size_label"],
         "gender_label": card_item["gender_label"],
+        "coat_label": card_item["coat_label"],
+        "color_label": card_item["color_label"],
         "time_left_badge": (
             "Pending admin review"
             if phase_payload["is_pending_review"]
@@ -3939,14 +3940,45 @@ def delete_missing_dog_post(request, post_id):
 def post_detail(request, post_id):
     """Render a post detail page used by shared or linked home posts."""
     post = get_object_or_404(
-        Post.with_pending_request_state(Post.objects.filter(is_history=False)),
+        Post.with_pending_request_state(
+            Post.objects.filter(is_history=False).prefetch_related("images")
+        ),
         id=post_id,
     )
     Post.objects.filter(id=post.id).update(view_count=F("view_count") + 1)
     post.view_count = int(getattr(post, "view_count", 0) or 0) + 1
-    main_image = post.images.first()
-    post.share_image_url = request.build_absolute_uri(main_image.image.url) if main_image else ""
-    return render(request, 'home/post_detail.html', {'post': post})
+    phase_payload = _post_phase_payload(post)
+    card_item = _build_rescue_finder_card_item(request, post, phase_payload, 0)
+    back_url = _safe_preview_back_url(request, request.GET.get("next", "")) or reverse("user:user_home")
+    back_label = (request.GET.get("label") or "Back to feed").strip()[:48] or "Back to feed"
+    summary = " ".join(strip_tags(post.caption or "").split())
+    if summary in {"", card_item["title"], card_item["breed_label"]}:
+        summary = ""
+
+    detail = {
+        **card_item,
+        "theme": phase_payload["phase"] if phase_payload["phase"] in {"claim", "adopt"} else "closed",
+        "summary": summary,
+        "facts": [
+            {"label": "Breed", "value": card_item["breed_label"]},
+            {"label": "Location", "value": card_item["location_label"]},
+            {"label": "Age", "value": card_item["age_label"]},
+            {"label": "Size", "value": card_item["size_label"]},
+            {"label": "Gender", "value": card_item["gender_label"]},
+            {"label": "Coat", "value": card_item["coat_label"]},
+            {"label": "Color", "value": card_item["color_label"]},
+            {
+                "label": card_item["countdown_date_heading"],
+                "value": card_item["countdown_date_label"],
+            },
+        ],
+    }
+    return render(request, 'home/post_detail.html', {
+        'post': post,
+        'detail': detail,
+        'back_url': back_url,
+        'back_label': back_label,
+    })
 
 
 # =============================================================================

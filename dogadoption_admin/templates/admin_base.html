@@ -238,25 +238,10 @@
     </div>
 </div> 
 
-<div class="modal fade app-confirm-modal" id="sharedConfirmModal" tabindex="-1" aria-labelledby="sharedConfirmModalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content app-confirm-card">
-            <div class="modal-header">
-                <h5 class="modal-title" id="sharedConfirmModalTitle">Confirm Action</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p class="app-confirm-message" id="sharedConfirmModalMessage">Please confirm to continue.</p>
-            </div>
-            <div class="modal-footer app-confirm-actions">
-                <button type="button" class="btn btn-cancel-action" id="sharedConfirmModalCancel" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="sharedConfirmModalSubmit">OK</button>
-            </div>
-        </div>
-    </div>
-</div>
+{% include 'partials/shared_confirm_modal.html' %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    <script src="{% static 'js/shared_confirm_modal.js' %}?v=20260409shared-confirm"></script>
 
 <script>
     function ensureSharedModalCloseButtons(root) {
@@ -650,107 +635,6 @@
             responsiveSearchMediaQuery.addListener(syncResponsiveSearch);
         }
 
-        const confirmModalEl = document.getElementById('sharedConfirmModal');
-        const confirmTitleEl = document.getElementById('sharedConfirmModalTitle');
-        const confirmMessageEl = document.getElementById('sharedConfirmModalMessage');
-        const confirmSubmitBtn = document.getElementById('sharedConfirmModalSubmit');
-
-        if (!confirmModalEl || !confirmSubmitBtn || !window.bootstrap) {
-            return;
-        }
-
-        const confirmModal = bootstrap.Modal.getOrCreateInstance(confirmModalEl);
-        let pendingForm = null;
-        let pendingButton = null;
-
-        function openSharedConfirm(title, message, submitLabel) {
-            if (confirmTitleEl) {
-                confirmTitleEl.textContent = title || 'Confirm Action';
-            }
-            if (confirmMessageEl) {
-                confirmMessageEl.textContent = message || 'Please confirm to continue.';
-            }
-            confirmSubmitBtn.textContent = submitLabel || 'OK';
-            confirmModal.show();
-        }
-
-        document.querySelectorAll('form[data-confirm-modal]').forEach(function (form) {
-            form.addEventListener('submit', function (event) {
-                if (form.dataset.confirmedSubmit === '1') {
-                    form.dataset.confirmedSubmit = '0';
-                    return;
-                }
-
-                event.preventDefault();
-                pendingForm = form;
-                pendingButton = null;
-                openSharedConfirm(
-                    form.dataset.confirmTitle,
-                    form.dataset.confirmMessage,
-                    form.dataset.confirmSubmitLabel
-                );
-            });
-        });
-
-        document.querySelectorAll('[data-confirm-button]').forEach(function (button) {
-            button.addEventListener('click', function (event) {
-                if (button.dataset.confirmedClick === '1') {
-                    button.dataset.confirmedClick = '0';
-                    return;
-                }
-
-                event.preventDefault();
-                pendingForm = null;
-                pendingButton = button;
-                openSharedConfirm(
-                    button.dataset.confirmTitle,
-                    button.dataset.confirmMessage,
-                    button.dataset.confirmSubmitLabel
-                );
-            });
-        });
-
-        confirmSubmitBtn.addEventListener('click', function () {
-            if (pendingButton) {
-                const buttonToSubmit = pendingButton;
-                const targetForm = buttonToSubmit.form;
-                pendingButton = null;
-                pendingForm = null;
-                buttonToSubmit.dataset.confirmedClick = '1';
-                confirmModal.hide();
-
-                if (targetForm && typeof targetForm.requestSubmit === 'function') {
-                    targetForm.requestSubmit(buttonToSubmit);
-                    return;
-                }
-
-                if (targetForm) {
-                    targetForm.submit();
-                }
-                return;
-            }
-
-            if (!pendingForm) {
-                return;
-            }
-
-            const formToSubmit = pendingForm;
-            pendingForm = null;
-            formToSubmit.dataset.confirmedSubmit = '1';
-            confirmModal.hide();
-
-            if (typeof formToSubmit.requestSubmit === 'function') {
-                formToSubmit.requestSubmit();
-                return;
-            }
-
-            formToSubmit.submit();
-        });
-
-        confirmModalEl.addEventListener('hidden.bs.modal', function () {
-            pendingForm = null;
-            pendingButton = null;
-        });
     });
 </script>
 

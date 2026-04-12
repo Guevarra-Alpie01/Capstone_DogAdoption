@@ -2,12 +2,14 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260408vaccination-reminders">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260412modal-imageglass">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
 {% block content %}
     <script>document.documentElement.classList.add('home-has-js');</script>
+    <div class="home-page-center-shell">
+    <div class="home-content">
     <section class="home-hero" aria-labelledby="homeHeroTitle">
         <div class="home-hero__inner">
             <div class="home-hero__content">
@@ -43,6 +45,127 @@
             </div>
         </div>
     </section>
+
+    {% if pinned_admin_spotlights %}
+    <section class="home-pinned-spotlights-shell" aria-labelledby="homePinnedSpotlightsTitle">
+        <div class="home-pinned-spotlights home-reveal">
+            <div class="home-pinned-spotlights__head">
+                <div class="home-pinned-spotlights__copy">
+                    <span class="home-pinned-spotlights__eyebrow">
+                        <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
+                        <span>{{ pinned_admin_spotlights_eyebrow }}</span>
+                    </span>
+                    <h2 id="homePinnedSpotlightsTitle">{{ pinned_admin_spotlights_title }}</h2>
+                </div>
+            </div>
+
+            <div class="home-pinned-spotlights__grid">
+                {% for spotlight in pinned_admin_spotlights %}
+                <article class="home-pinned-spotlights__item home-reveal" style="--home-stagger: {{ forloop.counter0 }};" data-home-spotlight-card>
+                    <div class="home-pinned-spotlights__details">
+                        <span class="home-pinned-spotlights__status home-pinned-spotlights__status--{{ spotlight.phase }}">
+                            {{ spotlight.phase_title }}
+                        </span>
+                        <h3>{{ spotlight.title }}</h3>
+                        <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
+
+                        <div class="home-pinned-spotlights__actions{% if spotlight.primary_cta_label == 'View Status' %} home-pinned-spotlights__actions--detail-only{% endif %}">
+                            <a
+                                href="{{ spotlight.primary_cta_url }}"
+                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--primary"
+                                {% if spotlight.primary_requires_auth and not request.user.is_authenticated %}
+                                data-auth-modal-trigger="login"
+                                data-auth-next-url="{{ spotlight.primary_cta_url }}"
+                                {% elif spotlight.primary_cta_label == "View Status" %}
+                                data-home-spotlight-detail-toggle
+                                aria-controls="home-spotlight-{{ forloop.counter0 }}-details"
+                                aria-expanded="false"
+                                {% endif %}
+                            >
+                                <span>{% if spotlight.primary_cta_label == "View Status" %}Details{% else %}{{ spotlight.primary_cta_label }}{% endif %}</span>
+                            </a>
+                            <button
+                                type="button"
+                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--share js-open-share"
+                                data-share-url="{{ spotlight.share_url }}"
+                                aria-label="Share {{ spotlight.title }}"
+                            >
+                                <span>Share</span>
+                            </button>
+                            {% if spotlight.primary_cta_label != "View Status" %}
+                            <a
+                                href="{{ spotlight.detail_url }}"
+                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary"
+                                data-home-spotlight-detail-toggle
+                                aria-controls="home-spotlight-{{ forloop.counter0 }}-details"
+                                aria-expanded="false"
+                            >
+                                <span>Details</span>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__media" aria-label="Open {{ spotlight.title }} post">
+                        {% if spotlight.main_image_url %}
+                            <img src="{{ spotlight.main_image_url }}" alt="{{ spotlight.image_alt }}">
+                        {% else %}
+                            <div class="home-pinned-spotlights__fallback">
+                                <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
+                                <span>Pinned rescue spotlight</span>
+                            </div>
+                        {% endif %}
+                    </a>
+
+                    <div
+                        class="dog-scale-carousel__details"
+                        id="home-spotlight-{{ forloop.counter0 }}-details"
+                        data-home-spotlight-detail-panel
+                        aria-hidden="true"
+                        aria-labelledby="home-spotlight-{{ forloop.counter0 }}-title"
+                        role="dialog"
+                        aria-modal="true"
+                        tabindex="-1"
+                    >
+                        <div
+                            class="dog-scale-carousel__details-card"
+                            {% if spotlight.main_image_url %}
+                            style="--dog-detail-bg-image: url('{{ spotlight.main_image_url }}');"
+                            {% endif %}
+                        >
+                            <div class="dog-scale-carousel__details-head">
+                                <div class="dog-scale-carousel__copy">
+                                    <h3 id="home-spotlight-{{ forloop.counter0 }}-title">{{ spotlight.title }}</h3>
+                                    <p>{{ spotlight.location_label }}</p>
+                                </div>
+                                <button type="button" class="dog-scale-carousel__detail-close" data-home-spotlight-detail-close aria-label="Hide details">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+
+                            <div class="dog-scale-carousel__chips dog-scale-carousel__chips--details">
+                                <span class="dog-scale-carousel__chip dog-scale-carousel__chip--phase">{{ spotlight.phase_title }}</span>
+                                <span class="dog-scale-carousel__chip">{{ spotlight.time_left_badge }}</span>
+                            </div>
+
+                            <ul class="dog-scale-carousel__facts" role="list">
+                                <li><span>Breed</span><strong>{{ spotlight.breed_label }}</strong></li>
+                                <li><span>Location</span><strong>{{ spotlight.location_label }}</strong></li>
+                                <li><span>Age</span><strong>{{ spotlight.age_label }}</strong></li>
+                                <li><span>Size</span><strong>{{ spotlight.size_label }}</strong></li>
+                                <li><span>Gender</span><strong>{{ spotlight.gender_label }}</strong></li>
+                                <li><span>Coat</span><strong>{{ spotlight.coat_label }}</strong></li>
+                                <li><span>Color</span><strong>{{ spotlight.color_label }}</strong></li>
+                                <li><span>{{ spotlight.countdown_date_heading }}</span><strong>{{ spotlight.countdown_date_label }}</strong></li>
+                            </ul>
+                        </div>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+    {% endif %}
 
     {% if request.user.is_authenticated and vaccination_reminder_summary.items %}
     <section class="home-vaccine-reminder-shell home-reveal" aria-labelledby="homeVaccinationReminderTitle">
@@ -98,84 +221,10 @@
     </section>
     {% endif %}
 
-    {% if pinned_admin_spotlights %}
-    <section class="home-pinned-spotlights-shell" aria-labelledby="homePinnedSpotlightsTitle">
-        <div class="home-pinned-spotlights home-reveal">
-            <div class="home-pinned-spotlights__head">
-                <div class="home-pinned-spotlights__copy">
-                    <span class="home-pinned-spotlights__eyebrow">
-                        <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
-                        <span>{{ pinned_admin_spotlights_eyebrow }}</span>
-                    </span>
-                    <h2 id="homePinnedSpotlightsTitle">{{ pinned_admin_spotlights_title }}</h2>
-                </div>
-                <div class="home-pinned-spotlights__meta">
-                    <span class="home-pinned-spotlights__count">{{ pinned_admin_spotlights_count_label }}</span>
-                </div>
-            </div>
-
-            <div class="home-pinned-spotlights__grid">
-                {% for spotlight in pinned_admin_spotlights %}
-                <article class="home-pinned-spotlights__item">
-                    <div class="home-pinned-spotlights__details">
-                        <span class="home-pinned-spotlights__status home-pinned-spotlights__status--{{ spotlight.phase }}">
-                            {{ spotlight.phase_title }}
-                        </span>
-                        <h3>{{ spotlight.title }}</h3>
-                        <div class="home-pinned-spotlights__breed-row">
-                            <span class="home-pinned-spotlights__breed-label">Breed</span>
-                            <span class="home-pinned-spotlights__breed-value">{{ spotlight.breed_label }}</span>
-                        </div>
-                        <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
-
-                        <div class="home-pinned-spotlights__actions">
-                            <a
-                                href="{{ spotlight.primary_cta_url }}"
-                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--primary"
-                                {% if spotlight.primary_requires_auth and not request.user.is_authenticated %}
-                                data-auth-modal-trigger="login"
-                                data-auth-next-url="{{ spotlight.primary_cta_url }}"
-                                {% endif %}
-                            >
-                                <span>{{ spotlight.primary_cta_label }}</span>
-                                <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
-                            </a>
-                            <button
-                                type="button"
-                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary js-open-share"
-                                data-share-url="{{ spotlight.share_url }}"
-                                aria-label="Share {{ spotlight.title }}"
-                            >
-                                <i class="bi bi-share" aria-hidden="true"></i>
-                                <span>Share</span>
-                            </button>
-                            <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary">
-                                <span>View Post</span>
-                            </a>
-                        </div>
-                    </div>
-
-                    <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__media" aria-label="Open {{ spotlight.title }} post">
-                        {% if spotlight.main_image_url %}
-                            <img src="{{ spotlight.main_image_url }}" alt="{{ spotlight.image_alt }}">
-                        {% else %}
-                            <div class="home-pinned-spotlights__fallback">
-                                <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
-                                <span>Pinned rescue spotlight</span>
-                            </div>
-                        {% endif %}
-                    </a>
-                </article>
-                {% endfor %}
-            </div>
-        </div>
-    </section>
-    {% endif %}
-
 <section class="home-featured-shell container" aria-label="Featured rescue dogs">
     <div class="home-featured-grid">
         {% for section in featured_dog_sections %}
-        <section class="home-featured-section home-featured-section--{{ section.key }} home-reveal" aria-label="{{ section.title }}">
+        <section class="home-featured-section home-featured-section--{{ section.key }}" style="--home-stagger: {{ forloop.counter0 }};" aria-label="{{ section.title }}">
             <div class="home-featured-section__head">
                 <div class="home-featured-section__copy">
                     {% if section.eyebrow %}
@@ -223,7 +272,7 @@
                                 <div class="dog-scale-carousel__media-bottom">
                                     <div class="dog-scale-carousel__media-copy">
                                         <h3>{{ item.title }}</h3>
-                                        <p>{{ item.breed_label }} • {{ item.location_label }}</p>
+                                        <p>{{ item.breed_label }} &bull; {{ item.location_label }}</p>
                                     </div>
 
                                     <div class="dog-scale-carousel__actions dog-scale-carousel__actions--overlay">
@@ -244,7 +293,6 @@
                                             data-share-url="{{ item.share_url }}"
                                             aria-label="Share {{ item.title }}"
                                         >
-                                            <i class="bi bi-share" aria-hidden="true"></i>
                                             <span>Share</span>
                                         </button>
                                         <button
@@ -254,18 +302,32 @@
                                             aria-controls="{{ item.input_id }}-details"
                                             aria-expanded="false"
                                         >
-                                            <span data-dog-detail-label>Details</span>
+                                            <span data-dog-detail-label>View Details</span>
                                         </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="dog-scale-carousel__details" id="{{ item.input_id }}-details" data-dog-detail-panel aria-hidden="true">
-                            <div class="dog-scale-carousel__details-card">
+                        <div
+                            class="dog-scale-carousel__details"
+                            id="{{ item.input_id }}-details"
+                            data-dog-detail-panel
+                            aria-hidden="true"
+                            aria-labelledby="{{ item.input_id }}-details-title"
+                            role="dialog"
+                            aria-modal="true"
+                            tabindex="-1"
+                        >
+                            <div
+                                class="dog-scale-carousel__details-card"
+                                {% if item.main_image_url %}
+                                style="--dog-detail-bg-image: url('{{ item.main_image_url }}');"
+                                {% endif %}
+                            >
                                 <div class="dog-scale-carousel__details-head">
                                     <div class="dog-scale-carousel__copy">
-                                        <h3>{{ item.title }}</h3>
+                                        <h3 id="{{ item.input_id }}-details-title">{{ item.title }}</h3>
                                         <p>{{ item.location_label }}</p>
                                     </div>
                                     <button type="button" class="dog-scale-carousel__detail-close" data-dog-detail-close aria-label="Hide details">
@@ -274,12 +336,10 @@
                                 </div>
 
                                 <div class="dog-scale-carousel__chips dog-scale-carousel__chips--details">
-                                    <span class="dog-scale-carousel__chip dog-scale-carousel__chip--phase">{{ item.phase_title }}</span>
                                     <span class="dog-scale-carousel__chip">{{ item.time_left_badge }}</span>
                                 </div>
 
                                 <ul class="dog-scale-carousel__facts" role="list">
-                                    <li><span>Breed</span><strong>{{ item.breed_label }}</strong></li>
                                     <li><span>Barangay</span><strong>{{ item.barangay_label }}</strong></li>
                                     <li><span>{{ item.countdown_date_heading }}</span><strong>{{ item.countdown_date_label }}</strong></li>
                                     <li><span>{% if item.is_pending_review %}Review Status{% else %}Time Left{% endif %}</span><strong>{{ item.time_left_badge }}</strong></li>
@@ -323,6 +383,402 @@
             {% endif %}
         </section>
         {% endfor %}
+    </div>
+</section>
+<section class="home-ordinance-shell" aria-labelledby="homeOrdinanceTitle">
+    <div class="home-ordinance home-reveal">
+        <div class="home-ordinance__head">
+            <div class="home-ordinance__copy">
+                <span class="home-ordinance__eyebrow">Rabies Ordinance Guide</span>
+                <h2 id="homeOrdinanceTitle">Sections 28 and 29 Fees</h2>
+                <p>Quick reference for service charges and ordinance penalties related to dog registration, vaccination, impoundment, and rabies control compliance.</p>
+            </div>
+            <div class="home-ordinance__summary">
+                <span class="home-ordinance__summary-chip">Section 28: 7 service fees</span>
+                <span class="home-ordinance__summary-chip">Section 29: 28 penalties</span>
+            </div>
+        </div>
+
+        <div class="home-ordinance__grid">
+            <article class="home-ordinance__card home-ordinance__card--section-28 home-reveal" style="--home-stagger: 0;">
+                <div class="home-ordinance__card-head">
+                    <div class="home-ordinance__card-copy">
+                        <span class="home-ordinance__card-label">Section 28</span>
+                        <h3>Service Fees</h3>
+                        <p>Charges collected for veterinary services, impound-related processing, and document replacement.</p>
+                    </div>
+                </div>
+
+                <ol class="home-ordinance__list" role="list">
+                    <li class="home-ordinance__item">
+                        <span class="home-ordinance__index">1</span>
+                        <div class="home-ordinance__item-copy">
+                            <span class="home-ordinance__item-title">Rabies vaccination services fee</span>
+                        </div>
+                        <span class="home-ordinance__fee">PHP 50.00</span>
+                    </li>
+                    <li class="home-ordinance__item">
+                        <span class="home-ordinance__index">2</span>
+                        <div class="home-ordinance__item-copy">
+                            <span class="home-ordinance__item-title">Lodging fee</span>
+                        </div>
+                        <span class="home-ordinance__fee">PHP 200.00</span>
+                    </li>
+                    <li class="home-ordinance__item">
+                        <span class="home-ordinance__index">3</span>
+                        <div class="home-ordinance__item-copy">
+                            <span class="home-ordinance__item-title">Impoundment fee</span>
+                        </div>
+                        <span class="home-ordinance__fee">PHP 500.00</span>
+                    </li>
+                    <li class="home-ordinance__item">
+                        <span class="home-ordinance__index">4</span>
+                        <div class="home-ordinance__item-copy">
+                            <span class="home-ordinance__item-title">Lost dog vaccination certificate</span>
+                        </div>
+                        <span class="home-ordinance__fee">PHP 100.00</span>
+                    </li>
+                    <li class="home-ordinance__item">
+                        <span class="home-ordinance__index">5</span>
+                        <div class="home-ordinance__item-copy">
+                            <span class="home-ordinance__item-title">Forced neutering (Male)</span>
+                        </div>
+                        <span class="home-ordinance__fee">PHP 4000.00</span>
+                    </li>
+                    <li class="home-ordinance__item">
+                        <span class="home-ordinance__index">6</span>
+                        <div class="home-ordinance__item-copy">
+                            <span class="home-ordinance__item-title">Forced neutering (Female)</span>
+                        </div>
+                        <span class="home-ordinance__fee">PHP 5000.00</span>
+                    </li>
+                    <li class="home-ordinance__item">
+                        <span class="home-ordinance__index">7</span>
+                        <div class="home-ordinance__item-copy">
+                            <span class="home-ordinance__item-title">Veterinary clearance</span>
+                        </div>
+                        <span class="home-ordinance__fee">PHP 100.00</span>
+                    </li>
+                </ol>
+            </article>
+
+            <article class="home-ordinance__card home-ordinance__card--section-29 home-reveal" style="--home-stagger: 1;">
+                <div class="home-ordinance__card-head">
+                    <div class="home-ordinance__card-copy">
+                        <span class="home-ordinance__card-label">Section 29</span>
+                        <h3>Penalties and Violations</h3>
+                        <p>Administrative penalties for non-compliance, public safety violations, and prohibited acts under the ordinance.</p>
+                    </div>
+                </div>
+
+                <div class="home-ordinance__stepper" data-home-ordinance-stepper>
+                    <div class="home-ordinance__list--split" role="group" aria-label="Section 29 penalties">
+                        <section class="home-ordinance__split-panel home-ordinance__split-panel--back is-active" aria-label="Section 29 part 1" data-home-ordinance-panel>
+                            <div class="home-ordinance__split-panel-head">
+                                <span class="home-ordinance__split-panel-label">Part 1</span>
+                            </div>
+
+                            <ol class="home-ordinance__list home-ordinance__list--cluster" role="list">
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">1</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Dog slaughter</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">2</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">No proof of vaccination</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 2000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">5</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Pay all cost for dog bite victim/s' treatment</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">6</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Refusal to put the biting dog under observation</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">9</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">No dog leash outside</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 500.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">10</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Collared/tagged dog not under effective control</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 1000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">13</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Expired/lapsed anti-rabies vaccination</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 100.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">14</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">4th recorded offense - Forced neutering fine</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">17</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Dog slaughtering and dog meat trade court proceedings</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">18</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Electrocution as method of euthanasia</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">21</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Business establishment harboring stray dog</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">22</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Failure to clean poop in public place</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 500.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">25</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Failure to show proof of vaccination upon house-to-house inspection</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 500.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">26</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Vet clinic operating without animal facility registration</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            </ol>
+                        </section>
+
+                    <section class="home-ordinance__split-panel home-ordinance__split-panel--next" aria-label="Section 29 part 2" data-home-ordinance-panel>
+                        <div class="home-ordinance__split-panel-head">
+                            <span class="home-ordinance__split-panel-label">Part 2</span>
+                        </div>
+
+                        <ol class="home-ordinance__list home-ordinance__list--cluster" role="list">
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">3</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Refusal to register/vaccinate</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 2000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">4</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Unvaccinated dog that bite a victim</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">7</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Did not shoulder all expenses of bite victim</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">8</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Failed to shoulder expenses for CLO case filing</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">11</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Captured dog without tag</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 3000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">12</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Lost vaccination card</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 500.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">15</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Dog release requirements</span>
+                                </div>
+                                <span class="home-ordinance__fee home-ordinance__fee--free">PHP 0.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">16</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Cruelty to dog</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">19</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Owner liability for grave damage/property and vehicular accident victim hospitalization</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">20</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Redemption fee (within 24 hrs)</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 500.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">23</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Forced labor</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">24</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Exceeding 4 heads (1 excess)</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 500.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">27</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Unregistered dog upon household inspection</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 500.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">28</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Agri-vet store and pet shop's failure to post rabies info materials</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 2500.00</span>
+                            </li>
+                        </ol>
+                    </section>
+                    </div>
+
+                    <div class="home-ordinance__stepper-controls" role="group" aria-label="Section 29 part navigation">
+                        <button type="button" class="home-ordinance__stepper-btn" data-home-ordinance-nav="prev" aria-label="Show previous part">
+                            <span aria-hidden="true">&lt;</span>
+                        </button>
+                        <span class="home-ordinance__stepper-status" data-home-ordinance-status aria-live="polite">Part 1 of 2</span>
+                        <button type="button" class="home-ordinance__stepper-btn" data-home-ordinance-nav="next" aria-label="Show next part">
+                            <span aria-hidden="true">&gt;</span>
+                        </button>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+<section class="home-city-vet-shell" aria-label="City Vet Street View">
+    <div class="home-city-vet home-reveal">
+        <div class="home-city-vet__map-panel" data-home-map-panel>
+            <button type="button" class="home-city-vet__map-backdrop" data-home-map-close aria-label="Close expanded map"></button>
+            <div class="home-city-vet__map-wrap" data-home-map-wrap id="homeCityVetMap">
+                <button
+                    type="button"
+                    class="home-city-vet__map-expand-hit"
+                    data-home-map-expand
+                    aria-controls="homeCityVetMap"
+                    aria-expanded="false"
+                >
+                    <span class="home-city-vet__map-expand-pill">
+                        <i class="bi bi-arrows-angle-expand" aria-hidden="true"></i>
+                        <span>Tap to expand map</span>
+                    </span>
+                </button>
+
+                <iframe
+                    class="home-city-vet__map"
+                    title="Bayawan City Vet street view preview"
+                    src="https://maps.google.com/maps?layer=c&cbll=9.3618935,122.8134199&cbp=12,189.62106333952323,0,-10.325267084413284,0&panoid=bidnMnfXTQ60MJ_MV0UK0w&hl=en&output=svembed"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    allowfullscreen
+                ></iframe>
+
+                <a
+                    href="http://google.com/maps/@9.3618935,122.8134199,3a,75y,189.62h,100.33t/data=!3m7!1e1!3m5!1sbidnMnfXTQ60MJ_MV0UK0w!2e0!6shttps:%2F%2Fstreetviewpixels-pa.googleapis.com%2Fv1%2Fthumbnail%3Fcb_client%3Dmaps_sv.tactile%26w%3D900%26h%3D600%26pitch%3D-10.325267084413284%26panoid%3DbidnMnfXTQ60MJ_MV0UK0w%26yaw%3D189.62106333952323!7i16384!8i8192?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D"
+                    class="home-city-vet__map-search"
+                    target="_blank"
+                    rel="noopener"
+                >
+                    <span class="home-city-vet__map-search-copy">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <span>Search Google Maps</span>
+                    </span>
+                    <i class="bi bi-compass-fill" aria-hidden="true"></i>
+                </a>
+
+                <div class="home-city-vet__map-controls">
+                    <button type="button" class="home-city-vet__map-control home-city-vet__map-control--close" data-home-map-close aria-label="Close full map view">
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        <span>Close</span>
+                    </button>
+                    <a
+                        href="http://google.com/maps/@9.3618935,122.8134199,3a,75y,189.62h,100.33t/data=!3m7!1e1!3m5!1sbidnMnfXTQ60MJ_MV0UK0w!2e0!6shttps:%2F%2Fstreetviewpixels-pa.googleapis.com%2Fv1%2Fthumbnail%3Fcb_client%3Dmaps_sv.tactile%26w%3D900%26h%3D600%26pitch%3D-10.325267084413284%26panoid%3DbidnMnfXTQ60MJ_MV0UK0w%26yaw%3D189.62106333952323!7i16384!8i8192?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D"
+                        class="home-city-vet__map-control"
+                        target="_blank"
+                        rel="noopener"
+                    >
+                        <i class="bi bi-share-fill" aria-hidden="true"></i>
+                        <span>Open</span>
+                    </a>
+                </div>
+
+                <div class="home-city-vet__street-card">
+                    <div class="home-city-vet__street-card-head">
+                        <span class="home-city-vet__street-card-title">National Highway</span>
+                        <span class="home-city-vet__street-card-icon">
+                            <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+                        </span>
+                    </div>
+                    <span class="home-city-vet__street-card-meta">Street View based on your shared Google Maps link</span>
+                    <span class="home-city-vet__street-card-badge">
+                        <i class="bi bi-google" aria-hidden="true"></i>
+                        <span>Google Street View</span>
+                    </span>
+                </div>
+
+                <div class="home-city-vet__map-card">
+                    <span class="home-city-vet__map-card-label">Pinned Location</span>
+                    <strong class="home-city-vet__map-card-title">Bayawan City Vet</strong>
+                    <span class="home-city-vet__map-card-text">City Agriculture Office area, Bayawan</span>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
     {% if request.user.is_authenticated %}
@@ -480,10 +936,118 @@
     </div>
 </div>
 {% endif %}
+    </div>
+    </div>
 <script>
 (() => {
     const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const revealTargets = Array.from(document.querySelectorAll('.home-reveal'));
+    const syncHomeDetailModalState = () => {
+        const hasOpenDetail = document.querySelector('.dog-scale-carousel__details--popup');
+        document.body.classList.toggle('home-details-modal-open', Boolean(hasOpenDetail));
+    };
+    const portalizeDetailPanel = (panelState, owner, panel) => {
+        if (!panel || panel.classList.contains('dog-scale-carousel__details--popup')) {
+            return panel;
+        }
+
+        const parent = panel.parentNode;
+        if (!parent) {
+            return panel;
+        }
+
+        const placeholder = document.createComment('home-detail-placeholder');
+        parent.insertBefore(placeholder, panel);
+        panelState.set(owner, { panel, parent, placeholder });
+        panel.classList.add('dog-scale-carousel__details--popup');
+        document.body.appendChild(panel);
+        return panel;
+    };
+    const restoreDetailPanel = (panelState, owner) => {
+        const state = panelState.get(owner);
+        if (!state) {
+            return null;
+        }
+
+        const { panel, parent, placeholder } = state;
+        panel.classList.remove('dog-scale-carousel__details--popup');
+
+        if (placeholder?.parentNode === parent) {
+            parent.insertBefore(panel, placeholder);
+            placeholder.remove();
+        } else if (parent) {
+            parent.appendChild(panel);
+        }
+
+        panelState.delete(owner);
+        return panel;
+    };
+
+    document.querySelectorAll('[data-home-ordinance-stepper]').forEach((stepper) => {
+        if (stepper.dataset.stepperReady === '1') {
+            return;
+        }
+        stepper.dataset.stepperReady = '1';
+
+        const panels = Array.from(stepper.querySelectorAll('[data-home-ordinance-panel]'));
+        const prevButton = stepper.querySelector('[data-home-ordinance-nav="prev"]');
+        const nextButton = stepper.querySelector('[data-home-ordinance-nav="next"]');
+        const status = stepper.querySelector('[data-home-ordinance-status]');
+        let activeIndex = panels.findIndex((panel) => panel.classList.contains('is-active'));
+
+        if (panels.length <= 1 || !prevButton || !nextButton) {
+            return;
+        }
+
+        if (activeIndex < 0) {
+            activeIndex = 0;
+        }
+
+        const syncStepper = () => {
+            panels.forEach((panel, panelIndex) => {
+                const isActive = panelIndex === activeIndex;
+                panel.classList.toggle('is-active', isActive);
+                panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+            });
+
+            const currentPartLabel = panels[activeIndex]?.querySelector('.home-ordinance__split-panel-label')?.textContent?.trim() || `Part ${activeIndex + 1}`;
+            if (status) {
+                status.textContent = `${currentPartLabel} of ${panels.length}`;
+            }
+
+            prevButton.disabled = activeIndex === 0;
+            nextButton.disabled = activeIndex === panels.length - 1;
+        };
+
+        prevButton.addEventListener('click', () => {
+            if (activeIndex > 0) {
+                activeIndex -= 1;
+                syncStepper();
+            }
+        });
+
+        nextButton.addEventListener('click', () => {
+            if (activeIndex < panels.length - 1) {
+                activeIndex += 1;
+                syncStepper();
+            }
+        });
+
+        stepper.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                prevButton.click();
+                return;
+            }
+
+            if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                nextButton.click();
+            }
+        });
+
+        syncStepper();
+    });
 
     if (revealTargets.length) {
         if (prefersReducedMotion || !('IntersectionObserver' in window)) {
@@ -511,6 +1075,169 @@
         }
     }
 
+    document.querySelectorAll('[data-home-pinned-carousel]').forEach((carousel) => {
+        if (carousel.dataset.carouselReady === '1') {
+            return;
+        }
+        carousel.dataset.carouselReady = '1';
+
+        const viewport = carousel.querySelector('[data-home-pinned-viewport]');
+        const cards = Array.from(carousel.querySelectorAll('[data-home-pinned-card]'));
+        const indicators = Array.from(carousel.querySelectorAll('[data-home-pinned-indicator]'));
+        const prevButton = carousel.querySelector('[data-home-pinned-nav="prev"]');
+        const nextButton = carousel.querySelector('[data-home-pinned-nav="next"]');
+        let currentIndex = 0;
+        let scrollFrame = null;
+
+        if (!viewport || cards.length <= 1) {
+            return;
+        }
+
+        const syncControls = (index) => {
+            currentIndex = index;
+
+            indicators.forEach((indicator, indicatorIndex) => {
+                const isActive = indicatorIndex === index;
+                indicator.classList.toggle('is-active', isActive);
+                indicator.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+
+            if (prevButton) {
+                prevButton.disabled = index <= 0;
+            }
+
+            if (nextButton) {
+                nextButton.disabled = index >= cards.length - 1;
+            }
+        };
+
+        const centerCard = (card, behavior = prefersReducedMotion ? 'auto' : 'smooth') => {
+            if (!card) {
+                return;
+            }
+
+            const viewportRect = viewport.getBoundingClientRect();
+            const cardRect = card.getBoundingClientRect();
+            const offset = cardRect.left - viewportRect.left - ((viewportRect.width - cardRect.width) / 2);
+
+            viewport.scrollBy({
+                left: offset,
+                behavior,
+            });
+        };
+
+        const findNearestIndex = () => {
+            const viewportRect = viewport.getBoundingClientRect();
+            const center = viewportRect.left + (viewportRect.width / 2);
+            let nearestIndex = 0;
+            let smallestDistance = Number.POSITIVE_INFINITY;
+
+            cards.forEach((card, index) => {
+                const rect = card.getBoundingClientRect();
+                const distance = Math.abs((rect.left + (rect.width / 2)) - center);
+                if (distance < smallestDistance) {
+                    smallestDistance = distance;
+                    nearestIndex = index;
+                }
+            });
+
+            return nearestIndex;
+        };
+
+        const activateIndex = (index, { scroll = true, behavior = prefersReducedMotion ? 'auto' : 'smooth' } = {}) => {
+            if (!cards[index]) {
+                return;
+            }
+
+            syncControls(index);
+
+            if (scroll) {
+                centerCard(cards[index], behavior);
+            }
+        };
+
+        const syncFromScroll = () => {
+            syncControls(findNearestIndex());
+        };
+
+        if (prevButton) {
+            prevButton.addEventListener('click', () => {
+                activateIndex(Math.max(0, currentIndex - 1));
+            });
+        }
+
+        if (nextButton) {
+            nextButton.addEventListener('click', () => {
+                activateIndex(Math.min(cards.length - 1, currentIndex + 1));
+            });
+        }
+
+        indicators.forEach((indicator) => {
+            indicator.addEventListener('click', () => {
+                const nextIndex = Number(indicator.dataset.homePinnedIndex);
+                if (!Number.isNaN(nextIndex)) {
+                    activateIndex(nextIndex);
+                }
+            });
+        });
+
+        cards.forEach((card, index) => {
+            card.addEventListener('click', (event) => {
+                if (event.target.closest('a, button, input, textarea, select, label')) {
+                    return;
+                }
+
+                activateIndex(index);
+            });
+        });
+
+        viewport.addEventListener('scroll', () => {
+            if (scrollFrame !== null) {
+                window.cancelAnimationFrame(scrollFrame);
+            }
+
+            scrollFrame = window.requestAnimationFrame(() => {
+                syncFromScroll();
+                scrollFrame = null;
+            });
+        }, { passive: true });
+
+        carousel.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                activateIndex(Math.min(cards.length - 1, currentIndex + 1));
+                return;
+            }
+
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                activateIndex(Math.max(0, currentIndex - 1));
+                return;
+            }
+
+            if (event.key === 'Home') {
+                event.preventDefault();
+                activateIndex(0);
+                return;
+            }
+
+            if (event.key === 'End') {
+                event.preventDefault();
+                activateIndex(cards.length - 1);
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            centerCard(cards[currentIndex], 'auto');
+        });
+
+        syncControls(currentIndex);
+        window.requestAnimationFrame(() => {
+            centerCard(cards[currentIndex], 'auto');
+            syncFromScroll();
+        });
+    });
+
     document.querySelectorAll('[data-dog-carousel]').forEach((carousel) => {
         if (carousel.dataset.carouselReady === '1') {
             return;
@@ -523,11 +1250,13 @@
 
         const autoplayMs = Number(carousel.getAttribute('data-autoplay-ms')) || 3000;
         let intervalId = null;
+        const detailPanelState = new WeakMap();
+        const getDetailPanel = (slide) => slide.querySelector('[data-dog-detail-panel]') || detailPanelState.get(slide)?.panel || null;
 
         const setDetailState = (slide, isOpen) => {
             const toggle = slide.querySelector('[data-dog-detail-toggle]');
             const label = slide.querySelector('[data-dog-detail-label]');
-            const panel = slide.querySelector('[data-dog-detail-panel]');
+            const panel = getDetailPanel(slide);
             slide.classList.toggle('is-details-open', isOpen);
             if (toggle) {
                 toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
@@ -543,7 +1272,9 @@
         const closeAllDetails = ({ restartAutoplay = true } = {}) => {
             slides.forEach((slide) => {
                 setDetailState(slide, false);
+                restoreDetailPanel(detailPanelState, slide);
             });
+            syncHomeDetailModalState();
             delete carousel.dataset.autoplaySuspended;
             if (restartAutoplay) {
                 startAutoplay();
@@ -554,8 +1285,18 @@
             slides.forEach((currentSlide) => {
                 setDetailState(currentSlide, currentSlide === slide);
             });
+            const panel = portalizeDetailPanel(detailPanelState, slide, getDetailPanel(slide));
+            syncHomeDetailModalState();
             carousel.dataset.autoplaySuspended = '1';
             stopAutoplay();
+            window.requestAnimationFrame(() => {
+                const closeButton = slide.querySelector('[data-dog-detail-close]');
+                if (closeButton) {
+                    closeButton.focus();
+                } else if (panel) {
+                    panel.focus();
+                }
+            });
         };
 
         const activeIndex = () => {
@@ -601,6 +1342,7 @@
         slides.forEach((slide) => {
             const toggle = slide.querySelector('[data-dog-detail-toggle]');
             const closeButton = slide.querySelector('[data-dog-detail-close]');
+            const panel = slide.querySelector('[data-dog-detail-panel]');
 
             if (toggle) {
                 toggle.addEventListener('click', (event) => {
@@ -616,6 +1358,14 @@
             if (closeButton) {
                 closeButton.addEventListener('click', () => {
                     closeAllDetails();
+                });
+            }
+
+            if (panel) {
+                panel.addEventListener('click', (event) => {
+                    if (event.target === panel) {
+                        closeAllDetails();
+                    }
                 });
             }
         });
@@ -635,6 +1385,12 @@
             }
         });
 
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && carousel.dataset.autoplaySuspended === '1') {
+                closeAllDetails();
+            }
+        });
+
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 stopAutoplay();
@@ -645,6 +1401,178 @@
 
         startAutoplay();
     });
+
+    const cityVetMapPanel = document.querySelector('[data-home-map-panel]');
+    if (cityVetMapPanel) {
+        const mapWrap = cityVetMapPanel.querySelector('[data-home-map-wrap]');
+        const expandButtons = Array.from(cityVetMapPanel.querySelectorAll('[data-home-map-expand]'));
+        const closeButtons = Array.from(cityVetMapPanel.querySelectorAll('[data-home-map-close]'));
+        const mobileMapQuery = window.matchMedia('(max-width: 640px)');
+
+        const setMapExpanded = (isExpanded) => {
+            const shouldExpand = Boolean(isExpanded) && mobileMapQuery.matches;
+            cityVetMapPanel.classList.toggle('is-map-expanded', shouldExpand);
+            if (mapWrap) {
+                mapWrap.classList.toggle('is-expanded', shouldExpand);
+            }
+            document.body.classList.toggle('home-map-expanded', shouldExpand);
+            expandButtons.forEach((button) => {
+                button.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
+            });
+        };
+
+        const openMap = () => {
+            if (!mobileMapQuery.matches) {
+                return;
+            }
+
+            setMapExpanded(true);
+            window.requestAnimationFrame(() => {
+                const closeButton = cityVetMapPanel.querySelector('.home-city-vet__map-control--close');
+                if (closeButton) {
+                    closeButton.focus();
+                }
+            });
+        };
+
+        const closeMap = ({ returnFocus = true } = {}) => {
+            setMapExpanded(false);
+            if (!returnFocus) {
+                return;
+            }
+
+            window.requestAnimationFrame(() => {
+                const expandButton = cityVetMapPanel.querySelector('[data-home-map-expand]');
+                if (expandButton) {
+                    expandButton.focus();
+                }
+            });
+        };
+
+        expandButtons.forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                openMap();
+            });
+        });
+
+        if (mapWrap) {
+            mapWrap.addEventListener('click', (event) => {
+                if (!mobileMapQuery.matches || mapWrap.classList.contains('is-expanded')) {
+                    return;
+                }
+
+                if (event.target.closest('a, button')) {
+                    return;
+                }
+
+                openMap();
+            });
+        }
+
+        closeButtons.forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                closeMap();
+            });
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && mapWrap && mapWrap.classList.contains('is-expanded')) {
+                closeMap();
+            }
+        });
+
+        const handleMobileMapViewportChange = () => {
+            if (!mobileMapQuery.matches) {
+                closeMap({ returnFocus: false });
+            }
+        };
+
+        if (typeof mobileMapQuery.addEventListener === 'function') {
+            mobileMapQuery.addEventListener('change', handleMobileMapViewportChange);
+        } else if (typeof mobileMapQuery.addListener === 'function') {
+            mobileMapQuery.addListener(handleMobileMapViewportChange);
+        }
+    }
+
+    const spotlightCards = Array.from(document.querySelectorAll('[data-home-spotlight-card]'));
+    if (spotlightCards.length) {
+        const spotlightPanelState = new WeakMap();
+        const getSpotlightPanel = (card) => card.querySelector('[data-home-spotlight-detail-panel]') || spotlightPanelState.get(card)?.panel || null;
+        const setSpotlightDetailState = (card, isOpen) => {
+            const panel = getSpotlightPanel(card);
+            card.classList.toggle('is-details-open', isOpen);
+
+            card.querySelectorAll('[data-home-spotlight-detail-toggle]').forEach((toggle) => {
+                toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            });
+
+            if (panel) {
+                panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+            }
+        };
+        const closeAllSpotlightDetails = () => {
+            spotlightCards.forEach((card) => {
+                setSpotlightDetailState(card, false);
+                restoreDetailPanel(spotlightPanelState, card);
+            });
+            syncHomeDetailModalState();
+        };
+        const openSpotlightDetails = (card) => {
+            spotlightCards.forEach((currentCard) => {
+                setSpotlightDetailState(currentCard, currentCard === card);
+            });
+
+            const panel = portalizeDetailPanel(spotlightPanelState, card, getSpotlightPanel(card));
+            syncHomeDetailModalState();
+
+            window.requestAnimationFrame(() => {
+                const closeButton = card.querySelector('[data-home-spotlight-detail-close]');
+                if (closeButton) {
+                    closeButton.focus();
+                } else if (panel) {
+                    panel.focus();
+                }
+            });
+        };
+
+        spotlightCards.forEach((card) => {
+            card.querySelectorAll('[data-home-spotlight-detail-toggle]').forEach((toggle) => {
+                toggle.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    if (card.classList.contains('is-details-open')) {
+                        closeAllSpotlightDetails();
+                    } else {
+                        openSpotlightDetails(card);
+                    }
+                });
+            });
+
+            const closeButton = card.querySelector('[data-home-spotlight-detail-close]');
+            const panel = card.querySelector('[data-home-spotlight-detail-panel]');
+
+            if (closeButton) {
+                closeButton.addEventListener('click', () => {
+                    closeAllSpotlightDetails();
+                });
+            }
+
+            if (panel) {
+                panel.addEventListener('click', (event) => {
+                    if (event.target === panel) {
+                        closeAllSpotlightDetails();
+                    }
+                });
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && spotlightCards.some((card) => card.classList.contains('is-details-open'))) {
+                closeAllSpotlightDetails();
+            }
+        });
+    }
 
 })();
 </script>

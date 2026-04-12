@@ -2,93 +2,57 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/post_detail.css' %}">
+<link rel="stylesheet" href="{% static 'css/post_detail.css' %}?v=20260407finder-detail-card">
 {% endblock %}
 
 {% block content %}
-{% with post.images.first as main_image %}
-<meta property="og:title" content="Dog Update | Bayawan Vet">
-<meta property="og:description" content="{{ post.caption }}">
+<meta property="og:title" content="{{ detail.title }} | Bayawan Vet">
+<meta property="og:description" content="{{ detail.location_label }}">
 <meta property="og:url" content="{{ request.build_absolute_uri }}">
-{% if main_image %}
-<meta property="og:image" content="{{ post.share_image_url }}">
+{% if detail.main_image_url %}
+<meta property="og:image" content="{{ detail.main_image_url }}">
 {% endif %}
 
-{% with phase=post.current_phase %}
 <div class="post-detail-page">
-    <article class="post-detail-card">
-        <a href="{% url 'user:user_home' %}" class="post-detail-back-link">Back to feed</a>
+    <article class="post-detail-card is-{{ detail.theme }}">
+        {% if detail.main_image_url %}
+        <div class="post-detail-backdrop" aria-hidden="true">
+            <img src="{{ detail.main_image_url }}" alt="">
+        </div>
+        {% endif %}
 
-        <div class="post-detail-grid{% if not main_image %} is-text-only{% endif %}">
-            <section class="post-detail-media-panel">
-                {% if main_image %}
-                <div class="post-detail-image-frame">
-                    <img src="{{ main_image.image.url }}" alt="Dog update image" class="post-detail-image">
+        <div class="post-detail-surface">
+            <a href="{{ back_url }}" class="post-detail-close" aria-label="{{ back_label }}">
+                <span aria-hidden="true">&times;</span>
+                <span class="visually-hidden">{{ back_label }}</span>
+            </a>
+
+            <div class="post-detail-copy">
+                <h1 class="post-detail-title">{{ detail.title }}</h1>
+                <p class="post-detail-location">{{ detail.location_label }}</p>
+            </div>
+
+            <div class="post-detail-pills">
+                <span class="post-detail-pill post-detail-pill--phase">{{ detail.phase_title }}</span>
+                <span class="post-detail-pill post-detail-pill--time">{{ detail.time_left_badge }}</span>
+            </div>
+
+            <dl class="post-detail-facts" role="list">
+                {% for fact in detail.facts %}
+                <div class="post-detail-fact">
+                    <dt>{{ fact.label }}</dt>
+                    <dd>{{ fact.value }}</dd>
                 </div>
-                {% else %}
-                <div class="post-detail-empty-media">
-                    <span>No photo was uploaded for this update.</span>
-                </div>
-                {% endif %}
+                {% endfor %}
+            </dl>
+
+            {% if detail.summary %}
+            <section class="post-detail-note">
+                <h2>Notes</h2>
+                <p>{{ detail.summary }}</p>
             </section>
-
-            <section class="post-detail-copy-panel">
-                <span class="post-detail-kicker">Dog Update</span>
-                <h1 class="post-detail-title">{{ post.get_status_display }} case update</h1>
-
-                <div class="post-detail-pills">
-                    <span class="post-detail-pill">{{ post.get_status_display }}</span>
-                    <span class="post-detail-pill is-secondary">
-                        {% if post.has_pending_review %}
-                        {{ post.pending_review_request_type|capfirst }} pending admin review
-                        {% elif phase == 'claim' %}
-                        Owner claim period
-                        {% elif phase == 'adopt' %}
-                        Adoption phase
-                        {% else %}
-                        Closed
-                        {% endif %}
-                    </span>
-                </div>
-
-                <section class="post-detail-section">
-                    <h2>Summary</h2>
-                    <p>{{ post.caption|default:"No additional details were provided for this update." }}</p>
-                </section>
-
-                <section class="post-detail-section">
-                    <h2>Post Information</h2>
-                    <dl class="post-detail-meta-list">
-                        <div class="post-detail-meta-row">
-                            <dt>Posted by</dt>
-                            <dd>{{ post.user.get_full_name|default:post.user.username }}</dd>
-                        </div>
-                        <div class="post-detail-meta-row">
-                            <dt>Location</dt>
-                            <dd>{{ post.location|default:"Location not provided." }}</dd>
-                        </div>
-                        <div class="post-detail-meta-row">
-                            <dt>Posted on</dt>
-                            <dd>{{ post.created_at|date:"M d, Y h:i A" }}</dd>
-                        </div>
-                        {% if post.has_pending_review %}
-                        <div class="post-detail-meta-row">
-                            <dt>Verification until</dt>
-                            <dd>{{ post.pending_review_until|date:"M d, Y h:i A" }}</dd>
-                        </div>
-                        {% endif %}
-                        {% if post.rescued_date %}
-                        <div class="post-detail-meta-row">
-                            <dt>Rescued date</dt>
-                            <dd>{{ post.rescued_date|date:"M d, Y" }}</dd>
-                        </div>
-                        {% endif %}
-                    </dl>
-                </section>
-            </section>
+            {% endif %}
         </div>
     </article>
 </div>
-{% endwith %}
-{% endwith %}
 {% endblock %}

@@ -121,7 +121,15 @@
 <div class="modal fade wiki-modal" id="announcementCreateModal" tabindex="-1" aria-labelledby="announcementCreateModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content wiki-modal-content">
-            <form method="POST" enctype="multipart/form-data" action="{% url 'dogadoption_admin:announcement_create_form' 'dog-announcements' %}" class="js-ann-confirm-form">
+            <form
+                method="POST"
+                enctype="multipart/form-data"
+                action="{% url 'dogadoption_admin:announcement_create_form' 'dog-announcements' %}"
+                data-confirm-modal
+                data-confirm-title="Publish Post"
+                data-confirm-message="Are you sure you want to publish this post?"
+                data-confirm-submit-label="Publish Post"
+            >
                 {% csrf_token %}
                 <div class="modal-header wiki-modal-header">
                     <h5 class="modal-title" id="announcementCreateModalLabel">Create Announcement Post</h5>
@@ -160,11 +168,7 @@
                     </div>
                 </div>
                 <div class="modal-footer wiki-modal-footer wiki-modal-footer-centered">
-                    <button type="button"
-                            class="wiki-publish-btn js-ann-open-confirm"
-                            data-confirm-title="Publish Post"
-                            data-confirm-message="Are you sure you want to publish this post?"
-                            data-confirm-submit-label="Publish Post">
+                    <button type="submit" class="wiki-publish-btn">
                         Publish Post
                     </button>
                 </div>
@@ -335,7 +339,15 @@
 <div class="modal fade wiki-modal" id="editPostModal-{{ post.id }}" tabindex="-1" aria-labelledby="editPostModalLabel-{{ post.id }}" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content wiki-modal-content">
-            <form method="POST" enctype="multipart/form-data" action="{% url 'dogadoption_admin:announcement_edit' post.id %}" class="js-ann-confirm-form">
+            <form
+                method="POST"
+                enctype="multipart/form-data"
+                action="{% url 'dogadoption_admin:announcement_edit' post.id %}"
+                data-confirm-modal
+                data-confirm-title="Save Announcement Changes"
+                data-confirm-message="Save changes to this announcement?"
+                data-confirm-submit-label="Save Changes"
+            >
                 {% csrf_token %}
                 <input type="hidden" name="category" value="{{ post.category }}">
                 <div class="modal-header wiki-modal-header">
@@ -394,11 +406,7 @@
                     {% endif %}
                 </div>
                 <div class="modal-footer wiki-modal-footer wiki-modal-footer-centered">
-                    <button type="button"
-                            class="wiki-publish-btn js-ann-open-confirm"
-                            data-confirm-title="Save Announcement Changes"
-                            data-confirm-message="Save changes to this announcement?"
-                            data-confirm-submit-label="Save Changes">
+                    <button type="submit" class="wiki-publish-btn">
                         Save Changes
                     </button>
                 </div>
@@ -438,24 +446,6 @@
     {% endif %}
 </div>
 {% endif %}
-
-<div class="modal fade wiki-modal app-confirm-modal" id="announcementSubmitConfirmModal" tabindex="-1" aria-labelledby="announcementSubmitConfirmLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content wiki-modal-content app-confirm-card">
-            <div class="modal-header">
-                <h5 class="modal-title" id="announcementSubmitConfirmLabel">Confirm Action</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p id="announcementSubmitConfirmMessage" class="app-confirm-message">Please confirm to continue.</p>
-            </div>
-            <div class="modal-footer app-confirm-actions">
-                <button type="button" class="btn btn-cancel-action" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="announcementSubmitConfirmBtn">Confirm</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <script>
 (function () {
@@ -550,74 +540,6 @@
         }
     });
 
-    const confirmModalEl = document.getElementById('announcementSubmitConfirmModal');
-    const confirmTitleEl = document.getElementById('announcementSubmitConfirmLabel');
-    const confirmMessageEl = document.getElementById('announcementSubmitConfirmMessage');
-    const confirmSubmitBtn = document.getElementById('announcementSubmitConfirmBtn');
-    const confirmModal =
-        confirmModalEl && window.bootstrap && window.bootstrap.Modal
-            ? new window.bootstrap.Modal(confirmModalEl)
-            : null;
-
-    let pendingFormToSubmit = null;
-
-    document.querySelectorAll('.js-ann-confirm-form').forEach((form) => {
-        form.addEventListener('submit', (evt) => {
-            if (form.dataset.confirmedSubmit === '1') {
-                form.dataset.confirmedSubmit = '0';
-                return;
-            }
-
-            evt.preventDefault();
-            form.querySelector('.js-ann-open-confirm')?.click();
-        });
-    });
-
-    document.querySelectorAll('.js-ann-open-confirm').forEach((button) => {
-        button.addEventListener('click', () => {
-            const form = button.closest('form');
-            if (!form) return;
-
-            if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
-                return;
-            }
-
-            pendingFormToSubmit = form;
-
-            const title = button.getAttribute('data-confirm-title') || 'Confirm Action';
-            const message = button.getAttribute('data-confirm-message') || 'Please confirm to continue.';
-            const submitLabel = button.getAttribute('data-confirm-submit-label') || 'Confirm';
-
-            if (confirmTitleEl) confirmTitleEl.textContent = title;
-            if (confirmMessageEl) confirmMessageEl.textContent = message;
-            if (confirmSubmitBtn) confirmSubmitBtn.textContent = submitLabel;
-
-            if (confirmModal) {
-                confirmModal.show();
-                return;
-            }
-
-            if (window.confirm(message)) {
-                form.submit();
-            } else {
-                pendingFormToSubmit = null;
-            }
-        });
-    });
-
-    confirmSubmitBtn?.addEventListener('click', () => {
-        if (!pendingFormToSubmit) return;
-        pendingFormToSubmit.dataset.confirmedSubmit = '1';
-        if (typeof pendingFormToSubmit.requestSubmit === 'function') {
-            pendingFormToSubmit.requestSubmit();
-        } else {
-            pendingFormToSubmit.submit();
-        }
-    });
-
-    confirmModalEl?.addEventListener('hidden.bs.modal', () => {
-        pendingFormToSubmit = null;
-    });
 })();
 </script>
 <div id="announcementImageLightbox" class="announcement-image-lightbox" hidden>

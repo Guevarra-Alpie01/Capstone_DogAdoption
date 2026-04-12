@@ -75,6 +75,10 @@
                         class="post-form"
                         id="create-post-form"
                         action="{% url 'dogadoption_admin:post_list' %}"
+                        data-confirm-modal
+                        data-confirm-title="Confirm Publish"
+                        data-confirm-message="Publish this post now?"
+                        data-confirm-submit-label="Publish"
                     >
                         {% csrf_token %}
                         <input type="hidden" name="form_type" value="create_post">
@@ -204,26 +208,6 @@
 </div>
 {% endif %}
 
-{% if admin_access.can_create_posts %}
-<div class="modal fade app-confirm-modal" id="createPostPublishConfirmModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content app-confirm-card">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirm Publish</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                Publish this post now?
-            </div>
-            <div class="modal-footer app-confirm-actions">
-                <button type="button" class="btn btn-cancel-action" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="createPostPublishConfirmSubmit">Publish</button>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
 {% if admin_access.is_full_admin %}
 <div class="modal fade appointment-modal" id="appointmentDateModal" tabindex="-1" aria-labelledby="appointmentDateModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
@@ -242,6 +226,10 @@
                         method="POST"
                         id="appointmentForm"
                         action="{% url 'dogadoption_admin:post_list' %}"
+                        data-confirm-modal
+                        data-confirm-title="Confirm Save"
+                        data-confirm-message="Save the current and future appointment dates now?"
+                        data-confirm-submit-label="Save"
                     >
                         {% csrf_token %}
                         <input type="hidden" name="form_type" value="appointment_dates">
@@ -387,17 +375,23 @@
                                                             </button>
                                                         </form>
                                                     {% endif %}
-                                                    <form method="post" action="{{ item.finalize_url }}" class="status-action-form">
+                                                    <form
+                                                        method="post"
+                                                        action="{{ item.finalize_url }}"
+                                                        class="status-action-form"
+                                                        data-confirm-modal
+                                                        data-confirm-title="{{ item.finalize_label }}"
+                                                        data-confirm-message="Save this record as {% if item.finalize_status == 'reunited' %}redeemed{% else %}adopted{% endif %} and remove it from the active post board?"
+                                                        data-confirm-submit-label="Continue"
+                                                    >
                                                         {% csrf_token %}
                                                         <input type="hidden" name="next" value="{{ return_to }}">
                                                         <input type="hidden" name="status" value="{{ item.finalize_status }}">
                                                         <button
-                                                            type="button"
-                                                            class="status-icon-btn status-icon-btn--complete js-confirm-action"
+                                                            type="submit"
+                                                            class="status-icon-btn status-icon-btn--complete"
                                                             title="{{ item.finalize_label }}"
                                                             aria-label="{{ item.finalize_label }}"
-                                                            data-confirm-title="{{ item.finalize_label }}"
-                                                            data-confirm-body="Save this record as {% if item.finalize_status == 'reunited' %}redeemed{% else %}adopted{% endif %} and remove it from the active post board?"
                                                         >
                                                             <i class="{{ item.finalize_icon }}" aria-hidden="true"></i>
                                                         </button>
@@ -586,14 +580,20 @@
                                                 {% if req.status == 'pending' %}
                                                     <div class="request-action-cell">
                                                         {% if req.verification_ready %}
-                                                            <form method="post" action="{% url 'dogadoption_admin:update_request' req.id 'accept' %}" class="request-action-form">
+                                                            <form
+                                                                method="post"
+                                                                action="{% url 'dogadoption_admin:update_request' req.id 'accept' %}"
+                                                                class="request-action-form"
+                                                                data-confirm-modal
+                                                                data-confirm-title="Confirm Accept"
+                                                                data-confirm-message="Accept this claim request?"
+                                                                data-confirm-submit-label="Accept"
+                                                            >
                                                                 {% csrf_token %}
                                                                 <input type="hidden" name="next" value="{{ return_to }}">
                                                                 <button
-                                                                    type="button"
-                                                                    class="btn btn-success btn-sm js-confirm-action"
-                                                                    data-confirm-title="Confirm Accept"
-                                                                    data-confirm-body="Accept this claim request?"
+                                                                    type="submit"
+                                                                    class="btn btn-success btn-sm"
                                                                 >
                                                                     Accept
                                                                 </button>
@@ -602,14 +602,19 @@
                                                             <div class="text-muted small">Accept after {{ req.approval_available_at|date:"M d, Y H:i" }}</div>
                                                             <button type="button" class="btn btn-success btn-sm" disabled>Accept</button>
                                                         {% endif %}
-                                                        <form method="post" action="{% url 'dogadoption_admin:update_request' req.id 'reject' %}">
+                                                        <form
+                                                            method="post"
+                                                            action="{% url 'dogadoption_admin:update_request' req.id 'reject' %}"
+                                                            data-confirm-modal
+                                                            data-confirm-title="Confirm Decline"
+                                                            data-confirm-message="Decline this claim request?"
+                                                            data-confirm-submit-label="Decline"
+                                                        >
                                                             {% csrf_token %}
                                                             <input type="hidden" name="next" value="{{ return_to }}">
                                                             <button
-                                                                type="button"
-                                                                class="btn btn-sm btn-decline-action js-confirm-action"
-                                                                data-confirm-title="Confirm Decline"
-                                                                data-confirm-body="Decline this claim request?"
+                                                                type="submit"
+                                                                class="btn btn-sm btn-decline-action"
                                                             >
                                                                 Decline
                                                             </button>
@@ -675,14 +680,20 @@
                                                 {% if req.status == 'pending' %}
                                                     <div class="request-action-cell">
                                                         {% if req.verification_ready %}
-                                                            <form method="post" action="{% url 'dogadoption_admin:update_request' req.id 'accept' %}" class="request-action-form">
+                                                            <form
+                                                                method="post"
+                                                                action="{% url 'dogadoption_admin:update_request' req.id 'accept' %}"
+                                                                class="request-action-form"
+                                                                data-confirm-modal
+                                                                data-confirm-title="Confirm Accept"
+                                                                data-confirm-message="Accept this adoption request?"
+                                                                data-confirm-submit-label="Accept"
+                                                            >
                                                                 {% csrf_token %}
                                                                 <input type="hidden" name="next" value="{{ return_to }}">
                                                                 <button
-                                                                    type="button"
-                                                                    class="btn btn-success btn-sm js-confirm-action"
-                                                                    data-confirm-title="Confirm Accept"
-                                                                    data-confirm-body="Accept this adoption request?"
+                                                                    type="submit"
+                                                                    class="btn btn-success btn-sm"
                                                                 >
                                                                     Accept
                                                                 </button>
@@ -691,14 +702,19 @@
                                                             <div class="text-muted small">Accept after {{ req.approval_available_at|date:"M d, Y H:i" }}</div>
                                                             <button type="button" class="btn btn-success btn-sm" disabled>Accept</button>
                                                         {% endif %}
-                                                        <form method="post" action="{% url 'dogadoption_admin:update_request' req.id 'reject' %}">
+                                                        <form
+                                                            method="post"
+                                                            action="{% url 'dogadoption_admin:update_request' req.id 'reject' %}"
+                                                            data-confirm-modal
+                                                            data-confirm-title="Confirm Decline"
+                                                            data-confirm-message="Decline this adoption request?"
+                                                            data-confirm-submit-label="Decline"
+                                                        >
                                                             {% csrf_token %}
                                                             <input type="hidden" name="next" value="{{ return_to }}">
                                                             <button
-                                                                type="button"
-                                                                class="btn btn-sm btn-decline-action js-confirm-action"
-                                                                data-confirm-title="Confirm Decline"
-                                                                data-confirm-body="Decline this adoption request?"
+                                                                type="submit"
+                                                                class="btn btn-sm btn-decline-action"
                                                             >
                                                                 Decline
                                                             </button>
@@ -722,24 +738,6 @@
     </div>
     {% endwith %}
 {% endfor %}
-
-<div class="modal fade app-confirm-modal" id="requestConfirmModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content app-confirm-card">
-            <div class="modal-header">
-                <h5 class="modal-title" id="requestConfirmTitle">Confirm Action</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p class="app-confirm-message" id="requestConfirmBody">Are you sure?</p>
-            </div>
-            <div class="modal-footer app-confirm-actions">
-                <button type="button" class="btn btn-cancel-action" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="requestConfirmSubmit">Continue</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <div class="modal fade app-confirm-modal" id="postDeleteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -765,24 +763,6 @@
                     <button type="submit" class="btn btn-danger">Delete</button>
                 </div>
             </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade app-confirm-modal" id="appointmentSaveConfirmModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content app-confirm-card">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirm Save</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                Save the current and future appointment dates now?
-            </div>
-            <div class="modal-footer app-confirm-actions">
-                <button type="button" class="btn btn-cancel-action" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="appointmentSaveConfirmSubmit">Save</button>
-            </div>
         </div>
     </div>
 </div>
@@ -969,16 +949,9 @@
         const colorOtherGroup = document.getElementById("colorOtherGroup");
         const colorOptionInputs = document.querySelectorAll("#postColorOptions input[type='checkbox']");
         const form = document.getElementById("create-post-form");
-        const appointmentFormEl = document.getElementById("appointmentForm");
-        const publishConfirmModalEl = document.getElementById("createPostPublishConfirmModal");
-        const publishConfirmSubmitBtn = document.getElementById("createPostPublishConfirmSubmit");
-        const appointmentConfirmModalEl = document.getElementById("appointmentSaveConfirmModal");
-        const appointmentConfirmSubmitBtn = document.getElementById("appointmentSaveConfirmSubmit");
         const claimDaysStorageKey = "admin_create_post_claim_days";
         const shouldOpenCreateModal = {{ show_create_modal|yesno:"true,false" }};
         const shouldOpenAppointmentModal = {{ show_appointment_modal|yesno:"true,false" }};
-        let publishConfirmed = false;
-        let appointmentConfirmed = false;
 
         function toggleFieldGroup(group, shouldShow) {
             if (!group) {
@@ -1031,78 +1004,11 @@
         }
 
         if (form) {
-            form.addEventListener("submit", (e) => {
+            form.addEventListener("submit", () => {
                 const value = claimDaysInput ? claimDaysInput.value : "";
                 if (value) {
                     safeStorageSet(claimDaysStorageKey, value);
                 }
-
-                if (publishConfirmed) {
-                    return;
-                }
-
-                const modal = getBootstrapModal(publishConfirmModalEl);
-                if (modal) {
-                    e.preventDefault();
-                    modal.show();
-                }
-            });
-        }
-
-        if (form && publishConfirmModalEl && publishConfirmSubmitBtn) {
-            publishConfirmSubmitBtn.addEventListener("click", () => {
-                publishConfirmed = true;
-                const modal = getBootstrapModal(publishConfirmModalEl);
-                if (modal) {
-                    modal.hide();
-                }
-                if (typeof form.requestSubmit === "function") {
-                    form.requestSubmit();
-                } else {
-                    form.submit();
-                }
-            });
-
-            publishConfirmModalEl.addEventListener("hidden.bs.modal", () => {
-                if (!publishConfirmed) {
-                    return;
-                }
-                publishConfirmed = false;
-            });
-        }
-
-        if (appointmentFormEl) {
-            appointmentFormEl.addEventListener("submit", (e) => {
-                if (appointmentConfirmed) {
-                    return;
-                }
-                const modal = getBootstrapModal(appointmentConfirmModalEl);
-                if (modal) {
-                    e.preventDefault();
-                    modal.show();
-                }
-            });
-        }
-
-        if (appointmentFormEl && appointmentConfirmModalEl && appointmentConfirmSubmitBtn) {
-            appointmentConfirmSubmitBtn.addEventListener("click", () => {
-                appointmentConfirmed = true;
-                const modal = getBootstrapModal(appointmentConfirmModalEl);
-                if (modal) {
-                    modal.hide();
-                }
-                if (typeof appointmentFormEl.requestSubmit === "function") {
-                    appointmentFormEl.requestSubmit();
-                } else {
-                    appointmentFormEl.submit();
-                }
-            });
-
-            appointmentConfirmModalEl.addEventListener("hidden.bs.modal", () => {
-                if (!appointmentConfirmed) {
-                    return;
-                }
-                appointmentConfirmed = false;
             });
         }
 
@@ -1118,39 +1024,6 @@
             if (modal) {
                 modal.show();
             }
-        }
-
-        const confirmModalEl = document.getElementById("requestConfirmModal");
-        const confirmTitleEl = document.getElementById("requestConfirmTitle");
-        const confirmBodyEl = document.getElementById("requestConfirmBody");
-        const confirmSubmitBtn = document.getElementById("requestConfirmSubmit");
-        let pendingActionForm = null;
-
-        if (confirmModalEl && confirmTitleEl && confirmBodyEl && confirmSubmitBtn) {
-            const confirmModal = getBootstrapModal(confirmModalEl);
-            if (!confirmModal) {
-                return;
-            }
-
-            document.querySelectorAll(".js-confirm-action").forEach((btn) => {
-                btn.addEventListener("click", () => {
-                    pendingActionForm = btn.closest("form");
-                    if (!pendingActionForm) return;
-                    confirmTitleEl.textContent = btn.dataset.confirmTitle || "Confirm Action";
-                    confirmBodyEl.textContent = btn.dataset.confirmBody || "Are you sure?";
-                    confirmModal.show();
-                });
-            });
-
-            confirmSubmitBtn.addEventListener("click", () => {
-                if (pendingActionForm) {
-                    pendingActionForm.submit();
-                }
-            });
-
-            confirmModalEl.addEventListener("hidden.bs.modal", () => {
-                pendingActionForm = null;
-            });
         }
 
         const deleteModalEl = document.getElementById("postDeleteModal");

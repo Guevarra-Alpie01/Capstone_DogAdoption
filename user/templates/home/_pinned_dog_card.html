@@ -1,0 +1,47 @@
+<article class="home-pinned-dog__card" data-home-pinned-card>
+    <div class="home-pinned-dog__media">
+        <a href="{{ pinned_dog.detail_url }}" class="home-pinned-dog__image-link" aria-label="Open pinned dog post {{ pinned_dog.title }}">
+            {% if pinned_dog.main_image_url %}
+                <img src="{{ pinned_dog.main_image_url }}" alt="{{ pinned_dog.image_alt }}">
+            {% else %}
+                <div class="home-pinned-dog__media-fallback">
+                    <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
+                    <span>Pinned dog spotlight</span>
+                </div>
+            {% endif %}
+        </a>
+
+        <div class="home-pinned-dog__media-overlay">
+            <span class="home-pinned-dog__badge">
+                <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
+                <span>Pinned Dog</span>
+            </span>
+            <span class="home-pinned-dog__meta">Pinned {{ pinned_dog.pinned_on_label }}</span>
+        </div>
+
+        <div class="home-pinned-dog__copy">
+            <span class="home-pinned-dog__eyebrow">
+                <i class="bi bi-stars" aria-hidden="true"></i>
+                <span>{{ pinned_dog.support_title }}</span>
+            </span>
+            <h3 class="home-pinned-dog__title">{{ pinned_dog.title }}</h3>
+            <div class="home-pinned-dog__breed">
+                <span>Breed</span>
+                <strong>{{ pinned_dog.breed_label }}</strong>
+            </div>
+            <div class="home-pinned-dog__actions">
+                <a
+                    href="{{ pinned_dog.primary_cta_url }}"
+                    class="home-pinned-dog__btn home-pinned-dog__btn--primary"
+                    {% if pinned_dog.primary_requires_auth and not request.user.is_authenticated %}
+                    data-auth-modal-trigger="login"
+                    data-auth-next-url="{{ pinned_dog.primary_cta_url }}"
+                    {% endif %}
+                >
+                    <span>{{ pinned_dog.primary_cta_label }}</span>
+                    <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</article>

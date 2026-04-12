@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260412details-popup-portal">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260412ordinance-separate-panels">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -69,7 +69,7 @@
                         <h3>{{ spotlight.title }}</h3>
                         <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
 
-                        <div class="home-pinned-spotlights__actions">
+                        <div class="home-pinned-spotlights__actions{% if spotlight.primary_cta_label == 'View Status' %} home-pinned-spotlights__actions--detail-only{% endif %}">
                             <a
                                 href="{{ spotlight.primary_cta_url }}"
                                 class="home-pinned-spotlights__btn home-pinned-spotlights__btn--primary"
@@ -82,7 +82,7 @@
                                 aria-expanded="false"
                                 {% endif %}
                             >
-                                <span>{{ spotlight.primary_cta_label }}</span>
+                                <span>{% if spotlight.primary_cta_label == "View Status" %}Details{% else %}{{ spotlight.primary_cta_label }}{% endif %}</span>
                             </a>
                             <button
                                 type="button"
@@ -92,6 +92,7 @@
                             >
                                 <span>Share</span>
                             </button>
+                            {% if spotlight.primary_cta_label != "View Status" %}
                             <a
                                 href="{{ spotlight.detail_url }}"
                                 class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary"
@@ -101,6 +102,7 @@
                             >
                                 <span>View Post</span>
                             </a>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -217,7 +219,7 @@
 <section class="home-featured-shell container" aria-label="Featured rescue dogs">
     <div class="home-featured-grid">
         {% for section in featured_dog_sections %}
-        <section class="home-featured-section home-featured-section--{{ section.key }} home-reveal" style="--home-stagger: {{ forloop.counter0 }};" aria-label="{{ section.title }}">
+        <section class="home-featured-section home-featured-section--{{ section.key }}" style="--home-stagger: {{ forloop.counter0 }};" aria-label="{{ section.title }}">
             <div class="home-featured-section__head">
                 <div class="home-featured-section__copy">
                     {% if section.eyebrow %}
@@ -371,6 +373,392 @@
             {% endif %}
         </section>
         {% endfor %}
+    </div>
+</section>
+<section class="home-ordinance-shell" aria-labelledby="homeOrdinanceTitle">
+    <div class="home-ordinance home-reveal">
+        <div class="home-ordinance__head">
+            <div class="home-ordinance__copy">
+                <span class="home-ordinance__eyebrow">Rabies Ordinance Guide</span>
+                <h2 id="homeOrdinanceTitle">Sections 28 and 29 Fees</h2>
+                <p>Quick reference for service charges and ordinance penalties related to dog registration, vaccination, impoundment, and rabies control compliance.</p>
+            </div>
+            <div class="home-ordinance__summary">
+                <span class="home-ordinance__summary-chip">Section 28: 7 service fees</span>
+                <span class="home-ordinance__summary-chip">Section 29: 28 penalties</span>
+            </div>
+        </div>
+
+        <div class="home-ordinance__grid">
+            <article class="home-ordinance__card home-ordinance__card--section-28 home-reveal" style="--home-stagger: 0;">
+                <div class="home-ordinance__card-head">
+                    <div class="home-ordinance__card-copy">
+                        <span class="home-ordinance__card-label">Section 28</span>
+                        <h3>Service Fees</h3>
+                        <p>Charges collected for veterinary services, impound-related processing, and document replacement.</p>
+                    </div>
+                </div>
+
+                <ol class="home-ordinance__list" role="list">
+                    <li class="home-ordinance__item">
+                        <span class="home-ordinance__index">1</span>
+                        <div class="home-ordinance__item-copy">
+                            <span class="home-ordinance__item-title">Rabies vaccination services fee</span>
+                        </div>
+                        <span class="home-ordinance__fee">PHP 50.00</span>
+                    </li>
+                    <li class="home-ordinance__item">
+                        <span class="home-ordinance__index">2</span>
+                        <div class="home-ordinance__item-copy">
+                            <span class="home-ordinance__item-title">Lodging fee</span>
+                        </div>
+                        <span class="home-ordinance__fee">PHP 200.00</span>
+                    </li>
+                    <li class="home-ordinance__item">
+                        <span class="home-ordinance__index">3</span>
+                        <div class="home-ordinance__item-copy">
+                            <span class="home-ordinance__item-title">Impoundment fee</span>
+                        </div>
+                        <span class="home-ordinance__fee">PHP 500.00</span>
+                    </li>
+                    <li class="home-ordinance__item">
+                        <span class="home-ordinance__index">4</span>
+                        <div class="home-ordinance__item-copy">
+                            <span class="home-ordinance__item-title">Lost dog vaccination certificate</span>
+                        </div>
+                        <span class="home-ordinance__fee">PHP 100.00</span>
+                    </li>
+                    <li class="home-ordinance__item">
+                        <span class="home-ordinance__index">5</span>
+                        <div class="home-ordinance__item-copy">
+                            <span class="home-ordinance__item-title">Forced neutering (Male)</span>
+                        </div>
+                        <span class="home-ordinance__fee">PHP 4000.00</span>
+                    </li>
+                    <li class="home-ordinance__item">
+                        <span class="home-ordinance__index">6</span>
+                        <div class="home-ordinance__item-copy">
+                            <span class="home-ordinance__item-title">Forced neutering (Female)</span>
+                        </div>
+                        <span class="home-ordinance__fee">PHP 5000.00</span>
+                    </li>
+                    <li class="home-ordinance__item">
+                        <span class="home-ordinance__index">7</span>
+                        <div class="home-ordinance__item-copy">
+                            <span class="home-ordinance__item-title">Veterinary clearance</span>
+                        </div>
+                        <span class="home-ordinance__fee">PHP 100.00</span>
+                    </li>
+                </ol>
+            </article>
+
+            <article class="home-ordinance__card home-ordinance__card--section-29 home-reveal" style="--home-stagger: 1;">
+                <div class="home-ordinance__card-head">
+                    <div class="home-ordinance__card-copy">
+                        <span class="home-ordinance__card-label">Section 29</span>
+                        <h3>Penalties and Violations</h3>
+                        <p>Administrative penalties for non-compliance, public safety violations, and prohibited acts under the ordinance.</p>
+                    </div>
+                </div>
+
+                <div class="home-ordinance__list--split" role="group" aria-label="Section 29 penalties">
+                    <section class="home-ordinance__split-panel home-ordinance__split-panel--back" aria-label="Section 29 part 1">
+                        <div class="home-ordinance__split-panel-head">
+                            <span class="home-ordinance__split-panel-label">Part 1</span>
+                            <span class="home-ordinance__split-panel-nav" aria-hidden="true">&lt; Back</span>
+                        </div>
+
+                        <ol class="home-ordinance__list home-ordinance__list--cluster" role="list">
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">1</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Dog slaughter</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">2</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">No proof of vaccination</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 2000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">5</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Pay all cost for dog bite victim/s' treatment</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">6</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Refusal to put the biting dog under observation</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">9</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">No dog leash outside</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 500.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">10</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Collared/tagged dog not under effective control</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 1000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">13</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Expired/lapsed anti-rabies vaccination</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 100.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">14</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">4th recorded offense - Forced neutering fine</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">17</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Dog slaughtering and dog meat trade court proceedings</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">18</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Electrocution as method of euthanasia</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">21</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Business establishment harboring stray dog</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">22</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Failure to clean poop in public place</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 500.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">25</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Failure to show proof of vaccination upon house-to-house inspection</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 500.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">26</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Vet clinic operating without animal facility registration</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                        </ol>
+                    </section>
+
+                    <section class="home-ordinance__split-panel home-ordinance__split-panel--next" aria-label="Section 29 part 2">
+                        <div class="home-ordinance__split-panel-head">
+                            <span class="home-ordinance__split-panel-label">Part 2</span>
+                            <span class="home-ordinance__split-panel-nav" aria-hidden="true">Next &gt;</span>
+                        </div>
+
+                        <ol class="home-ordinance__list home-ordinance__list--cluster" role="list">
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">3</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Refusal to register/vaccinate</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 2000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">4</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Unvaccinated dog that bite a victim</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">7</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Did not shoulder all expenses of bite victim</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">8</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Failed to shoulder expenses for CLO case filing</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">11</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Captured dog without tag</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 3000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">12</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Lost vaccination card</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 500.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">15</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Dog release requirements</span>
+                                </div>
+                                <span class="home-ordinance__fee home-ordinance__fee--free">PHP 0.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">16</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Cruelty to dog</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">19</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Owner liability for grave damage/property and vehicular accident victim hospitalization</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">20</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Redemption fee (within 24 hrs)</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 500.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">23</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Forced labor</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 5000.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">24</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Exceeding 4 heads (1 excess)</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 500.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">27</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Unregistered dog upon household inspection</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 500.00</span>
+                            </li>
+                            <li class="home-ordinance__item">
+                                <span class="home-ordinance__index">28</span>
+                                <div class="home-ordinance__item-copy">
+                                    <span class="home-ordinance__item-title">Agri-vet store and pet shop's failure to post rabies info materials</span>
+                                </div>
+                                <span class="home-ordinance__fee">PHP 2500.00</span>
+                            </li>
+                        </ol>
+                    </section>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+<section class="home-city-vet-shell" aria-label="City Vet Street View">
+    <div class="home-city-vet home-reveal">
+        <div class="home-city-vet__map-panel" data-home-map-panel>
+            <button type="button" class="home-city-vet__map-backdrop" data-home-map-close aria-label="Close expanded map"></button>
+            <div class="home-city-vet__map-wrap" data-home-map-wrap id="homeCityVetMap">
+                <button
+                    type="button"
+                    class="home-city-vet__map-expand-hit"
+                    data-home-map-expand
+                    aria-controls="homeCityVetMap"
+                    aria-expanded="false"
+                >
+                    <span class="home-city-vet__map-expand-pill">
+                        <i class="bi bi-arrows-angle-expand" aria-hidden="true"></i>
+                        <span>Tap to expand map</span>
+                    </span>
+                </button>
+
+                <iframe
+                    class="home-city-vet__map"
+                    title="Bayawan City Vet street view preview"
+                    src="https://maps.google.com/maps?layer=c&cbll=9.3618935,122.8134199&cbp=12,189.62106333952323,0,-10.325267084413284,0&panoid=bidnMnfXTQ60MJ_MV0UK0w&hl=en&output=svembed"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    allowfullscreen
+                ></iframe>
+
+                <a
+                    href="http://google.com/maps/@9.3618935,122.8134199,3a,75y,189.62h,100.33t/data=!3m7!1e1!3m5!1sbidnMnfXTQ60MJ_MV0UK0w!2e0!6shttps:%2F%2Fstreetviewpixels-pa.googleapis.com%2Fv1%2Fthumbnail%3Fcb_client%3Dmaps_sv.tactile%26w%3D900%26h%3D600%26pitch%3D-10.325267084413284%26panoid%3DbidnMnfXTQ60MJ_MV0UK0w%26yaw%3D189.62106333952323!7i16384!8i8192?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D"
+                    class="home-city-vet__map-search"
+                    target="_blank"
+                    rel="noopener"
+                >
+                    <span class="home-city-vet__map-search-copy">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <span>Search Google Maps</span>
+                    </span>
+                    <i class="bi bi-compass-fill" aria-hidden="true"></i>
+                </a>
+
+                <div class="home-city-vet__map-controls">
+                    <button type="button" class="home-city-vet__map-control home-city-vet__map-control--close" data-home-map-close aria-label="Close full map view">
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        <span>Close</span>
+                    </button>
+                    <a
+                        href="http://google.com/maps/@9.3618935,122.8134199,3a,75y,189.62h,100.33t/data=!3m7!1e1!3m5!1sbidnMnfXTQ60MJ_MV0UK0w!2e0!6shttps:%2F%2Fstreetviewpixels-pa.googleapis.com%2Fv1%2Fthumbnail%3Fcb_client%3Dmaps_sv.tactile%26w%3D900%26h%3D600%26pitch%3D-10.325267084413284%26panoid%3DbidnMnfXTQ60MJ_MV0UK0w%26yaw%3D189.62106333952323!7i16384!8i8192?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D"
+                        class="home-city-vet__map-control"
+                        target="_blank"
+                        rel="noopener"
+                    >
+                        <i class="bi bi-share-fill" aria-hidden="true"></i>
+                        <span>Open</span>
+                    </a>
+                </div>
+
+                <div class="home-city-vet__street-card">
+                    <div class="home-city-vet__street-card-head">
+                        <span class="home-city-vet__street-card-title">National Highway</span>
+                        <span class="home-city-vet__street-card-icon">
+                            <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+                        </span>
+                    </div>
+                    <span class="home-city-vet__street-card-meta">Street View based on your shared Google Maps link</span>
+                    <span class="home-city-vet__street-card-badge">
+                        <i class="bi bi-google" aria-hidden="true"></i>
+                        <span>Google Street View</span>
+                    </span>
+                </div>
+
+                <div class="home-city-vet__map-card">
+                    <span class="home-city-vet__map-card-label">Pinned Location</span>
+                    <strong class="home-city-vet__map-card-title">Bayawan City Vet</strong>
+                    <span class="home-city-vet__map-card-text">City Agriculture Office area, Bayawan</span>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
     {% if request.user.is_authenticated %}
@@ -927,6 +1315,100 @@
 
         startAutoplay();
     });
+
+    const cityVetMapPanel = document.querySelector('[data-home-map-panel]');
+    if (cityVetMapPanel) {
+        const mapWrap = cityVetMapPanel.querySelector('[data-home-map-wrap]');
+        const expandButtons = Array.from(cityVetMapPanel.querySelectorAll('[data-home-map-expand]'));
+        const closeButtons = Array.from(cityVetMapPanel.querySelectorAll('[data-home-map-close]'));
+        const mobileMapQuery = window.matchMedia('(max-width: 640px)');
+
+        const setMapExpanded = (isExpanded) => {
+            const shouldExpand = Boolean(isExpanded) && mobileMapQuery.matches;
+            cityVetMapPanel.classList.toggle('is-map-expanded', shouldExpand);
+            if (mapWrap) {
+                mapWrap.classList.toggle('is-expanded', shouldExpand);
+            }
+            document.body.classList.toggle('home-map-expanded', shouldExpand);
+            expandButtons.forEach((button) => {
+                button.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
+            });
+        };
+
+        const openMap = () => {
+            if (!mobileMapQuery.matches) {
+                return;
+            }
+
+            setMapExpanded(true);
+            window.requestAnimationFrame(() => {
+                const closeButton = cityVetMapPanel.querySelector('.home-city-vet__map-control--close');
+                if (closeButton) {
+                    closeButton.focus();
+                }
+            });
+        };
+
+        const closeMap = ({ returnFocus = true } = {}) => {
+            setMapExpanded(false);
+            if (!returnFocus) {
+                return;
+            }
+
+            window.requestAnimationFrame(() => {
+                const expandButton = cityVetMapPanel.querySelector('[data-home-map-expand]');
+                if (expandButton) {
+                    expandButton.focus();
+                }
+            });
+        };
+
+        expandButtons.forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                openMap();
+            });
+        });
+
+        if (mapWrap) {
+            mapWrap.addEventListener('click', (event) => {
+                if (!mobileMapQuery.matches || mapWrap.classList.contains('is-expanded')) {
+                    return;
+                }
+
+                if (event.target.closest('a, button')) {
+                    return;
+                }
+
+                openMap();
+            });
+        }
+
+        closeButtons.forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                closeMap();
+            });
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && mapWrap && mapWrap.classList.contains('is-expanded')) {
+                closeMap();
+            }
+        });
+
+        const handleMobileMapViewportChange = () => {
+            if (!mobileMapQuery.matches) {
+                closeMap({ returnFocus: false });
+            }
+        };
+
+        if (typeof mobileMapQuery.addEventListener === 'function') {
+            mobileMapQuery.addEventListener('change', handleMobileMapViewportChange);
+        } else if (typeof mobileMapQuery.addListener === 'function') {
+            mobileMapQuery.addListener(handleMobileMapViewportChange);
+        }
+    }
 
     const spotlightCards = Array.from(document.querySelectorAll('[data-home-spotlight-card]'));
     if (spotlightCards.length) {

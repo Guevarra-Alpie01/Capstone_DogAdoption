@@ -2278,8 +2278,8 @@ def _build_home_featured_rescue_sections(request):
         },
         {
             "key": "adopt",
-            "title": "Adoption Ready",
-            "eyebrow": "Ready for Adoption",
+            "title": "Ready to Adopt",
+            "eyebrow": "Adoption Window",
             "description": "Dogs ready to meet their next family.",
             "browse_url": reverse("user:adopt_list"),
             "empty_message": "No dogs are currently ready for adoption.",

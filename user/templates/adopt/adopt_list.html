@@ -10,30 +10,26 @@
     <form method="get" class="finder-layout" data-finder-layout>
         <section class="finder-hero">
             <div class="finder-hero__copy">
-                <span class="finder-hero__eyebrow">
-                    <i class="bi bi-heart" aria-hidden="true"></i>
-                    Rescue Finder
-                </span>
                 <h1 class="finder-hero__title">{{ page_title }}</h1>
-
-                {% if request_links %}
-                <div class="finder-hero__actions">
-                    {% for link in request_links %}
-                    <a
-                        href="{{ link.url }}"
-                        class="finder-hero__link"
-                        {% if not request.user.is_authenticated %}
-                        data-auth-modal-trigger="login"
-                        data-auth-next-url="{{ link.url }}"
-                        {% endif %}
-                    >
-                        <i class="{{ link.icon_class }}" aria-hidden="true"></i>
-                        <span>{{ link.label }}</span>
-                    </a>
-                    {% endfor %}
-                </div>
-                {% endif %}
             </div>
+
+            {% if request_links %}
+            <div class="finder-hero__actions">
+                {% for link in request_links %}
+                <a
+                    href="{{ link.url }}"
+                    class="finder-hero__link"
+                    {% if not request.user.is_authenticated %}
+                    data-auth-modal-trigger="login"
+                    data-auth-next-url="{{ link.url }}"
+                    {% endif %}
+                >
+                    <span>{{ link.label }}</span>
+                    <i class="{{ link.icon_class }}" aria-hidden="true"></i>
+                </a>
+                {% endfor %}
+            </div>
+            {% endif %}
         </section>
 
         <section class="finder-filter-shell">
@@ -65,13 +61,8 @@
             <div class="finder-filter-shell__panel" data-finder-filter-panel>
                 <nav class="finder-toolbar" id="finderFiltersPanel" data-finder-toolbar aria-label="Dog search filters">
                     <div class="finder-toolbar__header">
-                        <div>
-                            <h3 class="finder-toolbar__title">Filter Search</h3>
-                            <p class="finder-toolbar__text">Tap a filter to see all available choices, then apply your preferences.</p>
-                        </div>
-                        <button type="button" class="finder-toolbar__close" data-finder-filter-close aria-label="Close filters">
-                            <i class="bi bi-x-lg" aria-hidden="true"></i>
-                        </button>
+                        <h3 class="finder-toolbar__title">Filters</h3>
+                        <a href="{{ clear_filters_url }}" class="finder-toolbar__clear-link">Clear All</a>
                     </div>
 
                     <div class="finder-toolbar__controls">
@@ -404,7 +395,11 @@
     purposeSelect?.addEventListener('change', syncPurposeOptions);
 
     resetTransientFilterUi();
-    syncFilterToggleUi();
+    if (mobileQuery.matches) {
+        syncFilterToggleUi();
+    } else {
+        setDesktopFiltersCollapsed(true);
+    }
 
     purposeMenu?.addEventListener('toggle', () => {
         if (purposeMenu.open && !mobileQuery.matches) {
@@ -441,6 +436,10 @@
 
     document.addEventListener('click', (event) => {
         if (mobileQuery.matches) return;
+        if (!event.target.closest('.finder-filter-shell')) {
+            setDesktopFiltersCollapsed(true);
+            return;
+        }
         if (!event.target.closest('.finder-filter-group') && !event.target.closest('.finder-purpose-menu')) {
             closeFilterGroups();
             closePurposeMenu();
@@ -450,7 +449,11 @@
     const handleViewportChange = () => {
         resetTransientFilterUi();
         setMobileFiltersOpen(false);
-        syncFilterToggleUi();
+        if (mobileQuery.matches) {
+            syncFilterToggleUi();
+        } else {
+            setDesktopFiltersCollapsed(true);
+        }
     };
 
     if (typeof mobileQuery.addEventListener === 'function') {
@@ -462,7 +465,11 @@
     window.addEventListener('pageshow', () => {
         resetTransientFilterUi();
         setMobileFiltersOpen(false);
-        syncFilterToggleUi();
+        if (mobileQuery.matches) {
+            syncFilterToggleUi();
+        } else {
+            setDesktopFiltersCollapsed(true);
+        }
     });
 
     function announceShareStatus(message) {
@@ -490,10 +497,27 @@
             icon.classList.toggle('bi-chevron-up', shouldExpand);
         }
         if (panel) {
-            panel.hidden = !shouldExpand;
+            if (panel.dataset.hideTimerId) {
+                window.clearTimeout(Number(panel.dataset.hideTimerId));
+                delete panel.dataset.hideTimerId;
+            }
+
+            if (shouldExpand) {
+                panel.hidden = false;
+                panel.scrollTop = 0;
+                requestAnimationFrame(() => {
+                    card?.classList.add('is-info-open');
+                });
+            } else {
+                card?.classList.remove('is-info-open');
+                panel.dataset.hideTimerId = String(window.setTimeout(() => {
+                    panel.hidden = true;
+                    delete panel.dataset.hideTimerId;
+                }, 240));
+            }
         }
-        if (card) {
-            card.classList.toggle('is-info-open', shouldExpand);
+        if (card && shouldExpand) {
+            card.classList.add('is-info-open');
         }
     }
 

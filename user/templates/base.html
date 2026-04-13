@@ -108,6 +108,16 @@
             transform: translate3d(0, calc(-1 * var(--page-transition-exit-y)), 0) scale(0.986);
             filter: blur(8px);
         }
+        body.is-guest .page-transition-overlay {
+            opacity: 0 !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        body.is-guest [data-page-transition-surface] {
+            opacity: 1 !important;
+            transform: none !important;
+            filter: none !important;
+        }
         @media (prefers-reduced-motion: reduce) {
             .page-transition-overlay,
             [data-page-transition-surface],
@@ -521,6 +531,15 @@ document.addEventListener('DOMContentLoaded', function () {
         window.setTimeout(function () {
             body.classList.remove('page-transition-entering', 'page-transition-enter-active');
         }, 380);
+    }
+
+    if (!body.classList.contains('is-authenticated')) {
+        body.classList.remove(
+            'page-transition-entering',
+            'page-transition-enter-active',
+            'page-transition-exiting'
+        );
+        return;
     }
 
     function navigateWithTransition(nextHref) {

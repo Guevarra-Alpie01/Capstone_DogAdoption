@@ -27,7 +27,8 @@ deploy, set it explicitly so the browser and social-share endpoints line up.
 
 - Default local development cache is `CACHE_BACKEND=locmem`.
 - PythonAnywhere production should use `CACHE_BACKEND=redis`.
-- Set `REDIS_URL` to the Redis endpoint provided for your deployment.
+- Set `REDIS_URL` to an external Redis endpoint. PythonAnywhere does not
+  provide built-in Redis, so this must be a hosted Redis service you control.
 - Keep `REDIS_CACHE_KEY_PREFIX` unique if you share the same Redis service
   across staging and production.
 - Redis is important here because notifications, rate limiting, and feed

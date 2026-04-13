@@ -39,9 +39,14 @@
                 <form
                     method="post"
                     class="signup-form"
+                    data-google-auth-form
+                    data-google-signup-form
+                    data-google-auth-mode="signup"
+                    data-google-client-id="{{ google_client_id|default:'' }}"
                 >
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{{ auth_next|default:'' }}" data-auth-next-field>
+                    <input type="hidden" name="google_credential" value="">
 
                     <div class="mb-2 input-group">
                         <label for="signupPageUsername" class="auth-field-label">Username</label>
@@ -154,25 +159,46 @@
                         <div id="signup-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
                     </div>
 
-                    <div class="auth-divider" aria-hidden="true">
-                        <span>Finish Registration</span>
+                    <div class="mb-2">
+                        <button type="submit" class="login-btn auth-form-submit py-2">
+                            Create Account
+                        </button>
                     </div>
 
-                    {% if social_signup_pending %}
-                    <p class="auth-inline-alert auth-inline-alert--static" role="status">
-                        {% if social_signup_source == "google" %}
-                        You are already using your Google account. Finish choosing a username and password below.
-                        {% elif social_signup_source == "facebook" %}
-                        You are already using your Facebook account. Finish choosing a username and password below.
-                        {% else %}
-                        You are already using a social account. Finish choosing a username and password below.
-                        {% endif %}
-                    </p>
+                    <div class="auth-divider" aria-hidden="true">
+                        <span>or continue with</span>
+                    </div>
+
+                    {% if google_auth_enabled %}
+                    <div class="google-signup-shell">
+                        <div class="google-signup-button" data-google-auth-button data-google-signup-button></div>
+                        <p class="auth-inline-alert auth-inline-alert--static d-none" data-google-auth-error data-google-signup-error role="alert"></p>
+                    </div>
                     {% else %}
-                    <p class="auth-helper-copy">
-                        Choose a username and password below to create your account.
+                    <p class="auth-inline-alert auth-inline-alert--static" role="alert">
+                        Google sign-up is not configured yet. Add <code>GOOGLE_CLIENT_ID</code> to enable it.
                     </p>
                     {% endif %}
+
+                    {% if facebook_auth_enabled %}
+                    <div class="auth-social-stack auth-social-stack--signup">
+                        <a
+                            href="{% url 'user:facebook_auth_start' %}?mode=signup{% if auth_next %}&next={{ auth_next|urlencode }}{% endif %}"
+                            class="auth-social-btn auth-social-btn--facebook"
+                        >
+                            <i class="bi bi-facebook" aria-hidden="true"></i>
+                            <span>Continue with Facebook</span>
+                        </a>
+                    </div>
+                    {% else %}
+                    <p class="auth-inline-alert auth-inline-alert--static" role="alert">
+                        Facebook sign-up is not configured yet. Add <code>FACEBOOK_APP_ID</code> and <code>FACEBOOK_APP_SECRET</code> to enable it.
+                    </p>
+                    {% endif %}
+
+                    <p class="auth-helper-copy auth-helper-copy--compact">
+                        Manual signup creates your account right away. Google and Facebook also log you in immediately, and you can complete your profile later.
+                    </p>
                 </form>
 
                 <div class="auth-footer">

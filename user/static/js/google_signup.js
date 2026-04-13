@@ -229,11 +229,6 @@
             callback: function (response) {
                 clearError(form);
 
-                if (!form.reportValidity()) {
-                    setError(form, "Complete the required fields, then sign up with Google again.");
-                    return;
-                }
-
                 if (!response || !response.credential) {
                     setError(form, "Google could not confirm your account. Please try again.");
                     return;
@@ -272,25 +267,6 @@
             renderAuthButton(form, force);
         });
     }
-
-    authForms.forEach(function (form) {
-        const mode = getMode(form);
-        const pendingSignup = mode === "signup" && isPendingSignup(form);
-
-        if (mode === "signup" && !pendingSignup) {
-            form.addEventListener("submit", function (event) {
-                const credentialInput = getCredentialInput(form);
-                if (credentialInput && credentialInput.value) {
-                    return;
-                }
-                if (!form.reportValidity()) {
-                    return;
-                }
-                event.preventDefault();
-                setError(form, "Complete the required fields, then sign up with Google again.");
-            });
-        }
-    });
 
     renderAuthForms(document);
 

@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260412campaign-inline">
+<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260413pinned-popup">
 {% endblock %}
 
 {% block content %}
@@ -135,9 +135,16 @@
     </div>
 </div>
 
+<div class="user-ann-popup" data-pinned-announcement-modal hidden>
+    <div class="user-ann-popup-backdrop" data-close-pinned-announcement></div>
+    <div class="user-ann-popup-dialog" role="dialog" aria-modal="true" aria-label="Pinned announcement details">
+        <div class="user-ann-popup-content" data-pinned-announcement-content></div>
+    </div>
+</div>
+
 <script>
 (function () {
-    document.querySelectorAll('[data-photo-viewer]').forEach((viewer) => {
+    function initPhotoViewer(viewer) {
         const image = viewer.querySelector('.fb-photo-main');
         const prevBtn = viewer.querySelector('.fb-photo-prev');
         const nextBtn = viewer.querySelector('.fb-photo-next');
@@ -147,6 +154,8 @@
         }));
 
         if (!image || !prevBtn || !nextBtn || !slides.length) return;
+        if (viewer.dataset.viewerReady === 'true') return;
+        viewer.dataset.viewerReady = 'true';
 
         let index = 0;
         const hasMultiple = slides.length > 1;
@@ -172,12 +181,17 @@
         });
 
         render();
-    });
+    }
+
+    document.querySelectorAll('[data-photo-viewer]').forEach(initPhotoViewer);
 
     const board = document.querySelector('[data-user-mobile-announcement-board]');
     const tabs = Array.from(document.querySelectorAll('[data-user-mobile-announcement-tab]'));
     const sections = Array.from(document.querySelectorAll('[data-user-mobile-announcement-section]'));
     const mobileLayout = window.matchMedia('(max-width: 767.98px)');
+    const modal = document.querySelector('[data-pinned-announcement-modal]');
+    const modalContent = modal?.querySelector('[data-pinned-announcement-content]') || null;
+    let lastFocusedTrigger = null;
 
     function setActiveSection(sectionKey) {
         if (!board) return;
@@ -226,6 +240,44 @@
     } else if (typeof mobileLayout.addListener === 'function') {
         mobileLayout.addListener(syncMobileSections);
     }
+
+    function closePinnedAnnouncementModal() {
+        if (!modal || !modalContent) return;
+        modal.hidden = true;
+        modalContent.innerHTML = '';
+        document.body.classList.remove('user-ann-popup-open');
+        if (lastFocusedTrigger) {
+            lastFocusedTrigger.focus();
+            lastFocusedTrigger = null;
+        }
+    }
+
+    document.querySelectorAll('[data-open-pinned-announcement]').forEach((trigger) => {
+        trigger.addEventListener('click', () => {
+            const postId = trigger.getAttribute('data-post-id');
+            const template = document.querySelector(`[data-pinned-announcement-template="${postId}"]`);
+            if (!modal || !modalContent || !template) return;
+
+            modalContent.innerHTML = template.innerHTML;
+            modal.hidden = false;
+            document.body.classList.add('user-ann-popup-open');
+            lastFocusedTrigger = trigger;
+            modalContent.querySelectorAll('[data-photo-viewer]').forEach(initPhotoViewer);
+            modalContent.querySelector('[data-close-pinned-announcement]')?.focus();
+        });
+    });
+
+    modal?.addEventListener('click', (event) => {
+        if (event.target.closest('[data-close-pinned-announcement]')) {
+            closePinnedAnnouncementModal();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal && !modal.hidden) {
+            closePinnedAnnouncementModal();
+        }
+    });
 })();
 </script>
 {% endblock %}

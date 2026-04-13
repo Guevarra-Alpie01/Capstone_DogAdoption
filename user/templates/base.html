@@ -32,7 +32,7 @@
     {% if not user.is_authenticated %}
     <link rel="stylesheet" href="{% static 'css/auth_modal.css' %}?v=20260410l">
     {% endif %}
-    <link rel="stylesheet" href="{% static 'css/user_theme.css' %}?v=20260410footer-green">
+    <link rel="stylesheet" href="{% static 'css/user_theme.css' %}?v=20260414-sidebar-close-fix2">
     <link rel="stylesheet" href="{% static 'css/notification_menu.css' %}?v=20260330b">
     <link rel="stylesheet" href="{% static 'css/user_button_skin.css' %}?v=20260324a">
     <style>
@@ -107,6 +107,16 @@
             opacity: 0;
             transform: translate3d(0, calc(-1 * var(--page-transition-exit-y)), 0) scale(0.986);
             filter: blur(8px);
+        }
+        body.is-guest .page-transition-overlay {
+            opacity: 0 !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        body.is-guest [data-page-transition-surface] {
+            opacity: 1 !important;
+            transform: none !important;
+            filter: none !important;
         }
         @media (prefers-reduced-motion: reduce) {
             .page-transition-overlay,
@@ -249,14 +259,17 @@
                 </div>
 
                 <button
-                    class="btn btn-sm text-white d-lg-none"
+                    class="btn sidebar-toggle-btn d-lg-none"
                     id="sidebarToggle"
                     type="button"
                     aria-controls="sidebar-wrapper"
                     aria-expanded="false"
                     aria-label="Open navigation menu"
                 >
-                    <span class="navbar-toggler-icon"></span>
+                    <span class="sidebar-toggle-icon" aria-hidden="true">
+                        <span class="sidebar-toggle-line sidebar-toggle-line--top"></span>
+                        <span class="sidebar-toggle-line sidebar-toggle-line--bottom"></span>
+                    </span>
                 </button>
 
                 <!-- USER DROPDOWN -->
@@ -314,14 +327,17 @@
         {% else %}
             <div class="user-topbar-start">
                 <button
-                    class="btn btn-sm text-white d-lg-none"
+                    class="btn sidebar-toggle-btn d-lg-none"
                     id="sidebarToggle"
                     type="button"
                     aria-controls="sidebar-wrapper"
                     aria-expanded="false"
                     aria-label="Open navigation menu"
                 >
-                    <span class="navbar-toggler-icon"></span>
+                    <span class="sidebar-toggle-icon" aria-hidden="true">
+                        <span class="sidebar-toggle-line sidebar-toggle-line--top"></span>
+                        <span class="sidebar-toggle-line sidebar-toggle-line--bottom"></span>
+                    </span>
                 </button>
 
                 <a class="navbar-brand user-brand" href="{% url 'user:user_home' %}">
@@ -520,6 +536,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 380);
     }
 
+    if (!body.classList.contains('is-authenticated')) {
+        body.classList.remove(
+            'page-transition-entering',
+            'page-transition-enter-active',
+            'page-transition-exiting'
+        );
+        return;
+    }
+
     function navigateWithTransition(nextHref) {
         if (isNavigating) {
             return;
@@ -680,6 +705,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (sidebarToggle) {
             sidebarToggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+            sidebarToggle.setAttribute(
+                'aria-label',
+                shouldOpen ? 'Close navigation menu' : 'Open navigation menu'
+            );
+            sidebarToggle.classList.toggle('is-open', shouldOpen);
         }
     }
 
@@ -752,6 +782,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (sidebarToggle) {
             sidebarToggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+            sidebarToggle.setAttribute(
+                'aria-label',
+                shouldOpen ? 'Close navigation menu' : 'Open navigation menu'
+            );
+            sidebarToggle.classList.toggle('is-open', shouldOpen);
         }
     }
 

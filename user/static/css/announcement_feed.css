@@ -61,6 +61,10 @@
     transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
 }
 
+.user-ann-mobile-tab--mobile-only {
+    display: none;
+}
+
 .user-ann-mobile-tab:hover {
     background: #e8eef7;
     color: #233b59;
@@ -646,9 +650,19 @@
     .user-ann-columns {
         grid-template-columns: 1fr;
     }
+
+    .user-ann-column-pinned,
+    .user-ann-column-regular,
+    .user-ann-column-education {
+        grid-column: 1 / -1;
+    }
 }
 
 @media (max-width: 767.98px) {
+    .user-ann-mobile-tab--mobile-only {
+        display: inline-flex;
+    }
+
     .user-ann-mobile-tabs {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1593,12 +1607,22 @@
     .user-ann-columns {
         grid-template-columns: 1fr;
     }
+
+    .user-ann-column-pinned,
+    .user-ann-column-regular,
+    .user-ann-column-education {
+        grid-column: 1 / -1;
+    }
 }
 
 @media (max-width: 767.98px) {
     .user-ann-board {
         gap: var(--ann-space-2);
         padding-bottom: 24px;
+    }
+
+    .user-ann-columns {
+        gap: 0;
     }
 
     .user-ann-header {
@@ -1660,14 +1684,14 @@
 
     .user-ann-card .fb-action-row,
     .user-ann-card .user-ann-action-row {
-        grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
     }
 
     .user-ann-card .user-ann-action-row.has-view-action {
-        grid-template-columns: none;
-        justify-content: center;
-        gap: 12px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        justify-content: stretch;
+        gap: 8px;
         padding-top: 12px;
     }
 
@@ -1676,8 +1700,8 @@
     }
 
     .user-ann-card .user-ann-action-row.has-view-action .fb-action-btn:not(.user-ann-desktop-view) {
-        width: auto !important;
-        min-width: 96px;
+        width: 100% !important;
+        min-width: 0;
         min-height: 42px;
         border-radius: 12px;
         padding: 0 18px !important;
@@ -1693,29 +1717,29 @@
     }
 
     .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
-        display: inline-flex;
-        flex-wrap: nowrap;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         align-items: stretch;
-        width: fit-content;
+        width: 100%;
         margin-left: 0;
         margin-right: 0;
-        gap: 8px;
+        gap: 4px;
         padding: 0;
         border-radius: 0;
         box-shadow: none;
     }
 
     .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact {
+        min-width: 0;
         width: 100%;
         max-width: none;
-        flex: 0 0 auto;
         justify-content: space-between;
-        gap: 4px;
-        min-height: 42px;
-        padding: 7px 8px;
+        gap: 3px;
+        min-height: 38px;
+        padding: 6px 5px;
         border-radius: 12px;
-        font-size: 8.8px;
-        letter-spacing: 0.18px;
+        font-size: 7.8px;
+        letter-spacing: 0.12px;
     }
 
     .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact > span:first-child {
@@ -1725,9 +1749,9 @@
     }
 
     .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] .user-ann-mobile-tab-count.announcement-mobile-tab-count {
-        min-width: 22px;
-        padding: 3px 5px;
-        font-size: 8.6px;
+        min-width: 18px;
+        padding: 2px 4px;
+        font-size: 7.4px;
         flex: 0 0 auto;
     }
 }
@@ -1767,16 +1791,21 @@
     .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
         width: 100%;
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 7px;
-        padding: 6px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 4px;
+        padding: 0;
+    }
+
+    .user-ann-column {
+        width: 100%;
+        border-radius: 0;
     }
 
     .user-ann-column-header,
     .user-ann-column-body,
     .user-ann-pagination {
-        padding-left: 16px;
-        padding-right: 16px;
+        padding-left: 12px;
+        padding-right: 12px;
     }
 
     .user-ann-column-title-row {
@@ -1788,18 +1817,18 @@
     .user-ann-post-title,
     .user-ann-card .fb-caption,
     .user-ann-card-footer {
-        padding-left: 16px;
-        padding-right: 16px;
+        padding-left: 12px;
+        padding-right: 12px;
     }
 
     .user-ann-card .fb-photo-viewer {
-        margin-left: 16px;
-        margin-right: 16px;
+        margin-left: 12px;
+        margin-right: 12px;
     }
 
     .user-ann-card .user-ann-mobile-schedule {
-        padding-left: 16px;
-        padding-right: 16px;
+        padding-left: 12px;
+        padding-right: 12px;
     }
 
     .user-ann-pagination {
@@ -1816,22 +1845,22 @@
 
 @media (max-width: 420px) {
     .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
-        gap: 6px;
-        padding: 5px;
+        gap: 3px;
+        padding: 0;
     }
 
     .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact {
-        gap: 3px;
-        min-height: 40px;
-        padding: 6px 7px;
-        font-size: 8.2px;
-        letter-spacing: 0.14px;
+        gap: 2px;
+        min-height: 36px;
+        padding: 5px 4px;
+        font-size: 7px;
+        letter-spacing: 0.08px;
     }
 
     .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] .user-ann-mobile-tab-count.announcement-mobile-tab-count {
-        min-width: 19px;
-        padding: 3px 4px;
-        font-size: 8px;
+        min-width: 16px;
+        padding: 2px 3px;
+        font-size: 6.8px;
     }
 }
 

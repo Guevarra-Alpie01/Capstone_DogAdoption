@@ -268,25 +268,6 @@
         });
     }
 
-    authForms.forEach(function (form) {
-        const mode = getMode(form);
-        const pendingSignup = mode === "signup" && isPendingSignup(form);
-
-        if (mode === "signup" && !pendingSignup) {
-            form.addEventListener("submit", function (event) {
-                const credentialInput = getCredentialInput(form);
-                if (credentialInput && credentialInput.value) {
-                    return;
-                }
-                if (!form.reportValidity()) {
-                    return;
-                }
-                event.preventDefault();
-                setError(form, "Use the Google button to finish creating your account.");
-            });
-        }
-    });
-
     renderAuthForms(document);
 
     if (window.bootstrap) {

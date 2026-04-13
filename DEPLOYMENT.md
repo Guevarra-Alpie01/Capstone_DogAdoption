@@ -11,13 +11,13 @@ For PythonAnywhere, start from `.env.pythonanywhere.example` and set at least:
 
 - `DJANGO_SECRET_KEY` to a long random value
 - `DJANGO_DEBUG=False`
-- `DJANGO_ALLOWED_HOSTS=<your-username>.pythonanywhere.com`
-- `PYTHONANYWHERE_DOMAIN=<your-username>.pythonanywhere.com`
-- `DJANGO_CSRF_TRUSTED_ORIGINS=https://<your-username>.pythonanywhere.com`
+- `DJANGO_ALLOWED_HOSTS=bayawanvet.pythonanywhere.com`
+- `PYTHONANYWHERE_DOMAIN=bayawanvet.pythonanywhere.com`
+- `DJANGO_CSRF_TRUSTED_ORIGINS=https://bayawanvet.pythonanywhere.com`
 - DB settings (`DB_*`) to your PythonAnywhere MySQL database
 - `CACHE_BACKEND=redis`
 - `REDIS_URL=redis://<your-redis-host>:6379/<db>`
-- `SITE_BASE_URL=https://<your-username>.pythonanywhere.com`
+- `SITE_BASE_URL=https://bayawanvet.pythonanywhere.com`
 
 If `DJANGO_CSRF_TRUSTED_ORIGINS` is left blank, it is auto-derived from
 `ALLOWED_HOSTS` (HTTPS origins only, excluding localhost). For the production

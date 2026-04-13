@@ -204,23 +204,94 @@ body {
     margin-left: 0 !important;
 }
 
-.user-topbar-start #sidebarToggle,
-.user-topbar-end #sidebarToggle {
+.sidebar-toggle-btn {
     width: 38px;
     height: 38px;
     padding: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 999px;
+    border: 0;
+    border-radius: 14px;
     flex: 0 0 auto;
+    background: linear-gradient(180deg, rgba(255, 250, 226, 0.76) 0%, rgba(255, 250, 226, 0.48) 100%);
+    box-shadow:
+        inset 0 0 0 1px rgba(91, 83, 0, 0.14),
+        0 8px 16px rgba(109, 88, 0, 0.08);
+    transition:
+        transform 0.18s ease,
+        background 0.22s ease,
+        box-shadow 0.22s ease;
 }
 
-.user-topbar-start #sidebarToggle .navbar-toggler-icon,
-.user-topbar-end #sidebarToggle .navbar-toggler-icon {
-    width: 20px;
-    height: 20px;
-    background-size: 20px 20px;
+.sidebar-toggle-btn:hover,
+.sidebar-toggle-btn:focus-visible {
+    transform: translateY(-1px);
+    background: linear-gradient(180deg, rgba(255, 253, 232, 0.96) 0%, rgba(248, 239, 192, 0.88) 100%);
+    box-shadow:
+        inset 0 0 0 1px rgba(91, 83, 0, 0.18),
+        0 10px 18px rgba(109, 88, 0, 0.12);
+}
+
+.sidebar-toggle-btn:focus-visible {
+    outline: 2px solid rgba(31, 74, 25, 0.24);
+    outline-offset: 2px;
+}
+
+.sidebar-toggle-btn.is-open {
+    background: linear-gradient(180deg, #1e5b45 0%, #174637 100%);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+        0 10px 18px rgba(17, 49, 37, 0.18);
+}
+
+.sidebar-toggle-icon {
+    position: relative;
+    display: block;
+    width: 18px;
+    height: 18px;
+}
+
+.sidebar-toggle-line {
+    position: absolute;
+    left: 50%;
+    width: 18px;
+    height: 2.5px;
+    border-radius: 999px;
+    transform-origin: center;
+    transform: translateX(-50%);
+    background: #1b3e2f;
+    transition:
+        top 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+        width 0.2s ease,
+        background-color 0.2s ease,
+        opacity 0.18s ease;
+}
+
+.sidebar-toggle-line--top {
+    top: 5px;
+}
+
+.sidebar-toggle-line--bottom {
+    top: 11px;
+    width: 13px;
+}
+
+.sidebar-toggle-btn.is-open .sidebar-toggle-line {
+    background: #ffffff;
+}
+
+.sidebar-toggle-btn.is-open .sidebar-toggle-line--top {
+    top: 8px;
+    width: 18px;
+    transform: translateX(-50%) rotate(45deg);
+}
+
+.sidebar-toggle-btn.is-open .sidebar-toggle-line--bottom {
+    top: 8px;
+    width: 18px;
+    transform: translateX(-50%) rotate(-45deg);
 }
 
 .user-topbar-center {
@@ -318,7 +389,7 @@ body {
 
 .user-sidebar-backdrop {
     position: fixed;
-    top: 66px;
+    top: 0;
     right: 0;
     bottom: 0;
     left: 0;
@@ -328,7 +399,7 @@ body {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.18s ease;
-    z-index: 999;
+    z-index: 1020;
 }
 
 body.user-sidebar-open {
@@ -1100,8 +1171,8 @@ tbody th,
     }
 
     .user-topbar-shell {
-        gap: 10px;
-        padding: 0 10px;
+        gap: 8px;
+        padding: 0 8px;
     }
 
     .user-topbar-actions {
@@ -1125,6 +1196,11 @@ tbody th,
         font-size: 0.72rem;
     }
 
+    .app-topbar {
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+
     .topbar-primary-nav-link {
         min-height: 32px;
         padding: 0 2px 8px;
@@ -1140,10 +1216,8 @@ tbody th,
 .user-mobile-sidebar {
     display: flex;
     flex-direction: column;
-    width: 240px !important;
-    margin-left: 0 !important;
-    margin-right: -240px !important;
-    margin-left: auto !important;
+    width: min(82vw, 320px) !important;
+    margin: 0 !important;
     border-radius: 24px 0 0 24px;
     z-index: 1000;
 }
@@ -1330,14 +1404,14 @@ tbody th,
 
 @media (max-width: 576px) {
     .app-topbar {
-        border-bottom-left-radius: 18px;
-        border-bottom-right-radius: 18px;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
     }
 
     .user-topbar-shell {
         min-height: 56px;
-        gap: 8px;
-        padding: 0 8px;
+        gap: 0;
+        padding: 0 !important;
     }
 
     .user-topbar-start {
@@ -1346,20 +1420,10 @@ tbody th,
         min-width: 0;
     }
 
-    .user-topbar-start #sidebarToggle,
-    .user-topbar-end #sidebarToggle {
+    .sidebar-toggle-btn {
         width: 34px;
         height: 34px;
-        border-radius: 10px;
-        background: rgba(255, 250, 226, 0.52) !important;
-        box-shadow: inset 0 0 0 1px rgba(91, 83, 0, 0.14);
-    }
-
-    .user-topbar-start #sidebarToggle .navbar-toggler-icon,
-    .user-topbar-end #sidebarToggle .navbar-toggler-icon {
-        width: 18px;
-        height: 18px;
-        background-size: 18px 18px;
+        border-radius: 12px;
     }
 
     .navbar-brand.user-brand {
@@ -1433,15 +1497,14 @@ tbody th,
     }
 
     .user-sidebar-backdrop {
-        top: 66px;
+        top: 0;
     }
 
     .user-mobile-sidebar {
         left: 0 !important;
         right: auto !important;
         width: min(82vw, 320px) !important;
-        margin-left: calc(-1 * min(82vw, 320px)) !important;
-        margin-right: 0 !important;
+        margin: 0 !important;
         border-radius: 0 18px 18px 0;
     }
 
@@ -1472,13 +1535,13 @@ tbody th,
 
 @media (max-width: 420px) {
     .app-topbar {
-        border-bottom-left-radius: 14px;
-        border-bottom-right-radius: 14px;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
     }
 
     .user-topbar-shell {
-        gap: 6px;
-        padding: 0 6px;
+        gap: 0;
+        padding: 0 !important;
     }
 
     .user-brand-main {
@@ -1496,8 +1559,8 @@ tbody th,
     }
 
     .user-mobile-sidebar {
-        width: 224px !important;
-        margin-right: -224px !important;
+        width: min(82vw, 320px) !important;
+        margin: 0 !important;
     }
 }
 
@@ -1605,9 +1668,8 @@ tbody th,
 
 @media (max-width: 576px) {
     .user-mobile-sidebar {
-        width: 220px !important;
-        margin-left: 0 !important;
-        margin-right: -220px !important;
+        width: min(82vw, 320px) !important;
+        margin: 0 !important;
     }
 }
 
@@ -1618,13 +1680,15 @@ tbody th,
     .user-mobile-sidebar,
     #sidebar-wrapper.user-mobile-sidebar {
         position: fixed !important;
-        top: 66px !important;
+        top: 0 !important;
         left: 0 !important;
         right: auto !important;
         bottom: 0 !important;
         width: min(82vw, 320px) !important;
-        height: calc(100dvh - 66px) !important;
-        min-height: calc(100dvh - 66px) !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        padding-top: 60px !important;
+        box-sizing: border-box;
         margin: 0 !important;
         border-radius: 0 22px 22px 0 !important;
         transform: translate3d(-100%, 0, 0);
@@ -1637,7 +1701,7 @@ tbody th,
             transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
             opacity 0.22s ease,
             visibility 0s linear 0.28s;
-        z-index: 1045 !important;
+        z-index: 1025 !important;
     }
 
     #wrapper.toggled .user-mobile-sidebar,
@@ -1690,7 +1754,7 @@ tbody th,
     .user-mobile-sidebar,
     #sidebar-wrapper.user-mobile-sidebar {
         width: min(84vw, 300px) !important;
-        margin-left: calc(-1 * min(84vw, 300px)) !important;
+        margin: 0 !important;
         border-radius: 0 18px 18px 0 !important;
     }
 
@@ -1700,7 +1764,7 @@ tbody th,
     .user-mobile-sidebar,
     #sidebar-wrapper.user-mobile-sidebar {
         width: min(88vw, 292px) !important;
-        margin-left: calc(-1 * min(88vw, 292px)) !important;
+        margin: 0 !important;
     }
 
     .user-mobile-sidebar .sidebar-menu-list {

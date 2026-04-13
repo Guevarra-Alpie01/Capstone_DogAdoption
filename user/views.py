@@ -527,6 +527,22 @@ def _render_signup_page(request, *, error="", signup_form_data=None, next_url=""
     )
 
 
+def privacy_policy(request):
+    """Render the public privacy policy page used by Meta review."""
+    return render(
+        request,
+        "legal/privacy_policy.html",
+    )
+
+
+def data_deletion(request):
+    """Render the public data deletion instructions page used by Meta review."""
+    return render(
+        request,
+        "legal/data_deletion.html",
+    )
+
+
 def _validate_signup_username(username):
     """Require a safe username format and block case-insensitive duplicates."""
     if not username:

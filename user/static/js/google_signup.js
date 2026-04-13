@@ -229,11 +229,6 @@
             callback: function (response) {
                 clearError(form);
 
-                if (!form.reportValidity()) {
-                    setError(form, "Complete the required fields, then sign up with Google again.");
-                    return;
-                }
-
                 if (!response || !response.credential) {
                     setError(form, "Google could not confirm your account. Please try again.");
                     return;
@@ -287,7 +282,7 @@
                     return;
                 }
                 event.preventDefault();
-                setError(form, "Complete the required fields, then sign up with Google again.");
+                setError(form, "Use the Google button to finish creating your account.");
             });
         }
     });

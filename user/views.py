@@ -321,6 +321,36 @@ def _build_google_signup_username(*, email="", first_name="", last_name="", soci
     return fallback[:SIGNUP_USERNAME_MAX_LENGTH]
 
 
+def _build_unique_google_username(*, email="", first_name="", last_name="", social_id=""):
+    """Return a collision-resistant username for a newly created Google account."""
+    base_username = _normalize_signup_username(
+        _build_google_signup_username(
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            social_id=social_id,
+        )
+    )
+    if base_username and not User.objects.filter(username__iexact=base_username).exists():
+        return base_username
+
+    social_fragment = re.sub(r"[^A-Za-z0-9]+", "", (social_id or "").strip())[:8] or secrets.token_hex(4)
+    candidate_base = base_username or f"google_{social_fragment}"
+    candidate_base = candidate_base.strip(".@_+-") or f"google_{social_fragment}"
+
+    for suffix in range(1, 25):
+        suffix_text = "" if suffix == 1 else f"_{suffix}"
+        max_base_len = SIGNUP_USERNAME_MAX_LENGTH - len(suffix_text)
+        candidate = f"{candidate_base[:max_base_len]}{suffix_text}".strip(".@_+-")
+        if len(candidate) < SIGNUP_USERNAME_MIN_LENGTH:
+            continue
+        if not User.objects.filter(username__iexact=candidate).exists():
+            return candidate
+
+    fallback = f"google_{social_fragment}_{secrets.token_hex(2)}"
+    return fallback[:SIGNUP_USERNAME_MAX_LENGTH]
+
+
 def _facebook_oauth_redirect_uri(request):
     """Build the absolute redirect URI used for Facebook callbacks."""
     return request.build_absolute_uri(reverse("user:facebook_auth_callback"))
@@ -637,8 +667,48 @@ def _verify_google_redirect_csrf(request):
         raise ValidationError("Google sign-in could not be verified. Please try again.")
 
 
+def _create_google_user_account(google_account):
+    """Create a local user and profile for a verified Google identity."""
+    google_email = google_account["email"]
+    google_first_name = (google_account.get("given_name") or "").strip()
+    google_last_name = (google_account.get("family_name") or "").strip()
+    google_sub = (google_account.get("sub") or "").strip()
+
+    for _ in range(5):
+        username = _build_unique_google_username(
+            email=google_email,
+            first_name=google_first_name,
+            last_name=google_last_name,
+            social_id=google_sub,
+        )
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=username,
+                    password=None,
+                    first_name=google_first_name,
+                    last_name=google_last_name,
+                    email=google_email,
+                    is_active=True,
+                )
+                Profile.objects.create(
+                    user=user,
+                    middle_initial="",
+                    address="",
+                    age=18,
+                    consent_given=True,
+                    email_verified=True,
+                    profile_image=_ensure_default_profile_image_exists(),
+                )
+            return user
+        except IntegrityError:
+            continue
+
+    raise RuntimeError("We couldn't create your Google account right now. Please try again.")
+
+
 def _complete_google_login(request, google_account, *, next_url=""):
-    """Log in an existing Google user or bridge them into signup."""
+    """Log in an existing Google user or create a local account for a new one."""
     google_email = google_account["email"]
     existing_user = (
         User.objects.select_related("profile")
@@ -686,15 +756,32 @@ def _complete_google_login(request, google_account, *, next_url=""):
             response.delete_cookie("admin_sessionid")
         return response
 
-    _store_google_signup_payload(request, google_account)
-    messages.info(
-        request,
-        "We found your Google account. Please finish creating your account with a username and password.",
-    )
-    signup_url = reverse("user:signup")
+    try:
+        created_user = _create_google_user_account(google_account)
+    except RuntimeError as exc:
+        messages.error(request, str(exc))
+        login_url = reverse("user:login")
+        if next_url:
+            login_url = f"{login_url}?{urlencode({'next': next_url})}"
+        return redirect(login_url)
+
+    login(request, created_user)
+    _clear_social_signup_session(request)
+    _clear_signup_session_state(request, delete_temp_faces=True)
+    _clear_facebook_oauth_session(request)
+    messages.success(request, "Signed in with Google. You can complete your profile later from Edit Profile.")
+
     if next_url:
-        signup_url = f"{signup_url}?{urlencode({'next': next_url})}"
-    return redirect(signup_url)
+        response = redirect(next_url)
+    elif created_user.is_staff:
+        response = redirect(get_staff_landing_url(created_user))
+    else:
+        response = redirect("user:user_home")
+    if created_user.is_staff:
+        response.set_cookie("admin_sessionid", request.session.session_key)
+    else:
+        response.delete_cookie("admin_sessionid")
+    return response
 
 
 def _build_facebook_auth_url(request, *, mode="login", next_url=""):
@@ -3345,7 +3432,7 @@ def barangay_list_api(request):
 
 
 def signup_view(request):
-    """Create a new public account and email a verification link before first login."""
+    """Create a public account, or finish a Google sign-in immediately."""
     if request.user.is_authenticated:
         if request.user.is_staff:
             return redirect(get_staff_landing_url(request.user))
@@ -3357,6 +3444,20 @@ def signup_view(request):
     )
 
     if request.method == "POST":
+        google_credential = (request.POST.get("google_credential") or request.POST.get("credential") or "").strip()
+        if google_credential:
+            signup_form_data = _build_signup_form_data(
+                username=_normalize_signup_username(request.POST.get("username")),
+                first_name=(request.POST.get("first_name") or "").strip(),
+                last_name=(request.POST.get("last_name") or "").strip(),
+                raw_barangay=request.POST.get("address"),
+            )
+            try:
+                social_signup_data = _verify_google_signup_credential(google_credential)
+            except ValidationError as exc:
+                return _render_signup_error(request, signup_form_data, " ".join(exc.messages))
+            return _complete_google_login(request, social_signup_data, next_url=next_url)
+
         _clear_signup_session_state(request, delete_temp_faces=True)
         username = _normalize_signup_username(request.POST.get("username"))
         password = request.POST.get("password") or ""
@@ -3405,21 +3506,7 @@ def signup_view(request):
             )
 
         social_signup_source, social_signup_data = _get_social_signup_state(request)
-        if social_signup_source == "google":
-            social_email = _normalize_signup_email(social_signup_data.get("email"))
-            if not social_email:
-                return _render_signup_error(
-                    request,
-                    signup_form_data,
-                    "Google did not provide a usable email address. Please try again.",
-                )
-            if User.objects.filter(email__iexact=social_email).exists():
-                return _render_signup_error(
-                    request,
-                    signup_form_data,
-                    "An account already exists with this Google email address.",
-                )
-        elif social_signup_source == "facebook":
+        if social_signup_source == "facebook":
             social_email = _normalize_signup_email(social_signup_data.get("email"))
             if not social_email:
                 return _render_signup_error(

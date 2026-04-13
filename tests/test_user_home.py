@@ -972,6 +972,14 @@ class UserHomeFeedTests(TestCase):
         self.assertFalse(User.objects.filter(username="freshsignupuser").exists())
 
     @patch(
+        "user.views._ensure_default_profile_image_exists",
+        return_value="profile_images/default-user-image.jpg",
+    )
+    @patch(
+        "user.views._build_unique_google_username",
+        return_value="freshsignupuser",
+    )
+    @patch(
         "user.views._verify_google_signup_credential",
         return_value={
             "email": "freshsignup@example.com",
@@ -980,48 +988,81 @@ class UserHomeFeedTests(TestCase):
             "family_name": "Signup",
         },
     )
-    def test_signup_sends_verification_email_and_blocks_login(self, mocked_google_verify):
+    def test_signup_with_google_logs_in_new_user_immediately(
+        self,
+        mocked_google_verify,
+        mocked_username,
+        mocked_default_image,
+    ):
         response = self.client.post(
             reverse("user:signup"),
             {
-                "username": "freshsignupuser",
-                "password": "Secret123!x",
-                "confirm_password": "Secret123!x",
-                "first_name": "Fresh",
-                "last_name": "Signup",
-                "address": "Tinago",
                 "google_credential": "mock-google-id-token",
             },
             follow=True,
         )
 
         mocked_google_verify.assert_called_once_with("mock-google-id-token")
+        mocked_username.assert_called_once()
+        mocked_default_image.assert_called_once()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.request["PATH_INFO"], reverse("user:login"))
-        self.assertTemplateUsed(response, "login.html")
-        self.assertContains(
-            response,
-            "Account created for freshsignup@example.com. Check your email to verify your account before logging in.",
-        )
+        self.assertEqual(response.request["PATH_INFO"], reverse("user:user_home"))
 
         user = User.objects.get(username="freshsignupuser")
         self.assertEqual(user.email, "freshsignup@example.com")
-        self.assertFalse(user.is_active)
-        self.assertFalse(user.profile.email_verified)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertIn(user.email, mail.outbox[0].to)
-        self.assertIn("/user/verify-email/", mail.outbox[0].body)
+        self.assertTrue(user.is_active)
+        self.assertFalse(user.has_usable_password())
+        self.assertTrue(user.profile.email_verified)
+        self.assertEqual(user.profile.address, "")
+        self.assertEqual(user.profile.age, 18)
+        self.assertEqual(self.client.session.get("_auth_user_id"), str(user.pk))
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertNotIn("google_signup_data", self.client.session)
 
-        login_response = self.client.post(
+    @patch(
+        "user.views._ensure_default_profile_image_exists",
+        return_value="profile_images/default-user-image.jpg",
+    )
+    @patch(
+        "user.views._build_unique_google_username",
+        return_value="newgoogleloginuser",
+    )
+    @patch(
+        "user.views._verify_google_login_credential",
+        return_value={
+            "email": "googlelogin@example.com",
+            "sub": "google-login-sub-123",
+            "given_name": "Google",
+            "family_name": "Login",
+        },
+    )
+    def test_google_login_creates_and_logs_in_new_user_directly(
+        self,
+        mocked_google_verify,
+        mocked_username,
+        mocked_default_image,
+    ):
+        response = self.client.post(
             reverse("user:login"),
             {
-                "username": "freshsignupuser",
-                "password": "Secret123!x",
+                "google_credential": "mock-google-login-token",
             },
+            follow=True,
         )
 
-        self.assertEqual(login_response.status_code, 200)
-        self.assertContains(login_response, "Please verify your email address before logging in.")
+        mocked_google_verify.assert_called_once_with("mock-google-login-token")
+        mocked_username.assert_called_once()
+        mocked_default_image.assert_called_once()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.request["PATH_INFO"], reverse("user:user_home"))
+
+        user = User.objects.get(username="newgoogleloginuser")
+        self.assertEqual(user.email, "googlelogin@example.com")
+        self.assertTrue(user.is_active)
+        self.assertFalse(user.has_usable_password())
+        self.assertTrue(user.profile.email_verified)
+        self.assertEqual(self.client.session.get("_auth_user_id"), str(user.pk))
+        self.assertNotIn("google_signup_data", self.client.session)
 
     @patch(
         "user.views._verify_google_login_credential",
@@ -1066,6 +1107,14 @@ class UserHomeFeedTests(TestCase):
         self.assertEqual(self.client.session.get("_auth_user_id"), str(user.pk))
 
     @patch(
+        "user.views._ensure_default_profile_image_exists",
+        return_value="profile_images/default-user-image.jpg",
+    )
+    @patch(
+        "user.views._build_unique_google_username",
+        return_value="redirectnewuser",
+    )
+    @patch(
         "user.views._verify_google_login_credential",
         return_value={
             "email": "newgooglelogin@example.com",
@@ -1074,7 +1123,12 @@ class UserHomeFeedTests(TestCase):
             "family_name": "Google",
         },
     )
-    def test_google_login_redirects_new_user_to_signup_with_session(self, mocked_google_verify):
+    def test_google_login_creates_and_logs_in_new_user_directly_via_login_view(
+        self,
+        mocked_google_verify,
+        mocked_username,
+        mocked_default_image,
+    ):
         response = self.client.post(
             reverse("user:login"),
             {
@@ -1085,13 +1139,64 @@ class UserHomeFeedTests(TestCase):
 
         mocked_google_verify.assert_called_once_with("mock-google-login-token")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.request["PATH_INFO"], reverse("user:signup"))
-        self.assertTemplateUsed(response, "signup.html")
-        self.assertContains(response, "You are already using your Google account.")
+        self.assertEqual(response.request["PATH_INFO"], reverse("user:user_home"))
 
-        social_signup_data = self.client.session.get("google_signup_data") or {}
-        self.assertEqual(social_signup_data.get("email"), "newgooglelogin@example.com")
-        self.assertTrue(social_signup_data.get("username"))
+        mocked_username.assert_called_once()
+        mocked_default_image.assert_called_once()
+        user = User.objects.get(username="redirectnewuser")
+        self.assertEqual(user.email, "newgooglelogin@example.com")
+        self.assertTrue(user.is_active)
+        self.assertFalse(user.has_usable_password())
+        self.assertTrue(user.profile.email_verified)
+        self.assertEqual(self.client.session.get("_auth_user_id"), str(user.pk))
+        self.assertNotIn("google_signup_data", self.client.session)
+
+    @patch(
+        "user.views._ensure_default_profile_image_exists",
+        return_value="profile_images/default-user-image.jpg",
+    )
+    @patch(
+        "user.views._build_unique_google_username",
+        return_value="redirectloginuser",
+    )
+    @patch(
+        "user.views._verify_google_login_credential",
+        return_value={
+            "email": "redirectlogin@example.com",
+            "sub": "google-login-sub-789",
+            "given_name": "Redirect",
+            "family_name": "Login",
+        },
+    )
+    def test_google_redirect_login_creates_and_logs_in_new_user_directly(
+        self,
+        mocked_google_verify,
+        mocked_username,
+        mocked_default_image,
+    ):
+        self.client.cookies["g_csrf_token"] = "csrf-token-123"
+        response = self.client.post(
+            reverse("user:google_auth_login"),
+            {
+                "credential": "mock-google-login-token",
+                "g_csrf_token": "csrf-token-123",
+            },
+            follow=True,
+        )
+
+        mocked_google_verify.assert_called_once_with("mock-google-login-token")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.request["PATH_INFO"], reverse("user:user_home"))
+
+        mocked_username.assert_called_once()
+        mocked_default_image.assert_called_once()
+        user = User.objects.get(username="redirectloginuser")
+        self.assertEqual(user.email, "redirectlogin@example.com")
+        self.assertTrue(user.is_active)
+        self.assertFalse(user.has_usable_password())
+        self.assertTrue(user.profile.email_verified)
+        self.assertEqual(self.client.session.get("_auth_user_id"), str(user.pk))
+        self.assertNotIn("google_signup_data", self.client.session)
 
     @patch(
         "user.views._verify_google_login_credential",
@@ -1138,67 +1243,55 @@ class UserHomeFeedTests(TestCase):
         self.assertEqual(self.client.session.get("_auth_user_id"), str(user.pk))
 
     @patch(
-        "user.views._verify_google_login_credential",
+        "user.views._ensure_default_profile_image_exists",
+        return_value="profile_images/default-user-image.jpg",
+    )
+    @patch(
+        "user.views._build_unique_google_username",
+        return_value="sessiongoogleuser",
+    )
+    @patch(
+        "user.views._verify_google_signup_credential",
         return_value={
-            "email": "redirectnew@example.com",
-            "sub": "google-login-sub-790",
-            "given_name": "Redirect",
-            "family_name": "New",
+            "email": "sessiongoogle@example.com",
+            "sub": "google-session-sub-789",
+            "given_name": "Session",
+            "family_name": "Google",
         },
     )
-    def test_google_redirect_login_bridges_new_user_to_signup(self, mocked_google_verify):
-        self.client.cookies["g_csrf_token"] = "csrf-token-456"
-        response = self.client.post(
-            reverse("user:google_auth_login"),
-            {
-                "credential": "mock-google-login-token",
-                "g_csrf_token": "csrf-token-456",
-            },
-            follow=True,
-        )
-
-        mocked_google_verify.assert_called_once_with("mock-google-login-token")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.request["PATH_INFO"], reverse("user:signup"))
-        self.assertTemplateUsed(response, "signup.html")
-        self.assertContains(response, "You are already using your Google account.")
-
-        social_signup_data = self.client.session.get("google_signup_data") or {}
-        self.assertEqual(social_signup_data.get("email"), "redirectnew@example.com")
-        self.assertTrue(social_signup_data.get("username"))
-
-    def test_google_signup_session_can_complete_without_reverifying_token(self):
-        session = self.client.session
-        session["google_signup_data"] = {
-            "email": "sessiongoogle@example.com",
-            "google_sub": "google-session-sub-789",
-            "first_name": "Session",
-            "last_name": "Google",
-            "full_name": "Session Google",
-            "username": "sessiongoogle",
-        }
-        session.save()
-
+    def test_google_signup_with_manual_fields_ignores_signup_detour(
+        self,
+        mocked_google_verify,
+        mocked_username,
+        mocked_default_image,
+    ):
         response = self.client.post(
             reverse("user:signup"),
             {
-                "username": "sessiongoogleuser",
+                "username": "manual-username",
                 "password": "Secret123!x",
                 "confirm_password": "Secret123!x",
                 "first_name": "Session",
                 "last_name": "Google",
                 "address": "Tinago",
+                "google_credential": "mock-google-signup-token",
             },
+            follow=True,
         )
 
-        self.assertRedirects(response, reverse("user:login"), fetch_redirect_response=False)
+        mocked_google_verify.assert_called_once_with("mock-google-signup-token")
+        mocked_username.assert_called_once()
+        mocked_default_image.assert_called_once()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.request["PATH_INFO"], reverse("user:user_home"))
 
         user = User.objects.get(username="sessiongoogleuser")
         self.assertEqual(user.email, "sessiongoogle@example.com")
-        self.assertFalse(user.is_active)
-        self.assertFalse(user.profile.email_verified)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertIn(user.email, mail.outbox[0].to)
+        self.assertTrue(user.is_active)
+        self.assertFalse(user.has_usable_password())
+        self.assertTrue(user.profile.email_verified)
+        self.assertEqual(self.client.session.get("_auth_user_id"), str(user.pk))
+        self.assertEqual(len(mail.outbox), 0)
         self.assertNotIn("google_signup_data", self.client.session)
 
     def test_verify_email_activates_user_and_allows_login(self):

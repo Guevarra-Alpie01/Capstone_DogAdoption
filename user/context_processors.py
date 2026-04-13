@@ -35,12 +35,8 @@ def auth_ui(request):
         if isinstance(extra_client_ids, str):
             extra_client_ids = [value.strip() for value in extra_client_ids.split(",") if value.strip()]
         google_client_id = (extra_client_ids[0] if extra_client_ids else "").strip()
-    facebook_app_id = (getattr(settings, "FACEBOOK_APP_ID", "") or "").strip()
-    facebook_app_secret = (getattr(settings, "FACEBOOK_APP_SECRET", "") or "").strip()
     return {
         "google_auth_enabled": bool(google_client_id),
         "google_signup_enabled": bool(google_client_id),
         "google_client_id": google_client_id,
-        "facebook_auth_enabled": bool(facebook_app_id and facebook_app_secret),
-        "facebook_app_id": facebook_app_id,
     }

@@ -9,8 +9,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('user-login/', views.login_view, name="login"),
     path('google/login/', views.google_auth_login_view, name="google_auth_login"),
-    path('facebook/start/', views.facebook_auth_start, name="facebook_auth_start"),
-    path('facebook/callback/', views.facebook_auth_callback, name="facebook_auth_callback"),
     path('privacy-policy/', views.privacy_policy, name="privacy_policy"),
     path('data-deletion/', views.data_deletion, name="data_deletion"),
     path('logout/', views.logout_view, name='logout'),

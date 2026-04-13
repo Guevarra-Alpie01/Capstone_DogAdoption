@@ -20,6 +20,13 @@
          data-mobile-announcement-tabs
          aria-label="Announcement sections">
         <button type="button"
+                class="user-ann-mobile-tab user-ann-mobile-tab--mobile-only announcement-mobile-tab announcement-mobile-tab--compact"
+                data-user-mobile-announcement-tab="pinned"
+                aria-pressed="false">
+            <span>Pinned</span>
+            <span class="user-ann-mobile-tab-count announcement-mobile-tab-count">{{ pinned_count }}</span>
+        </button>
+        <button type="button"
                 class="user-ann-mobile-tab announcement-mobile-tab announcement-mobile-tab--compact"
                 data-user-mobile-announcement-tab="regular"
                 aria-pressed="true">
@@ -170,7 +177,8 @@
     const board = document.querySelector('[data-user-mobile-announcement-board]');
     const tabs = Array.from(document.querySelectorAll('[data-user-mobile-announcement-tab]'));
     const sections = Array.from(document.querySelectorAll('[data-user-mobile-announcement-section]'));
-    const pinnedSection = sections.find((section) => section.getAttribute('data-user-mobile-announcement-section') === 'pinned') || null;
+    const mobileLayout = window.matchMedia('(max-width: 767.98px)');
+
     function setActiveSection(sectionKey) {
         if (!board) return;
 
@@ -184,11 +192,14 @@
 
         sections.forEach((section) => {
             const sectionKeyValue = section.getAttribute('data-user-mobile-announcement-section');
-            if (sectionKeyValue === 'pinned') {
+            const isMobile = mobileLayout.matches;
+
+            if (!isMobile && sectionKeyValue === 'pinned') {
                 section.hidden = false;
                 section.classList.remove('is-mobile-active');
                 return;
             }
+
             const isActive = sectionKeyValue === sectionKey;
             section.classList.toggle('is-mobile-active', isActive);
             section.hidden = !isActive;
@@ -210,6 +221,11 @@
     });
 
     syncMobileSections();
+    if (typeof mobileLayout.addEventListener === 'function') {
+        mobileLayout.addEventListener('change', syncMobileSections);
+    } else if (typeof mobileLayout.addListener === 'function') {
+        mobileLayout.addListener(syncMobileSections);
+    }
 })();
 </script>
 {% endblock %}

@@ -1,41 +1,38 @@
 # Deployment Prep (Django + PythonAnywhere)
 
-This project now supports environment-based production settings.
+This project now supports environment-based production settings, a PythonAnywhere
+WSGI entry point, and a Redis-backed cache for production.
 
 ## 1. Create and fill `.env`
 
-Copy `.env.example` to `.env`, then set at least:
+For local development, copy `.env.example` to `.env`.
+
+For PythonAnywhere, start from `.env.pythonanywhere.example` and set at least:
 
 - `DJANGO_SECRET_KEY` to a long random value
 - `DJANGO_DEBUG=False`
-- `DJANGO_ALLOWED_HOSTS=<your-username>.pythonanywhere.com`
-- `DJANGO_CSRF_TRUSTED_ORIGINS=https://<your-username>.pythonanywhere.com`
+- `DJANGO_ALLOWED_HOSTS=bayawanvet.pythonanywhere.com`
+- `PYTHONANYWHERE_DOMAIN=bayawanvet.pythonanywhere.com`
+- `DJANGO_CSRF_TRUSTED_ORIGINS=https://bayawanvet.pythonanywhere.com`
 - DB settings (`DB_*`) to your PythonAnywhere MySQL database
+- `CACHE_BACKEND=redis`
+- `REDIS_URL=redis://<your-redis-host>:6379/<db>`
+- `SITE_BASE_URL=https://bayawanvet.pythonanywhere.com`
 
-You can also set:
-
-- `PYTHONANYWHERE_DOMAIN=<your-username>.pythonanywhere.com`
-
-For a quick local test in PowerShell without editing `.env`, you can set the Facebook variables only for the current terminal session:
-
-```powershell
-$env:FACEBOOK_APP_ID="your_app_id_here"
-$env:FACEBOOK_APP_SECRET="your_app_secret_here"
-$env:FACEBOOK_GRAPH_API_VERSION="v20.0"
-python manage.py runserver
-```
-
-These values disappear when you close that terminal window.
-
-If `DJANGO_CSRF_TRUSTED_ORIGINS` is left blank, it is auto-derived from `ALLOWED_HOSTS` (HTTPS origins only, excluding localhost).
+If `DJANGO_CSRF_TRUSTED_ORIGINS` is left blank, it is auto-derived from
+`ALLOWED_HOSTS` (HTTPS origins only, excluding localhost). For the production
+deploy, set it explicitly so the browser and social-share endpoints line up.
 
 ## 2. Cache choice
 
-- Default is `CACHE_BACKEND=locmem` (works without Redis).
-- If you use external Redis, set:
-  - `CACHE_BACKEND=redis`
-  - `REDIS_URL=redis://...`
-- For production, prefer Redis over `locmem` so cache state stays consistent across workers.
+- Default local development cache is `CACHE_BACKEND=locmem`.
+- PythonAnywhere production should use `CACHE_BACKEND=redis`.
+- Set `REDIS_URL` to an external Redis endpoint. PythonAnywhere does not
+  provide built-in Redis, so this must be a hosted Redis service you control.
+- Keep `REDIS_CACHE_KEY_PREFIX` unique if you share the same Redis service
+  across staging and production.
+- Redis is important here because notifications, rate limiting, and feed
+  sampling all depend on shared cache state.
 
 ## 3. Install dependencies
 
@@ -58,11 +55,14 @@ python manage.py check --deploy
 
 ## 6. PythonAnywhere WSGI config
 
+Use `pythonanywhere_wsgi.py` as the WSGI entry point or copy its contents into
+the PythonAnywhere WSGI editor.
+
 In the WSGI file, ensure:
 
 - project path is on `sys.path`
 - `DJANGO_SETTINGS_MODULE` is `pet_adoption.settings`
-- virtualenv is selected in Web tab
+- virtualenv is selected in the Web tab
 
 Then reload the web app.
 
@@ -97,5 +97,7 @@ Facebook preview images need `/media/` to be publicly reachable.
 - Automatic default admin creation is disabled unless `CREATE_DEFAULT_ADMIN=True` and admin credentials are set.
 - Health probes are available at `/health/live/` and `/health/ready/`.
 - Route metrics are exposed at `/health/metrics/` for staff users; keep that endpoint internal-only in production.
+- `tests/check_deployment_config.py` now verifies that non-debug deployments are
+  using the Redis cache backend.
 - Apply rate limits at the edge for notification, reaction, face-auth, and autocomplete endpoints.
 - Certificate exports, analytics cache warming, and face-image processing are better handled by background jobs if traffic grows.

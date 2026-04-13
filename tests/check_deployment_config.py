@@ -30,6 +30,7 @@ def check(label: str, ok: bool, *, severity: str = "high") -> tuple[str, bool, s
 
 def main() -> int:
     middleware = set(getattr(settings, "MIDDLEWARE", []))
+    cache_default = getattr(settings, "CACHES", {}).get("default", {})
     checks = [
         check("DEBUG must be False", settings.DEBUG is False, severity="high"),
         check(
@@ -100,6 +101,16 @@ def main() -> int:
                 check(
                     "CSRF cookie secure in non-debug mode",
                     bool(getattr(settings, "CSRF_COOKIE_SECURE", False)),
+                    severity="high",
+                ),
+                check(
+                    "Production cache uses Redis",
+                    cache_default.get("BACKEND") == "django.core.cache.backends.redis.RedisCache",
+                    severity="high",
+                ),
+                check(
+                    "Redis cache location configured",
+                    bool(cache_default.get("LOCATION")),
                     severity="high",
                 ),
             ]

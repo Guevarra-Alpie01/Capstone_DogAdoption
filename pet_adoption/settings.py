@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 try:
@@ -178,12 +180,15 @@ if "mysql" in DATABASES["default"]["ENGINE"]:
         db_options["init_command"] = f"SET SESSION sql_mode='{db_sql_mode}'"
     DATABASES["default"]["OPTIONS"] = db_options
 
-CACHE_BACKEND = os.getenv("CACHE_BACKEND", "locmem").strip().lower()
-REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1")
+cache_backend_default = "locmem" if DEBUG else "redis"
+CACHE_BACKEND = os.getenv("CACHE_BACKEND", cache_backend_default).strip().lower()
+REDIS_URL = os.getenv("REDIS_URL", "").strip()
 REDIS_CACHE_TIMEOUT = int(os.getenv("REDIS_CACHE_TIMEOUT", "300"))
 REDIS_CACHE_KEY_PREFIX = os.getenv("REDIS_CACHE_KEY_PREFIX", "pet_adoption")
 
 if CACHE_BACKEND == "redis":
+    if not REDIS_URL:
+        raise ImproperlyConfigured("REDIS_URL must be set when CACHE_BACKEND=redis.")
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",

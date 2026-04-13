@@ -189,7 +189,7 @@
             type: "standard",
             theme: "outline",
             size: "large",
-            text: mode === "login" ? "signin_with" : "signup_with",
+            text: mode === "login" ? "continue_with" : "signup_with",
             shape: "rectangular",
             logo_alignment: "left",
             width: buttonWidth,

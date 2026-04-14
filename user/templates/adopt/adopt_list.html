@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260414finder-post-modal-fix2">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260414finder-post-modal-single-form-fix5">
 {% endblock %}
 
 {% block content %}
@@ -13,16 +13,13 @@
             <div class="finder-post-launcher" data-finder-post-menu>
                 <button
                     type="button"
-                    class="finder-post-trigger finder-post-trigger--modern"
+                    class="finder-post-trigger finder-post-trigger--dropdown"
                     data-finder-post-trigger
                     aria-controls="finderPostTypeMenu"
                     aria-expanded="false"
                     aria-haspopup="menu"
                     aria-label="Create a post"
                 >
-                    <span class="finder-post-trigger__icon" aria-hidden="true">
-                        <i class="bi bi-plus-lg"></i>
-                    </span>
                     <span class="finder-post-trigger__copy">
                         <span class="finder-post-trigger__kicker">Create</span>
                         <span class="finder-post-trigger__label">Dog Post</span>
@@ -63,9 +60,6 @@
                 data-auth-next-url="{{ finder_post_entry_url }}"
                 aria-label="Create a post"
             >
-                <span class="finder-post-trigger__icon" aria-hidden="true">
-                    <i class="bi bi-plus-lg"></i>
-                </span>
                 <span class="finder-post-trigger__copy">
                     <span class="finder-post-trigger__kicker">Create</span>
                     <span class="finder-post-trigger__label">Dog Post</span>
@@ -111,19 +105,9 @@
                         </span>
                         <div class="finder-post-modal__title-block">
                             <h5 class="modal-title" id="finderPostModalLabel">Create Dog Post</h5>
-                            <p>Choose a post type first. The matching form will fill the modal.</p>
+                            <p>The form below matches the post type you selected.</p>
                         </div>
                     </div>
-
-                    <button
-                        type="button"
-                        class="finder-post-modal__close"
-                        data-bs-dismiss="modal"
-                        data-finder-post-close
-                        aria-label="Close dog post form"
-                    >
-                        <i class="bi bi-x-lg" aria-hidden="true"></i>
-                    </button>
                 </div>
 
                 <div class="modal-body finder-post-modal__body">
@@ -131,17 +115,6 @@
                         {% csrf_token %}
                         <input type="hidden" name="finder_create_post" value="1">
                         <input type="hidden" name="post_type" id="finderPostTypeInput" value="{% if selected_type == 'missing' %}missing{% else %}adoption{% endif %}">
-
-                        <div class="post-type-toggle finder-post-type-toggle" id="finderPostTypeToggle" data-active-type="{% if selected_type == 'missing' %}missing{% else %}adoption{% endif %}">
-                            <button type="button" class="post-type-btn js-post-type-btn" data-type="adoption">
-                                <i class="bi bi-house-heart"></i>
-                                <span>For Adoption</span>
-                            </button>
-                            <button type="button" class="post-type-btn js-post-type-btn" data-type="missing">
-                                <i class="bi bi-exclamation-triangle"></i>
-                                <span>Missing Dog</span>
-                            </button>
-                        </div>
 
                         <div id="finderAdoptionFields" class="post-type-panel adoption-panel" {% if selected_type != "adoption" %}hidden{% endif %}>
                             <p class="post-section-title">
@@ -400,9 +373,6 @@
     const postChoiceButtons = postMenu ? Array.from(postMenu.querySelectorAll('[data-finder-post-choice]')) : [];
     const postModalEl = document.getElementById('finderPostModal');
     const postModal = postModalEl && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(postModalEl) : null;
-    const postCloseButtons = document.querySelectorAll('[data-finder-post-close]');
-    const postTypeToggle = document.getElementById('finderPostTypeToggle');
-    const postTypeButtons = document.querySelectorAll('.js-post-type-btn');
     const postTypeInput = document.getElementById('finderPostTypeInput');
     const adoptionFields = document.getElementById('finderAdoptionFields');
     const missingFields = document.getElementById('finderMissingFields');
@@ -577,20 +547,51 @@
         field?.focus();
     }
 
+    function showPostModalElement() {
+        if (!postModalEl) {
+            return;
+        }
+        postModalEl.classList.add('show');
+        postModalEl.style.display = 'block';
+        postModalEl.removeAttribute('aria-hidden');
+        postModalEl.setAttribute('aria-modal', 'true');
+        document.body.classList.add('modal-open');
+
+        let backdrop = document.querySelector('.modal-backdrop.finder-post-modal-backdrop');
+        if (!backdrop) {
+            backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show finder-post-modal-backdrop';
+            document.body.appendChild(backdrop);
+        }
+    }
+
+    function hidePostModalElement() {
+        if (!postModalEl) {
+            return;
+        }
+        postModalEl.classList.remove('show');
+        postModalEl.style.display = 'none';
+        postModalEl.setAttribute('aria-hidden', 'true');
+        postModalEl.removeAttribute('aria-modal');
+        document.body.classList.remove('modal-open');
+        document.querySelectorAll('.modal-backdrop.finder-post-modal-backdrop').forEach((backdrop) => backdrop.remove());
+    }
+
     function openPostModal(type) {
         setPostType(type);
         closePostMenu();
-        if (!postModal || !postModalEl) {
+        if (postModal) {
+            postModal.show();
             return;
         }
-        postModal.show();
+        showPostModalElement();
+        window.requestAnimationFrame(focusActivePostField);
     }
 
     function setPostType(type) {
-        if (!postTypeInput || !postTypeToggle) return;
+        if (!postTypeInput) return;
         const normalizedType = type === 'missing' ? 'missing' : 'adoption';
         postTypeInput.value = normalizedType;
-        postTypeToggle.dataset.activeType = normalizedType;
         const isAdoption = normalizedType === 'adoption';
         const isMissing = normalizedType === 'missing';
         toggleFieldGroup(adoptionFields, isAdoption);
@@ -846,17 +847,6 @@
         });
     });
 
-    postCloseButtons.forEach((button) => {
-        button.addEventListener('click', closePostMenu);
-    });
-
-    postTypeButtons.forEach((button) => {
-        button.addEventListener('click', () => {
-            setPostType(button.dataset.type || '');
-            window.requestAnimationFrame(focusActivePostField);
-        });
-    });
-
     adoptionFields?.querySelector('select[name$="-breed"]')?.addEventListener('change', syncAdoptionAttributeFields);
     adoptionFields?.querySelectorAll('[name$="-colors"]').forEach((input) => {
         input.addEventListener('change', syncAdoptionAttributeFields);
@@ -876,6 +866,11 @@
             window.requestAnimationFrame(() => {
                 postModal.show();
             });
+        } else if (postModalEl.dataset.openOnLoad === '1') {
+            window.requestAnimationFrame(() => {
+                showPostModalElement();
+                focusActivePostField();
+            });
         }
     }
 
@@ -891,6 +886,22 @@
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             closePostMenu();
+            if (!postModal) {
+                hidePostModalElement();
+            }
+        }
+    });
+
+    postModalEl?.addEventListener('click', (event) => {
+        if (event.target.closest('[data-bs-dismiss="modal"], .modal-corner-close')) {
+            closePostMenu();
+            if (!postModal) {
+                hidePostModalElement();
+            }
+            return;
+        }
+        if (!postModal && event.target === postModalEl) {
+            hidePostModalElement();
         }
     });
 

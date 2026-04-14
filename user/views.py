@@ -2498,6 +2498,16 @@ def _render_public_post_listing_page(request, listing_mode):
             open_post_panel=True,
             selected_type=selected_type,
         ),
+        "finder_post_adoption_url": _build_public_listing_url(
+            listing_mode,
+            open_post_panel=True,
+            selected_type="adoption",
+        ),
+        "finder_post_missing_url": _build_public_listing_url(
+            listing_mode,
+            open_post_panel=True,
+            selected_type="missing",
+        ),
     })
     return render(request, "adopt/adopt_list.html", context)
 

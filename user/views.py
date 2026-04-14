@@ -853,7 +853,22 @@ def _build_profile_post_rows(profile_user, recent_post_limit, default_profile_av
                 ).order_by("-created_at"),
             ),
         )
-        .only("id", "dog_name", "age", "location", "status", "created_at")
+        .only(
+            "id",
+            "dog_name",
+            "breed",
+            "breed_other",
+            "age_group",
+            "size_group",
+            "gender",
+            "coat_length",
+            "colors",
+            "color_other",
+            "age",
+            "location",
+            "status",
+            "created_at",
+        )
         .order_by("-created_at")[:recent_post_limit]
     )
     missing_posts = list(
@@ -905,7 +920,8 @@ def _build_profile_post_rows(profile_user, recent_post_limit, default_profile_av
             "post_type": "adoption",
             "post_type_label": "Adoption",
             "title": post.dog_name,
-            "age": post.age,
+            "breed_label": post.display_breed,
+            "age_label": post.display_age_group or (str(post.age) if post.age else ""),
             "location": post.location,
             "status_key": post.status,
             "status_label": post.get_status_display(),
@@ -2749,6 +2765,13 @@ def _build_random_home_rows(query, feed_token="", dogs_only=False, viewer_id=Non
             Q(dog_name__icontains=query)
             | Q(description__icontains=query)
             | Q(location__icontains=query)
+            | Q(breed__icontains=query)
+            | Q(breed_other__icontains=query)
+            | Q(age_group__icontains=query)
+            | Q(size_group__icontains=query)
+            | Q(gender__icontains=query)
+            | Q(coat_length__icontains=query)
+            | Q(color_other__icontains=query)
         )
         missing_qs = missing_qs.filter(
             Q(dog_name__icontains=query)
@@ -2831,6 +2854,13 @@ def _build_search_home_rows(query, dogs_only=False, viewer_id=None):
             Q(dog_name__icontains=query)
             | Q(description__icontains=query)
             | Q(location__icontains=query)
+            | Q(breed__icontains=query)
+            | Q(breed_other__icontains=query)
+            | Q(age_group__icontains=query)
+            | Q(size_group__icontains=query)
+            | Q(gender__icontains=query)
+            | Q(coat_length__icontains=query)
+            | Q(color_other__icontains=query)
             | Q(owner__username__icontains=query)
             | Q(owner__first_name__icontains=query)
             | Q(owner__last_name__icontains=query)
@@ -2946,7 +2976,14 @@ def _hydrate_home_feed_items(request, feed_rows):
         ).only(
             "id",
             "dog_name",
+            "breed",
+            "breed_other",
+            "age_group",
+            "size_group",
             "gender",
+            "coat_length",
+            "colors",
+            "color_other",
             "age",
             "description",
             "location",
@@ -3424,8 +3461,8 @@ def _build_user_home_context(
 ):
     should_render_create_modal = request.user.is_authenticated and not request.user.is_staff
     if should_render_create_modal:
-        adoption_form = adoption_form or UserAdoptionPostForm()
-        missing_form = missing_form or MissingDogPostForm()
+        adoption_form = adoption_form or _build_user_adoption_post_form()
+        missing_form = missing_form or _build_missing_dog_post_form()
     else:
         adoption_form = adoption_form or None
         missing_form = missing_form or None

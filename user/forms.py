@@ -64,6 +64,71 @@ class RescueFinderForm(forms.Form):
 
 
 class UserAdoptionPostForm(forms.ModelForm):
+    breed = forms.ChoiceField(
+        label="Breed",
+        required=True,
+        choices=[("", "Select breed"), *Post.BREED_CHOICES],
+        widget=forms.Select(),
+    )
+
+    breed_other = forms.CharField(
+        label="Other Breed",
+        required=False,
+        widget=forms.TextInput(attrs={
+            "placeholder": "Enter breed",
+        }),
+    )
+
+    age_group = forms.ChoiceField(
+        label="Age Group",
+        required=True,
+        choices=[("", "Select age range"), *Post.AGE_GROUP_CHOICES],
+        widget=forms.Select(),
+    )
+
+    size_group = forms.ChoiceField(
+        label="Size",
+        required=True,
+        choices=[("", "Select size"), *Post.SIZE_GROUP_CHOICES],
+        widget=forms.Select(),
+    )
+
+    gender = forms.ChoiceField(
+        label="Gender",
+        required=True,
+        choices=[("", "Select gender"), *UserAdoptionPost.GENDER_CHOICES],
+        widget=forms.Select(),
+    )
+
+    coat_length = forms.ChoiceField(
+        label="Coat Length",
+        required=True,
+        choices=[("", "Select coat length"), *Post.COAT_LENGTH_CHOICES],
+        widget=forms.Select(),
+    )
+
+    colors = forms.MultipleChoiceField(
+        label="Color",
+        required=True,
+        choices=Post.COLOR_CHOICES,
+        widget=forms.CheckboxSelectMultiple(),
+    )
+
+    color_other = forms.CharField(
+        label="Other Color",
+        required=False,
+        widget=forms.TextInput(attrs={
+            "placeholder": "Enter other color",
+        }),
+    )
+
+    location = forms.ChoiceField(
+        label="Barangay",
+        required=True,
+        choices=[("", "Select barangay"), *BAYAWAN_BARANGAY_CHOICES],
+        widget=forms.Select(),
+    )
+
     main_image = forms.ImageField(
         required=True,
         widget=forms.ClearableFileInput(attrs={
@@ -74,14 +139,24 @@ class UserAdoptionPostForm(forms.ModelForm):
 
     class Meta:
         model = UserAdoptionPost
-        fields = ['dog_name', 'gender', 'age', 'description', 'location']
+        fields = [
+            "dog_name",
+            "breed",
+            "breed_other",
+            "age_group",
+            "size_group",
+            "gender",
+            "coat_length",
+            "colors",
+            "color_other",
+            "age",
+            "description",
+            "location",
+        ]
         widgets = {
             "dog_name": forms.TextInput(attrs={
                 "class": "form-control",
                 "placeholder": "e.g., Brownie",
-            }),
-            "gender": forms.Select(attrs={
-                "class": "form-select",
             }),
             "age": forms.NumberInput(attrs={
                 "class": "form-control",
@@ -93,21 +168,76 @@ class UserAdoptionPostForm(forms.ModelForm):
                 "rows": 4,
                 "placeholder": "Describe the dog, temperament, and any special notes.",
             }),
-            "location": forms.TextInput(attrs={
-                "class": "form-control",
-                "placeholder": "Barangay, street, or landmark",
-            }),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["gender"].required = True
         self.fields["age"].required = False
         self.fields["description"].required = False
-        self.fields["gender"].choices = [
-            ("", "Select gender"),
-            *UserAdoptionPost.GENDER_CHOICES,
-        ]
+        for field_name, css_class in {
+            "dog_name": "form-control",
+            "breed": "form-select",
+            "breed_other": "form-control",
+            "age_group": "form-select",
+            "size_group": "form-select",
+            "gender": "form-select",
+            "coat_length": "form-select",
+            "color_other": "form-control",
+            "age": "form-control",
+            "description": "form-control",
+            "location": "form-select",
+        }.items():
+            existing = self.fields[field_name].widget.attrs.get("class", "")
+            self.fields[field_name].widget.attrs["class"] = f"{existing} {css_class}".strip()
+        self.fields["colors"].widget.attrs["class"] = "post-checkbox-grid"
+        if self.instance.pk and self.instance.colors:
+            self.initial["colors"] = list(self.instance.colors)
+        current_location = " ".join((getattr(self.instance, "location", "") or "").split()).strip()
+        if current_location and current_location not in [name for name, _label in BAYAWAN_BARANGAY_CHOICES]:
+            self.fields["location"].choices = [
+                *self.fields["location"].choices,
+                (current_location, current_location),
+            ]
+
+    def clean_location(self):
+        value = " ".join((self.cleaned_data.get("location") or "").split()).strip()
+        if not value:
+            return value
+        valid_barangays = {name for name, _label in BAYAWAN_BARANGAY_CHOICES}
+        if value in valid_barangays:
+            return value
+        current_location = " ".join((getattr(self.instance, "location", "") or "").split()).strip()
+        if value and value == current_location:
+            return value
+        raise forms.ValidationError("Please select a valid barangay from the dropdown list.")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        breed = cleaned_data.get("breed") or ""
+        breed_other = " ".join((cleaned_data.get("breed_other") or "").split()).strip()
+        colors = list(dict.fromkeys(cleaned_data.get("colors") or []))
+        color_other = " ".join((cleaned_data.get("color_other") or "").split()).strip()
+
+        if breed == Post.BREED_OTHER and not breed_other:
+            self.add_error("breed_other", "Enter the breed when Other is selected.")
+        elif breed != Post.BREED_OTHER:
+            cleaned_data["breed_other"] = ""
+
+        if Post.COLOR_OTHER in colors and not color_other:
+            self.add_error("color_other", "Enter the color when Other is selected.")
+        elif Post.COLOR_OTHER not in colors:
+            cleaned_data["color_other"] = ""
+
+        cleaned_data["colors"] = colors
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.colors = self.cleaned_data.get("colors") or []
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
 
 class MissingDogPostForm(forms.ModelForm):
     class Meta:

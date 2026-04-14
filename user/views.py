@@ -2015,10 +2015,10 @@ def _build_public_post_listing(request, listing_mode):
         results_description = "These dogs are still within the owner-claim window."
     elif selected_purpose == "adopt":
         results_title = "Dogs Ready for Adoption"
-        results_description = "These rescue dogs have moved into the adoption window."
+        results_description = "These dogs have moved into the adoption window."
     else:
-        results_title = "All Open Rescue Dogs"
-        results_description = "Browse every active rescue dog currently open for claim or adoption."
+        results_title = "All Available Dogs"
+        results_description = "Browse every active dog currently open for claim or adoption."
 
     purpose_options = [
         {
@@ -2049,8 +2049,8 @@ def _build_public_post_listing(request, listing_mode):
         "posts": list(page_obj.object_list),
         "page_obj": page_obj,
         "listing_mode": listing_mode,
-        "page_title": "Dog Rescue Finder",
-        "page_description": "Find active rescue dogs using live claim and adoption phases from the backend.",
+        "page_title": "Find a Dog",
+        "page_description": "Browse active dogs and post a dog for adoption or as missing.",
         "results_title": results_title,
         "results_description": results_description,
         "purpose_choices": list(finder_form.fields["purpose"].choices),
@@ -2426,6 +2426,80 @@ def _handle_user_post_creation_submission(request, selected_type):
 
     messages.error(request, "Adoption post was not saved. Check the required fields and try again.")
     return False, adoption_form, missing_form
+
+
+def _normalize_user_post_type(raw_value):
+    """Return a supported user post type or an empty string."""
+    post_type = (raw_value or "").strip().lower()
+    return post_type if post_type in {"adoption", "missing"} else ""
+
+
+def _build_public_listing_url(listing_mode, *, open_post_panel=False, selected_type=""):
+    """Build a claim/adopt listing URL with optional in-page posting state."""
+    route_name = _public_listing_route_name(listing_mode)
+    query = {}
+    normalized_type = _normalize_user_post_type(selected_type)
+    if open_post_panel:
+        query["post_dog"] = "1"
+    if normalized_type:
+        query["type"] = normalized_type
+    base_url = reverse(route_name)
+    return f"{base_url}?{urlencode(query)}" if query else base_url
+
+
+def _render_public_post_listing_page(request, listing_mode):
+    """Render the shared public listing page and optional in-page dog posting flow."""
+    selected_type = _normalize_user_post_type(
+        request.POST.get("post_type") if request.method == "POST" else request.GET.get("type")
+    )
+    show_post_panel = bool(selected_type) or request.GET.get("post_dog") == "1"
+    adoption_form = None
+    missing_form = None
+
+    if request.method == "POST" and request.POST.get("finder_create_post") == "1":
+        show_post_panel = True
+        if not request.user.is_authenticated:
+            messages.error(request, "Please log in to create a post.")
+            return redirect(
+                _build_home_auth_modal_url(
+                    request,
+                    "login",
+                    _build_public_listing_url(
+                        listing_mode,
+                        open_post_panel=True,
+                        selected_type=selected_type,
+                    ),
+                )
+            )
+
+        if not selected_type:
+            adoption_form = _build_user_adoption_post_form()
+            missing_form = _build_missing_dog_post_form()
+            messages.error(request, "Choose whether this post is for adoption or for a missing dog.")
+        else:
+            created, adoption_form, missing_form = _handle_user_post_creation_submission(
+                request,
+                selected_type,
+            )
+            if created:
+                return redirect(_build_public_listing_url(listing_mode))
+    elif request.user.is_authenticated:
+        adoption_form = _build_user_adoption_post_form()
+        missing_form = _build_missing_dog_post_form()
+
+    context = _build_public_post_listing(request, listing_mode)
+    context.update({
+        "selected_type": selected_type,
+        "adoption_form": adoption_form,
+        "missing_form": missing_form,
+        "show_post_panel": request.user.is_authenticated and show_post_panel,
+        "finder_post_entry_url": _build_public_listing_url(
+            listing_mode,
+            open_post_panel=True,
+            selected_type=selected_type,
+        ),
+    })
+    return render(request, "adopt/adopt_list.html", context)
 
 
 def _get_available_appointment_dates():
@@ -4280,7 +4354,7 @@ def claim(request):
 
 def adopt_list(request):
     """Browse dogs that are available for adoption."""
-    return render(request, "adopt/adopt_list.html", _build_public_post_listing(request, "adopt"))
+    return _render_public_post_listing_page(request, "adopt")
 
 @user_only
 def adopt_status(request):
@@ -4608,7 +4682,7 @@ def my_claims(request):
 
 def claim_list(request):
     """Browse dogs that are still available to be claimed."""
-    return render(request, "adopt/adopt_list.html", _build_public_post_listing(request, "claim"))
+    return _render_public_post_listing_page(request, "claim")
 
 
 def claim_confirm(request, post_id):

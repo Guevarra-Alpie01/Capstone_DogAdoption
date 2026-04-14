@@ -2,35 +2,123 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260410finder-toggle-placement">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260414finder-post-shell">
 {% endblock %}
 
 {% block content %}
 <div class="finder-page">
-    <form method="get" class="finder-layout" data-finder-layout>
-        <section class="finder-hero">
-            <div class="finder-hero__copy">
-                <h1 class="finder-hero__title">{{ page_title }}</h1>
+    <section class="finder-hero">
+        <div class="finder-hero__copy">
+            {% if request.user.is_authenticated %}
+            <button
+                type="button"
+                class="finder-post-trigger"
+                data-finder-post-trigger
+                aria-controls="finderPostShell"
+                aria-expanded="{% if show_post_panel %}true{% else %}false{% endif %}"
+                aria-label="Post a dog"
+            >
+                <i class="bi bi-plus-square-fill" aria-hidden="true"></i>
+                <span class="visually-hidden">Post a dog</span>
+            </button>
+            {% else %}
+            <button
+                type="button"
+                class="finder-post-trigger"
+                data-auth-modal-trigger="login"
+                data-auth-next-url="{{ finder_post_entry_url }}"
+                aria-label="Post a dog"
+            >
+                <i class="bi bi-plus-square-fill" aria-hidden="true"></i>
+                <span class="visually-hidden">Post a dog</span>
+            </button>
+            {% endif %}
+        </div>
+
+        {% if request_links %}
+        <div class="finder-hero__actions">
+            {% for link in request_links %}
+            <a
+                href="{{ link.url }}"
+                class="finder-hero__link"
+                {% if not request.user.is_authenticated %}
+                data-auth-modal-trigger="login"
+                data-auth-next-url="{{ link.url }}"
+                {% endif %}
+            >
+                <span>{{ link.label }}</span>
+                <i class="{{ link.icon_class }}" aria-hidden="true"></i>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </section>
+
+    {% if request.user.is_authenticated %}
+    <section
+        id="finderPostShell"
+        class="finder-post-shell post-create-shell{% if show_post_panel %} is-open{% endif %}"
+        data-finder-post-shell
+        data-open-on-load="{% if show_post_panel %}1{% else %}0{% endif %}"
+        {% if not show_post_panel %}hidden{% endif %}
+    >
+        <div class="finder-post-shell__header">
+            <div class="post-create-intro finder-post-shell__intro">
+                <span class="post-create-intro-icon" aria-hidden="true">
+                    <i class="bi bi-megaphone"></i>
+                </span>
+                <div>
+                    <h6>Post A Dog</h6>
+                    <p>Choose a post type first. The matching form will appear below.</p>
+                </div>
             </div>
 
-            {% if request_links %}
-            <div class="finder-hero__actions">
-                {% for link in request_links %}
-                <a
-                    href="{{ link.url }}"
-                    class="finder-hero__link"
-                    {% if not request.user.is_authenticated %}
-                    data-auth-modal-trigger="login"
-                    data-auth-next-url="{{ link.url }}"
-                    {% endif %}
-                >
-                    <span>{{ link.label }}</span>
-                    <i class="{{ link.icon_class }}" aria-hidden="true"></i>
-                </a>
-                {% endfor %}
+            <button
+                type="button"
+                class="finder-post-shell__close"
+                data-finder-post-close
+                aria-label="Close dog post form"
+            >
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" novalidate class="post-create-form finder-post-form">
+            {% csrf_token %}
+            <input type="hidden" name="finder_create_post" value="1">
+            <input type="hidden" name="post_type" id="finderPostTypeInput" value="{{ selected_type }}">
+
+            <div class="post-type-toggle finder-post-type-toggle" id="finderPostTypeToggle" data-active-type="{{ selected_type }}">
+                <button type="button" class="post-type-btn js-post-type-btn" data-type="adoption">
+                    <i class="bi bi-house-heart"></i>
+                    <span>For Adoption</span>
+                </button>
+                <button type="button" class="post-type-btn js-post-type-btn" data-type="missing">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <span>Missing Dog</span>
+                </button>
             </div>
-            {% endif %}
-        </section>
+
+            <div id="finderAdoptionFields" class="post-type-panel adoption-panel" {% if selected_type != "adoption" %}hidden{% endif %}>
+                <p class="post-section-title">
+                    <i class="bi bi-heart-fill"></i>
+                    <span>Adoption Details</span>
+                </p>
+                {% include "home/_adoption_post_fields.html" with adoption_submit_class="btn btn-success post-submit-btn app-btn-fit app-btn-mobile-full" adoption_submit_icon="bi bi-send-check" adoption_submit_label="Publish Adoption Post" %}
+            </div>
+
+            <div id="finderMissingFields" class="post-type-panel missing-panel" {% if selected_type != "missing" %}hidden{% endif %}>
+                <p class="post-section-title">
+                    <i class="bi bi-geo-alt-fill"></i>
+                    <span>Missing Dog Details</span>
+                </p>
+                {% include "home/_missing_post_fields.html" with missing_submit_class="btn btn-danger post-submit-btn app-btn-fit app-btn-mobile-full" missing_submit_icon="bi bi-broadcast-pin" missing_submit_label="Submit Missing Report" %}
+            </div>
+        </form>
+    </section>
+    {% endif %}
+
+    <form method="get" class="finder-layout" data-finder-layout>
 
         <section class="finder-filter-shell">
             <div class="finder-filter-shell__head">
@@ -191,7 +279,7 @@
             {% else %}
             <div class="finder-empty finder-empty--inline">
                 <h3>No close matches yet</h3>
-                <p>Try changing one preference to widen the rescue search.</p>
+                <p>Try changing one preference to widen the search.</p>
             </div>
             {% endif %}
         </section>
@@ -220,8 +308,8 @@
             {% endif %}
             {% else %}
             <div class="finder-empty">
-                <h3>No rescue dogs found</h3>
-                <p>There are no active rescue dogs for this view right now. Check back again soon.</p>
+                <h3>No dogs found</h3>
+                <p>There are no active dogs for this view right now. Check back again soon.</p>
                 <a href="{{ clear_filters_url }}" class="finder-empty__link">Reset search</a>
             </div>
             {% endif %}
@@ -259,6 +347,14 @@
     const infoToggleButtons = document.querySelectorAll('[data-finder-info-toggle]');
     const shareButtons = document.querySelectorAll('[data-finder-share]');
     const shareStatus = document.getElementById('finderShareStatus');
+    const postShell = document.querySelector('[data-finder-post-shell]');
+    const postTrigger = document.querySelector('[data-finder-post-trigger]');
+    const postCloseButtons = document.querySelectorAll('[data-finder-post-close]');
+    const postTypeToggle = document.getElementById('finderPostTypeToggle');
+    const postTypeButtons = postShell ? Array.from(postShell.querySelectorAll('.js-post-type-btn')) : [];
+    const postTypeInput = document.getElementById('finderPostTypeInput');
+    const adoptionFields = document.getElementById('finderAdoptionFields');
+    const missingFields = document.getElementById('finderMissingFields');
 
     function closeFilterGroups(exceptGroup = null) {
         filterGroups.forEach((group) => {
@@ -372,6 +468,65 @@
             resetTransientFilterUi();
         }
         syncFilterToggleUi();
+    }
+
+    function toggleFieldGroup(group, shouldShow) {
+        if (!group) return;
+        group.hidden = !shouldShow;
+    }
+
+    function syncAdoptionAttributeFields() {
+        const breedSelect = adoptionFields?.querySelector('select[name$="-breed"]');
+        const breedOtherGroup = adoptionFields?.querySelector('[data-adoption-breed-other-group]');
+        const colorInputs = adoptionFields ? Array.from(adoptionFields.querySelectorAll('[name$="-colors"]')) : [];
+        const colorOtherGroup = adoptionFields?.querySelector('[data-adoption-color-other-group]');
+        toggleFieldGroup(breedOtherGroup, Boolean(breedSelect && breedSelect.value === 'other'));
+        toggleFieldGroup(
+            colorOtherGroup,
+            colorInputs.some((input) => input.value === 'other' && input.checked)
+        );
+    }
+
+    function setPostPanelDisabled(panel, disabled) {
+        if (!panel) return;
+        panel.querySelectorAll('input, select, textarea, button').forEach((field) => {
+            if (field.type === 'hidden') {
+                return;
+            }
+            field.disabled = disabled;
+        });
+    }
+
+    function syncPostShellState() {
+        if (!postShell) return;
+        const isOpen = !postShell.hidden;
+        postShell.classList.toggle('is-open', isOpen);
+        if (postTrigger) {
+            postTrigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
+    }
+
+    function setPostShellOpen(shouldOpen) {
+        if (!postShell) return;
+        postShell.hidden = !shouldOpen;
+        syncPostShellState();
+        if (shouldOpen) {
+            postShell.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    function setPostType(type) {
+        if (!postTypeInput || !postTypeToggle) return;
+        const normalizedType = type === 'missing' ? 'missing' : type === 'adoption' ? 'adoption' : '';
+        postTypeInput.value = normalizedType;
+        postTypeToggle.dataset.activeType = normalizedType;
+        const isAdoption = normalizedType === 'adoption';
+        const isMissing = normalizedType === 'missing';
+        toggleFieldGroup(adoptionFields, isAdoption);
+        toggleFieldGroup(missingFields, isMissing);
+        setPostPanelDisabled(adoptionFields, !isAdoption);
+        setPostPanelDisabled(missingFields, !isMissing);
+        syncAdoptionAttributeFields();
     }
 
     filterGroups.forEach((group) => {
@@ -553,7 +708,7 @@
     async function shareFinderCard(button) {
         const rawUrl = button.getAttribute('data-share-url') || window.location.pathname;
         const shareUrl = new URL(rawUrl, window.location.origin).href;
-        const shareTitle = button.getAttribute('data-share-title') || 'Bayawan Vet rescue dog';
+        const shareTitle = button.getAttribute('data-share-title') || 'Bayawan Vet dog listing';
         const shareText = button.getAttribute('data-share-text') || `See ${shareTitle} on Bayawan Vet.`;
 
         if (navigator.share) {
@@ -609,6 +764,37 @@
             shareFinderCard(button);
         });
     });
+
+    postTrigger?.addEventListener('click', () => {
+        setPostShellOpen(postShell?.hidden);
+    });
+
+    postCloseButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            setPostShellOpen(false);
+        });
+    });
+
+    postTypeButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            if (postShell?.hidden) {
+                setPostShellOpen(true);
+            }
+            setPostType(button.dataset.type || '');
+        });
+    });
+
+    adoptionFields?.querySelector('select[name$="-breed"]')?.addEventListener('change', syncAdoptionAttributeFields);
+    adoptionFields?.querySelectorAll('[name$="-colors"]').forEach((input) => {
+        input.addEventListener('change', syncAdoptionAttributeFields);
+    });
+
+    setPostType(postTypeInput?.value || '');
+    syncPostShellState();
+    if (postShell && postShell.dataset.openOnLoad !== '1') {
+        postShell.hidden = true;
+        syncPostShellState();
+    }
 
     function openLightbox(src, altText) {
         if (!src) return;

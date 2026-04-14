@@ -6,6 +6,7 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/register/registration.css' %}?v=20260330b">
 <link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260330d">
+<link rel="stylesheet" href="{% static 'css/register/registration_camera.css' %}?v=20260414a">
 {% endblock extra_css %}
 
 {% block content %}
@@ -214,31 +215,60 @@
         <div class="camera-capture-header">
             <h3 id="camera-capture-title">Take Picture</h3>
             <button type="button" class="camera-capture-close" data-camera-capture-close aria-label="Close">
-                &times;
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
             </button>
         </div>
         <div class="camera-capture-group" id="camera-capture-group">
-            <div class="camera-permission-notice" id="camera-permission-notice">
-                <div class="camera-permission-copy">
-                    <strong>Camera access is required</strong>
-                    <p>Allow camera access to use your device camera. On phones and tablets, the system will try to open the back camera first.</p>
+            <div class="camera-permission-notice">
+                <div class="camera-permission-icon" aria-hidden="true">
+                    <i class="bi bi-phone-landscape"></i>
                 </div>
-                <button type="button" class="camera-action-btn" id="request-camera-btn">Allow Camera Access</button>
+                <div class="camera-permission-copy">
+                    <strong>Take a clear registration photo</strong>
+                    <p>Use the rear camera by default, switch to the front camera when needed, then capture one or more photos before tapping Done.</p>
+                </div>
             </div>
-            <div class="camera-control-row">
-                <button type="button" class="camera-action-btn" id="open-camera-btn">Open Camera</button>
-                <button type="button" class="camera-action-btn" id="take-photo-btn" disabled>Take Photo</button>
-                <button type="button" class="camera-action-btn secondary" id="close-camera-btn" disabled>Stop Camera</button>
+            <div class="camera-preview-shell">
+                <video id="camera-preview" class="camera-preview" autoplay playsinline muted></video>
+                <div class="camera-preview-overlay" aria-hidden="true">
+                    <span class="camera-focus-reticle"></span>
+                </div>
+                <button type="button" class="camera-capture-close camera-floating-close" id="stop-camera-btn" disabled aria-label="Stop Camera">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
             </div>
-            <video id="camera-preview" class="camera-preview" autoplay playsinline muted></video>
+            <p class="field-hint camera-status camera-status-text" id="camera-status-text" aria-live="polite">
+                Rear camera selected. Open camera to begin.
+            </p>
+            <div class="camera-action-grid">
+                <button type="button" class="camera-action-btn camera-control-btn camera-control-btn--start" id="open-camera-btn">
+                    <span class="camera-control-icon" aria-hidden="true">
+                        <i class="bi bi-camera-fill"></i>
+                    </span>
+                    <span class="camera-control-label">Open Camera</span>
+                </button>
+                <button type="button" class="camera-action-btn camera-control-btn camera-control-btn--capture" id="take-photo-btn" disabled>
+                    <span class="camera-capture-shutter" aria-hidden="true">
+                        <span class="camera-capture-shutter-ring"></span>
+                        <i class="bi bi-camera-fill"></i>
+                    </span>
+                    <span class="camera-control-label">Capture Photo</span>
+                </button>
+                <button type="button" class="camera-action-btn secondary camera-control-btn camera-control-btn--switch" id="switch-camera-btn">
+                    <span class="camera-control-icon" aria-hidden="true">
+                        <i class="bi bi-arrow-repeat"></i>
+                    </span>
+                    <span class="camera-control-label">Use Front Camera</span>
+                </button>
+            </div>
             <canvas id="camera-canvas" class="camera-canvas" aria-hidden="true"></canvas>
             <div id="captured-photo-list" class="captured-photo-list"></div>
-            <small class="field-hint camera-status-text" id="camera-status-text">
-                Camera access has not been requested yet.
-            </small>
         </div>
         <div class="camera-capture-footer">
-            <button type="button" class="camera-save-btn" id="camera-save-btn" disabled>OK</button>
+            <button type="button" class="camera-save-btn" id="camera-save-btn" disabled>
+                <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                Done
+            </button>
         </div>
     </div>
 </div>
@@ -399,6 +429,8 @@
 </script>
 <script>
     (function () {
+        // Legacy inline controller intentionally disabled in favor of the shared camera UX script.
+        return;
         const openOptionsBtn = document.getElementById('open-photo-options-btn');
         const photoOptionModal = document.getElementById('photo-option-modal');
         const uploadOptionBtn = document.getElementById('photo-option-upload');
@@ -815,4 +847,5 @@
         updateCameraSaveButton();
     })();
 </script>
+<script src="{% static 'js/admin_registration_camera.js' %}?v=20260414a"></script>
 {% endblock %}

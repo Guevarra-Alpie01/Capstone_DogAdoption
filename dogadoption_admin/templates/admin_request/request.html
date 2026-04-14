@@ -7,7 +7,7 @@
 
 <div class="container">
     <div class="page-head">
-        <h1>Dog Capture and Surrender Requests</h1>
+        <h1>Dog Surrender Requests</h1>
     </div>
 
     {% if requests %}
@@ -306,24 +306,25 @@
             </div>
         </div>
     {% else %}
-        <p>No capture requests yet.</p>
+        <p>No surrender requests yet.</p>
     {% endif %}
 
      <div class="map-card">
-        <h2>General Request Map</h2>
+        <h2>Surrender Request Map</h2>
         <div class="map-legend">
-            <span><i class="legend-dot capture"></i> Dog Capture Requests</span>
-            <span><i class="legend-dot surrender"></i> Dog Surrender Requests</span>
+            <span class="map-legend-icon" role="img" aria-label="Request location">
+                <i class="bi bi-geo-alt-fill legend-icon" aria-hidden="true"></i>
+            </span>
         </div>
         <div id="requests-map"></div>
-        <p id="mapEmptyState" class="empty-map" style="display:none;">No pending online requests with map locations are available right now.</p>
+        <p id="mapEmptyState" class="empty-map" style="display:none;">No pending online surrender requests with map locations are available right now.</p>
         {{ map_points|json_script:"map-points-data" }}
     </div>
 
     <div class="captured-records-section">
         <div class="captured-records-header">
-            <h2>Captured Records ({{ captured_total }})</h2>
-            <p>All completed dog capture and surrender requests are listed here.</p>
+            <h2>Completed Surrender Records ({{ captured_total }})</h2>
+            <p>All completed dog surrender requests are listed here.</p>
         </div>
         <div class="table-card">
             <table class="request-table">
@@ -332,7 +333,7 @@
                         <th>User</th>
                         <th>Location</th>
                         <th>Scheduled</th>
-                        <th>Captured</th>
+                        <th>Completed</th>
                         <th>Status</th>
                         <th>Action</th>
                     </tr>
@@ -363,7 +364,7 @@
                                     <span class="muted">Not set</span>
                                 {% endif %}
                             </td>
-                            <td data-label="Captured">
+                            <td data-label="Completed">
                                 {% if req.captured_at %}
                                     {{ req.captured_at|date:"M d, Y h:i A" }}
                                 {% else %}
@@ -377,7 +378,7 @@
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="6" class="muted">No captured records yet.</td>
+                            <td colspan="6" class="muted">No completed surrender records yet.</td>
                         </tr>
                     {% endfor %}
                 </tbody>

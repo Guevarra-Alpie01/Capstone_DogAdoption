@@ -58,18 +58,6 @@
             .replace(/'/g, '&#39;');
     }
 
-    function requestTypeClass(point) {
-        return point.request_type_key === 'surrender'
-            ? 'request-map-marker--surrender'
-            : 'request-map-marker--capture';
-    }
-
-    function requestTypeBadge(point) {
-        return point.request_type_key === 'surrender'
-            ? '<span class="request-map-marker-badge" aria-hidden="true">S</span>'
-            : '<span class="request-map-marker-badge" aria-hidden="true">C</span>';
-    }
-
     function mapPinSvg(className = '') {
         return `
             <svg class="${className}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -78,24 +66,17 @@
         `;
     }
 
-    function markerIconHtml(point) {
-        const typeClass = requestTypeClass(point);
-        const typeLabel = escapeHtml(point.request_type_label || 'Request');
-
+    function markerIconHtml() {
         return `
-            <div class="request-map-marker ${typeClass}" role="img" aria-label="${typeLabel} location">
+            <div class="request-map-marker" role="img" aria-label="Request location">
                 <span class="request-map-marker-pin" aria-hidden="true">${mapPinSvg('request-map-marker-svg')}</span>
-                ${requestTypeBadge(point)}
             </div>
         `;
     }
 
     function popupHtml(point) {
-        const typeClass = point.request_type_key === 'surrender'
-            ? 'request-popup-pill request-popup-pill--surrender'
-            : 'request-popup-pill request-popup-pill--capture';
         const requestImage = point.image_url
-            ? `<div class="request-popup-proof"><img src="${escapeHtml(point.image_url)}" alt="${escapeHtml(point.request_type_label)} proof"></div>`
+            ? '<div class="request-popup-proof"><img src="' + escapeHtml(point.image_url) + '" alt="Request proof"></div>'
             : '';
         const requesterName = escapeHtml(point.requester_name || point.user);
         const username = escapeHtml(point.user);
@@ -105,22 +86,18 @@
         const address = escapeHtml(point.requester_address || 'No address provided');
         const reason = escapeHtml(point.reason || 'Not specified');
         const createdAt = escapeHtml(point.created_at || '');
-        const typeIconClass = requestTypeClass(point);
-        const typeBadge = point.request_type_key === 'surrender' ? 'S' : 'C';
 
         return `
             <div class="request-popup-card">
                 <div class="request-popup-header">
-                    <div class="request-popup-type-icon ${typeIconClass}" aria-hidden="true">
+                    <div class="request-popup-type-icon" aria-hidden="true">
                         ${mapPinSvg('request-popup-type-icon-svg')}
-                        <span class="request-popup-type-icon-badge">${typeBadge}</span>
                     </div>
                     <div class="request-popup-title-block">
                         <strong>${requesterName}</strong>
                         <span>@${username}</span>
                     </div>
                 </div>
-                <div class="${typeClass}">${escapeHtml(point.request_type_label || 'Request')}</div>
                 <div class="request-popup-row"><strong>Status:</strong> ${escapeHtml(point.status || 'Pending')}</div>
                 <div class="request-popup-row"><strong>Submission:</strong> ${submission}</div>
                 <div class="request-popup-row"><strong>Location:</strong> ${location}</div>
@@ -149,7 +126,7 @@
             const marker = L.marker([point.lat, point.lng], {
                 icon: L.divIcon({
                     className: 'request-map-marker-wrap',
-                    html: markerIconHtml(point),
+                    html: markerIconHtml(),
                     iconSize: [40, 54],
                     iconAnchor: [20, 52],
                     popupAnchor: [0, -44],

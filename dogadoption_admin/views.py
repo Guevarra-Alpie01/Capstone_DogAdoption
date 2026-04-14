@@ -2958,7 +2958,7 @@ def admin_dog_capture_requests(request):
     if active_tab not in valid_tabs:
         active_tab = "pending"
 
-    base_qs = _dog_capture_request_board_queryset()
+    base_qs = _dog_capture_request_board_queryset().filter(request_type="surrender")
     status_totals = base_qs.aggregate(
         pending_total=Count("id", filter=Q(status="pending")),
         accepted_total=Count("id", filter=Q(status="accepted")),
@@ -3053,6 +3053,7 @@ def admin_dog_capture_requests(request):
 
     map_points_qs = list(
         _dog_capture_request_map_queryset().filter(
+            request_type='surrender',
             status='pending',
             latitude__isnull=False,
             longitude__isnull=False,

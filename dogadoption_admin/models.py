@@ -494,6 +494,12 @@ class Post(models.Model):
         adoption_deadline = None
         current_phase = "closed"
 
+        started_date = (
+            timezone.localtime(started_at).date()
+            if timezone.is_aware(started_at)
+            else started_at.date()
+        )
+
         eligible_dates = self._manual_appointment_dates(started_at)
         if eligible_dates:
             use_calendar_schedule = True
@@ -505,28 +511,23 @@ class Post(models.Model):
             else:
                 adoption_dates = eligible_dates[:manual_phase_days]
 
-            if claim_dates:
-                claim_deadline = self._schedule_deadline_for_date(claim_dates[-1])
-            if adoption_dates:
-                adoption_deadline = self._schedule_deadline_for_date(adoption_dates[-1])
-
-            if phase == "claim" and self._scheduled_window_active(claim_dates, now):
+        if phase == "claim":
+            claim_deadline = self._schedule_deadline_for_date(
+                started_date + timedelta(days=manual_phase_days)
+            )
+            adoption_deadline = self._schedule_deadline_for_date(
+                started_date + timedelta(days=manual_phase_days * 2)
+            )
+            if now <= claim_deadline:
                 current_phase = "claim"
-            elif self._scheduled_window_active(adoption_dates, now):
+            elif now <= adoption_deadline:
                 current_phase = "adopt"
         else:
-            reset_delta = timedelta(days=manual_phase_days)
-            if phase == "claim":
-                claim_deadline = started_at + reset_delta
-                adoption_deadline = claim_deadline + reset_delta
-                if now <= claim_deadline:
-                    current_phase = "claim"
-                elif now <= adoption_deadline:
-                    current_phase = "adopt"
-            else:
-                adoption_deadline = started_at + reset_delta
-                if now <= adoption_deadline:
-                    current_phase = "adopt"
+            adoption_deadline = self._schedule_deadline_for_date(
+                started_date + timedelta(days=manual_phase_days)
+            )
+            if now <= adoption_deadline:
+                current_phase = "adopt"
 
         return {
             "is_active": current_phase in {"claim", "adopt"},

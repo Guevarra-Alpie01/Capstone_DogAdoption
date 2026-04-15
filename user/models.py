@@ -219,8 +219,10 @@ class UserAdoptionPost(models.Model):
     COLOR_CHOICES = Post.COLOR_CHOICES
 
     STATUS_CHOICES = [
+        ('pending_review', 'Pending Review'),
         ('available', 'Available'),
         ('adopted', 'Adopted'),
+        ('declined', 'Declined'),
     ]
 
     owner = models.ForeignKey(
@@ -244,7 +246,7 @@ class UserAdoptionPost(models.Model):
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default='available'
+        default='pending_review'
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -375,14 +377,16 @@ class MissingDogPost(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     STATUS_CHOICES = [
+        ('pending_review', 'Pending Review'),
         ('missing', 'Missing'),
         ('found', 'Found'),
+        ('declined', 'Declined'),
     ]
 
     status = models.CharField(
-        max_length=10,
+        max_length=20,
         choices=STATUS_CHOICES,
-        default='missing'
+        default='pending_review'
     )
 
     class Meta:

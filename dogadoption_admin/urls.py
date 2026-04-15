@@ -24,6 +24,8 @@ urlpatterns = [
     path('post/<adminpostid:post_id>/requests/', views.adoption_requests, name='adoption_requests'),
     path('request/<adoptionreqid:req_id>/<str:action>/', views.update_request, name='update_request'),
     path('posts/<adminpostid:post_id>/claims/', views.claim_requests, name='claim_requests'),
+    path('user-post-requests/', views.user_post_requests, name='user_post_requests'),
+    path('user-post-requests/<str:post_type>/<int:post_id>/<str:action>/', views.user_post_request_action, name='user_post_request_action'),
 
     # Navigation 2/5: Request
     path('dog-capture/requests/', views.admin_dog_capture_requests, name='requests'),

@@ -97,7 +97,10 @@ from .models import (
 from user.models import (
     DogCaptureRequest,
     DogCaptureRequestImage,
+    MissingDogPost,
     Profile,
+    UserAdoptionImage,
+    UserAdoptionPost,
 )
 
 
@@ -2593,6 +2596,11 @@ def post_list(request):
 
     global_dates = active_appointment_dates
 
+    user_post_pending_count = (
+        UserAdoptionPost.objects.filter(status="pending_review").count()
+        + MissingDogPost.objects.filter(status="pending_review").count()
+    )
+
     return render(request, 'admin_home/post_list.html', {
         'all_posts': paged_all_posts,
         'status_sections': status_sections,
@@ -2602,6 +2610,7 @@ def post_list(request):
         'show_appointment_modal': show_appointment_modal,
         'history_total': history_total,
         'return_to': request.get_full_path(),
+        'user_post_pending_count': user_post_pending_count,
     })
 
 
@@ -5916,3 +5925,137 @@ def penalty_manager(request):
         'active_penalty_count': active_penalties,
         'inactive_penalty_count': max(total_penalties - active_penalties, 0),
     })
+
+
+# ---------------------------------------------------------------------------
+# User Post Requests (admin approval gate)
+# ---------------------------------------------------------------------------
+
+def _build_user_post_items(adoption_qs, missing_qs):
+    """Merge adoption and missing post querysets into a single sorted list."""
+    items = []
+    for post in adoption_qs:
+        first_image = post.images.first()
+        items.append({
+            "id": post.id,
+            "post_type": "adoption",
+            "post_type_label": "Adoption",
+            "dog_name": post.dog_name,
+            "breed": post.display_breed,
+            "age": post.age,
+            "description": post.description,
+            "location": post.location,
+            "status": post.status,
+            "image_url": first_image.image.url if first_image else None,
+            "owner_username": post.owner.username,
+            "owner_full_name": post.owner.get_full_name() or post.owner.username,
+            "created_at": post.created_at,
+        })
+    for post in missing_qs:
+        items.append({
+            "id": post.id,
+            "post_type": "missing",
+            "post_type_label": "Missing",
+            "dog_name": post.dog_name,
+            "age": post.age,
+            "description": post.description,
+            "location": post.location,
+            "status": post.status,
+            "image_url": post.image.url if post.image else None,
+            "owner_username": post.owner.username,
+            "owner_full_name": post.owner.get_full_name() or post.owner.username,
+            "created_at": post.created_at,
+        })
+    items.sort(key=lambda x: x["created_at"], reverse=True)
+    return items
+
+
+@admin_required
+def user_post_requests(request):
+    """Admin page listing user-submitted adoption/missing posts for review."""
+    tab = request.GET.get("tab", "pending")
+    if tab not in ("pending", "accepted", "declined"):
+        tab = "pending"
+
+    adoption_filters = {
+        "pending": {"status": "pending_review"},
+        "accepted": {"status": "available"},
+        "declined": {"status": "declined"},
+    }
+    missing_filters = {
+        "pending": {"status": "pending_review"},
+        "accepted": {"status": "missing"},
+        "declined": {"status": "declined"},
+    }
+
+    adoption_qs = (
+        UserAdoptionPost.objects
+        .filter(**adoption_filters[tab])
+        .select_related("owner")
+        .prefetch_related("images")
+        .order_by("-created_at")
+    )
+    missing_qs = (
+        MissingDogPost.objects
+        .filter(**missing_filters[tab])
+        .select_related("owner")
+        .order_by("-created_at")
+    )
+
+    items = _build_user_post_items(adoption_qs, missing_qs)
+
+    page_number = request.GET.get("page", 1)
+    paginator = Paginator(items, 12)
+    page_obj = paginator.get_page(page_number)
+
+    pending_count = (
+        UserAdoptionPost.objects.filter(status="pending_review").count()
+        + MissingDogPost.objects.filter(status="pending_review").count()
+    )
+    accepted_count = (
+        UserAdoptionPost.objects.filter(status="available").count()
+        + MissingDogPost.objects.filter(status="missing").count()
+    )
+    declined_count = (
+        UserAdoptionPost.objects.filter(status="declined").count()
+        + MissingDogPost.objects.filter(status="declined").count()
+    )
+
+    return render(request, "admin_home/user_post_requests.html", {
+        "tab": tab,
+        "page_obj": page_obj,
+        "pending_count": pending_count,
+        "accepted_count": accepted_count,
+        "declined_count": declined_count,
+    })
+
+
+@require_POST
+@admin_required
+def user_post_request_action(request, post_type, post_id, action):
+    """Handle accept / decline / delete actions on user-submitted posts."""
+    if post_type == "adoption":
+        post = get_object_or_404(UserAdoptionPost, pk=post_id)
+        accept_status = "available"
+    elif post_type == "missing":
+        post = get_object_or_404(MissingDogPost, pk=post_id)
+        accept_status = "missing"
+    else:
+        raise Http404
+
+    if action == "accept":
+        post.status = accept_status
+        post.save(update_fields=["status"])
+        messages.success(request, f"Post by {post.owner.username} has been accepted.")
+    elif action == "decline":
+        post.status = "declined"
+        post.save(update_fields=["status"])
+        messages.success(request, f"Post by {post.owner.username} has been declined.")
+    elif action == "delete":
+        owner_name = post.owner.username
+        post.delete()
+        messages.success(request, f"Post by {owner_name} has been deleted.")
+    else:
+        raise Http404
+
+    return redirect(reverse("dogadoption_admin:user_post_requests"))

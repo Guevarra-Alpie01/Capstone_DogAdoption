@@ -1,0 +1,326 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260407pinspotlight">
+
+<style>
+/* ── Subnav (shared with post_list) ── */
+.admin-subnav {
+    display: flex;
+    gap: 6px;
+    padding: 10px 0 6px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid rgba(217, 227, 239, 0.7);
+}
+.admin-subnav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #475569;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+}
+.admin-subnav-link:hover { background: rgba(47, 102, 201, 0.08); color: #1e40af; }
+.admin-subnav-link.is-active { background: #1e40af; color: #fff; pointer-events: none; }
+.admin-subnav-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: #ef4444;
+    color: #fff;
+    line-height: 1;
+}
+.admin-subnav-link.is-active .admin-subnav-badge { background: rgba(255,255,255,0.25); color: #fff; }
+
+/* ── Tab bar ── */
+.upr-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.upr-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border-radius: 10px;
+    font-size: 0.87rem;
+    font-weight: 600;
+    color: #475569;
+    background: transparent;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.upr-tab:hover { background: rgba(47, 102, 201, 0.07); color: #1e40af; }
+.upr-tab.is-active {
+    background: #eff6ff;
+    color: #1e40af;
+    border-color: rgba(30, 64, 175, 0.18);
+}
+.upr-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: #e2e8f0;
+    color: #475569;
+    line-height: 1;
+}
+.upr-tab.is-active .upr-tab-count { background: #1e40af; color: #fff; }
+
+/* ── Cards grid ── */
+.upr-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 18px;
+}
+.upr-card {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid rgba(217, 227, 239, 0.85);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(20, 35, 59, 0.06);
+    transition: box-shadow 0.15s, transform 0.15s;
+}
+.upr-card:hover { box-shadow: 0 8px 24px rgba(20, 35, 59, 0.1); transform: translateY(-2px); }
+.upr-card-img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: #f1f5f9;
+}
+.upr-card-img-placeholder {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    color: #94a3b8;
+    font-size: 2.5rem;
+}
+.upr-card-body { padding: 14px 16px 16px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.upr-card-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.upr-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.upr-type-badge.is-adoption { background: #dbeafe; color: #1e40af; }
+.upr-type-badge.is-missing { background: #fef3c7; color: #92400e; }
+.upr-card-name { font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0; }
+.upr-card-detail { font-size: 0.84rem; color: #64748b; margin: 0; display: flex; align-items: center; gap: 5px; }
+.upr-card-desc {
+    font-size: 0.84rem;
+    color: #475569;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.upr-card-owner { font-size: 0.82rem; color: #64748b; margin: 0; }
+.upr-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid rgba(217, 227, 239, 0.6);
+    flex-wrap: wrap;
+}
+.upr-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.12s, transform 0.12s;
+}
+.upr-btn:hover { filter: brightness(0.92); transform: translateY(-1px); }
+.upr-btn.is-accept { background: #16a34a; color: #fff; }
+.upr-btn.is-decline { background: #f59e0b; color: #fff; }
+.upr-btn.is-delete { background: #ef4444; color: #fff; }
+
+/* ── Empty state ── */
+.upr-empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: #94a3b8;
+}
+.upr-empty-icon { font-size: 2.8rem; margin-bottom: 10px; display: block; }
+.upr-empty-text { font-size: 0.95rem; font-weight: 500; }
+
+/* ── Pagination ── */
+.upr-pagination { display: flex; justify-content: center; gap: 4px; margin-top: 24px; flex-wrap: wrap; }
+.upr-page-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #475569;
+    text-decoration: none;
+    border: 1px solid rgba(217, 227, 239, 0.8);
+    transition: background 0.12s, color 0.12s;
+}
+.upr-page-link:hover { background: #eff6ff; color: #1e40af; }
+.upr-page-link.is-active { background: #1e40af; color: #fff; border-color: #1e40af; pointer-events: none; }
+.upr-page-link.is-disabled { opacity: 0.4; pointer-events: none; }
+</style>
+
+<div class="admin-subnav">
+    <a href="{% url 'dogadoption_admin:post_list' %}" class="admin-subnav-link">
+        <i class="bi bi-grid-fill" aria-hidden="true"></i> Dog Posts
+    </a>
+    <a href="{% url 'dogadoption_admin:user_post_requests' %}" class="admin-subnav-link is-active">
+        <i class="bi bi-person-lines-fill" aria-hidden="true"></i> User Post Requests
+        {% if pending_count %}
+            <span class="admin-subnav-badge">{{ pending_count }}</span>
+        {% endif %}
+    </a>
+</div>
+
+<div class="upr-tabs">
+    <a href="?tab=pending" class="upr-tab {% if tab == 'pending' %}is-active{% endif %}">
+        <i class="bi bi-hourglass-split" aria-hidden="true"></i> Pending
+        <span class="upr-tab-count">{{ pending_count }}</span>
+    </a>
+    <a href="?tab=accepted" class="upr-tab {% if tab == 'accepted' %}is-active{% endif %}">
+        <i class="bi bi-check-circle" aria-hidden="true"></i> Accepted
+        <span class="upr-tab-count">{{ accepted_count }}</span>
+    </a>
+    <a href="?tab=declined" class="upr-tab {% if tab == 'declined' %}is-active{% endif %}">
+        <i class="bi bi-x-circle" aria-hidden="true"></i> Declined
+        <span class="upr-tab-count">{{ declined_count }}</span>
+    </a>
+</div>
+
+{% if page_obj.object_list %}
+<div class="upr-grid">
+    {% for item in page_obj %}
+    <div class="upr-card">
+        {% if item.image_url %}
+            <img src="{{ item.image_url }}" alt="{{ item.dog_name }}" class="upr-card-img" loading="lazy">
+        {% else %}
+            <div class="upr-card-img-placeholder"><i class="bi bi-image" aria-hidden="true"></i></div>
+        {% endif %}
+
+        <div class="upr-card-body">
+            <div class="upr-card-top">
+                <span class="upr-type-badge {% if item.post_type == 'adoption' %}is-adoption{% else %}is-missing{% endif %}">
+                    {{ item.post_type_label }}
+                </span>
+            </div>
+
+            <h3 class="upr-card-name">{{ item.dog_name }}</h3>
+
+            {% if item.breed %}
+                <p class="upr-card-detail"><i class="bi bi-tag" aria-hidden="true"></i> {{ item.breed }}</p>
+            {% endif %}
+            {% if item.location %}
+                <p class="upr-card-detail"><i class="bi bi-geo-alt" aria-hidden="true"></i> {{ item.location }}</p>
+            {% endif %}
+            {% if item.description %}
+                <p class="upr-card-desc">{{ item.description }}</p>
+            {% endif %}
+
+            <p class="upr-card-owner">
+                <i class="bi bi-person" aria-hidden="true"></i>
+                {{ item.owner_full_name }} <span style="opacity:.6">(@{{ item.owner_username }})</span>
+            </p>
+            <p class="upr-card-detail">
+                <i class="bi bi-clock" aria-hidden="true"></i>
+                {{ item.created_at|date:"M d, Y h:i A" }}
+            </p>
+
+            <div class="upr-card-actions">
+                {% if tab == 'pending' %}
+                    <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'accept' %}"
+                        data-confirm-modal data-confirm-title="Accept Post" data-confirm-message="Accept this post by {{ item.owner_username }}? It will become publicly visible." data-confirm-submit-label="Accept">
+                        {% csrf_token %}
+                        <button type="submit" class="upr-btn is-accept"><i class="bi bi-check-lg" aria-hidden="true"></i> Accept</button>
+                    </form>
+                    <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'decline' %}"
+                        data-confirm-modal data-confirm-title="Decline Post" data-confirm-message="Decline this post by {{ item.owner_username }}?" data-confirm-submit-label="Decline">
+                        {% csrf_token %}
+                        <button type="submit" class="upr-btn is-decline"><i class="bi bi-x-lg" aria-hidden="true"></i> Decline</button>
+                    </form>
+                {% endif %}
+                {% if tab == 'declined' %}
+                    <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'accept' %}"
+                        data-confirm-modal data-confirm-title="Accept Post" data-confirm-message="Accept this previously declined post by {{ item.owner_username }}?" data-confirm-submit-label="Accept">
+                        {% csrf_token %}
+                        <button type="submit" class="upr-btn is-accept"><i class="bi bi-check-lg" aria-hidden="true"></i> Accept</button>
+                    </form>
+                {% endif %}
+                <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'delete' %}"
+                    data-confirm-modal data-confirm-title="Delete Post" data-confirm-message="Permanently delete this post by {{ item.owner_username }}? This cannot be undone." data-confirm-submit-label="Delete">
+                    {% csrf_token %}
+                    <button type="submit" class="upr-btn is-delete"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="upr-pagination" aria-label="Page navigation">
+    <a href="?tab={{ tab }}&page={{ page_obj.previous_page_number }}" class="upr-page-link {% if not page_obj.has_previous %}is-disabled{% endif %}">
+        <i class="bi bi-chevron-left" aria-hidden="true"></i>
+    </a>
+    {% for num in page_obj.paginator.page_range %}
+        <a href="?tab={{ tab }}&page={{ num }}" class="upr-page-link {% if num == page_obj.number %}is-active{% endif %}">{{ num }}</a>
+    {% endfor %}
+    <a href="?tab={{ tab }}&page={{ page_obj.next_page_number }}" class="upr-page-link {% if not page_obj.has_next %}is-disabled{% endif %}">
+        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+    </a>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="upr-empty">
+    <span class="upr-empty-icon"><i class="bi bi-inbox" aria-hidden="true"></i></span>
+    <span class="upr-empty-text">
+        {% if tab == 'pending' %}No pending user posts to review.{% endif %}
+        {% if tab == 'accepted' %}No accepted user posts yet.{% endif %}
+        {% if tab == 'declined' %}No declined user posts.{% endif %}
+    </span>
+</div>
+{% endif %}
+
+{% endblock %}

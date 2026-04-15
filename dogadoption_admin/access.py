@@ -93,6 +93,8 @@ ADMIN_ROUTE_RULES = {
     "claim_requests": {"any_of": ("can_view_status_cards",)},
     "adoption_requests": {"any_of": ("can_view_status_cards",)},
     "update_request": {"any_of": ("can_view_status_cards",)},
+    "user_post_requests": {"any_of": ("can_create_posts",)},
+    "user_post_request_action": {"any_of": ("can_create_posts",)},
     "requests": {"any_of": ("can_manage_capture_requests",)},
     "update_dog_capture_request": {"any_of": ("can_manage_capture_requests",)},
     "register_dogs": {"any_of": ("can_access_registration",)},

@@ -997,6 +997,28 @@
         if (lightbox && !lightbox.hidden) closeLightbox();
     });
 })();
+
+(function () {
+    function updateCountdowns() {
+        var timers = document.querySelectorAll('[data-countdown-deadline]');
+        var now = Date.now();
+        timers.forEach(function (el) {
+            var iso = el.getAttribute('data-countdown-deadline');
+            if (!iso) return;
+            var deadline = new Date(iso).getTime();
+            var diff = Math.max(Math.floor((deadline - now) / 1000), 0);
+            var d = Math.floor(diff / 86400);
+            var h = Math.floor((diff % 86400) / 3600);
+            var m = Math.floor((diff % 3600) / 60);
+            var textEl = el.querySelector('[data-countdown-text]');
+            if (textEl) {
+                textEl.textContent = diff > 0 ? d + 'd ' + h + 'h ' + m + 'm left' : 'Time expired';
+            }
+        });
+    }
+    updateCountdowns();
+    setInterval(updateCountdowns, 30000);
+})();
 </script>
 {% include 'home/_feed_enhancements.html' %}
 {% endblock %}

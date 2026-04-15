@@ -1819,6 +1819,7 @@ def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
         "pending_state_label": "Pending admin review" if is_pending_review else "",
         "pending_state_detail": pending_state_detail,
         "pending_review_until_label": pending_review_until_label,
+        "deadline_iso": countdown_deadline.isoformat() if countdown_deadline else "",
     }
 
 

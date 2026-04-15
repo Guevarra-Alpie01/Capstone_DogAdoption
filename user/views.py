@@ -107,6 +107,8 @@ RESCUE_FINDER_PAGE_SIZE = 12
 RESCUE_FINDER_RECOMMENDATION_LIMIT = 4
 HOME_FEATURED_CAROUSEL_LIMIT = 5
 HOME_SPOTLIGHT_DISPLAY_LIMIT = 4
+HOME_SPOTLIGHT_FALLBACK_CANDIDATE_LIMIT = 60
+HOME_FEATURED_CANDIDATE_LIMIT = 60
 HOME_SPOTLIGHT_URGENCY_THRESHOLD_SECONDS = 24 * 60 * 60
 GOOGLE_SIGNUP_SESSION_KEY = "google_signup_data"
 
@@ -2120,6 +2122,7 @@ def _build_home_featured_rescue_sections(request):
     raw_open_posts = list(
         _base_public_post_queryset()
         .filter(status__in=["rescued", "under_care"])
+        [:HOME_FEATURED_CANDIDATE_LIMIT]
     )
     Post.attach_active_appointment_dates(raw_open_posts)
     section_items = {"claim": [], "adopt": []}
@@ -2353,6 +2356,7 @@ def _build_home_pinned_rescue_spotlights(request):
         fallback_candidates = list(
             _base_public_post_queryset()
             .filter(is_pinned=False, status__in=["rescued", "under_care"])
+            [:HOME_SPOTLIGHT_FALLBACK_CANDIDATE_LIMIT]
         )
         Post.attach_active_appointment_dates(fallback_candidates)
         candidate_pairs = []
@@ -3839,12 +3843,14 @@ def adopt_user_post(request, post_id):
 @user_only
 def user_adoption_requests(request):
     """List requests received on adoption posts owned by the current user."""
-    requests = UserAdoptionRequest.objects.filter(
+    requests_qs = UserAdoptionRequest.objects.filter(
         post__owner=request.user
     ).select_related("post", "requester", "requester__profile").order_by("-created_at")
 
+    page_obj = Paginator(requests_qs, 20).get_page(request.GET.get("page", 1))
     return render(request, "adopt/user_post_requests.html", {
-        "requests": requests,
+        "requests": page_obj,
+        "page_obj": page_obj,
     })
 
 

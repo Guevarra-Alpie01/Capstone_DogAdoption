@@ -349,12 +349,17 @@ def build_user_registered_dog_vaccination_status_map(user, dogs=None):
 
 
 def build_user_vaccination_reminders(user, *, limit=USER_VACCINATION_REMINDER_MAX_ITEMS):
-    status_map = build_user_registered_dog_vaccination_status_map(user)
+    dogs = list(
+        Dog.objects.filter(owner_user=user).only(
+            "id", "name", "owner_name", "owner_name_key", "date_registered",
+        )
+    )
+    status_map = build_user_registered_dog_vaccination_status_map(user, dogs=dogs)
     if not status_map:
         return []
 
     reminder_rows = []
-    for dog in Dog.objects.filter(owner_user=user).only("id", "name"):
+    for dog in dogs:
         status = status_map.get(dog.id)
         if not status or status["status_key"] not in {"expired", "due_soon"}:
             continue

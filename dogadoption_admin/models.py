@@ -1196,6 +1196,7 @@ class DogRegistration(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=["date_registered"], name="dogreg_date_registered_idx"),
+            models.Index(fields=["reg_no"], name="dogreg_reg_no_idx"),
         ]
 
     def __str__(self):

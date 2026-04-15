@@ -387,6 +387,59 @@
         {% endfor %}
     </div>
 </section>
+
+{% if home_missing_posts %}
+<section class="home-missing-marquee-shell" aria-label="Missing dogs reported by users">
+    <div class="home-missing-marquee container">
+        <div class="home-missing-marquee__head">
+            <div class="home-missing-marquee__copy">
+                <span class="home-missing-marquee__eyebrow">
+                    <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                    Community Reports
+                </span>
+                <h2 class="home-missing-marquee__title">Missing Dogs</h2>
+                <p class="home-missing-marquee__desc">These dogs have been reported missing by community members. If you spot any of them, please reach out to their owner.</p>
+            </div>
+            <span class="home-missing-marquee__count">{{ home_missing_posts|length }} report{{ home_missing_posts|length|pluralize }}</span>
+        </div>
+
+        <div class="home-missing-marquee__track" data-home-marquee>
+            <div class="home-missing-marquee__inner" data-home-marquee-inner>
+                {% for post in home_missing_posts %}
+                <article class="home-missing-card">
+                    <div class="home-missing-card__media">
+                        {% if post.image %}
+                        <img src="{{ post.image.url }}" alt="{{ post.dog_name }}" class="home-missing-card__img" loading="lazy">
+                        {% else %}
+                        <div class="home-missing-card__placeholder">
+                            <i class="bi bi-question-circle" aria-hidden="true"></i>
+                        </div>
+                        {% endif %}
+                        <span class="home-missing-card__badge">Missing</span>
+                    </div>
+                    <div class="home-missing-card__body">
+                        <h3 class="home-missing-card__name">{{ post.dog_name }}</h3>
+                        <p class="home-missing-card__detail">
+                            <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+                            {{ post.location|default:"Unknown location" }}
+                        </p>
+                        <p class="home-missing-card__detail">
+                            <i class="bi bi-calendar-event" aria-hidden="true"></i>
+                            Lost {{ post.date_lost|date:"M d, Y" }}
+                        </p>
+                        <p class="home-missing-card__owner">
+                            <i class="bi bi-person-fill" aria-hidden="true"></i>
+                            {{ post.owner.get_full_name|default:post.owner.username }}
+                        </p>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
 <section class="home-ordinance-shell" aria-labelledby="homeOrdinanceTitle">
     <div class="home-ordinance home-reveal">
         <div class="home-ordinance__head">
@@ -1485,6 +1538,42 @@
 
 })();
 </script>
+
+<script>
+(function () {
+    document.querySelectorAll('[data-home-marquee]').forEach(function (track) {
+        var inner = track.querySelector('[data-home-marquee-inner]');
+        if (!inner || inner.children.length === 0) return;
+
+        var clone = inner.cloneNode(true);
+        clone.setAttribute('aria-hidden', 'true');
+        track.appendChild(clone);
+
+        var speed = 0.35;
+        var pos = 0;
+        var paused = false;
+
+        track.addEventListener('mouseenter', function () { paused = true; });
+        track.addEventListener('mouseleave', function () { paused = false; });
+        track.addEventListener('touchstart', function () { paused = true; }, { passive: true });
+        track.addEventListener('touchend', function () { paused = false; });
+
+        function step() {
+            if (!paused) {
+                pos -= speed;
+                if (Math.abs(pos) >= inner.scrollWidth) {
+                    pos = 0;
+                }
+                inner.style.transform = 'translateX(' + pos + 'px)';
+                clone.style.transform = 'translateX(' + pos + 'px)';
+            }
+            requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    });
+})();
+</script>
+
 {% include 'home/_feed_enhancements.html' %}
 {% endblock %}
 

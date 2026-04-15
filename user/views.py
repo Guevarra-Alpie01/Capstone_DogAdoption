@@ -3603,10 +3603,18 @@ def _build_user_home_context(
     pagination_params["feed_token"] = feed_token
     pagination_params.pop("page", None)
 
+    home_missing_posts = list(
+        MissingDogPost.objects
+        .filter(status="missing")
+        .select_related("owner")
+        .order_by("-created_at")[:30]
+    )
+
     return {
         "posts": combined_posts,
         **_build_home_pinned_rescue_spotlights(request),
         "featured_dog_sections": _build_home_featured_rescue_sections(request),
+        "home_missing_posts": home_missing_posts,
         "vaccination_reminder_summary": (
             build_user_vaccination_reminder_summary(request.user)
             if request.user.is_authenticated and not request.user.is_staff

@@ -2017,6 +2017,7 @@ def _build_public_post_listing(request, listing_mode):
             continue
         match_score = _rescue_finder_match_score(upost, selected_filters)
         location_label = " ".join((upost.location or "").split()) or "Location not listed"
+        detail_url = reverse("user:user_adoption_post_detail", args=[upost.id])
         user_adoption_items.append({
             "post": upost,
             "post_id": upost.id,
@@ -2034,6 +2035,8 @@ def _build_public_post_listing(request, listing_mode):
             "main_image_url": _first_prefetched_image_url(upost.images.all()),
             "match_score": match_score,
             "created_at": upost.created_at,
+            "detail_url": detail_url,
+            "share_url": request.build_absolute_uri(detail_url),
         })
 
     user_adopt_count = len(user_adoption_items)
@@ -3254,6 +3257,9 @@ def _hydrate_home_feed_items(request, feed_rows):
                 ),
                 "author_profile_url": profile_url,
                 "owner_request_url": f"{reverse('user:edit_profile')}#post-requests-{p.id}",
+                "share_url": request.build_absolute_uri(
+                    reverse("user:user_adoption_post_detail", args=[p.id])
+                ),
             })
             continue
 
@@ -3747,6 +3753,36 @@ def create_post(request):
     })
 
 
+def user_adoption_post_detail(request, post_id):
+    """Render a detail page for a user adoption post with OG meta tags for sharing."""
+    post = get_object_or_404(
+        UserAdoptionPost.objects.select_related("owner", "owner__profile").prefetch_related(
+            Prefetch(
+                "images",
+                queryset=UserAdoptionImage.objects.only("id", "post_id", "image").order_by("id"),
+            )
+        ),
+        id=post_id,
+    )
+    first_image = next(iter(post.images.all()), None)
+    og_image_url = ""
+    if first_image:
+        og_image_url = request.build_absolute_uri(first_image.image.url)
+
+    description = (post.description or "").strip()
+    if len(description) > 200:
+        description = f"{description[:197].rstrip()}..."
+    if not description:
+        description = f"{post.dog_name} is available for adoption in {post.location or 'Bayawan'}."
+
+    return render(request, "adopt/user_adoption_post_detail.html", {
+        "post": post,
+        "og_image_url": og_image_url,
+        "og_description": description,
+        "first_image_url": _first_prefetched_image_url(post.images.all()),
+    })
+
+
 @user_only
 def adopt_user_post(request, post_id):
     """Submit an adoption request for a user-created adoption post."""
@@ -3876,10 +3912,15 @@ def post_detail(request, post_id):
     if summary in {"", card_item["title"], card_item["breed_label"]}:
         summary = ""
 
+    og_image_url = ""
+    if card_item["main_image_url"]:
+        og_image_url = request.build_absolute_uri(card_item["main_image_url"])
+
     detail = {
         **card_item,
         "theme": phase_payload["phase"] if phase_payload["phase"] in {"claim", "adopt"} else "closed",
         "summary": summary,
+        "og_image_url": og_image_url,
         "facts": [
             {"label": "Breed", "value": card_item["breed_label"]},
             {"label": "Location", "value": card_item["location_label"]},
@@ -4617,8 +4658,23 @@ def announcement_detail(request, post_id):
         post.created_by, static("images/officialseal.webp")
     )
     post.content_display = _clean_announcement_text_for_display(post.content)
+
+    og_image_url = ""
+    if post.background_image:
+        og_image_url = request.build_absolute_uri(post.background_image.url)
+    elif getattr(post, "prefetched_images", None):
+        og_image_url = request.build_absolute_uri(post.prefetched_images[0].image.url)
+
+    plain_description = strip_tags(post.content or "").strip()
+    if len(plain_description) > 200:
+        plain_description = f"{plain_description[:197].rstrip()}..."
+    if not plain_description:
+        plain_description = "Announcement from Bayawan Vet."
+
     return render(request, 'announcement/announcement_detail.html', {
         'post': post,
+        'og_image_url': og_image_url,
+        'og_description': plain_description,
         'share_url': request.build_absolute_uri(
             reverse("user:announcement_share_preview", args=[post.id])
         ),

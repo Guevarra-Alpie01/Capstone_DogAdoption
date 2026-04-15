@@ -236,6 +236,7 @@
                 <span class="badge bg-danger fs-6 px-3 py-2">Missing Dog</span>
 
             {% elif item.post_type == 'user' %}
+                <div class="d-flex justify-content-center gap-2 flex-wrap">
                 {% if post.status == 'available' and request.user != post.owner %}
                     {% if request.user.is_authenticated %}
                     <button
@@ -264,6 +265,14 @@
                 {% if request.user == post.owner and item.request_count %}
                     <a href="{{ item.owner_request_url }}" class="btn btn-sm ms-2 owner-request-btn">Requests ({{ item.request_count }})</a>
                 {% endif %}
+                {% if item.share_url %}
+                    <button type="button"
+                       class="btn btn-outline-secondary btn-sm action-btn action-share js-open-share"
+                       data-share-url="{{ item.share_url }}">
+                        <span>Share</span>
+                    </button>
+                {% endif %}
+                </div>
             {% else %}
                 {% if post.status == 'reunited' %}
                     <span class="badge bg-success fs-6 px-3 py-2">Reclaimed by Owner</span>

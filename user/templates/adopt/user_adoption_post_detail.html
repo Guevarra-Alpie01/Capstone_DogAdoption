@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/post_detail.css' %}?v=20260407finder-detail-card">
+{% endblock %}
+
+{% block og_meta %}
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bayawan Vet">
+<meta property="og:title" content="{{ post.dog_name }} — {{ post.display_breed|default:'Dog' }} | Bayawan Vet">
+<meta property="og:description" content="{{ og_description }}">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+{% if og_image_url %}
+<meta property="og:image" content="{{ og_image_url }}">
+<meta property="og:image:width" content="600">
+<meta property="og:image:height" content="600">
+{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ post.dog_name }} — {{ post.display_breed|default:'Dog' }} | Bayawan Vet">
+<meta name="twitter:description" content="{{ og_description }}">
+{% if og_image_url %}
+<meta name="twitter:image" content="{{ og_image_url }}">
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="post-detail-page">
+    <article class="post-detail-card is-adopt">
+        {% if first_image_url %}
+        <div class="post-detail-backdrop" aria-hidden="true">
+            <img src="{{ first_image_url }}" alt="">
+        </div>
+        {% endif %}
+
+        <div class="post-detail-surface">
+            <a href="{% url 'user:adopt_list' %}" class="post-detail-close" aria-label="Back to listings">
+                <span aria-hidden="true">&times;</span>
+                <span class="visually-hidden">Back to listings</span>
+            </a>
+
+            <div class="post-detail-copy">
+                <h1 class="post-detail-title">{{ post.dog_name }}</h1>
+                <p class="post-detail-location">{{ post.location|default:"Location not listed" }}</p>
+            </div>
+
+            <div class="post-detail-pills">
+                <span class="post-detail-pill post-detail-pill--phase">User Adoption Post</span>
+                <span class="post-detail-pill post-detail-pill--time">Available</span>
+            </div>
+
+            <dl class="post-detail-facts" role="list">
+                <div class="post-detail-fact">
+                    <dt>Breed</dt>
+                    <dd>{{ post.display_breed|default:"Unknown Breed" }}</dd>
+                </div>
+                <div class="post-detail-fact">
+                    <dt>Location</dt>
+                    <dd>{{ post.location|default:"Not listed" }}</dd>
+                </div>
+                {% if post.display_age_group %}
+                <div class="post-detail-fact">
+                    <dt>Age</dt>
+                    <dd>{{ post.display_age_group }}</dd>
+                </div>
+                {% endif %}
+                {% if post.display_size_group %}
+                <div class="post-detail-fact">
+                    <dt>Size</dt>
+                    <dd>{{ post.display_size_group }}</dd>
+                </div>
+                {% endif %}
+                {% if post.gender %}
+                <div class="post-detail-fact">
+                    <dt>Gender</dt>
+                    <dd>{{ post.get_gender_display }}</dd>
+                </div>
+                {% endif %}
+                {% if post.display_coat_length %}
+                <div class="post-detail-fact">
+                    <dt>Coat</dt>
+                    <dd>{{ post.display_coat_length }}</dd>
+                </div>
+                {% endif %}
+                {% if post.display_colors %}
+                <div class="post-detail-fact">
+                    <dt>Color</dt>
+                    <dd>{{ post.display_colors }}</dd>
+                </div>
+                {% endif %}
+                <div class="post-detail-fact">
+                    <dt>Posted by</dt>
+                    <dd>{{ post.owner.get_full_name|default:post.owner.username }}</dd>
+                </div>
+            </dl>
+
+            {% if post.description %}
+            <section class="post-detail-note">
+                <p>{{ post.description }}</p>
+            </section>
+            {% endif %}
+        </div>
+    </article>
+</div>
+{% endblock %}

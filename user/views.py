@@ -1975,50 +1975,76 @@ def _build_public_post_listing(request, listing_mode):
     active_filter_chips = _build_rescue_finder_selected_chips(finder_form, selected_filters)
     active_filter_count = len(active_filter_chips)
 
-    candidate_items = []
+    claim_items = []
+    adopt_items = []
+    _sort_key = lambda item: (
+        -item["match_score"],
+        0 if item["main_image_url"] else 1,
+        -item["post"].created_at.timestamp(),
+        item["post"].id,
+    )
     for post, phase_payload in open_post_rows:
         phase = phase_payload["phase"]
-        if selected_purpose != "all" and phase != selected_purpose:
-            continue
         match_score = _rescue_finder_match_score(post, selected_filters)
-        candidate_items.append(
-            _build_rescue_finder_card_item(
-                request,
-                post,
-                phase_payload,
-                match_score,
+        card = _build_rescue_finder_card_item(request, post, phase_payload, match_score)
+        if phase == "claim":
+            claim_items.append(card)
+        else:
+            adopt_items.append(card)
+    claim_items.sort(key=_sort_key)
+    adopt_items.sort(key=_sort_key)
+
+    user_adoption_qs = (
+        UserAdoptionPost.objects
+        .filter(status="available")
+        .select_related("owner")
+        .prefetch_related(
+            Prefetch(
+                "images",
+                queryset=UserAdoptionImage.objects.only("id", "post_id", "image").order_by("id"),
             )
         )
-
-    candidate_items.sort(
-        key=lambda item: (
-            -item["match_score"],
-            _rescue_finder_phase_priority(item["phase"], preferred_purpose),
-            0 if item["main_image_url"] else 1,
-            -item["post"].created_at.timestamp(),
-            item["post"].id,
-        )
+        .order_by("-created_at")
     )
+    user_adoption_items = []
+    for upost in user_adoption_qs:
+        if any(
+            selected_filters[k]
+            and not _rescue_finder_post_matches(upost, k, selected_filters[k])
+            for k in selected_filters
+        ):
+            continue
+        match_score = _rescue_finder_match_score(upost, selected_filters)
+        location_label = " ".join((upost.location or "").split()) or "Location not listed"
+        user_adoption_items.append({
+            "post": upost,
+            "post_id": upost.id,
+            "dog_name": upost.dog_name,
+            "breed_label": upost.display_breed or "Unknown Breed",
+            "age_label": upost.display_age_group or "Age not listed",
+            "size_label": upost.display_size_group or "Size not listed",
+            "gender_label": upost.get_gender_display() if upost.gender else "Gender not listed",
+            "coat_label": upost.display_coat_length or "Coat not listed",
+            "color_label": upost.display_colors or "Color not listed",
+            "location_label": location_label,
+            "description": upost.description or "",
+            "owner_username": upost.owner.username,
+            "owner_full_name": upost.owner.get_full_name(),
+            "main_image_url": _first_prefetched_image_url(upost.images.all()),
+            "match_score": match_score,
+            "created_at": upost.created_at,
+        })
 
-    recommended_posts = []
-    if active_filter_count:
-        recommended_posts = [
-            item for item in candidate_items if item["match_score"] > 0
-        ][:RESCUE_FINDER_RECOMMENDATION_LIMIT]
+    user_adopt_count = len(user_adoption_items)
+    phase_counts["adopt"] += user_adopt_count
+    phase_counts["all"] += user_adopt_count
 
-    page_obj = Paginator(candidate_items, RESCUE_FINDER_PAGE_SIZE).get_page(
-        request.GET.get("page", 1)
+    claim_page_obj = Paginator(claim_items, RESCUE_FINDER_PAGE_SIZE).get_page(
+        request.GET.get("page", 1) if selected_purpose in ("all", "claim") else 1
     )
-
-    if selected_purpose == "claim":
-        results_title = "Dogs Ready for Claim"
-        results_description = "These dogs are still within the owner-claim window."
-    elif selected_purpose == "adopt":
-        results_title = "Dogs Ready for Adoption"
-        results_description = "These dogs have moved into the adoption window."
-    else:
-        results_title = "All Available Dogs"
-        results_description = "Browse every active dog currently open for claim or adoption."
+    adopt_page_obj = Paginator(adopt_items, RESCUE_FINDER_PAGE_SIZE).get_page(
+        request.GET.get("page", 1) if selected_purpose in ("all", "adopt") else 1
+    )
 
     purpose_options = [
         {
@@ -2046,13 +2072,9 @@ def _build_public_post_listing(request, listing_mode):
     )
 
     return {
-        "posts": list(page_obj.object_list),
-        "page_obj": page_obj,
         "listing_mode": listing_mode,
         "page_title": "Find a Dog",
         "page_description": "Browse active dogs and post a dog for adoption or as missing.",
-        "results_title": results_title,
-        "results_description": results_description,
         "purpose_choices": list(finder_form.fields["purpose"].choices),
         "purpose_options": purpose_options,
         "current_purpose": selected_purpose,
@@ -2065,7 +2087,11 @@ def _build_public_post_listing(request, listing_mode):
         ),
         "active_filter_chips": active_filter_chips,
         "active_filter_count": active_filter_count,
-        "recommended_posts": recommended_posts,
+        "claim_posts": list(claim_page_obj.object_list),
+        "claim_page_obj": claim_page_obj,
+        "adopt_posts": list(adopt_page_obj.object_list),
+        "adopt_page_obj": adopt_page_obj,
+        "user_adoption_posts": user_adoption_items,
         "pagination_query": _pagination_query_without_page(request.GET),
         "clear_filters_url": reverse(
             "user:claim_list" if listing_mode == "claim" else "user:adopt_list"

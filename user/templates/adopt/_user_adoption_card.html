@@ -1,0 +1,104 @@
+<article class="finder-card">
+    <div class="finder-card__media">
+        {% if item.main_image_url %}
+        <a href="{{ item.main_image_url }}" class="finder-card__media-link js-finder-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ item.breed_label|default:item.dog_name|default:'Dog image' }}" aria-label="View full image">
+            <img src="{{ item.main_image_url }}" width="320" height="320" alt="{{ item.breed_label|default:item.dog_name|default:'Dog image' }}">
+        </a>
+        {% else %}
+        <div class="finder-card__placeholder" aria-hidden="true">
+            <span>{{ item.dog_name|default:'D'|slice:':1'|upper }}</span>
+            <small>No Photo</small>
+        </div>
+        {% endif %}
+
+        <span class="finder-card__badge is-user_adopt">User Post</span>
+        {% if active_filter_count and item.match_score %}
+        <span class="finder-card__match">Match {{ item.match_score }}/{{ active_filter_count }}</span>
+        {% endif %}
+    </div>
+
+    <div class="finder-card__body">
+        <div class="finder-card__head">
+            <div class="finder-card__title-wrap">
+                <p class="finder-card__label">{{ item.breed_label }}</p>
+                <h3 class="finder-card__breed-title">{{ item.dog_name }}</h3>
+                <p class="finder-card__breed">
+                    <span class="finder-card__breed-icon" aria-hidden="true">
+                        <i class="bi bi-geo-alt-fill"></i>
+                    </span>
+                    <span>{{ item.location_label }}</span>
+                </p>
+            </div>
+            <span class="finder-card__phase-title">Posted by {{ item.owner_username }}</span>
+        </div>
+
+        {% if item.description %}
+        <p class="finder-card__description">{{ item.description|truncatewords:25 }}</p>
+        {% endif %}
+
+        <div class="finder-card__footer">
+            <div class="finder-card__utilities">
+                <button
+                    type="button"
+                    class="finder-card__utility-btn js-finder-info-toggle"
+                    aria-expanded="false"
+                    aria-controls="finder-card-details-user-{{ item.post_id }}"
+                    data-finder-info-toggle
+                >
+                    <span data-finder-info-label>View Info</span>
+                </button>
+                <button
+                    type="button"
+                    class="finder-card__utility-btn finder-card__utility-btn--share js-open-share"
+                    data-share-url="{{ request.build_absolute_uri }}?highlight=user-{{ item.post_id }}"
+                    aria-label="Share {{ item.dog_name }}"
+                >
+                    <i class="bi bi-share" aria-hidden="true"></i>
+                    <span>Share</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div
+        id="finder-card-details-user-{{ item.post_id }}"
+        class="finder-card__details"
+        data-finder-info-panel
+        hidden
+    >
+        <div class="finder-card__details-grid">
+            <div class="finder-card__detail-item">
+                <span>Breed</span>
+                <strong>{{ item.breed_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>Location</span>
+                <strong>{{ item.location_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>Age</span>
+                <strong>{{ item.age_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>Size</span>
+                <strong>{{ item.size_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>Gender</span>
+                <strong>{{ item.gender_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>Coat</span>
+                <strong>{{ item.coat_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>Color</span>
+                <strong>{{ item.color_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>Posted by</span>
+                <strong>{{ item.owner_full_name|default:item.owner_username }}</strong>
+            </div>
+        </div>
+    </div>
+</article>

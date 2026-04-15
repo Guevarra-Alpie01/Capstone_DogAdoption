@@ -32,6 +32,7 @@ from functools import wraps
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
 from django.urls import reverse
+from django.utils.functional import cached_property
 from django.utils.http import (
     url_has_allowed_host_and_scheme,
     urlsafe_base64_decode,
@@ -4030,14 +4031,32 @@ def _get_or_create_request_profile(user):
         )
 
 
-def _paginate_dog_capture_status(request, rows_per_page, status_key, page_param):
-    page_obj = Paginator(
+class _DogCaptureStatusPaginator(Paginator):
+    """Paginator that uses a precomputed total so we avoid a duplicate COUNT() query."""
+
+    def __init__(self, object_list, per_page, *, total_count, orphans=0, allow_empty_first_page=True):
+        self._fixed_total_count = int(total_count)
+        super().__init__(object_list, per_page, orphans, allow_empty_first_page)
+
+    @cached_property
+    def count(self):
+        return self._fixed_total_count
+
+
+def _paginate_dog_capture_status(request, rows_per_page, status_key, page_param, *, total_count=None):
+    qs = (
         DogCaptureRequest.objects.filter(
             requested_by=request.user,
             status=status_key,
-        ).prefetch_related("images", "landmark_images").order_by("-created_at"),
-        rows_per_page,
-    ).get_page(request.GET.get(page_param, 1))
+        )
+        .prefetch_related("images", "landmark_images")
+        .order_by("-created_at")
+    )
+    if total_count is None:
+        paginator = Paginator(qs, rows_per_page)
+    else:
+        paginator = _DogCaptureStatusPaginator(qs, rows_per_page, total_count=total_count)
+    page_obj = paginator.get_page(request.GET.get(page_param, 1))
     return page_obj, list(page_obj.object_list)
 
 
@@ -4076,16 +4095,32 @@ def _build_dog_capture_request_page_context(request):
         ).values("status").annotate(total=Count("id"))
     }
     accepted_page_obj, accepted_requests = _paginate_dog_capture_status(
-        request, rows_per_page, "accepted", "scheduled_page"
+        request,
+        rows_per_page,
+        "accepted",
+        "scheduled_page",
+        total_count=status_totals.get("accepted", 0),
     )
     pending_page_obj, pending_requests = _paginate_dog_capture_status(
-        request, rows_per_page, "pending", "pending_page"
+        request,
+        rows_per_page,
+        "pending",
+        "pending_page",
+        total_count=status_totals.get("pending", 0),
     )
     declined_page_obj, declined_requests = _paginate_dog_capture_status(
-        request, rows_per_page, "declined", "declined_page"
+        request,
+        rows_per_page,
+        "declined",
+        "declined_page",
+        total_count=status_totals.get("declined", 0),
     )
     captured_page_obj, captured_requests = _paginate_dog_capture_status(
-        request, rows_per_page, "captured", "captured_page"
+        request,
+        rows_per_page,
+        "captured",
+        "captured_page",
+        total_count=status_totals.get("captured", 0),
     )
 
     return {

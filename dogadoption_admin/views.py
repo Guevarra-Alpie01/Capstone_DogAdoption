@@ -43,9 +43,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.db import transaction
-from django.db.models import Case, CharField, Count, DateField, F, IntegerField, Min, OuterRef, Prefetch, Q, Subquery, Value, When
-from django.db.models.functions import Cast, Coalesce, Concat, Lower, Trim, TruncDate
+from django.db import DatabaseError, transaction
+from django.db.models import Case, CharField, Count, DateField, F, IntegerField, Max, Min, OuterRef, Prefetch, Q, Subquery, Value, When
+from django.db.models.functions import Cast, Coalesce, Concat, Lower, Substr, Trim, TruncDate
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -142,6 +142,7 @@ VIOLATION_OFFICE_ADDRESS_LINES = (
 )
 VIOLATION_SIGNATORY_NAME = "REYNALDO SOLAMILLO"
 VIOLATION_SIGNATORY_ROLE = "Team Leader-Rabies Control Team"
+ADMIN_USERS_PER_PAGE = 25
 
 
 # =============================================================================
@@ -548,9 +549,23 @@ def _normalize_certificate_series(value):
 
 
 def _next_certificate_sequence(series_prefix):
+    """Return the next numeric suffix for a certificate series without scanning every row."""
     pattern = re.compile(rf"^{re.escape(series_prefix)}-(\d+)$")
-    max_sequence = 0
+    prefix_len = len(series_prefix)
+    start_pos = prefix_len + 2  # first digit after "{series_prefix}-"
+    qs = DogRegistration.objects.filter(reg_no__startswith=f"{series_prefix}-").filter(
+        reg_no__regex=rf"^{re.escape(series_prefix)}-[0-9]+$",
+    )
+    try:
+        max_sequence = qs.annotate(
+            _seq=Cast(Substr("reg_no", start_pos), output_field=IntegerField()),
+        ).aggregate(max_seq=Max("_seq"))["max_seq"]
+    except (DatabaseError, ValueError, TypeError):
+        max_sequence = None
+    if max_sequence is not None:
+        return int(max_sequence) + 1
 
+    max_sequence = 0
     for reg_no in DogRegistration.objects.filter(
         reg_no__startswith=f"{series_prefix}-"
     ).values_list("reg_no", flat=True):
@@ -3590,6 +3605,18 @@ def _build_violation_letter_context(user, summary, latest_notification=None, vio
     }
 
 
+def _paginated_admin_user_directory_context(request, users_qs):
+    """Slice the queryset to one page of rows and build list payloads (avoids loading the full directory)."""
+    paginator = Paginator(users_qs, ADMIN_USERS_PER_PAGE)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+    page_users = list(page_obj.object_list)
+    return {
+        "users": _build_admin_user_row_payloads(page_users),
+        "user_count": paginator.count,
+        "page_obj": page_obj,
+    }
+
+
 @admin_required
 def admin_users(request):
     """List non-staff users together with their violation counts."""
@@ -3605,13 +3632,10 @@ def admin_users(request):
         )
 
     users = users.order_by('-effective_violation_count', 'first_name', 'last_name', 'username')
-    user_count = users.count()
-
-    return render(request, 'admin_user/users.html', {
-        'users': _build_admin_user_row_payloads(users),
-        'query': query,
-        'user_count': user_count,
-    })
+    context = _paginated_admin_user_directory_context(request, users)
+    context["query"] = query
+    context["is_search_view"] = False
+    return render(request, 'admin_user/users.html', context)
 
 
 @admin_required
@@ -3635,12 +3659,9 @@ def admin_user_search_results(request):
         Q(username__icontains=query)
     ).order_by('-effective_violation_count', 'first_name', 'last_name', 'username')
 
-    context = {
-        'users': _build_admin_user_row_payloads(results),
-        'query': query,
-        'user_count': results.count(),
-    }
-
+    context = _paginated_admin_user_directory_context(request, results)
+    context["query"] = query
+    context["is_search_view"] = True
     return render(request, 'admin_user/users.html', context)
 
 

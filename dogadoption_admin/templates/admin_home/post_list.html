@@ -33,6 +33,19 @@
                     <i class="fas fa-calendar-alt" aria-hidden="true"></i>
                 </button>
             {% endif %}
+            <a
+                href="{% url 'dogadoption_admin:user_post_requests' %}"
+                class="post-toolbar-icon-btn post-toolbar-icon-btn--user-requests"
+                data-bs-toggle="tooltip"
+                data-bs-placement="bottom"
+                title="User Post Requests{% if user_post_pending_count %} ({{ user_post_pending_count }} pending){% endif %}"
+                aria-label="User Post Requests"
+            >
+                <i class="bi bi-person-lines-fill" aria-hidden="true"></i>
+                {% if user_post_pending_count %}
+                    <span class="post-toolbar-badge post-toolbar-badge--requests">{{ user_post_pending_count }}</span>
+                {% endif %}
+            </a>
         </div>
         <div class="post-toolbar-end">
             {% if admin_access.can_view_post_history %}
@@ -52,18 +65,6 @@
     </div>
 </div>
 <div class="post-toolbar-spacer" aria-hidden="true"></div>
-
-<div class="admin-subnav">
-    <a href="{% url 'dogadoption_admin:post_list' %}" class="admin-subnav-link is-active">
-        <i class="bi bi-grid-fill" aria-hidden="true"></i> Dog Posts
-    </a>
-    <a href="{% url 'dogadoption_admin:user_post_requests' %}" class="admin-subnav-link">
-        <i class="bi bi-person-lines-fill" aria-hidden="true"></i> User Post Requests
-        {% if user_post_pending_count %}
-            <span class="admin-subnav-badge">{{ user_post_pending_count }}</span>
-        {% endif %}
-    </a>
-</div>
 
 {% if admin_access.can_create_posts %}
 <div class="modal fade create-post-modal" id="createPostModal" tabindex="-1" aria-labelledby="createPostModalLabel" aria-hidden="true">

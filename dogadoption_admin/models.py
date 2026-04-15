@@ -581,24 +581,23 @@ class Post(models.Model):
                 adoption_start: adoption_start + self.ADOPTION_DAYS
             ]
 
-        claim_deadline = (
-            self._schedule_deadline_for_date(claim_dates[-1])
-            if use_calendar_schedule and claim_dates
-            else (
-                self._legacy_claim_deadline()
-                if not use_calendar_schedule
-                else None
+        if use_calendar_schedule and start_date and claim_days:
+            claim_deadline = self._schedule_deadline_for_date(
+                start_date + timedelta(days=claim_days)
             )
-        )
-        adoption_deadline = (
-            self._schedule_deadline_for_date(adoption_dates[-1])
-            if use_calendar_schedule and adoption_dates
-            else (
-                claim_deadline + timedelta(days=self.ADOPTION_DAYS)
-                if (not use_calendar_schedule and claim_deadline)
-                else None
+        elif not use_calendar_schedule:
+            claim_deadline = self._legacy_claim_deadline()
+        else:
+            claim_deadline = None
+
+        if use_calendar_schedule and start_date:
+            adoption_deadline = self._schedule_deadline_for_date(
+                start_date + timedelta(days=claim_days + self.ADOPTION_DAYS)
             )
-        )
+        elif not use_calendar_schedule and claim_deadline:
+            adoption_deadline = claim_deadline + timedelta(days=self.ADOPTION_DAYS)
+        else:
+            adoption_deadline = None
 
         schedule = {
             "use_calendar_schedule": use_calendar_schedule,

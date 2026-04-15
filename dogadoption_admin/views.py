@@ -2344,10 +2344,7 @@ def post_list(request):
 
         remaining_time = timedelta(seconds=0)
         if is_active_section and not is_pending_review:
-            active_phase = post.current_phase(now)
-            if active_phase == section_key:
-                remaining_time = post.time_left(now)
-            elif deadline:
+            if deadline:
                 remaining_time = deadline - now
             total_seconds = max(int(remaining_time.total_seconds()), 0)
             days = total_seconds // 86400

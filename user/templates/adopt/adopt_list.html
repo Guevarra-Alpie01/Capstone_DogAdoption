@@ -494,6 +494,7 @@
     function toggleFieldGroup(group, shouldShow) {
         if (!group) return;
         group.hidden = !shouldShow;
+        group.style.display = shouldShow ? '' : 'none';
     }
 
     function syncAdoptionAttributeFields() {
@@ -598,6 +599,12 @@
         toggleFieldGroup(missingFields, isMissing);
         setPostPanelDisabled(adoptionFields, !isAdoption);
         setPostPanelDisabled(missingFields, !isMissing);
+        if (adoptionFields) {
+            adoptionFields.setAttribute('aria-hidden', isAdoption ? 'false' : 'true');
+        }
+        if (missingFields) {
+            missingFields.setAttribute('aria-hidden', isMissing ? 'false' : 'true');
+        }
         syncAdoptionAttributeFields();
     }
 
@@ -848,7 +855,7 @@
     });
 
     adoptionFields?.querySelector('select[name$="-breed"]')?.addEventListener('change', syncAdoptionAttributeFields);
-    adoptionFields?.querySelectorAll('[name$="-colors"]').forEach((input) => {
+    (adoptionFields ? adoptionFields.querySelectorAll('[name$="-colors"]') : []).forEach((input) => {
         input.addEventListener('change', syncAdoptionAttributeFields);
     });
 

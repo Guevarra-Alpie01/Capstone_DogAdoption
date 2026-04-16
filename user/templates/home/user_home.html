@@ -50,117 +50,130 @@
         <div class="home-pinned-spotlights home-reveal">
             <div class="home-pinned-spotlights__head">
                 <div class="home-pinned-spotlights__copy">
-                    <span class="home-pinned-spotlights__eyebrow">
-                        <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
-                        <span>{{ pinned_admin_spotlights_eyebrow }}</span>
-                    </span>
                     <h2 id="homePinnedSpotlightsTitle">{{ pinned_admin_spotlights_title }}</h2>
                 </div>
             </div>
 
-            <div class="home-pinned-spotlights__grid">
-                {% for spotlight in pinned_admin_spotlights %}
-                <article class="home-pinned-spotlights__item home-reveal" style="--home-stagger: {{ forloop.counter0 }};" data-home-spotlight-card>
-                    <div class="home-pinned-spotlights__details">
-                        <span class="home-pinned-spotlights__status home-pinned-spotlights__status--{{ spotlight.phase }}">
-                            {{ spotlight.phase_title }}
-                        </span>
-                        <h3>{{ spotlight.title }}</h3>
-                        <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
+            <div class="spotlight-carousel" data-spotlight-carousel>
+                <div class="spotlight-carousel__viewport">
+                    <div class="spotlight-carousel__track">
+                        {% for spotlight in pinned_admin_spotlights %}
+                        <article class="home-pinned-spotlights__item spotlight-carousel__slide" data-carousel-index="{{ forloop.counter0 }}" data-home-spotlight-card>
+                            <div class="home-pinned-spotlights__details">
+                                <span class="home-pinned-spotlights__status home-pinned-spotlights__status--{{ spotlight.phase }}">
+                                    {{ spotlight.phase_title }}
+                                </span>
+                                <h3>{{ spotlight.title }}</h3>
+                                <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
 
-                        <div class="home-pinned-spotlights__actions{% if spotlight.primary_cta_label == 'View Status' %} home-pinned-spotlights__actions--detail-only{% endif %}">
-                            <a
-                                href="{{ spotlight.primary_cta_url }}"
-                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--primary"
-                                {% if spotlight.primary_requires_auth and not request.user.is_authenticated %}
-                                data-auth-modal-trigger="login"
-                                data-auth-next-url="{{ spotlight.primary_cta_url }}"
-                                {% elif spotlight.primary_cta_label == "View Status" %}
-                                data-home-spotlight-detail-toggle
-                                aria-controls="home-spotlight-{{ forloop.counter0 }}-details"
-                                aria-expanded="false"
-                                {% endif %}
-                            >
-                                <span>{% if spotlight.primary_cta_label == "View Status" %}Details{% else %}{{ spotlight.primary_cta_label }}{% endif %}</span>
-                            </a>
-                            <button
-                                type="button"
-                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--share js-open-share"
-                                data-share-url="{{ spotlight.share_url }}"
-                                aria-label="Share {{ spotlight.title }}"
-                            >
-                                <span>Share</span>
-                            </button>
-                            {% if spotlight.primary_cta_label != "View Status" %}
-                            <a
-                                href="{{ spotlight.detail_url }}"
-                                class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary home-pinned-spotlights__btn--details"
-                                data-home-spotlight-detail-toggle
-                                aria-controls="home-spotlight-{{ forloop.counter0 }}-details"
-                                aria-expanded="false"
-                            >
-                                <span>Details</span>
-                            </a>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__media" aria-label="Open {{ spotlight.title }} post">
-                        {% if spotlight.main_image_url %}
-                            <img src="{{ spotlight.main_image_url }}" alt="{{ spotlight.image_alt }}">
-                        {% else %}
-                            <div class="home-pinned-spotlights__fallback">
-                                <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
-                                <span>Pinned rescue spotlight</span>
-                            </div>
-                        {% endif %}
-                    </a>
-
-                    <div
-                        class="dog-scale-carousel__details"
-                        id="home-spotlight-{{ forloop.counter0 }}-details"
-                        data-home-spotlight-detail-panel
-                        aria-hidden="true"
-                        aria-labelledby="home-spotlight-{{ forloop.counter0 }}-title"
-                        role="dialog"
-                        aria-modal="true"
-                        tabindex="-1"
-                    >
-                        <div
-                            class="dog-scale-carousel__details-card"
-                            {% if spotlight.main_image_url %}
-                            style="--dog-detail-bg-image: url('{{ spotlight.main_image_url }}');"
-                            {% endif %}
-                        >
-                            <div class="dog-scale-carousel__details-head">
-                                <div class="dog-scale-carousel__copy">
-                                    <h3 id="home-spotlight-{{ forloop.counter0 }}-title">{{ spotlight.title }}</h3>
-                                    <p>{{ spotlight.location_label }}</p>
+                                <div class="home-pinned-spotlights__actions{% if spotlight.primary_cta_label == 'View Status' %} home-pinned-spotlights__actions--detail-only{% endif %}">
+                                    <a
+                                        href="{{ spotlight.primary_cta_url }}"
+                                        class="home-pinned-spotlights__btn home-pinned-spotlights__btn--primary"
+                                        {% if spotlight.primary_requires_auth and not request.user.is_authenticated %}
+                                        data-auth-modal-trigger="login"
+                                        data-auth-next-url="{{ spotlight.primary_cta_url }}"
+                                        {% elif spotlight.primary_cta_label == "View Status" %}
+                                        data-home-spotlight-detail-toggle
+                                        aria-controls="home-spotlight-{{ forloop.counter0 }}-details"
+                                        aria-expanded="false"
+                                        {% endif %}
+                                    >
+                                        <span>{% if spotlight.primary_cta_label == "View Status" %}Details{% else %}{{ spotlight.primary_cta_label }}{% endif %}</span>
+                                    </a>
+                                    <button
+                                        type="button"
+                                        class="home-pinned-spotlights__btn home-pinned-spotlights__btn--share js-open-share"
+                                        data-share-url="{{ spotlight.share_url }}"
+                                        aria-label="Share {{ spotlight.title }}"
+                                    >
+                                        <span>Share</span>
+                                    </button>
+                                    {% if spotlight.primary_cta_label != "View Status" %}
+                                    <a
+                                        href="{{ spotlight.detail_url }}"
+                                        class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary home-pinned-spotlights__btn--details"
+                                        data-home-spotlight-detail-toggle
+                                        aria-controls="home-spotlight-{{ forloop.counter0 }}-details"
+                                        aria-expanded="false"
+                                    >
+                                        <span>Details</span>
+                                    </a>
+                                    {% endif %}
                                 </div>
-                                <button type="button" class="dog-scale-carousel__detail-close" data-home-spotlight-detail-close aria-label="Hide details">
-                                    <span aria-hidden="true">&times;</span>
-                                </button>
                             </div>
 
-                            <div class="dog-scale-carousel__chips dog-scale-carousel__chips--details">
-                                <span class="dog-scale-carousel__chip dog-scale-carousel__chip--phase">{{ spotlight.phase_title }}</span>
-                                <span class="dog-scale-carousel__chip">{{ spotlight.time_left_badge }}</span>
-                            </div>
+                            <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__media" aria-label="Open {{ spotlight.title }} post">
+                                {% if spotlight.main_image_url %}
+                                    <img src="{{ spotlight.main_image_url }}" alt="{{ spotlight.image_alt }}">
+                                {% else %}
+                                    <div class="home-pinned-spotlights__fallback">
+                                        <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
+                                        <span>Pinned rescue spotlight</span>
+                                    </div>
+                                {% endif %}
+                            </a>
 
-                            <ul class="dog-scale-carousel__facts" role="list">
-                                <li><span>Breed</span><strong>{{ spotlight.breed_label }}</strong></li>
-                                <li><span>Location</span><strong>{{ spotlight.location_label }}</strong></li>
-                                <li><span>Age</span><strong>{{ spotlight.age_label }}</strong></li>
-                                <li><span>Size</span><strong>{{ spotlight.size_label }}</strong></li>
-                                <li><span>Gender</span><strong>{{ spotlight.gender_label }}</strong></li>
-                                <li><span>Coat</span><strong>{{ spotlight.coat_label }}</strong></li>
-                                <li><span>Color</span><strong>{{ spotlight.color_label }}</strong></li>
-                                <li><span>{{ spotlight.countdown_date_heading }}</span><strong>{{ spotlight.countdown_date_label }}</strong></li>
-                            </ul>
-                        </div>
+                            <div
+                                class="dog-scale-carousel__details"
+                                id="home-spotlight-{{ forloop.counter0 }}-details"
+                                data-home-spotlight-detail-panel
+                                aria-hidden="true"
+                                aria-labelledby="home-spotlight-{{ forloop.counter0 }}-title"
+                                role="dialog"
+                                aria-modal="true"
+                                tabindex="-1"
+                            >
+                                <div
+                                    class="dog-scale-carousel__details-card"
+                                    {% if spotlight.main_image_url %}
+                                    style="--dog-detail-bg-image: url('{{ spotlight.main_image_url }}');"
+                                    {% endif %}
+                                >
+                                    <div class="dog-scale-carousel__details-head">
+                                        <div class="dog-scale-carousel__copy">
+                                            <h3 id="home-spotlight-{{ forloop.counter0 }}-title">{{ spotlight.title }}</h3>
+                                            <p>{{ spotlight.location_label }}</p>
+                                        </div>
+                                        <button type="button" class="dog-scale-carousel__detail-close" data-home-spotlight-detail-close aria-label="Hide details">
+                                            <span aria-hidden="true">&times;</span>
+                                        </button>
+                                    </div>
+
+                                    <div class="dog-scale-carousel__chips dog-scale-carousel__chips--details">
+                                        <span class="dog-scale-carousel__chip dog-scale-carousel__chip--phase">{{ spotlight.phase_title }}</span>
+                                        <span class="dog-scale-carousel__chip">{{ spotlight.time_left_badge }}</span>
+                                    </div>
+
+                                    <ul class="dog-scale-carousel__facts" role="list">
+                                        <li><span>Breed</span><strong>{{ spotlight.breed_label }}</strong></li>
+                                        <li><span>Location</span><strong>{{ spotlight.location_label }}</strong></li>
+                                        <li><span>Age</span><strong>{{ spotlight.age_label }}</strong></li>
+                                        <li><span>Size</span><strong>{{ spotlight.size_label }}</strong></li>
+                                        <li><span>Gender</span><strong>{{ spotlight.gender_label }}</strong></li>
+                                        <li><span>Coat</span><strong>{{ spotlight.coat_label }}</strong></li>
+                                        <li><span>Color</span><strong>{{ spotlight.color_label }}</strong></li>
+                                        <li><span>{{ spotlight.countdown_date_heading }}</span><strong>{{ spotlight.countdown_date_label }}</strong></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </article>
+                        {% endfor %}
                     </div>
-                </article>
-                {% endfor %}
+                </div>
+
+                <button type="button" class="spotlight-carousel__arrow spotlight-carousel__arrow--prev" data-carousel-prev aria-label="Previous spotlight">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 4 7 10 13 16"/></svg>
+                </button>
+                <button type="button" class="spotlight-carousel__arrow spotlight-carousel__arrow--next" data-carousel-next aria-label="Next spotlight">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 4 13 10 7 16"/></svg>
+                </button>
+
+                <div class="spotlight-carousel__dots" data-carousel-dots>
+                    {% for spotlight in pinned_admin_spotlights %}
+                    <button type="button" class="spotlight-carousel__dot{% if forloop.first %} is-active{% endif %}" data-carousel-dot="{{ forloop.counter0 }}" aria-label="Go to spotlight {{ forloop.counter }}"></button>
+                    {% endfor %}
+                </div>
             </div>
         </div>
     </section>
@@ -1533,6 +1546,115 @@
         });
     }
 
+})();
+</script>
+
+<script>
+(function () {
+    var carousel = document.querySelector('[data-spotlight-carousel]');
+    if (!carousel) return;
+
+    var slides = Array.from(carousel.querySelectorAll('.spotlight-carousel__slide'));
+    var dots = Array.from(carousel.querySelectorAll('[data-carousel-dot]'));
+    var prevBtn = carousel.querySelector('[data-carousel-prev]');
+    var nextBtn = carousel.querySelector('[data-carousel-next]');
+    var total = slides.length;
+
+    if (total === 0) return;
+
+    var current = 0;
+    var autoTimer = null;
+    var resumeTimer = null;
+    var AUTO_INTERVAL = 6000;
+    var RESUME_DELAY = 10000;
+
+    function mod(n, m) { return ((n % m) + m) % m; }
+
+    function goTo(index) {
+        current = mod(index, total);
+        slides.forEach(function (slide, i) {
+            slide.classList.remove('is-active', 'is-prev', 'is-next');
+            if (i === current) {
+                slide.classList.add('is-active');
+            } else if (i === mod(current - 1, total)) {
+                slide.classList.add('is-prev');
+            } else if (i === mod(current + 1, total)) {
+                slide.classList.add('is-next');
+            }
+        });
+        dots.forEach(function (dot, i) {
+            dot.classList.toggle('is-active', i === current);
+        });
+    }
+
+    function next() { goTo(current + 1); }
+    function prev() { goTo(current - 1); }
+
+    function startAuto() {
+        stopAuto();
+        if (total <= 1) return;
+        autoTimer = setInterval(next, AUTO_INTERVAL);
+    }
+
+    function stopAuto() {
+        if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+        if (resumeTimer) { clearTimeout(resumeTimer); resumeTimer = null; }
+    }
+
+    function pauseAndResume() {
+        stopAuto();
+        resumeTimer = setTimeout(startAuto, RESUME_DELAY);
+    }
+
+    if (prevBtn) prevBtn.addEventListener('click', function () { prev(); pauseAndResume(); });
+    if (nextBtn) nextBtn.addEventListener('click', function () { next(); pauseAndResume(); });
+
+    dots.forEach(function (dot) {
+        dot.addEventListener('click', function () {
+            var idx = parseInt(dot.getAttribute('data-carousel-dot'), 10);
+            if (!isNaN(idx)) { goTo(idx); pauseAndResume(); }
+        });
+    });
+
+    slides.forEach(function (slide) {
+        slide.addEventListener('click', function () {
+            if (slide.classList.contains('is-prev')) { prev(); pauseAndResume(); }
+            else if (slide.classList.contains('is-next')) { next(); pauseAndResume(); }
+        });
+    });
+
+    var touchStartX = 0;
+    var touchStartY = 0;
+    var touchDragging = false;
+
+    carousel.addEventListener('touchstart', function (e) {
+        touchStartX = e.changedTouches[0].clientX;
+        touchStartY = e.changedTouches[0].clientY;
+        touchDragging = true;
+    }, { passive: true });
+
+    carousel.addEventListener('touchend', function (e) {
+        if (!touchDragging) return;
+        touchDragging = false;
+        var dx = e.changedTouches[0].clientX - touchStartX;
+        var dy = e.changedTouches[0].clientY - touchStartY;
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+            if (dx < 0) next(); else prev();
+            pauseAndResume();
+        }
+    }, { passive: true });
+
+    carousel.addEventListener('mouseenter', stopAuto);
+    carousel.addEventListener('mouseleave', startAuto);
+
+    document.addEventListener('keydown', function (e) {
+        if (!carousel.closest('.home-pinned-spotlights-shell')) return;
+        if (e.key === 'ArrowLeft') { prev(); pauseAndResume(); }
+        if (e.key === 'ArrowRight') { next(); pauseAndResume(); }
+    });
+
+    goTo(0);
+    startAuto();
 })();
 </script>
 

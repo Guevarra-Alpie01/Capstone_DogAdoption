@@ -2222,6 +2222,178 @@ body.home-map-expanded {
     width: min(100%, 360px);
 }
 
+/* ── 3D Spotlight Carousel ── */
+.spotlight-carousel {
+    position: relative;
+    width: 100%;
+    padding: 0 0 48px;
+}
+
+.spotlight-carousel__viewport {
+    position: relative;
+    width: 100%;
+    perspective: 1200px;
+    overflow: hidden;
+    padding: 24px 0;
+}
+
+.spotlight-carousel__track {
+    position: relative;
+    width: 100%;
+    height: clamp(240px, 20vw, 280px);
+    transform-style: preserve-3d;
+}
+
+.spotlight-carousel__slide {
+    position: absolute !important;
+    top: 0;
+    left: 50%;
+    width: min(92%, 420px);
+    transform: translateX(-50%) rotateY(0deg) scale(1);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+        transform 0.55s cubic-bezier(0.32, 0.72, 0, 1),
+        opacity 0.45s ease,
+        visibility 0.45s ease,
+        filter 0.45s ease,
+        z-index 0s linear 0.25s;
+    z-index: 0;
+    filter: blur(2px) brightness(0.92);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+.spotlight-carousel__slide.is-active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    z-index: 3;
+    transform: translateX(-50%) rotateY(0deg) scale(1);
+    filter: blur(0) brightness(1);
+    transition:
+        transform 0.55s cubic-bezier(0.32, 0.72, 0, 1),
+        opacity 0.45s ease,
+        visibility 0s,
+        filter 0.45s ease,
+        z-index 0s;
+}
+
+.spotlight-carousel__slide.is-prev {
+    opacity: 0.55;
+    visibility: visible;
+    pointer-events: auto;
+    z-index: 2;
+    transform: translateX(calc(-50% - 68%)) rotateY(35deg) scale(0.78);
+    filter: blur(1.5px) brightness(0.88);
+    cursor: pointer;
+    transition:
+        transform 0.55s cubic-bezier(0.32, 0.72, 0, 1),
+        opacity 0.45s ease,
+        visibility 0s,
+        filter 0.45s ease,
+        z-index 0s;
+}
+
+.spotlight-carousel__slide.is-next {
+    opacity: 0.55;
+    visibility: visible;
+    pointer-events: auto;
+    z-index: 2;
+    transform: translateX(calc(-50% + 68%)) rotateY(-35deg) scale(0.78);
+    filter: blur(1.5px) brightness(0.88);
+    cursor: pointer;
+    transition:
+        transform 0.55s cubic-bezier(0.32, 0.72, 0, 1),
+        opacity 0.45s ease,
+        visibility 0s,
+        filter 0.45s ease,
+        z-index 0s;
+}
+
+.spotlight-carousel__slide.is-prev:hover,
+.spotlight-carousel__slide.is-next:hover {
+    opacity: 0.72;
+    filter: blur(0.5px) brightness(0.94);
+}
+
+.spotlight-carousel__arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(calc(-50% - 24px));
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(225, 205, 137, 0.5);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    color: #173a2c;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(30, 39, 27, 0.12);
+    transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    padding: 0;
+}
+
+.spotlight-carousel__arrow:hover {
+    background: #ffffff;
+    box-shadow: 0 6px 20px rgba(30, 39, 27, 0.16);
+    transform: translateY(calc(-50% - 24px)) scale(1.08);
+}
+
+.spotlight-carousel__arrow:active {
+    transform: translateY(calc(-50% - 24px)) scale(0.95);
+}
+
+.spotlight-carousel__arrow--prev {
+    left: max(4px, calc(50% - min(46%, 210px) - 56px));
+}
+
+.spotlight-carousel__arrow--next {
+    right: max(4px, calc(50% - min(46%, 210px) - 56px));
+}
+
+.spotlight-carousel__arrow svg {
+    display: block;
+    flex-shrink: 0;
+}
+
+.spotlight-carousel__dots {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+
+.spotlight-carousel__dot {
+    width: 10px;
+    height: 10px;
+    border: 2px solid rgba(23, 58, 44, 0.3);
+    border-radius: 50%;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+
+.spotlight-carousel__dot:hover {
+    border-color: rgba(23, 58, 44, 0.5);
+    transform: scale(1.2);
+}
+
+.spotlight-carousel__dot.is-active {
+    background: #173a2c;
+    border-color: #173a2c;
+    transform: scale(1.15);
+}
+
 .home-pinned-spotlights__item {
     position: relative;
     min-width: 0;
@@ -3292,6 +3464,18 @@ body.home-map-expanded {
     .home-pinned-spotlights__grid {
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 244px), 1fr));
     }
+
+    .spotlight-carousel__slide {
+        width: min(92%, 380px);
+    }
+
+    .spotlight-carousel__slide.is-prev {
+        transform: translateX(calc(-50% - 62%)) rotateY(32deg) scale(0.76);
+    }
+
+    .spotlight-carousel__slide.is-next {
+        transform: translateX(calc(-50% + 62%)) rotateY(-32deg) scale(0.76);
+    }
 }
 
 @media (max-width: 767.98px) {
@@ -3325,6 +3509,48 @@ body.home-map-expanded {
     .home-pinned-spotlights__grid {
         grid-template-columns: 1fr;
         gap: 16px;
+    }
+
+    .spotlight-carousel {
+        padding: 0 0 40px;
+    }
+
+    .spotlight-carousel__viewport {
+        perspective: 800px;
+        padding: 16px 0;
+    }
+
+    .spotlight-carousel__track {
+        height: auto;
+        min-height: 340px;
+    }
+
+    .spotlight-carousel__slide {
+        width: min(88%, 340px);
+    }
+
+    .spotlight-carousel__slide.is-prev {
+        transform: translateX(calc(-50% - 55%)) rotateY(28deg) scale(0.72);
+        opacity: 0.4;
+    }
+
+    .spotlight-carousel__slide.is-next {
+        transform: translateX(calc(-50% + 55%)) rotateY(-28deg) scale(0.72);
+        opacity: 0.4;
+    }
+
+    .spotlight-carousel__arrow {
+        width: 38px;
+        height: 38px;
+        display: none;
+    }
+
+    .spotlight-carousel__arrow--prev {
+        left: 4px;
+    }
+
+    .spotlight-carousel__arrow--next {
+        right: 4px;
     }
 
     .home-pinned-spotlights__item {
@@ -3432,6 +3658,33 @@ body.home-map-expanded {
     .home-pinned-spotlights__details h3 {
         font-size: 1.04rem;
         line-height: 1.02;
+    }
+
+    .spotlight-carousel__track {
+        min-height: 310px;
+    }
+
+    .spotlight-carousel__slide {
+        width: min(86%, 300px);
+    }
+
+    .spotlight-carousel__slide.is-prev {
+        transform: translateX(calc(-50% - 50%)) rotateY(24deg) scale(0.7);
+        opacity: 0.35;
+    }
+
+    .spotlight-carousel__slide.is-next {
+        transform: translateX(calc(-50% + 50%)) rotateY(-24deg) scale(0.7);
+        opacity: 0.35;
+    }
+
+    .spotlight-carousel__dots {
+        gap: 8px;
+    }
+
+    .spotlight-carousel__dot {
+        width: 8px;
+        height: 8px;
     }
 }
 
@@ -7222,6 +7475,22 @@ body.home-map-expanded {
         gap: var(--home-section-gap-tight);
     }
 
+    .spotlight-carousel__track {
+        height: clamp(248px, 19vw, 280px);
+    }
+
+    .spotlight-carousel__slide {
+        width: min(92%, 440px);
+    }
+
+    .spotlight-carousel__slide.is-prev {
+        transform: translateX(calc(-50% - 70%)) rotateY(38deg) scale(0.78);
+    }
+
+    .spotlight-carousel__slide.is-next {
+        transform: translateX(calc(-50% + 70%)) rotateY(-38deg) scale(0.78);
+    }
+
     .home-pinned-spotlights__item {
         width: 100%;
         grid-template-columns: minmax(0, 1.14fr) minmax(0, 0.86fr);
@@ -7364,6 +7633,20 @@ body.home-map-expanded {
         animation: none !important;
         transition-duration: 0.01ms !important;
         transition-delay: 0ms !important;
+    }
+
+    .spotlight-carousel__slide,
+    .spotlight-carousel__slide.is-active,
+    .spotlight-carousel__slide.is-prev,
+    .spotlight-carousel__slide.is-next {
+        transition-duration: 0.01ms !important;
+        filter: none !important;
+    }
+
+    .spotlight-carousel__slide.is-prev,
+    .spotlight-carousel__slide.is-next {
+        transform: translateX(-50%) scale(0.85);
+        opacity: 0.5;
     }
 }
 

@@ -1,4 +1,4 @@
-﻿/* Container adjustments */
+/* Container adjustments */
 :root {
     --home-navbar-offset: 56px;
     --home-shell-max: 1320px;
@@ -871,6 +871,12 @@ body.home-details-modal-open .dog-scale-carousel__slide.is-details-open {
     background: radial-gradient(circle, var(--home-ord-accent-glow) 0%, rgba(255, 255, 255, 0) 72%);
 }
 
+/* Citation fee cards: no corner glow */
+.home-ordinance__card--section-28::after,
+.home-ordinance__card--section-29::after {
+    display: none;
+}
+
 .home-ordinance__card--section-28 {
     --home-ord-accent: #24523f;
     --home-ord-accent-soft: rgba(36, 82, 63, 0.1);
@@ -892,7 +898,7 @@ body.home-details-modal-open .dog-scale-carousel__slide.is-details-open {
     box-shadow: none;
     gap: 8px 10px;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
+    align-items: start;
 }
 
 .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__item::before {
@@ -903,6 +909,8 @@ body.home-details-modal-open .dog-scale-carousel__slide.is-details-open {
     width: 22px;
     height: 22px;
     font-size: 0.56rem;
+    align-self: start;
+    margin-top: 0.12em;
 }
 
 .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__item-title {
@@ -914,6 +922,7 @@ body.home-details-modal-open .dog-scale-carousel__slide.is-details-open {
     min-height: 24px;
     padding: 0 8px;
     font-size: clamp(0.52rem, 0.48rem + 0.08vw, 0.62rem);
+    align-self: start;
 }
 
 .home-ordinance__card--section-29 {
@@ -933,9 +942,26 @@ body.home-details-modal-open .dog-scale-carousel__slide.is-details-open {
     line-height: 1.62;
 }
 
-/* Penalties: flat rows (no per-item cards) for a denser grid */
-.home-ordinance__card--section-29 .home-ordinance__list--cluster {
+/* Penalties: one list; column-major — left col 1–14, right col 15–28 (desktop); mobile pager shows 1–14 / 15–28 */
+.home-ordinance__card--section-29 .home-ordinance__list--cluster.home-ordinance__list--penalties-all {
     gap: 4px 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(14, auto);
+    grid-auto-flow: column;
+}
+
+@media (max-width: 1023.98px) {
+    html.home-has-js .home-ordinance__stepper[data-penalty-page="1"] .home-ordinance__list--penalties-all > li:nth-child(n + 15) {
+        display: none !important;
+    }
+
+    html.home-has-js .home-ordinance__stepper[data-penalty-page="2"] .home-ordinance__list--penalties-all > li:nth-child(-n + 14) {
+        display: none !important;
+    }
+
+    .home-ordinance__card--section-29 .home-ordinance__list--penalties-all {
+        grid-template-rows: repeat(7, auto);
+    }
 }
 
 .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item {
@@ -946,7 +972,7 @@ body.home-details-modal-open .dog-scale-carousel__slide.is-details-open {
     box-shadow: none;
     gap: 8px 10px;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
+    align-items: start;
 }
 
 .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item::before {
@@ -954,9 +980,22 @@ body.home-details-modal-open .dog-scale-carousel__slide.is-details-open {
 }
 
 .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__index {
-    width: 22px;
-    height: 22px;
-    font-size: 0.56rem;
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: flex-start;
+    width: auto;
+    min-width: 1.35em;
+    height: auto;
+    padding: 0.08em 0 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.78rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.22;
+    color: #3d4a5c;
 }
 
 .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item-title {
@@ -968,6 +1007,95 @@ body.home-details-modal-open .dog-scale-carousel__slide.is-details-open {
     min-height: 24px;
     padding: 0 8px;
     font-size: clamp(0.52rem, 0.48rem + 0.08vw, 0.62rem);
+    align-self: start;
+    margin-top: 0.06em;
+}
+
+.home-ordinance__card--section-29 .home-ordinance__item-copy {
+    gap: 6px;
+}
+
+.home-ordinance__card--section-29 .home-ordinance__item-more {
+    margin-top: 2px;
+}
+
+.home-ordinance__card--section-29 .home-ordinance__item-more-toggle {
+    list-style: none;
+    cursor: pointer;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #b56326;
+    letter-spacing: 0.03em;
+    padding: 3px 0 2px;
+}
+
+.home-ordinance__card--section-29 .home-ordinance__item-more-toggle::-webkit-details-marker {
+    display: none;
+}
+
+.home-ordinance__card--section-29 .home-ordinance__item-more-toggle::after {
+    content: "";
+    display: inline-block;
+    width: 0.4em;
+    height: 0.4em;
+    margin-left: 0.4em;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+    vertical-align: 0.12em;
+    transition: transform 0.15s ease;
+}
+
+.home-ordinance__card--section-29 .home-ordinance__item-more[open] .home-ordinance__item-more-toggle::after {
+    transform: rotate(45deg);
+    vertical-align: 0.08em;
+}
+
+.home-ordinance__card--section-29 .home-ordinance__item-more-body {
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(233, 228, 220, 0.96);
+    background: rgba(255, 253, 248, 0.95);
+    font-size: 0.72rem;
+    line-height: 1.45;
+    color: #4b5568;
+}
+
+.home-ordinance__card--section-29 .home-ordinance__item-more-list {
+    margin: 8px 0 0;
+    padding: 8px 10px 8px 1.35rem;
+    border-radius: 10px;
+    border: 1px solid rgba(233, 228, 220, 0.96);
+    background: rgba(255, 253, 248, 0.95);
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: #4b5568;
+    list-style: disc;
+}
+
+.home-ordinance__card--section-29 .home-ordinance__item-more-line {
+    margin: 0 0 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.home-ordinance__card--section-29 .home-ordinance__item-more-line:last-child {
+    margin-bottom: 0;
+}
+
+.home-ordinance__card--section-29 .home-ordinance__item-more-k {
+    font-weight: 600;
+    color: #374151;
+}
+
+.home-ordinance__card--section-29 .home-ordinance__item-more-v {
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #8b641f;
 }
 
 .home-ordinance__card-head {
@@ -1286,6 +1414,13 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
     display: grid;
 }
 
+/* Section 29: full penalty list on large screens; hide part pager */
+@media (min-width: 1024px) {
+    .home-ordinance__card--section-29 .home-ordinance__stepper-controls {
+        display: none !important;
+    }
+}
+
 .home-ordinance__list--cluster {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
@@ -1475,6 +1610,12 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
 
     .home-ordinance__list--cluster {
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .home-ordinance__card--section-29 .home-ordinance__list--penalties-all {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(7, auto);
+        grid-auto-flow: column;
     }
 
     .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item {

@@ -46,6 +46,7 @@ import math
 # Shared models from the admin app
 from dogadoption_admin.access import get_staff_landing_url
 from dogadoption_admin.barangays import BAYAWAN_BARANGAYS
+from dogadoption_admin.citation_subitems import citation_fee_total, normalize_subitems
 from dogadoption_admin.models import (
     AdminNotification,
     AnnouncementComment,
@@ -1158,14 +1159,17 @@ def _build_profile_violation_summary(profile_user):
             f"Sec. {penalty.section.number} #{penalty.number} - {penalty.title}"
             for penalty in penalties
         ]
-        total_amount = sum((penalty.amount for penalty in penalties), 0)
+        sub_norm = normalize_subitems(getattr(citation, "penalty_subitems", None))
+        for row in sub_norm:
+            violation_labels.append(row.get("label") or row.get("code") or "Fee line")
+        total_amount = citation_fee_total(penalties, sub_norm)
 
         user_violation_records.append(
             {
                 "citation_id": citation.id,
                 "date_issued": citation.date_issued,
                 "violations": violation_labels,
-                "violation_count": len(penalties),
+                "violation_count": len(penalties) + len(sub_norm),
                 "total_amount": total_amount,
                 "remarks": (citation.remarks or "").strip(),
             }

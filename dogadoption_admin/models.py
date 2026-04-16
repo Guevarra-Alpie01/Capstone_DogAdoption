@@ -1289,6 +1289,11 @@ class Citation(models.Model):
 
     penalty = models.ForeignKey(Penalty, on_delete=models.CASCADE)
     penalties = models.ManyToManyField(Penalty, related_name='citations', blank=True)
+    penalty_subitems = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Tier/breakdown fee lines (code, label, amount) selected with parent penalties.",
+    )
     date_issued = models.DateTimeField(auto_now_add=True)
     remarks = models.TextField(blank=True)
 

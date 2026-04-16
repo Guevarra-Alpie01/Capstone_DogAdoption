@@ -64,6 +64,12 @@ from .access import (
     get_staff_permission_summary,
     is_route_allowed,
 )
+from .citation_subitems import (
+    citation_fee_total,
+    collect_subitems_from_post,
+    merge_penalty_ids_with_subitem_parents,
+    normalize_subitems,
+)
 from .forms import CitationForm, ManagedStaffAccountForm, PenaltyForm, PostForm, SectionForm
 from .admin_notification_utils import sync_expiry_notifications
 from .barangays import BAYAWAN_BARANGAYS
@@ -5744,7 +5750,8 @@ def citation_create(request):
         if not penalties and citation.penalty_id:
             penalties = [citation.penalty]
         violations = ", ".join([p.title for p in penalties]) if penalties else "-"
-        total_fees = sum([p.amount for p in penalties]) if penalties else 0
+        sub_norm = normalize_subitems(getattr(citation, "penalty_subitems", None))
+        total_fees = citation_fee_total(penalties, sub_norm) if penalties else Decimal("0.00")
         citation_name = " ".join(
             part for part in [citation.owner_first_name, citation.owner_last_name] if part
         ).strip()
@@ -5802,26 +5809,61 @@ def citation_create(request):
             "barangay": _extract_barangay_from_address(getattr(owner_profile, "address", "") or ""),
         })
 
+    posted_sub_codes = (
+        list(dict.fromkeys([x.strip() for x in request.POST.getlist("penalty_subitem") if x.strip()]))
+        if request.method == "POST"
+        else []
+    )
+
+    sec29_penalty_id_by_number = {
+        p.number: p.id
+        for p in penalties
+        if getattr(p.section, "number", None) == 29
+    }
+
+    merged_penalty_ids: set[int] = set()
+    missing_sub_parents: set[int] = set()
+    if request.method == "POST":
+        merged_penalty_ids, missing_sub_parents = merge_penalty_ids_with_subitem_parents(
+            request.POST.getlist("penalties"),
+            posted_sub_codes,
+            sec29_penalty_id_by_number,
+        )
+
     if request.method == 'POST' and form.is_valid():
-        selected_ids = request.POST.getlist('penalties')
-        selected_penalties = list(Penalty.objects.filter(id__in=selected_ids, active=True).order_by('section__number', 'number'))
-
-        if not selected_penalties:
-            messages.error(request, 'Please select at least one violation.')
+        if missing_sub_parents:
+            for n in sorted(missing_sub_parents):
+                messages.error(
+                    request,
+                    f"Fee tier references Section 29 no. {n}, but that penalty is not configured. Add it in Penalty Manager.",
+                )
+        elif not merged_penalty_ids:
+            messages.error(request, "Please select at least one violation or fee tier.")
         else:
-            citation = form.save(commit=False)
-            owner = form.cleaned_data.get("owner")
-            citation.owner = owner
+            selected_penalties = list(
+                Penalty.objects.filter(id__in=merged_penalty_ids, active=True).order_by(
+                    "section__number", "number"
+                )
+            )
+            subitems, sub_errors = collect_subitems_from_post(posted_sub_codes, selected_penalties)
+            if sub_errors:
+                for msg in sub_errors:
+                    messages.error(request, msg)
+            else:
+                citation = form.save(commit=False)
+                owner = form.cleaned_data.get("owner")
+                citation.owner = owner
 
-            if owner and not citation.owner_barangay:
-                owner_address = getattr(getattr(owner, "profile", None), "address", "") or ""
-                citation.owner_barangay = _extract_barangay_from_address(owner_address)
+                if owner and not citation.owner_barangay:
+                    owner_address = getattr(getattr(owner, "profile", None), "address", "") or ""
+                    citation.owner_barangay = _extract_barangay_from_address(owner_address)
 
-            # Keep backward compatibility with existing single-penalty references.
-            citation.penalty = selected_penalties[0]
-            citation.save()
-            citation.penalties.set(selected_penalties)
-            return redirect('dogadoption_admin:citation_print', citation.pk)
+                # Keep backward compatibility with existing single-penalty references.
+                citation.penalty = selected_penalties[0]
+                citation.penalty_subitems = subitems
+                citation.save()
+                citation.penalties.set(selected_penalties)
+                return redirect('dogadoption_admin:citation_print', citation.pk)
 
     return render(request, 'admin_registration/citation_form.html', {
         'form': form,
@@ -5831,7 +5873,8 @@ def citation_create(request):
         'owner_search_data': owner_search_data,
         'today_claim_requests': today_claim_requests,
         'today_claim_date': today,
-        'selected_penalty_ids': [int(x) for x in request.POST.getlist('penalties') if str(x).isdigit()] if request.method == 'POST' else [],
+        'selected_penalty_ids': sorted(merged_penalty_ids) if request.method == "POST" else [],
+        'selected_subitem_codes': posted_sub_codes,
     })
 
 def citation_print(request, pk):
@@ -5863,7 +5906,8 @@ def citation_print(request, pk):
             elif owner_address and owner_address != "-":
                 owner_barangay = owner_address.split(",")[0].strip() or "-"
 
-    total_amount = sum((p.amount for p in selected_penalties), Decimal("0.00"))
+    subitems = normalize_subitems(getattr(citation, "penalty_subitems", None))
+    total_amount = citation_fee_total(selected_penalties, subitems)
     receipt_seed = f"{citation.id}|{citation.owner_id or 0}|{citation.date_issued.isoformat()}"
     receipt_hash = hashlib.sha256(receipt_seed.encode("utf-8")).hexdigest()[:10].upper()
     receipt_no = f"CIT-{citation.id:06d}-{receipt_hash}"
@@ -5871,6 +5915,7 @@ def citation_print(request, pk):
     return render(request, 'admin_registration/citation_print.html', {
         'citation': citation,
         'selected_penalties': selected_penalties,
+        'penalty_subitems': subitems,
         'owner_name': owner_name,
         'owner_address': owner_address,
         'owner_barangay': owner_barangay,

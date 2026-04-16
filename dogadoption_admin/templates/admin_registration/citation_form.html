@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/register/citation.css' %}?v=20260417penalty-details">
+<link rel="stylesheet" href="{% static 'css/register/citation.css' %}?v=20260417subitems2">
 <link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260330d">
 {% endblock extra_css %}
 
@@ -79,7 +79,7 @@
         </div>
 
         <h3>Select Violation</h3>
-        <p class="helper-text">You can select multiple violations. Click again to unselect.</p>
+        <p class="helper-text">You can select multiple violations. For tiered fines, open “See …” and tick the fee lines — the main violation is added automatically when you save. Sub-tiers show a solid black dot when selected.</p>
 
         <div class="citation-violations-layout">
             <div class="penalty-options">
@@ -230,7 +230,7 @@
                                     {{ row.display_name }}
                                 </td>
                                 <td>{{ row.violations }}</td>
-                                <td>PHP {{ row.total_fees }}</td>
+                                <td>PHP {{ row.total_fees|floatformat:2 }}</td>
                                 <td class="citation-table__action-cell">
                                     <a
                                         class="print-link"
@@ -541,6 +541,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const checks = document.querySelectorAll('.violation-check');
     checks.forEach((check) => {
         check.addEventListener('change', syncViolationSelectionUI);
+    });
+    document.querySelectorAll('.violation-subcheck').forEach((sub) => {
+        sub.addEventListener('change', () => {
+            sub.closest('.citation-subitem')?.classList.toggle('is-selected', sub.checked);
+        });
+        sub.closest('.citation-subitem')?.classList.toggle('is-selected', sub.checked);
     });
     wireOwnerSearch();
     wireTodayRequestCtas();

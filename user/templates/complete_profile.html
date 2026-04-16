@@ -1,108 +1,219 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/login.css' %}?v=20260416a">
-{% endblock %}
-
 {% block content %}
 <style>
-@media (max-width: 767.98px) {
-    body {
-        background:
-            radial-gradient(circle at 50% 18%, rgba(131, 193, 145, 0.22), transparent 30%),
-            linear-gradient(180deg, #176a3f 0%, #0f5b33 48%, #0a4627 100%) !important;
-        background-attachment: fixed;
-    }
+/* Page shell: flat white, no decorative backgrounds */
+.complete-profile-page {
+    --cp-text: #111827;
+    --cp-muted: #6b7280;
+    --cp-border: #e5e7eb;
+    --cp-focus: #2563eb;
+    background: #ffffff;
+    min-height: calc(100vh - 120px);
+    padding: clamp(2rem, 5vw, 3.5rem) 1.25rem 3rem;
 }
+
+.complete-profile-card {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 0;
+}
+
+.complete-profile-card h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--cp-text);
+    margin: 0 0 0.5rem;
+    line-height: 1.25;
+}
+
+.complete-profile-lead {
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: var(--cp-muted);
+    margin: 0 0 1.75rem;
+}
+
+.complete-profile-lead strong {
+    color: var(--cp-text);
+    font-weight: 600;
+}
+
+.complete-profile-alert {
+    font-size: 0.875rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.25rem;
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+.complete-profile-field {
+    margin-bottom: 1.25rem;
+}
+
+.complete-profile-field label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--cp-text);
+    margin-bottom: 0.375rem;
+}
+
+.complete-profile-field input[type="text"] {
+    display: block;
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--cp-text);
+    background: #fff;
+    border: 1px solid var(--cp-border);
+    border-radius: 8px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.complete-profile-field input[type="text"]::placeholder {
+    color: #9ca3af;
+}
+
+.complete-profile-field input[type="text"]:hover {
+    border-color: #d1d5db;
+}
+
+.complete-profile-field input[type="text"]:focus {
+    outline: none;
+    border-color: var(--cp-focus);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.complete-profile-barangay {
+    position: relative;
+}
+
+.complete-profile-barangay .suggestions-box {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    border: 1px solid var(--cp-border);
+    border-radius: 8px;
+    max-height: min(240px, 40vh);
+    overflow: hidden;
+    overflow-y: auto;
+    background: #ffffff;
+    z-index: 120;
+    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
+    padding: 4px 0;
+}
+
+.complete-profile-barangay .suggestion-item {
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    color: var(--cp-text);
+    cursor: pointer;
+    border: 0;
+    background: #ffffff;
+}
+
+.complete-profile-barangay .suggestion-item + .suggestion-item {
+    border-top: 1px solid #f3f4f6;
+}
+
+.complete-profile-barangay .suggestion-item:hover {
+    background: #f9fafb;
+}
+
+.complete-profile-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.complete-profile-submit {
+    display: block;
+    width: 100%;
+    padding: 0.6875rem 1rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #fff;
+    background: #111827;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.complete-profile-submit:hover {
+    background: #1f2937;
+}
+
+.complete-profile-submit:active {
+    transform: scale(0.99);
+}
+
 .complete-profile-skip {
     display: block;
     width: 100%;
-    padding: 10px 16px;
-    margin-top: 10px;
-    border: 1px solid rgba(0,0,0,0.12);
-    border-radius: 10px;
-    background: transparent;
-    color: #555;
-    font-weight: 600;
-    font-size: 0.95rem;
+    padding: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--cp-muted);
     text-align: center;
     text-decoration: none;
-    transition: background 0.15s ease, border-color 0.15s ease;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    transition: color 0.15s ease, background 0.15s ease;
 }
+
 .complete-profile-skip:hover {
-    background: rgba(0,0,0,0.04);
-    border-color: rgba(0,0,0,0.2);
-    color: #333;
-}
-.complete-profile-welcome {
-    text-align: center;
-    margin-bottom: 8px;
-    font-size: 0.95rem;
-    color: #555;
+    color: var(--cp-text);
+    background: #f9fafb;
 }
 </style>
 
-<div class="auth-wrapper">
-    <div class="auth-card signup-card">
-        <div class="auth-shell auth-shell--form-only">
-            <div class="auth-panel">
-                <div class="auth-mobile-hero">
-                    <p class="auth-mobile-portal">Bayawan City Vet</p>
-                    <div class="auth-mobile-logo-shell">
-                        <img src="{% static 'images/logobayawansealfinal.jpg' %}" alt="Bayawan City official seal" class="auth-mobile-logo">
-                    </div>
-                </div>
-                <div class="auth-panel-header">
-                    <h2>Complete Your Profile</h2>
-                </div>
+<main class="complete-profile-page">
+    <div class="complete-profile-card">
+        <h1>Complete your profile</h1>
+        <p class="complete-profile-lead">
+            Welcome, <strong>{{ user.get_full_name|default:user.username }}</strong>.
+            Add your barangay so we can tailor local information for you. You can change this anytime in profile settings.
+        </p>
 
-                <p class="complete-profile-welcome">
-                    Welcome, <strong>{{ user.get_full_name|default:user.username }}</strong>! Select your barangay so we can show you relevant local content.
-                </p>
+        {% if error %}
+        <div class="complete-profile-alert" role="alert">{{ error }}</div>
+        {% endif %}
 
-                {% if error %}
-                <div class="alert alert-danger text-center auth-inline-alert" role="alert">
-                    {{ error }}
-                </div>
-                {% endif %}
+        <form method="post">
+            {% csrf_token %}
 
-                <form method="post">
-                    {% csrf_token %}
-
-                    <div class="mb-3 signup-barangay-wrap">
-                        <div class="input-group">
-                            <label for="completeProfileBarangay" class="auth-field-label">Barangay</label>
-                            <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
-                            <input
-                                type="text"
-                                name="address"
-                                id="completeProfileBarangay"
-                                class="form-control"
-                                placeholder="Enter barangay"
-                                value="{{ form_barangay|default:'' }}"
-                                autocomplete="off"
-                                data-barangay-autocomplete="true"
-                                data-barangay-source-url="{% url 'user:barangay_list_api' %}"
-                                data-barangay-suggestions-id="complete-profile-barangay-suggestions"
-                                data-barangay-strict="true"
-                            >
-                        </div>
-                        <div id="complete-profile-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
-                    </div>
-
-                    <div class="mb-2">
-                        <button type="submit" class="login-btn auth-form-submit py-2">
-                            Save Barangay
-                        </button>
-                    </div>
-
-                    <a href="{% url 'user:user_home' %}" class="complete-profile-skip">
-                        Skip for now
-                    </a>
-                </form>
+            <div class="complete-profile-field complete-profile-barangay">
+                <label for="completeProfileBarangay">Barangay</label>
+                <input
+                    type="text"
+                    name="address"
+                    id="completeProfileBarangay"
+                    placeholder="Start typing to search"
+                    value="{{ form_barangay|default:'' }}"
+                    autocomplete="off"
+                    data-barangay-autocomplete="true"
+                    data-barangay-source-url="{% url 'user:barangay_list_api' %}"
+                    data-barangay-suggestions-id="complete-profile-barangay-suggestions"
+                    data-barangay-strict="true"
+                >
+                <div id="complete-profile-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
             </div>
-        </div>
+
+            <div class="complete-profile-actions">
+                <button type="submit" class="complete-profile-submit">Save</button>
+                <a href="{% url 'user:user_home' %}" class="complete-profile-skip">Skip for now</a>
+            </div>
+        </form>
     </div>
-</div>
+</main>
 {% endblock %}

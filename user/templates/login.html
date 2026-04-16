@@ -1,114 +1,108 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block page_title %}Sign in · Bayawan Vet{% endblock %}
+
+{% block body_class %} login-page-paws{% endblock %}
+
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/login.css' %}?v=20260410i">
+<link rel="stylesheet" href="{% static 'css/login.css' %}?v=20260416paws-ui">
 {% endblock %}
 
 {% block content %}
-<style>
-body {
-    background: url("{% static 'images/OIP.webp' %}") no-repeat center center fixed;
-    background-size: cover;
-    position: relative;
-}
+<div class="login-paws" data-login-paws>
+    <header class="login-paws-header">
+        <a href="{% url 'user:user_home' %}" class="login-paws-menu" aria-label="Back to home">
+            <span class="login-paws-hamburger" aria-hidden="true">
+                <span></span><span></span><span></span>
+            </span>
+        </a>
+        <a href="{% url 'user:user_home' %}" class="login-paws-brand">
+            <img src="{% static 'images/paw-logo.svg' %}" alt="" class="login-paws-brand__logo" width="36" height="36">
+            <span class="login-paws-brand__text">
+                <span class="login-paws-brand__main">Bayawan</span>
+                <span class="login-paws-brand__sub">Vet</span>
+            </span>
+        </a>
+        <span class="login-paws-header-pill" aria-current="page">Sign in</span>
+    </header>
 
-@media (max-width: 767.98px) {
-    body {
-        background:
-            radial-gradient(circle at 50% 18%, rgba(131, 193, 145, 0.22), transparent 30%),
-            linear-gradient(180deg, #176a3f 0%, #0f5b33 48%, #0a4627 100%) !important;
-        background-attachment: fixed;
-    }
-}
-</style>
+    <div class="login-paws-body">
+        <div class="login-paws-card">
+            <h1 class="login-paws-title">Welcome back</h1>
+            <p class="login-paws-subtitle">Sign in to continue helping pets find homes in Bayawan City.</p>
 
-<div class="auth-wrapper d-flex justify-content-center align-items-center">
-    <div class="auth-card login-card">
-        <div class="auth-shell auth-shell--form-only">
-            <div class="auth-panel">
-                <div class="auth-mobile-hero">
-                    <p class="auth-mobile-portal">Bayawan City Vet</p>
-                    <div class="auth-mobile-logo-shell">
-                        <img src="{% static 'images/logobayawansealfinal.jpg' %}" alt="Bayawan City official seal" class="auth-mobile-logo">
-                    </div>
-                </div>
-                <div class="auth-panel-header">
-                    <h2 class="brand-title">Login</h2>
-                </div>
+            {% if error %}
+            <div class="login-paws-alert" role="alert">{{ error }}</div>
+            {% endif %}
 
-                {% if error %}
-                <div class="alert alert-danger text-center auth-inline-alert" role="alert">
-                    {{ error }}
-                </div>
-                {% endif %}
+            <form
+                method="post"
+                class="login-paws-form login-form"
+                data-google-auth-form
+                data-google-auth-mode="login"
+                data-google-login-uri="{% url 'user:google_auth_login' %}"
+                data-google-client-id="{{ google_client_id|default:'' }}"
+            >
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ auth_next|default:'' }}" data-auth-next-field>
+                <input type="hidden" name="google_credential" value="">
 
-                <form
-                    method="post"
-                    class="login-form"
-                    data-google-auth-form
-                    data-google-auth-mode="login"
-                    data-google-login-uri="{% url 'user:google_auth_login' %}"
-                    data-google-client-id="{{ google_client_id|default:'' }}"
-                >
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ auth_next|default:'' }}" data-auth-next-field>
-                    <input type="hidden" name="google_credential" value="">
+                <label class="login-paws-field">
+                    <span class="login-paws-field__icon" aria-hidden="true"><i class="bi bi-envelope"></i></span>
+                    <input type="text"
+                           id="loginPageUsername"
+                           name="username"
+                           class="login-paws-input"
+                           placeholder="Username"
+                           value="{{ login_form_data.username|default:'' }}"
+                           autocomplete="username"
+                           required>
+                </label>
 
-                    <div class="mb-3 input-group">
-                        <label for="loginPageUsername" class="auth-field-label">Username</label>
-                        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                        <input type="text"
-                               id="loginPageUsername"
-                               name="username"
-                               class="form-control"
-                               placeholder="Enter username"
-                               value="{{ login_form_data.username|default:'' }}"
-                               autocomplete="username"
-                               required>
-                    </div>
-
-                    <div class="mb-3 input-group">
-                        <label for="loginPagePassword" class="auth-field-label">Password</label>
-                        <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
-                        <input type="password"
-                               id="loginPagePassword"
-                               name="password"
-                               class="form-control"
-                               placeholder="Enter password"
-                               autocomplete="current-password"
-                               required>
-                        <button type="button" class="input-group-text password-toggle" data-password-toggle="loginPagePassword" aria-label="Show password">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                    </div>
-
-                    <button type="submit" class="login-btn auth-form-submit py-2">
-                        Log In
+                <label class="login-paws-field">
+                    <span class="login-paws-field__icon" aria-hidden="true"><i class="bi bi-lock"></i></span>
+                    <input type="password"
+                           id="loginPagePassword"
+                           name="password"
+                           class="login-paws-input login-paws-input--has-toggle"
+                           placeholder="Password"
+                           autocomplete="current-password"
+                           required>
+                    <button type="button" class="login-paws-toggle password-toggle" data-password-toggle="loginPagePassword" aria-label="Show password">
+                        <i class="bi bi-eye"></i>
                     </button>
-                </form>
+                </label>
 
-                <div class="auth-divider" aria-hidden="true">
-                    <span>or</span>
+                <div class="login-paws-forgot-row">
+                    <a href="{% url 'user:privacy_policy' %}" class="login-paws-forgot">Forgot password?</a>
                 </div>
 
-                {% if google_auth_enabled %}
-                <div class="google-signup-shell">
-                    <div class="google-signup-button" data-google-auth-button data-google-signup-button></div>
-                    <p class="auth-inline-alert auth-inline-alert--static d-none" data-google-auth-error data-google-signup-error role="alert"></p>
-                </div>
-                {% else %}
-                <p class="auth-inline-alert auth-inline-alert--static" role="alert">
-                    Google sign-in is not configured yet. Add <code>GOOGLE_CLIENT_ID</code> to enable it.
-                </p>
-                {% endif %}
+                <button type="submit" class="login-paws-btn login-paws-btn--primary">Sign in</button>
+            </form>
 
-                <a href="{% url 'user:signup' %}" class="d-block text-center create-account-link">
-                    Create New Account
-                </a>
+            <div class="login-paws-divider" aria-hidden="true">
+                <span>or</span>
             </div>
+
+            {% if google_auth_enabled %}
+            <div class="login-paws-google-wrap google-signup-shell">
+                <div class="google-signup-button" data-google-auth-button data-google-signup-button></div>
+                <p class="login-paws-google-error auth-inline-alert auth-inline-alert--static d-none" data-google-auth-error data-google-signup-error role="alert"></p>
+            </div>
+            {% else %}
+            <p class="login-paws-google-hint">Google sign-in is not configured. Add <code>GOOGLE_CLIENT_ID</code> to enable it.</p>
+            {% endif %}
+
+            <div class="login-paws-new">
+                <p class="login-paws-new-label">New here?</p>
+                <a href="{% url 'user:signup' %}" class="login-paws-btn login-paws-btn--secondary">Create account</a>
+            </div>
+        </div>
+
+        <div class="login-paws-art" aria-hidden="true">
+            <img src="{% static 'images/familyanddog.png' %}" alt="" loading="lazy">
         </div>
     </div>
 </div>
-
 {% endblock %}

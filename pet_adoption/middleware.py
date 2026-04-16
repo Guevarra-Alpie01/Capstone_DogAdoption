@@ -93,6 +93,7 @@ class RequestRateLimitMiddleware(MiddlewareMixin):
         "user:announcement_react",
         "user:announcement_comment",
         "user:mark_notifications_seen",
+        "user:mark_notification_read",
         "dogadoption_admin:notification_read",
         "dogadoption_admin:announcement_update_bucket",
     }

@@ -71,11 +71,11 @@ from .forms import MissingDogPostForm, RescueFinderForm, UserAdoptionPostForm
 from .avatar_cache import invalidate_cached_profile_avatar
 from .notification_utils import (
     build_user_notification_payload,
+    build_user_notification_summary,
     build_user_registered_dog_vaccination_status_map,
     build_user_vaccination_reminder_summary,
     bump_user_home_feed_namespace,
     get_user_home_feed_namespace,
-    get_user_notification_read_keys,
     invalidate_user_notification_content,
     invalidate_user_notification_payload,
     mark_user_notification_read,
@@ -1410,42 +1410,36 @@ def mark_notifications_seen(request):
         request,
         [item.get("key", "") for item in payload.get("items", [])],
     )
-    return JsonResponse({"ok": True, "unread_count": 0})
+    summary = build_user_notification_summary(request)
+    return JsonResponse({"ok": True, "unread_count": summary["unread_count"]})
 
 
-def _build_user_notification_summary(request):
-    payload = build_user_notification_payload(request.user)
-    read_keys = get_user_notification_read_keys(request)
-    notifications = []
-    unread_count = 0
-    for item in payload.get("items", []):
-        notification_key = item.get("key", "")
-        target_url = item.get("url") or reverse("user:user_home")
-        is_unread = bool(notification_key and notification_key not in read_keys)
-        if is_unread:
-            unread_count += 1
-        notifications.append({
-            "kind": item.get("kind", "notification"),
-            "title": item.get("title", ""),
-            "message": item.get("message", ""),
-            "url": target_url,
-            "created_label": item.get("created_label", ""),
-            "is_unread": is_unread,
-            "open_url": "{}?{}".format(
-                reverse("user:open_notification"),
-                urlencode({"key": notification_key, "next": target_url}),
-            ),
-        })
-    return {
-        "unread_count": unread_count,
-        "notifications": notifications,
-    }
+@require_POST
+@user_only
+def mark_notification_read(request):
+    """Mark a single notification as read (session-scoped); returns updated unread count."""
+    notification_key = ""
+    content_type = (request.content_type or "").lower()
+    if "application/json" in content_type:
+        try:
+            body = json.loads(request.body.decode() or "{}")
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            body = {}
+        if isinstance(body, dict):
+            notification_key = (body.get("key") or "").strip()
+    else:
+        notification_key = (request.POST.get("key") or "").strip()
+
+    if notification_key:
+        mark_user_notification_read(request, notification_key)
+    summary = build_user_notification_summary(request)
+    return JsonResponse({"ok": True, "unread_count": summary["unread_count"]})
 
 
 @user_only
 def notification_summary(request):
     """Return the current user's notification badge and dropdown data."""
-    return JsonResponse(_build_user_notification_summary(request))
+    return JsonResponse(build_user_notification_summary(request))
 
 
 @user_only
@@ -1461,7 +1455,7 @@ def open_notification(request):
         None,
     )
 
-    if matching_item and notification_key:
+    if notification_key:
         mark_user_notification_read(request, notification_key)
 
     target = (

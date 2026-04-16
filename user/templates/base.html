@@ -238,6 +238,7 @@
                        class="position-relative topbar-icon-btn nav-bell"
                        data-user-notification-toggle
                        data-summary-url="{{ user_notifications_summary_url }}"
+                       data-notification-mark-read-url="{{ user_notification_mark_read_url }}"
                        data-unread-count="{{ user_unread_notifications }}"
                        data-bs-toggle="dropdown"
                        aria-expanded="false"
@@ -852,6 +853,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (notificationDropdown && notificationToggle) {
         const summaryUrl = notificationToggle.dataset.summaryUrl || '';
+        const markReadUrl = notificationToggle.dataset.notificationMarkReadUrl || '';
         const notificationList = notificationDropdown.querySelector('[data-user-notification-list]');
         const summaryBadge = notificationDropdown.querySelector('[data-notification-summary-count]');
 
@@ -862,7 +864,37 @@ document.addEventListener('DOMContentLoaded', function () {
             if (kind === 'announcement') return { icon: 'bi-megaphone-fill', tag: 'Official alert' };
             if (kind === 'admin_post') return { icon: 'bi-shield-check', tag: 'Rescue post' };
             if (kind === 'community_post') return { icon: 'bi-people-fill', tag: 'Community post' };
+            if (kind === 'incoming_user_request') return { icon: 'bi-inbox-fill', tag: 'Adoption request' };
             return { icon: 'bi-bell-fill', tag: 'Notification' };
+        }
+
+        function markNotificationReadThenNavigate(notificationKey, href) {
+            if (!href) {
+                return;
+            }
+            if (!markReadUrl || !notificationKey) {
+                window.location.href = href;
+                return;
+            }
+            fetch(markReadUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ key: notificationKey }),
+            }).then(function (response) {
+                return response.ok ? response.json() : null;
+            }).then(function (data) {
+                if (data && typeof data.unread_count === 'number') {
+                    renderNotificationBadge(data.unread_count);
+                }
+                window.location.href = href;
+            }).catch(function () {
+                window.location.href = href;
+            });
         }
 
         function renderNotificationBadge(unreadCount) {
@@ -923,6 +955,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const link = document.createElement('a');
                 link.className = `dropdown-item notification-item notification-item--${item.kind}${item.is_unread ? ' unread' : ''}`;
                 link.href = item.open_url;
+                link.dataset.notificationKey = item.key || '';
 
                 const avatar = document.createElement('span');
                 avatar.className = `notification-avatar notification-avatar--${item.kind}`;
@@ -966,6 +999,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 link.appendChild(avatar);
                 link.appendChild(copy);
                 li.appendChild(link);
+                link.addEventListener('click', function (e) {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+                        return;
+                    }
+                    const key = link.dataset.notificationKey || '';
+                    const href = link.getAttribute('href') || '';
+                    if (!key || !href) {
+                        return;
+                    }
+                    e.preventDefault();
+                    markNotificationReadThenNavigate(key, href);
+                });
                 notificationList.appendChild(li);
             });
         }
@@ -995,14 +1040,17 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
+        renderNotificationBadge(parseInt(notificationToggle.dataset.unreadCount || '0', 10));
         loadNotificationSummary();
         notificationDropdown.addEventListener('shown.bs.dropdown', function () {
+            loadNotificationSummary();
             const unreadCount = parseInt(notificationToggle.dataset.unreadCount || '0', 10);
             notificationToggle.setAttribute('aria-label', unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications');
         });
     }
 });
 </script>
+<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 {% else %}
 <script src="{% static 'js/password_reveal.js' %}"></script>
 <script src="{% static 'js/signup_password_strength.js' %}?v=20260416gfield"></script>

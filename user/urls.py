@@ -56,6 +56,7 @@ urlpatterns = [
 
     # Navigation 5/5: Adopt
     path("adopt-list/", views.adopt_list, name="adopt_list"),
+    path("adopt/my-post-approvals/", views.my_post_approvals, name="my_post_approvals"),
     path('adopt/status/', views.adopt_status, name='adopt_status'),
     path('adopt/<adminpostid:post_id>/', views.adopt_confirm, name='adopt_confirm'),
 ]

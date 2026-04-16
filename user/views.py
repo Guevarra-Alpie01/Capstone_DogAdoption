@@ -2145,6 +2145,11 @@ def _build_public_post_listing(request, listing_mode):
                 "label": "My Adoption Requests",
                 "icon_class": "bi bi-house-door",
             },
+            {
+                "url": reverse("user:my_post_approvals"),
+                "label": "My Post Approvals",
+                "icon_class": "bi bi-file-earmark-check",
+            },
         ],
     }
 
@@ -2631,6 +2636,68 @@ def _request_status_summary_from_qs(queryset, accepted_status="accepted", reject
         accepted=Count("id", filter=Q(status=accepted_status)),
         rejected=Count("id", filter=Q(status=rejected_status)),
     )
+
+
+def _user_post_submission_review_bucket(status):
+    """Map user adoption / missing post status to summary buckets (admin review)."""
+    if status == "pending_review":
+        return "pending"
+    if status == "declined":
+        return "rejected"
+    return "accepted"
+
+
+def _collect_user_post_submissions(user):
+    """Rows for posts the user created that go through staff approval (adopt + missing)."""
+    entries = []
+    profile_url = reverse("user:edit_profile")
+    adoption_qs = (
+        UserAdoptionPost.objects.filter(owner=user)
+        .only("id", "dog_name", "location", "status", "created_at")
+        .order_by("-created_at")
+    )
+    for post in adoption_qs:
+        bucket = _user_post_submission_review_bucket(post.status)
+        entries.append({
+            "kind": "adoption",
+            "kind_label": "Adoption post",
+            "title": post.dog_name,
+            "location": post.location or "",
+            "status": post.status,
+            "status_label": post.get_status_display(),
+            "bucket": bucket,
+            "created_at": post.created_at,
+            "detail_url": reverse("user:user_adoption_post_detail", args=[post.id]),
+        })
+    missing_qs = (
+        MissingDogPost.objects.filter(owner=user)
+        .only("id", "dog_name", "location", "status", "created_at")
+        .order_by("-created_at")
+    )
+    for post in missing_qs:
+        bucket = _user_post_submission_review_bucket(post.status)
+        entries.append({
+            "kind": "missing",
+            "kind_label": "Missing dog post",
+            "title": post.dog_name,
+            "location": post.location or "",
+            "status": post.status,
+            "status_label": post.get_status_display(),
+            "bucket": bucket,
+            "created_at": post.created_at,
+            "detail_url": f"{profile_url}#profile-post-missing-{post.id}",
+        })
+    entries.sort(key=lambda row: row["created_at"], reverse=True)
+    return entries
+
+
+def _user_post_submissions_summary(entries):
+    return {
+        "total": len(entries),
+        "pending": sum(1 for row in entries if row["bucket"] == "pending"),
+        "accepted": sum(1 for row in entries if row["bucket"] == "accepted"),
+        "rejected": sum(1 for row in entries if row["bucket"] == "rejected"),
+    }
 
 
 def _create_post_request_with_images(request, post, request_type, appointment_date):
@@ -4594,6 +4661,31 @@ def adopt_status(request):
         'staff_summary': staff_summary,
         'user_summary': user_summary,
     })
+
+
+@user_only
+def my_post_approvals(request):
+    """List the current user's adoption and missing-dog posts and staff approval status."""
+    status_filter = request.GET.get("status", "pending")
+    if status_filter not in {"total", "pending", "accepted", "rejected"}:
+        status_filter = "pending"
+
+    all_entries = _collect_user_post_submissions(request.user)
+    summary = _user_post_submissions_summary(all_entries)
+    if status_filter == "total":
+        filtered = all_entries
+    else:
+        filtered = [row for row in all_entries if row["bucket"] == status_filter]
+
+    page_obj = Paginator(filtered, 10).get_page(request.GET.get("page", 1))
+    return render(request, "adopt/my_post_approvals.html", {
+        "submissions": list(page_obj.object_list),
+        "summary": summary,
+        "current_status": status_filter,
+        "page_obj": page_obj,
+        "browse_url": reverse("user:adopt_list"),
+    })
+
 
 def adopt_confirm(request, post_id):
     """Confirm and submit an adoption request for a staff-managed post."""

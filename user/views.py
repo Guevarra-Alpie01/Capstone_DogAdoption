@@ -694,16 +694,18 @@ def _complete_google_login(request, google_account, *, next_url=""):
         login(request, existing_user)
         _clear_social_signup_session(request)
         messages.success(request, "Signed in with Google.")
-        if next_url:
+        if existing_user.is_staff:
+            response = redirect(next_url or get_staff_landing_url(existing_user))
+            response.set_cookie("admin_sessionid", request.session.session_key)
+            return response
+
+        if not profile.address and not next_url:
+            response = redirect("user:complete_google_profile")
+        elif next_url:
             response = redirect(next_url)
-        elif existing_user.is_staff:
-            response = redirect(get_staff_landing_url(existing_user))
         else:
             response = redirect("user:user_home")
-        if existing_user.is_staff:
-            response.set_cookie("admin_sessionid", request.session.session_key)
-        else:
-            response.delete_cookie("admin_sessionid")
+        response.delete_cookie("admin_sessionid")
         return response
 
     try:
@@ -718,19 +720,48 @@ def _complete_google_login(request, google_account, *, next_url=""):
     login(request, created_user)
     _clear_social_signup_session(request)
     _clear_signup_session_state(request, delete_temp_faces=True)
-    messages.success(request, "Signed in with Google. You can complete your profile later from Edit Profile.")
+    messages.success(request, "Signed in with Google.")
 
-    if next_url:
-        response = redirect(next_url)
-    elif created_user.is_staff:
-        response = redirect(get_staff_landing_url(created_user))
-    else:
-        response = redirect("user:user_home")
     if created_user.is_staff:
+        if next_url:
+            response = redirect(next_url)
+        else:
+            response = redirect(get_staff_landing_url(created_user))
         response.set_cookie("admin_sessionid", request.session.session_key)
-    else:
-        response.delete_cookie("admin_sessionid")
+        return response
+
+    response = redirect("user:complete_google_profile")
+    response.delete_cookie("admin_sessionid")
     return response
+
+
+@login_required(login_url="/user/user-login/")
+def complete_google_profile(request):
+    """Let a new Google user fill in their barangay before entering the app."""
+    profile = getattr(request.user, "profile", None)
+    if profile is None:
+        profile, _ = Profile.objects.get_or_create(
+            user=request.user,
+            defaults={"address": "", "age": 18, "consent_given": True},
+        )
+
+    if profile.address:
+        return redirect("user:user_home")
+
+    if request.method == "POST":
+        raw_barangay = request.POST.get("address", "").strip()
+        barangay = _resolve_barangay_name(raw_barangay)
+        if not barangay:
+            return render(request, "complete_profile.html", {
+                "error": "Please select a valid barangay from the suggestions.",
+                "form_barangay": raw_barangay,
+            })
+        profile.address = barangay
+        profile.save(update_fields=["address"])
+        messages.success(request, "Profile updated! Welcome to the app.")
+        return redirect("user:user_home")
+
+    return render(request, "complete_profile.html")
 
 
 def _delete_temp_signup_face_images(image_paths):

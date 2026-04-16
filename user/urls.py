@@ -16,6 +16,7 @@ urlpatterns = [
     path('notifications/summary/', views.notification_summary, name='notification_summary'),
     path('notifications/seen/', views.mark_notifications_seen, name='mark_notifications_seen'),
     path('sign-up/', views.signup_view, name="signup"),
+    path('complete-profile/', views.complete_google_profile, name="complete_google_profile"),
     path('verify-email/<str:uidb64>/<str:token>/', views.verify_email, name="verify_email"),
 
     # Shared profile and utility routes

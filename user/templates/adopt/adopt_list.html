@@ -21,11 +21,10 @@
                     aria-label="Post a dog"
                 >
                     <span class="finder-post-trigger__icon" aria-hidden="true">
-                        <i class="bi bi-plus-circle-fill"></i>
+                        <i class="bi bi-pen"></i>
                     </span>
                     <span class="finder-post-trigger__copy">
-                        <span class="finder-post-trigger__kicker">Quick Action</span>
-                        <span class="finder-post-trigger__label">Post a Dog</span>
+                        <span class="finder-post-trigger__label">Create Post</span>
                     </span>
                     <span class="finder-post-trigger__caret" aria-hidden="true">
                         <i class="bi bi-chevron-down"></i>
@@ -35,7 +34,7 @@
                 <div class="finder-post-menu" id="finderPostTypeMenu" data-finder-post-menu-panel hidden>
                     <button type="button" class="finder-post-menu__option finder-post-menu__option--adoption" data-finder-post-choice="adoption">
                         <span class="finder-post-menu__option-icon" aria-hidden="true">
-                            <i class="bi bi-house-heart"></i>
+                            <i class="bi bi-heart-pulse"></i>
                         </span>
                         <span class="finder-post-menu__option-copy">
                             <strong>For Adoption</strong>
@@ -45,7 +44,7 @@
                     </button>
                     <button type="button" class="finder-post-menu__option finder-post-menu__option--missing" data-finder-post-choice="missing">
                         <span class="finder-post-menu__option-icon" aria-hidden="true">
-                            <i class="bi bi-exclamation-triangle"></i>
+                            <i class="bi bi-broadcast-pin"></i>
                         </span>
                         <span class="finder-post-menu__option-copy">
                             <strong>Missing Dog</strong>
@@ -64,11 +63,10 @@
                 aria-label="Post a dog"
             >
                 <span class="finder-post-trigger__icon" aria-hidden="true">
-                    <i class="bi bi-plus-circle-fill"></i>
+                    <i class="bi bi-pen"></i>
                 </span>
                 <span class="finder-post-trigger__copy">
-                    <span class="finder-post-trigger__kicker">Quick Action</span>
-                    <span class="finder-post-trigger__label">Post a Dog</span>
+                    <span class="finder-post-trigger__label">Create Post</span>
                 </span>
             </button>
             {% endif %}
@@ -76,19 +74,32 @@
 
         {% if request_links %}
         <div class="finder-hero__actions">
-            {% for link in request_links %}
-            <a
-                href="{{ link.url }}"
-                class="finder-hero__link"
-                {% if not request.user.is_authenticated %}
-                data-auth-modal-trigger="login"
-                data-auth-next-url="{{ link.url }}"
-                {% endif %}
-            >
-                <span>{{ link.label }}</span>
-                <i class="{{ link.icon_class }}" aria-hidden="true"></i>
-            </a>
-            {% endfor %}
+            <details class="finder-request-menu" data-finder-request-menu>
+                <summary class="finder-request-menu__summary">
+                    <span class="finder-request-menu__summary-icon" aria-hidden="true">
+                        <i class="bi bi-folder2-open"></i>
+                    </span>
+                    <span class="finder-request-menu__summary-label">Requests</span>
+                    <span class="finder-request-menu__summary-caret" aria-hidden="true">
+                        <i class="bi bi-chevron-down"></i>
+                    </span>
+                </summary>
+                <div class="finder-request-menu__panel">
+                    {% for link in request_links %}
+                    <a
+                        href="{{ link.url }}"
+                        class="finder-request-menu__option"
+                        {% if not request.user.is_authenticated %}
+                        data-auth-modal-trigger="login"
+                        data-auth-next-url="{{ link.url }}"
+                        {% endif %}
+                    >
+                        <span>{{ link.label }}</span>
+                        <i class="{{ link.icon_class }}" aria-hidden="true"></i>
+                    </a>
+                    {% endfor %}
+                </div>
+            </details>
         </div>
         {% endif %}
     </section>
@@ -694,6 +705,15 @@
         });
     });
 
+    const requestMenu = document.querySelector('[data-finder-request-menu]');
+    requestMenu?.addEventListener('toggle', () => {
+        if (requestMenu.open && !mobileQuery.matches) {
+            closeFilterGroups();
+            closePurposeMenu();
+            closePostMenu();
+        }
+    });
+
     filterToggleButtons.forEach((button) => {
         button.addEventListener('click', () => {
             if (mobileQuery.matches) {
@@ -929,11 +949,17 @@
         if (!event.target.closest('[data-finder-post-menu]')) {
             closePostMenu();
         }
+        if (requestMenu?.open && !event.target.closest('[data-finder-request-menu]')) {
+            requestMenu.open = false;
+        }
     });
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             closePostMenu();
+            if (requestMenu?.open) {
+                requestMenu.open = false;
+            }
             if (!postModal) {
                 hidePostModalElement();
             }

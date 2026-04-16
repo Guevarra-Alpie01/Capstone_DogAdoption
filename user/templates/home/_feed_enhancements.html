@@ -400,6 +400,7 @@
     function initCreatePostModal() {
         const typeButtons = document.querySelectorAll("#homePostTypeToggle .js-post-type-btn");
         const postTypeToggle = document.getElementById("homePostTypeToggle");
+        const postTypeCurrentLabel = document.querySelector("#homePostTypeToggle [data-post-type-current-label]");
         const adoptionFields = document.getElementById("homeAdoptionFields");
         const missingFields = document.getElementById("homeMissingFields");
         const postTypeInput = document.getElementById("homePostTypeInput");
@@ -449,6 +450,10 @@
             setPanelDisabled(missingFields, !isMissing);
             if (postTypeToggle) {
                 postTypeToggle.dataset.activeType = postTypeInput.value;
+                postTypeToggle.open = false;
+            }
+            if (postTypeCurrentLabel) {
+                postTypeCurrentLabel.textContent = isMissing ? "Missing Dog" : "For Adoption";
             }
             syncAdoptionAttributeFields();
         }

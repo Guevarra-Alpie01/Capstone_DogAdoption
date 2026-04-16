@@ -871,16 +871,32 @@
                     </div>
                 </div>
 
-                <div class="post-type-toggle" id="homePostTypeToggle" data-active-type="{% if selected_type == 'missing' %}missing{% else %}adoption{% endif %}">
-                    <button type="button" class="post-type-btn js-post-type-btn" data-type="adoption">
-                        <i class="bi bi-house-heart"></i>
-                        <span>For Adoption</span>
-                    </button>
-                    <button type="button" class="post-type-btn js-post-type-btn" data-type="missing">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        <span>Missing Dog</span>
-                    </button>
-                </div>
+                <details class="post-type-menu" id="homePostTypeToggle" data-active-type="{% if selected_type == 'missing' %}missing{% else %}adoption{% endif %}">
+                    <summary class="post-type-menu__summary">
+                        <span class="post-type-menu__summary-icon" aria-hidden="true">
+                            <i class="bi bi-ui-radios-grid"></i>
+                        </span>
+                        <span class="post-type-menu__summary-copy">
+                            <span class="post-type-menu__summary-title">Post Type</span>
+                            <span class="post-type-menu__summary-label" data-post-type-current-label>
+                                {% if selected_type == 'missing' %}Missing Dog{% else %}For Adoption{% endif %}
+                            </span>
+                        </span>
+                        <span class="post-type-menu__summary-caret" aria-hidden="true">
+                            <i class="bi bi-chevron-down"></i>
+                        </span>
+                    </summary>
+                    <div class="post-type-menu__options">
+                        <button type="button" class="post-type-btn js-post-type-btn" data-type="adoption">
+                            <i class="bi bi-house-heart"></i>
+                            <span>For Adoption</span>
+                        </button>
+                        <button type="button" class="post-type-btn js-post-type-btn" data-type="missing">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <span>Missing Dog</span>
+                        </button>
+                    </div>
+                </details>
 
                 <form method="POST" action="{% url 'user:user_home' %}" enctype="multipart/form-data" novalidate class="post-create-form" id="homePostCreateForm">
                     {% csrf_token %}

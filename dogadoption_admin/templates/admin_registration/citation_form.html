@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/register/citation.css' %}?v=20260331f">
+<link rel="stylesheet" href="{% static 'css/register/citation.css' %}?v=20260417penalty-details">
 <link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260330d">
 {% endblock extra_css %}
 
@@ -113,19 +113,8 @@
                             {% for group in grouped_penalties %}
                                 {% if group.grouper.number == 29 %}
                                     {% for penalty in group.list %}
-                                        {% if penalty.number >= 1 and penalty.number <= 16 %}
-                                            <label class="radio-item">
-                                                <input
-                                                    type="checkbox"
-                                                    name="penalties"
-                                                    value="{{ penalty.id }}"
-                                                    class="violation-check"
-                                                    {% if penalty.id in selected_penalty_ids %}checked{% endif %}
-                                                >
-                                                <span class="number">{{ penalty.number }}.</span>
-                                                <span class="title">{{ penalty.title }}</span>
-                                                <span class="amount">PHP {{ penalty.amount }}</span>
-                                            </label>
+                                        {% if penalty.number >= 1 and penalty.number <= 14 %}
+                                            {% include 'admin_registration/partials/citation_penalty_row.html' %}
                                         {% endif %}
                                     {% endfor %}
                                 {% endif %}
@@ -138,19 +127,8 @@
                         {% for group in grouped_penalties %}
                             {% if group.grouper.number == 29 %}
                                 {% for penalty in group.list %}
-                                    {% if penalty.number >= 17 and penalty.number <= 28 %}
-                                        <label class="radio-item">
-                                            <input
-                                                type="checkbox"
-                                                name="penalties"
-                                                value="{{ penalty.id }}"
-                                                class="violation-check"
-                                                {% if penalty.id in selected_penalty_ids %}checked{% endif %}
-                                            >
-                                            <span class="number">{{ penalty.number }}.</span>
-                                            <span class="title">{{ penalty.title }}</span>
-                                            <span class="amount">PHP {{ penalty.amount }}</span>
-                                        </label>
+                                    {% if penalty.number >= 15 and penalty.number <= 28 %}
+                                        {% include 'admin_registration/partials/citation_penalty_row.html' %}
                                     {% endif %}
                                 {% endfor %}
                             {% endif %}

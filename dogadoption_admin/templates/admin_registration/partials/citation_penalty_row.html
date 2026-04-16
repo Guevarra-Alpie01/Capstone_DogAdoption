@@ -1,0 +1,56 @@
+{% comment %}
+  Section 29 selectable row + optional <details> (matches user home ordinance).
+  Context: penalty, selected_penalty_ids
+{% endcomment %}
+<div class="citation-penalty-block">
+    <label class="radio-item">
+        <input
+            type="checkbox"
+            name="penalties"
+            value="{{ penalty.id }}"
+            class="violation-check"
+            {% if penalty.id in selected_penalty_ids %}checked{% endif %}
+        >
+        <span class="number">{{ penalty.number }}.</span>
+        <span class="title">{{ penalty.title }}</span>
+        <span class="amount">PHP {{ penalty.amount }}</span>
+    </label>
+    {% if penalty.number == 14 %}
+        <details class="citation-penalty-more">
+            <summary class="citation-penalty-more__toggle">See details</summary>
+            <div class="citation-penalty-more__body">
+                <p class="citation-penalty-more__line"><span class="citation-penalty-more__k">Forced neutering</span></p>
+                <p class="citation-penalty-more__line"><span class="citation-penalty-more__k">Fine</span> <span class="citation-penalty-more__v">PHP 5,000.00</span></p>
+            </div>
+        </details>
+    {% elif penalty.number == 15 %}
+        <details class="citation-penalty-more">
+            <summary class="citation-penalty-more__toggle">See requirements</summary>
+            <ul class="citation-penalty-more__list">
+                <li>Yellow card (anti-rabies vaccination)</li>
+                <li>Microchip</li>
+                <li>Rabies vaccination</li>
+                <li>Collar / tag</li>
+                <li>Barangay registration</li>
+                <li>Applicable fees, fines, and penalties settled</li>
+            </ul>
+        </details>
+    {% elif penalty.number == 20 %}
+        <details class="citation-penalty-more">
+            <summary class="citation-penalty-more__toggle">See all tiers</summary>
+            <div class="citation-penalty-more__body">
+                <p class="citation-penalty-more__line"><span class="citation-penalty-more__k">24 hrs</span> <span class="citation-penalty-more__v">PHP 500.00</span></p>
+                <p class="citation-penalty-more__line"><span class="citation-penalty-more__k">48 hrs</span> <span class="citation-penalty-more__v">PHP 1,000.00</span></p>
+                <p class="citation-penalty-more__line"><span class="citation-penalty-more__k">72 hrs</span> <span class="citation-penalty-more__v">PHP 1,500.00</span></p>
+            </div>
+        </details>
+    {% elif penalty.number == 24 %}
+        <details class="citation-penalty-more">
+            <summary class="citation-penalty-more__toggle">See excess rates</summary>
+            <div class="citation-penalty-more__body">
+                <p class="citation-penalty-more__line"><span class="citation-penalty-more__k">1 excess</span> <span class="citation-penalty-more__v">PHP 500.00</span></p>
+                <p class="citation-penalty-more__line"><span class="citation-penalty-more__k">2 excess</span> <span class="citation-penalty-more__v">PHP 1,000.00</span></p>
+            </div>
+        </details>
+    {% endif %}
+</div>

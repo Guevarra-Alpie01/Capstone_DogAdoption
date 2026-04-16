@@ -187,10 +187,12 @@
 .finder-request-menu__option {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     gap: 10px;
     min-height: 40px;
     padding: 9px 10px;
+    padding-right: 36px;
+    position: relative;
     border-radius: 10px;
     color: #1e293b;
     font-size: 0.84rem;
@@ -200,9 +202,10 @@
 }
 
 .finder-request-menu__option > span {
+    flex: 1 1 auto;
     min-width: 0;
     overflow-wrap: anywhere;
-    text-align: left;
+    text-align: center;
 }
 
 .finder-request-menu__option + .finder-request-menu__option {
@@ -210,6 +213,10 @@
 }
 
 .finder-request-menu__option i {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -373,14 +380,14 @@
     left: 0;
     right: auto;
     box-sizing: border-box;
-    width: min(360px, calc(100vw - 16px));
+    width: min(320px, calc(100vw - 16px));
     max-width: calc(100vw - 16px);
-    max-height: min(72vh, 520px);
+    max-height: min(60vh, 360px);
     overflow-x: hidden;
     overflow-y: auto;
-    padding: 12px;
+    padding: 10px;
     border: 1px solid rgba(194, 222, 205, 0.96);
-    border-radius: 22px;
+    border-radius: 16px;
     background:
         radial-gradient(circle at top left, rgba(247, 255, 235, 0.9) 0%, rgba(247, 255, 235, 0.05) 34%),
         #ffffff;
@@ -406,20 +413,21 @@
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     width: 100%;
-    padding: 12px 13px;
+    min-height: 40px;
+    padding: 9px 10px;
     border: 1px solid transparent;
-    border-radius: 18px;
+    border-radius: 10px;
     background: transparent;
     color: #10243e;
-    text-align: left;
+    text-align: center;
     text-decoration: none;
     transition: transform 0.16s ease, border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .finder-post-menu__option + .finder-post-menu__option {
-    margin-top: 8px;
+    margin-top: 4px;
 }
 
 .finder-post-menu__option:hover,
@@ -446,9 +454,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 38px;
-    height: 38px;
-    border-radius: 14px;
+    width: 26px;
+    height: 26px;
+    border-radius: 10px;
     flex: 0 0 auto;
     color: #166534;
     background: rgba(22, 101, 52, 0.12);
@@ -461,28 +469,25 @@
 
 .finder-post-menu__option-icon i,
 .finder-post-menu__option-arrow {
-    font-size: 1rem;
+    font-size: 0.85rem;
     line-height: 1;
 }
 
 .finder-post-menu__option-copy {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    justify-content: center;
+    justify-self: center;
     min-width: 0;
+    text-align: center;
 }
 
 .finder-post-menu__option-copy strong {
     color: #0f172a;
-    font-size: 0.92rem;
-    font-weight: 900;
-    line-height: 1.15;
-}
-
-.finder-post-menu__option-copy span {
-    color: #475569;
-    font-size: 0.8rem;
-    line-height: 1.35;
+    font-size: 0.84rem;
+    font-weight: 700;
+    line-height: 1.2;
 }
 
 .finder-post-menu__option-arrow {
@@ -998,12 +1003,19 @@
     z-index: 1025;
     width: min(360px, calc(100vw - 32px));
     max-width: 360px;
-    max-height: none;
+    max-height: min(
+        calc(100dvh - var(--finder-topbar-offset) - 20px),
+        calc(100vh - var(--finder-topbar-offset) - 20px)
+    );
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     opacity: 1;
     transform: translate3d(0, 0, 0);
     transform-origin: top left;
     transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
-    overflow: visible;
+    overflow: hidden;
+    overscroll-behavior: contain;
     visibility: visible;
     pointer-events: auto;
 }
@@ -1418,13 +1430,19 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 14px;
     border: 1px solid #e7ded4;
     border-radius: 20px;
     background: rgba(247, 244, 239, 0.98);
     backdrop-filter: none;
     box-shadow: 0 22px 48px rgba(15, 23, 42, 0.14);
-    overflow: visible;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
 }
 
 .finder-toolbar__apply-wrap {
@@ -2834,7 +2852,7 @@ body.finder-filter-open {
     }
 
     .finder-post-menu {
-        width: min(360px, calc(100vw - 16px));
+        width: min(320px, calc(100vw - 16px));
         max-width: calc(100vw - 16px);
     }
 
@@ -2877,6 +2895,14 @@ body.finder-filter-open {
         z-index: 1110;
         width: min(420px, calc(100vw - 32px));
         max-width: min(420px, calc(100vw - 32px));
+        max-height: min(
+            calc(100dvh - var(--finder-topbar-offset) - 20px),
+            calc(100vh - var(--finder-topbar-offset) - 20px)
+        );
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
     }
 }
 
@@ -2915,6 +2941,9 @@ body.finder-filter-open {
         z-index: 2210;
         width: 100%;
         max-width: none;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
         opacity: 0;
         pointer-events: none;
         visibility: hidden;
@@ -3104,22 +3133,27 @@ body.finder-filter-open {
     .finder-layout.is-filter-collapsed .finder-filter-shell__panel {
         max-height: none;
         transform: none;
-        overflow: visible;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
     }
 
     .finder-toolbar {
         position: relative;
         inset: auto;
         z-index: 1;
-        min-height: calc(100dvh - 66px);
+        flex: 1 1 auto;
+        min-height: 0;
         max-height: none;
         padding: 14px 14px calc(18px + env(safe-area-inset-bottom));
         border: 0;
         border-radius: 0;
         background: #f2eee7;
         box-shadow: none;
+        overflow-x: hidden;
         overflow-y: auto;
         overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
         scroll-padding-top: 88px;
         transform: translate3d(0, 18px, 0);
         opacity: 0;
@@ -3634,21 +3668,17 @@ body.finder-filter-open {
     }
 
     .finder-post-menu__option {
-        grid-template-columns: 1fr;
-        justify-items: start;
-        text-align: left;
+        gap: 6px;
+        padding: 9px 8px;
     }
 
     .finder-post-menu__option-icon {
-        grid-row: 1;
+        width: 24px;
+        height: 24px;
     }
 
-    .finder-post-menu__option-copy {
-        grid-row: 2;
-    }
-
-    .finder-post-menu__option-arrow {
-        display: none;
+    .finder-request-menu__option {
+        padding-right: 34px;
     }
 
     .finder-request-menu__panel {

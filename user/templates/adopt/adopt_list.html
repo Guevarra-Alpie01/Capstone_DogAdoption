@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260416finder-filter-tablet-sticky-fix1">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260416finder-search-center-purpose-close1">
 {% endblock %}
 
 {% block content %}
@@ -160,9 +160,6 @@
         <section class="finder-filter-shell">
             <div class="finder-filter-shell__head">
                 <div class="finder-filter-shell__actions">
-                    {% if active_filter_count %}
-                    <span class="finder-filter-shell__count">{{ active_filter_count }} active filter{{ active_filter_count|pluralize }}</span>
-                    {% endif %}
                     <button
                         type="button"
                         class="finder-filter-toggle"
@@ -178,6 +175,9 @@
                             <i class="bi bi-chevron-up"></i>
                         </span>
                     </button>
+                    {% if active_filter_count %}
+                    <span class="finder-filter-shell__count">{{ active_filter_count }} active filter{{ active_filter_count|pluralize }}</span>
+                    {% endif %}
                 </div>
             </div>
 
@@ -662,7 +662,7 @@
     filterGroups.forEach((group) => {
         syncFilterGroupState(group);
         group.addEventListener('toggle', () => {
-            if (group.open && !mobileQuery.matches) {
+            if (group.open) {
                 closeFilterGroups(group);
                 closePurposeMenu();
             }
@@ -670,9 +670,7 @@
         group.querySelectorAll('input[type="radio"]').forEach((input) => {
             input.addEventListener('change', () => {
                 syncFilterGroupState(group);
-                if (!mobileQuery.matches) {
-                    group.open = false;
-                }
+                group.open = false;
             });
         });
     });
@@ -698,9 +696,7 @@
             if (!purposeSelect) return;
             purposeSelect.value = option.getAttribute('data-purpose') || purposeSelect.value;
             syncPurposeOptions();
-            if (!mobileQuery.matches) {
-                closePurposeMenu();
-            }
+            closePurposeMenu();
         });
     });
 

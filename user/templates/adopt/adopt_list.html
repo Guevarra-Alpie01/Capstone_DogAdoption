@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260417share-panel-responsive">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260417finder-share-focus">
 {% endblock %}
 
 {% block content %}
@@ -1015,6 +1015,35 @@
             }
         });
         if (lightbox && !lightbox.hidden) closeLightbox();
+    });
+
+    function parseFinderShareFocus() {
+        const params = new URLSearchParams(window.location.search);
+        const dog = params.get('dog');
+        const kind = params.get('kind');
+        if (dog && (kind === 'staff' || kind === 'user') && /^\d+$/.test(dog)) {
+            return { id: dog, kind };
+        }
+        const hash = (window.location.hash || '').replace(/^#/, '');
+        const match = /^finder-(staff|user)-(\d+)$/.exec(hash);
+        if (match) {
+            return { id: match[2], kind: match[1] };
+        }
+        return null;
+    }
+
+    function applyFinderShareFocus() {
+        const spec = parseFinderShareFocus();
+        if (!spec) return;
+        const el = document.getElementById(`finder-${spec.kind}-${spec.id}`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('is-finder-highlight');
+        window.setTimeout(() => el.classList.remove('is-finder-highlight'), 4500);
+    }
+
+    window.requestAnimationFrame(() => {
+        window.setTimeout(applyFinderShareFocus, 120);
     });
 })();
 

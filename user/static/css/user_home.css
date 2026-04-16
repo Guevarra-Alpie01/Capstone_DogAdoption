@@ -1,4 +1,4 @@
-﻿/* Container adjustments */
+/* Container adjustments */
 :root {
     --home-navbar-offset: 56px;
     --home-shell-max: 1320px;
@@ -2625,11 +2625,10 @@ body.home-map-expanded {
         transform 0.55s cubic-bezier(0.32, 0.72, 0, 1),
         opacity 0.45s ease,
         visibility 0.45s ease,
-        filter 0.45s ease,
         box-shadow 0s,
         z-index 0s linear 0.25s !important;
     z-index: 0;
-    filter: blur(2px) brightness(0.92);
+    filter: brightness(0.92);
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
 }
@@ -2640,12 +2639,11 @@ body.home-map-expanded {
     pointer-events: auto;
     z-index: 3;
     transform: translateX(-50%) rotateY(0deg) scale(1);
-    filter: blur(0) brightness(1);
+    filter: brightness(1);
     transition:
         transform 0.55s cubic-bezier(0.32, 0.72, 0, 1),
         opacity 0.45s ease,
         visibility 0s,
-        filter 0.45s ease,
         z-index 0s;
 }
 
@@ -2655,12 +2653,11 @@ body.home-map-expanded {
     pointer-events: none;
     z-index: 2;
     transform: translateX(calc(-50% - 58%)) rotateY(32deg) scale(0.78);
-    filter: blur(1px) brightness(0.9);
+    filter: brightness(0.9);
     transition:
         transform 0.55s cubic-bezier(0.32, 0.72, 0, 1),
         opacity 0.45s ease,
         visibility 0s,
-        filter 0.45s ease,
         z-index 0s;
 }
 
@@ -2670,12 +2667,11 @@ body.home-map-expanded {
     pointer-events: none;
     z-index: 2;
     transform: translateX(calc(-50% + 58%)) rotateY(-32deg) scale(0.78);
-    filter: blur(1px) brightness(0.9);
+    filter: brightness(0.9);
     transition:
         transform 0.55s cubic-bezier(0.32, 0.72, 0, 1),
         opacity 0.45s ease,
         visibility 0s,
-        filter 0.45s ease,
         z-index 0s;
 }
 
@@ -7836,6 +7832,8 @@ body.home-map-expanded {
 
 /* Homepage hero */
 .home-hero {
+    --home-hero-font-display: "Fraunces", Georgia, "Times New Roman", serif;
+    --home-hero-font-ui: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
     position: relative;
     display: flex;
     flex-direction: column;
@@ -7846,6 +7844,7 @@ body.home-map-expanded {
     min-height: max(calc(92svh - var(--home-navbar-offset)), 560px);
     border-radius: 0;
     overflow: hidden;
+    font-family: var(--home-hero-font-ui);
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.005) 0%, rgba(255, 255, 255, 0.001) 100%),
         url("../images/paw-pattern.svg"),
@@ -7920,7 +7919,6 @@ body.home-map-expanded {
     box-shadow: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
     text-align: left;
 }
 
@@ -7950,10 +7948,10 @@ body.home-map-expanded {
     color: #111111;
     font-size: clamp(2.6rem, 4.4vw, 4.35rem);
     line-height: 0.92;
-    letter-spacing: -0.082em;
-    font-weight: 850;
+    letter-spacing: -0.038em;
+    font-weight: 700;
     text-wrap: balance;
-    font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+    font-family: var(--home-hero-font-display);
 }
 
 .home-hero__title span {
@@ -7971,14 +7969,17 @@ body.home-map-expanded {
     font-size: clamp(0.96rem, 1.05vw, 1.06rem);
     line-height: 1.62;
     font-weight: 400;
+    font-family: var(--home-hero-font-ui);
 }
 
 .home-hero__actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
     gap: 14px;
     margin-top: 30px;
+    width: 100%;
+    max-width: min(100%, 36rem);
 }
 
 .home-hero__btn {
@@ -7986,16 +7987,18 @@ body.home-map-expanded {
     align-items: center;
     justify-content: center;
     gap: 14px;
+    width: 100%;
     min-height: 56px;
-    padding: 6px 8px 6px 20px;
+    padding: 0 20px;
+    box-sizing: border-box;
     border-radius: 999px;
     border: 1px solid rgba(18, 56, 44, 0.16);
     font-size: 0.9rem;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.01em;
     text-decoration: none;
     transition: transform 0.22s var(--home-ease-standard), box-shadow 0.22s ease, background-color 0.22s ease, border-color 0.22s ease, color 0.22s ease, filter 0.22s ease;
-    font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+    font-family: var(--home-hero-font-ui);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
 }
@@ -8161,11 +8164,12 @@ body.home-map-expanded {
 
     .home-hero__actions {
         margin-top: 24px;
+        max-width: min(100%, 38rem);
     }
 
     .home-hero__btn {
         min-height: 58px;
-        padding: 6px 8px 6px 22px;
+        padding: 0 22px;
         font-size: 0.9rem;
     }
 
@@ -8285,8 +8289,7 @@ body.home-map-expanded {
     .home-reveal {
         transition:
             opacity 0.44s var(--home-ease-standard),
-            transform 0.44s var(--home-ease-standard),
-            filter 0.44s ease;
+            transform 0.44s var(--home-ease-standard);
         transition-delay: calc(var(--home-stagger, 0) * 90ms);
     }
 
@@ -8335,13 +8338,11 @@ body.home-map-expanded {
     html.home-has-js .home-reveal {
         opacity: 0;
         transform: translate3d(0, 36px, 0);
-        filter: blur(10px);
     }
 
     html.home-has-js .home-reveal.is-visible {
         opacity: 1;
         transform: translate3d(0, 0, 0);
-        filter: blur(0);
     }
 }
 
@@ -8408,8 +8409,8 @@ body.home-map-expanded {
     }
 
     .home-hero__actions {
-        justify-content: flex-start;
         margin-top: 26px;
+        max-width: min(100%, 32rem);
     }
 
     .home-hero__media {
@@ -8474,16 +8475,15 @@ body.home-map-expanded {
     }
 
     .home-hero__actions {
-        align-items: flex-start;
-        flex-direction: row;
-        justify-content: flex-start;
+        grid-template-columns: 1fr;
         gap: 10px;
         margin-top: 14px;
+        max-width: min(100%, 20rem);
     }
 
     .home-hero__btn {
         min-height: 48px;
-        padding: 4px 6px 4px 16px;
+        padding: 0 16px;
         font-size: 0.76rem;
     }
 
@@ -8552,11 +8552,12 @@ body.home-map-expanded {
     .home-hero__actions {
         margin-top: 12px;
         gap: 6px;
+        max-width: min(100%, 17rem);
     }
 
     .home-hero__btn {
         min-height: 42px;
-        padding: 4px 5px 4px 12px;
+        padding: 0 12px;
         font-size: 0.66rem;
         gap: 8px;
     }

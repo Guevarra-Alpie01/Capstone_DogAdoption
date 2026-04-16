@@ -1798,7 +1798,7 @@ def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
     phase_title = "Ready for Claim" if phase == "claim" else "Ready for Adoption"
     if is_pending_review:
         phase_title = "Claim Pending Review" if phase == "claim" else "Adoption Pending Review"
-    share_url = request.build_absolute_uri(reverse("user:post_detail", args=[post.id]))
+    share_url = _build_rescue_finder_share_url(request, post_id=post.id, phase=phase)
     action_url = (
         reverse("user:claim_confirm", args=[post.id])
         if phase == "claim"
@@ -2068,7 +2068,7 @@ def _build_public_post_listing(request, listing_mode):
             "match_score": match_score,
             "created_at": upost.created_at,
             "detail_url": detail_url,
-            "share_url": request.build_absolute_uri(detail_url),
+            "share_url": _build_user_adoption_finder_share_url(request, upost.id),
         })
 
     user_adopt_count = len(user_adoption_items)
@@ -2514,6 +2514,25 @@ def _build_public_listing_url(listing_mode, *, open_post_panel=False, selected_t
         query["type"] = normalized_type
     base_url = reverse(route_name)
     return f"{base_url}?{urlencode(query)}" if query else base_url
+
+
+def _build_rescue_finder_share_url(request, *, post_id, phase):
+    """Share target: Find a Dog (claim or adopt list) with this staff post highlighted."""
+    if phase not in {"claim", "adopt"}:
+        return request.build_absolute_uri(reverse("user:post_detail", args=[post_id]))
+    route_name = "user:claim_list" if phase == "claim" else "user:adopt_list"
+    path = reverse(route_name)
+    query = urlencode({"dog": str(post_id), "kind": "staff"})
+    fragment = f"finder-staff-{post_id}"
+    return request.build_absolute_uri(f"{path}?{query}#{fragment}")
+
+
+def _build_user_adoption_finder_share_url(request, post_id):
+    """Share target: adopt listing with this user adoption post highlighted."""
+    path = reverse("user:adopt_list")
+    query = urlencode({"dog": str(post_id), "kind": "user"})
+    fragment = f"finder-user-{post_id}"
+    return request.build_absolute_uri(f"{path}?{query}#{fragment}")
 
 
 def _render_public_post_listing_page(request, listing_mode):
@@ -3296,6 +3315,11 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "image_count": len(gallery_images),
                 "gallery_images": gallery_images,
                 "main_image": main_image,
+                "share_url": (
+                    _build_rescue_finder_share_url(request, post_id=p.id, phase=phase)
+                    if phase in {"claim", "adopt"}
+                    else request.build_absolute_uri(reverse("user:post_detail", args=[p.id]))
+                ),
             })
             continue
 
@@ -3358,9 +3382,7 @@ def _hydrate_home_feed_items(request, feed_rows):
                 ),
                 "author_profile_url": profile_url,
                 "owner_request_url": f"{reverse('user:edit_profile')}#post-requests-{p.id}",
-                "share_url": request.build_absolute_uri(
-                    reverse("user:user_adoption_post_detail", args=[p.id])
-                ),
+                "share_url": _build_user_adoption_finder_share_url(request, p.id),
             })
             continue
 

@@ -1,10 +1,27 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card shadow p-4">
-    <h3 class="mb-3">Confirm Adoption Request</h3>
+    <div class="card shadow p-4">
+        <h3 class="mb-3">Confirm Adoption Request</h3>
     <p class="mb-1"><strong>Dog:</strong> {{ post.dog_name }}</p>
-    {% if post.age %}
+    {% if post.display_breed %}
+        <p class="mb-1"><strong>Breed:</strong> {{ post.display_breed }}</p>
+    {% endif %}
+    {% if post.display_age_group %}
+        <p class="mb-1"><strong>Age Group:</strong> {{ post.display_age_group }}</p>
+    {% elif post.age %}
         <p class="mb-1"><strong>Age:</strong> {{ post.age }}</p>
+    {% endif %}
+    {% if post.display_size_group %}
+        <p class="mb-1"><strong>Size:</strong> {{ post.display_size_group }}</p>
+    {% endif %}
+    {% if post.gender %}
+        <p class="mb-1"><strong>Gender:</strong> {{ post.get_gender_display }}</p>
+    {% endif %}
+    {% if post.display_coat_length %}
+        <p class="mb-1"><strong>Coat:</strong> {{ post.display_coat_length }}</p>
+    {% endif %}
+    {% if post.display_colors %}
+        <p class="mb-1"><strong>Color:</strong> {{ post.display_colors }}</p>
     {% endif %}
     <p class="mb-1"><strong>Posted by:</strong> <a href="{% url 'user:view_user_profile' post.owner.id %}?next={% url 'user:adopt_user_post' post.id %}&label=Back+to+Request" class="text-decoration-none">{{ post.owner.get_full_name|default:post.owner.username }}</a></p>
     {% if post.location %}

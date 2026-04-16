@@ -43,9 +43,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.db import transaction
-from django.db.models import Case, CharField, Count, DateField, F, IntegerField, Min, OuterRef, Prefetch, Q, Subquery, Value, When
-from django.db.models.functions import Cast, Coalesce, Concat, Lower, Trim, TruncDate
+from django.db import DatabaseError, transaction
+from django.db.models import Case, CharField, Count, DateField, F, IntegerField, Max, Min, OuterRef, Prefetch, Q, Subquery, Value, When
+from django.db.models.functions import Cast, Coalesce, Concat, Lower, Substr, Trim, TruncDate
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -97,7 +97,10 @@ from .models import (
 from user.models import (
     DogCaptureRequest,
     DogCaptureRequestImage,
+    MissingDogPost,
     Profile,
+    UserAdoptionImage,
+    UserAdoptionPost,
 )
 
 
@@ -139,6 +142,7 @@ VIOLATION_OFFICE_ADDRESS_LINES = (
 )
 VIOLATION_SIGNATORY_NAME = "REYNALDO SOLAMILLO"
 VIOLATION_SIGNATORY_ROLE = "Team Leader-Rabies Control Team"
+ADMIN_USERS_PER_PAGE = 25
 
 
 # =============================================================================
@@ -545,9 +549,23 @@ def _normalize_certificate_series(value):
 
 
 def _next_certificate_sequence(series_prefix):
+    """Return the next numeric suffix for a certificate series without scanning every row."""
     pattern = re.compile(rf"^{re.escape(series_prefix)}-(\d+)$")
-    max_sequence = 0
+    prefix_len = len(series_prefix)
+    start_pos = prefix_len + 2  # first digit after "{series_prefix}-"
+    qs = DogRegistration.objects.filter(reg_no__startswith=f"{series_prefix}-").filter(
+        reg_no__regex=rf"^{re.escape(series_prefix)}-[0-9]+$",
+    )
+    try:
+        max_sequence = qs.annotate(
+            _seq=Cast(Substr("reg_no", start_pos), output_field=IntegerField()),
+        ).aggregate(max_seq=Max("_seq"))["max_seq"]
+    except (DatabaseError, ValueError, TypeError):
+        max_sequence = None
+    if max_sequence is not None:
+        return int(max_sequence) + 1
 
+    max_sequence = 0
     for reg_no in DogRegistration.objects.filter(
         reg_no__startswith=f"{series_prefix}-"
     ).values_list("reg_no", flat=True):
@@ -2341,10 +2359,7 @@ def post_list(request):
 
         remaining_time = timedelta(seconds=0)
         if is_active_section and not is_pending_review:
-            active_phase = post.current_phase(now)
-            if active_phase == section_key:
-                remaining_time = post.time_left(now)
-            elif deadline:
+            if deadline:
                 remaining_time = deadline - now
             total_seconds = max(int(remaining_time.total_seconds()), 0)
             days = total_seconds // 86400
@@ -2593,6 +2608,11 @@ def post_list(request):
 
     global_dates = active_appointment_dates
 
+    user_post_pending_count = (
+        UserAdoptionPost.objects.filter(status="pending_review").count()
+        + MissingDogPost.objects.filter(status="pending_review").count()
+    )
+
     return render(request, 'admin_home/post_list.html', {
         'all_posts': paged_all_posts,
         'status_sections': status_sections,
@@ -2602,6 +2622,7 @@ def post_list(request):
         'show_appointment_modal': show_appointment_modal,
         'history_total': history_total,
         'return_to': request.get_full_path(),
+        'user_post_pending_count': user_post_pending_count,
     })
 
 
@@ -2958,7 +2979,7 @@ def admin_dog_capture_requests(request):
     if active_tab not in valid_tabs:
         active_tab = "pending"
 
-    base_qs = _dog_capture_request_board_queryset()
+    base_qs = _dog_capture_request_board_queryset().filter(request_type="surrender")
     status_totals = base_qs.aggregate(
         pending_total=Count("id", filter=Q(status="pending")),
         accepted_total=Count("id", filter=Q(status="accepted")),
@@ -3053,6 +3074,7 @@ def admin_dog_capture_requests(request):
 
     map_points_qs = list(
         _dog_capture_request_map_queryset().filter(
+            request_type='surrender',
             status='pending',
             latitude__isnull=False,
             longitude__isnull=False,
@@ -3583,6 +3605,18 @@ def _build_violation_letter_context(user, summary, latest_notification=None, vio
     }
 
 
+def _paginated_admin_user_directory_context(request, users_qs):
+    """Slice the queryset to one page of rows and build list payloads (avoids loading the full directory)."""
+    paginator = Paginator(users_qs, ADMIN_USERS_PER_PAGE)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+    page_users = list(page_obj.object_list)
+    return {
+        "users": _build_admin_user_row_payloads(page_users),
+        "user_count": paginator.count,
+        "page_obj": page_obj,
+    }
+
+
 @admin_required
 def admin_users(request):
     """List non-staff users together with their violation counts."""
@@ -3598,13 +3632,10 @@ def admin_users(request):
         )
 
     users = users.order_by('-effective_violation_count', 'first_name', 'last_name', 'username')
-    user_count = users.count()
-
-    return render(request, 'admin_user/users.html', {
-        'users': _build_admin_user_row_payloads(users),
-        'query': query,
-        'user_count': user_count,
-    })
+    context = _paginated_admin_user_directory_context(request, users)
+    context["query"] = query
+    context["is_search_view"] = False
+    return render(request, 'admin_user/users.html', context)
 
 
 @admin_required
@@ -3628,12 +3659,9 @@ def admin_user_search_results(request):
         Q(username__icontains=query)
     ).order_by('-effective_violation_count', 'first_name', 'last_name', 'username')
 
-    context = {
-        'users': _build_admin_user_row_payloads(results),
-        'query': query,
-        'user_count': results.count(),
-    }
-
+    context = _paginated_admin_user_directory_context(request, results)
+    context["query"] = query
+    context["is_search_view"] = True
     return render(request, 'admin_user/users.html', context)
 
 
@@ -5915,3 +5943,137 @@ def penalty_manager(request):
         'active_penalty_count': active_penalties,
         'inactive_penalty_count': max(total_penalties - active_penalties, 0),
     })
+
+
+# ---------------------------------------------------------------------------
+# User Post Requests (admin approval gate)
+# ---------------------------------------------------------------------------
+
+def _build_user_post_items(adoption_qs, missing_qs):
+    """Merge adoption and missing post querysets into a single sorted list."""
+    items = []
+    for post in adoption_qs:
+        first_image = post.images.first()
+        items.append({
+            "id": post.id,
+            "post_type": "adoption",
+            "post_type_label": "Adoption",
+            "dog_name": post.dog_name,
+            "breed": post.display_breed,
+            "age": post.age,
+            "description": post.description,
+            "location": post.location,
+            "status": post.status,
+            "image_url": first_image.image.url if first_image else None,
+            "owner_username": post.owner.username,
+            "owner_full_name": post.owner.get_full_name() or post.owner.username,
+            "created_at": post.created_at,
+        })
+    for post in missing_qs:
+        items.append({
+            "id": post.id,
+            "post_type": "missing",
+            "post_type_label": "Missing",
+            "dog_name": post.dog_name,
+            "age": post.age,
+            "description": post.description,
+            "location": post.location,
+            "status": post.status,
+            "image_url": post.image.url if post.image else None,
+            "owner_username": post.owner.username,
+            "owner_full_name": post.owner.get_full_name() or post.owner.username,
+            "created_at": post.created_at,
+        })
+    items.sort(key=lambda x: x["created_at"], reverse=True)
+    return items
+
+
+@admin_required
+def user_post_requests(request):
+    """Admin page listing user-submitted adoption/missing posts for review."""
+    tab = request.GET.get("tab", "pending")
+    if tab not in ("pending", "accepted", "declined"):
+        tab = "pending"
+
+    adoption_filters = {
+        "pending": {"status": "pending_review"},
+        "accepted": {"status": "available"},
+        "declined": {"status": "declined"},
+    }
+    missing_filters = {
+        "pending": {"status": "pending_review"},
+        "accepted": {"status": "missing"},
+        "declined": {"status": "declined"},
+    }
+
+    adoption_qs = (
+        UserAdoptionPost.objects
+        .filter(**adoption_filters[tab])
+        .select_related("owner")
+        .prefetch_related("images")
+        .order_by("-created_at")
+    )
+    missing_qs = (
+        MissingDogPost.objects
+        .filter(**missing_filters[tab])
+        .select_related("owner")
+        .order_by("-created_at")
+    )
+
+    items = _build_user_post_items(adoption_qs, missing_qs)
+
+    page_number = request.GET.get("page", 1)
+    paginator = Paginator(items, 12)
+    page_obj = paginator.get_page(page_number)
+
+    pending_count = (
+        UserAdoptionPost.objects.filter(status="pending_review").count()
+        + MissingDogPost.objects.filter(status="pending_review").count()
+    )
+    accepted_count = (
+        UserAdoptionPost.objects.filter(status="available").count()
+        + MissingDogPost.objects.filter(status="missing").count()
+    )
+    declined_count = (
+        UserAdoptionPost.objects.filter(status="declined").count()
+        + MissingDogPost.objects.filter(status="declined").count()
+    )
+
+    return render(request, "admin_home/user_post_requests.html", {
+        "tab": tab,
+        "page_obj": page_obj,
+        "pending_count": pending_count,
+        "accepted_count": accepted_count,
+        "declined_count": declined_count,
+    })
+
+
+@require_POST
+@admin_required
+def user_post_request_action(request, post_type, post_id, action):
+    """Handle accept / decline / delete actions on user-submitted posts."""
+    if post_type == "adoption":
+        post = get_object_or_404(UserAdoptionPost, pk=post_id)
+        accept_status = "available"
+    elif post_type == "missing":
+        post = get_object_or_404(MissingDogPost, pk=post_id)
+        accept_status = "missing"
+    else:
+        raise Http404
+
+    if action == "accept":
+        post.status = accept_status
+        post.save(update_fields=["status"])
+        messages.success(request, f"Post by {post.owner.username} has been accepted.")
+    elif action == "decline":
+        post.status = "declined"
+        post.save(update_fields=["status"])
+        messages.success(request, f"Post by {post.owner.username} has been declined.")
+    elif action == "delete":
+        owner_name = post.owner.username
+        post.delete()
+        messages.success(request, f"Post by {owner_name} has been deleted.")
+    else:
+        raise Http404
+
+    return redirect(reverse("dogadoption_admin:user_post_requests"))

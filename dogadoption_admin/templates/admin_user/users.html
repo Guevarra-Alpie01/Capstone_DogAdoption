@@ -3,7 +3,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260330c">
-<link rel="stylesheet" href="{% static 'css/admin_user/admin_users.css' %}?v=20260331c">
+<link rel="stylesheet" href="{% static 'css/admin_user/admin_users.css' %}?v=20260416a">
 {% endblock extra_css %}
 
 {% block content %}
@@ -122,6 +122,30 @@
                 </tbody>
             </table>
         </div>
+
+        {% if page_obj and page_obj.paginator.num_pages > 1 %}
+        <div class="user-directory-pagination" role="navigation" aria-label="User directory pages">
+            {% if page_obj.has_previous %}
+                <a class="user-directory-pagination__btn" href="{% if is_search_view %}{% url 'dogadoption_admin:admin_user_search' %}{% else %}{% url 'dogadoption_admin:admin_users' %}{% endif %}?{% if query %}q={{ query|urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                    <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                    Previous
+                </a>
+            {% else %}
+                <span class="user-directory-pagination__btn is-disabled">Previous</span>
+            {% endif %}
+
+            <span class="user-directory-pagination__info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+            {% if page_obj.has_next %}
+                <a class="user-directory-pagination__btn" href="{% if is_search_view %}{% url 'dogadoption_admin:admin_user_search' %}{% else %}{% url 'dogadoption_admin:admin_users' %}{% endif %}?{% if query %}q={{ query|urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">
+                    Next
+                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                </a>
+            {% else %}
+                <span class="user-directory-pagination__btn is-disabled">Next</span>
+            {% endif %}
+        </div>
+        {% endif %}
     </section>
 </div>
 {% endblock %}

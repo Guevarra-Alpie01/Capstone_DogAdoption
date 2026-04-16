@@ -33,6 +33,19 @@
                     <i class="fas fa-calendar-alt" aria-hidden="true"></i>
                 </button>
             {% endif %}
+            <a
+                href="{% url 'dogadoption_admin:user_post_requests' %}"
+                class="post-toolbar-icon-btn post-toolbar-icon-btn--user-requests"
+                data-bs-toggle="tooltip"
+                data-bs-placement="bottom"
+                title="User Post Requests{% if user_post_pending_count %} ({{ user_post_pending_count }} pending){% endif %}"
+                aria-label="User Post Requests"
+            >
+                <i class="bi bi-person-lines-fill" aria-hidden="true"></i>
+                {% if user_post_pending_count %}
+                    <span class="post-toolbar-badge post-toolbar-badge--requests">{{ user_post_pending_count }}</span>
+                {% endif %}
+            </a>
         </div>
         <div class="post-toolbar-end">
             {% if admin_access.can_view_post_history %}

@@ -8,6 +8,7 @@
     <link rel="icon" type="image/webp" href="{% static 'images/officialseal.webp' %}">
 
     <title>{% block page_title %}BAYAWAN VET{% endblock %}</title>
+    {% block og_meta %}{% endblock %}
     <script>
         window.getCsrfToken = function () {
             const meta = document.querySelector('meta[name="csrf-token"]');
@@ -32,9 +33,9 @@
     {% if not user.is_authenticated %}
     <link rel="stylesheet" href="{% static 'css/auth_modal.css' %}?v=20260410l">
     {% endif %}
-    <link rel="stylesheet" href="{% static 'css/user_theme.css' %}?v=20260414-sidebar-close-fix2">
+    <link rel="stylesheet" href="{% static 'css/user_theme.css' %}?v=20260416-hamburger-x-morph2">
     <link rel="stylesheet" href="{% static 'css/notification_menu.css' %}?v=20260330b">
-    <link rel="stylesheet" href="{% static 'css/user_button_skin.css' %}?v=20260324a">
+    <link rel="stylesheet" href="{% static 'css/user_button_skin.css' %}?v=20260416-sidebar-close-clean">
     <style>
         :root {
             --page-transition-duration: 320ms;
@@ -197,6 +198,20 @@
 
         {% if user.is_authenticated %}
             <div class="user-topbar-start">
+                <button
+                    class="btn sidebar-toggle-btn d-lg-none"
+                    id="sidebarToggle"
+                    type="button"
+                    aria-controls="sidebar-wrapper"
+                    aria-expanded="false"
+                    aria-label="Open navigation menu"
+                >
+                    <span class="sidebar-toggle-icon" aria-hidden="true">
+                        <span class="sidebar-toggle-line sidebar-toggle-line--top"></span>
+                        <span class="sidebar-toggle-line sidebar-toggle-line--bottom"></span>
+                    </span>
+                </button>
+
                 <a class="navbar-brand user-brand" href="{% url 'user:user_home' %}">
                     <img src="{% static 'images/paw-logo.svg' %}"
                          alt="Bayawan Vet paw logo"
@@ -258,22 +273,8 @@
                     </ul>
                 </div>
 
-                <button
-                    class="btn sidebar-toggle-btn d-lg-none"
-                    id="sidebarToggle"
-                    type="button"
-                    aria-controls="sidebar-wrapper"
-                    aria-expanded="false"
-                    aria-label="Open navigation menu"
-                >
-                    <span class="sidebar-toggle-icon" aria-hidden="true">
-                        <span class="sidebar-toggle-line sidebar-toggle-line--top"></span>
-                        <span class="sidebar-toggle-line sidebar-toggle-line--bottom"></span>
-                    </span>
-                </button>
-
                 <!-- USER DROPDOWN -->
-                <div class="dropdown profile-menu-shift mobile-topbar-profile">
+                <div class="dropdown profile-menu-shift">
                     <a class="btn p-0 topbar-avatar-btn" href="#" data-bs-toggle="dropdown" aria-expanded="false">
                         {% if user_topbar_avatar_url %}
                             <img src="{{ user_topbar_avatar_url }}"
@@ -587,7 +588,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.addEventListener('submit', function (event) {
         const form = event.target;
-        if (!(form instanceof HTMLFormElement) || isNavigating) {
+        if (!(form instanceof HTMLFormElement) || isNavigating || event.defaultPrevented) {
             return;
         }
 

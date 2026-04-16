@@ -32,6 +32,7 @@ from functools import wraps
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
 from django.urls import reverse
+from django.utils.functional import cached_property
 from django.utils.http import (
     url_has_allowed_host_and_scheme,
     urlsafe_base64_decode,
@@ -106,6 +107,8 @@ RESCUE_FINDER_PAGE_SIZE = 12
 RESCUE_FINDER_RECOMMENDATION_LIMIT = 4
 HOME_FEATURED_CAROUSEL_LIMIT = 5
 HOME_SPOTLIGHT_DISPLAY_LIMIT = 4
+HOME_SPOTLIGHT_FALLBACK_CANDIDATE_LIMIT = 60
+HOME_FEATURED_CANDIDATE_LIMIT = 60
 HOME_SPOTLIGHT_URGENCY_THRESHOLD_SECONDS = 24 * 60 * 60
 GOOGLE_SIGNUP_SESSION_KEY = "google_signup_data"
 
@@ -853,7 +856,22 @@ def _build_profile_post_rows(profile_user, recent_post_limit, default_profile_av
                 ).order_by("-created_at"),
             ),
         )
-        .only("id", "dog_name", "age", "location", "status", "created_at")
+        .only(
+            "id",
+            "dog_name",
+            "breed",
+            "breed_other",
+            "age_group",
+            "size_group",
+            "gender",
+            "coat_length",
+            "colors",
+            "color_other",
+            "age",
+            "location",
+            "status",
+            "created_at",
+        )
         .order_by("-created_at")[:recent_post_limit]
     )
     missing_posts = list(
@@ -905,7 +923,8 @@ def _build_profile_post_rows(profile_user, recent_post_limit, default_profile_av
             "post_type": "adoption",
             "post_type_label": "Adoption",
             "title": post.dog_name,
-            "age": post.age,
+            "breed_label": post.display_breed,
+            "age_label": post.display_age_group or (str(post.age) if post.age else ""),
             "location": post.location,
             "status_key": post.status,
             "status_label": post.get_status_display(),
@@ -1803,6 +1822,7 @@ def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
         "pending_state_label": "Pending admin review" if is_pending_review else "",
         "pending_state_detail": pending_state_detail,
         "pending_review_until_label": pending_review_until_label,
+        "deadline_iso": countdown_deadline.isoformat() if countdown_deadline else "",
     }
 
 
@@ -1959,50 +1979,79 @@ def _build_public_post_listing(request, listing_mode):
     active_filter_chips = _build_rescue_finder_selected_chips(finder_form, selected_filters)
     active_filter_count = len(active_filter_chips)
 
-    candidate_items = []
+    claim_items = []
+    adopt_items = []
+    _sort_key = lambda item: (
+        -item["match_score"],
+        0 if item["main_image_url"] else 1,
+        -item["post"].created_at.timestamp(),
+        item["post"].id,
+    )
     for post, phase_payload in open_post_rows:
         phase = phase_payload["phase"]
-        if selected_purpose != "all" and phase != selected_purpose:
-            continue
         match_score = _rescue_finder_match_score(post, selected_filters)
-        candidate_items.append(
-            _build_rescue_finder_card_item(
-                request,
-                post,
-                phase_payload,
-                match_score,
+        card = _build_rescue_finder_card_item(request, post, phase_payload, match_score)
+        if phase == "claim":
+            claim_items.append(card)
+        else:
+            adopt_items.append(card)
+    claim_items.sort(key=_sort_key)
+    adopt_items.sort(key=_sort_key)
+
+    user_adoption_qs = (
+        UserAdoptionPost.objects
+        .filter(status="available")
+        .select_related("owner")
+        .prefetch_related(
+            Prefetch(
+                "images",
+                queryset=UserAdoptionImage.objects.only("id", "post_id", "image").order_by("id"),
             )
         )
-
-    candidate_items.sort(
-        key=lambda item: (
-            -item["match_score"],
-            _rescue_finder_phase_priority(item["phase"], preferred_purpose),
-            0 if item["main_image_url"] else 1,
-            -item["post"].created_at.timestamp(),
-            item["post"].id,
-        )
+        .order_by("-created_at")
     )
+    user_adoption_items = []
+    for upost in user_adoption_qs:
+        if any(
+            selected_filters[k]
+            and not _rescue_finder_post_matches(upost, k, selected_filters[k])
+            for k in selected_filters
+        ):
+            continue
+        match_score = _rescue_finder_match_score(upost, selected_filters)
+        location_label = " ".join((upost.location or "").split()) or "Location not listed"
+        detail_url = reverse("user:user_adoption_post_detail", args=[upost.id])
+        user_adoption_items.append({
+            "post": upost,
+            "post_id": upost.id,
+            "dog_name": upost.dog_name,
+            "breed_label": upost.display_breed or "Unknown Breed",
+            "age_label": upost.display_age_group or "Age not listed",
+            "size_label": upost.display_size_group or "Size not listed",
+            "gender_label": upost.get_gender_display() if upost.gender else "Gender not listed",
+            "coat_label": upost.display_coat_length or "Coat not listed",
+            "color_label": upost.display_colors or "Color not listed",
+            "location_label": location_label,
+            "description": upost.description or "",
+            "owner_username": upost.owner.username,
+            "owner_full_name": upost.owner.get_full_name(),
+            "main_image_url": _first_prefetched_image_url(upost.images.all()),
+            "match_score": match_score,
+            "created_at": upost.created_at,
+            "detail_url": detail_url,
+            "share_url": request.build_absolute_uri(detail_url),
+        })
 
-    recommended_posts = []
-    if active_filter_count:
-        recommended_posts = [
-            item for item in candidate_items if item["match_score"] > 0
-        ][:RESCUE_FINDER_RECOMMENDATION_LIMIT]
+    user_adopt_count = len(user_adoption_items)
+    phase_counts["adopt"] += user_adopt_count
+    phase_counts["all"] += user_adopt_count
 
-    page_obj = Paginator(candidate_items, RESCUE_FINDER_PAGE_SIZE).get_page(
-        request.GET.get("page", 1)
+    claim_page_obj = Paginator(claim_items, RESCUE_FINDER_PAGE_SIZE).get_page(
+        request.GET.get("page", 1) if selected_purpose in ("all", "claim") else 1
     )
-
-    if selected_purpose == "claim":
-        results_title = "Dogs Ready for Claim"
-        results_description = "These dogs are still within the owner-claim window."
-    elif selected_purpose == "adopt":
-        results_title = "Dogs Ready for Adoption"
-        results_description = "These rescue dogs have moved into the adoption window."
-    else:
-        results_title = "All Open Rescue Dogs"
-        results_description = "Browse every active rescue dog currently open for claim or adoption."
+    adopt_page_obj = Paginator(adopt_items, RESCUE_FINDER_PAGE_SIZE).get_page(
+        request.GET.get("page", 1) if selected_purpose in ("all", "adopt") else 1
+    )
 
     purpose_options = [
         {
@@ -2030,13 +2079,9 @@ def _build_public_post_listing(request, listing_mode):
     )
 
     return {
-        "posts": list(page_obj.object_list),
-        "page_obj": page_obj,
         "listing_mode": listing_mode,
-        "page_title": "Dog Rescue Finder",
-        "page_description": "Find active rescue dogs using live claim and adoption phases from the backend.",
-        "results_title": results_title,
-        "results_description": results_description,
+        "page_title": "Find a Dog",
+        "page_description": "Browse active dogs and post a dog for adoption or as missing.",
         "purpose_choices": list(finder_form.fields["purpose"].choices),
         "purpose_options": purpose_options,
         "current_purpose": selected_purpose,
@@ -2049,7 +2094,11 @@ def _build_public_post_listing(request, listing_mode):
         ),
         "active_filter_chips": active_filter_chips,
         "active_filter_count": active_filter_count,
-        "recommended_posts": recommended_posts,
+        "claim_posts": list(claim_page_obj.object_list),
+        "claim_page_obj": claim_page_obj,
+        "adopt_posts": list(adopt_page_obj.object_list),
+        "adopt_page_obj": adopt_page_obj,
+        "user_adoption_posts": user_adoption_items,
         "pagination_query": _pagination_query_without_page(request.GET),
         "clear_filters_url": reverse(
             "user:claim_list" if listing_mode == "claim" else "user:adopt_list"
@@ -2073,6 +2122,7 @@ def _build_home_featured_rescue_sections(request):
     raw_open_posts = list(
         _base_public_post_queryset()
         .filter(status__in=["rescued", "under_care"])
+        [:HOME_FEATURED_CANDIDATE_LIMIT]
     )
     Post.attach_active_appointment_dates(raw_open_posts)
     section_items = {"claim": [], "adopt": []}
@@ -2306,6 +2356,7 @@ def _build_home_pinned_rescue_spotlights(request):
         fallback_candidates = list(
             _base_public_post_queryset()
             .filter(is_pinned=False, status__in=["rescued", "under_care"])
+            [:HOME_SPOTLIGHT_FALLBACK_CANDIDATE_LIMIT]
         )
         Post.attach_active_appointment_dates(fallback_candidates)
         candidate_pairs = []
@@ -2410,6 +2461,90 @@ def _handle_user_post_creation_submission(request, selected_type):
 
     messages.error(request, "Adoption post was not saved. Check the required fields and try again.")
     return False, adoption_form, missing_form
+
+
+def _normalize_user_post_type(raw_value):
+    """Return a supported user post type or an empty string."""
+    post_type = (raw_value or "").strip().lower()
+    return post_type if post_type in {"adoption", "missing"} else ""
+
+
+def _build_public_listing_url(listing_mode, *, open_post_panel=False, selected_type=""):
+    """Build a claim/adopt listing URL with optional in-page posting state."""
+    route_name = _public_listing_route_name(listing_mode)
+    query = {}
+    normalized_type = _normalize_user_post_type(selected_type)
+    if open_post_panel:
+        query["post_dog"] = "1"
+    if normalized_type:
+        query["type"] = normalized_type
+    base_url = reverse(route_name)
+    return f"{base_url}?{urlencode(query)}" if query else base_url
+
+
+def _render_public_post_listing_page(request, listing_mode):
+    """Render the shared public listing page and optional in-page dog posting flow."""
+    selected_type = _normalize_user_post_type(
+        request.POST.get("post_type") if request.method == "POST" else request.GET.get("type")
+    )
+    show_post_panel = bool(selected_type) or request.GET.get("post_dog") == "1"
+    adoption_form = None
+    missing_form = None
+
+    if request.method == "POST" and request.POST.get("finder_create_post") == "1":
+        show_post_panel = True
+        if not request.user.is_authenticated:
+            messages.error(request, "Please log in to create a post.")
+            return redirect(
+                _build_home_auth_modal_url(
+                    request,
+                    "login",
+                    _build_public_listing_url(
+                        listing_mode,
+                        open_post_panel=True,
+                        selected_type=selected_type,
+                    ),
+                )
+            )
+
+        if not selected_type:
+            adoption_form = _build_user_adoption_post_form()
+            missing_form = _build_missing_dog_post_form()
+            messages.error(request, "Choose whether this post is for adoption or for a missing dog.")
+        else:
+            created, adoption_form, missing_form = _handle_user_post_creation_submission(
+                request,
+                selected_type,
+            )
+            if created:
+                return redirect(_build_public_listing_url(listing_mode))
+    elif request.user.is_authenticated:
+        adoption_form = _build_user_adoption_post_form()
+        missing_form = _build_missing_dog_post_form()
+
+    context = _build_public_post_listing(request, listing_mode)
+    context.update({
+        "selected_type": selected_type,
+        "adoption_form": adoption_form,
+        "missing_form": missing_form,
+        "show_post_panel": request.user.is_authenticated and show_post_panel,
+        "finder_post_entry_url": _build_public_listing_url(
+            listing_mode,
+            open_post_panel=True,
+            selected_type=selected_type,
+        ),
+        "finder_post_adoption_url": _build_public_listing_url(
+            listing_mode,
+            open_post_panel=True,
+            selected_type="adoption",
+        ),
+        "finder_post_missing_url": _build_public_listing_url(
+            listing_mode,
+            open_post_panel=True,
+            selected_type="missing",
+        ),
+    })
+    return render(request, "adopt/adopt_list.html", context)
 
 
 def _get_available_appointment_dates():
@@ -2749,6 +2884,13 @@ def _build_random_home_rows(query, feed_token="", dogs_only=False, viewer_id=Non
             Q(dog_name__icontains=query)
             | Q(description__icontains=query)
             | Q(location__icontains=query)
+            | Q(breed__icontains=query)
+            | Q(breed_other__icontains=query)
+            | Q(age_group__icontains=query)
+            | Q(size_group__icontains=query)
+            | Q(gender__icontains=query)
+            | Q(coat_length__icontains=query)
+            | Q(color_other__icontains=query)
         )
         missing_qs = missing_qs.filter(
             Q(dog_name__icontains=query)
@@ -2831,6 +2973,13 @@ def _build_search_home_rows(query, dogs_only=False, viewer_id=None):
             Q(dog_name__icontains=query)
             | Q(description__icontains=query)
             | Q(location__icontains=query)
+            | Q(breed__icontains=query)
+            | Q(breed_other__icontains=query)
+            | Q(age_group__icontains=query)
+            | Q(size_group__icontains=query)
+            | Q(gender__icontains=query)
+            | Q(coat_length__icontains=query)
+            | Q(color_other__icontains=query)
             | Q(owner__username__icontains=query)
             | Q(owner__first_name__icontains=query)
             | Q(owner__last_name__icontains=query)
@@ -2946,7 +3095,14 @@ def _hydrate_home_feed_items(request, feed_rows):
         ).only(
             "id",
             "dog_name",
+            "breed",
+            "breed_other",
+            "age_group",
+            "size_group",
             "gender",
+            "coat_length",
+            "colors",
+            "color_other",
             "age",
             "description",
             "location",
@@ -3106,6 +3262,9 @@ def _hydrate_home_feed_items(request, feed_rows):
                 ),
                 "author_profile_url": profile_url,
                 "owner_request_url": f"{reverse('user:edit_profile')}#post-requests-{p.id}",
+                "share_url": request.build_absolute_uri(
+                    reverse("user:user_adoption_post_detail", args=[p.id])
+                ),
             })
             continue
 
@@ -3424,8 +3583,8 @@ def _build_user_home_context(
 ):
     should_render_create_modal = request.user.is_authenticated and not request.user.is_staff
     if should_render_create_modal:
-        adoption_form = adoption_form or UserAdoptionPostForm()
-        missing_form = missing_form or MissingDogPostForm()
+        adoption_form = adoption_form or _build_user_adoption_post_form()
+        missing_form = missing_form or _build_missing_dog_post_form()
     else:
         adoption_form = adoption_form or None
         missing_form = missing_form or None
@@ -3449,10 +3608,18 @@ def _build_user_home_context(
     pagination_params["feed_token"] = feed_token
     pagination_params.pop("page", None)
 
+    home_missing_posts = list(
+        MissingDogPost.objects
+        .filter(status="missing")
+        .select_related("owner")
+        .order_by("-created_at")[:30]
+    )
+
     return {
         "posts": combined_posts,
         **_build_home_pinned_rescue_spotlights(request),
         "featured_dog_sections": _build_home_featured_rescue_sections(request),
+        "home_missing_posts": home_missing_posts,
         "vaccination_reminder_summary": (
             build_user_vaccination_reminder_summary(request.user)
             if request.user.is_authenticated and not request.user.is_staff
@@ -3599,6 +3766,36 @@ def create_post(request):
     })
 
 
+def user_adoption_post_detail(request, post_id):
+    """Render a detail page for a user adoption post with OG meta tags for sharing."""
+    post = get_object_or_404(
+        UserAdoptionPost.objects.select_related("owner", "owner__profile").prefetch_related(
+            Prefetch(
+                "images",
+                queryset=UserAdoptionImage.objects.only("id", "post_id", "image").order_by("id"),
+            )
+        ),
+        id=post_id,
+    )
+    first_image = next(iter(post.images.all()), None)
+    og_image_url = ""
+    if first_image:
+        og_image_url = request.build_absolute_uri(first_image.image.url)
+
+    description = (post.description or "").strip()
+    if len(description) > 200:
+        description = f"{description[:197].rstrip()}..."
+    if not description:
+        description = f"{post.dog_name} is available for adoption in {post.location or 'Bayawan'}."
+
+    return render(request, "adopt/user_adoption_post_detail.html", {
+        "post": post,
+        "og_image_url": og_image_url,
+        "og_description": description,
+        "first_image_url": _first_prefetched_image_url(post.images.all()),
+    })
+
+
 @user_only
 def adopt_user_post(request, post_id):
     """Submit an adoption request for a user-created adoption post."""
@@ -3646,12 +3843,14 @@ def adopt_user_post(request, post_id):
 @user_only
 def user_adoption_requests(request):
     """List requests received on adoption posts owned by the current user."""
-    requests = UserAdoptionRequest.objects.filter(
+    requests_qs = UserAdoptionRequest.objects.filter(
         post__owner=request.user
     ).select_related("post", "requester", "requester__profile").order_by("-created_at")
 
+    page_obj = Paginator(requests_qs, 20).get_page(request.GET.get("page", 1))
     return render(request, "adopt/user_post_requests.html", {
-        "requests": requests,
+        "requests": page_obj,
+        "page_obj": page_obj,
     })
 
 
@@ -3728,10 +3927,15 @@ def post_detail(request, post_id):
     if summary in {"", card_item["title"], card_item["breed_label"]}:
         summary = ""
 
+    og_image_url = ""
+    if card_item["main_image_url"]:
+        og_image_url = request.build_absolute_uri(card_item["main_image_url"])
+
     detail = {
         **card_item,
         "theme": phase_payload["phase"] if phase_payload["phase"] in {"claim", "adopt"} else "closed",
         "summary": summary,
+        "og_image_url": og_image_url,
         "facts": [
             {"label": "Breed", "value": card_item["breed_label"]},
             {"label": "Location", "value": card_item["location_label"]},
@@ -3833,14 +4037,32 @@ def _get_or_create_request_profile(user):
         )
 
 
-def _paginate_dog_capture_status(request, rows_per_page, status_key, page_param):
-    page_obj = Paginator(
+class _DogCaptureStatusPaginator(Paginator):
+    """Paginator that uses a precomputed total so we avoid a duplicate COUNT() query."""
+
+    def __init__(self, object_list, per_page, *, total_count, orphans=0, allow_empty_first_page=True):
+        self._fixed_total_count = int(total_count)
+        super().__init__(object_list, per_page, orphans, allow_empty_first_page)
+
+    @cached_property
+    def count(self):
+        return self._fixed_total_count
+
+
+def _paginate_dog_capture_status(request, rows_per_page, status_key, page_param, *, total_count=None):
+    qs = (
         DogCaptureRequest.objects.filter(
             requested_by=request.user,
             status=status_key,
-        ).prefetch_related("images", "landmark_images").order_by("-created_at"),
-        rows_per_page,
-    ).get_page(request.GET.get(page_param, 1))
+        )
+        .prefetch_related("images", "landmark_images")
+        .order_by("-created_at")
+    )
+    if total_count is None:
+        paginator = Paginator(qs, rows_per_page)
+    else:
+        paginator = _DogCaptureStatusPaginator(qs, rows_per_page, total_count=total_count)
+    page_obj = paginator.get_page(request.GET.get(page_param, 1))
     return page_obj, list(page_obj.object_list)
 
 
@@ -3879,16 +4101,32 @@ def _build_dog_capture_request_page_context(request):
         ).values("status").annotate(total=Count("id"))
     }
     accepted_page_obj, accepted_requests = _paginate_dog_capture_status(
-        request, rows_per_page, "accepted", "scheduled_page"
+        request,
+        rows_per_page,
+        "accepted",
+        "scheduled_page",
+        total_count=status_totals.get("accepted", 0),
     )
     pending_page_obj, pending_requests = _paginate_dog_capture_status(
-        request, rows_per_page, "pending", "pending_page"
+        request,
+        rows_per_page,
+        "pending",
+        "pending_page",
+        total_count=status_totals.get("pending", 0),
     )
     declined_page_obj, declined_requests = _paginate_dog_capture_status(
-        request, rows_per_page, "declined", "declined_page"
+        request,
+        rows_per_page,
+        "declined",
+        "declined_page",
+        total_count=status_totals.get("declined", 0),
     )
     captured_page_obj, captured_requests = _paginate_dog_capture_status(
-        request, rows_per_page, "captured", "captured_page"
+        request,
+        rows_per_page,
+        "captured",
+        "captured_page",
+        total_count=status_totals.get("captured", 0),
     )
 
     return {
@@ -4243,7 +4481,7 @@ def claim(request):
 
 def adopt_list(request):
     """Browse dogs that are available for adoption."""
-    return render(request, "adopt/adopt_list.html", _build_public_post_listing(request, "adopt"))
+    return _render_public_post_listing_page(request, "adopt")
 
 @user_only
 def adopt_status(request):
@@ -4469,8 +4707,23 @@ def announcement_detail(request, post_id):
         post.created_by, static("images/officialseal.webp")
     )
     post.content_display = _clean_announcement_text_for_display(post.content)
+
+    og_image_url = ""
+    if post.background_image:
+        og_image_url = request.build_absolute_uri(post.background_image.url)
+    elif getattr(post, "prefetched_images", None):
+        og_image_url = request.build_absolute_uri(post.prefetched_images[0].image.url)
+
+    plain_description = strip_tags(post.content or "").strip()
+    if len(plain_description) > 200:
+        plain_description = f"{plain_description[:197].rstrip()}..."
+    if not plain_description:
+        plain_description = "Announcement from Bayawan Vet."
+
     return render(request, 'announcement/announcement_detail.html', {
         'post': post,
+        'og_image_url': og_image_url,
+        'og_description': plain_description,
         'share_url': request.build_absolute_uri(
             reverse("user:announcement_share_preview", args=[post.id])
         ),
@@ -4571,7 +4824,7 @@ def my_claims(request):
 
 def claim_list(request):
     """Browse dogs that are still available to be claimed."""
-    return render(request, "adopt/adopt_list.html", _build_public_post_listing(request, "claim"))
+    return _render_public_post_listing_page(request, "claim")
 
 
 def claim_confirm(request, post_id):

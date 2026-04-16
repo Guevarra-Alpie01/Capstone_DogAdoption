@@ -277,6 +277,10 @@ EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
 DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024   # 20 MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024   # 20 MB
 
+# Use cached sessions to avoid a DB hit per request under concurrent load.
+# Falls back gracefully to the DB when the cache entry expires.
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+
 # Default for user sessions
 SESSION_COOKIE_NAME = 'user_sessionid'
 SESSION_COOKIE_SAMESITE = os.getenv("DJANGO_SESSION_COOKIE_SAMESITE", "Lax")

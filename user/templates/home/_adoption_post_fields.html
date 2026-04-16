@@ -1,0 +1,92 @@
+{% if selected_type != 'missing' and adoption_form.errors %}
+<div class="alert alert-danger" role="alert">
+    Complete the required adoption fields before submitting.
+</div>
+{% endif %}
+
+<div class="post-field-grid" data-adoption-form-panel>
+    <div class="mb-3 post-field-full">
+        <label class="form-label">Dog Name</label>
+        {{ adoption_form.dog_name }}
+        {% if adoption_form.dog_name.errors %}<div class="text-danger small">{{ adoption_form.dog_name.errors|striptags }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Breed</label>
+        {{ adoption_form.breed }}
+        {% if adoption_form.breed.errors %}<div class="text-danger small">{{ adoption_form.breed.errors|striptags }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3" data-adoption-breed-other-group {% if adoption_form.breed.value != 'other' and not adoption_form.breed_other.value and not adoption_form.breed_other.errors %}hidden{% endif %}>
+        <label class="form-label">Other Breed</label>
+        {{ adoption_form.breed_other }}
+        {% if adoption_form.breed_other.errors %}<div class="text-danger small">{{ adoption_form.breed_other.errors|striptags }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Age Group</label>
+        {{ adoption_form.age_group }}
+        {% if adoption_form.age_group.errors %}<div class="text-danger small">{{ adoption_form.age_group.errors|striptags }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Size</label>
+        {{ adoption_form.size_group }}
+        {% if adoption_form.size_group.errors %}<div class="text-danger small">{{ adoption_form.size_group.errors|striptags }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Gender</label>
+        {{ adoption_form.gender }}
+        {% if adoption_form.gender.errors %}<div class="text-danger small">{{ adoption_form.gender.errors|striptags }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Coat Length</label>
+        {{ adoption_form.coat_length }}
+        {% if adoption_form.coat_length.errors %}<div class="text-danger small">{{ adoption_form.coat_length.errors|striptags }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3 post-field-full">
+        <label class="form-label">Color</label>
+        <div class="post-checkbox-options" data-adoption-color-options>
+            {% for checkbox in adoption_form.colors %}
+            <label class="post-checkbox-option">
+                {{ checkbox.tag }}
+                <span>{{ checkbox.choice_label }}</span>
+            </label>
+            {% endfor %}
+        </div>
+        {% if adoption_form.colors.errors %}<div class="text-danger small mt-2">{{ adoption_form.colors.errors|striptags }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3 post-field-full" data-adoption-color-other-group {% if not adoption_form.color_other.value and not adoption_form.color_other.errors %}hidden{% endif %}>
+        <label class="form-label">Other Color</label>
+        {{ adoption_form.color_other }}
+        {% if adoption_form.color_other.errors %}<div class="text-danger small">{{ adoption_form.color_other.errors|striptags }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Barangay</label>
+        {{ adoption_form.location }}
+        {% if adoption_form.location.errors %}<div class="text-danger small">{{ adoption_form.location.errors|striptags }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3 post-field-full">
+        <label class="form-label">Main Photo</label>
+        {{ adoption_form.main_image }}
+        {% if adoption_form.main_image.errors %}<div class="text-danger small">{{ adoption_form.main_image.errors|striptags }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3 post-field-full">
+        <label class="form-label">Extra Photos <span class="text-muted">(Optional)</span></label>
+        <input type="file" name="extra_images" multiple class="form-control" accept="image/*">
+    </div>
+</div>
+
+<div class="post-submit-row app-btn-row app-btn-row--mobile-stack">
+    <button type="submit" class="{{ adoption_submit_class|default:'btn btn-success post-submit-btn app-btn-fit app-btn-mobile-full' }}">
+        <i class="{{ adoption_submit_icon|default:'bi bi-send-check' }}"></i>
+        <span>{{ adoption_submit_label|default:'Publish Adoption Post' }}</span>
+    </button>
+</div>

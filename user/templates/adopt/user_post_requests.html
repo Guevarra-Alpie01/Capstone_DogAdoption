@@ -71,5 +71,17 @@
     {% empty %}
         <p>No adoption requests yet.</p>
     {% endfor %}
+
+    {% if page_obj and page_obj.paginator.num_pages > 1 %}
+    <nav class="d-flex justify-content-center gap-2 my-3" aria-label="Adoption request pages">
+        {% if page_obj.has_previous %}
+            <a class="btn btn-outline-secondary btn-sm" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+        {% endif %}
+        <span class="align-self-center text-muted small">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a class="btn btn-outline-secondary btn-sm" href="?page={{ page_obj.next_page_number }}">Next</a>
+        {% endif %}
+    </nav>
+    {% endif %}
 </div>
 {% endblock %}

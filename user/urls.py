@@ -33,6 +33,7 @@ urlpatterns = [
     path('post/create/', views.create_post, name='create_post'),
     path('user-adopt/requests/', views.user_adoption_requests, name='user_adoption_requests'),
     path('user-adopt/<useradoptpostid:post_id>/', views.adopt_user_post, name='adopt_user_post'),
+    path('user-adopt/<useradoptpostid:post_id>/detail/', views.user_adoption_post_detail, name='user_adoption_post_detail'),
     path('user-adopt/requests/<adoptionreqid:req_id>/<str:action>/', views.user_adoption_request_action, name='user_adoption_request_action'),
     path('post/<adminpostid:post_id>/', views.post_detail, name='post_detail'),
 

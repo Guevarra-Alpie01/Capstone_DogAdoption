@@ -3,6 +3,9 @@
     <div class="modal-dialog modal-dialog-centered auth-modal-dialog">
         <div class="modal-content auth-modal-content">
             <div class="auth-card login-card auth-card--with-dog" data-auth-dog-stack>
+                <button type="button" class="auth-modal-close" data-bs-dismiss="modal" aria-label="Close login modal">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/></svg>
+                </button>
                 <div class="auth-dog-mascot" aria-hidden="true">
                     <img
                         class="auth-dog-mascot__img auth-dog-mascot__img--idle"
@@ -71,6 +74,12 @@
                                 <label class="g-field__label" for="loginModalPassword">Password</label>
                             </div>
 
+                            <label class="show-password-toggle">
+                                <input type="checkbox" id="loginShowPassword">
+                                <span class="show-password-toggle__check"></span>
+                                <span class="show-password-toggle__text">Show password</span>
+                            </label>
+
                             <button type="submit" class="login-btn login-submit-btn auth-form-submit py-2">
                                 Log In
                             </button>
@@ -108,6 +117,9 @@
     <div class="modal-dialog modal-dialog-centered auth-modal-dialog">
         <div class="modal-content auth-modal-content">
             <div class="auth-card signup-card signup-card--form-only auth-card--with-dog" data-auth-dog-stack>
+                <button type="button" class="auth-modal-close" data-bs-dismiss="modal" aria-label="Close sign up modal">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/></svg>
+                </button>
                 <div class="auth-dog-mascot" aria-hidden="true">
                     <img
                         class="auth-dog-mascot__img auth-dog-mascot__img--idle"
@@ -149,6 +161,39 @@
                             <input type="hidden" name="auth_source" value="modal">
                             <input type="hidden" name="next" value="{{ auth_next|default:'' }}" data-auth-next-field>
                             <input type="hidden" name="google_credential" value="">
+
+                            <div class="auth-grid-two">
+                                <div class="g-field">
+                                    <input type="text" id="signupModalFirstName" name="first_name" class="g-field__input" placeholder=" " value="{{ signup_form_data.first_name|default:'' }}" autocomplete="given-name" required>
+                                    <label class="g-field__label" for="signupModalFirstName">First name</label>
+                                </div>
+
+                                <div class="g-field">
+                                    <input type="text" id="signupModalLastName" name="last_name" class="g-field__input" placeholder=" " value="{{ signup_form_data.last_name|default:'' }}" autocomplete="family-name" required>
+                                    <label class="g-field__label" for="signupModalLastName">Last name</label>
+                                </div>
+                            </div>
+
+                            <div class="mb-3 signup-barangay-wrap">
+                                <div class="g-field">
+                                    <input
+                                        type="text"
+                                        name="address"
+                                        id="signupModalBarangay"
+                                        class="g-field__input"
+                                        placeholder=" "
+                                        value="{{ signup_form_data.address|default:'' }}"
+                                        autocomplete="off"
+                                        required
+                                        data-barangay-autocomplete="true"
+                                        data-barangay-source-url="{% url 'user:barangay_list_api' %}"
+                                        data-barangay-suggestions-id="signup-barangay-suggestions"
+                                        data-barangay-strict="true"
+                                    >
+                                    <label class="g-field__label" for="signupModalBarangay">Barangay</label>
+                                </div>
+                                <div id="signup-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
+                            </div>
 
                             <div class="g-field">
                                 <input
@@ -198,38 +243,11 @@
                                 <label class="g-field__label" for="signupModalConfirmPassword">Confirm password</label>
                             </div>
 
-                            <div class="auth-grid-two">
-                                <div class="g-field">
-                                    <input type="text" id="signupModalFirstName" name="first_name" class="g-field__input" placeholder=" " value="{{ signup_form_data.first_name|default:'' }}" autocomplete="given-name" required>
-                                    <label class="g-field__label" for="signupModalFirstName">First name</label>
-                                </div>
-
-                                <div class="g-field">
-                                    <input type="text" id="signupModalLastName" name="last_name" class="g-field__input" placeholder=" " value="{{ signup_form_data.last_name|default:'' }}" autocomplete="family-name" required>
-                                    <label class="g-field__label" for="signupModalLastName">Last name</label>
-                                </div>
-                            </div>
-
-                            <div class="mb-3 signup-barangay-wrap">
-                                <div class="g-field">
-                                    <input
-                                        type="text"
-                                        name="address"
-                                        id="signupModalBarangay"
-                                        class="g-field__input"
-                                        placeholder=" "
-                                        value="{{ signup_form_data.address|default:'' }}"
-                                        autocomplete="off"
-                                        required
-                                        data-barangay-autocomplete="true"
-                                        data-barangay-source-url="{% url 'user:barangay_list_api' %}"
-                                        data-barangay-suggestions-id="signup-barangay-suggestions"
-                                        data-barangay-strict="true"
-                                    >
-                                    <label class="g-field__label" for="signupModalBarangay">Barangay</label>
-                                </div>
-                                <div id="signup-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
-                            </div>
+                            <label class="show-password-toggle">
+                                <input type="checkbox" id="signupShowPassword">
+                                <span class="show-password-toggle__check"></span>
+                                <span class="show-password-toggle__text">Show password</span>
+                            </label>
 
                             <div class="mb-2">
                                 <button type="submit" class="login-btn auth-form-submit py-2">

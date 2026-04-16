@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260415finder-post-launcher-front-layer-fix1">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260416finder-filter-hide-content-sibling1">
 {% endblock %}
 
 {% block content %}
@@ -70,38 +70,38 @@
                 </span>
             </button>
             {% endif %}
-        </div>
 
-        {% if request_links %}
-        <div class="finder-hero__actions">
-            <details class="finder-request-menu" data-finder-request-menu>
-                <summary class="finder-request-menu__summary">
-                    <span class="finder-request-menu__summary-icon" aria-hidden="true">
-                        <i class="bi bi-folder2-open"></i>
-                    </span>
-                    <span class="finder-request-menu__summary-label">Requests</span>
-                    <span class="finder-request-menu__summary-caret" aria-hidden="true">
-                        <i class="bi bi-chevron-down"></i>
-                    </span>
-                </summary>
-                <div class="finder-request-menu__panel">
-                    {% for link in request_links %}
-                    <a
-                        href="{{ link.url }}"
-                        class="finder-request-menu__option"
-                        {% if not request.user.is_authenticated %}
-                        data-auth-modal-trigger="login"
-                        data-auth-next-url="{{ link.url }}"
-                        {% endif %}
-                    >
-                        <span>{{ link.label }}</span>
-                        <i class="{{ link.icon_class }}" aria-hidden="true"></i>
-                    </a>
-                    {% endfor %}
-                </div>
-            </details>
+            {% if request_links %}
+            <div class="finder-hero__actions">
+                <details class="finder-request-menu" data-finder-request-menu>
+                    <summary class="finder-request-menu__summary">
+                        <span class="finder-request-menu__summary-icon" aria-hidden="true">
+                            <i class="bi bi-folder2-open"></i>
+                        </span>
+                        <span class="finder-request-menu__summary-label">Requests</span>
+                        <span class="finder-request-menu__summary-caret" aria-hidden="true">
+                            <i class="bi bi-chevron-down"></i>
+                        </span>
+                    </summary>
+                    <div class="finder-request-menu__panel">
+                        {% for link in request_links %}
+                        <a
+                            href="{{ link.url }}"
+                            class="finder-request-menu__option"
+                            {% if not request.user.is_authenticated %}
+                            data-auth-modal-trigger="login"
+                            data-auth-next-url="{{ link.url }}"
+                            {% endif %}
+                        >
+                            <span>{{ link.label }}</span>
+                            <i class="{{ link.icon_class }}" aria-hidden="true"></i>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </details>
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
     </section>
 
     {% if request.user.is_authenticated %}

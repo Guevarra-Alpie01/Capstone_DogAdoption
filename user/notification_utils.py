@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.utils.html import strip_tags
 
 from dogadoption_admin.models import Dog, DogAnnouncement, DogRegistration, Post, PostRequest, VaccinationRecord
-from user.models import UserAdoptionPost, UserAdoptionRequest
+from user.models import Profile, UserAdoptionPost, UserAdoptionRequest
 
 
 USER_NOTIFICATIONS_CACHE_TTL_SECONDS = 20
@@ -123,20 +123,72 @@ def _normalize_notification_read_keys(raw_value):
     return normalized[:USER_NOTIFICATIONS_MAX_READ_KEYS]
 
 
-def get_user_notification_read_keys(request):
-    read_keys = _normalize_notification_read_keys(
-        request.session.get(USER_NOTIFICATIONS_READ_SESSION_KEY, [])
+def _load_profile_notification_read_keys(user):
+    if not user or not user.is_authenticated:
+        return []
+    try:
+        profile = Profile.objects.only("notification_read_keys").get(user_id=user.id)
+    except Profile.DoesNotExist:
+        return []
+    return _normalize_notification_read_keys(profile.notification_read_keys)
+
+
+def _persist_profile_notification_read_keys(user, keys_list):
+    """Persist read keys on the user's profile so state survives logout/login."""
+    if not user or not user.is_authenticated:
+        return
+    normalized = _normalize_notification_read_keys(keys_list)
+    profile, _ = Profile.objects.get_or_create(
+        user=user,
+        defaults={
+            "address": "",
+            "age": 18,
+            "consent_given": True,
+            "email_verified": True,
+        },
     )
-    if read_keys != request.session.get(USER_NOTIFICATIONS_READ_SESSION_KEY, []):
-        request.session[USER_NOTIFICATIONS_READ_SESSION_KEY] = read_keys
+    if profile.notification_read_keys == normalized:
+        return
+    profile.notification_read_keys = normalized
+    profile.save(update_fields=["notification_read_keys"])
+
+
+def _migrate_session_notification_keys_to_profile(request):
+    """Legacy session keys (pre–DB storage) merged into profile once, then dropped."""
+    raw_session = request.session.get(USER_NOTIFICATIONS_READ_SESSION_KEY)
+    if not raw_session:
+        return
+    session_keys = _normalize_notification_read_keys(raw_session)
+    if not session_keys:
+        request.session.pop(USER_NOTIFICATIONS_READ_SESSION_KEY, None)
         request.session.modified = True
-    return set(read_keys)
+        return
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        return
+    profile_keys = _load_profile_notification_read_keys(user)
+    merged = _normalize_notification_read_keys(profile_keys + session_keys)
+    _persist_profile_notification_read_keys(user, merged)
+    request.session.pop(USER_NOTIFICATIONS_READ_SESSION_KEY, None)
+    request.session.modified = True
+
+
+def get_user_notification_read_keys(request):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        return set()
+
+    _migrate_session_notification_keys_to_profile(request)
+    return set(_load_profile_notification_read_keys(user))
 
 
 def mark_user_notifications_read(request, notification_keys):
-    normalized_existing = _normalize_notification_read_keys(
-        request.session.get(USER_NOTIFICATIONS_READ_SESSION_KEY, [])
-    )
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        return set()
+
+    _migrate_session_notification_keys_to_profile(request)
+    normalized_existing = _load_profile_notification_read_keys(user)
     existing_set = set(normalized_existing)
 
     updated = list(normalized_existing)
@@ -151,9 +203,9 @@ def mark_user_notifications_read(request, notification_keys):
 
     updated = updated[-USER_NOTIFICATIONS_MAX_READ_KEYS:]
     if updated != normalized_existing:
-        request.session[USER_NOTIFICATIONS_READ_SESSION_KEY] = updated
-        request.session.modified = True
-    return existing_set
+        _persist_profile_notification_read_keys(user, updated)
+    request.session.pop(USER_NOTIFICATIONS_READ_SESSION_KEY, None)
+    return set(updated)
 
 
 def mark_user_notification_read(request, notification_key):

@@ -1,4 +1,4 @@
-/* Container adjustments */
+﻿/* Container adjustments */
 :root {
     --home-navbar-offset: 56px;
     --home-shell-max: 1320px;
@@ -6177,12 +6177,17 @@ body.home-map-expanded {
 .share-panel {
     position: fixed;
     z-index: 1080;
-    width: 348px;
+    box-sizing: border-box;
+    width: min(348px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     border: 1px solid #dbe3ef;
     border-radius: 16px;
     box-shadow: 0 18px 36px rgba(15, 23, 42, 0.2);
     padding: 14px;
+    padding-left: max(14px, env(safe-area-inset-left, 0px));
+    padding-right: max(14px, env(safe-area-inset-right, 0px));
+    padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
 }
 
 .share-panel.is-inline-mobile {
@@ -6192,6 +6197,10 @@ body.home-map-expanded {
     margin-top: 10px;
     z-index: auto;
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+    left: auto;
+    right: auto;
+    top: auto;
+    bottom: auto;
 }
 
 .share-panel-header {
@@ -6200,6 +6209,12 @@ body.home-map-expanded {
     justify-content: space-between;
     gap: 10px;
     margin-bottom: 10px;
+    min-width: 0;
+}
+
+.share-panel-header > div:first-child {
+    min-width: 0;
+    flex: 1 1 auto;
 }
 
 .share-panel-title {
@@ -6248,14 +6263,23 @@ body.home-map-expanded {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 7px;
     font-size: 0.72rem;
     font-weight: 700;
     color: #334155;
-    padding: 8px 5px;
+    padding: 8px 6px;
     border-radius: 11px;
     cursor: pointer;
+    min-width: 0;
+    text-align: center;
     transition: transform 0.15s ease, box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.share-option > span:last-child {
+    line-height: 1.2;
+    max-width: 100%;
+    overflow-wrap: anywhere;
 }
 
 .share-option:hover {
@@ -6293,11 +6317,15 @@ body.home-map-expanded {
 
 .share-link-row {
     display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
     gap: 8px;
 }
 
 #shareLinkInput {
-    width: 100%;
+    flex: 1 1 160px;
+    min-width: 0;
+    width: auto;
     border: 1px solid #cbd5e1;
     border-radius: 10px;
     padding: 8px 10px;
@@ -6315,6 +6343,8 @@ body.home-map-expanded {
     font-weight: 800;
     padding: 8px 12px;
     min-width: 88px;
+    min-height: 40px;
+    flex: 0 0 auto;
     cursor: pointer;
 }
 
@@ -6330,6 +6360,56 @@ body.home-map-expanded {
     color: #0f766e;
     font-weight: 700;
 }
+
+@media (max-width: 640px) {
+    .share-options {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .share-option {
+        min-height: 4.75rem;
+        padding: 10px 8px;
+        font-size: 0.74rem;
+    }
+
+    .share-logo {
+        width: 36px;
+        height: 36px;
+        font-size: 0.92rem;
+    }
+}
+
+@media (max-width: 400px) {
+    .share-panel:not(.is-inline-mobile) {
+        width: calc(100vw - 16px);
+        max-width: calc(100vw - 16px);
+    }
+
+    .share-panel-title {
+        font-size: 1rem;
+    }
+
+    .share-panel-subtitle {
+        font-size: 0.72rem;
+    }
+
+    .share-link-row {
+        flex-direction: column;
+        flex-wrap: nowrap;
+    }
+
+    #shareLinkInput {
+        flex: none;
+        width: 100%;
+    }
+
+    .share-copy-btn {
+        width: 100%;
+        min-height: 44px;
+    }
+}
+
 .post-card {
     border-radius: 12px;
     overflow: hidden;
@@ -7465,10 +7545,11 @@ body.home-map-expanded {
     }
 
     .share-panel {
-        width: calc(100vw - 20px);
-        max-width: 360px;
-        max-height: calc(100vh - 170px);
+        width: min(calc(100vw - 20px), 420px);
+        max-width: calc(100vw - 16px);
+        max-height: min(calc(100vh - 120px), calc(100dvh - 120px));
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .share-panel.is-inline-mobile {
@@ -7608,10 +7689,12 @@ body.home-map-expanded {
         text-overflow: ellipsis;
     }
 
-    .share-panel {
-        width: calc(100vw - 20px);
-        max-height: calc(100vh - 170px);
+    .share-panel:not(.is-inline-mobile) {
+        width: calc(100vw - 16px);
+        max-width: calc(100vw - 16px);
+        max-height: min(calc(100vh - 100px), calc(100dvh - 100px));
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
 }
 

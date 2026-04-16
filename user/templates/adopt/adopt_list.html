@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260416finder-filter-hide-content-sibling1">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260416finder-filter-tablet-sticky-fix1">
 {% endblock %}
 
 {% block content %}
@@ -187,7 +187,12 @@
                 <nav class="finder-toolbar" id="finderFiltersPanel" data-finder-toolbar aria-label="Dog search filters">
                     <div class="finder-toolbar__header">
                         <h3 class="finder-toolbar__title">Filters</h3>
-                        <a href="{{ clear_filters_url }}" class="finder-toolbar__clear-link">Clear All</a>
+                        <div class="finder-toolbar__header-actions">
+                            <a href="{{ clear_filters_url }}" class="finder-toolbar__clear-btn">Clear All</a>
+                            <button type="button" class="finder-toolbar__close" data-finder-filter-close aria-label="Close filters">
+                                <i class="bi bi-x-lg" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="finder-toolbar__controls">
@@ -271,21 +276,15 @@
                             </details>
                             {% endfor %}
                         </div>
+                    </div>
 
-                        <div class="finder-toolbar__footer">
-                            <a href="{{ clear_filters_url }}" class="finder-toolbar__action finder-toolbar__action--clear">
-                                <span class="finder-toolbar__action-icon">
-                                    {% include "adopt/_finder_icon.html" with icon_name="clear" %}
-                                </span>
-                                <span class="finder-toolbar__action-text">Clear</span>
-                            </a>
-                            <button type="submit" class="finder-toolbar__action finder-toolbar__action--apply">
-                                <span class="finder-toolbar__action-icon">
-                                    {% include "adopt/_finder_icon.html" with icon_name="apply" %}
-                                </span>
-                                <span class="finder-toolbar__action-text">Search</span>
-                            </button>
-                        </div>
+                    <div class="finder-toolbar__apply-wrap">
+                        <button type="submit" class="finder-toolbar__action finder-toolbar__action--apply">
+                            <span class="finder-toolbar__action-icon">
+                                {% include "adopt/_finder_icon.html" with icon_name="apply" %}
+                            </span>
+                            <span class="finder-toolbar__action-text">Search</span>
+                        </button>
                     </div>
                 </nav>
             </div>
@@ -727,6 +726,7 @@
     filterCloseTriggers?.forEach((trigger) => {
         trigger.addEventListener('click', () => {
             setMobileFiltersOpen(false);
+            setDesktopFiltersCollapsed(true);
         });
     });
 

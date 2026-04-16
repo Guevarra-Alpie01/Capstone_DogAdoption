@@ -1248,3 +1248,99 @@ body.login-page-paws .site-content {
         font-size: 1.85rem;
     }
 }
+
+/* -------------------------------------------------------------------------
+   Dog mascot: peeks over login / signup cards; crossfades on field focus
+   ------------------------------------------------------------------------- */
+
+.auth-dog-card-stack {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    margin-inline: auto;
+}
+
+.auth-wrapper .auth-dog-card-stack {
+    max-width: 760px;
+}
+
+.auth-dog-mascot {
+    position: relative;
+    z-index: 3;
+    width: min(268px, 78vw);
+    height: clamp(116px, 32vw, 162px);
+    margin: 4px auto -68px;
+    pointer-events: none;
+}
+
+.auth-dog-mascot__img {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 100%;
+    height: auto;
+    max-height: 162px;
+    object-fit: contain;
+    object-position: bottom center;
+    filter: drop-shadow(0 12px 20px rgba(25, 60, 40, 0.22));
+    transition:
+        opacity 0.45s cubic-bezier(0.33, 1, 0.68, 1),
+        transform 0.5s cubic-bezier(0.34, 1.25, 0.64, 1);
+}
+
+.auth-wrapper .auth-dog-mascot__img {
+    filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.38));
+}
+
+.auth-dog-mascot__img--idle {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.auth-dog-mascot__img--active {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px) scale(1.07);
+}
+
+.auth-dog-card-stack.is-field-focused .auth-dog-mascot__img--idle {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px) scale(0.93);
+}
+
+.auth-dog-card-stack.is-field-focused .auth-dog-mascot__img--active {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+}
+
+body.login-page-paws .auth-dog-card-stack .login-paws-card {
+    position: relative;
+    z-index: 2;
+    padding-top: 50px;
+}
+
+.auth-dog-card-stack .auth-card.signup-card {
+    position: relative;
+    z-index: 2;
+    padding-top: 48px;
+}
+
+@media (min-width: 768px) {
+    body.login-page-paws .auth-dog-card-stack .login-paws-card {
+        padding-top: 54px;
+    }
+
+    .auth-dog-card-stack .auth-card.signup-card {
+        padding-top: 52px;
+    }
+
+    .auth-dog-mascot {
+        margin-bottom: -72px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-dog-mascot__img {
+        transition-duration: 0.05s;
+        transition-timing-function: ease;
+    }
+}

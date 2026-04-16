@@ -1,8 +1,9 @@
-/* Google / Material–style outlined text fields (login + signup, modal + full page) */
+/* Google-style outlined text fields (login + signup, modal + full page) */
 
 .g-field {
     position: relative;
     margin-bottom: 1.15rem;
+    --g-field-notch-bg: #ffffff;
 }
 
 .g-field:last-of-type {
@@ -27,12 +28,16 @@
     margin-bottom: 0;
 }
 
+.signup-form .auth-grid-two {
+    margin-bottom: 14px;
+}
+
 .g-field__input {
     display: block;
     width: 100%;
     min-height: 56px;
-    padding: 16px 14px 8px;
-    border: 1px solid #dadce0;
+    padding: 16px 12px;
+    border: 1px solid #202124;
     border-radius: 4px;
     font-size: 16px;
     line-height: 1.4;
@@ -49,12 +54,12 @@
 }
 
 .g-field__input:hover {
-    border-color: #80868b;
+    border-color: #000000;
 }
 
 .g-field__input:focus {
-    border-color: #1a73e8;
-    box-shadow: 0 0 0 1px #1a73e8;
+    border-color: #202124;
+    box-shadow: 0 0 0 1px #202124;
     outline: none;
 }
 
@@ -63,117 +68,100 @@
     color: #5f6368;
 }
 
+/* Outlined label: centered at rest; floats to top border with white notch (no dark block) */
 .g-field__label {
     position: absolute;
     left: 13px;
-    top: 17px;
-    max-width: calc(100% - 28px);
+    top: 50%;
+    max-width: calc(100% - 32px);
     padding: 0 4px;
     margin: 0;
-    font-size: 16px;
+    font-size: 1rem;
     font-weight: 400;
     line-height: 1.25;
-    color: #5f6368;
+    color: #6b7280;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     pointer-events: none;
-    transform-origin: left top;
-    background: linear-gradient(180deg, transparent 45%, #fff 45%);
+    transform: translateY(-50%);
+    transform-origin: left center;
+    background: transparent;
     transition:
-        transform 0.12s ease,
-        color 0.12s ease,
-        font-size 0.12s ease;
+        top 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+        transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+        font-size 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+        background 0.2s ease;
     z-index: 1;
 }
 
 .g-field__input:focus + .g-field__label,
 .g-field__input:not(:placeholder-shown) + .g-field__label,
 .g-field--has-value .g-field__label {
-    transform: translateY(-9px) scale(0.75);
-    color: #1a73e8;
-    max-width: calc(130% / 0.75);
+    top: 0;
+    transform: translateY(-50%);
+    max-width: calc(100% - 24px);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: #111827;
+    background: linear-gradient(
+        180deg,
+        transparent 0%,
+        transparent 50%,
+        var(--g-field-notch-bg) 50%,
+        var(--g-field-notch-bg) 100%
+    );
 }
 
 .g-field__input:not(:focus):not(:placeholder-shown) + .g-field__label,
 .g-field--has-value .g-field__label {
-    color: #5f6368;
+    color: #111827;
 }
 
 .g-field__input:focus + .g-field__label {
-    color: #1a73e8;
-}
-
-/* Password / suffix (visibility toggle) */
-.g-field--suffix .g-field__input {
-    padding-right: 48px;
-}
-
-.g-field__suffix {
-    position: absolute;
-    right: 4px;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 2;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    padding: 0;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    color: #5f6368;
-    cursor: pointer;
-    transition: background 0.12s ease, color 0.12s ease;
-}
-
-.g-field__suffix:hover {
-    background: rgba(95, 99, 104, 0.08);
-    color: #202124;
-}
-
-.g-field__suffix:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.35);
-}
-
-.g-field__suffix i {
-    font-size: 1.1rem;
+    color: #111827;
 }
 
 /* Chrome autofill: keep label floated + white interior */
 .g-field__input:-webkit-autofill,
-.g-field__input:-webkit-autofill:hover,
-.g-field__input:-webkit-autofill:focus {
+.g-field__input:-webkit-autofill:hover {
     -webkit-text-fill-color: #202124;
     -webkit-box-shadow: 0 0 0 1000px #fff inset;
     box-shadow: 0 0 0 1000px #fff inset;
     transition: background-color 9999s ease-out 0s;
 }
 
-.g-field__input:-webkit-autofill + .g-field__label {
-    transform: translateY(-9px) scale(0.75);
-    color: #1a73e8;
+.g-field__input:-webkit-autofill:focus {
+    -webkit-text-fill-color: #202124;
+    -webkit-box-shadow: 0 0 0 1000px #fff inset;
+    box-shadow: 0 0 0 1000px #fff inset, 0 0 0 1px #202124;
+    transition: background-color 9999s ease-out 0s;
 }
 
-/* Invalid (HTML5) subtle hint */
+.g-field__input:-webkit-autofill + .g-field__label {
+    top: 0;
+    transform: translateY(-50%);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #111827;
+    background: linear-gradient(
+        180deg,
+        transparent 0%,
+        transparent 50%,
+        var(--g-field-notch-bg) 50%,
+        var(--g-field-notch-bg) 100%
+    );
+}
+
+/* Invalid: red border only; label stays dark text */
 .g-field__input:invalid:not(:placeholder-shown):not(:focus) {
     border-color: #d93025;
 }
 
 .g-field__input:invalid:not(:placeholder-shown):not(:focus) + .g-field__label {
-    color: #d93025;
-}
-
-/* Cream login card (standalone paws page) */
-body.login-page-paws .login-paws-card--with-dog .g-field__label {
-    background: linear-gradient(180deg, transparent 45%, rgba(255, 255, 255, 0.96) 45%);
-}
-
-body.login-page-paws .login-paws-card--with-dog .g-field__input:-webkit-autofill + .g-field__label {
-    color: #1a73e8;
+    color: #111827;
 }
 
 @media (prefers-reduced-motion: reduce) {

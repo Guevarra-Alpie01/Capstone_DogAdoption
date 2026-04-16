@@ -6,7 +6,7 @@
 {% block body_class %} login-page-paws{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/login.css' %}?v=20260416dog-mascot">
+<link rel="stylesheet" href="{% static 'css/login.css' %}?v=20260416gfield">
 {% endblock %}
 
 {% block content %}
@@ -28,32 +28,31 @@
     </header>
 
     <div class="login-paws-body">
-        <div class="auth-dog-card-stack" data-auth-dog-stack>
+        <div class="login-paws-card login-paws-card--with-dog" data-auth-dog-stack>
             <div class="auth-dog-mascot" aria-hidden="true">
                 <img
                     class="auth-dog-mascot__img auth-dog-mascot__img--idle"
-                    src="{% static 'images/dogstanding.webp' %}"
+                    src="{% static 'images/dogstanding-final.png' %}"
                     alt=""
                     width="280"
                     height="220"
                     decoding="async">
                 <img
                     class="auth-dog-mascot__img auth-dog-mascot__img--active"
-                    src="{% static 'images/dog_tounge_out.png' %}"
+                    src="{% static 'images/dog_tounge_out-final.png' %}"
                     alt=""
                     width="280"
                     height="220"
                     decoding="async">
             </div>
-            <div class="login-paws-card">
                 <h1 class="login-paws-title">Welcome back</h1>
-            <p class="login-paws-subtitle">Sign in to continue helping pets find homes in Bayawan City.</p>
+                <p class="login-paws-subtitle">Sign in to continue helping pets find homes in Bayawan City.</p>
 
-            {% if error %}
-            <div class="login-paws-alert" role="alert">{{ error }}</div>
-            {% endif %}
+                {% if error %}
+                <div class="login-paws-alert" role="alert">{{ error }}</div>
+                {% endif %}
 
-            <form
+                <form
                 method="post"
                 class="login-paws-form login-form"
                 data-google-auth-form
@@ -65,31 +64,31 @@
                 <input type="hidden" name="next" value="{{ auth_next|default:'' }}" data-auth-next-field>
                 <input type="hidden" name="google_credential" value="">
 
-                <label class="login-paws-field">
-                    <span class="login-paws-field__icon" aria-hidden="true"><i class="bi bi-envelope"></i></span>
+                <div class="g-field">
                     <input type="text"
                            id="loginPageUsername"
                            name="username"
-                           class="login-paws-input"
-                           placeholder="Username"
+                           class="g-field__input"
+                           placeholder=" "
                            value="{{ login_form_data.username|default:'' }}"
                            autocomplete="username"
                            required>
-                </label>
+                    <label class="g-field__label" for="loginPageUsername">Username</label>
+                </div>
 
-                <label class="login-paws-field">
-                    <span class="login-paws-field__icon" aria-hidden="true"><i class="bi bi-lock"></i></span>
+                <div class="g-field g-field--suffix">
                     <input type="password"
                            id="loginPagePassword"
                            name="password"
-                           class="login-paws-input login-paws-input--has-toggle"
-                           placeholder="Password"
+                           class="g-field__input"
+                           placeholder=" "
                            autocomplete="current-password"
                            required>
-                    <button type="button" class="login-paws-toggle password-toggle" data-password-toggle="loginPagePassword" aria-label="Show password">
+                    <label class="g-field__label" for="loginPagePassword">Password</label>
+                    <button type="button" class="g-field__suffix password-toggle" data-password-toggle="loginPagePassword" aria-label="Show password">
                         <i class="bi bi-eye"></i>
                     </button>
-                </label>
+                </div>
 
                 <div class="login-paws-forgot-row">
                     <a href="{% url 'user:privacy_policy' %}" class="login-paws-forgot">Forgot password?</a>
@@ -114,7 +113,6 @@
             <div class="login-paws-new">
                 <p class="login-paws-new-label">New here?</p>
                 <a href="{% url 'user:signup' %}" class="login-paws-btn login-paws-btn--secondary">Create account</a>
-            </div>
             </div>
         </div>
 

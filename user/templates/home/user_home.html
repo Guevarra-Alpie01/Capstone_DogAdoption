@@ -1616,12 +1616,15 @@
         });
     });
 
-    slides.forEach(function (slide) {
-        slide.addEventListener('click', function () {
-            if (slide.classList.contains('is-prev')) { prev(); pauseAndResume(); }
-            else if (slide.classList.contains('is-next')) { next(); pauseAndResume(); }
+    var isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    if (isTouchDevice) {
+        slides.forEach(function (slide) {
+            slide.addEventListener('click', function () {
+                if (slide.classList.contains('is-prev')) { prev(); pauseAndResume(); }
+                else if (slide.classList.contains('is-next')) { next(); pauseAndResume(); }
+            });
         });
-    });
+    }
 
     var touchStartX = 0;
     var touchStartY = 0;

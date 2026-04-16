@@ -1,5 +1,6 @@
 import json
 import logging
+import random
 from time import perf_counter, time
 from uuid import uuid4
 
@@ -16,12 +17,25 @@ class RequestObservabilityMiddleware:
         self.get_response = get_response
         self.logger = logging.getLogger("pet_adoption.request")
 
+    def _is_light_observability_path(self, request) -> bool:
+        if request.method != "GET":
+            return False
+        light = getattr(settings, "OBSERVABILITY_LIGHT_PATHS", frozenset())
+        return request.path in light
+
     def __call__(self, request):
+        request_id = (request.headers.get("X-Request-ID") or "").strip() or uuid4().hex
+        request.request_id = request_id
+
+        if self._is_light_observability_path(request):
+            response = self.get_response(request)
+            if response is not None:
+                response["X-Request-ID"] = request_id
+            return response
+
         started_at = perf_counter()
         response = None
         raised_exception = None
-        request_id = (request.headers.get("X-Request-ID") or "").strip() or uuid4().hex
-        request.request_id = request_id
 
         try:
             response = self.get_response(request)
@@ -44,21 +58,25 @@ class RequestObservabilityMiddleware:
                 latency_ms=elapsed_ms,
             )
 
-            payload = {
-                "event": "request.completed",
-                "request_id": request_id,
-                "method": request.method,
-                "path": request.path,
-                "route": route_name,
-                "status_code": status_code,
-                "latency_ms": elapsed_ms,
-                "user_id": user_id,
-                "is_authenticated": bool(getattr(user, "is_authenticated", False)),
-            }
-            self.logger.info(
-                json.dumps(payload, sort_keys=True),
-                exc_info=raised_exception is not None,
+            sample_rate = float(
+                getattr(settings, "OBSERVABILITY_REQUEST_LOG_SAMPLE_RATE", 1.0)
             )
+            if sample_rate >= 1.0 or random.random() <= sample_rate:
+                payload = {
+                    "event": "request.completed",
+                    "request_id": request_id,
+                    "method": request.method,
+                    "path": request.path,
+                    "route": route_name,
+                    "status_code": status_code,
+                    "latency_ms": elapsed_ms,
+                    "user_id": user_id,
+                    "is_authenticated": bool(getattr(user, "is_authenticated", False)),
+                }
+                self.logger.info(
+                    json.dumps(payload, sort_keys=True),
+                    exc_info=raised_exception is not None,
+                )
 
             if response is not None:
                 response["X-Request-ID"] = request_id

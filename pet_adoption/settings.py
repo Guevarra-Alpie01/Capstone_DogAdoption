@@ -49,6 +49,16 @@ def env_bool(name, default=False):
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def env_float(name, default=0.0):
+    raw = os.getenv(name)
+    if raw is None or not str(raw).strip():
+        return default
+    try:
+        return float(str(raw).strip())
+    except ValueError:
+        return default
+
+
 def env_list(name, default=""):
     value = os.getenv(name, default)
     if not value:
@@ -166,7 +176,8 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD', ''),
         'PORT': os.getenv('DB_PORT', '3306'),
         'HOST': os.getenv('DB_HOST', 'localhost'),
-        'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '60')),
+        # Persistent connections reduce handshake load under concurrency (set 0 for dev if preferred).
+        'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '0' if DEBUG else '120')),
         'CONN_HEALTH_CHECKS': env_bool('DB_CONN_HEALTH_CHECKS', True),
     }
 }
@@ -304,6 +315,28 @@ RATE_LIMIT_AUTH_REQUESTS = int(os.getenv("RATE_LIMIT_AUTH_REQUESTS", "10"))
 RATE_LIMIT_AUTH_IP_BURST_REQUESTS = int(os.getenv("RATE_LIMIT_AUTH_IP_BURST_REQUESTS", "60"))
 RATE_LIMIT_INTERACTION_REQUESTS = int(os.getenv("RATE_LIMIT_INTERACTION_REQUESTS", "30"))
 RATE_LIMIT_SUBMISSION_REQUESTS = int(os.getenv("RATE_LIMIT_SUBMISSION_REQUESTS", "12"))
+
+# Observability: JSON log line per request is expensive at high RPS (I/O + GIL). Sample in production.
+OBSERVABILITY_REQUEST_LOG_SAMPLE_RATE = max(
+    0.0,
+    min(
+        1.0,
+        env_float(
+            "OBSERVABILITY_REQUEST_LOG_SAMPLE_RATE",
+            1.0 if DEBUG else 0.02,
+        ),
+    ),
+)
+# Skip in-process metrics + structured logging for these GET probes (cuts lock + log overhead).
+OBSERVABILITY_LIGHT_PATHS = frozenset({"/health/live/", "/health/ready/"})
+
+# Cache /health/ready/ JSON for a few seconds to reduce DB + Redis round-trips under concurrent probes.
+HEALTH_READY_CACHE_SECONDS = int(
+    os.getenv("HEALTH_READY_CACHE_SECONDS", "0" if DEBUG else "2")
+)
+
+# If set, GET /health/metrics/?token=... or header X-Health-Metrics-Token may access metrics without staff login.
+HEALTH_METRICS_TOKEN = os.getenv("HEALTH_METRICS_TOKEN", "").strip()
 
 # Optional automatic admin bootstrapping for non-production setup only.
 CREATE_DEFAULT_ADMIN = env_bool("CREATE_DEFAULT_ADMIN", False)

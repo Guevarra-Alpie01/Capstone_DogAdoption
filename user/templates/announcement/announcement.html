@@ -1,27 +1,22 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block page_title %}Announcements | BAYAWAN VET{% endblock %}
+
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260417share-center-blue">
+<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260417desktop-tabs-pinned">
 <link rel="stylesheet" href="{% static 'css/share_panel.css' %}?v=20260417">
 {% endblock %}
 
 {% block content %}
 <div class="user-ann-board">
-    <div class="user-ann-header">
-        <div class="user-ann-header-copy">
-            <div class="user-ann-header-text">
-                <h2 class="user-ann-title">Announcements</h2>
-            </div>
-        </div>
-    </div>
-
+    <h1 class="visually-hidden">Announcements</h1>
     <div class="user-ann-mobile-tabs announcement-mobile-tabs announcement-mobile-tabs--compact-stack"
          data-user-mobile-announcement-tabs
          data-mobile-announcement-tabs
          aria-label="Announcement sections">
         <button type="button"
-                class="user-ann-mobile-tab user-ann-mobile-tab--mobile-only announcement-mobile-tab announcement-mobile-tab--compact"
+                class="user-ann-mobile-tab announcement-mobile-tab announcement-mobile-tab--compact"
                 data-user-mobile-announcement-tab="pinned"
                 aria-pressed="false">
             <span>Pinned</span>
@@ -195,6 +190,17 @@
     function setActiveSection(sectionKey) {
         if (!board) return;
 
+        const isMobile = mobileLayout.matches;
+
+        /* Desktop: Pinned is always visible in the left column — only scroll to it, do not hide Main Feed / Campaign. */
+        if (!isMobile && sectionKey === 'pinned') {
+            const pinnedSection = sections.find(
+                (s) => s.getAttribute('data-user-mobile-announcement-section') === 'pinned'
+            );
+            pinnedSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+
         board.dataset.userMobileActive = sectionKey;
 
         tabs.forEach((tab) => {
@@ -205,7 +211,6 @@
 
         sections.forEach((section) => {
             const sectionKeyValue = section.getAttribute('data-user-mobile-announcement-section');
-            const isMobile = mobileLayout.matches;
 
             if (!isMobile && sectionKeyValue === 'pinned') {
                 section.hidden = false;
@@ -224,7 +229,13 @@
             return;
         }
 
-        setActiveSection(board.dataset.userMobileActive || board.dataset.userMobileDefault || 'regular');
+        let key = board.dataset.userMobileActive || board.dataset.userMobileDefault || 'regular';
+        if (!mobileLayout.matches && key === 'pinned') {
+            key = board.dataset.userMobileDefault || 'regular';
+            board.dataset.userMobileActive = key;
+        }
+
+        setActiveSection(key);
     }
 
     tabs.forEach((tab) => {

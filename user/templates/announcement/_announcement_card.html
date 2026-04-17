@@ -2,11 +2,8 @@
          data-user-post
          data-post-id="{{ post.id }}"
          data-bucket="{{ post.display_bucket }}">
-    <div class="user-ann-card-top">
-        <div class="user-ann-card-badges">
-            <span class="user-ann-card-badge">{{ post.get_category_display }}</span>
-            <span class="user-ann-card-badge user-ann-card-bucket">{% if post.display_bucket == 'ordinary' %}Main Feed{% else %}{{ post.get_display_bucket_display }}{% endif %}</span>
-        </div>
+    {% if post.display_bucket == 'pinned' or post.display_bucket == 'campaign' %}
+    <div class="user-ann-card-top user-ann-card-top--icon-only">
         {% if post.display_bucket == 'pinned' %}
         <span class="user-ann-pin-btn is-static" title="Pinned announcement" aria-hidden="true">
             <i class="bi bi-pin-angle-fill"></i>
@@ -17,6 +14,7 @@
         </span>
         {% endif %}
     </div>
+    {% endif %}
 
     <header class="fb-card-header">
         <img src="{{ post.admin_profile_image_url }}" alt="Admin profile" class="fb-page-avatar">

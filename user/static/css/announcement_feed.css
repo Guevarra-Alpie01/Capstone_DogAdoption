@@ -453,13 +453,6 @@
     background: #f1f5f9;
 }
 
-.user-ann-column-pinned .fb-photo-main,
-.user-ann-column-education .fb-photo-main {
-    height: 240px;
-    max-height: 240px;
-    object-fit: contain;
-}
-
 .fb-photo-nav {
     position: absolute;
     top: 50%;
@@ -705,12 +698,6 @@
 
     .fb-caption {
         font-size: 14px;
-    }
-
-    .user-ann-column-pinned .fb-photo-main,
-    .user-ann-column-education .fb-photo-main {
-        height: 200px;
-        max-height: 200px;
     }
 
     .user-ann-mobile-schedule {
@@ -1335,15 +1322,6 @@
     overflow: hidden;
 }
 
-.user-ann-card .fb-photo-main,
-.user-ann-column-pinned .fb-photo-main,
-.user-ann-column-education .fb-photo-main {
-    height: 248px;
-    max-height: 248px;
-    background: #eef2f7;
-    object-fit: contain;
-}
-
 .user-ann-card .fb-photo-nav {
     width: 36px;
     height: 36px;
@@ -1716,13 +1694,19 @@ body.user-ann-popup-open {
     border-radius: 16px;
     background: #edf3fb;
     overflow: hidden;
+    position: relative;
+    aspect-ratio: 4 / 3;
+    width: 100%;
 }
 
 .user-ann-popup-viewer .fb-photo-main {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
-    max-height: 520px;
-    object-fit: contain;
+    max-height: none;
+    object-fit: cover;
+    object-position: center;
     background: #e2ebf5;
 }
 
@@ -1894,12 +1878,6 @@ body.user-ann-popup-open {
         border-radius: 16px;
     }
 
-    .user-ann-column-pinned .fb-photo-main,
-    .user-ann-column-education .fb-photo-main {
-        height: 212px;
-        max-height: 212px;
-    }
-
     .user-ann-column-pinned .user-ann-card-footer,
     .user-ann-column-education .user-ann-card-footer {
         padding: 16px 18px 18px;
@@ -2023,13 +2001,6 @@ body.user-ann-popup-open {
         margin-right: 20px;
         margin-bottom: 20px;
         border-radius: var(--ann-radius-md);
-    }
-
-    .user-ann-card .fb-photo-main,
-    .user-ann-column-pinned .fb-photo-main,
-    .user-ann-column-education .fb-photo-main {
-        height: 220px;
-        max-height: 220px;
     }
 
     .user-ann-card .user-ann-mobile-schedule {
@@ -2226,24 +2197,34 @@ body.user-ann-popup-open {
     }
 }
 
-/* Use one consistent image frame for announcement cards and remove empty bars. */
-.fb-photo-viewer,
-.user-ann-card .fb-photo-viewer,
-.user-ann-column-pinned .user-ann-card .fb-photo-viewer,
-.user-ann-column-education .user-ann-card .fb-photo-viewer {
+/*
+ * Uniform media frame for all announcement cards (Main Feed, Pinned, Campaign).
+ * Fixed aspect-ratio box + cover keeps every post visually balanced.
+ */
+.user-ann-board .fb-photo-viewer,
+.user-ann-popup-card .fb-photo-viewer {
+    position: relative;
     aspect-ratio: 4 / 3;
+    width: 100%;
+    min-height: 0;
     overflow: hidden;
     background: #eef2f7;
 }
 
-.fb-photo-main,
-.user-ann-card .fb-photo-main,
-.user-ann-column-pinned .fb-photo-main,
-.user-ann-column-education .fb-photo-main {
+.user-ann-board .fb-photo-main,
+.user-ann-popup-card .fb-photo-main {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     max-height: none;
     display: block;
     object-fit: cover;
-    background: transparent;
+    object-position: center;
+    background: #e8edf4;
+}
+
+.user-ann-board .fb-photo-nav,
+.user-ann-popup-card .fb-photo-nav {
+    z-index: 2;
 }

@@ -3,6 +3,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/announcement_detail.css' %}?v=20260413share-blue">
+<link rel="stylesheet" href="{% static 'css/share_panel.css' %}?v=20260417">
 {% endblock %}
 
 {% block og_meta %}
@@ -110,13 +111,13 @@
         {% endif %}
 
         <div class="detail-inline-actions">
-            <a href="https://www.facebook.com/sharer/sharer.php?u={{ share_url|urlencode }}"
-               target="_blank"
-               rel="noopener noreferrer"
-               class="detail-inline-action detail-inline-action--share-only">
+            <button type="button"
+               class="detail-inline-action detail-inline-action--share-only js-open-share"
+               data-share-url="{{ share_url }}"
+               aria-label="Share announcement">
                 <i class="bi bi-share"></i>
                 <span>Share</span>
-            </a>
+            </button>
         </div>
     </article>
 </div>
@@ -203,4 +204,5 @@
     });
 })();
 </script>
+{% include 'home/_feed_enhancements.html' %}
 {% endblock %}

@@ -1,39 +1,509 @@
 {% extends "base.html" %}
 {% block content %}
-    <div class="card shadow p-4">
-        <h3 class="mb-3">Confirm Adoption Request</h3>
-    <p class="mb-1"><strong>Dog:</strong> {{ post.dog_name }}</p>
-    {% if post.display_breed %}
-        <p class="mb-1"><strong>Breed:</strong> {{ post.display_breed }}</p>
-    {% endif %}
-    {% if post.display_age_group %}
-        <p class="mb-1"><strong>Age Group:</strong> {{ post.display_age_group }}</p>
-    {% elif post.age %}
-        <p class="mb-1"><strong>Age:</strong> {{ post.age }}</p>
-    {% endif %}
-    {% if post.display_size_group %}
-        <p class="mb-1"><strong>Size:</strong> {{ post.display_size_group }}</p>
-    {% endif %}
-    {% if post.gender %}
-        <p class="mb-1"><strong>Gender:</strong> {{ post.get_gender_display }}</p>
-    {% endif %}
-    {% if post.display_coat_length %}
-        <p class="mb-1"><strong>Coat:</strong> {{ post.display_coat_length }}</p>
-    {% endif %}
-    {% if post.display_colors %}
-        <p class="mb-1"><strong>Color:</strong> {{ post.display_colors }}</p>
-    {% endif %}
-    <p class="mb-1"><strong>Posted by:</strong> <a href="{% url 'user:view_user_profile' post.owner.id %}?next={% url 'user:adopt_user_post' post.id %}&label=Back+to+Request" class="text-decoration-none">{{ post.owner.get_full_name|default:post.owner.username }}</a></p>
-    {% if post.location %}
-        <p class="mb-3"><strong>Location:</strong> {{ post.location }}</p>
-    {% endif %}
 
-    <p class="text-muted mb-4">Send this request to the owner of the post?</p>
+<style>
+    .claim-theme-card {
+        border: 1px solid rgba(36, 94, 40, 0.14);
+        border-radius: 16px;
+        box-shadow: 0 14px 36px rgba(20, 55, 35, 0.1);
+        background: linear-gradient(165deg, #f0f7f3 0%, #e5f2ea 42%, #eaf6ef 100%);
+    }
 
-    <form method="post" class="d-flex gap-2">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-success">Confirm Request</button>
-        <a href="{% url 'user:user_home' %}" class="btn btn-cancel-action">Cancel</a>
-    </form>
+    .claim-theme-header {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(245, 251, 247, 0.9) 100%);
+        border-bottom: 1px solid rgba(36, 94, 40, 0.1);
+        border-radius: 16px 16px 0 0;
+    }
+
+    .claim-theme-header-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .claim-theme-header-text {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .claim-theme-close {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        margin: -4px -6px 0 0;
+        padding: 0;
+        border: 1px solid rgba(36, 94, 40, 0.12);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.65);
+        color: #475569;
+        text-decoration: none;
+        line-height: 0;
+        transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+
+    .claim-theme-close svg {
+        width: 18px;
+        height: 18px;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+    }
+
+    .claim-theme-close:hover {
+        color: #1d4ed8;
+        background: rgba(59, 130, 246, 0.12);
+        border-color: rgba(29, 78, 216, 0.22);
+    }
+
+    .claim-theme-close:focus-visible {
+        outline: 2px solid rgba(36, 94, 40, 0.45);
+        outline-offset: 2px;
+    }
+
+    .claim-preview {
+        border: 1px solid #ececec;
+        border-radius: 12px;
+        background: #ffffff;
+        border-color: #dbe5f3;
+        overflow: hidden;
+    }
+
+    .claim-content {
+        padding: 16px 18px;
+        background: transparent;
+    }
+
+    .claim-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+    }
+
+    .claim-preview-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .claim-preview-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: linear-gradient(145deg, #3b82f6 0%, #1d4ed8 100%);
+        flex-shrink: 0;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+
+    .claim-preview-title {
+        margin: 0;
+        font-size: 0.98rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: #0f172a;
+    }
+
+    .claim-preview,
+    .claim-summary-list {
+        font-family: var(--shell-ui-font, "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif);
+        -webkit-font-smoothing: antialiased;
+    }
+
+    .claim-summary-list {
+        padding: 4px 12px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .claim-summary-item {
+        display: grid;
+        grid-template-columns: minmax(96px, 38%) minmax(0, 1fr);
+        gap: 12px 16px;
+        align-items: baseline;
+        padding: 12px 6px;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+    }
+
+    .claim-summary-item:last-child {
+        border-bottom: none;
+        padding-bottom: 4px;
+    }
+
+    .claim-summary-label {
+        font-size: 0.7rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #64748b;
+        font-weight: 600;
+        line-height: 1.35;
+        margin: 0;
+    }
+
+    .claim-summary-value {
+        margin: 0;
+        font-size: 0.94rem;
+        line-height: 1.45;
+        color: #0f172a;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        text-align: right;
+        word-break: break-word;
+    }
+
+    .claim-summary-value a {
+        color: #1d4ed8;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .claim-summary-value a:hover {
+        text-decoration: underline;
+    }
+
+    .claim-form .form-label {
+        margin-bottom: 4px;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .claim-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        margin-top: clamp(20px, 4vw, 32px);
+        padding-top: clamp(16px, 3vw, 24px);
+        border-top: 1px solid rgba(15, 23, 42, 0.07);
+    }
+
+    .claim-actions .btn {
+        min-width: 128px;
+        font-weight: 700;
+    }
+
+    .btn-claim-submit {
+        background: #198754;
+        border-color: #198754;
+        color: #ffffff;
+        font-weight: 700;
+        box-shadow: 0 10px 24px rgba(25, 135, 84, 0.28);
+    }
+
+    .btn-claim-submit:hover {
+        background: #157347;
+        border-color: #157347;
+        color: #ffffff;
+        box-shadow: 0 12px 28px rgba(25, 135, 84, 0.32);
+    }
+
+    @media (min-width: 769px) {
+        .claim-summary-more-btn {
+            display: none !important;
+        }
+    }
+
+    @media (min-width: 992px) {
+        .claim-layout {
+            grid-template-columns: minmax(280px, 34%) minmax(0, 1fr);
+            gap: 16px;
+        }
+
+        .claim-preview {
+            position: sticky;
+            top: 84px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .claim-content {
+            padding: 12px;
+        }
+
+        .claim-theme-header {
+            padding: 14px 16px;
+        }
+
+        .claim-theme-header h4 {
+            font-size: 1.15rem;
+        }
+
+        .claim-summary-list {
+            padding: 4px 10px 12px;
+        }
+
+        .claim-summary-item {
+            grid-template-columns: minmax(84px, 42%) minmax(0, 1fr);
+            padding: 11px 4px;
+            gap: 10px 12px;
+        }
+
+        .claim-summary-value {
+            font-size: 0.9rem;
+        }
+
+        .claim-summary-list.claim-summary-list--collapsed .claim-summary-item:nth-child(n + 3) {
+            display: none !important;
+        }
+
+        .claim-summary-more-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            margin: 2px 0 0;
+            padding: 10px 12px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(29, 78, 216, 0.08);
+            color: #1d4ed8;
+            font-family: inherit;
+            font-size: 0.88rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            cursor: pointer;
+            transition: background 0.18s ease, color 0.18s ease;
+        }
+
+        .claim-summary-more-btn:hover {
+            background: rgba(29, 78, 216, 0.14);
+            color: #1e40af;
+        }
+
+        .claim-summary-more-btn:focus-visible {
+            outline: 2px solid rgba(29, 78, 216, 0.45);
+            outline-offset: 2px;
+        }
+
+        .claim-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .claim-actions .btn {
+            width: 100%;
+            min-width: 0;
+        }
+    }
+
+</style>
+
+<div class="container py-2">
+    <div class="claim-theme-card">
+        <div class="claim-theme-header px-4 py-3">
+            <div class="claim-theme-header-row">
+                <div class="claim-theme-header-text">
+                    <h4 class="mb-1 fw-bold text-dark">Confirm Adoption Request</h4>
+                    <p class="mb-0 text-dark small">Review the listing, then send your request to the post owner.</p>
+                </div>
+                <a
+                    id="adoptUserCloseLink"
+                    href="{% url 'user:user_adoption_post_detail' post.id %}"
+                    class="claim-theme-close"
+                    aria-label="Close and go back"
+                    title="Close (Esc)"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                </a>
+            </div>
+        </div>
+
+        <div class="claim-content">
+            <div class="claim-layout">
+                <div class="claim-preview">
+                    <div class="claim-preview-head">
+                        <span class="claim-preview-dot"></span>
+                        <h6 class="claim-preview-title">Post Summary</h6>
+                    </div>
+
+                    <div class="claim-summary-list" id="adoptUserSummaryList">
+                        <div class="claim-summary-item">
+                            <span class="claim-summary-label">Name</span>
+                            <span class="claim-summary-value">{{ post.dog_name }}</span>
+                        </div>
+
+                        {% if post.display_breed %}
+                            <div class="claim-summary-item">
+                                <span class="claim-summary-label">Breed</span>
+                                <span class="claim-summary-value">{{ post.display_breed }}</span>
+                            </div>
+                        {% endif %}
+
+                        {% if post.display_age_group %}
+                            <div class="claim-summary-item">
+                                <span class="claim-summary-label">Age</span>
+                                <span class="claim-summary-value">{{ post.display_age_group }}</span>
+                            </div>
+                        {% elif post.age %}
+                            <div class="claim-summary-item">
+                                <span class="claim-summary-label">Age</span>
+                                <span class="claim-summary-value">{{ post.age }}</span>
+                            </div>
+                        {% endif %}
+
+                        {% if post.display_size_group %}
+                            <div class="claim-summary-item">
+                                <span class="claim-summary-label">Size</span>
+                                <span class="claim-summary-value">{{ post.display_size_group }}</span>
+                            </div>
+                        {% endif %}
+
+                        {% if post.gender %}
+                            <div class="claim-summary-item">
+                                <span class="claim-summary-label">Gender</span>
+                                <span class="claim-summary-value">{{ post.get_gender_display }}</span>
+                            </div>
+                        {% endif %}
+
+                        {% if post.display_coat_length %}
+                            <div class="claim-summary-item">
+                                <span class="claim-summary-label">Coat</span>
+                                <span class="claim-summary-value">{{ post.display_coat_length }}</span>
+                            </div>
+                        {% endif %}
+
+                        {% if post.display_colors %}
+                            <div class="claim-summary-item">
+                                <span class="claim-summary-label">Color</span>
+                                <span class="claim-summary-value">{{ post.display_colors }}</span>
+                            </div>
+                        {% endif %}
+
+                        {% if post.location %}
+                            <div class="claim-summary-item">
+                                <span class="claim-summary-label">Location</span>
+                                <span class="claim-summary-value">{{ post.location }}</span>
+                            </div>
+                        {% endif %}
+
+                        <div class="claim-summary-item">
+                            <span class="claim-summary-label">Posted By</span>
+                            <span class="claim-summary-value">
+                                <a href="{% url 'user:view_user_profile' post.owner.id %}?next={% url 'user:adopt_user_post' post.id %}&label=Back+to+Request">{{ post.owner.get_full_name|default:post.owner.username }}</a>
+                            </span>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="claim-summary-more-btn"
+                        id="adoptUserSummaryMoreBtn"
+                        aria-expanded="false"
+                        aria-controls="adoptUserSummaryList"
+                        hidden
+                    >
+                        View more
+                    </button>
+                </div>
+
+                <form
+                    method="post"
+                    class="claim-form"
+                    data-confirm-modal
+                    data-confirm-title="Confirm request"
+                    data-confirm-message="Send this adoption request to the owner of this post?"
+                    data-confirm-submit-label="Confirm"
+                >
+                    {% csrf_token %}
+                    <div class="claim-actions">
+                        <button type="submit" class="btn btn-claim-submit">Confirm Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+(function () {
+    var list = document.getElementById("adoptUserSummaryList");
+    var btn = document.getElementById("adoptUserSummaryMoreBtn");
+    if (!list || !btn) {
+        return;
+    }
+    var mq = window.matchMedia("(max-width: 768px)");
+    var expanded = false;
+
+    function applyMobileCollapseState() {
+        var items = list.querySelectorAll(".claim-summary-item");
+        var needsToggle = items.length > 2 && mq.matches;
+        btn.hidden = !needsToggle;
+        if (!mq.matches) {
+            list.classList.remove("claim-summary-list--collapsed");
+            expanded = false;
+            btn.setAttribute("aria-expanded", "true");
+            btn.textContent = "View more";
+            return;
+        }
+        if (!needsToggle) {
+            list.classList.remove("claim-summary-list--collapsed");
+            expanded = false;
+            return;
+        }
+        list.classList.toggle("claim-summary-list--collapsed", !expanded);
+        btn.setAttribute("aria-expanded", expanded ? "true" : "false");
+        btn.textContent = expanded ? "View less" : "View more";
+    }
+
+    btn.addEventListener("click", function () {
+        if (!mq.matches) {
+            return;
+        }
+        expanded = !expanded;
+        applyMobileCollapseState();
+    });
+
+    if (typeof mq.addEventListener === "function") {
+        mq.addEventListener("change", function () {
+            expanded = false;
+            applyMobileCollapseState();
+        });
+    } else if (typeof mq.addListener === "function") {
+        mq.addListener(function () {
+            expanded = false;
+            applyMobileCollapseState();
+        });
+    }
+
+    applyMobileCollapseState();
+})();
+
+(function () {
+    var closeLink = document.getElementById("adoptUserCloseLink");
+    if (!closeLink || !closeLink.getAttribute("href")) {
+        return;
+    }
+    document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape" || e.defaultPrevented) {
+            return;
+        }
+        var t = e.target;
+        var tag = t && t.tagName;
+        if (tag === "TEXTAREA") {
+            return;
+        }
+        if (tag === "INPUT") {
+            var type = (t.type || "").toLowerCase();
+            if (type !== "button" && type !== "submit" && type !== "reset" && type !== "checkbox" && type !== "radio") {
+                return;
+            }
+        }
+        if (tag === "SELECT") {
+            return;
+        }
+        window.location.href = closeLink.href;
+    });
+})();
+</script>
+
 {% endblock %}

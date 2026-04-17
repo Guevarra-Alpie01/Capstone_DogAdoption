@@ -107,72 +107,85 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 32px;
-    padding: 0 2px 8px;
+    min-height: 38px;
+    padding: 8px 6px 12px;
     border-radius: 0;
-    color: #111111 !important;
+    color: #14532d !important;
     text-decoration: none;
-    font-size: 0.84rem;
-    font-weight: 800;
-    letter-spacing: 0.03em;
+    font-family: var(--shell-ui-font);
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
     background: transparent;
     border: 0;
     box-shadow: none;
-    transition: color 0.18s ease, transform 0.18s ease;
+    -webkit-font-smoothing: antialiased;
+    transition: color 0.28s var(--shell-nav-ease);
 }
 
 .admin-topbar-nav-link::after {
     content: "";
     position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: 1px;
-    height: 3px;
-    border-radius: 999px;
-    background: transparent;
+    left: 50%;
+    bottom: 5px;
+    width: 100%;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent 0%, #166534 12%, #15803d 50%, #166534 88%, transparent 100%);
+    transform: translateX(-50%) scaleX(0);
+    transform-origin: center;
     opacity: 0;
-    transform: scaleX(0.72);
-    transition: opacity 0.18s ease, transform 0.18s ease, background-color 0.18s ease;
+    transition:
+        transform 0.38s var(--shell-nav-ease),
+        opacity 0.28s var(--shell-nav-ease),
+        background 0.28s ease;
 }
 
 .admin-topbar-nav-link:hover,
 .admin-topbar-nav-link:focus-visible {
     background: transparent;
-    color: #173914 !important;
+    color: #052e16 !important;
     box-shadow: none;
-    transform: none;
 }
 
 .admin-topbar-nav-link.is-active,
 .admin-topbar-nav-link.is-active:hover,
 .admin-topbar-nav-link.is-active:focus-visible {
     background: transparent;
-    color: #173914 !important;
+    color: #052e16 !important;
     box-shadow: none;
-    transform: none;
-}
-
-.admin-topbar-nav-link:visited:not(.is-active) {
-    color: #2e5e28 !important;
-    text-decoration: underline;
-    text-decoration-color: currentColor;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 0.45rem;
+    font-weight: 700;
 }
 
 .admin-topbar-nav-link:hover::after,
-.admin-topbar-nav-link:focus-visible::after,
-.admin-topbar-nav-link.is-active::after {
-    background: #1f4a19;
+.admin-topbar-nav-link:focus-visible::after {
     opacity: 1;
-    transform: scaleX(1);
+    transform: translateX(-50%) scaleX(1);
+    background: linear-gradient(90deg, transparent 0%, #14532d 8%, #166534 50%, #14532d 92%, transparent 100%);
+}
+
+.admin-topbar-nav-link.is-active::after {
+    opacity: 1;
+    transform: translateX(-50%) scaleX(1);
+    height: 2px;
+    background: #14532d;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .admin-topbar-nav-label {
+    font-family: inherit;
     white-space: nowrap;
-    line-height: 1;
+    line-height: 1.2;
     text-transform: none;
-    letter-spacing: 0.01em;
+    letter-spacing: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .admin-topbar-nav-link,
+    .admin-topbar-nav-link::after {
+        transition-duration: 0.01ms !important;
+    }
 }
 
 .admin-topbar-actions {
@@ -192,6 +205,8 @@ body {
 }
 
 .app-topbar {
+    font-family: var(--shell-ui-font);
+    -webkit-font-smoothing: antialiased;
     background: #f7c600 !important;
     border-bottom: 1px solid #9b8b00 !important;
     backdrop-filter: none;
@@ -242,20 +257,23 @@ body {
     line-height: 1;
     min-width: 0;
     white-space: nowrap;
-    text-transform: uppercase;
+    text-transform: none;
 }
 
 .admin-brand-main {
-    font-size: 1rem;
-    font-weight: 800;
-    letter-spacing: 0.6px;
+    font-family: var(--shell-ui-font);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
 }
 
 .admin-brand-sub {
-    font-size: 0.74rem;
-    font-weight: 700;
-    letter-spacing: 1.2px;
-    opacity: 0.85;
+    font-family: var(--shell-ui-font);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.82;
 }
 
 .nav-bell .bi,
@@ -722,7 +740,7 @@ body.admin-sidebar-open .sidebar-mobile-close__line--second,
     position: relative;
     z-index: 1;
     display: grid !important;
-    grid-template-columns: 20px minmax(0, 1fr);
+    grid-template-columns: 44px minmax(0, 1fr);
     align-items: center;
     justify-content: stretch;
     width: 100%;
@@ -745,8 +763,17 @@ body.admin-sidebar-open .sidebar-mobile-close__line--second,
 }
 
 .admin-mobile-sidebar .sidebar-nav-link span {
-    font-size: 0.88rem;
+    font-family: var(--shell-ui-font);
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
     white-space: nowrap;
+}
+
+.admin-mobile-sidebar .sidebar-nav-link.is-active span,
+.admin-mobile-sidebar .sidebar-nav-link.active span {
+    font-weight: 700;
 }
 
 .sidebar-mobile-profile {
@@ -1295,13 +1322,18 @@ body.admin-sidebar-open .sidebar-mobile-close__line--second,
     .app-confirm-modal .modal-footer,
     .app-confirm-actions {
         padding: 0 18px 18px;
-        flex-wrap: wrap;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: stretch;
+        align-items: stretch;
+        gap: 10px;
     }
 
     .app-confirm-modal .modal-footer .btn,
     .app-confirm-actions .btn,
     .app-confirm-actions button {
-        width: 100%;
+        flex: 1 1 0;
+        width: auto;
         min-width: 0;
     }
 }
@@ -1442,7 +1474,7 @@ tbody th,
     }
 
     .admin-mobile-sidebar .sidebar-nav-link span {
-        font-size: 0.88rem;
+        font-size: 0.9rem;
     }
 
     .admin-brand-logo {

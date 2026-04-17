@@ -2,8 +2,11 @@
          data-user-post
          data-post-id="{{ post.id }}"
          data-bucket="{{ post.display_bucket }}">
-    {% if post.display_bucket == 'pinned' or post.display_bucket == 'campaign' %}
-    <div class="user-ann-card-top user-ann-card-top--icon-only">
+    <div class="user-ann-card-top">
+        <div class="user-ann-card-badges">
+            <span class="user-ann-card-badge">{{ post.get_category_display }}</span>
+            <span class="user-ann-card-badge user-ann-card-bucket">{% if post.display_bucket == 'ordinary' %}Main Feed{% else %}{{ post.get_display_bucket_display }}{% endif %}</span>
+        </div>
         {% if post.display_bucket == 'pinned' %}
         <span class="user-ann-pin-btn is-static" title="Pinned announcement" aria-hidden="true">
             <i class="bi bi-pin-angle-fill"></i>
@@ -14,7 +17,6 @@
         </span>
         {% endif %}
     </div>
-    {% endif %}
 
     <header class="fb-card-header">
         <img src="{{ post.admin_profile_image_url }}" alt="Admin profile" class="fb-page-avatar">
@@ -108,11 +110,7 @@
             {% endif %}
 
             <button type="button"
-<<<<<<< HEAD
                class="fb-action-btn app-btn-fit app-btn-mobile-full js-open-share"
-=======
-               class="fb-action-btn user-ann-share-btn app-btn-fit app-btn-mobile-full js-open-share"
->>>>>>> 7d9e631d84e7c0a6fc9cde724ca89efa9d0328ca
                data-share-url="{{ post.share_url }}"
                aria-label="Share announcement">
                 <i class="bi bi-share"></i>

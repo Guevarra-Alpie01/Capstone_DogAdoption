@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&display=swap");
+
 /* =========================
    GLOBAL STYLES
 ========================= */
@@ -7,6 +9,8 @@ body {
 }
 
 :root {
+    --shell-ui-font: "Plus Jakarta Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --shell-nav-ease: cubic-bezier(0.22, 1, 0.36, 1);
     --user-shell-page-max-width: 1280px;
     --user-shell-content-gutter: clamp(16px, 2.2vw, 32px);
 }
@@ -289,43 +293,41 @@ body::before {
    SIDEBAR FONT SCALING
 ========================= */
 
-/* Desktop / PC – BIGGER TEXT & ICONS */
+/* Legacy fixed sidebars only — drawer uses .sidebar-shell + .sidebar-menu-list rules */
 @media (min-width: 992px) {
-    #sidebar-wrapper .list-group-item {
+    #sidebar-wrapper:not(.sidebar-shell) .list-group-item {
         font-size: 0.85rem;
         padding-top: 0.6rem !important;
         padding-bottom: 0.6rem !important;
         letter-spacing: 0.3px;
     }
 
-    #sidebar-wrapper .list-group-item i {
+    #sidebar-wrapper:not(.sidebar-shell) .list-group-item i {
         font-size: 0.95rem;
         vertical-align: middle;
     }
 }
 
-/* Tablet */
 @media (max-width: 991.98px) {
-    #sidebar-wrapper .list-group-item {
+    #sidebar-wrapper:not(.sidebar-shell) .list-group-item {
         font-size: 0.62rem;
         padding-top: 0.38rem !important;
         padding-bottom: 0.38rem !important;
     }
 
-    #sidebar-wrapper .list-group-item i {
+    #sidebar-wrapper:not(.sidebar-shell) .list-group-item i {
         font-size: 0.8rem;
     }
 }
 
-/* Mobile */
 @media (max-width: 576px) {
-    #sidebar-wrapper .list-group-item {
+    #sidebar-wrapper:not(.sidebar-shell) .list-group-item {
         font-size: 0.55rem;
         padding-top: 0.3rem !important;
         padding-bottom: 0.3rem !important;
     }
 
-    #sidebar-wrapper .list-group-item i {
+    #sidebar-wrapper:not(.sidebar-shell) .list-group-item i {
         font-size: 0.65rem;
     }
 }
@@ -814,11 +816,24 @@ body {
     width: 230px !important;
     margin-left: -230px !important;
     position: relative;
+    font-family: var(--shell-ui-font);
     background:
         linear-gradient(180deg, #0b573c 0%, #0d442f 42%, #0a3426 100%) !important;
     border-right: 1px solid rgba(163, 204, 178, 0.12) !important;
     box-shadow: 18px 0 34px rgba(7, 37, 27, 0.28);
     overflow: hidden;
+}
+
+.sidebar-shell .sidebar-mobile-brand__eyebrow {
+    font-family: var(--shell-ui-font);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+}
+
+.sidebar-shell .sidebar-mobile-brand__title {
+    font-family: var(--shell-ui-font);
+    font-weight: 700;
+    letter-spacing: -0.02em;
 }
 
 .sidebar-shell::after {
@@ -854,11 +869,14 @@ body {
 #sidebar-wrapper .sidebar-nav-link {
     border-radius: 16px !important;
     margin: 0;
-    padding: 12px 18px !important;
+    padding: 12px 16px !important;
     background: transparent !important;
     color: rgba(250, 251, 247, 0.94) !important;
-    font-weight: 800;
-    letter-spacing: 0.01em;
+    font-family: var(--shell-ui-font);
+    font-weight: 600;
+    font-size: 0.9rem;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
     display: flex !important;
     align-items: center;
     justify-content: flex-start;
@@ -869,10 +887,10 @@ body {
     overflow: hidden;
     box-shadow: inset 0 0 0 1px transparent;
     transition:
-        background-color 0.18s ease,
-        color 0.18s ease,
-        transform 0.18s ease,
-        box-shadow 0.18s ease;
+        background-color 0.22s var(--shell-nav-ease),
+        color 0.22s var(--shell-nav-ease),
+        transform 0.22s var(--shell-nav-ease),
+        box-shadow 0.22s var(--shell-nav-ease);
 }
 
 .sidebar-nav-link:hover,
@@ -895,6 +913,7 @@ body {
     padding-left: 22px !important;
     background: linear-gradient(90deg, rgba(162, 183, 170, 0.34) 0%, rgba(117, 145, 129, 0.28) 100%) !important;
     color: #ffffff !important;
+    font-weight: 700;
     box-shadow:
         inset 0 0 0 1px rgba(223, 234, 227, 0.08),
         0 12px 24px rgba(6, 35, 25, 0.22);
@@ -916,11 +935,40 @@ body {
 }
 
 .sidebar-nav-icon {
-    width: 20px;
-    min-width: 20px;
-    font-size: 1rem !important;
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem !important;
+    line-height: 1 !important;
     text-align: center;
     color: inherit !important;
+    -webkit-font-smoothing: antialiased;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+        0 2px 8px rgba(0, 0, 0, 0.08);
+    transition:
+        background 0.24s var(--shell-nav-ease),
+        transform 0.24s var(--shell-nav-ease),
+        box-shadow 0.24s var(--shell-nav-ease);
+}
+
+.sidebar-nav-link:hover .sidebar-nav-icon,
+.sidebar-nav-link:focus-visible .sidebar-nav-icon {
+    background: rgba(255, 255, 255, 0.14);
+    transform: scale(1.04);
+}
+
+.sidebar-nav-link.is-active .sidebar-nav-icon,
+#sidebar-wrapper .list-group-item-action.active .sidebar-nav-icon {
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+        0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .sidebar-nav-link span {

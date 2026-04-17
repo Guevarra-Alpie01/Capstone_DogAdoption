@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260407pinspotlight">
+<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260417post-toolbar-fullbleed">
 
 <div class="post-toolbar-shell">
     <div class="post-toolbar">
@@ -13,7 +13,6 @@
                     class="post-toolbar-icon-btn"
                     data-bs-toggle="modal"
                     data-bs-target="#createPostModal"
-                    data-bs-placement="bottom"
                     title="Create Post"
                     aria-label="Create Post"
                 >
@@ -26,7 +25,6 @@
                     class="post-toolbar-icon-btn"
                     data-bs-toggle="modal"
                     data-bs-target="#appointmentDateModal"
-                    data-bs-placement="bottom"
                     title="Set Appointment Date"
                     aria-label="Set Appointment Date"
                 >
@@ -36,9 +34,7 @@
             <a
                 href="{% url 'dogadoption_admin:user_post_requests' %}"
                 class="post-toolbar-icon-btn post-toolbar-icon-btn--user-requests"
-                data-bs-toggle="tooltip"
-                data-bs-placement="bottom"
-                title="User Post Requests{% if user_post_pending_count %} ({{ user_post_pending_count }} pending){% endif %}"
+                title="User Post Requests"
                 aria-label="User Post Requests"
             >
                 <i class="bi bi-person-lines-fill" aria-hidden="true"></i>
@@ -46,15 +42,11 @@
                     <span class="post-toolbar-badge post-toolbar-badge--requests">{{ user_post_pending_count }}</span>
                 {% endif %}
             </a>
-        </div>
-        <div class="post-toolbar-end">
             {% if admin_access.can_view_post_history %}
                 <a
                     href="{% url 'dogadoption_admin:post_history' %}"
                     class="post-toolbar-icon-btn post-toolbar-icon-btn--history"
-                    data-bs-toggle="tooltip"
-                    data-bs-placement="bottom"
-                    title="History ({{ history_total }} records)"
+                    title="History"
                     aria-label="History"
                 >
                     <i class="fas fa-history" aria-hidden="true"></i>
@@ -839,9 +831,16 @@
         if (!window.bootstrap || !window.bootstrap.Tooltip) {
             return;
         }
-        document.querySelectorAll(".post-toolbar [title]").forEach((element) => {
+        document.querySelectorAll(".post-toolbar .post-toolbar-icon-btn[title]").forEach((element) => {
             try {
-                window.bootstrap.Tooltip.getOrCreateInstance(element);
+                window.bootstrap.Tooltip.getOrCreateInstance(element, {
+                    placement: "bottom",
+                    container: "body",
+                    customClass: "post-toolbar-tooltip",
+                    fallbackPlacements: ["top"],
+                    boundary: "viewport",
+                    offset: "0,8",
+                });
             } catch (e) {
                 console.error("Bootstrap tooltip error:", e);
             }

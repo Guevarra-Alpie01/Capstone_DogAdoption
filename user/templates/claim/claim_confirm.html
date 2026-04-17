@@ -3,26 +3,66 @@
 
 <style>
     .claim-theme-card {
-        border: 1px solid #e8e2c6;
+        border: 1px solid rgba(36, 94, 40, 0.14);
         border-radius: 16px;
-        box-shadow: 0 10px 24px rgba(37, 78, 30, 0.08);
-        background: #fffef9;
+        box-shadow: 0 14px 36px rgba(20, 55, 35, 0.1);
+        background: linear-gradient(165deg, #f0f7f3 0%, #e5f2ea 42%, #eaf6ef 100%);
     }
 
     .claim-theme-header {
-        background: #ffffff;
-        border-bottom: 1px solid #e5e7eb;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(245, 251, 247, 0.9) 100%);
+        border-bottom: 1px solid rgba(36, 94, 40, 0.1);
         border-radius: 16px 16px 0 0;
     }
 
-    .claim-badge {
-        background: #254e1e;
-        color: #ffffff;
-        border-radius: 999px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.3px;
-        padding: 4px 10px;
+    .claim-theme-header-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .claim-theme-header-text {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .claim-theme-close {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        margin: -4px -6px 0 0;
+        padding: 0;
+        border: 1px solid rgba(36, 94, 40, 0.12);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.65);
+        color: #475569;
+        text-decoration: none;
+        line-height: 0;
+        transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+
+    .claim-theme-close svg {
+        width: 18px;
+        height: 18px;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+    }
+
+    .claim-theme-close:hover {
+        color: #1d4ed8;
+        background: rgba(59, 130, 246, 0.12);
+        border-color: rgba(29, 78, 216, 0.22);
+    }
+
+    .claim-theme-close:focus-visible {
+        outline: 2px solid rgba(36, 94, 40, 0.45);
+        outline-offset: 2px;
     }
 
     .claim-preview {
@@ -33,6 +73,7 @@
 
     .claim-content {
         padding: 16px 18px;
+        background: transparent;
     }
 
     .claim-layout {
@@ -137,6 +178,9 @@
         flex-wrap: wrap;
         gap: 8px;
         justify-content: center;
+        margin-top: clamp(24px, 5vw, 40px);
+        padding-top: clamp(18px, 3.5vw, 28px);
+        border-top: 1px solid rgba(15, 23, 42, 0.07);
     }
 
     .claim-actions .btn {
@@ -149,33 +193,14 @@
         border-color: #198754;
         color: #ffffff;
         font-weight: 700;
+        box-shadow: 0 10px 24px rgba(25, 135, 84, 0.28);
     }
 
     .btn-claim-submit:hover {
-        background: #198754;
-        border-color: #198754;
+        background: #157347;
+        border-color: #157347;
         color: #ffffff;
-    }
-
-    .btn-claim-cancel {
-        background: #dc3545;
-        border-color: #dc3545;
-        color: #ffffff;
-    }
-
-    .btn-claim-cancel:hover {
-        background: #dc3545;
-        border-color: #dc3545;
-        color: #ffffff;
-    }
-
-    .btn-claim-cancel:focus,
-    .btn-claim-cancel:active,
-    .btn-claim-cancel:focus-visible {
-        background: #dc3545;
-        border-color: #dc3545;
-        color: #ffffff;
-        box-shadow: none;
+        box-shadow: 0 12px 28px rgba(25, 135, 84, 0.32);
     }
 
     @media (min-width: 769px) {
@@ -284,12 +309,24 @@
 
 <div class="container py-2">
     <div class="claim-theme-card">
-        <div class="claim-theme-header px-4 py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <div>
-                <h4 class="mb-1 fw-bold text-dark">Submit Ownership Claim</h4>
-                <p class="mb-0 text-dark small">Upload optional proof and choose a verification date.</p>
+        <div class="claim-theme-header px-4 py-3">
+            <div class="claim-theme-header-row">
+                <div class="claim-theme-header-text">
+                    <h4 class="mb-1 fw-bold text-dark">Submit Ownership Claim</h4>
+                    <p class="mb-0 text-dark small">Upload optional proof and choose a verification date.</p>
+                </div>
+                <a
+                    id="claimCloseLink"
+                    href="{{ cancel_url }}"
+                    class="claim-theme-close"
+                    aria-label="Close and go back"
+                    title="Close (Esc)"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                </a>
             </div>
-            <span class="claim-badge">Claim Window Open</span>
         </div>
 
         <div class="claim-content">
@@ -368,7 +405,16 @@
 
                 </div>
 
-                <form method="post" enctype="multipart/form-data" id="claimForm" class="claim-form">
+                <form
+                    method="post"
+                    enctype="multipart/form-data"
+                    id="claimForm"
+                    class="claim-form"
+                    data-confirm-modal
+                    data-confirm-title="Confirm claim"
+                    data-confirm-message="Submit this ownership claim with your selected verification date and any proof photos?"
+                    data-confirm-submit-label="Submit"
+                >
                     {% csrf_token %}
                     {% if return_to %}
                     <input type="hidden" name="return_to" value="{{ return_to }}">
@@ -384,8 +430,7 @@
                     </div>
 
                     <div class="claim-actions">
-                        <a href="{{ cancel_url }}" class="btn btn-claim-cancel">Cancel</a>
-                        <button type="submit" id="claim_submit_btn" class="btn btn-claim-submit" {% if not available_dates %}disabled{% endif %}>Submit Claim</button>
+                        <button type="submit" id="claim_submit_btn" class="btn btn-claim-submit" {% if not available_dates %}disabled{% endif %}>Submit</button>
                     </div>
                 </form>
             </div>
@@ -445,6 +490,33 @@
     }
 
     applyMobileCollapseState();
+})();
+
+(function () {
+    var closeLink = document.getElementById("claimCloseLink");
+    if (!closeLink || !closeLink.getAttribute("href")) {
+        return;
+    }
+    document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape" || e.defaultPrevented) {
+            return;
+        }
+        var t = e.target;
+        var tag = t && t.tagName;
+        if (tag === "TEXTAREA") {
+            return;
+        }
+        if (tag === "INPUT") {
+            var type = (t.type || "").toLowerCase();
+            if (type !== "button" && type !== "submit" && type !== "reset" && type !== "checkbox" && type !== "radio") {
+                return;
+            }
+        }
+        if (tag === "SELECT") {
+            return;
+        }
+        window.location.href = closeLink.href;
+    });
 })();
 </script>
 

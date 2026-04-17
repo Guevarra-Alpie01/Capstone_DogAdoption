@@ -142,8 +142,72 @@
     </div>
 </div>
 
+<div id="sharePanel" class="share-panel" hidden>
+    <div class="share-panel-header">
+        <div>
+            <h3 class="share-panel-title">Share Post</h3>
+            <p class="share-panel-subtitle">Choose where to share this dog post</p>
+        </div>
+        <button type="button" id="closeSharePanelBtn" class="share-panel-close" aria-label="Close share panel">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+    </div>
+    <div class="share-options">
+        <button type="button" class="share-option" data-network="facebook">
+            <span class="share-logo share-facebook"><i class="bi bi-facebook" aria-hidden="true"></i></span>
+            <span>Facebook</span>
+        </button>
+        <button type="button" class="share-option" data-network="messenger">
+            <span class="share-logo share-messenger"><i class="bi bi-messenger" aria-hidden="true"></i></span>
+            <span>Messenger</span>
+        </button>
+        <button type="button" class="share-option" data-network="x">
+            <span class="share-logo share-x"><i class="bi bi-twitter-x" aria-hidden="true"></i></span>
+            <span>X</span>
+        </button>
+        <button type="button" class="share-option" data-network="instagram">
+            <span class="share-logo share-instagram"><i class="bi bi-instagram" aria-hidden="true"></i></span>
+            <span>Instagram</span>
+        </button>
+    </div>
+    <label for="shareLinkInput" class="share-url-label">Share Link</label>
+    <div class="share-link-row">
+        <input id="shareLinkInput" type="text" readonly>
+        <button type="button" id="copyShareLinkBtn" class="share-copy-btn">Copy Link</button>
+    </div>
+    <div id="sharePanelStatus" class="share-panel-status" aria-live="polite"></div>
+</div>
+
 <script>
 (function () {
+    function openFacebookShareUrl(webShareUrl) {
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        if (!isMobile) {
+            window.open(webShareUrl, '_blank', 'noopener');
+            return;
+        }
+
+        const appShareUrl = 'fb://facewebmodal/f?href=' + encodeURIComponent(webShareUrl);
+        let fallbackTimer = null;
+
+        function cancelFallbackOnAppOpen() {
+            if (document.hidden && fallbackTimer) {
+                clearTimeout(fallbackTimer);
+                fallbackTimer = null;
+                document.removeEventListener('visibilitychange', cancelFallbackOnAppOpen);
+            }
+        }
+
+        document.addEventListener('visibilitychange', cancelFallbackOnAppOpen);
+
+        fallbackTimer = setTimeout(() => {
+            document.removeEventListener('visibilitychange', cancelFallbackOnAppOpen);
+            window.location.href = webShareUrl;
+        }, 900);
+
+        window.location.href = appShareUrl;
+    }
+
     function initPhotoViewer(viewer) {
         const image = viewer.querySelector('.fb-photo-main');
         const prevBtn = viewer.querySelector('.fb-photo-prev');
@@ -191,7 +255,202 @@
     const mobileLayout = window.matchMedia('(max-width: 767.98px)');
     const modal = document.querySelector('[data-pinned-announcement-modal]');
     const modalContent = modal?.querySelector('[data-pinned-announcement-content]') || null;
+    const sharePanelRoot = document.getElementById('sharePanel');
+    const sharePanelDefaultParent = sharePanelRoot ? sharePanelRoot.parentElement : null;
     let lastFocusedTrigger = null;
+    let activeShareUrl = '';
+    let activeShareTrigger = null;
+
+    function restoreSharePanelParent() {
+        const panel = document.getElementById('sharePanel');
+        if (!panel || !sharePanelDefaultParent) return;
+        if (panel.parentElement !== sharePanelDefaultParent) {
+            sharePanelDefaultParent.appendChild(panel);
+        }
+        panel.classList.remove('is-inline-mobile');
+    }
+
+    function setShareStatus(message) {
+        const statusEl = document.getElementById('sharePanelStatus');
+        if (!statusEl) return;
+        statusEl.textContent = message || '';
+    }
+
+    function positionSharePanel() {
+        const panel = document.getElementById('sharePanel');
+        if (!panel || panel.hidden || !activeShareTrigger) return;
+
+        const isMobile = window.matchMedia('(max-width: 768px)').matches;
+        if (isMobile) {
+            panel.classList.add('is-inline-mobile');
+            panel.style.left = '';
+            panel.style.right = '';
+            panel.style.top = '';
+            panel.style.bottom = '';
+            return;
+        }
+        if (panel.classList.contains('is-inline-mobile')) {
+            restoreSharePanelParent();
+        }
+
+        panel.style.right = '';
+        panel.style.bottom = '';
+        const triggerRect = activeShareTrigger.getBoundingClientRect();
+        const panelWidth = panel.offsetWidth || 348;
+        const margin = 12;
+        let left = triggerRect.right - panelWidth;
+        left = Math.max(margin, left);
+        left = Math.min(left, window.innerWidth - panelWidth - margin);
+        const top = Math.min(
+            triggerRect.bottom + 10,
+            window.innerHeight - panel.offsetHeight - margin
+        );
+
+        panel.style.left = `${left}px`;
+        panel.style.top = `${Math.max(margin, top)}px`;
+    }
+
+    function openSharePanel(triggerEl, shareUrl) {
+        const panel = document.getElementById('sharePanel');
+        const input = document.getElementById('shareLinkInput');
+        if (!panel || !input) return;
+
+        activeShareUrl = shareUrl;
+        activeShareTrigger = triggerEl;
+        input.value = shareUrl;
+        panel.hidden = false;
+        const isMobile = window.matchMedia('(max-width: 768px)').matches;
+        if (isMobile) {
+            const mountAfterEl =
+                triggerEl.closest('.user-ann-popup-actions')
+                || triggerEl.closest('.user-ann-action-row')
+                || triggerEl.closest('.user-ann-card-footer')
+                || triggerEl.parentElement;
+            if (mountAfterEl && mountAfterEl.parentElement) {
+                mountAfterEl.insertAdjacentElement('afterend', panel);
+                panel.classList.add('is-inline-mobile');
+            }
+            panel.style.left = '';
+            panel.style.right = '';
+            panel.style.top = '';
+            panel.style.bottom = '';
+        } else {
+            restoreSharePanelParent();
+        }
+        positionSharePanel();
+        setShareStatus('');
+    }
+
+    function closeSharePanel() {
+        const panel = document.getElementById('sharePanel');
+        if (!panel) return;
+        panel.hidden = true;
+        activeShareUrl = '';
+        activeShareTrigger = null;
+        setShareStatus('');
+        restoreSharePanelParent();
+    }
+
+    async function copyShareLink() {
+        if (!activeShareUrl) return;
+        try {
+            await navigator.clipboard.writeText(activeShareUrl);
+            setShareStatus('Link copied.');
+        } catch (error) {
+            const input = document.getElementById('shareLinkInput');
+            if (!input) return;
+            input.focus();
+            input.select();
+            document.execCommand('copy');
+            setShareStatus('Link copied.');
+        }
+    }
+
+    function shareViaMessenger(url) {
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        if (!isMobile) {
+            copyShareLink();
+            window.open('https://www.messenger.com/', '_blank', 'noopener');
+            setShareStatus('Link copied. Paste it in Messenger.');
+            return;
+        }
+
+        const messengerAppUrl = 'fb-messenger://share/?link=' + encodeURIComponent(url);
+        const fallback = setTimeout(() => {
+            window.open('https://www.messenger.com/', '_blank', 'noopener');
+            setShareStatus('Open Messenger and paste the copied link.');
+        }, 900);
+
+        document.addEventListener('visibilitychange', function onHide() {
+            if (document.hidden) {
+                clearTimeout(fallback);
+                document.removeEventListener('visibilitychange', onHide);
+            }
+        });
+
+        window.location.href = messengerAppUrl;
+    }
+
+    function initSharePanel() {
+        const panel = document.getElementById('sharePanel');
+        const optionBtns = document.querySelectorAll('.share-option[data-network]');
+        const copyBtn = document.getElementById('copyShareLinkBtn');
+        const closeBtn = document.getElementById('closeSharePanelBtn');
+
+        document.addEventListener('click', (event) => {
+            const shareBtn = event.target.closest('.js-open-share');
+            if (shareBtn) {
+                const shareUrl = shareBtn.getAttribute('data-share-url');
+                if (!shareUrl) return;
+                openSharePanel(shareBtn, shareUrl);
+                return;
+            }
+
+            if (!panel || panel.hidden) return;
+            const clickedInsidePanel = event.target.closest('#sharePanel');
+            if (!clickedInsidePanel) {
+                closeSharePanel();
+            }
+        });
+
+        optionBtns.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                if (!activeShareUrl) return;
+                const network = btn.getAttribute('data-network');
+                const encodedUrl = encodeURIComponent(activeShareUrl);
+
+                if (network === 'facebook') {
+                    openFacebookShareUrl(`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`);
+                    return;
+                }
+                if (network === 'messenger') {
+                    shareViaMessenger(activeShareUrl);
+                    return;
+                }
+                if (network === 'x') {
+                    window.open(`https://twitter.com/intent/tweet?url=${encodedUrl}`, '_blank', 'noopener');
+                    return;
+                }
+                if (network === 'instagram') {
+                    copyShareLink();
+                    window.open('https://www.instagram.com/', '_blank', 'noopener');
+                    setShareStatus('Link copied. Paste it in Instagram.');
+                }
+            });
+        });
+
+        copyBtn?.addEventListener('click', copyShareLink);
+        closeBtn?.addEventListener('click', closeSharePanel);
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeSharePanel();
+            }
+        });
+
+        window.addEventListener('resize', positionSharePanel);
+        window.addEventListener('scroll', positionSharePanel, true);
+    }
 
     function setActiveSection(sectionKey) {
         if (!board) return;
@@ -235,6 +494,7 @@
     });
 
     syncMobileSections();
+    initSharePanel();
     if (typeof mobileLayout.addEventListener === 'function') {
         mobileLayout.addEventListener('change', syncMobileSections);
     } else if (typeof mobileLayout.addListener === 'function') {

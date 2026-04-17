@@ -50,57 +50,74 @@
     .claim-preview-head {
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 10px 12px;
-        background: #f5f8fe;
-        border-bottom: 1px solid #e6edf8;
+        gap: 10px;
+        padding: 12px 14px;
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        border-bottom: 1px solid #e2e8f0;
     }
 
     .claim-preview-dot {
-        width: 8px;
-        height: 8px;
+        width: 10px;
+        height: 10px;
         border-radius: 50%;
-        background: #1d4ed8;
+        background: linear-gradient(145deg, #3b82f6 0%, #1d4ed8 100%);
         flex-shrink: 0;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
     }
 
     .claim-preview-title {
         margin: 0;
-        font-size: 0.92rem;
+        font-size: 0.98rem;
         font-weight: 700;
-        letter-spacing: 0.02em;
-        color: #0f2a57;
+        letter-spacing: -0.02em;
+        color: #0f172a;
+    }
+
+    .claim-preview,
+    .claim-summary-list {
+        font-family: var(--shell-ui-font, "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif);
+        -webkit-font-smoothing: antialiased;
     }
 
     .claim-summary-list {
-        padding: 12px;
-        display: grid;
-        gap: 8px;
+        padding: 4px 12px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
     }
 
     .claim-summary-item {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        padding: 0 2px;
+        display: grid;
+        grid-template-columns: minmax(96px, 38%) minmax(0, 1fr);
+        gap: 12px 16px;
+        align-items: baseline;
+        padding: 12px 6px;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+    }
+
+    .claim-summary-item:last-child {
+        border-bottom: none;
+        padding-bottom: 4px;
     }
 
     .claim-summary-label {
-        display: block;
         font-size: 0.7rem;
-        letter-spacing: 0.07em;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
         color: #64748b;
-        font-weight: 700;
+        font-weight: 600;
+        line-height: 1.35;
         margin: 0;
     }
 
     .claim-summary-value {
         margin: 0;
-        font-size: 0.9rem;
-        line-height: 1.4;
+        font-size: 0.94rem;
+        line-height: 1.45;
         color: #0f172a;
         font-weight: 600;
+        letter-spacing: -0.015em;
+        text-align: right;
         word-break: break-word;
     }
 
@@ -161,6 +178,12 @@
         box-shadow: none;
     }
 
+    @media (min-width: 769px) {
+        .claim-summary-more-btn {
+            display: none !important;
+        }
+    }
+
     @media (min-width: 992px) {
         .claim-layout {
             grid-template-columns: minmax(280px, 34%) minmax(0, 1fr);
@@ -187,8 +210,50 @@
         }
 
         .claim-summary-list {
-            padding: 10px 10px 12px;
-            gap: 10px;
+            padding: 4px 10px 12px;
+        }
+
+        .claim-summary-item {
+            grid-template-columns: minmax(84px, 42%) minmax(0, 1fr);
+            padding: 11px 4px;
+            gap: 10px 12px;
+        }
+
+        .claim-summary-value {
+            font-size: 0.9rem;
+        }
+
+        .claim-summary-list.claim-summary-list--collapsed .claim-summary-item:nth-child(n + 3) {
+            display: none !important;
+        }
+
+        .claim-summary-more-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            margin: 2px 0 0;
+            padding: 10px 12px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(29, 78, 216, 0.08);
+            color: #1d4ed8;
+            font-family: inherit;
+            font-size: 0.88rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            cursor: pointer;
+            transition: background 0.18s ease, color 0.18s ease;
+        }
+
+        .claim-summary-more-btn:hover {
+            background: rgba(29, 78, 216, 0.14);
+            color: #1e40af;
+        }
+
+        .claim-summary-more-btn:focus-visible {
+            outline: 2px solid rgba(29, 78, 216, 0.45);
+            outline-offset: 2px;
         }
 
         .claim-actions {
@@ -235,61 +300,71 @@
                         <h6 class="claim-preview-title">Post Summary</h6>
                     </div>
 
-                    <div class="claim-summary-list">
+                    <div class="claim-summary-list" id="claimSummaryList">
                         <div class="claim-summary-item">
                             <span class="claim-summary-label">Breed</span>
-                            <p class="claim-summary-value">{{ post.display_breed|default:post.display_title }}</p>
+                            <span class="claim-summary-value">{{ post.display_breed|default:post.display_title }}</span>
                         </div>
 
                         {% if post.display_age_group %}
                             <div class="claim-summary-item">
                                 <span class="claim-summary-label">Age</span>
-                                <p class="claim-summary-value">{{ post.display_age_group }}</p>
+                                <span class="claim-summary-value">{{ post.display_age_group }}</span>
                             </div>
                         {% endif %}
 
                         {% if post.display_size_group %}
                             <div class="claim-summary-item">
                                 <span class="claim-summary-label">Size</span>
-                                <p class="claim-summary-value">{{ post.display_size_group }}</p>
+                                <span class="claim-summary-value">{{ post.display_size_group }}</span>
                             </div>
                         {% endif %}
 
                         {% if post.gender %}
                             <div class="claim-summary-item">
                                 <span class="claim-summary-label">Gender</span>
-                                <p class="claim-summary-value">{{ post.get_gender_display }}</p>
+                                <span class="claim-summary-value">{{ post.get_gender_display }}</span>
                             </div>
                         {% endif %}
 
                         {% if post.display_coat_length %}
                             <div class="claim-summary-item">
                                 <span class="claim-summary-label">Coat</span>
-                                <p class="claim-summary-value">{{ post.display_coat_length }}</p>
+                                <span class="claim-summary-value">{{ post.display_coat_length }}</span>
                             </div>
                         {% endif %}
 
                         {% if post.display_colors %}
                             <div class="claim-summary-item">
                                 <span class="claim-summary-label">Color</span>
-                                <p class="claim-summary-value">{{ post.display_colors }}</p>
+                                <span class="claim-summary-value">{{ post.display_colors }}</span>
                             </div>
                         {% endif %}
 
                         {% if post.location %}
                             <div class="claim-summary-item">
                                 <span class="claim-summary-label">Location</span>
-                                <p class="claim-summary-value">{{ post.location }}</p>
+                                <span class="claim-summary-value">{{ post.location }}</span>
                             </div>
                         {% endif %}
 
                         {% if post.rescued_date %}
                             <div class="claim-summary-item">
                                 <span class="claim-summary-label">Rescued On</span>
-                                <p class="claim-summary-value">{{ post.rescued_date|date:"M d, Y" }}</p>
+                                <span class="claim-summary-value">{{ post.rescued_date|date:"M d, Y" }}</span>
                             </div>
                         {% endif %}
                     </div>
+                    <button
+                        type="button"
+                        class="claim-summary-more-btn"
+                        id="claimSummaryMoreBtn"
+                        aria-expanded="false"
+                        aria-controls="claimSummaryList"
+                        hidden
+                    >
+                        View more
+                    </button>
 
                 </div>
 
@@ -302,31 +377,75 @@
                     <div class="mb-2">
                         <label for="id_images" class="form-label">Supporting Proof (optional)</label>
                         <input id="id_images" type="file" name="images" class="form-control" multiple accept="image/*">
-                        <small class="text-muted d-block mt-1">
-                            You can upload vaccination card photos, registration photos, or photos of the dog or you with the dog.
-                            Upload once and add multiple images if needed.
-                        </small>
                     </div>
 
                     <div class="mb-2 mt-2">
                         {% include "partials/appointment_picker.html" with submit_btn_id="claim_submit_btn" %}
                     </div>
 
-                    <p class="text-muted small mt-2 mb-2">
-                        Proof photos are optional. You can still submit the claim without them, and admin verification opens after a 1-day window.
-                    </p>
-
                     <div class="claim-actions">
                         <a href="{{ cancel_url }}" class="btn btn-claim-cancel">Cancel</a>
                         <button type="submit" id="claim_submit_btn" class="btn btn-claim-submit" {% if not available_dates %}disabled{% endif %}>Submit Claim</button>
-                    </div>
-                    <div class="mt-2">
-                        <a href="{{ status_url }}" class="btn btn-outline-secondary btn-sm">View My Claim Requests</a>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    var list = document.getElementById("claimSummaryList");
+    var btn = document.getElementById("claimSummaryMoreBtn");
+    if (!list || !btn) {
+        return;
+    }
+    var mq = window.matchMedia("(max-width: 768px)");
+    var expanded = false;
+
+    function applyMobileCollapseState() {
+        var items = list.querySelectorAll(".claim-summary-item");
+        var needsToggle = items.length > 2 && mq.matches;
+        btn.hidden = !needsToggle;
+        if (!mq.matches) {
+            list.classList.remove("claim-summary-list--collapsed");
+            expanded = false;
+            btn.setAttribute("aria-expanded", "true");
+            btn.textContent = "View more";
+            return;
+        }
+        if (!needsToggle) {
+            list.classList.remove("claim-summary-list--collapsed");
+            expanded = false;
+            return;
+        }
+        list.classList.toggle("claim-summary-list--collapsed", !expanded);
+        btn.setAttribute("aria-expanded", expanded ? "true" : "false");
+        btn.textContent = expanded ? "View less" : "View more";
+    }
+
+    btn.addEventListener("click", function () {
+        if (!mq.matches) {
+            return;
+        }
+        expanded = !expanded;
+        applyMobileCollapseState();
+    });
+
+    if (typeof mq.addEventListener === "function") {
+        mq.addEventListener("change", function () {
+            expanded = false;
+            applyMobileCollapseState();
+        });
+    } else if (typeof mq.addListener === "function") {
+        mq.addListener(function () {
+            expanded = false;
+            applyMobileCollapseState();
+        });
+    }
+
+    applyMobileCollapseState();
+})();
+</script>
 
 {% endblock %}

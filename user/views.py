@@ -46,6 +46,7 @@ import math
 # Shared models from the admin app
 from dogadoption_admin.access import get_staff_landing_url
 from dogadoption_admin.barangays import BAYAWAN_BARANGAYS
+from dogadoption_admin.citation_subitems import citation_fee_total, normalize_subitems
 from dogadoption_admin.models import (
     AdminNotification,
     AnnouncementComment,
@@ -71,11 +72,11 @@ from .forms import MissingDogPostForm, RescueFinderForm, UserAdoptionPostForm
 from .avatar_cache import invalidate_cached_profile_avatar
 from .notification_utils import (
     build_user_notification_payload,
+    build_user_notification_summary,
     build_user_registered_dog_vaccination_status_map,
     build_user_vaccination_reminder_summary,
     bump_user_home_feed_namespace,
     get_user_home_feed_namespace,
-    get_user_notification_read_keys,
     invalidate_user_notification_content,
     invalidate_user_notification_payload,
     mark_user_notification_read,
@@ -1158,14 +1159,17 @@ def _build_profile_violation_summary(profile_user):
             f"Sec. {penalty.section.number} #{penalty.number} - {penalty.title}"
             for penalty in penalties
         ]
-        total_amount = sum((penalty.amount for penalty in penalties), 0)
+        sub_norm = normalize_subitems(getattr(citation, "penalty_subitems", None))
+        for row in sub_norm:
+            violation_labels.append(row.get("label") or row.get("code") or "Fee line")
+        total_amount = citation_fee_total(penalties, sub_norm)
 
         user_violation_records.append(
             {
                 "citation_id": citation.id,
                 "date_issued": citation.date_issued,
                 "violations": violation_labels,
-                "violation_count": len(penalties),
+                "violation_count": len(penalties) + len(sub_norm),
                 "total_amount": total_amount,
                 "remarks": (citation.remarks or "").strip(),
             }
@@ -1410,42 +1414,36 @@ def mark_notifications_seen(request):
         request,
         [item.get("key", "") for item in payload.get("items", [])],
     )
-    return JsonResponse({"ok": True, "unread_count": 0})
+    summary = build_user_notification_summary(request)
+    return JsonResponse({"ok": True, "unread_count": summary["unread_count"]})
 
 
-def _build_user_notification_summary(request):
-    payload = build_user_notification_payload(request.user)
-    read_keys = get_user_notification_read_keys(request)
-    notifications = []
-    unread_count = 0
-    for item in payload.get("items", []):
-        notification_key = item.get("key", "")
-        target_url = item.get("url") or reverse("user:user_home")
-        is_unread = bool(notification_key and notification_key not in read_keys)
-        if is_unread:
-            unread_count += 1
-        notifications.append({
-            "kind": item.get("kind", "notification"),
-            "title": item.get("title", ""),
-            "message": item.get("message", ""),
-            "url": target_url,
-            "created_label": item.get("created_label", ""),
-            "is_unread": is_unread,
-            "open_url": "{}?{}".format(
-                reverse("user:open_notification"),
-                urlencode({"key": notification_key, "next": target_url}),
-            ),
-        })
-    return {
-        "unread_count": unread_count,
-        "notifications": notifications,
-    }
+@require_POST
+@user_only
+def mark_notification_read(request):
+    """Mark a single notification as read (session-scoped); returns updated unread count."""
+    notification_key = ""
+    content_type = (request.content_type or "").lower()
+    if "application/json" in content_type:
+        try:
+            body = json.loads(request.body.decode() or "{}")
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            body = {}
+        if isinstance(body, dict):
+            notification_key = (body.get("key") or "").strip()
+    else:
+        notification_key = (request.POST.get("key") or "").strip()
+
+    if notification_key:
+        mark_user_notification_read(request, notification_key)
+    summary = build_user_notification_summary(request)
+    return JsonResponse({"ok": True, "unread_count": summary["unread_count"]})
 
 
 @user_only
 def notification_summary(request):
     """Return the current user's notification badge and dropdown data."""
-    return JsonResponse(_build_user_notification_summary(request))
+    return JsonResponse(build_user_notification_summary(request))
 
 
 @user_only
@@ -1461,7 +1459,7 @@ def open_notification(request):
         None,
     )
 
-    if matching_item and notification_key:
+    if notification_key:
         mark_user_notification_read(request, notification_key)
 
     target = (
@@ -2145,6 +2143,11 @@ def _build_public_post_listing(request, listing_mode):
                 "label": "My Adoption Requests",
                 "icon_class": "bi bi-house-door",
             },
+            {
+                "url": reverse("user:my_post_approvals"),
+                "label": "My Post Approvals",
+                "icon_class": "bi bi-file-earmark-check",
+            },
         ],
     }
 
@@ -2631,6 +2634,68 @@ def _request_status_summary_from_qs(queryset, accepted_status="accepted", reject
         accepted=Count("id", filter=Q(status=accepted_status)),
         rejected=Count("id", filter=Q(status=rejected_status)),
     )
+
+
+def _user_post_submission_review_bucket(status):
+    """Map user adoption / missing post status to summary buckets (admin review)."""
+    if status == "pending_review":
+        return "pending"
+    if status == "declined":
+        return "rejected"
+    return "accepted"
+
+
+def _collect_user_post_submissions(user):
+    """Rows for posts the user created that go through staff approval (adopt + missing)."""
+    entries = []
+    profile_url = reverse("user:edit_profile")
+    adoption_qs = (
+        UserAdoptionPost.objects.filter(owner=user)
+        .only("id", "dog_name", "location", "status", "created_at")
+        .order_by("-created_at")
+    )
+    for post in adoption_qs:
+        bucket = _user_post_submission_review_bucket(post.status)
+        entries.append({
+            "kind": "adoption",
+            "kind_label": "Adoption post",
+            "title": post.dog_name,
+            "location": post.location or "",
+            "status": post.status,
+            "status_label": post.get_status_display(),
+            "bucket": bucket,
+            "created_at": post.created_at,
+            "detail_url": reverse("user:user_adoption_post_detail", args=[post.id]),
+        })
+    missing_qs = (
+        MissingDogPost.objects.filter(owner=user)
+        .only("id", "dog_name", "location", "status", "created_at")
+        .order_by("-created_at")
+    )
+    for post in missing_qs:
+        bucket = _user_post_submission_review_bucket(post.status)
+        entries.append({
+            "kind": "missing",
+            "kind_label": "Missing dog post",
+            "title": post.dog_name,
+            "location": post.location or "",
+            "status": post.status,
+            "status_label": post.get_status_display(),
+            "bucket": bucket,
+            "created_at": post.created_at,
+            "detail_url": f"{profile_url}#profile-post-missing-{post.id}",
+        })
+    entries.sort(key=lambda row: row["created_at"], reverse=True)
+    return entries
+
+
+def _user_post_submissions_summary(entries):
+    return {
+        "total": len(entries),
+        "pending": sum(1 for row in entries if row["bucket"] == "pending"),
+        "accepted": sum(1 for row in entries if row["bucket"] == "accepted"),
+        "rejected": sum(1 for row in entries if row["bucket"] == "rejected"),
+    }
 
 
 def _create_post_request_with_images(request, post, request_type, appointment_date):
@@ -4594,6 +4659,31 @@ def adopt_status(request):
         'staff_summary': staff_summary,
         'user_summary': user_summary,
     })
+
+
+@user_only
+def my_post_approvals(request):
+    """List the current user's adoption and missing-dog posts and staff approval status."""
+    status_filter = request.GET.get("status", "pending")
+    if status_filter not in {"total", "pending", "accepted", "rejected"}:
+        status_filter = "pending"
+
+    all_entries = _collect_user_post_submissions(request.user)
+    summary = _user_post_submissions_summary(all_entries)
+    if status_filter == "total":
+        filtered = all_entries
+    else:
+        filtered = [row for row in all_entries if row["bucket"] == status_filter]
+
+    page_obj = Paginator(filtered, 10).get_page(request.GET.get("page", 1))
+    return render(request, "adopt/my_post_approvals.html", {
+        "submissions": list(page_obj.object_list),
+        "summary": summary,
+        "current_status": status_filter,
+        "page_obj": page_obj,
+        "browse_url": reverse("user:adopt_list"),
+    })
+
 
 def adopt_confirm(request, post_id):
     """Confirm and submit an adoption request for a staff-managed post."""

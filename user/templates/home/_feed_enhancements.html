@@ -20,8 +20,8 @@
 <div id="sharePanel" class="share-panel" hidden>
     <div class="share-panel-header">
         <div>
-            <h3 class="share-panel-title">Share Post</h3>
-            <p class="share-panel-subtitle">Choose where to share this dog post</p>
+            <h3 class="share-panel-title">Share</h3>
+            <p class="share-panel-subtitle">Choose a platform or copy the link</p>
         </div>
         <button type="button" id="closeSharePanelBtn" class="share-panel-close" aria-label="Close share panel">
             <i class="bi bi-x-lg" aria-hidden="true"></i>
@@ -220,18 +220,26 @@
     }
 
     function initSharePanel() {
+        if (window.__bayawanVetSharePanelInitialized) {
+            return;
+        }
         const panel = document.getElementById("sharePanel");
-        const openBtns = document.querySelectorAll(".js-open-share");
+        if (!panel) {
+            return;
+        }
+        window.__bayawanVetSharePanelInitialized = true;
+
         const optionBtns = document.querySelectorAll(".share-option[data-network]");
         const copyBtn = document.getElementById("copyShareLinkBtn");
         const closeBtn = document.getElementById("closeSharePanelBtn");
 
-        openBtns.forEach((btn) => {
-            btn.addEventListener("click", () => {
-                const shareUrl = btn.getAttribute("data-share-url");
-                if (!shareUrl) return;
-                openSharePanel(btn, shareUrl);
-            });
+        document.addEventListener("click", (event) => {
+            const btn = event.target.closest(".js-open-share");
+            if (!btn) return;
+            const shareUrl = btn.getAttribute("data-share-url");
+            if (!shareUrl) return;
+            event.preventDefault();
+            openSharePanel(btn, shareUrl);
         });
 
         optionBtns.forEach((btn) => {
@@ -400,6 +408,7 @@
     function initCreatePostModal() {
         const typeButtons = document.querySelectorAll("#homePostTypeToggle .js-post-type-btn");
         const postTypeToggle = document.getElementById("homePostTypeToggle");
+        const postTypeCurrentLabel = document.querySelector("#homePostTypeToggle [data-post-type-current-label]");
         const adoptionFields = document.getElementById("homeAdoptionFields");
         const missingFields = document.getElementById("homeMissingFields");
         const postTypeInput = document.getElementById("homePostTypeInput");
@@ -449,6 +458,10 @@
             setPanelDisabled(missingFields, !isMissing);
             if (postTypeToggle) {
                 postTypeToggle.dataset.activeType = postTypeInput.value;
+                postTypeToggle.open = false;
+            }
+            if (postTypeCurrentLabel) {
+                postTypeCurrentLabel.textContent = isMissing ? "Missing Dog" : "For Adoption";
             }
             syncAdoptionAttributeFields();
         }

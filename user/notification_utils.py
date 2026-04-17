@@ -1,5 +1,5 @@
-import random
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 
 from django.core.cache import cache
 from django.db.models.functions import Lower, Trim
@@ -8,18 +8,15 @@ from django.utils import timezone
 from django.utils.html import strip_tags
 
 from dogadoption_admin.models import Dog, DogAnnouncement, DogRegistration, Post, PostRequest, VaccinationRecord
-from user.models import UserAdoptionPost, UserAdoptionRequest
+from user.models import Profile, UserAdoptionPost, UserAdoptionRequest
 
 
 USER_NOTIFICATIONS_CACHE_TTL_SECONDS = 20
 USER_NOTIFICATIONS_MAX_ITEMS = 8
 USER_NOTIFICATIONS_INCOMING_REQUEST_LIMIT = 4
 USER_NOTIFICATIONS_ACCEPTED_LIMIT = 4
-USER_NOTIFICATIONS_ADMIN_POST_CANDIDATE_LIMIT = 80
 USER_NOTIFICATIONS_ADMIN_POST_SAMPLE_LIMIT = 2
-USER_NOTIFICATIONS_ANNOUNCEMENT_CANDIDATE_LIMIT = 80
 USER_NOTIFICATIONS_ANNOUNCEMENT_SAMPLE_LIMIT = 2
-USER_NOTIFICATIONS_COMMUNITY_POST_CANDIDATE_LIMIT = 120
 USER_NOTIFICATIONS_COMMUNITY_POST_SAMPLE_LIMIT = 3
 USER_NOTIFICATIONS_SEEN_SESSION_KEY = "user_notifications_seen_at"
 USER_NOTIFICATIONS_READ_SESSION_KEY = "user_notifications_read_keys_v1"
@@ -126,20 +123,72 @@ def _normalize_notification_read_keys(raw_value):
     return normalized[:USER_NOTIFICATIONS_MAX_READ_KEYS]
 
 
-def get_user_notification_read_keys(request):
-    read_keys = _normalize_notification_read_keys(
-        request.session.get(USER_NOTIFICATIONS_READ_SESSION_KEY, [])
+def _load_profile_notification_read_keys(user):
+    if not user or not user.is_authenticated:
+        return []
+    try:
+        profile = Profile.objects.only("notification_read_keys").get(user_id=user.id)
+    except Profile.DoesNotExist:
+        return []
+    return _normalize_notification_read_keys(profile.notification_read_keys)
+
+
+def _persist_profile_notification_read_keys(user, keys_list):
+    """Persist read keys on the user's profile so state survives logout/login."""
+    if not user or not user.is_authenticated:
+        return
+    normalized = _normalize_notification_read_keys(keys_list)
+    profile, _ = Profile.objects.get_or_create(
+        user=user,
+        defaults={
+            "address": "",
+            "age": 18,
+            "consent_given": True,
+            "email_verified": True,
+        },
     )
-    if read_keys != request.session.get(USER_NOTIFICATIONS_READ_SESSION_KEY, []):
-        request.session[USER_NOTIFICATIONS_READ_SESSION_KEY] = read_keys
+    if profile.notification_read_keys == normalized:
+        return
+    profile.notification_read_keys = normalized
+    profile.save(update_fields=["notification_read_keys"])
+
+
+def _migrate_session_notification_keys_to_profile(request):
+    """Legacy session keys (pre–DB storage) merged into profile once, then dropped."""
+    raw_session = request.session.get(USER_NOTIFICATIONS_READ_SESSION_KEY)
+    if not raw_session:
+        return
+    session_keys = _normalize_notification_read_keys(raw_session)
+    if not session_keys:
+        request.session.pop(USER_NOTIFICATIONS_READ_SESSION_KEY, None)
         request.session.modified = True
-    return set(read_keys)
+        return
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        return
+    profile_keys = _load_profile_notification_read_keys(user)
+    merged = _normalize_notification_read_keys(profile_keys + session_keys)
+    _persist_profile_notification_read_keys(user, merged)
+    request.session.pop(USER_NOTIFICATIONS_READ_SESSION_KEY, None)
+    request.session.modified = True
+
+
+def get_user_notification_read_keys(request):
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        return set()
+
+    _migrate_session_notification_keys_to_profile(request)
+    return set(_load_profile_notification_read_keys(user))
 
 
 def mark_user_notifications_read(request, notification_keys):
-    normalized_existing = _normalize_notification_read_keys(
-        request.session.get(USER_NOTIFICATIONS_READ_SESSION_KEY, [])
-    )
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        return set()
+
+    _migrate_session_notification_keys_to_profile(request)
+    normalized_existing = _load_profile_notification_read_keys(user)
     existing_set = set(normalized_existing)
 
     updated = list(normalized_existing)
@@ -154,9 +203,9 @@ def mark_user_notifications_read(request, notification_keys):
 
     updated = updated[-USER_NOTIFICATIONS_MAX_READ_KEYS:]
     if updated != normalized_existing:
-        request.session[USER_NOTIFICATIONS_READ_SESSION_KEY] = updated
-        request.session.modified = True
-    return existing_set
+        _persist_profile_notification_read_keys(user, updated)
+    request.session.pop(USER_NOTIFICATIONS_READ_SESSION_KEY, None)
+    return set(updated)
 
 
 def mark_user_notification_read(request, notification_key):
@@ -171,22 +220,18 @@ def bump_user_home_feed_namespace():
     cache.set(USER_HOME_FEED_NAMESPACE_KEY, _current_version_token(), None)
 
 
-def _sample_recent_ids_with_cache(cache_key, base_qs, candidate_limit, sample_limit):
+def _cached_newest_entity_ids(cache_key, base_qs, limit):
+    """Cache the newest entity ids by `created_at` (stable; avoids random resampling spikes)."""
     cached_ids = cache.get(cache_key)
     if cached_ids is not None:
         return cached_ids
 
-    candidate_ids = list(
-        base_qs.order_by("-created_at").values_list("id", flat=True)[:candidate_limit]
+    safe_limit = max(int(limit or 0), 1)
+    ids = list(
+        base_qs.order_by("-created_at").values_list("id", flat=True)[:safe_limit]
     )
-    if len(candidate_ids) > sample_limit:
-        sampled_ids = random.sample(candidate_ids, sample_limit)
-    else:
-        sampled_ids = candidate_ids
-
-    random.shuffle(sampled_ids)
-    cache.set(cache_key, sampled_ids, USER_NOTIFICATIONS_CACHE_TTL_SECONDS)
-    return sampled_ids
+    cache.set(cache_key, ids, USER_NOTIFICATIONS_CACHE_TTL_SECONDS)
+    return ids
 
 
 def _format_notification_time(dt):
@@ -478,10 +523,9 @@ def _build_incoming_user_request_items(user):
 
 
 def _build_announcement_items():
-    announcement_ids = _sample_recent_ids_with_cache(
+    announcement_ids = _cached_newest_entity_ids(
         USER_NOTIFICATIONS_ANNOUNCEMENT_IDS_CACHE_KEY,
         DogAnnouncement.objects.filter(created_by__is_staff=True),
-        USER_NOTIFICATIONS_ANNOUNCEMENT_CANDIDATE_LIMIT,
         USER_NOTIFICATIONS_ANNOUNCEMENT_SAMPLE_LIMIT,
     )
     announcements = {
@@ -512,10 +556,9 @@ def _build_announcement_items():
 
 
 def _build_admin_post_items():
-    admin_post_ids = _sample_recent_ids_with_cache(
+    admin_post_ids = _cached_newest_entity_ids(
         USER_NOTIFICATIONS_ADMIN_POST_IDS_CACHE_KEY,
         Post.objects.filter(user__is_staff=True),
-        USER_NOTIFICATIONS_ADMIN_POST_CANDIDATE_LIMIT,
         USER_NOTIFICATIONS_ADMIN_POST_SAMPLE_LIMIT,
     )
     posts = {
@@ -544,10 +587,9 @@ def _build_admin_post_items():
 
 
 def _build_community_post_items(user):
-    community_post_ids = _sample_recent_ids_with_cache(
+    community_post_ids = _cached_newest_entity_ids(
         USER_NOTIFICATIONS_COMMUNITY_POST_IDS_CACHE_KEY,
         UserAdoptionPost.objects.filter(status="available"),
-        USER_NOTIFICATIONS_COMMUNITY_POST_CANDIDATE_LIMIT,
         USER_NOTIFICATIONS_COMMUNITY_POST_SAMPLE_LIMIT,
     )
     community_posts = {
@@ -615,6 +657,41 @@ def _build_vaccination_reminder_items(user):
             "created_label": created_label,
         })
     return items
+
+
+def build_user_notification_summary(request):
+    """Build badge count and dropdown rows, applying per-session read keys to cached payload."""
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated or user.is_staff:
+        return {"unread_count": 0, "notifications": []}
+
+    payload = build_user_notification_payload(user)
+    read_keys = get_user_notification_read_keys(request)
+    notifications = []
+    unread_count = 0
+    for item in payload.get("items", []):
+        notification_key = (item.get("key", "") or "").strip()
+        target_url = item.get("url") or reverse("user:user_home")
+        is_unread = bool(notification_key and notification_key not in read_keys)
+        if is_unread:
+            unread_count += 1
+        notifications.append({
+            "kind": item.get("kind", "notification"),
+            "key": notification_key,
+            "title": item.get("title", ""),
+            "message": item.get("message", ""),
+            "url": target_url,
+            "created_label": item.get("created_label", ""),
+            "is_unread": is_unread,
+            "open_url": "{}?{}".format(
+                reverse("user:open_notification"),
+                urlencode({"key": notification_key, "next": target_url}),
+            ),
+        })
+    return {
+        "unread_count": unread_count,
+        "notifications": notifications,
+    }
 
 
 def build_user_notification_payload(user):

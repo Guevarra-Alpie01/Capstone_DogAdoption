@@ -1,26 +1,24 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block page_title %}Announcements | BAYAWAN VET{% endblock %}
+
+{% block body_class %} announcement-page{% endblock %}
+
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260413pinned-popup">
+<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260417page-bg">
+<link rel="stylesheet" href="{% static 'css/share_panel.css' %}?v=20260417">
 {% endblock %}
 
 {% block content %}
 <div class="user-ann-board">
-    <div class="user-ann-header">
-        <div class="user-ann-header-copy">
-            <div class="user-ann-header-text">
-                <h2 class="user-ann-title">Announcements</h2>
-            </div>
-        </div>
-    </div>
-
+    <h1 class="visually-hidden">Announcements</h1>
     <div class="user-ann-mobile-tabs announcement-mobile-tabs announcement-mobile-tabs--compact-stack"
          data-user-mobile-announcement-tabs
          data-mobile-announcement-tabs
          aria-label="Announcement sections">
         <button type="button"
-                class="user-ann-mobile-tab user-ann-mobile-tab--mobile-only announcement-mobile-tab announcement-mobile-tab--compact"
+                class="user-ann-mobile-tab announcement-mobile-tab announcement-mobile-tab--compact"
                 data-user-mobile-announcement-tab="pinned"
                 aria-pressed="false">
             <span>Pinned</span>
@@ -247,8 +245,6 @@
         render();
     }
 
-    document.querySelectorAll('[data-photo-viewer]').forEach(initPhotoViewer);
-
     const board = document.querySelector('[data-user-mobile-announcement-board]');
     const tabs = Array.from(document.querySelectorAll('[data-user-mobile-announcement-tab]'));
     const sections = Array.from(document.querySelectorAll('[data-user-mobile-announcement-section]'));
@@ -455,6 +451,17 @@
     function setActiveSection(sectionKey) {
         if (!board) return;
 
+        const isMobile = mobileLayout.matches;
+
+        /* Desktop: Pinned is always visible in the left column — only scroll to it, do not hide Main Feed / Campaign. */
+        if (!isMobile && sectionKey === 'pinned') {
+            const pinnedSection = sections.find(
+                (s) => s.getAttribute('data-user-mobile-announcement-section') === 'pinned'
+            );
+            pinnedSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+
         board.dataset.userMobileActive = sectionKey;
 
         tabs.forEach((tab) => {
@@ -465,7 +472,6 @@
 
         sections.forEach((section) => {
             const sectionKeyValue = section.getAttribute('data-user-mobile-announcement-section');
-            const isMobile = mobileLayout.matches;
 
             if (!isMobile && sectionKeyValue === 'pinned') {
                 section.hidden = false;
@@ -484,7 +490,13 @@
             return;
         }
 
-        setActiveSection(board.dataset.userMobileActive || board.dataset.userMobileDefault || 'regular');
+        let key = board.dataset.userMobileActive || board.dataset.userMobileDefault || 'regular';
+        if (!mobileLayout.matches && key === 'pinned') {
+            key = board.dataset.userMobileDefault || 'regular';
+            board.dataset.userMobileActive = key;
+        }
+
+        setActiveSection(key);
     }
 
     tabs.forEach((tab) => {
@@ -540,4 +552,5 @@
     });
 })();
 </script>
+{% include 'home/_feed_enhancements.html' %}
 {% endblock %}

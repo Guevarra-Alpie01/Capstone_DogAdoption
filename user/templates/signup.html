@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/login.css' %}?v=20260410i">
+<link rel="stylesheet" href="{% static 'css/login.css' %}?v=20260416white-panel">
 {% endblock %}
 
 {% block content %}
@@ -17,7 +17,23 @@
 }
 </style>
 <div class="auth-wrapper">
-    <div class="auth-card signup-card">
+    <div class="auth-card signup-card auth-card--with-dog" data-auth-dog-stack>
+        <div class="auth-dog-mascot" aria-hidden="true">
+            <img
+                class="auth-dog-mascot__img auth-dog-mascot__img--idle"
+                src="{% static 'images/dogstanding-final.png' %}"
+                alt=""
+                width="280"
+                height="220"
+                decoding="async">
+            <img
+                class="auth-dog-mascot__img auth-dog-mascot__img--active"
+                src="{% static 'images/dog_tounge_out-final.png' %}"
+                alt=""
+                width="280"
+                height="220"
+                decoding="async">
+        </div>
         <div class="auth-shell auth-shell--form-only">
             <div class="auth-panel">
                 <div class="auth-mobile-hero">
@@ -45,15 +61,13 @@
                     <input type="hidden" name="next" value="{{ auth_next|default:'' }}" data-auth-next-field>
                     <input type="hidden" name="google_credential" value="">
 
-                    <div class="mb-2 input-group">
-                        <label for="signupPageUsername" class="auth-field-label">Username</label>
-                        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                    <div class="g-field">
                         <input
                             type="text"
                             id="signupPageUsername"
                             name="username"
-                            class="form-control"
-                            placeholder="Enter username"
+                            class="g-field__input"
+                            placeholder=" "
                             value="{{ signup_form_data.username|default:'' }}"
                             autocomplete="username"
                             autocapitalize="none"
@@ -64,86 +78,57 @@
                             title="Use 3 to 150 letters, numbers, or . @ + - _ characters."
                             required
                         >
+                        <label class="g-field__label" for="signupPageUsername">Username</label>
                     </div>
 
-                    <div class="mb-2 input-group">
-                        <label for="signupPagePassword" class="auth-field-label">Password</label>
-                        <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+                    <div class="g-field">
                         <input
                             type="password"
                             id="signupPagePassword"
                             name="password"
-                            class="form-control"
-                            placeholder="Enter password"
+                            class="g-field__input"
+                            placeholder=" "
                             minlength="8"
                             autocomplete="new-password"
                             required
                         >
-                        <button type="button" class="input-group-text password-toggle" data-password-toggle="signupPagePassword" aria-label="Show password">
-                            <i class="bi bi-eye"></i>
-                        </button>
+                        <label class="g-field__label" for="signupPagePassword">Password</label>
                     </div>
 
-                    <div class="signup-password-guide" data-password-strength data-password-input-id="signupPagePassword">
-                        <div class="signup-password-strength-row">
-                            <span class="signup-password-strength-label">Password strength</span>
-                            <span class="signup-password-strength-value is-empty" data-password-strength-status aria-live="polite">Not checked</span>
-                        </div>
-                        <div class="signup-password-strength-bar" aria-hidden="true">
-                            <span class="signup-password-strength-fill" data-password-strength-fill></span>
-                        </div>
-                        <div class="signup-password-guide-copy">
-                            Use a mix of letters, numbers, and symbols to make your password stronger.
-                        </div>
-                        <ul class="signup-password-rules" aria-label="Password guide">
-                            <li data-password-rule="length">At least 8 characters</li>
-                            <li data-password-rule="upper">One uppercase letter</li>
-                            <li data-password-rule="lower">One lowercase letter</li>
-                            <li data-password-rule="number">One number</li>
-                            <li data-password-rule="symbol">One special character</li>
-                        </ul>
-                    </div>
-
-                    <div class="mb-2 input-group">
-                        <label for="signupPageConfirmPassword" class="auth-field-label">Confirm Password</label>
-                        <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
+                    <div class="g-field">
                         <input
                             type="password"
                             id="signupPageConfirmPassword"
                             name="confirm_password"
-                            class="form-control"
-                            placeholder="Confirm password"
+                            class="g-field__input"
+                            placeholder=" "
                             minlength="8"
                             autocomplete="new-password"
                             required
                         >
-                        <button type="button" class="input-group-text password-toggle" data-password-toggle="signupPageConfirmPassword" aria-label="Show password">
-                            <i class="bi bi-eye"></i>
-                        </button>
+                        <label class="g-field__label" for="signupPageConfirmPassword">Confirm password</label>
                     </div>
 
                     <div class="auth-grid-two">
-                        <div class="mb-2 input-group">
-                            <span class="input-group-text"><i class="bi bi-person"></i></span>
-                            <input type="text" name="first_name" class="form-control" placeholder="First Name" value="{{ signup_form_data.first_name|default:'' }}" required>
+                        <div class="g-field">
+                            <input type="text" id="signupPageFirstName" name="first_name" class="g-field__input" placeholder=" " value="{{ signup_form_data.first_name|default:'' }}" autocomplete="given-name" required>
+                            <label class="g-field__label" for="signupPageFirstName">First name</label>
                         </div>
 
-                        <div class="mb-2 input-group">
-                            <span class="input-group-text"><i class="bi bi-person"></i></span>
-                            <input type="text" name="last_name" class="form-control" placeholder="Last Name" value="{{ signup_form_data.last_name|default:'' }}" required>
+                        <div class="g-field">
+                            <input type="text" id="signupPageLastName" name="last_name" class="g-field__input" placeholder=" " value="{{ signup_form_data.last_name|default:'' }}" autocomplete="family-name" required>
+                            <label class="g-field__label" for="signupPageLastName">Last name</label>
                         </div>
                     </div>
 
                     <div class="mb-3 signup-barangay-wrap">
-                        <div class="input-group">
-                            <label for="signupPageBarangay" class="auth-field-label">Barangay</label>
-                            <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                        <div class="g-field">
                             <input
                                 type="text"
                                 name="address"
                                 id="signupPageBarangay"
-                                class="form-control"
-                                placeholder="Enter barangay"
+                                class="g-field__input"
+                                placeholder=" "
                                 value="{{ signup_form_data.address|default:'' }}"
                                 autocomplete="off"
                                 required
@@ -152,6 +137,7 @@
                                 data-barangay-suggestions-id="signup-barangay-suggestions"
                                 data-barangay-strict="true"
                             >
+                            <label class="g-field__label" for="signupPageBarangay">Barangay</label>
                         </div>
                         <div id="signup-barangay-suggestions" class="suggestions-box" style="display:none;"></div>
                     </div>

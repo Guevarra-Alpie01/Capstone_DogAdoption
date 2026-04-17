@@ -14,6 +14,7 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('notifications/open/', views.open_notification, name='open_notification'),
     path('notifications/summary/', views.notification_summary, name='notification_summary'),
+    path('notifications/read/', views.mark_notification_read, name='mark_notification_read'),
     path('notifications/seen/', views.mark_notifications_seen, name='mark_notifications_seen'),
     path('sign-up/', views.signup_view, name="signup"),
     path('complete-profile/', views.complete_google_profile, name="complete_google_profile"),
@@ -56,6 +57,7 @@ urlpatterns = [
 
     # Navigation 5/5: Adopt
     path("adopt-list/", views.adopt_list, name="adopt_list"),
+    path("adopt/my-post-approvals/", views.my_post_approvals, name="my_post_approvals"),
     path('adopt/status/', views.adopt_status, name='adopt_status'),
     path('adopt/<adminpostid:post_id>/', views.adopt_confirm, name='adopt_confirm'),
 ]

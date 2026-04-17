@@ -150,6 +150,32 @@ body::before {
     text-shadow: 0 6px 16px rgba(5, 15, 10, 0.28);
 }
 
+.auth-card .auth-panel .auth-panel-header h2 {
+    color: #111827;
+    text-shadow: none;
+}
+
+.auth-card .auth-panel .auth-footer a {
+    color: #1d7344 !important;
+}
+
+.auth-card .auth-panel .auth-footer a:hover {
+    color: #145a36 !important;
+}
+
+.auth-card .auth-panel .auth-divider {
+    color: #6b7280;
+}
+
+.auth-card .auth-panel .auth-divider::before,
+.auth-card .auth-panel .auth-divider::after {
+    background: linear-gradient(90deg, transparent, #e5e7eb, transparent);
+}
+
+.auth-card .auth-panel::after {
+    display: none;
+}
+
 .auth-card .text-muted {
     color: rgba(240, 248, 243, 0.84) !important;
 }
@@ -1001,13 +1027,11 @@ body.login-page-paws .site-content {
 .login-paws-card {
     width: 100%;
     max-width: 420px;
-    background: rgba(255, 255, 255, 0.92);
+    background: #ffffff;
     border-radius: 28px;
     padding: 26px 22px 24px;
-    border: 1px solid rgba(45, 90, 64, 0.12);
-    box-shadow:
-        0 20px 40px rgba(25, 60, 40, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
 }
 
 .login-paws-title {
@@ -1246,5 +1270,127 @@ body.login-page-paws .site-content {
 
     .login-paws-title {
         font-size: 1.85rem;
+    }
+}
+
+/* -------------------------------------------------------------------------
+   Dog inside outer card (green signup / cream login); paws on inner edge
+   ------------------------------------------------------------------------- */
+
+.auth-dog-mascot {
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.auth-dog-mascot__img {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    object-position: bottom center;
+    filter: drop-shadow(0 12px 20px rgba(25, 60, 40, 0.22));
+    transition:
+        opacity 0.45s cubic-bezier(0.33, 1, 0.68, 1),
+        transform 0.5s cubic-bezier(0.34, 1.25, 0.64, 1);
+}
+
+.auth-dog-mascot__img--idle {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.auth-dog-mascot__img--active {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px) scale(1.07);
+}
+
+[data-auth-dog-stack].is-field-focused .auth-dog-mascot__img--idle {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px) scale(0.93);
+}
+
+[data-auth-dog-stack].is-field-focused .auth-dog-mascot__img--active {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+}
+
+/* Full-page signup: dog inside .auth-card */
+.auth-wrapper .auth-card--with-dog {
+    overflow: visible;
+    padding: 2px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.auth-wrapper .auth-card--with-dog .auth-dog-mascot {
+    flex-shrink: 0;
+    width: min(268px, 78vw);
+    height: clamp(116px, 32vw, 162px);
+    margin: -4px auto -62px;
+}
+
+.auth-wrapper .auth-card--with-dog .auth-dog-mascot__img {
+    max-height: 162px;
+    filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.38));
+}
+
+.auth-wrapper .auth-card--with-dog .auth-shell {
+    position: relative;
+    z-index: 1;
+}
+
+.auth-wrapper .auth-card--with-dog .auth-panel {
+    padding-top: 48px;
+}
+
+/* Standalone paws login: dog inside cream .login-paws-card */
+body.login-page-paws .login-paws-card--with-dog {
+    overflow: visible;
+    padding-top: 0;
+}
+
+body.login-page-paws .login-paws-card--with-dog .auth-dog-mascot {
+    width: min(268px, 78vw);
+    height: clamp(116px, 32vw, 162px);
+    margin: -4px auto -54px;
+}
+
+body.login-page-paws .login-paws-card--with-dog .auth-dog-mascot__img {
+    max-height: 162px;
+}
+
+body.login-page-paws .login-paws-card--with-dog .login-paws-title {
+    position: relative;
+    z-index: 1;
+    padding-top: 36px;
+    margin-top: 0;
+}
+
+@media (min-width: 768px) {
+    .auth-wrapper .auth-card--with-dog .auth-dog-mascot {
+        margin-bottom: -64px;
+    }
+
+    .auth-wrapper .auth-card--with-dog .auth-panel {
+        padding-top: 52px;
+    }
+
+    body.login-page-paws .login-paws-card--with-dog .auth-dog-mascot {
+        margin-bottom: -58px;
+    }
+
+    body.login-page-paws .login-paws-card--with-dog .login-paws-title {
+        padding-top: 40px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-dog-mascot__img {
+        transition-duration: 0.05s;
+        transition-timing-function: ease;
     }
 }

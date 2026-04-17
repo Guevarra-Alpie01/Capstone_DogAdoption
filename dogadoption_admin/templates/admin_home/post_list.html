@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260417post-toolbar-fullbleed">
+<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260417tooltips-unified">
 
 <div class="post-toolbar-shell">
     <div class="post-toolbar">
@@ -299,7 +299,15 @@
                                         {% with post=item.post %}
                                         <tr{% if item.is_pinned %} class="status-board-row--pinned"{% endif %}>
                                             <td class="status-board-pin-col">
-                                                <form method="post" action="{{ item.pin_url }}" class="status-pin-form">
+                                                <form
+                                                    method="post"
+                                                    action="{{ item.pin_url }}"
+                                                    class="status-pin-form"
+                                                    data-confirm-modal
+                                                    data-confirm-title="Confirm"
+                                                    data-confirm-message="{{ item.pin_label }}?"
+                                                    data-confirm-submit-label="Continue"
+                                                >
                                                     {% csrf_token %}
                                                     <input type="hidden" name="next" value="{{ return_to }}">
                                                     <button
@@ -350,8 +358,10 @@
                                                     class="status-request-chip"
                                                     data-bs-toggle="modal"
                                                     data-bs-target="#{{ item.request_modal_id }}"
+                                                    title="{% if item.request_type == 'claim' %}View redeem requests from residents{% else %}View adoption requests from residents{% endif %}"
+                                                    aria-label="{% if item.request_type == 'claim' %}View redeem requests, {{ item.request_count }} total{% else %}View adoption requests, {{ item.request_count }} total{% endif %}"
                                                 >
-                                                    <i class="fas fa-inbox" aria-hidden="true"></i>
+                                                    <i class="bi bi-people" aria-hidden="true"></i>
                                                     <span>{{ item.request_count }}</span>
                                                 </button>
                                             </td>
@@ -360,13 +370,25 @@
                                                     <a
                                                         href="{{ item.edit_url }}?next={{ return_to|urlencode }}"
                                                         class="status-icon-btn"
+                                                        data-confirm-button
+                                                        data-confirm-title="Open editor"
+                                                        data-confirm-message="Open the edit page for this post?"
+                                                        data-confirm-submit-label="Continue"
                                                         title="Edit post"
                                                         aria-label="Edit post"
                                                     >
-                                                        <i class="fas fa-pen" aria-hidden="true"></i>
+                                                        <i class="bi bi-pencil-square" aria-hidden="true"></i>
                                                     </a>
                                                     {% if item.allow_toggle %}
-                                                        <form method="post" action="{{ item.toggle_url }}" class="status-action-form">
+                                                        <form
+                                                            method="post"
+                                                            action="{{ item.toggle_url }}"
+                                                            class="status-action-form"
+                                                            data-confirm-modal
+                                                            data-confirm-title="Confirm switch"
+                                                            data-confirm-message="{% if item.toggle_phase == 'adopt' %}Switch this post to the adoption board?{% else %}Switch this post to the redeem board?{% endif %}"
+                                                            data-confirm-submit-label="Switch"
+                                                        >
                                                             {% csrf_token %}
                                                             <input type="hidden" name="next" value="{{ return_to }}">
                                                             <input type="hidden" name="phase" value="{{ item.toggle_phase }}">
@@ -376,7 +398,7 @@
                                                                 title="{{ item.toggle_label }}"
                                                                 aria-label="{{ item.toggle_label }}"
                                                             >
-                                                                <i class="fas fa-repeat" aria-hidden="true"></i>
+                                                                <i class="bi bi-arrow-left-right" aria-hidden="true"></i>
                                                             </button>
                                                         </form>
                                                     {% endif %}
@@ -411,7 +433,7 @@
                                                         data-delete-action="{{ item.delete_url }}"
                                                         data-delete-title="{{ post.display_title|default:'Dog Listing'|escape }}"
                                                     >
-                                                        <i class="fas fa-trash" aria-hidden="true"></i>
+                                                        <i class="bi bi-trash3" aria-hidden="true"></i>
                                                     </button>
                                                 </div>
                                             </td>
@@ -831,16 +853,29 @@
         if (!window.bootstrap || !window.bootstrap.Tooltip) {
             return;
         }
-        document.querySelectorAll(".post-toolbar .post-toolbar-icon-btn[title]").forEach((element) => {
+        const tooltipOpts = {
+            placement: "bottom",
+            container: "body",
+            customClass: "post-list-tooltip",
+            fallbackPlacements: ["top"],
+            boundary: "viewport",
+            offset: "0,8",
+            html: false,
+        };
+        const tooltipHosts = document.querySelectorAll(
+            [
+                ".post-toolbar .post-toolbar-icon-btn[title]",
+                ".status-request-chip[title]",
+                ".status-icon-actions .status-icon-btn[title]",
+            ].join(", ")
+        );
+        tooltipHosts.forEach((element) => {
             try {
-                window.bootstrap.Tooltip.getOrCreateInstance(element, {
-                    placement: "bottom",
-                    container: "body",
-                    customClass: "post-toolbar-tooltip",
-                    fallbackPlacements: ["top"],
-                    boundary: "viewport",
-                    offset: "0,8",
-                });
+                const existing = window.bootstrap.Tooltip.getInstance(element);
+                if (existing) {
+                    existing.dispose();
+                }
+                window.bootstrap.Tooltip.getOrCreateInstance(element, tooltipOpts);
             } catch (e) {
                 console.error("Bootstrap tooltip error:", e);
             }

@@ -402,7 +402,7 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
                         "confirm_message": "Record this expired post as adopted and keep it in history?",
                         "confirm_submit_label": "Record Adopted",
                         "button_class": "history-action-btn--adopted",
-                        "icon": "fas fa-heart",
+                        "icon": "bi bi-heart",
                     },
                     {
                         "status": "reunited",
@@ -411,7 +411,7 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
                         "confirm_message": "Record this expired post as redeemed and keep it in history?",
                         "confirm_submit_label": "Record Redeemed",
                         "button_class": "history-action-btn--redeemed",
-                        "icon": "fas fa-hand-holding-heart",
+                        "icon": "bi bi-house",
                     },
                 ]
 
@@ -2438,7 +2438,7 @@ def post_list(request):
             "finalize_url": reverse("dogadoption_admin:finalize_post", args=[post.id]),
             "finalize_status": "reunited" if section_key == "claim" else "adopted",
             "finalize_label": "Mark as Redeemed" if section_key == "claim" else "Mark as Adopted",
-            "finalize_icon": "fas fa-home" if section_key == "claim" else "fas fa-heart",
+            "finalize_icon": "bi bi-house" if section_key == "claim" else "bi bi-heart",
             "delete_url": reverse("dogadoption_admin:delete_post", args=[post.id]),
             "allow_toggle": allow_toggle,
         }

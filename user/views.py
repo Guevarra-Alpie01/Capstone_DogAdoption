@@ -1737,6 +1737,10 @@ def _build_rescue_finder_form(*args, location_choices=None, default_purpose="all
 
 
 def _finder_default_purpose(listing_mode):
+    if listing_mode == "adopt":
+        return "adopt"
+    if listing_mode == "claim":
+        return "claim"
     return "all"
 
 
@@ -1981,8 +1985,8 @@ def _finder_maybe_redirect_for_highlight(
     selected_purpose,
 ):
     """
-    When ?highlight= is present, redirect to the correct purpose/tab and page so the
-    target card is actually in the DOM (load-more pagination).
+    When ?highlight= is present, redirect to the correct purpose and page so the
+    target card is in the unified paginated list.
     """
     kind, hid = _parse_finder_highlight(request.GET.get("highlight"))
     if not kind or not hid:
@@ -1990,37 +1994,52 @@ def _finder_maybe_redirect_for_highlight(
 
     path = request.path
     params = request.GET.copy()
+    highlight_val = f"{kind}:{hid}"
 
-    if kind == "user":
-        if not any(item.get("post_id") == hid for item in user_adoption_items):
-            return None
-        if selected_purpose == "claim":
-            params["purpose"] = "all"
-            params["highlight"] = f"user:{hid}"
-            return f"{path}?{params.urlencode()}"
+    def _find_index(entries):
+        if kind == "user":
+            return next(
+                (
+                    i
+                    for i, e in enumerate(entries)
+                    if e[0] == "user" and e[1].get("post_id") == hid
+                ),
+                None,
+            )
+        return next(
+            (
+                i
+                for i, e in enumerate(entries)
+                if e[0] == "staff" and e[1]["post"].id == hid
+            ),
+            None,
+        )
+
+    purpose_candidates = [selected_purpose]
+    if selected_purpose != "all":
+        purpose_candidates.append("all")
+
+    target_idx = None
+    target_purpose = None
+    for purpose in purpose_candidates:
+        entries = _finder_unified_entries(
+            purpose, claim_items, adopt_items, user_adoption_items
+        )
+        idx = _find_index(entries)
+        if idx is not None:
+            target_idx = idx
+            target_purpose = purpose
+            break
+
+    if target_idx is None:
         return None
 
-    claim_idx = next((i for i, it in enumerate(claim_items) if it["post"].id == hid), None)
-    adopt_idx = next((i for i, it in enumerate(adopt_items) if it["post"].id == hid), None)
-
-    if claim_idx is not None:
-        need_purpose = "claim"
-        page_need = claim_idx // RESCUE_FINDER_PAGE_SIZE + 1
-    elif adopt_idx is not None:
-        need_purpose = "adopt"
-        page_need = adopt_idx // RESCUE_FINDER_PAGE_SIZE + 1
-    else:
-        return None
-
+    page_need = target_idx // RESCUE_FINDER_PAGE_SIZE + 1
     cur_page = int(request.GET.get("page") or 1)
-    params["highlight"] = f"staff:{hid}"
+    params["highlight"] = highlight_val
 
-    if selected_purpose not in (need_purpose, "all"):
-        params["purpose"] = need_purpose
-        params["page"] = str(page_need)
-        return f"{path}?{params.urlencode()}"
-    if cur_page != page_need:
-        params["purpose"] = selected_purpose
+    if target_purpose != selected_purpose or cur_page != page_need:
+        params["purpose"] = target_purpose
         params["page"] = str(page_need)
         return f"{path}?{params.urlencode()}"
     return None
@@ -2255,6 +2274,42 @@ def _filter_user_adoption_posts(posts_qs, filter_type):
     return posts_qs, filter_type
 
 
+def _finder_unified_sort_key(entry):
+    """Sort key for (kind, item) where kind is staff|user."""
+    kind, item = entry
+    if kind == "user":
+        return (
+            -item.get("match_score", 0),
+            0 if item.get("main_image_url") else 1,
+            -item["created_at"].timestamp(),
+            item["post_id"],
+        )
+    return (
+        -item.get("match_score", 0),
+        0 if item.get("main_image_url") else 1,
+        -item["post"].created_at.timestamp(),
+        item["post"].id,
+    )
+
+
+def _finder_unified_entries(selected_purpose, claim_items, adopt_items, user_adoption_items):
+    """Merge finder rows for the active Purpose filter (single scrollable list)."""
+    if selected_purpose == "all":
+        parts = (
+            [("staff", c) for c in claim_items]
+            + [("staff", a) for a in adopt_items]
+            + [("user", u) for u in user_adoption_items]
+        )
+    elif selected_purpose == "claim":
+        parts = [("staff", c) for c in claim_items]
+    elif selected_purpose == "adopt":
+        parts = [("staff", a) for a in adopt_items] + [("user", u) for u in user_adoption_items]
+    else:
+        parts = []
+    parts.sort(key=_finder_unified_sort_key)
+    return parts
+
+
 def _build_public_post_listing(request, listing_mode):
     """Build the rescue finder page using real rescue-post phases and profile filters."""
     preferred_purpose = _finder_default_purpose(listing_mode)
@@ -2376,12 +2431,28 @@ def _build_public_post_listing(request, listing_mode):
     phase_counts["adopt"] += user_adopt_count
     phase_counts["all"] += user_adopt_count
 
-    claim_page_obj = Paginator(claim_items, RESCUE_FINDER_PAGE_SIZE).get_page(
-        request.GET.get("page", 1) if selected_purpose in ("all", "claim") else 1
+    unified_entries_all = _finder_unified_entries(
+        selected_purpose, claim_items, adopt_items, user_adoption_items
     )
-    adopt_page_obj = Paginator(adopt_items, RESCUE_FINDER_PAGE_SIZE).get_page(
-        request.GET.get("page", 1) if selected_purpose in ("all", "adopt") else 1
-    )
+    recommended_posts = []
+    if active_filter_count:
+        for entry_kind, entry_item in unified_entries_all:
+            if entry_kind == "staff" and entry_item.get("match_score", 0) > 0:
+                recommended_posts = [entry_item]
+                break
+
+    unified_paginator = Paginator(unified_entries_all, RESCUE_FINDER_PAGE_SIZE)
+    unified_page_obj = unified_paginator.get_page(request.GET.get("page", 1))
+    page_pairs = list(unified_page_obj.object_list)
+    finder_unified_rows = [{"kind": k, "item": item} for k, item in page_pairs]
+    posts = [item for k, item in page_pairs if k == "staff"]
+    claim_posts = [
+        item for k, item in page_pairs if k == "staff" and item["phase"] == "claim"
+    ]
+    adopt_posts = [
+        item for k, item in page_pairs if k == "staff" and item["phase"] == "adopt"
+    ]
+    user_adoption_posts = [item for k, item in page_pairs if k == "user"]
 
     purpose_options = [
         {
@@ -2432,11 +2503,13 @@ def _build_public_post_listing(request, listing_mode):
         ),
         "active_filter_chips": active_filter_chips,
         "active_filter_count": active_filter_count,
-        "claim_posts": list(claim_page_obj.object_list),
-        "claim_page_obj": claim_page_obj,
-        "adopt_posts": list(adopt_page_obj.object_list),
-        "adopt_page_obj": adopt_page_obj,
-        "user_adoption_posts": user_adoption_items,
+        "finder_unified_rows": finder_unified_rows,
+        "unified_page_obj": unified_page_obj,
+        "recommended_posts": recommended_posts,
+        "claim_posts": claim_posts,
+        "adopt_posts": adopt_posts,
+        "posts": posts,
+        "user_adoption_posts": user_adoption_posts,
         "pagination_query": _pagination_query_without_page(request.GET),
         "clear_filters_url": reverse(
             "user:claim_list" if listing_mode == "claim" else "user:adopt_list"

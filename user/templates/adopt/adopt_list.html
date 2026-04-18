@@ -25,7 +25,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260418finder-countdown-caption">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260418finder-unified-list">
 {% endblock %}
 
 {% block content %}
@@ -315,96 +315,38 @@
 
     <div class="finder-content">
 
-        {% if current_purpose == "all" or current_purpose == "claim" %}
         <section class="finder-results">
             <div class="finder-section__head">
                 <div>
-                    <h2 class="finder-section__title">Dogs Ready for Redemption</h2>
-                    <p class="finder-section__text">These dogs are still within the owner-claim window.</p>
+                    <h2 class="finder-section__title">Find Dogs</h2>
+                    <p class="finder-section__text">Browse rescue listings and community adoption posts. Use Purpose and filters to narrow the list.</p>
                 </div>
-                <p class="finder-section__meta">{{ claim_page_obj.paginator.count }} dog{{ claim_page_obj.paginator.count|pluralize }}</p>
+                <p class="finder-section__meta">{{ unified_page_obj.paginator.count }} result{{ unified_page_obj.paginator.count|pluralize }}</p>
             </div>
 
-            {% if claim_posts %}
+            {% if finder_unified_rows %}
             <div class="finder-card-grid">
-                {% for item in claim_posts %}
-                {% include "adopt/_finder_card.html" with item=item active_filter_count=active_filter_count %}
+                {% for row in finder_unified_rows %}
+                    {% if row.kind == "staff" %}
+                    {% include "adopt/_finder_card.html" with item=row.item active_filter_count=active_filter_count %}
+                    {% else %}
+                    {% include "adopt/_user_adoption_card.html" with item=row.item active_filter_count=active_filter_count %}
+                    {% endif %}
                 {% endfor %}
             </div>
-            {% if claim_page_obj.has_next %}
+            {% if unified_page_obj.has_next %}
             <div class="finder-load-more">
-                <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ claim_page_obj.next_page_number }}" class="finder-load-more__link">Load more dogs</a>
+                <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ unified_page_obj.next_page_number }}" class="finder-load-more__link">Load more dogs</a>
             </div>
             {% endif %}
             {% else %}
             <div class="finder-empty finder-empty--inline">
-                <h3>No dogs ready for redemption</h3>
-                <p>There are no dogs in the claim window right now.</p>
+                <h3>No dogs found</h3>
+                <p>No dogs match this Purpose and filters right now.</p>
+                <a href="{{ clear_filters_url }}" class="finder-empty__link">Reset search</a>
             </div>
             {% endif %}
         </section>
-        {% endif %}
-
-        {% if current_purpose == "all" or current_purpose == "adopt" %}
-        <section class="finder-results">
-            <div class="finder-section__head">
-                <div>
-                    <h2 class="finder-section__title">Dogs Ready for Adoption</h2>
-                    <p class="finder-section__text">These dogs have moved into the adoption window.</p>
-                </div>
-                <p class="finder-section__meta">{{ adopt_page_obj.paginator.count }} dog{{ adopt_page_obj.paginator.count|pluralize }}</p>
-            </div>
-
-            {% if adopt_posts %}
-            <div class="finder-card-grid">
-                {% for item in adopt_posts %}
-                {% include "adopt/_finder_card.html" with item=item active_filter_count=active_filter_count %}
-                {% endfor %}
-            </div>
-            {% if adopt_page_obj.has_next %}
-            <div class="finder-load-more">
-                <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ adopt_page_obj.next_page_number }}" class="finder-load-more__link">Load more dogs</a>
-            </div>
-            {% endif %}
-            {% else %}
-            <div class="finder-empty finder-empty--inline">
-                <h3>No dogs ready for adoption</h3>
-                <p>There are no dogs in the adoption window right now.</p>
-            </div>
-            {% endif %}
-        </section>
-
-        <section class="finder-results">
-            <div class="finder-section__head">
-                <div>
-                    <h2 class="finder-section__title">User Adoption Posts</h2>
-                    <p class="finder-section__text">Dogs posted for adoption by community members.</p>
-                </div>
-                <p class="finder-section__meta">{{ user_adoption_posts|length }} post{{ user_adoption_posts|length|pluralize }}</p>
-            </div>
-
-            {% if user_adoption_posts %}
-            <div class="finder-card-grid">
-                {% for item in user_adoption_posts %}
-                {% include "adopt/_user_adoption_card.html" with item=item active_filter_count=active_filter_count %}
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="finder-empty finder-empty--inline">
-                <h3>No user adoption posts</h3>
-                <p>No community members have posted dogs for adoption yet.</p>
-            </div>
-            {% endif %}
-        </section>
-        {% endif %}
-
-        {% if current_purpose == "all" and not claim_posts and not adopt_posts and not user_adoption_posts %}
-        <div class="finder-empty">
-            <h3>No dogs found</h3>
-            <p>There are no active dogs for this view right now. Check back again soon.</p>
-            <a href="{{ clear_filters_url }}" class="finder-empty__link">Reset search</a>
-        </div>
-        {% endif %}
 
     </div>
 </div>

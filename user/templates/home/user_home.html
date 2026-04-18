@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..800&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260418ordinance-split-cols">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260418unified-browse-carousel">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -247,7 +247,7 @@
     <div class="home-featured-grid">
         {% for section in featured_dog_sections %}
         <section class="home-featured-section home-featured-section--{{ section.key }}" style="--home-stagger: {{ forloop.counter0 }};" aria-label="{{ section.title }}">
-            <div class="home-featured-section__head">
+            <div class="home-featured-section__head home-featured-section__head--browse">
                 <div class="home-featured-section__copy">
                     {% if section.eyebrow %}
                     <span class="home-featured-section__eyebrow">{{ section.eyebrow }}</span>
@@ -257,7 +257,12 @@
                     <p>{{ section.description }}</p>
                     {% endif %}
                 </div>
-                <a href="{{ section.browse_url }}" class="home-featured-section__see-all">Browse All</a>
+                <div class="home-featured-section__browse-actions">
+                    <a href="{{ section.browse_url }}" class="home-featured-section__see-all">Adopt listings</a>
+                    {% if section.browse_url_redeem %}
+                    <a href="{{ section.browse_url_redeem }}" class="home-featured-section__see-all home-featured-section__see-all--ghost">Owner redeem</a>
+                    {% endif %}
+                </div>
             </div>
 
             {% if section.items %}
@@ -286,9 +291,7 @@
                             <div class="dog-scale-carousel__media-overlay">
                                 <div class="dog-scale-carousel__media-top">
                                     <div class="dog-scale-carousel__chips">
-                                        {% if section.key != 'claim' and section.key != 'adopt' %}
                                         <span class="dog-scale-carousel__chip dog-scale-carousel__chip--phase">{{ item.phase_title }}</span>
-                                        {% endif %}
                                         <span class="dog-scale-carousel__chip">{{ item.time_left_badge }}</span>
                                     </div>
                                 </div>
@@ -300,7 +303,7 @@
                                     </div>
 
                                     <div class="dog-scale-carousel__actions dog-scale-carousel__actions--overlay">
-                                        {% if section.key == 'claim' %}
+                                        {% if item.carousel_phase == 'claim' %}
                                             {% if item.show_claim_cta %}
                                             <a
                                                 href="{{ item.home_action_url }}"
@@ -437,7 +440,7 @@
                     <div class="dog-scale-carousel__indicators">
                         {% for item in section.items %}
                         <label class="dog-scale-carousel__indicator" for="{{ item.input_id }}">
-                            <span class="visually-hidden">{{ section.title }} slide {{ forloop.counter }}</span>
+                            <span class="visually-hidden">Slide {{ forloop.counter }} of {{ section.items|length }}</span>
                         </label>
                         {% endfor %}
                     </div>
@@ -446,7 +449,12 @@
             {% else %}
             <div class="home-featured-empty">
                 <p>{{ section.empty_message }}</p>
-                <a href="{{ section.browse_url }}" class="home-featured-section__see-all home-featured-section__see-all--inline">Browse {{ section.title }}</a>
+                <div class="home-featured-empty__links">
+                    <a href="{{ section.browse_url }}" class="home-featured-section__see-all home-featured-section__see-all--inline">View adopt listings</a>
+                    {% if section.browse_url_redeem %}
+                    <a href="{{ section.browse_url_redeem }}" class="home-featured-section__see-all home-featured-section__see-all--inline home-featured-section__see-all--ghost">Owner redemption list</a>
+                    {% endif %}
+                </div>
             </div>
             {% endif %}
         </section>

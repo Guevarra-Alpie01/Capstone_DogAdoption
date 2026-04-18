@@ -107,6 +107,7 @@ _signup_username_validator = ASCIIUsernameValidator()
 RESCUE_FINDER_PAGE_SIZE = 12
 RESCUE_FINDER_RECOMMENDATION_LIMIT = 4
 HOME_FEATURED_CAROUSEL_LIMIT = 5
+HOME_FEATURED_UNIFIED_CAROUSEL_LIMIT = 8
 HOME_SPOTLIGHT_DISPLAY_LIMIT = 4
 HOME_SPOTLIGHT_FALLBACK_CANDIDATE_LIMIT = 60
 HOME_FEATURED_CANDIDATE_LIMIT = 60
@@ -2601,42 +2602,45 @@ def _build_home_featured_rescue_sections(request):
         card_item.update({
             "home_action_url": f'{card_item["action_url"]}?return_to=home',
             "barangay_label": card_item["location_label"],
+            "carousel_phase": phase,
         })
         section_items[phase].append(card_item)
 
         if all(len(items) >= HOME_FEATURED_CAROUSEL_LIMIT for items in section_items.values()):
             break
 
+    claim_queue = list(section_items["claim"])
+    adopt_queue = list(section_items["adopt"])
+    unified_items = []
+    while len(unified_items) < HOME_FEATURED_UNIFIED_CAROUSEL_LIMIT and (claim_queue or adopt_queue):
+        if claim_queue:
+            unified_items.append(claim_queue.pop(0))
+        if len(unified_items) >= HOME_FEATURED_UNIFIED_CAROUSEL_LIMIT:
+            break
+        if adopt_queue:
+            unified_items.append(adopt_queue.pop(0))
+
+    input_ids = [
+        f"home-carousel-browse-{index}"
+        for index in range(1, len(unified_items) + 1)
+    ]
+    for index, item in enumerate(unified_items):
+        item["input_id"] = input_ids[index]
+        item["previous_input_id"] = input_ids[index - 1] if input_ids else ""
+        item["next_input_id"] = input_ids[(index + 1) % len(input_ids)] if input_ids else ""
+
     sections = [
         {
-            "key": "claim",
-            "title": "Redeem Ready",
-            "eyebrow": "Owner Redemption Window",
-            "description": "Dogs still within the owner redemption window.",
-            "browse_url": reverse("user:redeem_list"),
-            "empty_message": "No dogs are currently in the redemption window.",
-            "items": section_items["claim"],
-        },
-        {
-            "key": "adopt",
-            "title": "Ready to Adopt",
-            "eyebrow": "Adoption Window",
-            "description": "Dogs ready to meet their next family.",
+            "key": "browse",
+            "title": "Find dogs waiting for you",
+            "eyebrow": "Browse dogs",
+            "description": "Meet rescues open for owner redemption or ready to adopt—swipe through and take the next step.",
             "browse_url": reverse("user:adopt_list"),
-            "empty_message": "No dogs are currently ready for adoption.",
-            "items": section_items["adopt"],
+            "browse_url_redeem": reverse("user:redeem_list"),
+            "empty_message": "No dogs are in the redemption or adoption windows right now. Check back soon.",
+            "items": unified_items,
         },
     ]
-
-    for section in sections:
-        input_ids = [
-            f'home-carousel-{section["key"]}-{index}'
-            for index in range(1, len(section["items"]) + 1)
-        ]
-        for index, item in enumerate(section["items"]):
-            item["input_id"] = input_ids[index]
-            item["previous_input_id"] = input_ids[index - 1] if input_ids else ""
-            item["next_input_id"] = input_ids[(index + 1) % len(input_ids)] if input_ids else ""
 
     return sections
 

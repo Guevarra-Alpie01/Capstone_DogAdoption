@@ -1692,7 +1692,11 @@ def _viewer_staff_post_request_map(user, post_ids):
 
 
 def _staff_post_public_cta_flags(phase, user, vf):
-    """Which claim/reserve/adopt buttons to show on public cards (guests always see CTAs)."""
+    """Which claim/reserve/adopt buttons to show on public cards (guests always see CTAs).
+
+    Logged-in users: claim and reserve (adopt-type request during claim phase) are mutually
+    exclusive — only one request type per post. Same for adopt phase vs an existing claim row.
+    """
     vf = vf or {"claim": False, "adopt": False}
     if not user or not getattr(user, "is_authenticated", False):
         return {
@@ -1700,10 +1704,12 @@ def _staff_post_public_cta_flags(phase, user, vf):
             "show_reserve_adoption_cta": phase == "claim",
             "show_adopt_cta": phase == "adopt",
         }
+    has_claim = vf["claim"]
+    has_adopt = vf["adopt"]
     return {
-        "show_claim_cta": phase == "claim" and not vf["claim"],
-        "show_reserve_adoption_cta": phase == "claim" and not vf["adopt"],
-        "show_adopt_cta": phase == "adopt" and not vf["adopt"],
+        "show_claim_cta": phase == "claim" and not has_claim and not has_adopt,
+        "show_reserve_adoption_cta": phase == "claim" and not has_claim and not has_adopt,
+        "show_adopt_cta": phase == "adopt" and not has_adopt and not has_claim,
     }
 
 
@@ -3054,6 +3060,24 @@ def _handle_confirm_request(
     if not is_open_fn(post):
         messages.warning(request, not_open_message)
         return redirect(listing_url)
+
+    other_type = "adopt" if request_type == "claim" else "claim"
+    if PostRequest.objects.filter(
+        user=request.user,
+        post=post,
+        request_type=other_type,
+    ).exists():
+        if request_type == "claim":
+            messages.warning(
+                request,
+                "You already reserved adoption for this dog. You cannot submit a claim for the same post.",
+            )
+            return redirect(reverse("user:my_claims"))
+        messages.warning(
+            request,
+            "You already submitted a claim for this dog. You cannot submit an adoption request for the same post.",
+        )
+        return redirect(reverse("user:adopt_status"))
 
     if PostRequest.objects.filter(
         user=request.user,

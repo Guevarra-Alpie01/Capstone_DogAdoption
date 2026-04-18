@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..800&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260418featured-claim-like-adopt">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260419featured-map-lead-stack">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -66,21 +66,31 @@
                                 <h3>{{ spotlight.title }}</h3>
                                 <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
 
-                                <div class="home-pinned-spotlights__actions{% if spotlight.primary_cta_label == 'View Status' %} home-pinned-spotlights__actions--detail-only{% endif %}">
+                                <div class="home-pinned-spotlights__actions{% if not spotlight.show_spotlight_primary_cta %} home-pinned-spotlights__actions--detail-only{% endif %}">
+                                    {% if spotlight.show_spotlight_primary_cta %}
                                     <a
                                         href="{{ spotlight.primary_cta_url }}"
                                         class="home-pinned-spotlights__btn home-pinned-spotlights__btn--primary"
                                         {% if spotlight.primary_requires_auth and not request.user.is_authenticated %}
                                         data-auth-modal-trigger="login"
                                         data-auth-next-url="{{ spotlight.primary_cta_url }}"
-                                        {% elif spotlight.primary_cta_label == "View Status" %}
-                                        data-home-spotlight-detail-toggle
-                                        aria-controls="home-spotlight-{{ forloop.counter0 }}-details"
-                                        aria-expanded="false"
                                         {% endif %}
                                     >
-                                        <span>{% if spotlight.primary_cta_label == "View Status" %}Details{% else %}{{ spotlight.primary_cta_label }}{% endif %}</span>
+                                        <span>{{ spotlight.primary_cta_label }}</span>
                                     </a>
+                                    {% elif request.user.is_authenticated %}
+                                    <div class="home-pinned-spotlights__reminder" role="status">
+                                        {% if spotlight.phase == 'claim' and not spotlight.show_claim_cta and not spotlight.show_reserve_adoption_cta %}
+                                        <span>You already submitted a claim and reserved adoption for this dog.</span>
+                                        {% elif spotlight.phase == 'claim' and not spotlight.show_claim_cta and spotlight.show_reserve_adoption_cta %}
+                                        <span>You already submitted a redemption request. <a href="{% url 'user:my_redemptions' %}">View my redemptions</a></span>
+                                        {% elif spotlight.phase == 'claim' and spotlight.show_claim_cta and not spotlight.show_reserve_adoption_cta %}
+                                        <span>You already reserved adoption. <a href="{% url 'user:adopt_status' %}">View adoption requests</a></span>
+                                        {% elif spotlight.phase == 'adopt' %}
+                                        <span>You already submitted an adoption request. <a href="{% url 'user:adopt_status' %}">View adoption requests</a></span>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
                                     <button
                                         type="button"
                                         class="home-pinned-spotlights__btn home-pinned-spotlights__btn--share js-open-share"
@@ -89,7 +99,6 @@
                                     >
                                         <span>Share</span>
                                     </button>
-                                    {% if spotlight.primary_cta_label != "View Status" %}
                                     <a
                                         href="{{ spotlight.detail_url }}"
                                         class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary home-pinned-spotlights__btn--details"
@@ -99,7 +108,6 @@
                                     >
                                         <span>Details</span>
                                     </a>
-                                    {% endif %}
                                 </div>
                             </div>
 
@@ -124,12 +132,12 @@
                                 aria-modal="true"
                                 tabindex="-1"
                             >
-                                <div
-                                    class="dog-scale-carousel__details-card"
-                                    {% if spotlight.main_image_url %}
-                                    style="--dog-detail-bg-image: url('{{ spotlight.main_image_url }}');"
-                                    {% endif %}
-                                >
+                            <div class="dog-scale-carousel__details-card">
+                                    <div class="dog-scale-carousel__details-paws" aria-hidden="true">
+                                        <img class="dog-scale-carousel__details-paw" src="{% static 'images/paw-single-soft.svg' %}" width="26" height="26" alt="">
+                                        <span class="dog-scale-carousel__details-paw-line"></span>
+                                        <img class="dog-scale-carousel__details-paw dog-scale-carousel__details-paw--mirror" src="{% static 'images/paw-single-soft.svg' %}" width="26" height="26" alt="">
+                                    </div>
                                     <div class="dog-scale-carousel__details-head">
                                         <div class="dog-scale-carousel__copy">
                                             <h3 id="home-spotlight-{{ forloop.counter0 }}-title">{{ spotlight.title }}</h3>
@@ -147,15 +155,16 @@
                                         <span class="dog-scale-carousel__chip">{{ spotlight.time_left_badge }}</span>
                                     </div>
 
-                                    <ul class="dog-scale-carousel__facts" role="list">
-                                        <li><span>Breed</span><strong>{{ spotlight.breed_label }}</strong></li>
+                                    <ul class="dog-scale-carousel__facts dog-scale-carousel__facts--finder" role="list">
                                         <li><span>Location</span><strong>{{ spotlight.location_label }}</strong></li>
+                                        <li><span>Breed</span><strong>{{ spotlight.breed_label }}</strong></li>
                                         <li><span>Age</span><strong>{{ spotlight.age_label }}</strong></li>
                                         <li><span>Size</span><strong>{{ spotlight.size_label }}</strong></li>
                                         <li><span>Gender</span><strong>{{ spotlight.gender_label }}</strong></li>
                                         <li><span>Coat</span><strong>{{ spotlight.coat_label }}</strong></li>
                                         <li><span>Color</span><strong>{{ spotlight.color_label }}</strong></li>
                                         <li><span>{{ spotlight.countdown_date_heading }}</span><strong>{{ spotlight.countdown_date_label }}</strong></li>
+                                        <li><span>Time Left</span><strong>{{ spotlight.time_left_badge }}</strong></li>
                                     </ul>
                                 </div>
                             </div>
@@ -239,8 +248,8 @@
     <div class="home-featured-grid">
         {% for section in featured_dog_sections %}
         <section class="home-featured-section home-featured-section--{{ section.key }}" style="--home-stagger: {{ forloop.counter0 }};" aria-label="{{ section.title }}">
-            <div class="home-featured-section__head">
-                <div class="home-featured-section__copy">
+            <div class="home-featured-section__head home-featured-section__head--browse">
+                <div class="home-featured-section__copy home-featured-section__copy--browse">
                     {% if section.eyebrow %}
                     <span class="home-featured-section__eyebrow">{{ section.eyebrow }}</span>
                     {% endif %}
@@ -249,10 +258,16 @@
                     <p>{{ section.description }}</p>
                     {% endif %}
                 </div>
-                <a href="{{ section.browse_url }}" class="home-featured-section__see-all">Browse All</a>
+                <div class="home-featured-section__browse-actions">
+                    <a href="{{ section.browse_url }}" class="home-featured-section__see-all home-featured-section__see-all--browse">
+                        Browse all
+                        <i class="bi bi-chevron-right home-featured-section__see-all-icon" aria-hidden="true"></i>
+                    </a>
+                </div>
             </div>
 
             {% if section.items %}
+            <div class="home-featured-carousel-bleed">
             <div class="dog-scale-carousel dog-scale-carousel--{{ section.key }}" data-dog-carousel data-autoplay-ms="3000">
                 {% for item in section.items %}
                 <input
@@ -278,9 +293,7 @@
                             <div class="dog-scale-carousel__media-overlay">
                                 <div class="dog-scale-carousel__media-top">
                                     <div class="dog-scale-carousel__chips">
-                                        {% if section.key != 'claim' and section.key != 'adopt' %}
                                         <span class="dog-scale-carousel__chip dog-scale-carousel__chip--phase">{{ item.phase_title }}</span>
-                                        {% endif %}
                                         <span class="dog-scale-carousel__chip">{{ item.time_left_badge }}</span>
                                     </div>
                                 </div>
@@ -292,21 +305,67 @@
                                     </div>
 
                                     <div class="dog-scale-carousel__actions dog-scale-carousel__actions--overlay">
-                                        <a
-                                            href="{{ item.home_action_url }}"
-                                            class="dog-scale-carousel__btn dog-scale-carousel__btn--primary"
-                                            {% if not request.user.is_authenticated %}
-                                            data-auth-modal-trigger="login"
-                                            data-auth-next-url="{{ item.home_action_url }}"
+                                        {% if item.carousel_phase == 'claim' %}
+                                            {% if item.show_claim_cta %}
+                                            <a
+                                                href="{{ item.home_action_url }}"
+                                                class="dog-scale-carousel__btn dog-scale-carousel__btn--primary"
+                                                {% if not request.user.is_authenticated %}
+                                                data-auth-modal-trigger="login"
+                                                data-auth-next-url="{{ item.home_action_url }}"
+                                                {% endif %}
+                                            >
+                                                Redeem Now
+                                                <span class="visually-hidden">Open redemption confirmation</span>
+                                            </a>
+                                            {% elif item.show_reserve_adoption_cta %}
+                                            <a
+                                                href="{{ item.reserve_adoption_url }}?return_to=home"
+                                                class="dog-scale-carousel__btn dog-scale-carousel__btn--primary"
+                                                {% if not request.user.is_authenticated %}
+                                                data-auth-modal-trigger="login"
+                                                data-auth-next-url="{{ item.reserve_adoption_url }}?return_to=home"
+                                                {% endif %}
+                                            >
+                                                Reserve Adoption
+                                                <span class="visually-hidden">Reserve adoption</span>
+                                            </a>
+                                            {% elif request.user.is_authenticated %}
+                                            <div class="dog-scale-carousel__viewer-reminder" role="status">
+                                                {% if not item.show_claim_cta and not item.show_reserve_adoption_cta %}
+                                                <span>You already submitted a claim and reserved adoption.</span>
+                                                {% elif not item.show_claim_cta and item.show_reserve_adoption_cta %}
+                                                <span>You already submitted a redemption. <a href="{% url 'user:my_redemptions' %}">My redemptions</a></span>
+                                                {% elif item.show_claim_cta and not item.show_reserve_adoption_cta %}
+                                                <span>You already reserved adoption. <a href="{% url 'user:adopt_status' %}">Adoption requests</a></span>
+                                                {% endif %}
+                                            </div>
                                             {% endif %}
-                                        >
-                                            {{ item.action_label }} Now
-                                            <span class="visually-hidden">Open Post Page</span>
-                                        </a>
+                                        {% else %}
+                                            {% if item.show_adopt_cta %}
+                                            <a
+                                                href="{{ item.home_action_url }}"
+                                                class="dog-scale-carousel__btn dog-scale-carousel__btn--primary"
+                                                {% if not request.user.is_authenticated %}
+                                                data-auth-modal-trigger="login"
+                                                data-auth-next-url="{{ item.home_action_url }}"
+                                                {% endif %}
+                                            >
+                                                Adopt Now
+                                                <span class="visually-hidden">Open adoption confirmation</span>
+                                            </a>
+                                            {% elif request.user.is_authenticated %}
+                                            <div class="dog-scale-carousel__viewer-reminder" role="status">
+                                                <span>You already submitted an adoption request. <a href="{% url 'user:adopt_status' %}">View status</a></span>
+                                            </div>
+                                            {% endif %}
+                                        {% endif %}
                                         <button
                                             type="button"
                                             class="dog-scale-carousel__btn dog-scale-carousel__btn--secondary js-open-share"
                                             data-share-url="{{ item.share_url }}"
+                                            data-share-title="{{ item.breed_label }} — {{ item.phase_title }}"
+                                            data-share-text="Check out this dog on Bayawan Vet: {{ item.breed_label }} in {{ item.location_label }}."
                                             aria-label="Share {{ item.title }}"
                                         >
                                             <span>Share</span>
@@ -317,8 +376,10 @@
                                             data-dog-detail-toggle
                                             aria-controls="{{ item.input_id }}-details"
                                             aria-expanded="false"
+                                            aria-label="View info for {{ item.title }}"
                                         >
-                                            <span data-dog-detail-label>View Details</span>
+                                            <i class="bi bi-info-circle dog-scale-carousel__info-icon" aria-hidden="true"></i>
+                                            <span data-dog-detail-label>View Info</span>
                                         </button>
                                     </div>
                                 </div>
@@ -335,33 +396,37 @@
                             aria-modal="true"
                             tabindex="-1"
                         >
-                            <div
-                                class="dog-scale-carousel__details-card"
-                                {% if item.main_image_url %}
-                                style="--dog-detail-bg-image: url('{{ item.main_image_url }}');"
-                                {% endif %}
-                            >
+                            <div class="dog-scale-carousel__details-card">
+                                <div class="dog-scale-carousel__details-paws" aria-hidden="true">
+                                    <img class="dog-scale-carousel__details-paw" src="{% static 'images/paw-single-soft.svg' %}" width="26" height="26" alt="">
+                                    <span class="dog-scale-carousel__details-paw-line"></span>
+                                    <img class="dog-scale-carousel__details-paw dog-scale-carousel__details-paw--mirror" src="{% static 'images/paw-single-soft.svg' %}" width="26" height="26" alt="">
+                                </div>
                                 <div class="dog-scale-carousel__details-head">
                                     <div class="dog-scale-carousel__copy">
                                         <h3 id="{{ item.input_id }}-details-title">{{ item.title }}</h3>
                                         <p>{{ item.location_label }}</p>
                                     </div>
-                                    <button type="button" class="dog-scale-carousel__detail-close" data-dog-detail-close aria-label="Hide details">
+                                    <button type="button" class="dog-scale-carousel__detail-close" data-dog-detail-close aria-label="Hide info">
                                         <span aria-hidden="true">&times;</span>
                                     </button>
                                 </div>
 
                                 <div class="dog-scale-carousel__chips dog-scale-carousel__chips--details">
+                                    <span class="dog-scale-carousel__chip dog-scale-carousel__chip--phase">{{ item.phase_title }}</span>
                                     <span class="dog-scale-carousel__chip">{{ item.time_left_badge }}</span>
                                 </div>
 
-                                <ul class="dog-scale-carousel__facts" role="list">
-                                    <li><span>Barangay</span><strong>{{ item.barangay_label }}</strong></li>
-                                    <li><span>{{ item.countdown_date_heading }}</span><strong>{{ item.countdown_date_label }}</strong></li>
-                                    <li><span>{% if item.is_pending_review %}Review Status{% else %}Time Left{% endif %}</span><strong>{{ item.time_left_badge }}</strong></li>
+                                <ul class="dog-scale-carousel__facts dog-scale-carousel__facts--finder" role="list">
+                                    <li><span>Location</span><strong>{{ item.location_label }}</strong></li>
+                                    <li><span>Breed</span><strong>{{ item.breed_label }}</strong></li>
                                     <li><span>Age</span><strong>{{ item.age_label }}</strong></li>
                                     <li><span>Size</span><strong>{{ item.size_label }}</strong></li>
                                     <li><span>Gender</span><strong>{{ item.gender_label }}</strong></li>
+                                    <li><span>Coat</span><strong>{{ item.coat_label }}</strong></li>
+                                    <li><span>Color</span><strong>{{ item.color_label }}</strong></li>
+                                    <li><span>{{ item.countdown_date_heading }}</span><strong>{{ item.countdown_date_label }}</strong></li>
+                                    <li><span>Time Left</span><strong>{{ item.time_left_badge }}</strong></li>
                                 </ul>
 
                             </div>
@@ -385,16 +450,22 @@
                     <div class="dog-scale-carousel__indicators">
                         {% for item in section.items %}
                         <label class="dog-scale-carousel__indicator" for="{{ item.input_id }}">
-                            <span class="visually-hidden">{{ section.title }} slide {{ forloop.counter }}</span>
+                            <span class="visually-hidden">Slide {{ forloop.counter }} of {{ section.items|length }}</span>
                         </label>
                         {% endfor %}
                     </div>
                 {% endif %}
             </div>
+            </div>
             {% else %}
             <div class="home-featured-empty">
                 <p>{{ section.empty_message }}</p>
-                <a href="{{ section.browse_url }}" class="home-featured-section__see-all home-featured-section__see-all--inline">Browse {{ section.title }}</a>
+                <div class="home-featured-empty__links">
+                    <a href="{{ section.browse_url }}" class="home-featured-section__see-all home-featured-section__see-all--inline home-featured-section__see-all--browse">
+                        Browse all
+                        <i class="bi bi-chevron-right home-featured-section__see-all-icon" aria-hidden="true"></i>
+                    </a>
+                </div>
             </div>
             {% endif %}
         </section>
@@ -835,53 +906,47 @@
                     allowfullscreen
                 ></iframe>
 
-                <a
-                    href="http://google.com/maps/@9.3618935,122.8134199,3a,75y,189.62h,100.33t/data=!3m7!1e1!3m5!1sbidnMnfXTQ60MJ_MV0UK0w!2e0!6shttps:%2F%2Fstreetviewpixels-pa.googleapis.com%2Fv1%2Fthumbnail%3Fcb_client%3Dmaps_sv.tactile%26w%3D900%26h%3D600%26pitch%3D-10.325267084413284%26panoid%3DbidnMnfXTQ60MJ_MV0UK0w%26yaw%3D189.62106333952323!7i16384!8i8192?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D"
-                    class="home-city-vet__map-search"
-                    target="_blank"
-                    rel="noopener"
-                >
-                    <span class="home-city-vet__map-search-copy">
-                        <i class="bi bi-search" aria-hidden="true"></i>
-                        <span>Search Google Maps</span>
-                    </span>
-                    <i class="bi bi-compass-fill" aria-hidden="true"></i>
-                </a>
-
-                <div class="home-city-vet__map-controls">
-                    <button type="button" class="home-city-vet__map-control home-city-vet__map-control--close" data-home-map-close aria-label="Close full map view">
-                        <i class="bi bi-x-lg" aria-hidden="true"></i>
-                        <span>Close</span>
-                    </button>
+                <div class="home-city-vet__map-lead">
                     <a
                         href="http://google.com/maps/@9.3618935,122.8134199,3a,75y,189.62h,100.33t/data=!3m7!1e1!3m5!1sbidnMnfXTQ60MJ_MV0UK0w!2e0!6shttps:%2F%2Fstreetviewpixels-pa.googleapis.com%2Fv1%2Fthumbnail%3Fcb_client%3Dmaps_sv.tactile%26w%3D900%26h%3D600%26pitch%3D-10.325267084413284%26panoid%3DbidnMnfXTQ60MJ_MV0UK0w%26yaw%3D189.62106333952323!7i16384!8i8192?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D"
-                        class="home-city-vet__map-control"
+                        class="home-city-vet__map-search"
                         target="_blank"
                         rel="noopener"
                     >
-                        <i class="bi bi-share-fill" aria-hidden="true"></i>
-                        <span>Open</span>
+                        <span class="home-city-vet__map-search-copy">
+                            <i class="bi bi-search" aria-hidden="true"></i>
+                            <span>Search Google Maps</span>
+                        </span>
+                        <i class="bi bi-compass-fill" aria-hidden="true"></i>
                     </a>
+                    <button
+                        type="button"
+                        class="home-city-vet__map-control home-city-vet__map-control--hud"
+                        data-home-map-hud-toggle
+                        aria-pressed="false"
+                        aria-label="Hide map info panels"
+                    >
+                        <i class="bi bi-eye-slash" aria-hidden="true" data-home-map-hud-icon></i>
+                        <span class="home-city-vet__map-hud-label">Panels</span>
+                    </button>
                 </div>
 
-                <div class="home-city-vet__street-card">
-                    <div class="home-city-vet__street-card-head">
-                        <span class="home-city-vet__street-card-title">National Highway</span>
-                        <span class="home-city-vet__street-card-icon">
-                            <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
-                        </span>
-                    </div>
-                    <span class="home-city-vet__street-card-meta">Street View based on your shared Google Maps link</span>
-                    <span class="home-city-vet__street-card-badge">
-                        <i class="bi bi-google" aria-hidden="true"></i>
-                        <span>Google Street View</span>
-                    </span>
+                <div class="home-city-vet__map-controls">
+                    <button type="button" class="home-city-vet__map-control home-city-vet__map-control--close" data-home-map-close aria-label="Exit map full screen">
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        <span>Exit</span>
+                    </button>
                 </div>
 
                 <div class="home-city-vet__map-card">
-                    <span class="home-city-vet__map-card-label">Pinned Location</span>
-                    <strong class="home-city-vet__map-card-title">Bayawan City Vet</strong>
-                    <span class="home-city-vet__map-card-text">City Agriculture Office area, Bayawan</span>
+                    <span class="home-city-vet__map-card-line">National Highway</span>
+                    <span class="home-city-vet__map-card-line home-city-vet__map-card-line--sub">Bayawan City</span>
+                    <a
+                        href="http://google.com/maps/@9.3618935,122.8134199,3a,75y,189.62h,100.33t/data=!3m7!1e1!3m5!1sbidnMnfXTQ60MJ_MV0UK0w!2e0!6shttps:%2F%2Fstreetviewpixels-pa.googleapis.com%2Fv1%2Fthumbnail%3Fcb_client%3Dmaps_sv.tactile%26w%3D900%26h%3D600%26pitch%3D-10.325267084413284%26panoid%3DbidnMnfXTQ60MJ_MV0UK0w%26yaw%3D189.62106333952323!7i16384!8i8192?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D"
+                        class="home-city-vet__map-card-link"
+                        target="_blank"
+                        rel="noopener"
+                    >View on Google Maps</a>
                 </div>
             </div>
         </div>
@@ -966,44 +1031,7 @@
     const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const revealTargets = Array.from(document.querySelectorAll('.home-reveal'));
     const syncHomeDetailModalState = () => {
-        const hasOpenDetail = document.querySelector('.dog-scale-carousel__details--popup');
-        document.body.classList.toggle('home-details-modal-open', Boolean(hasOpenDetail));
-    };
-    const portalizeDetailPanel = (panelState, owner, panel) => {
-        if (!panel || panel.classList.contains('dog-scale-carousel__details--popup')) {
-            return panel;
-        }
-
-        const parent = panel.parentNode;
-        if (!parent) {
-            return panel;
-        }
-
-        const placeholder = document.createComment('home-detail-placeholder');
-        parent.insertBefore(placeholder, panel);
-        panelState.set(owner, { panel, parent, placeholder });
-        panel.classList.add('dog-scale-carousel__details--popup');
-        document.body.appendChild(panel);
-        return panel;
-    };
-    const restoreDetailPanel = (panelState, owner) => {
-        const state = panelState.get(owner);
-        if (!state) {
-            return null;
-        }
-
-        const { panel, parent, placeholder } = state;
-        panel.classList.remove('dog-scale-carousel__details--popup');
-
-        if (placeholder?.parentNode === parent) {
-            parent.insertBefore(panel, placeholder);
-            placeholder.remove();
-        } else if (parent) {
-            parent.appendChild(panel);
-        }
-
-        panelState.delete(owner);
-        return panel;
+        document.body.classList.remove('home-details-modal-open');
     };
 
     document.querySelectorAll('[data-home-ordinance-stepper]').forEach((stepper) => {
@@ -1364,19 +1392,26 @@
 
         const autoplayMs = Number(carousel.getAttribute('data-autoplay-ms')) || 3000;
         let intervalId = null;
-        const detailPanelState = new WeakMap();
-        const getDetailPanel = (slide) => slide.querySelector('[data-dog-detail-panel]') || detailPanelState.get(slide)?.panel || null;
+        const getDetailPanel = (slide) => slide.querySelector('[data-dog-detail-panel]');
 
         const setDetailState = (slide, isOpen) => {
             const toggle = slide.querySelector('[data-dog-detail-toggle]');
             const label = slide.querySelector('[data-dog-detail-label]');
             const panel = getDetailPanel(slide);
+            const titleEl = slide.querySelector('.dog-scale-carousel__media-copy h3');
+            const dogName = titleEl ? titleEl.textContent.trim() : '';
             slide.classList.toggle('is-details-open', isOpen);
             if (toggle) {
                 toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                if (dogName) {
+                    toggle.setAttribute(
+                        'aria-label',
+                        isOpen ? `Hide info for ${dogName}` : `View info for ${dogName}`
+                    );
+                }
             }
             if (label) {
-                label.textContent = isOpen ? 'Hide Details' : 'View Details';
+                label.textContent = isOpen ? 'Hide Info' : 'View Info';
             }
             if (panel) {
                 panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
@@ -1386,7 +1421,6 @@
         const closeAllDetails = ({ restartAutoplay = true } = {}) => {
             slides.forEach((slide) => {
                 setDetailState(slide, false);
-                restoreDetailPanel(detailPanelState, slide);
             });
             syncHomeDetailModalState();
             delete carousel.dataset.autoplaySuspended;
@@ -1399,8 +1433,8 @@
             slides.forEach((currentSlide) => {
                 setDetailState(currentSlide, currentSlide === slide);
             });
-            const panel = portalizeDetailPanel(detailPanelState, slide, getDetailPanel(slide));
             syncHomeDetailModalState();
+            const panel = getDetailPanel(slide);
             carousel.dataset.autoplaySuspended = '1';
             stopAutoplay();
             window.requestAnimationFrame(() => {
@@ -1549,8 +1583,32 @@
             });
         };
 
+        const hudToggleButton = cityVetMapPanel.querySelector('[data-home-map-hud-toggle]');
+        const hudToggleIcon = cityVetMapPanel.querySelector('[data-home-map-hud-icon]');
+        const hudToggleLabel = cityVetMapPanel.querySelector('.home-city-vet__map-hud-label');
+
+        const syncMapHudToggle = () => {
+            if (!hudToggleButton || !mapWrap) {
+                return;
+            }
+            const minimal = mapWrap.classList.contains('is-hud-minimal');
+            hudToggleButton.setAttribute('aria-pressed', minimal ? 'true' : 'false');
+            hudToggleButton.setAttribute('aria-label', minimal ? 'Show map info panels' : 'Hide map info panels');
+            if (hudToggleIcon) {
+                hudToggleIcon.classList.toggle('bi-eye-slash', !minimal);
+                hudToggleIcon.classList.toggle('bi-eye', minimal);
+            }
+            if (hudToggleLabel) {
+                hudToggleLabel.textContent = minimal ? 'Show panels' : 'Hide panels';
+            }
+        };
+
         const closeMap = ({ returnFocus = true } = {}) => {
             setMapExpanded(false);
+            if (mapWrap) {
+                mapWrap.classList.remove('is-hud-minimal');
+            }
+            syncMapHudToggle();
             if (!returnFocus) {
                 return;
             }
@@ -1562,6 +1620,29 @@
                 }
             });
         };
+
+        if (hudToggleButton && mapWrap) {
+            hudToggleButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                mapWrap.classList.toggle('is-hud-minimal');
+                syncMapHudToggle();
+            });
+            syncMapHudToggle();
+        }
+
+        const hudViewportQuery = window.matchMedia('(min-width: 768px)');
+        const clearHudIfDesktop = () => {
+            if (hudViewportQuery.matches && mapWrap) {
+                mapWrap.classList.remove('is-hud-minimal');
+                syncMapHudToggle();
+            }
+        };
+        if (typeof hudViewportQuery.addEventListener === 'function') {
+            hudViewportQuery.addEventListener('change', clearHudIfDesktop);
+        } else if (typeof hudViewportQuery.addListener === 'function') {
+            hudViewportQuery.addListener(clearHudIfDesktop);
+        }
 
         expandButtons.forEach((button) => {
             button.addEventListener('click', (event) => {
@@ -1612,8 +1693,7 @@
 
     const spotlightCards = Array.from(document.querySelectorAll('[data-home-spotlight-card]'));
     if (spotlightCards.length) {
-        const spotlightPanelState = new WeakMap();
-        const getSpotlightPanel = (card) => card.querySelector('[data-home-spotlight-detail-panel]') || spotlightPanelState.get(card)?.panel || null;
+        const getSpotlightPanel = (card) => card.querySelector('[data-home-spotlight-detail-panel]');
         const setSpotlightDetailState = (card, isOpen) => {
             const panel = getSpotlightPanel(card);
             card.classList.toggle('is-details-open', isOpen);
@@ -1629,7 +1709,6 @@
         const closeAllSpotlightDetails = () => {
             spotlightCards.forEach((card) => {
                 setSpotlightDetailState(card, false);
-                restoreDetailPanel(spotlightPanelState, card);
             });
             syncHomeDetailModalState();
         };
@@ -1638,8 +1717,8 @@
                 setSpotlightDetailState(currentCard, currentCard === card);
             });
 
-            const panel = portalizeDetailPanel(spotlightPanelState, card, getSpotlightPanel(card));
             syncHomeDetailModalState();
+            const panel = getSpotlightPanel(card);
 
             window.requestAnimationFrame(() => {
                 const closeButton = card.querySelector('[data-home-spotlight-detail-close]');

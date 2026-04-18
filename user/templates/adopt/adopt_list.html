@@ -1,8 +1,31 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block page_title %}{% if finder_og_title %}{{ finder_og_title }}{% else %}Find a Dog | Bayawan Vet{% endif %}{% endblock %}
+
+{% block og_meta %}
+{% if finder_og_title %}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Bayawan Vet">
+<meta property="og:title" content="{{ finder_og_title }}">
+<meta property="og:description" content="{{ finder_og_description }}">
+<meta property="og:url" content="{{ finder_og_url }}">
+{% if finder_og_image %}
+<meta property="og:image" content="{{ finder_og_image }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ finder_og_title }}">
+<meta name="twitter:description" content="{{ finder_og_description }}">
+{% if finder_og_image %}
+<meta name="twitter:image" content="{{ finder_og_image }}">
+{% endif %}
+{% endif %}
+{% endblock %}
+
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260417finder-filter-over-footer">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260418finder-adopt-mirror-claim-rows">
 {% endblock %}
 
 {% block content %}
@@ -292,96 +315,38 @@
 
     <div class="finder-content">
 
-        {% if current_purpose == "all" or current_purpose == "claim" %}
         <section class="finder-results">
             <div class="finder-section__head">
                 <div>
-                    <h2 class="finder-section__title">Dogs Ready for Redemption</h2>
-                    <p class="finder-section__text">These dogs are still within the owner-claim window.</p>
+                    <h2 class="finder-section__title">Find Dogs</h2>
+                    <p class="finder-section__text">Browse rescue listings and community adoption posts. Use Purpose and filters to narrow the list.</p>
                 </div>
-                <p class="finder-section__meta">{{ claim_page_obj.paginator.count }} dog{{ claim_page_obj.paginator.count|pluralize }}</p>
+                <p class="finder-section__meta">{{ unified_page_obj.paginator.count }} result{{ unified_page_obj.paginator.count|pluralize }}</p>
             </div>
 
-            {% if claim_posts %}
+            {% if finder_unified_rows %}
             <div class="finder-card-grid">
-                {% for item in claim_posts %}
-                {% include "adopt/_finder_card.html" with item=item active_filter_count=active_filter_count %}
+                {% for row in finder_unified_rows %}
+                    {% if row.kind == "staff" %}
+                    {% include "adopt/_finder_card.html" with item=row.item active_filter_count=active_filter_count %}
+                    {% else %}
+                    {% include "adopt/_user_adoption_card.html" with item=row.item active_filter_count=active_filter_count %}
+                    {% endif %}
                 {% endfor %}
             </div>
-            {% if claim_page_obj.has_next %}
+            {% if unified_page_obj.has_next %}
             <div class="finder-load-more">
-                <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ claim_page_obj.next_page_number }}" class="finder-load-more__link">Load more dogs</a>
+                <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ unified_page_obj.next_page_number }}" class="finder-load-more__link">Load more dogs</a>
             </div>
             {% endif %}
             {% else %}
             <div class="finder-empty finder-empty--inline">
-                <h3>No dogs ready for redemption</h3>
-                <p>There are no dogs in the claim window right now.</p>
+                <h3>No dogs found</h3>
+                <p>No dogs match this Purpose and filters right now.</p>
+                <a href="{{ clear_filters_url }}" class="finder-empty__link">Reset search</a>
             </div>
             {% endif %}
         </section>
-        {% endif %}
-
-        {% if current_purpose == "all" or current_purpose == "adopt" %}
-        <section class="finder-results">
-            <div class="finder-section__head">
-                <div>
-                    <h2 class="finder-section__title">Dogs Ready for Adoption</h2>
-                    <p class="finder-section__text">These dogs have moved into the adoption window.</p>
-                </div>
-                <p class="finder-section__meta">{{ adopt_page_obj.paginator.count }} dog{{ adopt_page_obj.paginator.count|pluralize }}</p>
-            </div>
-
-            {% if adopt_posts %}
-            <div class="finder-card-grid">
-                {% for item in adopt_posts %}
-                {% include "adopt/_finder_card.html" with item=item active_filter_count=active_filter_count %}
-                {% endfor %}
-            </div>
-            {% if adopt_page_obj.has_next %}
-            <div class="finder-load-more">
-                <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ adopt_page_obj.next_page_number }}" class="finder-load-more__link">Load more dogs</a>
-            </div>
-            {% endif %}
-            {% else %}
-            <div class="finder-empty finder-empty--inline">
-                <h3>No dogs ready for adoption</h3>
-                <p>There are no dogs in the adoption window right now.</p>
-            </div>
-            {% endif %}
-        </section>
-
-        <section class="finder-results">
-            <div class="finder-section__head">
-                <div>
-                    <h2 class="finder-section__title">User Adoption Posts</h2>
-                    <p class="finder-section__text">Dogs posted for adoption by community members.</p>
-                </div>
-                <p class="finder-section__meta">{{ user_adoption_posts|length }} post{{ user_adoption_posts|length|pluralize }}</p>
-            </div>
-
-            {% if user_adoption_posts %}
-            <div class="finder-card-grid">
-                {% for item in user_adoption_posts %}
-                {% include "adopt/_user_adoption_card.html" with item=item active_filter_count=active_filter_count %}
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="finder-empty finder-empty--inline">
-                <h3>No user adoption posts</h3>
-                <p>No community members have posted dogs for adoption yet.</p>
-            </div>
-            {% endif %}
-        </section>
-        {% endif %}
-
-        {% if current_purpose == "all" and not claim_posts and not adopt_posts and not user_adoption_posts %}
-        <div class="finder-empty">
-            <h3>No dogs found</h3>
-            <p>There are no active dogs for this view right now. Check back again soon.</p>
-            <a href="{{ clear_filters_url }}" class="finder-empty__link">Reset search</a>
-        </div>
-        {% endif %}
 
     </div>
 </div>
@@ -1019,25 +984,211 @@
 })();
 
 (function () {
-    function updateCountdowns() {
-        var timers = document.querySelectorAll('[data-countdown-deadline]');
+    var TICK_MS = 30000;
+    var FLIP_MS = 520;
+    var FLIP_SWAP_AT = 260;
+    var timerId = null;
+
+    function pad2(n) {
+        return n < 10 ? '0' + n : String(n);
+    }
+
+    function wantsReducedMotion() {
+        try {
+            return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function setUnitValue(unit, newText, allowFlip) {
+        if (!unit) return;
+        var num = unit.querySelector('.finder-flip-unit__num');
+        if (!num) return;
+        var last = unit.getAttribute('data-cd-last');
+        if (!unit.hasAttribute('data-cd-hydrated')) {
+            num.textContent = newText;
+            unit.setAttribute('data-cd-hydrated', '1');
+            unit.setAttribute('data-cd-last', newText);
+            return;
+        }
+        if (last === newText) return;
+        if (!allowFlip || wantsReducedMotion()) {
+            num.textContent = newText;
+            unit.setAttribute('data-cd-last', newText);
+            return;
+        }
+        var prevT = unit.__cdFlipClear;
+        if (prevT) {
+            clearTimeout(prevT.t1);
+            clearTimeout(prevT.t2);
+        }
+        unit.classList.remove('is-flipping');
+        void unit.offsetWidth;
+        unit.classList.add('is-flipping');
+        var t1 = setTimeout(function () {
+            num.textContent = newText;
+            unit.setAttribute('data-cd-last', newText);
+        }, FLIP_SWAP_AT);
+        var t2 = setTimeout(function () {
+            unit.classList.remove('is-flipping');
+            unit.__cdFlipClear = null;
+        }, FLIP_MS);
+        unit.__cdFlipClear = { t1: t1, t2: t2 };
+    }
+
+    function updateFlipCountdowns() {
+        if (document.visibilityState === 'hidden') return;
+        var roots = document.querySelectorAll('.finder-flip-timer[data-countdown-deadline]');
         var now = Date.now();
-        timers.forEach(function (el) {
-            var iso = el.getAttribute('data-countdown-deadline');
+        roots.forEach(function (root) {
+            var iso = root.getAttribute('data-countdown-deadline');
             if (!iso) return;
             var deadline = new Date(iso).getTime();
             var diff = Math.max(Math.floor((deadline - now) / 1000), 0);
+            if (diff <= 0) {
+                root.classList.add('finder-flip-timer--expired');
+                ['d', 'h', 'm'].forEach(function (k) {
+                    var unit = root.querySelector('.finder-flip-unit[data-countdown-key="' + k + '"]');
+                    setUnitValue(unit, k === 'd' ? '0' : '00', false);
+                });
+                root.setAttribute('aria-label', 'This window has ended');
+                return;
+            }
+            root.classList.remove('finder-flip-timer--expired');
             var d = Math.floor(diff / 86400);
             var h = Math.floor((diff % 86400) / 3600);
             var m = Math.floor((diff % 3600) / 60);
-            var textEl = el.querySelector('[data-countdown-text]');
-            if (textEl) {
-                textEl.textContent = diff > 0 ? d + 'd ' + h + 'h ' + m + 'm left' : 'Time expired';
-            }
+            var map = { d: String(d), h: pad2(h), m: pad2(m) };
+            Object.keys(map).forEach(function (k) {
+                var unit = root.querySelector('.finder-flip-unit[data-countdown-key="' + k + '"]');
+                setUnitValue(unit, map[k], true);
+            });
+            var ctx = root.getAttribute('data-countdown-context') || '';
+            var ctxPhrase =
+                ctx === 'claim'
+                    ? 'Time left for redemption'
+                    : ctx === 'adopt'
+                      ? 'Time left for adoption'
+                      : 'Time remaining';
+            root.setAttribute(
+                'aria-label',
+                ctxPhrase + ': ' + d + ' days, ' + h + ' hours, ' + m + ' minutes'
+            );
         });
     }
-    updateCountdowns();
-    setInterval(updateCountdowns, 30000);
+
+    function start() {
+        if (timerId) clearInterval(timerId);
+        updateFlipCountdowns();
+        timerId = setInterval(updateFlipCountdowns, TICK_MS);
+    }
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+            updateFlipCountdowns();
+        } else {
+            document.querySelectorAll('.finder-flip-unit.is-flipping').forEach(function (unit) {
+                unit.classList.remove('is-flipping');
+                if (unit.__cdFlipClear) {
+                    clearTimeout(unit.__cdFlipClear.t1);
+                    clearTimeout(unit.__cdFlipClear.t2);
+                    unit.__cdFlipClear = null;
+                }
+            });
+        }
+    });
+
+    start();
+})();
+</script>
+<script>
+(function () {
+    var STORAGE_KEY = "bayawan_finder_reminder_toggle_v2";
+    var LEGACY_KEY = "bayawan_finder_request_reminders_dismissed";
+
+    function readToggleMap() {
+        var map = {};
+        try {
+            map = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+        } catch (e) {
+            map = {};
+        }
+        try {
+            var legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || "{}");
+            Object.keys(legacy).forEach(function (k) {
+                if (legacy[k] === true && map[k] === undefined) {
+                    map[k] = "collapsed";
+                }
+            });
+        } catch (e) {}
+        return map;
+    }
+
+    function writeToggleMap(map) {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+        } catch (e) {}
+    }
+
+    function syncToggleUi(media, btn, collapsed) {
+        if (collapsed) {
+            media.classList.add("is-reminder-collapsed");
+        } else {
+            media.classList.remove("is-reminder-collapsed");
+        }
+        var expanded = btn.getAttribute("data-label-expanded") || "Hide reminder";
+        var collapsedLabel = btn.getAttribute("data-label-collapsed") || "Show reminder";
+        btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        btn.setAttribute("aria-label", collapsed ? collapsedLabel : expanded);
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        var map = readToggleMap();
+        document.querySelectorAll("[data-finder-request-reminder]").forEach(function (stack) {
+            var key = stack.getAttribute("data-reminder-key");
+            var media = stack.closest(".finder-card__media");
+            var btn = stack.querySelector(".finder-card__reminder-toggle");
+            if (!key || !media || !btn) {
+                return;
+            }
+            var stored = map[key];
+            var collapsed = stored === "collapsed";
+            syncToggleUi(media, btn, collapsed);
+
+            btn.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var nextCollapsed = !media.classList.contains("is-reminder-collapsed");
+                syncToggleUi(media, btn, nextCollapsed);
+                var nextMap = readToggleMap();
+                nextMap[key] = nextCollapsed ? "collapsed" : "expanded";
+                writeToggleMap(nextMap);
+            });
+        });
+    });
+})();
+</script>
+<script>
+(function () {
+    document.addEventListener("DOMContentLoaded", function () {
+        var params = new URLSearchParams(window.location.search);
+        var hl = params.get("highlight");
+        if (!hl) {
+            return;
+        }
+        var el = null;
+        if (hl.indexOf("staff:") === 0) {
+            el = document.getElementById("finder-highlight-staff-" + hl.slice(6));
+        } else if (hl.indexOf("user:") === 0) {
+            el = document.getElementById("finder-highlight-user-" + hl.slice(5));
+        }
+        if (!el) {
+            return;
+        }
+        el.classList.add("finder-card--shared-highlight");
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
 })();
 </script>
 {% include 'home/_feed_enhancements.html' %}

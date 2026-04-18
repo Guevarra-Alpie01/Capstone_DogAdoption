@@ -34,7 +34,7 @@
     <link rel="stylesheet" href="{% static 'css/auth_modal.css' %}?v=20260416white-panel">
     <link rel="stylesheet" href="{% static 'css/auth_google_field.css' %}?v=20260416label-notch-fix">
     {% endif %}
-    <link rel="stylesheet" href="{% static 'css/user_theme.css' %}?v=20260417confirm-modal">
+    <link rel="stylesheet" href="{% static 'css/user_theme.css' %}?v=20260418footer-curve-mobile">
     <link rel="stylesheet" href="{% static 'css/notification_menu.css' %}?v=20260330b">
     <link rel="stylesheet" href="{% static 'css/user_button_skin.css' %}?v=20260416-sidebar-close-clean">
     <style>
@@ -362,10 +362,10 @@
 
             <div class="user-topbar-end user-topbar-end--guest">
                 <div class="d-flex align-items-center gap-2 user-topbar-auth-actions">
-                    <a href="{% url 'user:login' %}?next={{ request.get_full_path|urlencode }}"
+                    <a href="{% url 'user:login' %}?next={% if auth_next %}{{ auth_next|urlencode }}{% else %}{{ request.get_full_path|urlencode }}{% endif %}"
                        class="auth-btn login-btn border-0"
                        data-auth-modal-trigger="login"
-                       data-auth-next-url="{{ request.get_full_path }}">
+                       data-auth-next-url="{% if auth_next %}{{ auth_next }}{% else %}{{ request.get_full_path }}{% endif %}">
                         Login
                     </a>
                 </div>
@@ -494,8 +494,12 @@
 
 </div>
 
-{% if not user.is_authenticated and request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'signup' %}
-    {% include 'partials/auth_modals.html' %}
+{% if not user.is_authenticated %}
+    {% if login_error or signup_error %}
+        {% include 'partials/auth_modals.html' %}
+    {% elif request.resolver_match and request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'signup' %}
+        {% include 'partials/auth_modals.html' %}
+    {% endif %}
 {% endif %}
 
 {% include 'partials/shared_confirm_modal.html' %}
@@ -1122,9 +1126,61 @@ document.addEventListener("DOMContentLoaded", function () {
         return normalizedNextUrl;
     };
 
+    function getCurrentAuthNextValue() {
+        var field = document.querySelector("[data-auth-next-field]");
+        return field ? (field.value || "").trim() : "";
+    }
+
+    function isStaffClaimOrAdoptConfirmPath(path) {
+        return /\/(claim|redeem|adopt)\/[^/?#]+\//.test(path || "");
+    }
+
+    /**
+     * If the user already chose Redeem / Adopt / Reserve (confirm URL in the hidden
+     * "next" field), do not replace it with a generic shell path (e.g. current home
+     * URL from the navbar Login link).
+     */
+    function shouldPreserveAuthNext(existing, incoming) {
+        if (!existing || !incoming) {
+            return false;
+        }
+        if (!isStaffClaimOrAdoptConfirmPath(existing)) {
+            return false;
+        }
+        if (incoming === existing) {
+            return false;
+        }
+        if (isStaffClaimOrAdoptConfirmPath(incoming)) {
+            return false;
+        }
+        return true;
+    }
+
+    function resolveAuthNextFromTrigger(trigger) {
+        var explicit = (trigger.getAttribute("data-auth-next-url") || "").trim();
+        if (explicit) {
+            return explicit;
+        }
+        var href = trigger.getAttribute("href") || "";
+        if (!href) {
+            return "";
+        }
+        try {
+            var parsed = new URL(href, window.location.href);
+            var fromQuery = parsed.searchParams.get("next");
+            return fromQuery ? fromQuery : "";
+        } catch (err) {
+            return "";
+        }
+    }
+
     window.openAuthModal = function (target, options) {
         if (options && Object.prototype.hasOwnProperty.call(options, "nextUrl")) {
-            window.setAuthNext(options.nextUrl);
+            var incomingNext = options.nextUrl || "";
+            var existingNext = getCurrentAuthNextValue();
+            if (!shouldPreserveAuthNext(existingNext, incomingNext)) {
+                window.setAuthNext(incomingNext);
+            }
         }
         var nextModalId = target === "signup" ? "signupModal" : "loginModal";
         var nextModal = getModalInstance(nextModalId);
@@ -1172,7 +1228,7 @@ document.addEventListener("DOMContentLoaded", function () {
             window.openAuthModal(
                 trigger.getAttribute("data-auth-modal-trigger") || "login",
                 {
-                    nextUrl: trigger.getAttribute("data-auth-next-url") || trigger.getAttribute("href") || "",
+                    nextUrl: resolveAuthNextFromTrigger(trigger),
                 }
             );
         });
@@ -1181,7 +1237,10 @@ document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll('[data-bs-target="#loginModal"], [data-bs-target="#signupModal"]').forEach(function (trigger) {
         trigger.addEventListener("click", function () {
             if (!trigger.hasAttribute("data-auth-next-url")) {
-                window.setAuthNext("");
+                var existingNext = getCurrentAuthNextValue();
+                if (!isStaffClaimOrAdoptConfirmPath(existingNext)) {
+                    window.setAuthNext("");
+                }
             }
         });
     });

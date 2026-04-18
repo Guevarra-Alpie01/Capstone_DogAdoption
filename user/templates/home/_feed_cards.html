@@ -162,7 +162,7 @@
                 <div class="countdown-bar" data-deadline="{{ item.deadline_iso }}">
                     <div class="countdown-label">
                         {% if item.phase == 'claim' %}
-                            Claim time left
+                            Redemption time left
                         {% elif item.phase == 'adopt' %}
                             Adoption time left
                         {% endif %}
@@ -180,13 +180,6 @@
                         <div class="countdown-number" data-unit="minutes">{{ item.minutes_left|default:0|stringformat:"02d" }}</div>
                         <div class="countdown-text">Minutes</div>
                     </div>
-                </div>
-                {% else %}
-                <div class="countdown-bar countdown-bar--status">
-                    <div class="countdown-label">{{ item.pending_state_label|default:"Pending admin review" }}</div>
-                    {% if item.pending_state_detail %}
-                    <div class="countdown-status-text">{{ item.pending_state_detail }}</div>
-                    {% endif %}
                 </div>
                 {% endif %}
             </div>
@@ -238,16 +231,22 @@
                 <div class="d-flex justify-content-center gap-2 flex-wrap">
                 {% if post.status == 'available' and request.user != post.owner %}
                     {% if request.user.is_authenticated %}
-                    <button
-                        type="button"
-                        class="btn btn-success btn-sm js-open-adoption-request-modal"
-                        data-request-url="{% url 'user:adopt_user_post' post.id %}"
-                        data-dog-name="{{ post.dog_name|default:'Unnamed Dog' }}"
-                        data-owner-name="{{ item.author_name|default:post.owner.username }}"
-                        data-location="{{ post.location|default:'-' }}"
-                    >
-                        Request Adoption
-                    </button>
+                        {% if item.show_user_adoption_request_cta %}
+                        <button
+                            type="button"
+                            class="btn btn-success btn-sm js-open-adoption-request-modal"
+                            data-request-url="{% url 'user:adopt_user_post' post.id %}"
+                            data-dog-name="{{ post.dog_name|default:'Unnamed Dog' }}"
+                            data-owner-name="{{ item.author_name|default:post.owner.username }}"
+                            data-location="{{ post.location|default:'-' }}"
+                        >
+                            Request Adoption
+                        </button>
+                        {% else %}
+                        <p class="small text-muted text-center mb-0 viewer-request-reminder" role="status">
+                            You already requested adoption for this dog.
+                        </p>
+                        {% endif %}
                     {% else %}
                     <a
                         href="{% url 'user:adopt_user_post' post.id %}"
@@ -280,16 +279,37 @@
                 {% else %}
                     {% if item.phase == 'claim' %}
                         <div class="admin-actions-stack">
+                            {% if request.user.is_authenticated and not item.show_claim_cta and not item.show_reserve_adoption_cta %}
+                            <p class="small text-muted text-center mb-2 viewer-request-reminder" role="status">
+                                You already submitted a claim and reserved adoption.
+                                <a href="{% url 'user:my_redemptions' %}">My redemptions</a>
+                                &middot;
+                                <a href="{% url 'user:adopt_status' %}">Adoption requests</a>
+                            </p>
+                            {% elif request.user.is_authenticated and not item.show_claim_cta and item.show_reserve_adoption_cta %}
+                            <p class="small text-muted text-center mb-2 viewer-request-reminder" role="status">
+                                You already submitted a claim request.
+                                <a href="{% url 'user:my_redemptions' %}">View my redemptions</a>
+                            </p>
+                            {% elif request.user.is_authenticated and item.show_claim_cta and not item.show_reserve_adoption_cta %}
+                            <p class="small text-muted text-center mb-2 viewer-request-reminder" role="status">
+                                You already reserved adoption for this dog.
+                                <a href="{% url 'user:adopt_status' %}">View adoption requests</a>
+                            </p>
+                            {% endif %}
                             <div class="d-flex justify-content-center gap-2 admin-actions">
-                                <a href="{% url 'user:claim_confirm' post.id %}?return_to=home"
+                                {% if item.show_claim_cta %}
+                                <a href="{% url 'user:redeem_confirm' post.id %}?return_to=home"
                                    class="btn btn-success btn-sm action-btn action-claim"
                                    {% if not request.user.is_authenticated %}
                                    data-auth-modal-trigger="login"
-                                   data-auth-next-url="{% url 'user:claim_confirm' post.id %}?return_to=home"
+                                   data-auth-next-url="{% url 'user:redeem_confirm' post.id %}?return_to=home"
                                    {% endif %}>
                                     <i class="bi bi-shield-check" aria-hidden="true"></i>
-                                    <span>Claim</span>
+                                    <span>Redeem</span>
                                 </a>
+                                {% endif %}
+                                {% if item.show_reserve_adoption_cta %}
                                 <a href="{% url 'user:adopt_confirm' post.id %}?return_to=home"
                                    class="btn btn-sm action-btn action-reserve"
                                    {% if not request.user.is_authenticated %}
@@ -299,16 +319,25 @@
                                     <i class="bi bi-heart-fill" aria-hidden="true"></i>
                                     <span>Reserve Adoption</span>
                                 </a>
+                                {% endif %}
                                 <button type="button"
                                    class="btn btn-outline-secondary btn-sm action-btn action-share js-open-share"
-                                   data-share-url="{{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}">
+                                   data-share-url="{{ item.share_url }}">
                                     <span>Share</span>
                                    </button>
                             </div>
                             <p class="admin-actions-note">Reserve adoption now in case no owner claim is approved.</p>
                         </div>
                     {% elif item.phase == 'adopt' %}
-                        <div class="d-flex justify-content-center gap-2 admin-actions">
+                        <div class="d-flex flex-column align-items-center gap-2 admin-actions">
+                            {% if request.user.is_authenticated and not item.show_adopt_cta %}
+                            <p class="small text-muted text-center mb-0 viewer-request-reminder" role="status">
+                                You already submitted an adoption request.
+                                <a href="{% url 'user:adopt_status' %}">View adoption requests</a>
+                            </p>
+                            {% endif %}
+                            <div class="d-flex justify-content-center gap-2">
+                            {% if item.show_adopt_cta %}
                             <a href="{% url 'user:adopt_confirm' post.id %}"
                                class="btn btn-success btn-sm action-btn"
                                {% if not request.user.is_authenticated %}
@@ -318,11 +347,13 @@
                                 <i class="bi bi-house-heart" aria-hidden="true"></i>
                                 <span>Adopt</span>
                             </a>
+                            {% endif %}
                             <button type="button"
                                class="btn btn-outline-secondary btn-sm action-btn action-share js-open-share"
-                               data-share-url="{{ request.build_absolute_uri|cut:request.get_full_path }}{% url 'user:post_detail' post.id %}">
+                               data-share-url="{{ item.share_url }}">
                                 <span>Share</span>
                                </button>
+                            </div>
                         </div>
                     {% else %}
                         <span class="badge bg-secondary fs-6 px-3 py-2">Window closed</span>

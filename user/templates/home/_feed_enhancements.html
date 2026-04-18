@@ -17,6 +17,7 @@
         </div>
     </div>
 </div>
+<div id="sharePanelBackdrop" class="share-panel-backdrop" hidden aria-hidden="true"></div>
 <div id="sharePanel" class="share-panel" hidden>
     <div class="share-panel-header">
         <div>
@@ -90,14 +91,24 @@
     let activeShareTrigger = null;
     const sharePanelRoot = document.getElementById("sharePanel");
     const sharePanelDefaultParent = sharePanelRoot ? sharePanelRoot.parentElement : null;
-
     function restoreSharePanelParent() {
         const panel = document.getElementById("sharePanel");
         if (!panel || !sharePanelDefaultParent) return;
         if (panel.parentElement !== sharePanelDefaultParent) {
             sharePanelDefaultParent.appendChild(panel);
         }
-        panel.classList.remove("is-inline-mobile");
+        panel.classList.remove("is-inline-mobile", "is-mobile-sheet");
+    }
+
+    function restoreShareBackdropSibling() {
+        const backdrop = document.getElementById("sharePanelBackdrop");
+        const panel = document.getElementById("sharePanel");
+        if (!backdrop || !sharePanelDefaultParent || !panel) {
+            return;
+        }
+        if (backdrop.parentElement === document.body && panel.parentElement === sharePanelDefaultParent) {
+            sharePanelDefaultParent.insertBefore(backdrop, panel);
+        }
     }
 
     function setShareStatus(message) {
@@ -109,27 +120,32 @@
     function openSharePanel(triggerEl, shareUrl) {
         const panel = document.getElementById("sharePanel");
         const input = document.getElementById("shareLinkInput");
+        const backdrop = document.getElementById("sharePanelBackdrop");
         if (!panel || !input) return;
 
         activeShareUrl = shareUrl;
         activeShareTrigger = triggerEl;
         input.value = shareUrl;
         panel.hidden = false;
-        const isMobile = window.matchMedia("(max-width: 768px)").matches;
-        if (isMobile) {
-            const mountAfterEl =
-                triggerEl.closest(".admin-actions")
-                || triggerEl.closest(".text-center.mt-3")
-                || triggerEl.parentElement;
-            if (mountAfterEl && mountAfterEl.parentElement) {
-                mountAfterEl.insertAdjacentElement("afterend", panel);
-                panel.classList.add("is-inline-mobile");
-            }
+        const isNarrow = window.matchMedia("(max-width: 768px)").matches;
+
+        if (isNarrow && backdrop) {
+            backdrop.hidden = false;
+            document.body.style.overflow = "hidden";
+            panel.classList.remove("is-inline-mobile");
+            panel.classList.add("is-mobile-sheet");
+            document.body.appendChild(backdrop);
+            document.body.appendChild(panel);
             panel.style.left = "";
             panel.style.right = "";
             panel.style.top = "";
             panel.style.bottom = "";
         } else {
+            if (backdrop) {
+                backdrop.hidden = true;
+            }
+            document.body.style.overflow = "";
+            panel.classList.remove("is-mobile-sheet");
             restoreSharePanelParent();
         }
         positionSharePanel();
@@ -138,8 +154,16 @@
 
     function closeSharePanel() {
         const panel = document.getElementById("sharePanel");
+        const backdrop = document.getElementById("sharePanelBackdrop");
+        if (backdrop) {
+            backdrop.hidden = true;
+        }
+        document.body.style.overflow = "";
         if (!panel) return;
         panel.hidden = true;
+        panel.classList.remove("is-mobile-sheet", "is-inline-mobile");
+        restoreSharePanelParent();
+        restoreShareBackdropSibling();
         activeShareUrl = "";
         activeShareTrigger = null;
         setShareStatus("");
@@ -148,6 +172,10 @@
     function positionSharePanel() {
         const panel = document.getElementById("sharePanel");
         if (!panel || panel.hidden || !activeShareTrigger) return;
+
+        if (panel.classList.contains("is-mobile-sheet")) {
+            return;
+        }
 
         const isMobile = window.matchMedia("(max-width: 768px)").matches;
         if (isMobile) {
@@ -274,6 +302,13 @@
 
         if (closeBtn) {
             closeBtn.addEventListener("click", closeSharePanel);
+        }
+
+        const backdropEl = document.getElementById("sharePanelBackdrop");
+        if (backdropEl) {
+            backdropEl.addEventListener("click", () => {
+                closeSharePanel();
+            });
         }
 
         document.addEventListener("click", (event) => {

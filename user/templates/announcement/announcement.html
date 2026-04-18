@@ -1,6 +1,29 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block page_title %}{% if announcement_og_title %}{{ announcement_og_title }}{% else %}Announcements | Bayawan Vet{% endif %}{% endblock %}
+
+{% block og_meta %}
+{% if announcement_og_title %}
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bayawan Vet">
+<meta property="og:title" content="{{ announcement_og_title }}">
+<meta property="og:description" content="{{ announcement_og_description }}">
+<meta property="og:url" content="{{ announcement_og_url }}">
+{% if announcement_og_image %}
+<meta property="og:image" content="{{ announcement_og_image }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ announcement_og_title }}">
+<meta name="twitter:description" content="{{ announcement_og_description }}">
+{% if announcement_og_image %}
+<meta name="twitter:image" content="{{ announcement_og_image }}">
+{% endif %}
+{% endif %}
+{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260413pinned-popup">
 {% endblock %}
@@ -537,6 +560,30 @@
         if (event.key === 'Escape' && modal && !modal.hidden) {
             closePinnedAnnouncementModal();
         }
+    });
+})();
+
+(function () {
+    document.addEventListener("DOMContentLoaded", function () {
+        var params = new URLSearchParams(window.location.search);
+        var h = params.get("highlight");
+        if (!h || !/^\d+$/.test(h)) {
+            return;
+        }
+        var el = document.getElementById("announcement-card-" + h);
+        if (!el) {
+            return;
+        }
+        el.classList.add("user-ann-card--shared-highlight");
+        var bucket = el.getAttribute("data-bucket") || "";
+        var tabKey = bucket === "ordinary" ? "regular" : bucket;
+        var tabBtn = document.querySelector('[data-user-mobile-announcement-tab="' + tabKey + '"]');
+        if (tabBtn && typeof tabBtn.click === "function") {
+            tabBtn.click();
+        }
+        window.setTimeout(function () {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 150);
     });
 })();
 </script>

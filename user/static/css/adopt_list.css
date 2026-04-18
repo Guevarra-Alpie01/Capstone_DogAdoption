@@ -1707,7 +1707,9 @@
     --finder-card-min-inline: 14.25rem;
     --finder-card-gap: 14px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--finder-card-min-inline)), 1fr));
+    /* auto-fill keeps extra column tracks so a single card does not stretch to full width on wide
+       viewports (e.g. one dog in Redemption); max column counts below 1400px use media queries. */
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--finder-card-min-inline)), 1fr));
     gap: var(--finder-card-gap);
     align-items: stretch;
 }
@@ -1716,7 +1718,7 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
     height: 100%;
     min-width: 0;
     padding: 10px;
@@ -1750,11 +1752,11 @@
 }
 
 .finder-card.is-info-open {
-    border-color: #9cc9af;
+    border-color: rgba(244, 114, 182, 0.55);
     box-shadow:
-        0 30px 48px rgba(21, 128, 61, 0.15),
-        0 10px 24px rgba(15, 23, 42, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        0 28px 46px rgba(190, 24, 93, 0.12),
+        0 10px 24px rgba(15, 23, 42, 0.07),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
 .finder-card__media {
@@ -1886,10 +1888,11 @@
 .finder-card__body {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
     min-width: 0;
-    flex: 1 1 auto;
-    padding: 2px 2px 4px;
+    min-height: 0;
+    flex: 0 1 auto;
+    padding: 0 2px 2px;
 }
 
 .finder-card__body--featured {
@@ -2094,16 +2097,18 @@
 
 .finder-card__utilities {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
     width: 100%;
     align-items: stretch;
 }
 
 .finder-card__utility-btn {
     display: inline-flex;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
+    gap: 6px;
     width: 100%;
     min-width: 0;
     min-height: 32px;
@@ -2126,10 +2131,11 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
+    flex: 0 0 auto;
+    width: 15px;
+    height: 15px;
     border-radius: 999px;
-    font-size: 0.58rem;
+    font-size: 0.72rem;
     line-height: 1;
 }
 
@@ -2159,17 +2165,12 @@
 }
 
 .finder-card__utility-btn--share {
-    gap: 0;
     border: 1px solid #2563eb;
     background: linear-gradient(180deg, #4f8df7 0%, #2563eb 100%);
     color: #ffffff;
     box-shadow:
         0 10px 22px rgba(37, 99, 235, 0.22),
         inset 0 1px 0 rgba(255, 255, 255, 0.16);
-}
-
-.finder-card__utility-btn--share i {
-    display: none;
 }
 
 .finder-card__utility-btn--share:hover,
@@ -2180,17 +2181,77 @@
     box-shadow: 0 6px 12px rgba(37, 99, 235, 0.24);
 }
 
+/* Softer pink actions while the info overlay is open (matches panel theme) */
+.finder-card.is-info-open .finder-card__utility-btn,
+.finder-card.is-info-open .finder-card__utility-btn--share {
+    border-color: rgba(219, 39, 119, 0.45);
+    background: linear-gradient(180deg, #fce7f3 0%, #fbcfe8 100%);
+    color: #831843;
+    box-shadow:
+        0 8px 18px rgba(190, 24, 93, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.finder-card.is-info-open .finder-card__utility-btn:hover,
+.finder-card.is-info-open .finder-card__utility-btn:focus-visible,
+.finder-card.is-info-open .finder-card__utility-btn--share:hover,
+.finder-card.is-info-open .finder-card__utility-btn--share:focus-visible {
+    border-color: #db2777;
+    background: linear-gradient(180deg, #fbcfe8 0%, #f9a8d4 100%);
+    color: #701a35;
+    box-shadow: 0 10px 20px rgba(190, 24, 93, 0.14);
+}
+
+.finder-card.is-info-open .finder-card__utility-btn[aria-expanded="true"],
+.finder-card.is-info-open .finder-card__utility-btn.is-shared {
+    border-color: #db2777;
+    background: linear-gradient(180deg, #f472b6 0%, #db2777 100%);
+    color: #ffffff;
+    box-shadow: 0 10px 22px rgba(190, 24, 93, 0.22);
+}
+
+.finder-card.is-info-open .finder-card__footer .btn-action--primary,
+.finder-card.is-info-open .finder-card__footer .btn-action--reserve {
+    border-color: #be185d;
+    background: linear-gradient(180deg, #f472b6 0%, #db2777 100%);
+    color: #ffffff !important;
+    box-shadow:
+        0 14px 24px rgba(190, 24, 93, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.finder-card.is-info-open .finder-card__footer .btn-action--primary:hover,
+.finder-card.is-info-open .finder-card__footer .btn-action--primary:focus-visible,
+.finder-card.is-info-open .finder-card__footer .btn-action--reserve:hover,
+.finder-card.is-info-open .finder-card__footer .btn-action--reserve:focus-visible {
+    border-color: #9d174d;
+    background: linear-gradient(180deg, #ec4899 0%, #be185d 100%);
+    color: #ffffff !important;
+}
+
+.finder-card.is-info-open .finder-card__footer .btn-action--primary i,
+.finder-card.is-info-open .finder-card__footer .btn-action--reserve i {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.12));
+    color: #ffffff;
+}
+
 .finder-card__details {
     position: absolute;
     inset: 0;
     z-index: 5;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 14px 14px 150px;
+    gap: 8px;
+    padding: 12px 14px 150px;
     border: 0;
     border-radius: 0;
-    background: linear-gradient(180deg, rgba(255, 253, 247, 0.98) 0%, rgba(249, 252, 255, 0.98) 100%);
+    background-color: #fff5f8;
+    background-image:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 241, 246, 0.97) 48%, rgba(252, 231, 243, 0.98) 100%),
+        url("../images/paw-pattern-soft.svg");
+    background-repeat: no-repeat, repeat;
+    background-size: auto, 112px 112px;
+    background-position: center, 12px 8px;
     box-shadow: none;
     overflow-y: auto;
     transform: translateY(100%);
@@ -2198,9 +2259,32 @@
     transition: transform 0.24s ease, opacity 0.24s ease;
 }
 
-.finder-card__footer {
-    position: relative;
-    z-index: 6;
+.finder-card__details-head {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-shrink: 0;
+    padding: 2px 4px 4px;
+}
+
+.finder-card__details-paw {
+    flex: 0 0 auto;
+    display: block;
+    opacity: 0.88;
+    filter: drop-shadow(0 2px 4px rgba(190, 24, 93, 0.12));
+}
+
+.finder-card__details-paw--mirror {
+    transform: scaleX(-1);
+}
+
+.finder-card__details-head-line {
+    flex: 1 1 auto;
+    max-width: 120px;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, rgba(244, 114, 182, 0.55), transparent);
 }
 
 .finder-card__details[hidden] {
@@ -2213,39 +2297,48 @@
 }
 
 .finder-card__details-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 
 .finder-card__detail-item {
+    display: grid;
+    grid-template-columns: minmax(72px, 34%) minmax(0, 1fr);
+    gap: 6px 10px;
+    align-items: baseline;
     min-width: 0;
-    padding: 11px 12px;
-    border: 1px solid #dde8f1;
-    border-radius: 16px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fbfd 100%);
-    box-shadow:
-        0 8px 18px rgba(15, 23, 42, 0.05),
-        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    padding: 6px 0;
+    border: 0;
+    border-radius: 0;
+    border-bottom: 1px solid rgba(251, 182, 206, 0.65);
+    background: transparent;
+    box-shadow: none;
+}
+
+.finder-card__detail-item:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
 }
 
 .finder-card__detail-item span {
     display: block;
-    margin-bottom: 5px;
-    color: #64748b;
-    font-size: 0.62rem;
+    margin-bottom: 0;
+    color: #be185d;
+    font-size: 0.58rem;
     font-weight: 800;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
 .finder-card__detail-item strong {
     display: block;
-    color: #10243e;
-    font-size: 0.8rem;
+    color: #831843;
+    font-size: 0.76rem;
     font-weight: 800;
-    line-height: 1.35;
+    line-height: 1.3;
     overflow-wrap: anywhere;
+    text-align: right;
 }
 
 .finder-card__traits {
@@ -2338,12 +2431,14 @@
 }
 
 .finder-card__footer {
+    position: relative;
+    z-index: 6;
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    justify-content: stretch;
-    gap: 10px;
-    margin-top: auto;
+    justify-content: flex-start;
+    gap: 4px;
+    margin-top: 0;
     width: 100%;
 }
 
@@ -2353,9 +2448,166 @@
     gap: 8px;
 }
 
-.finder-card__footer--featured .finder-card__timer {
+.finder-card__timer-strip {
+    display: flex;
     justify-content: center;
     width: 100%;
+    padding: 2px 4px 0;
+    flex-shrink: 0;
+}
+
+/* Flip-style live countdown (finder cards) — dark tiles, rose accents, matches pink theme */
+.finder-flip-timer {
+    width: 100%;
+    max-width: 100%;
+}
+
+.finder-flip-timer__caption {
+    margin: 0 0 4px;
+    padding: 0 4px;
+    font-size: 0.58rem;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: 0.04em;
+    text-align: center;
+    text-transform: none;
+    color: #9d174d;
+    opacity: 0.92;
+}
+
+.finder-flip-timer__units {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    align-items: end;
+    width: 100%;
+}
+
+.finder-flip-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+}
+
+.finder-flip-unit__card {
+    position: relative;
+    width: 100%;
+    perspective: 440px;
+}
+
+.finder-flip-unit__surface {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.55rem;
+    padding: 5px 4px;
+    border-radius: 11px;
+    border: 1px solid rgba(244, 114, 182, 0.32);
+    background: linear-gradient(168deg, #2d2433 0%, #171b24 48%, #0e1016 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        0 8px 18px rgba(15, 23, 42, 0.32);
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+}
+
+.finder-flip-unit__hinge {
+    position: absolute;
+    left: 5%;
+    right: 5%;
+    top: 50%;
+    height: 1px;
+    margin-top: -0.5px;
+    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.55), transparent);
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0.88;
+}
+
+.finder-flip-unit__num {
+    position: relative;
+    z-index: 1;
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(0.7rem, 2.6vw, 0.95rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: #fdf2f8;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+.finder-flip-unit__label {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.48rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: center;
+    color: #f472b6;
+}
+
+.finder-flip-unit.is-flipping .finder-flip-unit__surface {
+    animation: finderFlipPanel 0.52s cubic-bezier(0.45, 0.02, 0.32, 1) both;
+}
+
+@keyframes finderFlipPanel {
+    0% {
+        transform: rotateX(0deg);
+    }
+
+    45% {
+        transform: rotateX(-92deg);
+        opacity: 0.88;
+    }
+
+    55% {
+        transform: rotateX(92deg);
+        opacity: 0.72;
+    }
+
+    100% {
+        transform: rotateX(0deg);
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .finder-flip-unit.is-flipping .finder-flip-unit__surface {
+        animation: none !important;
+    }
+}
+
+.finder-flip-timer--expired .finder-flip-unit__surface {
+    opacity: 0.62;
+    filter: grayscale(0.15);
+}
+
+.finder-flip-timer--expired .finder-flip-unit__label {
+    color: #a1a1aa;
+}
+
+.finder-flip-timer--expired .finder-flip-timer__caption {
+    color: #71717a;
+    opacity: 0.95;
+}
+
+@media (max-width: 420px) {
+    .finder-flip-timer__units {
+        gap: 4px;
+    }
+
+    .finder-flip-unit__label {
+        font-size: 0.4rem;
+        letter-spacing: 0.06em;
+    }
+
+    .finder-flip-unit__surface {
+        min-height: 2.2rem;
+        padding: 3px 2px;
+    }
 }
 
 .finder-card__timer {
@@ -2377,6 +2629,30 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
+.finder-card__timer--modern {
+    width: auto;
+    max-width: 100%;
+    min-height: 38px;
+    padding: 7px 14px 7px 10px;
+    gap: 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(244, 114, 182, 0.42);
+    background: linear-gradient(152deg, #ffffff 0%, #fff5f8 38%, #fce7f3 100%);
+    color: #831843;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    box-shadow:
+        0 10px 24px rgba(190, 24, 93, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.finder-card__timer-value {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+}
+
 .finder-card__timer-icon {
     display: inline-flex;
     align-items: center;
@@ -2391,6 +2667,39 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.88),
         0 4px 10px rgba(21, 128, 61, 0.14);
     font-size: 0.48rem;
+}
+
+.finder-card__timer--modern .finder-card__timer-icon {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    font-size: 0.95rem;
+    background: linear-gradient(160deg, #ffffff 0%, #fce7f3 55%, #fbcfe8 100%);
+    color: #be185d;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        0 4px 14px rgba(190, 24, 93, 0.14);
+}
+
+.finder-card__head--minimal {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 0;
+}
+
+.finder-card__head--minimal .finder-card__phase-title {
+    text-align: center;
+}
+
+.finder-card__head--centered {
+    justify-content: center;
+    text-align: center;
+}
+
+.finder-card.is-featured .finder-card__head--minimal {
+    flex-direction: column;
 }
 
 .finder-card__timer--pending {
@@ -2421,18 +2730,29 @@
 
 .finder-card__actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
     width: 100%;
     align-items: stretch;
+}
+
+.finder-card__actions--stack {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .finder-card__actions--featured {
     width: 100%;
 }
 
-.finder-card__actions .btn-action:only-child {
-    grid-column: 1 / -1;
+.finder-card__action-placeholder {
+    display: block;
+    min-height: 32px;
+    padding: 7px 10px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    box-sizing: border-box;
+    pointer-events: none;
+    visibility: hidden;
 }
 
 .finder-card__footer .btn-action {
@@ -2662,6 +2982,15 @@ body.finder-filter-open .site-footer {
     cursor: pointer;
 }
 
+.share-panel-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1075;
+    background: rgba(15, 23, 42, 0.52);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
 .share-panel {
     position: fixed;
     z-index: 1080;
@@ -2676,6 +3005,25 @@ body.finder-filter-open .site-footer {
     padding-left: max(14px, env(safe-area-inset-left, 0px));
     padding-right: max(14px, env(safe-area-inset-right, 0px));
     padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+}
+
+.share-panel.is-mobile-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    border-radius: 18px 18px 0 0;
+    z-index: 1090;
+    max-height: min(88vh, 560px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -16px 44px rgba(15, 23, 42, 0.28);
 }
 
 .share-panel.is-inline-mobile {
@@ -3134,12 +3482,12 @@ body.finder-filter-open .site-footer {
     }
 
     .finder-card__detail-item {
-        padding: 10px 11px;
+        padding: 6px 0;
     }
 
     .finder-card__detail-item strong {
-        font-size: 0.78rem;
-        line-height: 1.4;
+        font-size: 0.74rem;
+        line-height: 1.35;
     }
 
     .finder-card__actions,
@@ -3780,5 +4128,134 @@ body.finder-filter-open .site-footer {
         max-width: calc(100vw - 16px);
         right: 0;
         left: auto;
+    }
+}
+
+/* Shared deep-link highlight (Find a Dog ?highlight=…) */
+.finder-card.finder-card--shared-highlight {
+    box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.45);
+    border-radius: 18px;
+    transition: box-shadow 0.35s ease;
+}
+
+/* Full-image submitted-request reminder (slides up/down over photo — Find a Dog staff cards) */
+.finder-card__reminder-stack {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+}
+
+.finder-card__reminder-panel {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 14px 44px;
+    text-align: center;
+    background: linear-gradient(
+        155deg,
+        rgba(15, 23, 42, 0.94) 0%,
+        rgba(22, 78, 58, 0.88) 42%,
+        rgba(15, 23, 42, 0.96) 100%
+    );
+    border-radius: 13px;
+    pointer-events: auto;
+    transform: translateY(0);
+    transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+}
+
+.finder-card__media.is-reminder-collapsed .finder-card__reminder-panel {
+    transform: translateY(-100%);
+    pointer-events: none;
+}
+
+.finder-card__reminder-panel-text {
+    margin: 0;
+    max-width: 22ch;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    color: #f8fafc;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+}
+
+.finder-card__reminder-toggle {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    left: auto;
+    z-index: 8;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 32px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.55);
+    color: #f1f5f9;
+    cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+    box-sizing: border-box;
+    /* Do not animate transform — avoids subpixel jitter next to centered icons */
+    transition:
+        background 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.finder-card__media.is-reminder-collapsed .finder-card__reminder-toggle {
+    background: rgba(15, 23, 42, 0.78);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.finder-card__reminder-toggle:hover,
+.finder-card__reminder-toggle:focus-visible {
+    background: rgba(30, 58, 50, 0.92);
+    border-color: rgba(255, 255, 255, 0.55);
+    outline: none;
+}
+
+.finder-card__reminder-toggle:focus-visible {
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35);
+}
+
+/* Stack chevrons in the same box so swapping states does not reflow (fixes hover “shake”) */
+.finder-card__reminder-icon {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 1em;
+    height: 1em;
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+
+.finder-card__media:not(.is-reminder-collapsed) .finder-card__reminder-icon--when-collapsed,
+.finder-card__media.is-reminder-collapsed .finder-card__reminder-icon--when-expanded {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* Phase / match chips stay above the sliding panel (toggle stays on top) */
+.finder-card__media--has-reminder .finder-card__badge,
+.finder-card__media--has-reminder .finder-card__match {
+    z-index: 6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .finder-card__reminder-panel {
+        transition-duration: 0.01ms;
     }
 }

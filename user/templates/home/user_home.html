@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..800&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260418home-details-compact">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260418home-map-footer-stack">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -924,6 +924,16 @@
                         <i class="bi bi-x-lg" aria-hidden="true"></i>
                         <span>Close</span>
                     </button>
+                    <button
+                        type="button"
+                        class="home-city-vet__map-control home-city-vet__map-control--hud"
+                        data-home-map-hud-toggle
+                        aria-pressed="false"
+                        aria-label="Hide map info panels"
+                    >
+                        <i class="bi bi-eye-slash" aria-hidden="true" data-home-map-hud-icon></i>
+                        <span class="home-city-vet__map-hud-label">Panels</span>
+                    </button>
                     <a
                         href="http://google.com/maps/@9.3618935,122.8134199,3a,75y,189.62h,100.33t/data=!3m7!1e1!3m5!1sbidnMnfXTQ60MJ_MV0UK0w!2e0!6shttps:%2F%2Fstreetviewpixels-pa.googleapis.com%2Fv1%2Fthumbnail%3Fcb_client%3Dmaps_sv.tactile%26w%3D900%26h%3D600%26pitch%3D-10.325267084413284%26panoid%3DbidnMnfXTQ60MJ_MV0UK0w%26yaw%3D189.62106333952323!7i16384!8i8192?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D"
                         class="home-city-vet__map-control"
@@ -1589,8 +1599,32 @@
             });
         };
 
+        const hudToggleButton = cityVetMapPanel.querySelector('[data-home-map-hud-toggle]');
+        const hudToggleIcon = cityVetMapPanel.querySelector('[data-home-map-hud-icon]');
+        const hudToggleLabel = cityVetMapPanel.querySelector('.home-city-vet__map-hud-label');
+
+        const syncMapHudToggle = () => {
+            if (!hudToggleButton || !mapWrap) {
+                return;
+            }
+            const minimal = mapWrap.classList.contains('is-hud-minimal');
+            hudToggleButton.setAttribute('aria-pressed', minimal ? 'true' : 'false');
+            hudToggleButton.setAttribute('aria-label', minimal ? 'Show map info panels' : 'Hide map info panels');
+            if (hudToggleIcon) {
+                hudToggleIcon.classList.toggle('bi-eye-slash', !minimal);
+                hudToggleIcon.classList.toggle('bi-eye', minimal);
+            }
+            if (hudToggleLabel) {
+                hudToggleLabel.textContent = minimal ? 'Show panels' : 'Hide panels';
+            }
+        };
+
         const closeMap = ({ returnFocus = true } = {}) => {
             setMapExpanded(false);
+            if (mapWrap) {
+                mapWrap.classList.remove('is-hud-minimal');
+            }
+            syncMapHudToggle();
             if (!returnFocus) {
                 return;
             }
@@ -1602,6 +1636,29 @@
                 }
             });
         };
+
+        if (hudToggleButton && mapWrap) {
+            hudToggleButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                mapWrap.classList.toggle('is-hud-minimal');
+                syncMapHudToggle();
+            });
+            syncMapHudToggle();
+        }
+
+        const hudViewportQuery = window.matchMedia('(min-width: 768px)');
+        const clearHudIfDesktop = () => {
+            if (hudViewportQuery.matches && mapWrap) {
+                mapWrap.classList.remove('is-hud-minimal');
+                syncMapHudToggle();
+            }
+        };
+        if (typeof hudViewportQuery.addEventListener === 'function') {
+            hudViewportQuery.addEventListener('change', clearHudIfDesktop);
+        } else if (typeof hudViewportQuery.addListener === 'function') {
+            hudViewportQuery.addListener(clearHudIfDesktop);
+        }
 
         expandButtons.forEach((button) => {
             button.addEventListener('click', (event) => {

@@ -64,15 +64,47 @@
     <div class="finder-card__body{% if featured %} finder-card__body--featured{% endif %}">
         {% if item.show_countdown %}
         <div class="finder-card__timer-strip">
-            <span
-                class="finder-card__timer finder-card__timer--modern"
+            <div
+                class="finder-flip-timer"
                 {% if item.deadline_iso %}data-countdown-deadline="{{ item.deadline_iso }}"{% endif %}
+                data-countdown-context="{{ item.phase }}"
+                role="timer"
+                aria-live="polite"
+                aria-label="Time remaining in this window"
             >
-                <span class="finder-card__timer-icon" aria-hidden="true">
-                    <i class="bi bi-stopwatch"></i>
-                </span>
-                <span data-countdown-text class="finder-card__timer-value">{{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m left</span>
-            </span>
+                <p class="finder-flip-timer__caption">
+                    {% if item.phase == 'claim' %}Time left for redemption{% elif item.phase == 'adopt' %}Time left for adoption{% else %}Time remaining{% endif %}
+                </p>
+                <div class="finder-flip-timer__units">
+                    <div class="finder-flip-unit" data-countdown-key="d">
+                        <div class="finder-flip-unit__card">
+                            <span class="finder-flip-unit__hinge" aria-hidden="true"></span>
+                            <div class="finder-flip-unit__surface">
+                                <span class="finder-flip-unit__num" data-countdown-part="d">{{ item.days_left }}</span>
+                            </div>
+                        </div>
+                        <span class="finder-flip-unit__label">Days</span>
+                    </div>
+                    <div class="finder-flip-unit" data-countdown-key="h">
+                        <div class="finder-flip-unit__card">
+                            <span class="finder-flip-unit__hinge" aria-hidden="true"></span>
+                            <div class="finder-flip-unit__surface">
+                                <span class="finder-flip-unit__num" data-countdown-part="h">{{ item.hours_left|stringformat:"02d" }}</span>
+                            </div>
+                        </div>
+                        <span class="finder-flip-unit__label">Hours</span>
+                    </div>
+                    <div class="finder-flip-unit" data-countdown-key="m">
+                        <div class="finder-flip-unit__card">
+                            <span class="finder-flip-unit__hinge" aria-hidden="true"></span>
+                            <div class="finder-flip-unit__surface">
+                                <span class="finder-flip-unit__num" data-countdown-part="m">{{ item.minutes_left|stringformat:"02d" }}</span>
+                            </div>
+                        </div>
+                        <span class="finder-flip-unit__label">Minutes</span>
+                    </div>
+                </div>
+            </div>
         </div>
         {% endif %}
         {% if item.phase != 'claim' and item.phase != 'adopt' %}

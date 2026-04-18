@@ -25,7 +25,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260418finder-grid-autofill">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260418finder-countdown-caption">
 {% endblock %}
 
 {% block content %}
@@ -1042,25 +1042,122 @@
 })();
 
 (function () {
-    function updateCountdowns() {
-        var timers = document.querySelectorAll('[data-countdown-deadline]');
+    var TICK_MS = 30000;
+    var FLIP_MS = 520;
+    var FLIP_SWAP_AT = 260;
+    var timerId = null;
+
+    function pad2(n) {
+        return n < 10 ? '0' + n : String(n);
+    }
+
+    function wantsReducedMotion() {
+        try {
+            return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function setUnitValue(unit, newText, allowFlip) {
+        if (!unit) return;
+        var num = unit.querySelector('.finder-flip-unit__num');
+        if (!num) return;
+        var last = unit.getAttribute('data-cd-last');
+        if (!unit.hasAttribute('data-cd-hydrated')) {
+            num.textContent = newText;
+            unit.setAttribute('data-cd-hydrated', '1');
+            unit.setAttribute('data-cd-last', newText);
+            return;
+        }
+        if (last === newText) return;
+        if (!allowFlip || wantsReducedMotion()) {
+            num.textContent = newText;
+            unit.setAttribute('data-cd-last', newText);
+            return;
+        }
+        var prevT = unit.__cdFlipClear;
+        if (prevT) {
+            clearTimeout(prevT.t1);
+            clearTimeout(prevT.t2);
+        }
+        unit.classList.remove('is-flipping');
+        void unit.offsetWidth;
+        unit.classList.add('is-flipping');
+        var t1 = setTimeout(function () {
+            num.textContent = newText;
+            unit.setAttribute('data-cd-last', newText);
+        }, FLIP_SWAP_AT);
+        var t2 = setTimeout(function () {
+            unit.classList.remove('is-flipping');
+            unit.__cdFlipClear = null;
+        }, FLIP_MS);
+        unit.__cdFlipClear = { t1: t1, t2: t2 };
+    }
+
+    function updateFlipCountdowns() {
+        if (document.visibilityState === 'hidden') return;
+        var roots = document.querySelectorAll('.finder-flip-timer[data-countdown-deadline]');
         var now = Date.now();
-        timers.forEach(function (el) {
-            var iso = el.getAttribute('data-countdown-deadline');
+        roots.forEach(function (root) {
+            var iso = root.getAttribute('data-countdown-deadline');
             if (!iso) return;
             var deadline = new Date(iso).getTime();
             var diff = Math.max(Math.floor((deadline - now) / 1000), 0);
+            if (diff <= 0) {
+                root.classList.add('finder-flip-timer--expired');
+                ['d', 'h', 'm'].forEach(function (k) {
+                    var unit = root.querySelector('.finder-flip-unit[data-countdown-key="' + k + '"]');
+                    setUnitValue(unit, k === 'd' ? '0' : '00', false);
+                });
+                root.setAttribute('aria-label', 'This window has ended');
+                return;
+            }
+            root.classList.remove('finder-flip-timer--expired');
             var d = Math.floor(diff / 86400);
             var h = Math.floor((diff % 86400) / 3600);
             var m = Math.floor((diff % 3600) / 60);
-            var textEl = el.querySelector('[data-countdown-text]');
-            if (textEl) {
-                textEl.textContent = diff > 0 ? d + 'd ' + h + 'h ' + m + 'm left' : 'Time expired';
-            }
+            var map = { d: String(d), h: pad2(h), m: pad2(m) };
+            Object.keys(map).forEach(function (k) {
+                var unit = root.querySelector('.finder-flip-unit[data-countdown-key="' + k + '"]');
+                setUnitValue(unit, map[k], true);
+            });
+            var ctx = root.getAttribute('data-countdown-context') || '';
+            var ctxPhrase =
+                ctx === 'claim'
+                    ? 'Time left for redemption'
+                    : ctx === 'adopt'
+                      ? 'Time left for adoption'
+                      : 'Time remaining';
+            root.setAttribute(
+                'aria-label',
+                ctxPhrase + ': ' + d + ' days, ' + h + ' hours, ' + m + ' minutes'
+            );
         });
     }
-    updateCountdowns();
-    setInterval(updateCountdowns, 30000);
+
+    function start() {
+        if (timerId) clearInterval(timerId);
+        updateFlipCountdowns();
+        timerId = setInterval(updateFlipCountdowns, TICK_MS);
+    }
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+            updateFlipCountdowns();
+        } else {
+            document.querySelectorAll('.finder-flip-unit.is-flipping').forEach(function (unit) {
+                unit.classList.remove('is-flipping');
+                if (unit.__cdFlipClear) {
+                    clearTimeout(unit.__cdFlipClear.t1);
+                    clearTimeout(unit.__cdFlipClear.t2);
+                    unit.__cdFlipClear = null;
+                }
+            });
+        }
+    });
+
+    start();
 })();
 </script>
 <script>

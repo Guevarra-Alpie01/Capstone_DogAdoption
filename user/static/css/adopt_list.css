@@ -2454,6 +2454,160 @@
     padding: 4px 4px 2px;
 }
 
+/* Flip-style live countdown (finder cards) — dark tiles, rose accents, matches pink theme */
+.finder-flip-timer {
+    width: 100%;
+    max-width: 100%;
+}
+
+.finder-flip-timer__caption {
+    margin: 0 0 6px;
+    padding: 0 4px;
+    font-size: 0.58rem;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: 0.04em;
+    text-align: center;
+    text-transform: none;
+    color: #9d174d;
+    opacity: 0.92;
+}
+
+.finder-flip-timer__units {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    align-items: end;
+    width: 100%;
+}
+
+.finder-flip-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+}
+
+.finder-flip-unit__card {
+    position: relative;
+    width: 100%;
+    perspective: 440px;
+}
+
+.finder-flip-unit__surface {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.55rem;
+    padding: 5px 4px;
+    border-radius: 11px;
+    border: 1px solid rgba(244, 114, 182, 0.32);
+    background: linear-gradient(168deg, #2d2433 0%, #171b24 48%, #0e1016 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        0 8px 18px rgba(15, 23, 42, 0.32);
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+}
+
+.finder-flip-unit__hinge {
+    position: absolute;
+    left: 5%;
+    right: 5%;
+    top: 50%;
+    height: 1px;
+    margin-top: -0.5px;
+    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.55), transparent);
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0.88;
+}
+
+.finder-flip-unit__num {
+    position: relative;
+    z-index: 1;
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(0.7rem, 2.6vw, 0.95rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: #fdf2f8;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+.finder-flip-unit__label {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.48rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: center;
+    color: #f472b6;
+}
+
+.finder-flip-unit.is-flipping .finder-flip-unit__surface {
+    animation: finderFlipPanel 0.52s cubic-bezier(0.45, 0.02, 0.32, 1) both;
+}
+
+@keyframes finderFlipPanel {
+    0% {
+        transform: rotateX(0deg);
+    }
+
+    45% {
+        transform: rotateX(-92deg);
+        opacity: 0.88;
+    }
+
+    55% {
+        transform: rotateX(92deg);
+        opacity: 0.72;
+    }
+
+    100% {
+        transform: rotateX(0deg);
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .finder-flip-unit.is-flipping .finder-flip-unit__surface {
+        animation: none !important;
+    }
+}
+
+.finder-flip-timer--expired .finder-flip-unit__surface {
+    opacity: 0.62;
+    filter: grayscale(0.15);
+}
+
+.finder-flip-timer--expired .finder-flip-unit__label {
+    color: #a1a1aa;
+}
+
+.finder-flip-timer--expired .finder-flip-timer__caption {
+    color: #71717a;
+    opacity: 0.95;
+}
+
+@media (max-width: 420px) {
+    .finder-flip-timer__units {
+        gap: 4px;
+    }
+
+    .finder-flip-unit__label {
+        font-size: 0.4rem;
+        letter-spacing: 0.06em;
+    }
+
+    .finder-flip-unit__surface {
+        min-height: 2.2rem;
+        padding: 3px 2px;
+    }
+}
+
 .finder-card__timer {
     display: inline-flex;
     align-items: center;

@@ -186,7 +186,7 @@ class UserHomeFeedTests(TestCase):
         )
         self.assertContains(
             response,
-            'data-auth-next-url="/user/claim/',
+            'data-auth-next-url="/user/redeem/',
             html=False,
         )
         self.assertContains(
@@ -366,12 +366,12 @@ class UserHomeFeedTests(TestCase):
         self.assertContains(response, "Adopt Dog")
         self.assertContains(response, claim_post.display_breed)
         self.assertContains(response, adopt_post.display_breed)
-        self.assertContains(response, f'href="{reverse("user:claim_list")}"', html=False)
+        self.assertContains(response, f'href="{reverse("user:redeem_list")}"', html=False)
         self.assertContains(response, f'href="{reverse("user:adopt_list")}"', html=False)
         self.assertContains(response, "home-carousel-claim-1")
         self.assertContains(response, "home-carousel-adopt-1")
         self.assertContains(response, "View Details")
-        self.assertContains(response, "Open Post Page")
+        self.assertContains(response, 'aria-label="Open ', html=False)
         self.assertContains(response, "data-dog-detail-toggle", html=False)
         self.assertContains(response, "data-dog-detail-panel", html=False)
         self.assertContains(response, "Barangay")
@@ -468,7 +468,7 @@ class UserHomeFeedTests(TestCase):
             location="Bayawan",
             claim_days=3,
         )
-        claim_url = f'{reverse("user:claim_confirm", args=[post.id])}?return_to=home'
+        claim_url = f'{reverse("user:redeem_confirm", args=[post.id])}?return_to=home'
 
         response = self.client.get(claim_url)
 
@@ -512,7 +512,7 @@ class UserHomeFeedTests(TestCase):
             location="Bayawan",
             claim_days=3,
         )
-        claim_url = reverse("user:claim_confirm", args=[post.id])
+        claim_url = reverse("user:redeem_confirm", args=[post.id])
 
         response = self.client.get(claim_url)
 
@@ -535,11 +535,11 @@ class UserHomeFeedTests(TestCase):
             claim_days=3,
         )
 
-        response = self.client.get(reverse("user:claim_list"))
+        response = self.client.get(reverse("user:redeem_list"))
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "adopt/adopt_list.html")
-        self.assertContains(response, "Dog Rescue Finder")
+        self.assertContains(response, "Find a Dog")
         self.assertContains(response, 'data-auth-modal-trigger="login"', html=False)
 
     def test_guest_can_open_post_detail_without_login(self):
@@ -578,7 +578,7 @@ class UserHomeFeedTests(TestCase):
             location="Bayawan",
             claim_days=3,
         )
-        claim_url = reverse("user:claim_confirm", args=[post.id])
+        claim_url = reverse("user:redeem_confirm", args=[post.id])
 
         response = self.client.post(
             reverse("user:login"),
@@ -609,12 +609,13 @@ class UserHomeFeedTests(TestCase):
         )
         self.client.force_login(member)
 
-        response = self.client.get(f'{reverse("user:claim_confirm", args=[post.id])}?return_to=home')
+        response = self.client.get(f'{reverse("user:redeem_confirm", args=[post.id])}?return_to=home')
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="claimCloseLink"', html=False)
         self.assertContains(
             response,
-            f'href="{reverse("user:user_home")}" class="btn btn-claim-cancel"',
+            f'href="{reverse("user:user_home")}"',
             html=False,
         )
 
@@ -636,12 +637,13 @@ class UserHomeFeedTests(TestCase):
         )
         self.client.force_login(member)
 
-        response = self.client.get(reverse("user:claim_confirm", args=[post.id]))
+        response = self.client.get(reverse("user:redeem_confirm", args=[post.id]))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="claimCloseLink"', html=False)
         self.assertContains(
             response,
-            f'href="{reverse("user:claim_list")}" class="btn btn-claim-cancel"',
+            f'href="{reverse("user:redeem_list")}"',
             html=False,
         )
 
@@ -663,14 +665,10 @@ class UserHomeFeedTests(TestCase):
         )
         self.client.force_login(member)
 
-        response = self.client.get(reverse("user:claim_list"))
+        response = self.client.get(reverse("user:redeem_list"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(
-            response,
-            f'href="{reverse("user:claim_confirm", args=[post.id])}"',
-            html=False,
-        )
+        self.assertContains(response, reverse("user:redeem_confirm", args=[post.id]), html=False)
         self.assertNotContains(response, 'data-auth-modal-trigger="login"', html=False)
 
     def test_claim_list_renders_deadline_and_detail_action_in_overlay_card(self):
@@ -691,15 +689,11 @@ class UserHomeFeedTests(TestCase):
         )
         claim_deadline_label = timezone.localtime(post.claim_deadline()).strftime("%b %d, %Y")
 
-        response = self.client.get(reverse("user:claim_list"))
+        response = self.client.get(reverse("user:redeem_list"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "View Details")
-        self.assertContains(
-            response,
-            f'href="{reverse("user:post_detail", args=[post.id])}"',
-            html=False,
-        )
+        self.assertContains(response, "View Info")
+        self.assertContains(response, post.display_breed or post.display_title)
         self.assertContains(response, "Redemption Ends")
         self.assertContains(response, claim_deadline_label)
 
@@ -721,15 +715,11 @@ class UserHomeFeedTests(TestCase):
         )
         self.client.force_login(member)
 
-        response = self.client.get(reverse("user:claim_list"))
+        response = self.client.get(reverse("user:redeem_list"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Reserve Adoption")
-        self.assertContains(
-            response,
-            f'href="{reverse("user:adopt_confirm", args=[post.id])}"',
-            html=False,
-        )
+        self.assertContains(response, reverse("user:adopt_confirm", args=[post.id]), html=False)
 
     def test_adopt_list_defaults_to_all_purpose_in_rescue_finder(self):
         staff_user = User.objects.create_user(
@@ -811,7 +801,7 @@ class UserHomeFeedTests(TestCase):
         self.client.force_login(member)
 
         response = self.client.get(
-            reverse("user:claim_list"),
+            reverse("user:redeem_list"),
             {
                 "purpose": "all",
                 "breed": "labrador",
@@ -845,7 +835,7 @@ class UserHomeFeedTests(TestCase):
         )
         self.client.force_login(member)
 
-        response = self.client.get(reverse("user:claim_list"))
+        response = self.client.get(reverse("user:redeem_list"))
 
         self.assertEqual(response.status_code, 200)
         location_section = next(
@@ -871,7 +861,7 @@ class UserHomeFeedTests(TestCase):
             location="Bayawan",
             claim_days=3,
         )
-        claim_url = reverse("user:claim_confirm", args=[post.id])
+        claim_url = reverse("user:redeem_confirm", args=[post.id])
 
         response = self.client.post(
             reverse("user:login"),
@@ -900,7 +890,7 @@ class UserHomeFeedTests(TestCase):
             location="Bayawan",
             claim_days=3,
         )
-        claim_url = reverse("user:claim_confirm", args=[post.id])
+        claim_url = reverse("user:redeem_confirm", args=[post.id])
 
         response = self.client.post(
             reverse("user:signup"),

@@ -1816,7 +1816,7 @@ def _finder_share_url_staff(request, post, phase_payload):
     pid = post.id
     hl = urlencode({"highlight": f"staff:{pid}"})
     if phase == "claim":
-        base = request.build_absolute_uri(reverse("user:claim_list"))
+        base = request.build_absolute_uri(reverse("user:redeem_list"))
         return f"{base}?purpose=claim&{hl}"
     if phase == "adopt":
         base = request.build_absolute_uri(reverse("user:adopt_list"))
@@ -2109,7 +2109,7 @@ def _build_rescue_finder_card_item(
     phase_title = "Ready to Redeem" if phase == "claim" else "Ready for Adoption"
     share_url = _finder_share_url_staff(request, post, phase_payload)
     action_url = (
-        reverse("user:claim_confirm", args=[post.id])
+        reverse("user:redeem_confirm", args=[post.id])
         if phase == "claim"
         else reverse("user:adopt_confirm", args=[post.id])
     )
@@ -2531,13 +2531,13 @@ def _build_public_post_listing(request, listing_mode):
         "user_adoption_posts": user_adoption_posts,
         "pagination_query": _pagination_query_without_page(request.GET),
         "clear_filters_url": (
-            f"{reverse('user:claim_list' if listing_mode == 'claim' else 'user:adopt_list')}"
+            f"{reverse('user:redeem_list' if listing_mode == 'claim' else 'user:adopt_list')}"
             f"?{urlencode({'purpose': 'all'})}"
         ),
         "request_links": [
             {
-                "url": reverse("user:my_claims"),
-                "label": "My Claim Requests",
+                "url": reverse("user:my_redemptions"),
+                "label": "My Redemption Requests",
                 "icon_class": "bi bi-shield",
             },
             {
@@ -2594,7 +2594,7 @@ def _build_home_featured_rescue_sections(request):
             "title": "Redeem Ready",
             "eyebrow": "Owner Redemption Window",
             "description": "Dogs still within the owner redemption window.",
-            "browse_url": reverse("user:claim_list"),
+            "browse_url": reverse("user:redeem_list"),
             "empty_message": "No dogs are currently in the redemption window.",
             "items": section_items["claim"],
         },
@@ -3023,11 +3023,11 @@ def _render_confirm_page(request, template_name, post, available_dates, request_
 
 
 def _request_history_route_name(request_type):
-    return "user:my_claims" if request_type == "claim" else "user:adopt_status"
+    return "user:my_redemptions" if request_type == "claim" else "user:adopt_status"
 
 
 def _public_listing_route_name(request_type):
-    return "user:claim_list" if request_type == "claim" else "user:adopt_list"
+    return "user:redeem_list" if request_type == "claim" else "user:adopt_list"
 
 
 def _request_status_summary(items):
@@ -3163,12 +3163,12 @@ def _handle_confirm_request(
         if request_type == "claim":
             messages.warning(
                 request,
-                "You already reserved adoption for this dog. You cannot submit a claim for the same post.",
+                "You already reserved adoption for this dog. You cannot submit a redemption request for the same post.",
             )
-            return redirect(reverse("user:my_claims"))
+            return redirect(reverse("user:my_redemptions"))
         messages.warning(
             request,
-            "You already submitted a claim for this dog. You cannot submit an adoption request for the same post.",
+            "You already submitted a redemption for this dog. You cannot submit an adoption request for the same post.",
         )
         return redirect(reverse("user:adopt_status"))
 
@@ -5097,7 +5097,7 @@ def adopt_status(request):
 
     return render(request, 'adopt/adopt.html', {
         'summary': summary,
-        'browse_url': reverse("user:claim_list"),
+        'browse_url': reverse("user:redeem_list"),
         'current_source': source_type,
         'current_status': status_filter,
         'show_staff_requests': show_staff_requests,
@@ -5160,7 +5160,7 @@ def adopt_confirm(request, post_id):
             else "You already submitted an adoption request."
         ),
         success_message=lambda post: (
-            "Adoption reserved. If no owner claim is approved, admin review opens after the claim window closes."
+            "Adoption reserved. If no owner redemption is approved, admin review opens after the redemption window closes."
             if post.current_phase() == "claim"
             else "Adoption request submitted. The post stays visible while admin verification runs for 1 day."
         ),
@@ -5324,10 +5324,10 @@ def announcement_comment(request, post_id):
         next_url = reverse('user:announcement_list')
     return redirect(next_url)
 
-# Navigation 3/5: Claim continued
+# Navigation 3/5: Redeem continued
 @user_only
-def my_claims(request):
-    """Show the current user's submitted claim requests and their statuses."""
+def my_redemptions(request):
+    """Show the current user's submitted redemption requests and their statuses."""
     status_filter = request.GET.get("status", "pending")
     if status_filter not in {"total", "pending", "accepted", "rejected"}:
         status_filter = "pending"
@@ -5348,17 +5348,17 @@ def my_claims(request):
         'summary': summary,
         'current_status': status_filter,
         'page_obj': page_obj,
-        'browse_url': reverse("user:claim_list"),
+        'browse_url': reverse("user:redeem_list"),
     })
 
 
-def claim_list(request):
-    """Browse dogs that are still available to be claimed."""
+def redeem_list(request):
+    """Browse dogs that are still available for owner redemption."""
     return _render_public_post_listing_page(request, "claim")
 
 
-def claim_confirm(request, post_id):
-    """Confirm and submit a claim request for a staff-managed post."""
+def redeem_confirm(request, post_id):
+    """Confirm and submit a redemption request for a staff-managed post."""
     access_response = _require_public_member_or_auth_modal(
         request,
         next_url=request.get_full_path(),
@@ -5371,7 +5371,7 @@ def claim_confirm(request, post_id):
         request_type="claim",
         template_name="claim/claim_confirm.html",
         is_open_fn=lambda post: post.is_open_for_claim(),
-        not_open_message="Claim period has ended for this post.",
-        duplicate_message="You already submitted a claim for this dog.",
-        success_message="Claim submitted. The post stays visible while admin verification runs for 1 day.",
+        not_open_message="Redemption period has ended for this post.",
+        duplicate_message="You already submitted a redemption for this dog.",
+        success_message="Redemption submitted. The post stays visible while admin verification runs for 1 day.",
     )

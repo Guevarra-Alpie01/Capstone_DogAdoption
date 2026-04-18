@@ -102,7 +102,7 @@ class RequestRateLimitMiddleware(MiddlewareMixin):
         "user:create_post",
         "user:adopt_user_post",
         "user:adopt_confirm",
-        "user:claim_confirm",
+        "user:redeem_confirm",
         "user:dog_capture_request",
         "user:edit_dog_capture_request",
         "user:delete_dog_capture_request",

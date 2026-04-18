@@ -471,7 +471,7 @@ def _build_request_acceptance_items(user):
     for req in requests:
         reviewed_at = reviewed_at_map.get(req.id, req.created_at)
         label = "Claim request accepted" if req.request_type == "claim" else "Adoption request accepted"
-        destination = reverse("user:my_claims") if req.request_type == "claim" else reverse("user:adopt_status")
+        destination = reverse("user:my_redemptions") if req.request_type == "claim" else reverse("user:adopt_status")
         schedule_text = (
             f" Appointment: {req.scheduled_appointment_date.strftime('%b %d, %Y')}."
             if req.scheduled_appointment_date

@@ -42,7 +42,7 @@ from locust.runners import WorkerRunner
 CSRF_RE = re.compile(r'name=["\']csrfmiddlewaretoken["\']\s+value=["\']([^"\']+)["\']')
 USER_ADOPT_PATH_RE = re.compile(r"(/user/user-adopt/[^\"'\s<]+/)")
 STAFF_ADOPT_PATH_RE = re.compile(r"(/user/adopt/[^\"'\s<]+/)")
-CLAIM_PATH_RE = re.compile(r"(/user/claim/[^\"'\s<]+/)")
+CLAIM_PATH_RE = re.compile(r"(/user/(?:claim|redeem)/[^\"'\s<]+/)")
 ANNOUNCEMENT_COMMENT_PATH_RE = re.compile(r"(/user/announcements/[^\"'\s<]+/comment/)")
 POST_DETAIL_PATH_RE = re.compile(r"(/user/post/\d+/)")
 ANNOUNCEMENT_DETAIL_PATH_RE = re.compile(r"(/user/announcements/\d+/)")
@@ -1124,16 +1124,16 @@ class UserJourney(CapstoneUserBase):
                 response.success()
 
     @task(2)
-    def browse_claim_list(self):
+    def browse_redeem_list(self):
         with self.client.get(
-            "/user/claim-list/",
-            name="GET /user/claim-list/",
+            "/user/redeem-list/",
+            name="GET /user/redeem-list/",
             catch_response=True,
         ) as response:
             self._capture_csrf(response)
             self._capture_discovery(response.text)
-            if not self._maybe_reauthenticate(response, expected_prefix="/user/claim-list/"):
-                response.failure("Claim list redirected to login.")
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/redeem-list/"):
+                response.failure("Redeem list redirected to login.")
             else:
                 response.success()
 
@@ -1263,16 +1263,16 @@ class UserJourney(CapstoneUserBase):
                 response.success()
 
     @task(2)
-    def browse_my_claims(self):
+    def browse_my_redemptions(self):
         with self.client.get(
-            "/user/my-claims/",
-            name="GET /user/my-claims/",
+            "/user/my-redemptions/",
+            name="GET /user/my-redemptions/",
             catch_response=True,
         ) as response:
             self._capture_csrf(response)
             self._capture_discovery(response.text)
-            if not self._maybe_reauthenticate(response, expected_prefix="/user/my-claims/"):
-                response.failure("My claims redirected unexpectedly.")
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/my-redemptions/"):
+                response.failure("My redemptions redirected unexpectedly.")
             else:
                 response.success()
 
@@ -1410,15 +1410,15 @@ class UserJourney(CapstoneUserBase):
                 response.success()
 
     @task(1)
-    def browse_discovered_claim_confirm(self):
+    def browse_discovered_redeem_confirm(self):
         if not self.claim_paths:
             return
         path = random.choice(self.claim_paths)
-        with self.client.get(path, name="GET /user/claim/[id]/", catch_response=True) as response:
+        with self.client.get(path, name="GET /user/redeem/[id]/", catch_response=True) as response:
             self._capture_csrf(response)
             self._capture_discovery(response.text)
-            if not self._maybe_reauthenticate(response, expected_prefix="/user/claim/"):
-                response.failure("Claim confirm redirected unexpectedly.")
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/redeem/"):
+                response.failure("Redeem confirm redirected unexpectedly.")
             else:
                 response.success()
 

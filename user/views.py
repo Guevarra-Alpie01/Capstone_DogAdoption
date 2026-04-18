@@ -3299,6 +3299,9 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "image_count": len(gallery_images),
                 "gallery_images": gallery_images,
                 "main_image": main_image,
+                "share_url": request.build_absolute_uri(
+                    reverse("user:post_detail", args=[p.id])
+                ),
             })
             continue
 
@@ -3323,7 +3326,7 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "gallery_images": announcement_images,
                 "has_media": bool(p.background_image or announcement_images),
                 "share_url": request.build_absolute_uri(
-                    reverse("user:announcement_share_preview", args=[p.id])
+                    reverse("user:announcement_detail", args=[p.id])
                 ),
             })
             continue
@@ -4753,7 +4756,7 @@ def _decorate_announcement_posts(posts, request):
         )
         post.content_display = _clean_announcement_text_for_display(post.content)
         post.share_url = request.build_absolute_uri(
-            reverse("user:announcement_share_preview", args=[post.id])
+            reverse("user:announcement_detail", args=[post.id])
         )
     return posts
 
@@ -4849,57 +4852,18 @@ def announcement_detail(request, post_id):
         'og_image_url': og_image_url,
         'og_description': plain_description,
         'share_url': request.build_absolute_uri(
-            reverse("user:announcement_share_preview", args=[post.id])
+            reverse("user:announcement_detail", args=[post.id])
         ),
     })
 
 
 def announcement_share_preview(request, post_id):
-    """Render metadata-friendly announcement content for social sharing."""
-    post = get_object_or_404(
-        DogAnnouncement.objects.select_related("created_by").prefetch_related(
-            Prefetch(
-                "images",
-                queryset=DogAnnouncementImage.objects.only(
-                    "id",
-                    "announcement_id",
-                    "image",
-                    "created_at",
-                ).order_by("created_at", "id"),
-                to_attr="prefetched_images",
-            ),
-        ),
-        id=post_id,
-    )
+    """Legacy social URL: `/announcements/share/<id>/` now redirects to the detail page.
 
-    primary_image_url = ""
-    if post.background_image:
-        primary_image_url = request.build_absolute_uri(post.background_image.url)
-    elif getattr(post, "prefetched_images", None):
-        primary_image_url = request.build_absolute_uri(post.prefetched_images[0].image.url)
-    else:
-        primary_image_url = request.build_absolute_uri(static("images/bayawan_logo.webp"))
-
-    plain_caption = strip_tags(post.content or "").strip()
-    if len(plain_caption) > 220:
-        plain_caption = f"{plain_caption[:217].rstrip()}..."
-    if not plain_caption:
-        plain_caption = "Announcement update from Bayawan Vet."
-
-    detail_url = request.build_absolute_uri(reverse("user:announcement_detail", args=[post.id]))
-    share_url = request.build_absolute_uri(reverse("user:announcement_share_preview", args=[post.id]))
-
-    return render(
-        request,
-        "announcement/announcement_share_preview.html",
-        {
-            "post": post,
-            "primary_image_url": primary_image_url,
-            "plain_caption": plain_caption,
-            "detail_url": detail_url,
-            "share_url": share_url,
-        },
-    )
+    The detail view includes Open Graph tags so Facebook and other platforms open the
+    full announcement when someone taps a shared link.
+    """
+    return redirect("user:announcement_detail", post_id=post_id)
 
 
 @user_only

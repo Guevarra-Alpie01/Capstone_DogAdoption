@@ -1326,13 +1326,13 @@ class UserJourney(CapstoneUserBase):
         path = random.choice(self.announcement_share_paths)
         with self.client.get(
             path,
-            name="GET /user/announcements/share/[id]/",
+            name="GET /user/announcements/share/[id]/ (redirects to detail)",
             catch_response=True,
         ) as response:
             self._capture_csrf(response)
             self._capture_discovery(response.text)
-            if not self._maybe_reauthenticate(response, expected_prefix="/user/announcements/share/"):
-                response.failure("Announcement share preview redirected unexpectedly.")
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/announcements/"):
+                response.failure("Announcement legacy share URL redirected unexpectedly.")
             else:
                 response.success()
 

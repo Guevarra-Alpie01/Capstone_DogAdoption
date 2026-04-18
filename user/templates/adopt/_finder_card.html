@@ -62,24 +62,24 @@
     </div>
 
     <div class="finder-card__body{% if featured %} finder-card__body--featured{% endif %}">
-        <div class="finder-card__head">
-            <div class="finder-card__title-wrap">
-                <p class="finder-card__label">Breed</p>
-                <h3 class="finder-card__breed-title">{{ item.breed_label }}</h3>
-                {% if item.title and item.title != item.breed_label %}
-                <p class="finder-card__title">{{ item.title }}</p>
-                {% endif %}
-                <p class="finder-card__breed">
-                    <span class="finder-card__breed-icon" aria-hidden="true">
-                        <i class="bi bi-geo-alt-fill"></i>
-                    </span>
-                    <span>{{ item.location_label }}</span>
-                </p>
-            </div>
-            {% if item.phase != 'claim' and item.phase != 'adopt' %}
-            <span class="finder-card__phase-title">{{ item.phase_title }}</span>
-            {% endif %}
+        {% if item.show_countdown %}
+        <div class="finder-card__timer-strip">
+            <span
+                class="finder-card__timer finder-card__timer--modern"
+                {% if item.deadline_iso %}data-countdown-deadline="{{ item.deadline_iso }}"{% endif %}
+            >
+                <span class="finder-card__timer-icon" aria-hidden="true">
+                    <i class="bi bi-stopwatch"></i>
+                </span>
+                <span data-countdown-text class="finder-card__timer-value">{{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m left</span>
+            </span>
         </div>
+        {% endif %}
+        {% if item.phase != 'claim' and item.phase != 'adopt' %}
+        <div class="finder-card__head finder-card__head--minimal">
+            <span class="finder-card__phase-title">{{ item.phase_title }}</span>
+        </div>
+        {% endif %}
 
         <div class="finder-card__footer{% if featured %} finder-card__footer--featured{% endif %}">
             <div class="finder-card__actions finder-card__actions--stack{% if featured %} finder-card__actions--featured{% endif %}">
@@ -123,8 +123,6 @@
                 {% elif item.phase == 'claim' and item.show_claim_cta %}
                 <span class="finder-card__action-placeholder" aria-hidden="true"></span>
                 {% elif item.phase == 'claim' and item.show_reserve_adoption_cta %}
-                <span class="finder-card__action-placeholder" aria-hidden="true"></span>
-                {% elif item.phase == 'adopt' and item.show_adopt_cta %}
                 <span class="finder-card__action-placeholder" aria-hidden="true"></span>
                 {% endif %}
             </div>

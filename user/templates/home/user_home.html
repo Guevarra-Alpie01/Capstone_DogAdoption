@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..800&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260418home-viewinfo-pink">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260418home-details-compact">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -1037,44 +1037,7 @@
     const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const revealTargets = Array.from(document.querySelectorAll('.home-reveal'));
     const syncHomeDetailModalState = () => {
-        const hasOpenDetail = document.querySelector('.dog-scale-carousel__details--popup');
-        document.body.classList.toggle('home-details-modal-open', Boolean(hasOpenDetail));
-    };
-    const portalizeDetailPanel = (panelState, owner, panel) => {
-        if (!panel || panel.classList.contains('dog-scale-carousel__details--popup')) {
-            return panel;
-        }
-
-        const parent = panel.parentNode;
-        if (!parent) {
-            return panel;
-        }
-
-        const placeholder = document.createComment('home-detail-placeholder');
-        parent.insertBefore(placeholder, panel);
-        panelState.set(owner, { panel, parent, placeholder });
-        panel.classList.add('dog-scale-carousel__details--popup');
-        document.body.appendChild(panel);
-        return panel;
-    };
-    const restoreDetailPanel = (panelState, owner) => {
-        const state = panelState.get(owner);
-        if (!state) {
-            return null;
-        }
-
-        const { panel, parent, placeholder } = state;
-        panel.classList.remove('dog-scale-carousel__details--popup');
-
-        if (placeholder?.parentNode === parent) {
-            parent.insertBefore(panel, placeholder);
-            placeholder.remove();
-        } else if (parent) {
-            parent.appendChild(panel);
-        }
-
-        panelState.delete(owner);
-        return panel;
+        document.body.classList.remove('home-details-modal-open');
     };
 
     document.querySelectorAll('[data-home-ordinance-stepper]').forEach((stepper) => {
@@ -1435,8 +1398,7 @@
 
         const autoplayMs = Number(carousel.getAttribute('data-autoplay-ms')) || 3000;
         let intervalId = null;
-        const detailPanelState = new WeakMap();
-        const getDetailPanel = (slide) => slide.querySelector('[data-dog-detail-panel]') || detailPanelState.get(slide)?.panel || null;
+        const getDetailPanel = (slide) => slide.querySelector('[data-dog-detail-panel]');
 
         const setDetailState = (slide, isOpen) => {
             const toggle = slide.querySelector('[data-dog-detail-toggle]');
@@ -1465,7 +1427,6 @@
         const closeAllDetails = ({ restartAutoplay = true } = {}) => {
             slides.forEach((slide) => {
                 setDetailState(slide, false);
-                restoreDetailPanel(detailPanelState, slide);
             });
             syncHomeDetailModalState();
             delete carousel.dataset.autoplaySuspended;
@@ -1478,8 +1439,8 @@
             slides.forEach((currentSlide) => {
                 setDetailState(currentSlide, currentSlide === slide);
             });
-            const panel = portalizeDetailPanel(detailPanelState, slide, getDetailPanel(slide));
             syncHomeDetailModalState();
+            const panel = getDetailPanel(slide);
             carousel.dataset.autoplaySuspended = '1';
             stopAutoplay();
             window.requestAnimationFrame(() => {
@@ -1691,8 +1652,7 @@
 
     const spotlightCards = Array.from(document.querySelectorAll('[data-home-spotlight-card]'));
     if (spotlightCards.length) {
-        const spotlightPanelState = new WeakMap();
-        const getSpotlightPanel = (card) => card.querySelector('[data-home-spotlight-detail-panel]') || spotlightPanelState.get(card)?.panel || null;
+        const getSpotlightPanel = (card) => card.querySelector('[data-home-spotlight-detail-panel]');
         const setSpotlightDetailState = (card, isOpen) => {
             const panel = getSpotlightPanel(card);
             card.classList.toggle('is-details-open', isOpen);
@@ -1708,7 +1668,6 @@
         const closeAllSpotlightDetails = () => {
             spotlightCards.forEach((card) => {
                 setSpotlightDetailState(card, false);
-                restoreDetailPanel(spotlightPanelState, card);
             });
             syncHomeDetailModalState();
         };
@@ -1717,8 +1676,8 @@
                 setSpotlightDetailState(currentCard, currentCard === card);
             });
 
-            const panel = portalizeDetailPanel(spotlightPanelState, card, getSpotlightPanel(card));
             syncHomeDetailModalState();
+            const panel = getSpotlightPanel(card);
 
             window.requestAnimationFrame(() => {
                 const closeButton = card.querySelector('[data-home-spotlight-detail-close]');

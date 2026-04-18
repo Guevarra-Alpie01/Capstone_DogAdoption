@@ -362,7 +362,7 @@ class UserHomeFeedTests(TestCase):
         response = self.client.get(reverse("user:user_home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Claim Dog")
+        self.assertContains(response, "Redeem Dog")
         self.assertContains(response, "Adopt Dog")
         self.assertContains(response, claim_post.display_breed)
         self.assertContains(response, adopt_post.display_breed)
@@ -375,7 +375,7 @@ class UserHomeFeedTests(TestCase):
         self.assertContains(response, "data-dog-detail-toggle", html=False)
         self.assertContains(response, "data-dog-detail-panel", html=False)
         self.assertContains(response, "Barangay")
-        self.assertContains(response, "Claim Ends")
+        self.assertContains(response, "Redemption Ends")
         self.assertContains(response, claim_deadline_label)
 
     def test_pinned_spotlight_view_post_and_view_status_include_popup_hooks(self):
@@ -407,12 +407,12 @@ class UserHomeFeedTests(TestCase):
         response = self.client.get(reverse("user:user_home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Claim Dog")
+        self.assertContains(response, "Redeem Dog")
         self.assertContains(response, "View Post")
         self.assertContains(response, "data-home-spotlight-card", count=1, html=False)
         self.assertContains(response, "data-home-spotlight-detail-toggle", count=2, html=False)
         self.assertContains(response, "data-home-spotlight-detail-panel", count=1, html=False)
-        self.assertContains(response, "Claim Ends")
+        self.assertContains(response, "Redemption Ends")
         self.assertContains(response, "Coat")
         self.assertContains(response, "Color")
 
@@ -700,7 +700,7 @@ class UserHomeFeedTests(TestCase):
             f'href="{reverse("user:post_detail", args=[post.id])}"',
             html=False,
         )
-        self.assertContains(response, "Claim Ends")
+        self.assertContains(response, "Redemption Ends")
         self.assertContains(response, claim_deadline_label)
 
     def test_claim_list_shows_reserve_adoption_button_for_claim_phase_posts(self):
@@ -731,7 +731,7 @@ class UserHomeFeedTests(TestCase):
             html=False,
         )
 
-    def test_adopt_list_defaults_to_adoption_phase_in_rescue_finder(self):
+    def test_adopt_list_defaults_to_all_purpose_in_rescue_finder(self):
         staff_user = User.objects.create_user(
             username="finderadoptstaff",
             password="secret123",
@@ -770,10 +770,9 @@ class UserHomeFeedTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'name="purpose"', html=False)
-        self.assertEqual(response.context["current_purpose"], "adopt")
-        self.assertEqual(len(response.context["posts"]), 1)
-        self.assertEqual(response.context["posts"][0]["post"].id, adopt_post.id)
-        self.assertNotEqual(response.context["posts"][0]["post"].id, claim_post.id)
+        self.assertEqual(response.context["current_purpose"], "all")
+        staff_ids = {row["post"].id for row in response.context["posts"]}
+        self.assertEqual(staff_ids, {claim_post.id, adopt_post.id})
 
     def test_claim_list_filter_preferences_sort_best_match_first(self):
         staff_user = User.objects.create_user(

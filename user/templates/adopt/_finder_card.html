@@ -114,7 +114,47 @@
         {% endif %}
 
         <div class="finder-card__footer{% if featured %} finder-card__footer--featured{% endif %}">
-            <div class="finder-card__actions finder-card__actions--stack{% if item.phase == 'adopt' and item.show_adopt_cta %} finder-card__actions--single-primary{% endif %}{% if featured %} finder-card__actions--featured{% endif %}">
+            {% if item.phase == 'adopt' and item.show_adopt_cta %}
+            {# Same vertical slots as redemption cards: primary row / Reserve row / utilities #}
+            <div class="finder-card__actions finder-card__actions--stack{% if featured %} finder-card__actions--featured{% endif %}">
+                <span class="finder-card__action-placeholder" aria-hidden="true"></span>
+                <a
+                    href="{{ item.action_url }}"
+                    class="btn-action btn-action--primary"
+                    {% if not request.user.is_authenticated %}
+                    data-auth-modal-trigger="login"
+                    data-auth-next-url="{{ item.action_url }}"
+                    {% endif %}
+                >
+                    <span>{{ item.action_label }}</span>
+                </a>
+            </div>
+            <div class="finder-card__utilities">
+                <button
+                    type="button"
+                    class="finder-card__utility-btn js-finder-info-toggle"
+                    aria-expanded="false"
+                    aria-controls="finder-card-details-{{ item.phase }}-{{ item.post.id }}-{% if featured %}featured{% else %}list{% endif %}"
+                    data-finder-info-toggle
+                >
+                    <i class="bi bi-info-circle" aria-hidden="true"></i>
+                    <span data-finder-info-label>View Info</span>
+                </button>
+                <button
+                    type="button"
+                    class="finder-card__utility-btn finder-card__utility-btn--share js-open-share"
+                    data-share-url="{{ item.share_url }}"
+                    data-share-title="{{ item.breed_label }} — {{ item.phase_title }}"
+                    data-share-text="Check out this dog on Bayawan Vet: {{ item.breed_label }} in {{ item.location_label }}."
+                    data-finder-share
+                    aria-label="Share {{ item.title }}"
+                >
+                    <i class="bi bi-share-fill" aria-hidden="true"></i>
+                    <span>Share</span>
+                </button>
+            </div>
+            {% else %}
+            <div class="finder-card__actions finder-card__actions--stack{% if featured %} finder-card__actions--featured{% endif %}">
                 {% if item.phase == 'claim' and item.show_claim_cta %}
                 <a
                     href="{{ item.action_url }}"
@@ -137,18 +177,6 @@
                     {% endif %}
                 >
                     <span>Reserve Adoption</span>
-                </a>
-                {% endif %}
-                {% if item.phase == 'adopt' and item.show_adopt_cta %}
-                <a
-                    href="{{ item.action_url }}"
-                    class="btn-action btn-action--primary"
-                    {% if not request.user.is_authenticated %}
-                    data-auth-modal-trigger="login"
-                    data-auth-next-url="{{ item.action_url }}"
-                    {% endif %}
-                >
-                    <span>{{ item.action_label }}</span>
                 </a>
                 {% endif %}
                 {% if item.phase == 'claim' and item.show_claim_cta and item.show_reserve_adoption_cta %}
@@ -183,6 +211,7 @@
                     <span>Share</span>
                 </button>
             </div>
+            {% endif %}
         </div>
 
     </div>

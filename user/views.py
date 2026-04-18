@@ -1648,7 +1648,7 @@ def _featured_time_left_tone(phase_payload):
 
 def _featured_time_left_context(phase, phase_payload):
     if phase == "claim":
-        return "Before the owner-claim window closes."
+        return "Before the owner redemption window closes."
     return "Before the adoption window closes."
 
 
@@ -1737,10 +1737,7 @@ def _build_rescue_finder_form(*args, location_choices=None, default_purpose="all
 
 
 def _finder_default_purpose(listing_mode):
-    if listing_mode == "adopt":
-        return "adopt"
-    if listing_mode == "claim":
-        return "claim"
+    """Fresh visits and cleared filters use Purpose = All so every listing is visible."""
     return "all"
 
 
@@ -1884,7 +1881,7 @@ def _finder_highlight_open_graph(request):
         phase_payload = _post_phase_payload(post)
         phase = phase_payload["phase"]
         if phase == "claim":
-            phase_note = "Owner claim window is open."
+            phase_note = "Owner redemption window is open."
         elif phase == "adopt":
             phase_note = "Ready for adoption."
         else:
@@ -2109,7 +2106,7 @@ def _build_rescue_finder_card_item(
         if countdown_deadline and timezone.is_aware(countdown_deadline)
         else countdown_deadline
     )
-    phase_title = "Ready for Claim" if phase == "claim" else "Ready for Adoption"
+    phase_title = "Ready to Redeem" if phase == "claim" else "Ready for Adoption"
     share_url = _finder_share_url_staff(request, post, phase_payload)
     action_url = (
         reverse("user:claim_confirm", args=[post.id])
@@ -2126,7 +2123,7 @@ def _build_rescue_finder_card_item(
     return {
         "post": post,
         "phase": phase,
-        "phase_label": "Claim" if phase == "claim" else "Adopt",
+        "phase_label": "Redeem" if phase == "claim" else "Adopt",
         "phase_title": phase_title,
         "days_left": days,
         "hours_left": hours,
@@ -2142,14 +2139,14 @@ def _build_rescue_finder_card_item(
         "location_label": location_label,
         "barangay_label": location_label,
         "detail_url": reverse("user:post_detail", args=[post.id]),
-        "action_label": "Claim" if phase == "claim" else "Adopt",
+        "action_label": "Redeem" if phase == "claim" else "Adopt",
         "action_url": action_url,
         "reserve_adoption_url": reserve_adoption_url,
         "viewer_has_claim_request": vf["claim"],
         "viewer_has_adopt_request": vf["adopt"],
         **cta_flags,
         "time_left_badge": f"{days}d {hours}h {minutes}m left",
-        "countdown_date_heading": "Claim Ends" if phase == "claim" else "Adoption Ends",
+        "countdown_date_heading": "Redemption Ends" if phase == "claim" else "Adoption Ends",
         "countdown_date_label": (
             countdown_deadline_local.strftime("%b %d, %Y")
             if countdown_deadline_local
@@ -2163,6 +2160,11 @@ def _build_rescue_finder_card_item(
         "pending_state_detail": "",
         "pending_review_until_label": pending_review_until_label,
         "deadline_iso": countdown_deadline.isoformat() if countdown_deadline else "",
+        "sort_deadline_ts": (
+            countdown_deadline.timestamp()
+            if countdown_deadline
+            else float("inf")
+        ),
     }
 
 
@@ -2275,19 +2277,23 @@ def _filter_user_adoption_posts(posts_qs, filter_type):
 
 
 def _finder_unified_sort_key(entry):
-    """Sort key for (kind, item) where kind is staff|user."""
+    """Sort by soonest window end (claim or adopt), then match quality, then stability."""
     kind, item = entry
+    deadline_ts = item.get("sort_deadline_ts")
+    if deadline_ts is None:
+        deadline_ts = float("inf")
     if kind == "user":
         return (
+            deadline_ts,
             -item.get("match_score", 0),
             0 if item.get("main_image_url") else 1,
             -item["created_at"].timestamp(),
             item["post_id"],
         )
     return (
+        deadline_ts,
         -item.get("match_score", 0),
         0 if item.get("main_image_url") else 1,
-        -item["post"].created_at.timestamp(),
         item["post"].id,
     )
 
@@ -2360,12 +2366,17 @@ def _build_public_post_listing(request, listing_mode):
 
     claim_items = []
     adopt_items = []
-    _sort_key = lambda item: (
-        -item["match_score"],
-        0 if item["main_image_url"] else 1,
-        -item["post"].created_at.timestamp(),
-        item["post"].id,
-    )
+
+    def _staff_finder_sort_key(item):
+        ts = item.get("sort_deadline_ts")
+        if ts is None:
+            ts = float("inf")
+        return (
+            ts,
+            -item["match_score"],
+            0 if item["main_image_url"] else 1,
+            item["post"].id,
+        )
     for post, phase_payload in open_post_rows:
         phase = phase_payload["phase"]
         match_score = _rescue_finder_match_score(post, selected_filters)
@@ -2380,8 +2391,8 @@ def _build_public_post_listing(request, listing_mode):
             claim_items.append(card)
         else:
             adopt_items.append(card)
-    claim_items.sort(key=_sort_key)
-    adopt_items.sort(key=_sort_key)
+    claim_items.sort(key=_staff_finder_sort_key)
+    adopt_items.sort(key=_staff_finder_sort_key)
 
     user_adoption_qs = (
         UserAdoptionPost.objects
@@ -2425,6 +2436,7 @@ def _build_public_post_listing(request, listing_mode):
             "created_at": upost.created_at,
             "detail_url": detail_url,
             "share_url": _finder_share_url_user_adoption(request, upost.id),
+            "sort_deadline_ts": float("inf"),
         })
 
     user_adopt_count = len(user_adoption_items)
@@ -2436,10 +2448,17 @@ def _build_public_post_listing(request, listing_mode):
     )
     recommended_posts = []
     if active_filter_count:
+        best_item = None
+        best_score = -1
         for entry_kind, entry_item in unified_entries_all:
-            if entry_kind == "staff" and entry_item.get("match_score", 0) > 0:
-                recommended_posts = [entry_item]
-                break
+            if entry_kind != "staff":
+                continue
+            sc = entry_item.get("match_score", 0)
+            if sc > best_score:
+                best_score = sc
+                best_item = entry_item
+        if best_item is not None and best_score > 0:
+            recommended_posts = [best_item]
 
     unified_paginator = Paginator(unified_entries_all, RESCUE_FINDER_PAGE_SIZE)
     unified_page_obj = unified_paginator.get_page(request.GET.get("page", 1))
@@ -2463,7 +2482,7 @@ def _build_public_post_listing(request, listing_mode):
         },
         {
             "value": "claim",
-            "label": purpose_choice_map.get("claim", "Claim"),
+            "label": purpose_choice_map.get("claim", "Redeem"),
             "count": phase_counts["claim"],
             "icon_key": "claim",
         },
@@ -2511,8 +2530,9 @@ def _build_public_post_listing(request, listing_mode):
         "posts": posts,
         "user_adoption_posts": user_adoption_posts,
         "pagination_query": _pagination_query_without_page(request.GET),
-        "clear_filters_url": reverse(
-            "user:claim_list" if listing_mode == "claim" else "user:adopt_list"
+        "clear_filters_url": (
+            f"{reverse('user:claim_list' if listing_mode == 'claim' else 'user:adopt_list')}"
+            f"?{urlencode({'purpose': 'all'})}"
         ),
         "request_links": [
             {
@@ -2571,11 +2591,11 @@ def _build_home_featured_rescue_sections(request):
     sections = [
         {
             "key": "claim",
-            "title": "Claim Ready",
-            "eyebrow": "Owner Claim Window",
-            "description": "Dogs still within the owner claim window.",
+            "title": "Redeem Ready",
+            "eyebrow": "Owner Redemption Window",
+            "description": "Dogs still within the owner redemption window.",
             "browse_url": reverse("user:claim_list"),
-            "empty_message": "No dogs are currently in the claim window.",
+            "empty_message": "No dogs are currently in the redemption window.",
             "items": section_items["claim"],
         },
         {
@@ -2678,9 +2698,9 @@ def _build_home_spotlight_card(
 
     if phase == "claim":
         spotlight_copy = (
-            "Auto-highlighted because it has the least time left before the claim window closes."
+            "Auto-highlighted because it has the least time left before the redemption window closes."
             if is_auto_highlighted
-            else "Still within the owner claim window."
+            else "Still within the owner redemption window."
         )
     else:
         spotlight_copy = (
@@ -2696,7 +2716,7 @@ def _build_home_spotlight_card(
     if phase == "claim":
         if card_item["show_claim_cta"]:
             show_spotlight_primary_cta = True
-            primary_cta_label = "Claim Dog"
+            primary_cta_label = "Redeem Dog"
             primary_cta_url = f'{card_item["action_url"]}?return_to=home'
         elif card_item["show_reserve_adoption_cta"]:
             show_spotlight_primary_cta = True

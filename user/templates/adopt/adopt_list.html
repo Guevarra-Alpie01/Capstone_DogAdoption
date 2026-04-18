@@ -25,7 +25,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260418finder-media-reminder">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260418finder-reminder-slide">
 {% endblock %}
 
 {% block content %}
@@ -1065,53 +1065,66 @@
 </script>
 <script>
 (function () {
-    var STORAGE_KEY = "bayawan_finder_request_reminders_dismissed";
-    function readDismissed() {
+    var STORAGE_KEY = "bayawan_finder_reminder_toggle_v2";
+    var LEGACY_KEY = "bayawan_finder_request_reminders_dismissed";
+
+    function readToggleMap() {
+        var map = {};
         try {
-            var raw = localStorage.getItem(STORAGE_KEY);
-            return raw ? JSON.parse(raw) : {};
+            map = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
         } catch (e) {
-            return {};
+            map = {};
         }
+        try {
+            var legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || "{}");
+            Object.keys(legacy).forEach(function (k) {
+                if (legacy[k] === true && map[k] === undefined) {
+                    map[k] = "collapsed";
+                }
+            });
+        } catch (e) {}
+        return map;
     }
-    function writeDismissed(map) {
+
+    function writeToggleMap(map) {
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
         } catch (e) {}
     }
-    function syncMediaReminderClasses(reminderEl, isDismissed) {
-        var media = reminderEl.closest(".finder-card__media");
-        if (!media) {
-            return;
+
+    function syncToggleUi(media, btn, collapsed) {
+        if (collapsed) {
+            media.classList.add("is-reminder-collapsed");
+        } else {
+            media.classList.remove("is-reminder-collapsed");
         }
-        if (isDismissed) {
-            media.classList.remove("finder-card__media--has-reminder");
-            media.classList.add("finder-card__media--reminder-dismissed");
-        }
+        var expanded = btn.getAttribute("data-label-expanded") || "Hide reminder";
+        var collapsedLabel = btn.getAttribute("data-label-collapsed") || "Show reminder";
+        btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        btn.setAttribute("aria-label", collapsed ? collapsedLabel : expanded);
     }
+
     document.addEventListener("DOMContentLoaded", function () {
-        var dismissed = readDismissed();
-        document.querySelectorAll("[data-finder-request-reminder]").forEach(function (el) {
-            var key = el.getAttribute("data-reminder-key");
-            if (!key) {
+        var map = readToggleMap();
+        document.querySelectorAll("[data-finder-request-reminder]").forEach(function (stack) {
+            var key = stack.getAttribute("data-reminder-key");
+            var media = stack.closest(".finder-card__media");
+            var btn = stack.querySelector(".finder-card__reminder-toggle");
+            if (!key || !media || !btn) {
                 return;
             }
-            if (dismissed[key]) {
-                el.setAttribute("hidden", "");
-                syncMediaReminderClasses(el, true);
-                return;
-            }
-            var btn = el.querySelector(".finder-card__media-reminder-dismiss");
-            if (!btn) {
-                return;
-            }
+            var stored = map[key];
+            var collapsed = stored === "collapsed";
+            syncToggleUi(media, btn, collapsed);
+
             btn.addEventListener("click", function (e) {
                 e.preventDefault();
                 e.stopPropagation();
-                dismissed[key] = true;
-                writeDismissed(dismissed);
-                el.setAttribute("hidden", "");
-                syncMediaReminderClasses(el, true);
+                var nextCollapsed = !media.classList.contains("is-reminder-collapsed");
+                syncToggleUi(media, btn, nextCollapsed);
+                var nextMap = readToggleMap();
+                nextMap[key] = nextCollapsed ? "collapsed" : "expanded";
+                writeToggleMap(nextMap);
             });
         });
     });

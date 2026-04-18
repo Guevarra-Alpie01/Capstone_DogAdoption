@@ -1621,9 +1621,6 @@ def _pluralized_time_label(value, singular):
 
 
 def _featured_time_left_emphasis(phase_payload):
-    if phase_payload["is_pending_review"]:
-        return "Pending review"
-
     days = phase_payload["days_left"]
     hours = phase_payload["hours_left"]
     minutes = phase_payload["minutes_left"]
@@ -1637,9 +1634,6 @@ def _featured_time_left_emphasis(phase_payload):
 
 
 def _featured_time_left_tone(phase_payload):
-    if phase_payload["is_pending_review"]:
-        return "review"
-
     total_minutes = (
         phase_payload["days_left"] * 24 * 60
         + phase_payload["hours_left"] * 60
@@ -1653,8 +1647,6 @@ def _featured_time_left_tone(phase_payload):
 
 
 def _featured_time_left_context(phase, phase_payload):
-    if phase_payload["is_pending_review"]:
-        return "Admin verification is underway."
     if phase == "claim":
         return "Before the owner-claim window closes."
     return "Before the adoption window closes."
@@ -1672,7 +1664,7 @@ def _post_phase_payload(post):
         else None
     )
     days = hours = minutes = 0
-    if phase in {"claim", "adopt"} and not is_pending_review:
+    if phase in {"claim", "adopt"}:
         days, hours, minutes = _split_time_left(post.time_left())
     return {
         "phase": phase,
@@ -2043,31 +2035,19 @@ def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
     days = phase_payload["days_left"]
     hours = phase_payload["hours_left"]
     minutes = phase_payload["minutes_left"]
-    is_pending_review = phase_payload["is_pending_review"]
     pending_review_until_label = phase_payload["pending_review_until_label"]
     location_label = " ".join((post.location or "").split()) or "Location not listed"
     countdown_deadline = (
-        phase_payload["pending_review_until"]
-        if is_pending_review
-        else (
-            post.claim_deadline()
-            if phase == "claim"
-            else post.adoption_deadline()
-        )
+        post.claim_deadline()
+        if phase == "claim"
+        else post.adoption_deadline()
     )
     countdown_deadline_local = (
         timezone.localtime(countdown_deadline)
         if countdown_deadline and timezone.is_aware(countdown_deadline)
         else countdown_deadline
     )
-    pending_state_detail = (
-        f"Verification until {pending_review_until_label}"
-        if is_pending_review and pending_review_until_label
-        else ""
-    )
     phase_title = "Ready for Claim" if phase == "claim" else "Ready for Adoption"
-    if is_pending_review:
-        phase_title = "Claim Pending Review" if phase == "claim" else "Adoption Pending Review"
     share_url = _finder_share_url_staff(request, post, phase_payload)
     action_url = (
         reverse("user:claim_confirm", args=[post.id])
@@ -2095,31 +2075,19 @@ def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
         "detail_url": reverse("user:post_detail", args=[post.id]),
         "action_label": "Claim" if phase == "claim" else "Adopt",
         "action_url": action_url,
-        "time_left_badge": (
-            "Pending Admin Review"
-            if is_pending_review
-            else f"{days}d {hours}h {minutes}m left"
-        ),
-        "countdown_date_heading": (
-            "Verification Until"
-            if is_pending_review
-            else ("Claim Ends" if phase == "claim" else "Adoption Ends")
-        ),
+        "time_left_badge": f"{days}d {hours}h {minutes}m left",
+        "countdown_date_heading": "Claim Ends" if phase == "claim" else "Adoption Ends",
         "countdown_date_label": (
-            pending_review_until_label
-            if is_pending_review and pending_review_until_label
-            else (
-                countdown_deadline_local.strftime("%b %d, %Y")
-                if countdown_deadline_local
-                else "Date pending"
-            )
+            countdown_deadline_local.strftime("%b %d, %Y")
+            if countdown_deadline_local
+            else "Date pending"
         ),
         "share_url": share_url,
         "match_score": match_score,
-        "is_pending_review": is_pending_review,
-        "show_countdown": not is_pending_review,
-        "pending_state_label": "Pending admin review" if is_pending_review else "",
-        "pending_state_detail": pending_state_detail,
+        "is_pending_review": phase_payload["is_pending_review"],
+        "show_countdown": phase in {"claim", "adopt"} and bool(countdown_deadline),
+        "pending_state_label": "",
+        "pending_state_detail": "",
         "pending_review_until_label": pending_review_until_label,
         "deadline_iso": countdown_deadline.isoformat() if countdown_deadline else "",
     }
@@ -2491,18 +2459,12 @@ def _build_home_featured_rescue_sections(request):
 
 
 def _home_spotlight_remaining_seconds(post, phase_payload):
-    if phase_payload["is_pending_review"]:
-        deadline = phase_payload["pending_review_until"]
-        if deadline:
-            return max(int((deadline - timezone.now()).total_seconds()), 0)
-        return 0
     return max(int(post.time_left().total_seconds()), 0)
 
 
 def _home_spotlight_sort_key(item):
     post, phase_payload = item
     return (
-        1 if phase_payload["is_pending_review"] else 0,
         _home_spotlight_remaining_seconds(post, phase_payload),
         post.created_at.timestamp() if post.created_at else 0,
         post.id,
@@ -2542,13 +2504,9 @@ def _build_home_spotlight_card(request, post, phase_payload, *, is_auto_highligh
     phase = phase_payload["phase"]
     card_item = _build_rescue_finder_card_item(request, post, phase_payload, 0)
     countdown_deadline = (
-        phase_payload["pending_review_until"]
-        if phase_payload["is_pending_review"]
-        else (
-            post.claim_deadline()
-            if phase == "claim"
-            else post.adoption_deadline()
-        )
+        post.claim_deadline()
+        if phase == "claim"
+        else post.adoption_deadline()
     )
     countdown_deadline_local = (
         timezone.localtime(countdown_deadline)
@@ -2561,16 +2519,7 @@ def _build_home_spotlight_card(request, post, phase_payload, *, is_auto_highligh
         else post.pinned_at
     )
 
-    if phase_payload["is_pending_review"]:
-        spotlight_copy = (
-            "Auto-highlighted because it is still awaiting admin verification."
-            if is_auto_highlighted
-            else "Pinned while the request is still under admin verification."
-        )
-        primary_cta_label = "View Status"
-        primary_cta_url = reverse("user:post_detail", args=[post.id])
-        primary_requires_auth = False
-    elif phase == "claim":
+    if phase == "claim":
         spotlight_copy = (
             "Auto-highlighted because it has the least time left before the claim window closes."
             if is_auto_highlighted
@@ -2605,27 +2554,12 @@ def _build_home_spotlight_card(request, post, phase_payload, *, is_auto_highligh
         "gender_label": card_item["gender_label"],
         "coat_label": card_item["coat_label"],
         "color_label": card_item["color_label"],
-        "time_left_badge": (
-            "Pending admin review"
-            if phase_payload["is_pending_review"]
-            else (
-                f'{phase_payload["days_left"]}d {phase_payload["hours_left"]}h '
-                f'{phase_payload["minutes_left"]}m left'
-            )
-        ),
-        "countdown_date_heading": (
-            "Verification Until"
-            if phase_payload["is_pending_review"]
-            else ("Claim Ends" if phase == "claim" else "Adoption Ends")
-        ),
+        "time_left_badge": card_item["time_left_badge"],
+        "countdown_date_heading": card_item["countdown_date_heading"],
         "countdown_date_label": (
-            phase_payload["pending_review_until_label"]
-            if phase_payload["is_pending_review"]
-            else (
-                countdown_deadline_local.strftime("%b %d, %Y %I:%M %p")
-                if countdown_deadline_local
-                else "Date pending"
-            )
+            countdown_deadline_local.strftime("%b %d, %Y %I:%M %p")
+            if countdown_deadline_local
+            else "Date pending"
         ),
         "support_title": (
             "Auto-highlighted by Bayawan Vet"
@@ -3548,9 +3482,9 @@ def _hydrate_home_feed_items(request, feed_rows):
             is_open_for_adoption = phase in ["claim", "adopt"]
 
             deadline = None
-            if phase == "claim" and not phase_payload["is_pending_review"]:
+            if phase == "claim":
                 deadline = p.claim_deadline()
-            elif phase == "adopt" and not phase_payload["is_pending_review"]:
+            elif phase == "adopt":
                 deadline = p.adoption_deadline()
 
             combined_posts.append({
@@ -3565,15 +3499,11 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "is_open_for_adoption": is_open_for_adoption,
                 "phase": phase,
                 "is_pending_review": phase_payload["is_pending_review"],
-                "show_countdown": bool(deadline),
+                "show_countdown": phase in {"claim", "adopt"} and bool(deadline),
                 "pending_review_until": phase_payload["pending_review_until"],
                 "pending_review_until_label": phase_payload["pending_review_until_label"],
-                "pending_state_label": "Pending admin review" if phase_payload["is_pending_review"] else "",
-                "pending_state_detail": (
-                    f'Verification until {phase_payload["pending_review_until_label"]}'
-                    if phase_payload["is_pending_review"] and phase_payload["pending_review_until_label"]
-                    else ""
-                ),
+                "pending_state_label": "",
+                "pending_state_detail": "",
                 "posted_label": _format_posted_label(p.created_at),
                 "deadline_iso": deadline.isoformat() if deadline else "",
                 "image_count": len(gallery_images),

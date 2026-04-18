@@ -1771,6 +1771,27 @@ def _rescue_finder_title(post):
     return " ".join((post.display_title or "Dog Listing").split())
 
 
+ANNOUNCEMENT_SHARE_FOCUS_FRAGMENT = "announcement-focus"
+
+
+def _announcement_share_url(request, post_id):
+    """Public share link: announcement detail scrolled to the main content area."""
+    path = reverse("user:announcement_detail", args=[post_id])
+    return f"{request.build_absolute_uri(path)}#{ANNOUNCEMENT_SHARE_FOCUS_FRAGMENT}"
+
+
+def _staff_rescue_post_share_url(request, post_id, phase_payload):
+    """Use claim_confirm or adopt_confirm for open phases; use post_detail when the listing is closed."""
+    phase = phase_payload["phase"]
+    if phase == "claim":
+        query = urlencode({"return_to": "home"})
+        base = reverse("user:claim_confirm", args=[post_id])
+        return request.build_absolute_uri(f"{base}?{query}")
+    if phase == "adopt":
+        return request.build_absolute_uri(reverse("user:adopt_confirm", args=[post_id]))
+    return request.build_absolute_uri(reverse("user:post_detail", args=[post_id]))
+
+
 def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
     phase = phase_payload["phase"]
     days = phase_payload["days_left"]
@@ -1801,7 +1822,7 @@ def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
     phase_title = "Ready for Claim" if phase == "claim" else "Ready for Adoption"
     if is_pending_review:
         phase_title = "Claim Pending Review" if phase == "claim" else "Adoption Pending Review"
-    share_url = request.build_absolute_uri(reverse("user:post_detail", args=[post.id]))
+    share_url = _staff_rescue_post_share_url(request, post.id, phase_payload)
     action_url = (
         reverse("user:claim_confirm", args=[post.id])
         if phase == "claim"
@@ -2071,7 +2092,9 @@ def _build_public_post_listing(request, listing_mode):
             "match_score": match_score,
             "created_at": upost.created_at,
             "detail_url": detail_url,
-            "share_url": request.build_absolute_uri(detail_url),
+            "share_url": request.build_absolute_uri(
+                reverse("user:adopt_user_post", args=[upost.id])
+            ),
         })
 
     user_adopt_count = len(user_adoption_items)
@@ -3299,9 +3322,7 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "image_count": len(gallery_images),
                 "gallery_images": gallery_images,
                 "main_image": main_image,
-                "share_url": request.build_absolute_uri(
-                    reverse("user:post_detail", args=[p.id])
-                ),
+                "share_url": _staff_rescue_post_share_url(request, p.id, phase_payload),
             })
             continue
 
@@ -3325,9 +3346,7 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "image_count": len(announcement_images),
                 "gallery_images": announcement_images,
                 "has_media": bool(p.background_image or announcement_images),
-                "share_url": request.build_absolute_uri(
-                    reverse("user:announcement_detail", args=[p.id])
-                ),
+                "share_url": _announcement_share_url(request, p.id),
             })
             continue
 
@@ -3365,7 +3384,7 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "author_profile_url": profile_url,
                 "owner_request_url": f"{reverse('user:edit_profile')}#post-requests-{p.id}",
                 "share_url": request.build_absolute_uri(
-                    reverse("user:user_adoption_post_detail", args=[p.id])
+                    reverse("user:adopt_user_post", args=[p.id])
                 ),
             })
             continue
@@ -4755,9 +4774,7 @@ def _decorate_announcement_posts(posts, request):
             post.created_by, default_admin_avatar_url
         )
         post.content_display = _clean_announcement_text_for_display(post.content)
-        post.share_url = request.build_absolute_uri(
-            reverse("user:announcement_detail", args=[post.id])
-        )
+        post.share_url = _announcement_share_url(request, post.id)
     return posts
 
 
@@ -4851,19 +4868,14 @@ def announcement_detail(request, post_id):
         'post': post,
         'og_image_url': og_image_url,
         'og_description': plain_description,
-        'share_url': request.build_absolute_uri(
-            reverse("user:announcement_detail", args=[post.id])
-        ),
+        'share_url': _announcement_share_url(request, post.id),
     })
 
 
 def announcement_share_preview(request, post_id):
-    """Legacy social URL: `/announcements/share/<id>/` now redirects to the detail page.
-
-    The detail view includes Open Graph tags so Facebook and other platforms open the
-    full announcement when someone taps a shared link.
-    """
-    return redirect("user:announcement_detail", post_id=post_id)
+    """Legacy social URL: redirect to the announcement detail at the shared content anchor."""
+    path = reverse("user:announcement_detail", args=[post_id])
+    return redirect(f"{path}#{ANNOUNCEMENT_SHARE_FOCUS_FRAGMENT}")
 
 
 @user_only

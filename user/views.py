@@ -1310,6 +1310,9 @@ def login_view(request):
     if request.user.is_authenticated:
         if request.user.is_staff:
             return redirect(get_staff_landing_url(request.user))
+        resume_url = _get_safe_next_url(request, request.GET.get("next"))
+        if resume_url:
+            return redirect(resume_url)
         return redirect("user:user_home")
 
     next_url = _get_safe_next_url(

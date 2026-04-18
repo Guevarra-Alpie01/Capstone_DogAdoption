@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..800&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260418unified-browse-carousel">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260418carousel-info-share">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -248,7 +248,7 @@
         {% for section in featured_dog_sections %}
         <section class="home-featured-section home-featured-section--{{ section.key }}" style="--home-stagger: {{ forloop.counter0 }};" aria-label="{{ section.title }}">
             <div class="home-featured-section__head home-featured-section__head--browse">
-                <div class="home-featured-section__copy">
+                <div class="home-featured-section__copy home-featured-section__copy--browse">
                     {% if section.eyebrow %}
                     <span class="home-featured-section__eyebrow">{{ section.eyebrow }}</span>
                     {% endif %}
@@ -258,10 +258,10 @@
                     {% endif %}
                 </div>
                 <div class="home-featured-section__browse-actions">
-                    <a href="{{ section.browse_url }}" class="home-featured-section__see-all">Adopt listings</a>
-                    {% if section.browse_url_redeem %}
-                    <a href="{{ section.browse_url_redeem }}" class="home-featured-section__see-all home-featured-section__see-all--ghost">Owner redeem</a>
-                    {% endif %}
+                    <a href="{{ section.browse_url }}" class="home-featured-section__see-all home-featured-section__see-all--browse">
+                        Browse all
+                        <i class="bi bi-chevron-right home-featured-section__see-all-icon" aria-hidden="true"></i>
+                    </a>
                 </div>
             </div>
 
@@ -362,6 +362,8 @@
                                             type="button"
                                             class="dog-scale-carousel__btn dog-scale-carousel__btn--secondary js-open-share"
                                             data-share-url="{{ item.share_url }}"
+                                            data-share-title="{{ item.breed_label }} — {{ item.phase_title }}"
+                                            data-share-text="Check out this dog on Bayawan Vet: {{ item.breed_label }} in {{ item.location_label }}."
                                             aria-label="Share {{ item.title }}"
                                         >
                                             <span>Share</span>
@@ -372,8 +374,10 @@
                                             data-dog-detail-toggle
                                             aria-controls="{{ item.input_id }}-details"
                                             aria-expanded="false"
+                                            aria-label="View info for {{ item.title }}"
                                         >
-                                            <span data-dog-detail-label>View Details</span>
+                                            <i class="bi bi-info-circle dog-scale-carousel__info-icon" aria-hidden="true"></i>
+                                            <span data-dog-detail-label>View Info</span>
                                         </button>
                                     </div>
                                 </div>
@@ -401,7 +405,7 @@
                                         <h3 id="{{ item.input_id }}-details-title">{{ item.title }}</h3>
                                         <p>{{ item.location_label }}</p>
                                     </div>
-                                    <button type="button" class="dog-scale-carousel__detail-close" data-dog-detail-close aria-label="Hide details">
+                                    <button type="button" class="dog-scale-carousel__detail-close" data-dog-detail-close aria-label="Hide info">
                                         <span aria-hidden="true">&times;</span>
                                     </button>
                                 </div>
@@ -450,10 +454,10 @@
             <div class="home-featured-empty">
                 <p>{{ section.empty_message }}</p>
                 <div class="home-featured-empty__links">
-                    <a href="{{ section.browse_url }}" class="home-featured-section__see-all home-featured-section__see-all--inline">View adopt listings</a>
-                    {% if section.browse_url_redeem %}
-                    <a href="{{ section.browse_url_redeem }}" class="home-featured-section__see-all home-featured-section__see-all--inline home-featured-section__see-all--ghost">Owner redemption list</a>
-                    {% endif %}
+                    <a href="{{ section.browse_url }}" class="home-featured-section__see-all home-featured-section__see-all--inline home-featured-section__see-all--browse">
+                        Browse all
+                        <i class="bi bi-chevron-right home-featured-section__see-all-icon" aria-hidden="true"></i>
+                    </a>
                 </div>
             </div>
             {% endif %}
@@ -1431,12 +1435,20 @@
             const toggle = slide.querySelector('[data-dog-detail-toggle]');
             const label = slide.querySelector('[data-dog-detail-label]');
             const panel = getDetailPanel(slide);
+            const titleEl = slide.querySelector('.dog-scale-carousel__media-copy h3');
+            const dogName = titleEl ? titleEl.textContent.trim() : '';
             slide.classList.toggle('is-details-open', isOpen);
             if (toggle) {
                 toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                if (dogName) {
+                    toggle.setAttribute(
+                        'aria-label',
+                        isOpen ? `Hide info for ${dogName}` : `View info for ${dogName}`
+                    );
+                }
             }
             if (label) {
-                label.textContent = isOpen ? 'Hide Details' : 'View Details';
+                label.textContent = isOpen ? 'Hide Info' : 'View Info';
             }
             if (panel) {
                 panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');

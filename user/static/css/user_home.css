@@ -1876,16 +1876,31 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     filter: saturate(1.04) contrast(1.03) brightness(0.99);
 }
 
-.home-city-vet__map-search {
+.home-city-vet__map-lead {
     position: absolute;
     top: 14px;
     left: 14px;
     z-index: 2;
     display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: min(calc(100% - 108px), 260px);
+    max-width: calc(100% - 28px);
+    box-sizing: border-box;
+}
+
+.home-city-vet__map-search {
+    position: relative;
+    top: auto;
+    left: auto;
+    z-index: auto;
+    display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    width: min(calc(100% - 108px), 234px);
+    width: 100%;
+    min-width: 0;
     min-height: 38px;
     padding: 0 14px;
     border-radius: 999px;
@@ -1894,6 +1909,12 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     color: #334155;
     text-decoration: none;
     box-shadow: 0 12px 22px rgba(15, 23, 42, 0.18);
+    box-sizing: border-box;
+}
+
+.home-city-vet__map-lead .home-city-vet__map-control--hud {
+    width: 100%;
+    justify-content: center;
 }
 
 .home-city-vet__map-search:hover,
@@ -1973,7 +1994,6 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
 }
 
 .home-city-vet__map-wrap.is-hud-minimal .home-city-vet__map-search,
-.home-city-vet__map-wrap.is-hud-minimal .home-city-vet__street-card,
 .home-city-vet__map-wrap.is-hud-minimal .home-city-vet__map-card {
     opacity: 0 !important;
     pointer-events: none !important;
@@ -1985,69 +2005,7 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     opacity: 0.35;
 }
 
-.home-city-vet__street-card {
-    position: absolute;
-    top: 58px;
-    left: 14px;
-    z-index: 2;
-    display: grid;
-    gap: 8px;
-    width: min(208px, calc(100% - 28px));
-    padding: 14px 16px;
-    border-radius: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    background: linear-gradient(180deg, rgba(20, 24, 19, 0.94) 0%, rgba(12, 15, 13, 0.92) 100%);
-    color: #ffffff;
-    box-shadow: 0 18px 28px rgba(15, 23, 42, 0.26);
-    backdrop-filter: blur(12px) saturate(120%);
-    -webkit-backdrop-filter: blur(12px) saturate(120%);
-}
-
-.home-city-vet__street-card-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-}
-
-.home-city-vet__street-card-title {
-    font-size: 0.88rem;
-    font-weight: 800;
-    line-height: 1.2;
-}
-
-.home-city-vet__street-card-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.12);
-    font-size: 0.76rem;
-}
-
-.home-city-vet__street-card-meta {
-    color: rgba(255, 255, 255, 0.78);
-    font-size: 0.72rem;
-    line-height: 1.45;
-}
-
-.home-city-vet__street-card-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    width: fit-content;
-    min-height: 30px;
-    padding: 0 10px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #ffffff;
-    font-size: 0.7rem;
-    font-weight: 700;
-}
-
+/* Dark location chip (Google Street View–style) — bottom-left */
 .home-city-vet__map-card {
     position: absolute;
     left: 14px;
@@ -2055,34 +2013,46 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     z-index: 2;
     display: grid;
     gap: 4px;
-    max-width: min(236px, calc(100% - 28px));
-    padding: 14px 16px;
-    border-radius: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.36);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(239, 237, 232, 0.92) 100%);
-    box-shadow: 0 16px 28px rgba(15, 23, 42, 0.14);
-    backdrop-filter: blur(12px) saturate(135%);
-    -webkit-backdrop-filter: blur(12px) saturate(135%);
+    max-width: min(260px, calc(100% - 28px));
+    padding: 12px 14px 13px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(180deg, rgba(38, 42, 40, 0.94) 0%, rgba(16, 18, 17, 0.96) 100%);
+    box-shadow:
+        0 14px 32px rgba(0, 0, 0, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(12px) saturate(120%);
+    -webkit-backdrop-filter: blur(12px) saturate(120%);
 }
 
-.home-city-vet__map-card-label {
-    color: #64748b;
-    font-size: 0.62rem;
+.home-city-vet__map-card-line {
+    color: #f8fafc;
+    font-size: 0.88rem;
     font-weight: 800;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
 }
 
-.home-city-vet__map-card-title {
-    color: #111827;
-    font-size: 0.94rem;
-    line-height: 1.2;
+.home-city-vet__map-card-line--sub {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: rgba(248, 250, 252, 0.88);
 }
 
-.home-city-vet__map-card-text {
-    color: #475569;
-    font-size: 0.74rem;
-    line-height: 1.5;
+.home-city-vet__map-card-link {
+    margin-top: 4px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #7dd3fc;
+    text-decoration: none;
+    width: fit-content;
+    line-height: 1.35;
+}
+
+.home-city-vet__map-card-link:hover,
+.home-city-vet__map-card-link:focus-visible {
+    color: #bae6fd;
+    text-decoration: underline;
 }
 
 .home-city-vet__map-expand-pill {
@@ -2183,16 +2153,19 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
         touch-action: pan-x pan-y pinch-zoom;
     }
 
-    .home-city-vet__map-search {
+    .home-city-vet__map-lead {
         top: 12px;
         left: 12px;
-        width: min(calc(100% - 132px), 170px);
-        min-height: 34px;
-        padding: 0 12px;
+        width: min(calc(100% - 132px), 200px);
         opacity: 0;
         transform: translateY(-8px);
         pointer-events: none;
         transition: opacity 0.24s ease, transform 0.24s ease;
+    }
+
+    .home-city-vet__map-search {
+        min-height: 34px;
+        padding: 0 12px;
     }
 
     .home-city-vet__map-search-copy {
@@ -2202,14 +2175,14 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     .home-city-vet__map-controls {
         top: 12px;
         right: 12px;
-        gap: 6px;
+        gap: 0;
         opacity: 0;
         transform: translateY(-8px);
         pointer-events: none;
         transition: opacity 0.24s ease, transform 0.24s ease;
     }
 
-    .home-city-vet__map-wrap.is-expanded .home-city-vet__map-search,
+    .home-city-vet__map-wrap.is-expanded .home-city-vet__map-lead,
     .home-city-vet__map-wrap.is-expanded .home-city-vet__map-controls {
         opacity: 1;
         transform: translateY(0);
@@ -2232,54 +2205,28 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
         display: none;
     }
 
-    .home-city-vet__street-card {
-        display: none;
-    }
-
-    .home-city-vet__street-card-title {
-        font-size: 0.8rem;
-    }
-
-    .home-city-vet__street-card-meta {
-        font-size: 0.68rem;
-    }
-
-    .home-city-vet__street-card-badge {
-        min-height: 28px;
-        font-size: 0.66rem;
-    }
-
-    .home-city-vet__map-wrap.is-expanded .home-city-vet__street-card {
-        display: grid;
-        top: 56px;
-        left: 14px;
-        width: min(176px, calc(100% - 28px));
-        padding: 12px 12px 11px;
-        gap: 6px;
-    }
-
     .home-city-vet__map-card {
         display: none;
     }
 
-    .home-city-vet__map-card-label {
-        font-size: 0.58rem;
+    .home-city-vet__map-card-line {
+        font-size: 0.82rem;
     }
 
-    .home-city-vet__map-card-title {
-        font-size: 0.88rem;
+    .home-city-vet__map-card-line--sub {
+        font-size: 0.76rem;
     }
 
-    .home-city-vet__map-card-text {
-        font-size: 0.7rem;
+    .home-city-vet__map-card-link {
+        font-size: 0.72rem;
     }
 
     .home-city-vet__map-wrap.is-expanded .home-city-vet__map-card {
         display: grid;
-        left: 14px;
-        bottom: 14px;
-        max-width: min(176px, calc(100% - 28px));
-        padding: 12px;
+        left: max(12px, env(safe-area-inset-left, 0px));
+        bottom: max(14px, env(safe-area-inset-bottom, 0px));
+        max-width: min(200px, calc(100% - 28px));
+        padding: 11px 12px 12px;
     }
 
     .home-city-vet__map-expand-hit {
@@ -2311,6 +2258,49 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     .home-city-vet__map-wrap.is-expanded .home-city-vet__map-expand-hit {
         opacity: 0;
         pointer-events: none;
+    }
+
+    /*
+     * Full-screen map: below fixed app topbar. Lead column = search, then HUD; exit (X) alone top-right.
+     */
+    .home-city-vet__map-wrap.is-expanded .home-city-vet__map-lead {
+        top: calc(env(safe-area-inset-top, 0px) + var(--home-navbar-offset) + 8px);
+        left: max(12px, env(safe-area-inset-left, 0px));
+        width: min(220px, calc(100% - 12px - 56px - max(12px, env(safe-area-inset-right, 0px))));
+        max-width: calc(100% - 80px);
+        z-index: 6;
+    }
+
+    .home-city-vet__map-wrap.is-expanded .home-city-vet__map-controls {
+        top: calc(env(safe-area-inset-top, 0px) + var(--home-navbar-offset) + 8px);
+        right: max(12px, env(safe-area-inset-right, 0px));
+        z-index: 6;
+        align-items: flex-start;
+    }
+
+    .home-city-vet__map-wrap.is-expanded .home-city-vet__map-control--close {
+        width: 44px;
+        min-width: 44px;
+        min-height: 44px;
+        padding: 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.96);
+        color: #0f172a;
+        border: 1px solid rgba(15, 23, 42, 0.14);
+        box-shadow:
+            0 4px 14px rgba(15, 23, 42, 0.18),
+            0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+    }
+
+    .home-city-vet__map-wrap.is-expanded .home-city-vet__map-control--close:hover,
+    .home-city-vet__map-wrap.is-expanded .home-city-vet__map-control--close:focus-visible {
+        background: #ffffff;
+        color: #0f172a;
+    }
+
+    .home-city-vet__map-wrap.is-expanded .home-city-vet__map-control--close i {
+        font-size: 1.2rem;
+        line-height: 1;
     }
 }
 

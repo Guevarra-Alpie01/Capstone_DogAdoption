@@ -1771,25 +1771,139 @@ def _rescue_finder_title(post):
     return " ".join((post.display_title or "Dog Listing").split())
 
 
-ANNOUNCEMENT_SHARE_FOCUS_FRAGMENT = "announcement-focus"
+def _announcement_feed_share_url(request, announcement_id):
+    """Public share link: announcements board with ?highlight=<id> (scrolls to the card)."""
+    base = request.build_absolute_uri(reverse("user:announcement_list"))
+    return f"{base}?{urlencode({'highlight': str(announcement_id)})}"
 
 
-def _announcement_share_url(request, post_id):
-    """Public share link: announcement detail scrolled to the main content area."""
-    path = reverse("user:announcement_detail", args=[post_id])
-    return f"{request.build_absolute_uri(path)}#{ANNOUNCEMENT_SHARE_FOCUS_FRAGMENT}"
-
-
-def _staff_rescue_post_share_url(request, post_id, phase_payload):
-    """Use claim_confirm or adopt_confirm for open phases; use post_detail when the listing is closed."""
+def _finder_share_url_staff(request, post, phase_payload):
+    """
+    Public share link: Find a Dog listing scrolled to this card (guests can view the card).
+    Claim-phase staff posts use the claim list; adopt-phase use the adopt list; closed posts
+    fall back to the read-only post detail overlay.
+    """
     phase = phase_payload["phase"]
+    pid = post.id
+    hl = urlencode({"highlight": f"staff:{pid}"})
     if phase == "claim":
-        query = urlencode({"return_to": "home"})
-        base = reverse("user:claim_confirm", args=[post_id])
-        return request.build_absolute_uri(f"{base}?{query}")
+        base = request.build_absolute_uri(reverse("user:claim_list"))
+        return f"{base}?purpose=claim&{hl}"
     if phase == "adopt":
-        return request.build_absolute_uri(reverse("user:adopt_confirm", args=[post_id]))
-    return request.build_absolute_uri(reverse("user:post_detail", args=[post_id]))
+        base = request.build_absolute_uri(reverse("user:adopt_list"))
+        return f"{base}?purpose=adopt&{hl}"
+    return request.build_absolute_uri(reverse("user:post_detail", args=[pid]))
+
+
+def _finder_share_url_user_adoption(request, user_post_id):
+    """Share link to Find a Dog with the user adoption card highlighted."""
+    base = request.build_absolute_uri(reverse("user:adopt_list"))
+    return f"{base}?{urlencode({'purpose': 'adopt', 'highlight': f'user:{user_post_id}'})}"
+
+
+def _parse_finder_highlight(raw):
+    raw = (raw or "").strip()
+    if ":" not in raw:
+        return None, None
+    kind, _, rest = raw.partition(":")
+    kind = kind.strip().lower()
+    rest = rest.strip()
+    if kind not in {"staff", "user"} or not rest.isdigit():
+        return None, None
+    return kind, int(rest)
+
+
+def _finder_maybe_redirect_for_highlight(
+    request,
+    claim_items,
+    adopt_items,
+    user_adoption_items,
+    selected_purpose,
+):
+    """
+    When ?highlight= is present, redirect to the correct purpose/tab and page so the
+    target card is actually in the DOM (load-more pagination).
+    """
+    kind, hid = _parse_finder_highlight(request.GET.get("highlight"))
+    if not kind or not hid:
+        return None
+
+    path = request.path
+    params = request.GET.copy()
+
+    if kind == "user":
+        if not any(item.get("post_id") == hid for item in user_adoption_items):
+            return None
+        if selected_purpose == "claim":
+            params["purpose"] = "all"
+            params["highlight"] = f"user:{hid}"
+            return f"{path}?{params.urlencode()}"
+        return None
+
+    claim_idx = next((i for i, it in enumerate(claim_items) if it["post"].id == hid), None)
+    adopt_idx = next((i for i, it in enumerate(adopt_items) if it["post"].id == hid), None)
+
+    if claim_idx is not None:
+        need_purpose = "claim"
+        page_need = claim_idx // RESCUE_FINDER_PAGE_SIZE + 1
+    elif adopt_idx is not None:
+        need_purpose = "adopt"
+        page_need = adopt_idx // RESCUE_FINDER_PAGE_SIZE + 1
+    else:
+        return None
+
+    cur_page = int(request.GET.get("page") or 1)
+    params["highlight"] = f"staff:{hid}"
+
+    if selected_purpose not in (need_purpose, "all"):
+        params["purpose"] = need_purpose
+        params["page"] = str(page_need)
+        return f"{path}?{params.urlencode()}"
+    if cur_page != page_need:
+        params["purpose"] = selected_purpose
+        params["page"] = str(page_need)
+        return f"{path}?{params.urlencode()}"
+    return None
+
+
+def _announcement_maybe_redirect_for_highlight(request):
+    raw = (request.GET.get("highlight") or "").strip()
+    if not raw.isdigit():
+        return None
+    pk = int(raw)
+    bucket_data = DogAnnouncement.objects.filter(pk=pk).values_list("display_bucket", flat=True).first()
+    if bucket_data is None:
+        return None
+    if bucket_data in (
+        DogAnnouncement.BUCKET_PINNED,
+        DogAnnouncement.BUCKET_CAMPAIGN,
+    ):
+        return None
+
+    regular_qs = (
+        _announcement_feed_queryset()
+        .exclude(
+            display_bucket__in=[
+                DogAnnouncement.BUCKET_PINNED,
+                DogAnnouncement.BUCKET_CAMPAIGN,
+            ]
+        )
+        .order_by("-created_at")
+    )
+    ids = list(regular_qs.values_list("id", flat=True))
+    if pk not in ids:
+        return None
+
+    pos = ids.index(pk)
+    page_need = pos // PUBLIC_ANNOUNCEMENT_PAGE_SIZE + 1
+    cur = int(request.GET.get("page") or 1)
+    if cur == page_need:
+        return None
+
+    params = request.GET.copy()
+    params["page"] = str(page_need)
+    params["highlight"] = str(pk)
+    return f"{reverse('user:announcement_list')}?{params.urlencode()}"
 
 
 def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
@@ -1822,7 +1936,7 @@ def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
     phase_title = "Ready for Claim" if phase == "claim" else "Ready for Adoption"
     if is_pending_review:
         phase_title = "Claim Pending Review" if phase == "claim" else "Adoption Pending Review"
-    share_url = _staff_rescue_post_share_url(request, post.id, phase_payload)
+    share_url = _finder_share_url_staff(request, post, phase_payload)
     action_url = (
         reverse("user:claim_confirm", args=[post.id])
         if phase == "claim"
@@ -2092,9 +2206,7 @@ def _build_public_post_listing(request, listing_mode):
             "match_score": match_score,
             "created_at": upost.created_at,
             "detail_url": detail_url,
-            "share_url": request.build_absolute_uri(
-                reverse("user:adopt_user_post", args=[upost.id])
-            ),
+            "share_url": _finder_share_url_user_adoption(request, upost.id),
         })
 
     user_adopt_count = len(user_adoption_items)
@@ -2133,7 +2245,15 @@ def _build_public_post_listing(request, listing_mode):
         purpose_options[0],
     )
 
-    return {
+    highlight_redirect = _finder_maybe_redirect_for_highlight(
+        request,
+        claim_items,
+        adopt_items,
+        user_adoption_items,
+        selected_purpose,
+    )
+
+    context = {
         "listing_mode": listing_mode,
         "page_title": "Find a Dog",
         "page_description": "Browse active dogs and post a dog for adoption or as missing.",
@@ -2176,6 +2296,7 @@ def _build_public_post_listing(request, listing_mode):
             },
         ],
     }
+    return context, highlight_redirect
 
 
 def _build_home_featured_rescue_sections(request):
@@ -2582,7 +2703,10 @@ def _render_public_post_listing_page(request, listing_mode):
         adoption_form = _build_user_adoption_post_form()
         missing_form = _build_missing_dog_post_form()
 
-    context = _build_public_post_listing(request, listing_mode)
+    listing_context, finder_highlight_redirect = _build_public_post_listing(request, listing_mode)
+    if finder_highlight_redirect:
+        return redirect(finder_highlight_redirect)
+    context = listing_context
     context.update({
         "selected_type": selected_type,
         "adoption_form": adoption_form,
@@ -3322,7 +3446,7 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "image_count": len(gallery_images),
                 "gallery_images": gallery_images,
                 "main_image": main_image,
-                "share_url": _staff_rescue_post_share_url(request, p.id, phase_payload),
+                "share_url": _finder_share_url_staff(request, p, phase_payload),
             })
             continue
 
@@ -3346,7 +3470,7 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "image_count": len(announcement_images),
                 "gallery_images": announcement_images,
                 "has_media": bool(p.background_image or announcement_images),
-                "share_url": _announcement_share_url(request, p.id),
+                "share_url": _announcement_feed_share_url(request, p.id),
             })
             continue
 
@@ -3383,9 +3507,7 @@ def _hydrate_home_feed_items(request, feed_rows):
                 ),
                 "author_profile_url": profile_url,
                 "owner_request_url": f"{reverse('user:edit_profile')}#post-requests-{p.id}",
-                "share_url": request.build_absolute_uri(
-                    reverse("user:adopt_user_post", args=[p.id])
-                ),
+                "share_url": _finder_share_url_user_adoption(request, p.id),
             })
             continue
 
@@ -4774,12 +4896,16 @@ def _decorate_announcement_posts(posts, request):
             post.created_by, default_admin_avatar_url
         )
         post.content_display = _clean_announcement_text_for_display(post.content)
-        post.share_url = _announcement_share_url(request, post.id)
+        post.share_url = _announcement_feed_share_url(request, post.id)
     return posts
 
 
 def announcement_list(request):
     """Render the public announcement feed grouped by display bucket."""
+    board_redirect = _announcement_maybe_redirect_for_highlight(request)
+    if board_redirect:
+        return redirect(board_redirect)
+
     bucket_counts = {
         row["display_bucket"]: row["total"]
         for row in DogAnnouncement.objects.values("display_bucket").annotate(
@@ -4868,14 +4994,13 @@ def announcement_detail(request, post_id):
         'post': post,
         'og_image_url': og_image_url,
         'og_description': plain_description,
-        'share_url': _announcement_share_url(request, post.id),
+        'share_url': _announcement_feed_share_url(request, post.id),
     })
 
 
 def announcement_share_preview(request, post_id):
-    """Legacy social URL: redirect to the announcement detail at the shared content anchor."""
-    path = reverse("user:announcement_detail", args=[post_id])
-    return redirect(f"{path}#{ANNOUNCEMENT_SHARE_FOCUS_FRAGMENT}")
+    """Legacy share path: redirect to the announcements board with highlight=<id>."""
+    return redirect(f"{reverse('user:announcement_list')}?{urlencode({'highlight': str(post_id)})}")
 
 
 @user_only

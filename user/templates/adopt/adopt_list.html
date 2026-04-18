@@ -1040,5 +1040,27 @@
     setInterval(updateCountdowns, 30000);
 })();
 </script>
+<script>
+(function () {
+    document.addEventListener("DOMContentLoaded", function () {
+        var params = new URLSearchParams(window.location.search);
+        var hl = params.get("highlight");
+        if (!hl) {
+            return;
+        }
+        var el = null;
+        if (hl.indexOf("staff:") === 0) {
+            el = document.getElementById("finder-highlight-staff-" + hl.slice(6));
+        } else if (hl.indexOf("user:") === 0) {
+            el = document.getElementById("finder-highlight-user-" + hl.slice(5));
+        }
+        if (!el) {
+            return;
+        }
+        el.classList.add("finder-card--shared-highlight");
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+})();
+</script>
 {% include 'home/_feed_enhancements.html' %}
 {% endblock %}

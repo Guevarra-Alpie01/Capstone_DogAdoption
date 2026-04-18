@@ -539,5 +539,29 @@
         }
     });
 })();
+
+(function () {
+    document.addEventListener("DOMContentLoaded", function () {
+        var params = new URLSearchParams(window.location.search);
+        var h = params.get("highlight");
+        if (!h || !/^\d+$/.test(h)) {
+            return;
+        }
+        var el = document.getElementById("announcement-card-" + h);
+        if (!el) {
+            return;
+        }
+        el.classList.add("user-ann-card--shared-highlight");
+        var bucket = el.getAttribute("data-bucket") || "";
+        var tabKey = bucket === "ordinary" ? "regular" : bucket;
+        var tabBtn = document.querySelector('[data-user-mobile-announcement-tab="' + tabKey + '"]');
+        if (tabBtn && typeof tabBtn.click === "function") {
+            tabBtn.click();
+        }
+        window.setTimeout(function () {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 150);
+    });
+})();
 </script>
 {% endblock %}

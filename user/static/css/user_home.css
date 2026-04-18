@@ -991,25 +991,42 @@ body.home-details-modal-open .dog-scale-carousel__slide.is-details-open {
     line-height: 1.62;
 }
 
-/* Penalties: one list; column-major — left col 1–14, right col 15–28 (desktop); mobile pager shows 1–14 / 15–28 */
-.home-ordinance__card--section-29 .home-ordinance__list--cluster.home-ordinance__list--penalties-all {
-    gap: 4px 12px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(14, auto);
-    grid-auto-flow: column;
+/* Penalties: two independent columns (1–14 | 15–28) so row height in one column never follows the other (e.g. expanded "See requirements"). */
+.home-ordinance__penalties-columns {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+}
+
+.home-ordinance__card--section-29 .home-ordinance__penalties-columns .home-ordinance__list--cluster {
+    flex: 1 1 minmax(0, 50%);
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    grid-template-columns: unset;
 }
 
 @media (max-width: 1023.98px) {
-    html.home-has-js .home-ordinance__stepper[data-penalty-page="1"] .home-ordinance__list--penalties-all > li:nth-child(n + 15) {
+    html.home-has-js .home-ordinance__stepper[data-penalty-page="1"] .home-ordinance__list--penalties-b {
         display: none !important;
     }
 
-    html.home-has-js .home-ordinance__stepper[data-penalty-page="2"] .home-ordinance__list--penalties-all > li:nth-child(-n + 14) {
+    html.home-has-js .home-ordinance__stepper[data-penalty-page="2"] .home-ordinance__list--penalties-a {
         display: none !important;
     }
 
-    .home-ordinance__card--section-29 .home-ordinance__list--penalties-all {
-        grid-template-rows: repeat(7, auto);
+    .home-ordinance__penalties-columns {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    html.home-has-js .home-ordinance__stepper[data-penalty-page="1"] .home-ordinance__list--penalties-a,
+    html.home-has-js .home-ordinance__stepper[data-penalty-page="2"] .home-ordinance__list--penalties-b {
+        flex: 1 1 auto;
+        width: 100%;
     }
 }
 
@@ -1022,6 +1039,7 @@ body.home-details-modal-open .dog-scale-carousel__slide.is-details-open {
     gap: 8px 10px;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: start;
+    min-height: 0;
 }
 
 .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item::before {
@@ -1659,12 +1677,6 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
 
     .home-ordinance__list--cluster {
         grid-template-columns: minmax(0, 1fr);
-    }
-
-    .home-ordinance__card--section-29 .home-ordinance__list--penalties-all {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-template-rows: repeat(7, auto);
-        grid-auto-flow: column;
     }
 
     .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item {

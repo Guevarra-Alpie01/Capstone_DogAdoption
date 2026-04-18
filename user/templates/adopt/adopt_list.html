@@ -25,7 +25,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260417finder-filter-over-footer">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260418finder-media-reminder">
 {% endblock %}
 
 {% block content %}
@@ -1061,6 +1061,60 @@
     }
     updateCountdowns();
     setInterval(updateCountdowns, 30000);
+})();
+</script>
+<script>
+(function () {
+    var STORAGE_KEY = "bayawan_finder_request_reminders_dismissed";
+    function readDismissed() {
+        try {
+            var raw = localStorage.getItem(STORAGE_KEY);
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+            return {};
+        }
+    }
+    function writeDismissed(map) {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+        } catch (e) {}
+    }
+    function syncMediaReminderClasses(reminderEl, isDismissed) {
+        var media = reminderEl.closest(".finder-card__media");
+        if (!media) {
+            return;
+        }
+        if (isDismissed) {
+            media.classList.remove("finder-card__media--has-reminder");
+            media.classList.add("finder-card__media--reminder-dismissed");
+        }
+    }
+    document.addEventListener("DOMContentLoaded", function () {
+        var dismissed = readDismissed();
+        document.querySelectorAll("[data-finder-request-reminder]").forEach(function (el) {
+            var key = el.getAttribute("data-reminder-key");
+            if (!key) {
+                return;
+            }
+            if (dismissed[key]) {
+                el.setAttribute("hidden", "");
+                syncMediaReminderClasses(el, true);
+                return;
+            }
+            var btn = el.querySelector(".finder-card__media-reminder-dismiss");
+            if (!btn) {
+                return;
+            }
+            btn.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dismissed[key] = true;
+                writeDismissed(dismissed);
+                el.setAttribute("hidden", "");
+                syncMediaReminderClasses(el, true);
+            });
+        });
+    });
 })();
 </script>
 <script>

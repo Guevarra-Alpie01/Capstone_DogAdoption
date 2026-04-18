@@ -47,7 +47,31 @@
         {% endif %}
 
         <div class="finder-card__footer{% if featured %} finder-card__footer--featured{% endif %}">
+            {% if request.user.is_authenticated and item.phase == 'claim' and not item.show_claim_cta and not item.show_reserve_adoption_cta %}
+            <p class="finder-card__viewer-reminder" role="status">
+                You already submitted a claim and reserved adoption for this dog.
+                <a href="{% url 'user:my_claims' %}">My claims</a>
+                &middot;
+                <a href="{% url 'user:adopt_status' %}">Adoption requests</a>
+            </p>
+            {% elif request.user.is_authenticated and item.phase == 'claim' and not item.show_claim_cta and item.show_reserve_adoption_cta %}
+            <p class="finder-card__viewer-reminder" role="status">
+                You already submitted a claim request for this dog.
+                <a href="{% url 'user:my_claims' %}">View my claims</a>
+            </p>
+            {% elif request.user.is_authenticated and item.phase == 'claim' and item.show_claim_cta and not item.show_reserve_adoption_cta %}
+            <p class="finder-card__viewer-reminder" role="status">
+                You already reserved adoption for this dog.
+                <a href="{% url 'user:adopt_status' %}">View adoption requests</a>
+            </p>
+            {% elif request.user.is_authenticated and item.phase == 'adopt' and not item.show_adopt_cta %}
+            <p class="finder-card__viewer-reminder" role="status">
+                You already submitted an adoption request for this dog.
+                <a href="{% url 'user:adopt_status' %}">View adoption requests</a>
+            </p>
+            {% endif %}
             <div class="finder-card__actions{% if featured %} finder-card__actions--featured{% endif %}">
+                {% if item.phase == 'claim' and item.show_claim_cta %}
                 <a
                     href="{{ item.action_url }}"
                     class="btn-action btn-action--primary"
@@ -56,15 +80,27 @@
                     data-auth-next-url="{{ item.action_url }}"
                     {% endif %}
                 >
-                    <span>{% if featured and item.phase == 'claim' %}Redeem{% else %}{{ item.action_label }}{% endif %}</span>
+                    <span>{% if featured %}Redeem{% else %}{{ item.action_label }}{% endif %}</span>
                 </a>
-                {% if item.phase == 'claim' %}
+                {% elif item.phase == 'adopt' and item.show_adopt_cta %}
                 <a
-                    href="{% url 'user:adopt_confirm' item.post.id %}"
+                    href="{{ item.action_url }}"
+                    class="btn-action btn-action--primary"
+                    {% if not request.user.is_authenticated %}
+                    data-auth-modal-trigger="login"
+                    data-auth-next-url="{{ item.action_url }}"
+                    {% endif %}
+                >
+                    <span>{{ item.action_label }}</span>
+                </a>
+                {% endif %}
+                {% if item.phase == 'claim' and item.show_reserve_adoption_cta %}
+                <a
+                    href="{{ item.reserve_adoption_url }}"
                     class="btn-action btn-action--reserve"
                     {% if not request.user.is_authenticated %}
                     data-auth-modal-trigger="login"
-                    data-auth-next-url="{% url 'user:adopt_confirm' item.post.id %}"
+                    data-auth-next-url="{{ item.reserve_adoption_url }}"
                     {% endif %}
                 >
                     <span>Reserve Adoption</span>

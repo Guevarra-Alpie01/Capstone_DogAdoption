@@ -1677,6 +1677,36 @@ def _post_phase_payload(post):
     }
 
 
+def _viewer_staff_post_request_map(user, post_ids):
+    """Map staff Post id -> claim/adopt flags for PostRequest rows by this user (any status)."""
+    if not user or not getattr(user, "is_authenticated", False) or not post_ids:
+        return {}
+    normalized_ids = list({int(pk) for pk in post_ids})
+    flags = {pid: {"claim": False, "adopt": False} for pid in normalized_ids}
+    for pid, rtype in PostRequest.objects.filter(
+        user=user, post_id__in=normalized_ids
+    ).values_list("post_id", "request_type"):
+        if pid in flags and rtype in ("claim", "adopt"):
+            flags[pid][rtype] = True
+    return flags
+
+
+def _staff_post_public_cta_flags(phase, user, vf):
+    """Which claim/reserve/adopt buttons to show on public cards (guests always see CTAs)."""
+    vf = vf or {"claim": False, "adopt": False}
+    if not user or not getattr(user, "is_authenticated", False):
+        return {
+            "show_claim_cta": phase == "claim",
+            "show_reserve_adoption_cta": phase == "claim",
+            "show_adopt_cta": phase == "adopt",
+        }
+    return {
+        "show_claim_cta": phase == "claim" and not vf["claim"],
+        "show_reserve_adoption_cta": phase == "claim" and not vf["adopt"],
+        "show_adopt_cta": phase == "adopt" and not vf["adopt"],
+    }
+
+
 def _base_public_post_queryset():
     return Post.with_pending_request_state(
         Post.objects.select_related(
@@ -2030,7 +2060,14 @@ def _announcement_maybe_redirect_for_highlight(request):
     return f"{reverse('user:announcement_list')}?{params.urlencode()}"
 
 
-def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
+def _build_rescue_finder_card_item(
+    request,
+    post,
+    phase_payload,
+    match_score,
+    *,
+    viewer_request_map=None,
+):
     phase = phase_payload["phase"]
     days = phase_payload["days_left"]
     hours = phase_payload["hours_left"]
@@ -2054,6 +2091,13 @@ def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
         if phase == "claim"
         else reverse("user:adopt_confirm", args=[post.id])
     )
+    reserve_adoption_url = reverse("user:adopt_confirm", args=[post.id])
+    vf = {"claim": False, "adopt": False}
+    if getattr(request.user, "is_authenticated", False):
+        if viewer_request_map is None:
+            viewer_request_map = _viewer_staff_post_request_map(request.user, [post.id])
+        vf = viewer_request_map.get(post.id, vf)
+    cta_flags = _staff_post_public_cta_flags(phase, request.user, vf)
     return {
         "post": post,
         "phase": phase,
@@ -2075,6 +2119,10 @@ def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
         "detail_url": reverse("user:post_detail", args=[post.id]),
         "action_label": "Claim" if phase == "claim" else "Adopt",
         "action_url": action_url,
+        "reserve_adoption_url": reserve_adoption_url,
+        "viewer_has_claim_request": vf["claim"],
+        "viewer_has_adopt_request": vf["adopt"],
+        **cta_flags,
         "time_left_badge": f"{days}d {hours}h {minutes}m left",
         "countdown_date_heading": "Claim Ends" if phase == "claim" else "Adoption Ends",
         "countdown_date_label": (
@@ -2246,6 +2294,9 @@ def _build_public_post_listing(request, listing_mode):
     active_filter_chips = _build_rescue_finder_selected_chips(finder_form, selected_filters)
     active_filter_count = len(active_filter_chips)
 
+    open_post_ids = [p.id for p, _ in open_post_rows]
+    viewer_staff_request_map = _viewer_staff_post_request_map(request.user, open_post_ids)
+
     claim_items = []
     adopt_items = []
     _sort_key = lambda item: (
@@ -2257,7 +2308,13 @@ def _build_public_post_listing(request, listing_mode):
     for post, phase_payload in open_post_rows:
         phase = phase_payload["phase"]
         match_score = _rescue_finder_match_score(post, selected_filters)
-        card = _build_rescue_finder_card_item(request, post, phase_payload, match_score)
+        card = _build_rescue_finder_card_item(
+            request,
+            post,
+            phase_payload,
+            match_score,
+            viewer_request_map=viewer_staff_request_map,
+        )
         if phase == "claim":
             claim_items.append(card)
         else:
@@ -2407,6 +2464,8 @@ def _build_home_featured_rescue_sections(request):
     )
     Post.attach_active_appointment_dates(raw_open_posts)
     section_items = {"claim": [], "adopt": []}
+    featured_post_ids = [p.id for p in raw_open_posts]
+    viewer_staff_request_map = _viewer_staff_post_request_map(request.user, featured_post_ids)
 
     for post in raw_open_posts:
         phase_payload = _post_phase_payload(post)
@@ -2414,7 +2473,13 @@ def _build_home_featured_rescue_sections(request):
         if phase not in section_items or len(section_items[phase]) >= HOME_FEATURED_CAROUSEL_LIMIT:
             continue
 
-        card_item = _build_rescue_finder_card_item(request, post, phase_payload, 0)
+        card_item = _build_rescue_finder_card_item(
+            request,
+            post,
+            phase_payload,
+            0,
+            viewer_request_map=viewer_staff_request_map,
+        )
         card_item.update({
             "home_action_url": f'{card_item["action_url"]}?return_to=home',
             "barangay_label": card_item["location_label"],
@@ -2500,9 +2565,22 @@ def _home_spotlight_pick_auto_pairs(candidate_pairs, limit):
     return _home_spotlight_random_fill(candidate_pairs, limit)
 
 
-def _build_home_spotlight_card(request, post, phase_payload, *, is_auto_highlighted=False):
+def _build_home_spotlight_card(
+    request,
+    post,
+    phase_payload,
+    *,
+    is_auto_highlighted=False,
+    viewer_request_map=None,
+):
     phase = phase_payload["phase"]
-    card_item = _build_rescue_finder_card_item(request, post, phase_payload, 0)
+    card_item = _build_rescue_finder_card_item(
+        request,
+        post,
+        phase_payload,
+        0,
+        viewer_request_map=viewer_request_map,
+    )
     countdown_deadline = (
         post.claim_deadline()
         if phase == "claim"
@@ -2525,18 +2603,30 @@ def _build_home_spotlight_card(request, post, phase_payload, *, is_auto_highligh
             if is_auto_highlighted
             else "Still within the owner claim window."
         )
-        primary_cta_label = "Claim Dog"
-        primary_cta_url = f'{card_item["action_url"]}?return_to=home'
-        primary_requires_auth = True
     else:
         spotlight_copy = (
             "Auto-highlighted because it has the least time left before adoption closes."
             if is_auto_highlighted
             else "Ready for a new family to adopt."
         )
+
+    show_spotlight_primary_cta = False
+    primary_cta_label = ""
+    primary_cta_url = ""
+    primary_requires_auth = True
+    if phase == "claim":
+        if card_item["show_claim_cta"]:
+            show_spotlight_primary_cta = True
+            primary_cta_label = "Claim Dog"
+            primary_cta_url = f'{card_item["action_url"]}?return_to=home'
+        elif card_item["show_reserve_adoption_cta"]:
+            show_spotlight_primary_cta = True
+            primary_cta_label = "Reserve Adoption"
+            primary_cta_url = f'{card_item["reserve_adoption_url"]}?return_to=home'
+    elif phase == "adopt" and card_item["show_adopt_cta"]:
+        show_spotlight_primary_cta = True
         primary_cta_label = "Adopt Dog"
         primary_cta_url = f'{card_item["action_url"]}?return_to=home'
-        primary_requires_auth = True
 
     return {
         "post": post,
@@ -2567,9 +2657,15 @@ def _build_home_spotlight_card(request, post, phase_payload, *, is_auto_highligh
             else "Pinned by Bayawan Vet"
         ),
         "spotlight_copy": spotlight_copy,
+        "show_spotlight_primary_cta": show_spotlight_primary_cta,
         "primary_cta_label": primary_cta_label,
         "primary_cta_url": primary_cta_url,
         "primary_requires_auth": primary_requires_auth,
+        "viewer_has_claim_request": card_item["viewer_has_claim_request"],
+        "viewer_has_adopt_request": card_item["viewer_has_adopt_request"],
+        "show_claim_cta": card_item["show_claim_cta"],
+        "show_reserve_adoption_cta": card_item["show_reserve_adoption_cta"],
+        "show_adopt_cta": card_item["show_adopt_cta"],
         "pinned_on_label": (
             "Auto-selected from soonest deadline"
             if is_auto_highlighted
@@ -3460,6 +3556,17 @@ def _hydrate_home_feed_items(request, feed_rows):
         ).filter(id__in=ids_by_type["missing"])
     }
 
+    viewer_staff_request_map = _viewer_staff_post_request_map(
+        request.user, ids_by_type["admin"]
+    )
+    viewer_user_adoption_post_ids = set()
+    if getattr(request.user, "is_authenticated", False) and ids_by_type["user"]:
+        viewer_user_adoption_post_ids = set(
+            UserAdoptionRequest.objects.filter(
+                requester=request.user, post_id__in=ids_by_type["user"]
+            ).values_list("post_id", flat=True)
+        )
+
     combined_posts = []
     default_admin_avatar_url = static("images/officialseal.webp")
     default_profile_avatar_url = static("images/default-user-image.jpg")
@@ -3487,6 +3594,11 @@ def _hydrate_home_feed_items(request, feed_rows):
             elif phase == "adopt":
                 deadline = p.adoption_deadline()
 
+            vf = viewer_staff_request_map.get(
+                p.id, {"claim": False, "adopt": False}
+            )
+            cta = _staff_post_public_cta_flags(phase, request.user, vf)
+
             combined_posts.append({
                 "post": p,
                 "post_type": "admin",
@@ -3510,6 +3622,9 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "gallery_images": gallery_images,
                 "main_image": main_image,
                 "share_url": _finder_share_url_staff(request, p, phase_payload),
+                "viewer_has_claim_request": vf["claim"],
+                "viewer_has_adopt_request": vf["adopt"],
+                **cta,
             })
             continue
 
@@ -3550,6 +3665,12 @@ def _hydrate_home_feed_items(request, feed_rows):
                 back_label=profile_back_label,
             )
 
+            has_user_adoption_request = p.id in viewer_user_adoption_post_ids
+            show_user_adoption_request_cta = (
+                not getattr(request.user, "is_authenticated", False)
+                or not has_user_adoption_request
+            )
+
             combined_posts.append({
                 "post": p,
                 "post_type": "user",
@@ -3571,6 +3692,8 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "author_profile_url": profile_url,
                 "owner_request_url": f"{reverse('user:edit_profile')}#post-requests-{p.id}",
                 "share_url": _finder_share_url_user_adoption(request, p.id),
+                "viewer_has_user_adoption_request": has_user_adoption_request,
+                "show_user_adoption_request_cta": show_user_adoption_request_cta,
             })
             continue
 

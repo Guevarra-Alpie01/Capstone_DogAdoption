@@ -407,12 +407,12 @@ class UserHomeFeedTests(TestCase):
         response = self.client.get(reverse("user:user_home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "View Status")
+        self.assertContains(response, "Claim Dog")
         self.assertContains(response, "View Post")
         self.assertContains(response, "data-home-spotlight-card", count=1, html=False)
         self.assertContains(response, "data-home-spotlight-detail-toggle", count=2, html=False)
         self.assertContains(response, "data-home-spotlight-detail-panel", count=1, html=False)
-        self.assertContains(response, "Verification Until")
+        self.assertContains(response, "Claim Ends")
         self.assertContains(response, "Coat")
         self.assertContains(response, "Color")
 

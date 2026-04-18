@@ -66,21 +66,31 @@
                                 <h3>{{ spotlight.title }}</h3>
                                 <span class="home-pinned-spotlights__time">{{ spotlight.time_left_badge }}</span>
 
-                                <div class="home-pinned-spotlights__actions{% if spotlight.primary_cta_label == 'View Status' %} home-pinned-spotlights__actions--detail-only{% endif %}">
+                                <div class="home-pinned-spotlights__actions{% if not spotlight.show_spotlight_primary_cta %} home-pinned-spotlights__actions--detail-only{% endif %}">
+                                    {% if spotlight.show_spotlight_primary_cta %}
                                     <a
                                         href="{{ spotlight.primary_cta_url }}"
                                         class="home-pinned-spotlights__btn home-pinned-spotlights__btn--primary"
                                         {% if spotlight.primary_requires_auth and not request.user.is_authenticated %}
                                         data-auth-modal-trigger="login"
                                         data-auth-next-url="{{ spotlight.primary_cta_url }}"
-                                        {% elif spotlight.primary_cta_label == "View Status" %}
-                                        data-home-spotlight-detail-toggle
-                                        aria-controls="home-spotlight-{{ forloop.counter0 }}-details"
-                                        aria-expanded="false"
                                         {% endif %}
                                     >
-                                        <span>{% if spotlight.primary_cta_label == "View Status" %}Details{% else %}{{ spotlight.primary_cta_label }}{% endif %}</span>
+                                        <span>{{ spotlight.primary_cta_label }}</span>
                                     </a>
+                                    {% elif request.user.is_authenticated %}
+                                    <div class="home-pinned-spotlights__reminder" role="status">
+                                        {% if spotlight.phase == 'claim' and not spotlight.show_claim_cta and not spotlight.show_reserve_adoption_cta %}
+                                        <span>You already submitted a claim and reserved adoption for this dog.</span>
+                                        {% elif spotlight.phase == 'claim' and not spotlight.show_claim_cta and spotlight.show_reserve_adoption_cta %}
+                                        <span>You already submitted a claim request. <a href="{% url 'user:my_claims' %}">View my claims</a></span>
+                                        {% elif spotlight.phase == 'claim' and spotlight.show_claim_cta and not spotlight.show_reserve_adoption_cta %}
+                                        <span>You already reserved adoption. <a href="{% url 'user:adopt_status' %}">View adoption requests</a></span>
+                                        {% elif spotlight.phase == 'adopt' %}
+                                        <span>You already submitted an adoption request. <a href="{% url 'user:adopt_status' %}">View adoption requests</a></span>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
                                     <button
                                         type="button"
                                         class="home-pinned-spotlights__btn home-pinned-spotlights__btn--share js-open-share"
@@ -89,7 +99,6 @@
                                     >
                                         <span>Share</span>
                                     </button>
-                                    {% if spotlight.primary_cta_label != "View Status" %}
                                     <a
                                         href="{{ spotlight.detail_url }}"
                                         class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary home-pinned-spotlights__btn--details"
@@ -99,7 +108,6 @@
                                     >
                                         <span>Details</span>
                                     </a>
-                                    {% endif %}
                                 </div>
                             </div>
 
@@ -292,17 +300,61 @@
                                     </div>
 
                                     <div class="dog-scale-carousel__actions dog-scale-carousel__actions--overlay">
-                                        <a
-                                            href="{{ item.home_action_url }}"
-                                            class="dog-scale-carousel__btn dog-scale-carousel__btn--primary"
-                                            {% if not request.user.is_authenticated %}
-                                            data-auth-modal-trigger="login"
-                                            data-auth-next-url="{{ item.home_action_url }}"
+                                        {% if section.key == 'claim' %}
+                                            {% if item.show_claim_cta %}
+                                            <a
+                                                href="{{ item.home_action_url }}"
+                                                class="dog-scale-carousel__btn dog-scale-carousel__btn--primary"
+                                                {% if not request.user.is_authenticated %}
+                                                data-auth-modal-trigger="login"
+                                                data-auth-next-url="{{ item.home_action_url }}"
+                                                {% endif %}
+                                            >
+                                                Claim Now
+                                                <span class="visually-hidden">Open claim confirmation</span>
+                                            </a>
+                                            {% elif item.show_reserve_adoption_cta %}
+                                            <a
+                                                href="{{ item.reserve_adoption_url }}?return_to=home"
+                                                class="dog-scale-carousel__btn dog-scale-carousel__btn--primary"
+                                                {% if not request.user.is_authenticated %}
+                                                data-auth-modal-trigger="login"
+                                                data-auth-next-url="{{ item.reserve_adoption_url }}?return_to=home"
+                                                {% endif %}
+                                            >
+                                                Reserve Adoption
+                                                <span class="visually-hidden">Reserve adoption</span>
+                                            </a>
+                                            {% elif request.user.is_authenticated %}
+                                            <div class="dog-scale-carousel__viewer-reminder" role="status">
+                                                {% if not item.show_claim_cta and not item.show_reserve_adoption_cta %}
+                                                <span>You already submitted a claim and reserved adoption.</span>
+                                                {% elif not item.show_claim_cta and item.show_reserve_adoption_cta %}
+                                                <span>You already submitted a claim. <a href="{% url 'user:my_claims' %}">My claims</a></span>
+                                                {% elif item.show_claim_cta and not item.show_reserve_adoption_cta %}
+                                                <span>You already reserved adoption. <a href="{% url 'user:adopt_status' %}">Adoption requests</a></span>
+                                                {% endif %}
+                                            </div>
                                             {% endif %}
-                                        >
-                                            {{ item.action_label }} Now
-                                            <span class="visually-hidden">Open Post Page</span>
-                                        </a>
+                                        {% else %}
+                                            {% if item.show_adopt_cta %}
+                                            <a
+                                                href="{{ item.home_action_url }}"
+                                                class="dog-scale-carousel__btn dog-scale-carousel__btn--primary"
+                                                {% if not request.user.is_authenticated %}
+                                                data-auth-modal-trigger="login"
+                                                data-auth-next-url="{{ item.home_action_url }}"
+                                                {% endif %}
+                                            >
+                                                Adopt Now
+                                                <span class="visually-hidden">Open adoption confirmation</span>
+                                            </a>
+                                            {% elif request.user.is_authenticated %}
+                                            <div class="dog-scale-carousel__viewer-reminder" role="status">
+                                                <span>You already submitted an adoption request. <a href="{% url 'user:adopt_status' %}">View status</a></span>
+                                            </div>
+                                            {% endif %}
+                                        {% endif %}
                                         <button
                                             type="button"
                                             class="dog-scale-carousel__btn dog-scale-carousel__btn--secondary js-open-share"

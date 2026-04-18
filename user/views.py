@@ -112,6 +112,7 @@ HOME_SPOTLIGHT_FALLBACK_CANDIDATE_LIMIT = 60
 HOME_FEATURED_CANDIDATE_LIMIT = 60
 HOME_SPOTLIGHT_URGENCY_THRESHOLD_SECONDS = 24 * 60 * 60
 GOOGLE_SIGNUP_SESSION_KEY = "google_signup_data"
+LOGIN_USERNAME_PREFILL_SESSION_KEY = "login_username_prefill"
 
 
 def _safe_media_url(file_field):
@@ -1319,6 +1320,13 @@ def login_view(request):
         request,
         (request.POST.get("next") if request.method == "POST" else request.GET.get("next")) or request.GET.get("next"),
     )
+
+    login_form_prefill = {}
+    if request.method == "GET":
+        prefill_username = (request.session.pop(LOGIN_USERNAME_PREFILL_SESSION_KEY, None) or "").strip()
+        if prefill_username:
+            login_form_prefill = {"username": prefill_username}
+
     auth_source = (request.POST.get("auth_source") or "").strip() if request.method == "POST" else ""
 
     def render_login_error(message, username=""):
@@ -1357,7 +1365,8 @@ def login_view(request):
         if _user_requires_email_verification(existing_user):
             return render_login_error("Please verify your email address before logging in.", username)
 
-        user = authenticate(request, username=username, password=password)
+        auth_username = existing_user.username if existing_user is not None else username
+        user = authenticate(request, username=auth_username, password=password)
 
         if user is not None:
             if user.is_staff:
@@ -1371,9 +1380,19 @@ def login_view(request):
             response.delete_cookie("admin_sessionid")
             return response
 
-        return render_login_error("Invalid username or password", username)
+        invalid_msg = "The username or password you entered is incorrect. Please try again."
+        if auth_source == "modal":
+            return render_login_error(invalid_msg, username)
 
-    return _render_login_page(request, next_url=next_url)
+        request.session[LOGIN_USERNAME_PREFILL_SESSION_KEY] = username
+        request.session.modified = True
+        messages.error(request, invalid_msg)
+        login_redirect = reverse("user:login")
+        if next_url:
+            login_redirect = f"{login_redirect}?{urlencode({'next': next_url})}"
+        return redirect(login_redirect)
+
+    return _render_login_page(request, login_form_data=login_form_prefill, next_url=next_url)
 
 
 @csrf_exempt

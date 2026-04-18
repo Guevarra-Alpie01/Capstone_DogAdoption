@@ -875,7 +875,7 @@ class UserHomeFeedTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "home/user_home.html")
-        self.assertContains(response, "Invalid username or password")
+        self.assertContains(response, "The username or password you entered is incorrect")
         self.assertContains(response, f'value="{claim_url}"', html=False)
 
     def test_modal_signup_error_re_renders_home_with_signup_popup(self):

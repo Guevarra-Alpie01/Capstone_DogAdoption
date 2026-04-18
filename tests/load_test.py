@@ -814,7 +814,7 @@ class CapstoneUserBase(HttpUser):
         body = getattr(response, "text", "") or ""
         if response.status_code == 429 or "Too many requests" in body:
             return "Login failed: rate limited by the backend."
-        if "Invalid username or password" in body:
+        if "The username or password you entered is incorrect" in body:
             return "Login failed: invalid load-test credentials."
         if response.status_code >= 400:
             return f"Login failed with HTTP {response.status_code}."

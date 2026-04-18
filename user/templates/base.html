@@ -494,8 +494,12 @@
 
 </div>
 
-{% if not user.is_authenticated and request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'signup' %}
-    {% include 'partials/auth_modals.html' %}
+{% if not user.is_authenticated %}
+    {% if login_error or signup_error %}
+        {% include 'partials/auth_modals.html' %}
+    {% elif request.resolver_match and request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'signup' %}
+        {% include 'partials/auth_modals.html' %}
+    {% endif %}
 {% endif %}
 
 {% include 'partials/shared_confirm_modal.html' %}

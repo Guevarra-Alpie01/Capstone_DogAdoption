@@ -1,6 +1,29 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block page_title %}{% if finder_og_title %}{{ finder_og_title }}{% else %}Find a Dog | Bayawan Vet{% endif %}{% endblock %}
+
+{% block og_meta %}
+{% if finder_og_title %}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Bayawan Vet">
+<meta property="og:title" content="{{ finder_og_title }}">
+<meta property="og:description" content="{{ finder_og_description }}">
+<meta property="og:url" content="{{ finder_og_url }}">
+{% if finder_og_image %}
+<meta property="og:image" content="{{ finder_og_image }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ finder_og_title }}">
+<meta name="twitter:description" content="{{ finder_og_description }}">
+{% if finder_og_image %}
+<meta name="twitter:image" content="{{ finder_og_image }}">
+{% endif %}
+{% endif %}
+{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260417finder-filter-over-footer">
 {% endblock %}

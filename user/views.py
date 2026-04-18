@@ -1813,6 +1813,138 @@ def _parse_finder_highlight(raw):
     return kind, int(rest)
 
 
+def _absolute_uri_for_og(request, path_or_url):
+    """Build an absolute http(s) URL for Open Graph image fields."""
+    if not path_or_url:
+        return ""
+    raw = (path_or_url or "").strip()
+    if raw.startswith(("http://", "https://")):
+        return raw
+    if raw.startswith("//"):
+        return f"{request.scheme}:{raw}"
+    return request.build_absolute_uri(raw if raw.startswith("/") else f"/{raw}")
+
+
+def _finder_highlight_open_graph(request):
+    """
+    When ?highlight= points at a finder card, expose og:image and text for link previews
+    (Facebook, Messenger, X, etc.).
+    """
+    kind, hid = _parse_finder_highlight(request.GET.get("highlight"))
+    if not kind or not hid:
+        return {}
+
+    og_url = request.build_absolute_uri(request.get_full_path())
+    site = "Bayawan Vet"
+
+    if kind == "staff":
+        post = (
+            Post.objects.filter(id=hid, is_history=False)
+            .prefetch_related("images")
+            .first()
+        )
+        if not post:
+            return {}
+        img_rel = _first_prefetched_image_url(post.images.all())
+        og_image = _absolute_uri_for_og(request, img_rel)
+        title = _rescue_finder_title(post)
+        location_label = " ".join((post.location or "").split()) or "Bayawan City"
+        phase_payload = _post_phase_payload(post)
+        phase = phase_payload["phase"]
+        if phase == "claim":
+            phase_note = "Owner claim window is open."
+        elif phase == "adopt":
+            phase_note = "Ready for adoption."
+        else:
+            phase_note = "Bayawan Vet rescue listing."
+        desc = f"{title} — {location_label}. {phase_note}"
+        if len(desc) > 300:
+            desc = f"{desc[:297].rstrip()}..."
+        return {
+            "finder_og_title": f"{title} | {site}",
+            "finder_og_description": desc,
+            "finder_og_image": og_image,
+            "finder_og_url": og_url,
+        }
+
+    if kind == "user":
+        upost = (
+            UserAdoptionPost.objects.filter(id=hid)
+            .prefetch_related("images")
+            .first()
+        )
+        if not upost:
+            return {}
+        img_rel = _first_prefetched_image_url(upost.images.all())
+        og_image = _absolute_uri_for_og(request, img_rel)
+        loc = " ".join((upost.location or "").split()) or "Bayawan City"
+        dog = (upost.dog_name or "Dog").strip() or "Dog"
+        breed = upost.display_breed or "Adoption"
+        desc = f"{dog} ({breed}) — {loc}. Community adoption listing on Bayawan Vet."
+        if len(desc) > 300:
+            desc = f"{desc[:297].rstrip()}..."
+        return {
+            "finder_og_title": f"{dog} — {breed} | {site}",
+            "finder_og_description": desc,
+            "finder_og_image": og_image,
+            "finder_og_url": og_url,
+        }
+
+    return {}
+
+
+def _announcement_highlight_open_graph(request):
+    """Open Graph tags when ?highlight=<id> targets a specific announcement card."""
+    raw = (request.GET.get("highlight") or "").strip()
+    if not raw.isdigit():
+        return {}
+    pk = int(raw)
+    post = (
+        DogAnnouncement.objects.select_related("created_by")
+        .prefetch_related(
+            Prefetch(
+                "images",
+                queryset=DogAnnouncementImage.objects.only(
+                    "id",
+                    "announcement_id",
+                    "image",
+                    "created_at",
+                ).order_by("created_at", "id"),
+                to_attr="prefetched_images",
+            ),
+        )
+        .filter(pk=pk)
+        .first()
+    )
+    if not post:
+        return {}
+
+    og_image = ""
+    if post.background_image:
+        og_image = request.build_absolute_uri(post.background_image.url)
+    elif getattr(post, "prefetched_images", None):
+        og_image = request.build_absolute_uri(post.prefetched_images[0].image.url)
+    else:
+        og_image = request.build_absolute_uri(static("images/bayawan_logo.webp"))
+
+    plain = strip_tags(post.content or "").strip()
+    if len(plain) > 200:
+        plain = f"{plain[:197].rstrip()}..."
+    if not plain:
+        plain = "Announcement from Bayawan Vet."
+
+    title = (post.title or "Announcement").strip()
+    og_url = request.build_absolute_uri(request.get_full_path())
+    site = "Bayawan Vet"
+
+    return {
+        "announcement_og_title": f"{title} | {site}",
+        "announcement_og_description": plain,
+        "announcement_og_image": og_image,
+        "announcement_og_url": og_url,
+    }
+
+
 def _finder_maybe_redirect_for_highlight(
     request,
     claim_items,
@@ -2728,6 +2860,7 @@ def _render_public_post_listing_page(request, listing_mode):
             selected_type="missing",
         ),
     })
+    context.update(_finder_highlight_open_graph(request))
     return render(request, "adopt/adopt_list.html", context)
 
 
@@ -4944,7 +5077,7 @@ def announcement_list(request):
     regular_total = max(total_announcements - pinned_count - campaign_count, 0)
     pagination_query = _pagination_query_without_page(request.GET)
 
-    return render(request, 'announcement/announcement.html', {
+    board_context = {
         'pinned_announcements': pinned_announcements,
         'campaign_announcements': campaign_announcements,
         'regular_announcements': regular_announcements,
@@ -4953,7 +5086,9 @@ def announcement_list(request):
         'regular_total': regular_total,
         'regular_page_obj': regular_page_obj,
         'announcement_pagination_query': pagination_query,
-    })
+    }
+    board_context.update(_announcement_highlight_open_graph(request))
+    return render(request, 'announcement/announcement.html', board_context)
 
 
 def announcement_detail(request, post_id):

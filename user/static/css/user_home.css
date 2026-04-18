@@ -1903,7 +1903,7 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     position: relative;
     top: auto;
     left: auto;
-    z-index: auto;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1913,12 +1913,14 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     min-height: 38px;
     padding: 0 14px;
     border-radius: 999px;
-    border: 1px solid rgba(238, 241, 245, 0.8);
-    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    background-color: #ffffff;
+    background-clip: padding-box;
     color: #334155;
     text-decoration: none;
-    box-shadow: 0 12px 22px rgba(15, 23, 42, 0.18);
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
     box-sizing: border-box;
+    isolation: isolate;
 }
 
 .home-city-vet__map-lead .home-city-vet__map-control--hud {
@@ -2003,7 +2005,7 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
 }
 
 .home-city-vet__map-wrap.is-hud-minimal .home-city-vet__map-search,
-.home-city-vet__map-wrap.is-hud-minimal .home-city-vet__map-card {
+.home-city-vet__map-wrap.is-hud-minimal .home-city-vet__map-open-maps {
     opacity: 0 !important;
     pointer-events: none !important;
     visibility: hidden !important;
@@ -2014,54 +2016,44 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     opacity: 0.35;
 }
 
-/* Dark location chip (Google Street View–style) — bottom-left */
-.home-city-vet__map-card {
+/* Bottom-left open-in-maps chip — clear of the search strip at the top */
+.home-city-vet__map-open-maps {
     position: absolute;
     left: 14px;
     bottom: 14px;
-    z-index: 2;
-    display: grid;
-    gap: 4px;
-    max-width: min(260px, calc(100% - 28px));
-    padding: 12px 14px 13px;
-    border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: linear-gradient(180deg, rgba(38, 42, 40, 0.94) 0%, rgba(16, 18, 17, 0.96) 100%);
-    box-shadow:
-        0 14px 32px rgba(0, 0, 0, 0.42),
-        inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    backdrop-filter: blur(12px) saturate(120%);
-    -webkit-backdrop-filter: blur(12px) saturate(120%);
-}
-
-.home-city-vet__map-card-line {
-    color: #f8fafc;
-    font-size: 0.88rem;
-    font-weight: 800;
-    line-height: 1.25;
-    letter-spacing: -0.02em;
-}
-
-.home-city-vet__map-card-line--sub {
-    font-weight: 600;
-    font-size: 0.8rem;
-    color: rgba(248, 250, 252, 0.88);
-}
-
-.home-city-vet__map-card-link {
-    margin-top: 4px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 8px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: linear-gradient(180deg, rgba(30, 34, 32, 0.94) 0%, rgba(14, 16, 15, 0.96) 100%);
+    color: #7dd3fc;
     font-size: 0.78rem;
     font-weight: 700;
-    color: #7dd3fc;
+    line-height: 1.25;
     text-decoration: none;
-    width: fit-content;
-    line-height: 1.35;
+    box-shadow:
+        0 12px 28px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(10px) saturate(120%);
+    -webkit-backdrop-filter: blur(10px) saturate(120%);
+    max-width: min(280px, calc(100% - 28px));
+    box-sizing: border-box;
 }
 
-.home-city-vet__map-card-link:hover,
-.home-city-vet__map-card-link:focus-visible {
-    color: #bae6fd;
-    text-decoration: underline;
+.home-city-vet__map-open-maps:hover,
+.home-city-vet__map-open-maps:focus-visible {
+    color: #e0f2fe;
+    border-color: rgba(125, 211, 252, 0.35);
+}
+
+.home-city-vet__map-open-maps .bi-google {
+    font-size: 1rem;
+    opacity: 0.95;
 }
 
 .home-city-vet__map-expand-pill {
@@ -2214,30 +2206,6 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
         display: none;
     }
 
-    .home-city-vet__map-card {
-        display: none;
-    }
-
-    .home-city-vet__map-card-line {
-        font-size: 0.82rem;
-    }
-
-    .home-city-vet__map-card-line--sub {
-        font-size: 0.76rem;
-    }
-
-    .home-city-vet__map-card-link {
-        font-size: 0.72rem;
-    }
-
-    .home-city-vet__map-wrap.is-expanded .home-city-vet__map-card {
-        display: grid;
-        left: max(12px, env(safe-area-inset-left, 0px));
-        bottom: max(14px, env(safe-area-inset-bottom, 0px));
-        max-width: min(200px, calc(100% - 28px));
-        padding: 11px 12px 12px;
-    }
-
     .home-city-vet__map-expand-hit {
         position: absolute;
         inset: 0;
@@ -2269,8 +2237,24 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
         pointer-events: none;
     }
 
+    .home-city-vet__map-open-maps {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.24s ease;
+    }
+
+    .home-city-vet__map-wrap.is-expanded .home-city-vet__map-open-maps {
+        opacity: 1;
+        pointer-events: auto;
+        left: max(12px, env(safe-area-inset-left, 0px));
+        bottom: max(14px, env(safe-area-inset-bottom, 0px));
+        z-index: 6;
+        font-size: 0.72rem;
+        padding: 8px 12px;
+    }
+
     /*
-     * Full-screen map: below fixed app topbar. Lead column = search, then HUD; exit (X) alone top-right.
+     * Full-screen map: below fixed app topbar. Lead = panels toggle, then search (DOM order); exit (X) top-right.
      */
     .home-city-vet__map-wrap.is-expanded .home-city-vet__map-lead {
         top: calc(env(safe-area-inset-top, 0px) + var(--home-navbar-offset) + 8px);
@@ -5102,38 +5086,54 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
 .dog-scale-carousel__control {
     position: absolute;
     top: 50%;
-    width: 28px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
+    margin: 0;
     transform: translateY(-50%);
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 23, 42, 0.09);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 250, 247, 0.95) 100%);
+    box-shadow:
+        0 6px 22px rgba(15, 23, 42, 0.14),
+        0 1px 0 rgba(255, 255, 255, 0.88) inset;
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
     cursor: pointer;
     z-index: 3;
     pointer-events: auto;
-    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease;
+    transition:
+        transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.24s ease,
+        background 0.2s ease,
+        border-color 0.2s ease,
+        opacity 0.22s ease;
 }
 
-.dog-scale-carousel__control::before {
-    content: "\2039";
-    color: rgba(17, 24, 39, 0.82);
-    font-size: 1.5rem;
+.dog-scale-carousel__control-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1e3d32;
+    font-size: 1.3rem;
     line-height: 1;
-    font-weight: 700;
-    text-shadow: 0 2px 8px rgba(255, 255, 255, 0.55);
+}
+
+.dog-scale-carousel__control-icon i {
+    display: block;
+    margin: 0;
+    line-height: 1;
 }
 
 .dog-scale-carousel__control--backward {
-    left: 8px;
+    left: 12px;
 }
 
 .dog-scale-carousel__control--forward {
-    right: 8px;
-}
-
-.dog-scale-carousel__control--forward::before {
-    content: "\203A";
+    right: 12px;
 }
 
 .dog-scale-carousel__indicators {
@@ -5215,8 +5215,12 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
 
     .dog-scale-carousel__control:hover,
     .dog-scale-carousel__control:focus-visible {
-        transform: translateY(-50%) scale(1.08);
-        opacity: 0.95;
+        transform: translateY(-50%) scale(1.06);
+        box-shadow:
+            0 12px 32px rgba(15, 23, 42, 0.18),
+            0 1px 0 rgba(255, 255, 255, 0.95) inset;
+        border-color: rgba(34, 83, 66, 0.22);
+        background: #ffffff;
     }
 }
 
@@ -5420,12 +5424,12 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     }
 
     .dog-scale-carousel__control {
-        width: 24px;
-        height: 34px;
+        width: 38px;
+        height: 38px;
     }
 
-    .dog-scale-carousel__control::before {
-        font-size: 1.9rem;
+    .dog-scale-carousel__control-icon {
+        font-size: 1.1rem;
     }
 }
 
@@ -5917,28 +5921,12 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     color: #173a2c;
 }
 
-.dog-scale-carousel__control {
-    width: 28px;
-    height: 40px;
-    background: transparent;
-    border: 0;
-    box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
-
-.dog-scale-carousel__control::before {
-    color: rgba(15, 23, 42, 0.82);
-    font-size: 1.45rem;
-    text-shadow: 0 2px 8px rgba(255, 255, 255, 0.52);
-}
-
 .dog-scale-carousel__control--backward {
-    left: 8px;
+    left: 10px;
 }
 
 .dog-scale-carousel__control--forward {
-    right: 8px;
+    right: 10px;
 }
 
 .dog-scale-carousel__indicators {
@@ -5989,7 +5977,12 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
 
     .dog-scale-carousel__control:hover,
     .dog-scale-carousel__control:focus-visible {
-        transform: translateY(-50%) scale(1.04);
+        transform: translateY(-50%) scale(1.06);
+        box-shadow:
+            0 12px 32px rgba(15, 23, 42, 0.18),
+            0 1px 0 rgba(255, 255, 255, 0.95) inset;
+        border-color: rgba(34, 83, 66, 0.22);
+        background: #ffffff;
     }
 }
 
@@ -6034,8 +6027,12 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     }
 
     .dog-scale-carousel__control {
-        width: 32px;
-        height: 32px;
+        width: 42px;
+        height: 42px;
+    }
+
+    .dog-scale-carousel__control-icon {
+        font-size: 1.22rem;
     }
 }
 
@@ -6198,12 +6195,12 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     }
 
     .dog-scale-carousel__control {
-        width: 24px;
-        height: 36px;
+        width: 38px;
+        height: 38px;
     }
 
-    .dog-scale-carousel__control::before {
-        font-size: 1.35rem;
+    .dog-scale-carousel__control-icon {
+        font-size: 1.08rem;
     }
 }
 

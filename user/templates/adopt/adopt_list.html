@@ -25,7 +25,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260419finder-top-actions-uniform">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260419finder-pagination-toggle">
 {% endblock %}
 
 {% block content %}
@@ -334,10 +334,74 @@
                     {% endif %}
                 {% endfor %}
             </div>
-            {% if unified_page_obj.has_next %}
-            <div class="finder-load-more">
-                <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ unified_page_obj.next_page_number }}" class="finder-load-more__link">Load more dogs</a>
-            </div>
+            {% if unified_page_obj.paginator.num_pages > 1 %}
+            <nav class="finder-pagination" aria-label="Find a Dog pagination" data-finder-pagination>
+                <div class="finder-pagination__shell">
+                    <div class="finder-pagination__overview">
+                        <div class="finder-pagination__copy">
+                            <span class="finder-pagination__eyebrow">Page Navigator</span>
+                            <p class="finder-pagination__status">Page {{ unified_page_obj.number }} of {{ unified_page_obj.paginator.num_pages }}</p>
+                            <p class="finder-pagination__hint">Showing {{ unified_page_obj.start_index }} to {{ unified_page_obj.end_index }} of {{ unified_page_obj.paginator.count }} dog post{{ unified_page_obj.paginator.count|pluralize }}.</p>
+                        </div>
+                        <button
+                            type="button"
+                            class="finder-pagination__toggle"
+                            data-finder-pagination-toggle
+                            aria-expanded="false"
+                            aria-controls="finderPaginationPanel"
+                        >
+                            <span class="finder-pagination__toggle-icon" aria-hidden="true">
+                                <i class="bi bi-grid-3x3-gap"></i>
+                            </span>
+                            <span class="finder-pagination__toggle-text" data-finder-pagination-toggle-label>Show pages</span>
+                        </button>
+                    </div>
+
+                    <div class="finder-pagination__quick">
+                        {% if unified_page_obj.has_previous %}
+                        <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ unified_page_obj.previous_page_number }}" class="finder-pagination__nav finder-pagination__nav--prev">
+                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                            <span>Previous</span>
+                        </a>
+                        {% else %}
+                        <span class="finder-pagination__nav is-disabled" aria-disabled="true">
+                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                            <span>Previous</span>
+                        </span>
+                        {% endif %}
+
+                        <div class="finder-pagination__current" aria-live="polite" aria-atomic="true">
+                            <span class="finder-pagination__current-label">Current page</span>
+                            <strong>{{ unified_page_obj.number }}</strong>
+                            <span class="finder-pagination__current-total">of {{ unified_page_obj.paginator.num_pages }}</span>
+                        </div>
+
+                        {% if unified_page_obj.has_next %}
+                        <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ unified_page_obj.next_page_number }}" class="finder-pagination__nav finder-pagination__nav--next">
+                            <span>Next</span>
+                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </a>
+                        {% else %}
+                        <span class="finder-pagination__nav is-disabled" aria-disabled="true">
+                            <span>Next</span>
+                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="finder-pagination__panel" id="finderPaginationPanel" data-finder-pagination-panel hidden>
+                        {% for item in finder_pagination_items %}
+                            {% if item.type == "ellipsis" %}
+                            <span class="finder-pagination__gap" aria-hidden="true">&hellip;</span>
+                            {% elif item.is_current %}
+                            <span class="finder-pagination__page is-current" aria-current="page">{{ item.number }}</span>
+                            {% else %}
+                            <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ item.number }}" class="finder-pagination__page">{{ item.number }}</a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </nav>
             {% endif %}
             {% else %}
             <div class="finder-empty finder-empty--inline">
@@ -381,6 +445,11 @@
     const infoToggleButtons = document.querySelectorAll('[data-finder-info-toggle]');
     const shareButtons = document.querySelectorAll('[data-finder-share]');
     const shareStatus = document.getElementById('finderShareStatus');
+    const paginationShell = document.querySelector('[data-finder-pagination]');
+    const paginationToggle = paginationShell?.querySelector('[data-finder-pagination-toggle]');
+    const paginationPanel = paginationShell?.querySelector('[data-finder-pagination-panel]');
+    const paginationToggleLabel = paginationShell?.querySelector('[data-finder-pagination-toggle-label]');
+    const paginationDesktopQuery = window.matchMedia('(min-width: 992px)');
     const postMenu = document.querySelector('[data-finder-post-menu]');
     const postTrigger = document.querySelector('[data-finder-post-trigger]');
     const postMenuPanel = document.querySelector('[data-finder-post-menu-panel]');
@@ -390,6 +459,7 @@
     const postTypeInput = document.getElementById('finderPostTypeInput');
     const adoptionFields = document.getElementById('finderAdoptionFields');
     const missingFields = document.getElementById('finderMissingFields');
+    const PAGINATION_PREF_KEY = 'finderPaginationExpanded';
 
     function closeFilterGroups(exceptGroup = null) {
         filterGroups.forEach((group) => {
@@ -509,6 +579,54 @@
         if (!group) return;
         group.hidden = !shouldShow;
         group.style.display = shouldShow ? '' : 'none';
+    }
+
+    function readPaginationPreference() {
+        try {
+            const storedValue = window.localStorage.getItem(PAGINATION_PREF_KEY);
+            if (storedValue === 'true') return true;
+            if (storedValue === 'false') return false;
+        } catch (error) {
+            return null;
+        }
+        return null;
+    }
+
+    function writePaginationPreference(shouldExpand) {
+        try {
+            window.localStorage.setItem(PAGINATION_PREF_KEY, shouldExpand ? 'true' : 'false');
+        } catch (error) {
+            // Ignore storage failures so pagination still works without saved state.
+        }
+    }
+
+    function syncPaginationUi(shouldExpand) {
+        if (!paginationShell) return;
+        paginationShell.classList.toggle('is-expanded', shouldExpand);
+        if (paginationPanel) {
+            paginationPanel.hidden = !shouldExpand;
+        }
+        if (paginationToggle) {
+            paginationToggle.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
+        }
+        if (paginationToggleLabel) {
+            paginationToggleLabel.textContent = shouldExpand ? 'Hide pages' : 'Show pages';
+        }
+    }
+
+    function setPaginationExpanded(shouldExpand, { persist = true } = {}) {
+        const isExpanded = Boolean(shouldExpand);
+        syncPaginationUi(isExpanded);
+        if (persist) {
+            writePaginationPreference(isExpanded);
+        }
+    }
+
+    function applyPaginationPreference() {
+        if (!paginationShell) return;
+        const savedPreference = readPaginationPreference();
+        const shouldExpand = savedPreference === null ? paginationDesktopQuery.matches : savedPreference;
+        setPaginationExpanded(shouldExpand, { persist: false });
     }
 
     function syncAdoptionAttributeFields() {
@@ -701,6 +819,12 @@
         }
     });
 
+    paginationToggle?.addEventListener('click', () => {
+        setPaginationExpanded(!paginationShell?.classList.contains('is-expanded'));
+    });
+
+    applyPaginationPreference();
+
     const handleViewportChange = () => {
         resetTransientFilterUi();
         setMobileFiltersOpen(false);
@@ -709,12 +833,29 @@
         } else {
             setDesktopFiltersCollapsed(true);
         }
+        if (readPaginationPreference() === null) {
+            setPaginationExpanded(paginationDesktopQuery.matches, { persist: false });
+        }
     };
 
     if (typeof mobileQuery.addEventListener === 'function') {
         mobileQuery.addEventListener('change', handleViewportChange);
     } else if (typeof mobileQuery.addListener === 'function') {
         mobileQuery.addListener(handleViewportChange);
+    }
+
+    if (typeof paginationDesktopQuery.addEventListener === 'function') {
+        paginationDesktopQuery.addEventListener('change', () => {
+            if (readPaginationPreference() === null) {
+                setPaginationExpanded(paginationDesktopQuery.matches, { persist: false });
+            }
+        });
+    } else if (typeof paginationDesktopQuery.addListener === 'function') {
+        paginationDesktopQuery.addListener(() => {
+            if (readPaginationPreference() === null) {
+                setPaginationExpanded(paginationDesktopQuery.matches, { persist: false });
+            }
+        });
     }
 
     window.addEventListener('pageshow', () => {
@@ -725,6 +866,7 @@
         } else {
             setDesktopFiltersCollapsed(true);
         }
+        applyPaginationPreference();
     });
 
     function announceShareStatus(message) {

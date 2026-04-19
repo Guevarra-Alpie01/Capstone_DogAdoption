@@ -2544,6 +2544,7 @@ def _build_public_post_listing(request, listing_mode):
         "active_filter_count": active_filter_count,
         "finder_unified_rows": finder_unified_rows,
         "unified_page_obj": unified_page_obj,
+        "finder_pagination_items": _build_pagination_tokens(unified_page_obj),
         "recommended_posts": recommended_posts,
         "claim_posts": claim_posts,
         "adopt_posts": adopt_posts,
@@ -3271,6 +3272,45 @@ def _pagination_query_without_page(querydict):
     params = querydict.copy()
     params.pop("page", None)
     return params.urlencode()
+
+
+def _build_pagination_tokens(page_obj, *, edge_count=1, sibling_count=1):
+    """Return a compact page sequence with ellipsis markers."""
+    if not page_obj:
+        return []
+
+    total_pages = page_obj.paginator.num_pages
+    if total_pages <= 1:
+        return []
+
+    current_page = page_obj.number
+    pages = set()
+
+    for page_number in range(1, min(total_pages, edge_count) + 1):
+        pages.add(page_number)
+    for page_number in range(max(1, total_pages - edge_count + 1), total_pages + 1):
+        pages.add(page_number)
+    for page_number in range(
+        max(1, current_page - sibling_count),
+        min(total_pages, current_page + sibling_count) + 1,
+    ):
+        pages.add(page_number)
+
+    tokens = []
+    previous_page = None
+    for page_number in sorted(pages):
+        if previous_page is not None and page_number - previous_page > 1:
+            tokens.append({
+                "type": "ellipsis",
+                "key": f"ellipsis-{previous_page}-{page_number}",
+            })
+        tokens.append({
+            "type": "page",
+            "number": page_number,
+            "is_current": page_number == current_page,
+        })
+        previous_page = page_number
+    return tokens
 
 
 def _feed_cache_key(prefix, query, feed_token="", viewer_id=None):

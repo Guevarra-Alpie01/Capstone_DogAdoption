@@ -6039,6 +6039,7 @@ def user_post_requests(request):
     tab = request.GET.get("tab", "pending")
     if tab not in ("pending", "accepted", "declined"):
         tab = "pending"
+    return_to = _safe_next_url(request) or reverse("dogadoption_admin:post_list")
 
     adoption_filters = {
         "pending": {"status": "pending_review"},
@@ -6090,6 +6091,7 @@ def user_post_requests(request):
         "pending_count": pending_count,
         "accepted_count": accepted_count,
         "declined_count": declined_count,
+        "return_to": return_to,
     })
 
 
@@ -6121,4 +6123,4 @@ def user_post_request_action(request, post_type, post_id, action):
     else:
         raise Http404
 
-    return redirect(reverse("dogadoption_admin:user_post_requests"))
+    return _redirect_to_safe_next(request, "dogadoption_admin:user_post_requests")

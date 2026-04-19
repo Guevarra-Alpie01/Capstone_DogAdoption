@@ -1,4 +1,4 @@
-﻿/* Container adjustments */
+/* Container adjustments */
 :root {
     --home-navbar-offset: 56px;
     --home-shell-max: 1320px;
@@ -302,25 +302,44 @@
     background: var(--home-action-primary-bg-hover);
 }
 
-/* ── Missing Dogs Marquee ──────────────────────────────────── */
+/* ── Missing Dogs Marquee (vet / clinic — modern, calm urgency) ─ */
 
 .home-missing-marquee-shell {
+    position: relative;
     width: auto;
     max-width: none;
-    margin: clamp(28px, 4vw, 48px) calc(50% - 50vw) 0;
-    padding: 0 var(--home-shell-pad, 16px);
+    margin: clamp(28px, 4vw, 52px) calc(50% - 50vw) 0;
+    padding: clamp(28px, 4vw, 44px) var(--home-shell-pad, 16px) clamp(32px, 5vw, 52px);
     box-sizing: border-box;
+    background:
+        radial-gradient(ellipse 90% 60% at 50% 0%, rgba(13, 148, 136, 0.09), transparent 55%),
+        radial-gradient(ellipse 70% 45% at 100% 30%, rgba(239, 68, 68, 0.06), transparent 50%),
+        radial-gradient(ellipse 60% 40% at 0% 80%, rgba(59, 130, 246, 0.06), transparent 45%),
+        linear-gradient(180deg, #fffbf6 0%, #f4fbf9 42%, #f0f9ff 100%);
+}
+
+.home-missing-marquee-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.45;
+    background-image: radial-gradient(rgba(13, 148, 136, 0.07) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.15));
 }
 
 .home-missing-marquee {
+    position: relative;
+    z-index: 1;
     width: min(100%, var(--home-shell-max, 1240px));
     margin-inline: auto;
-    padding: clamp(24px, 3vw, 36px) 0;
+    padding: 0;
 }
 
 .home-missing-marquee .content_display {
     width: 100%;
-    max-width: min(100%, 920px);
+    max-width: min(100%, 1100px);
     margin-inline: auto;
     text-align: center;
 }
@@ -330,8 +349,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    margin-bottom: clamp(16px, 2vw, 24px);
+    gap: clamp(14px, 2vw, 18px);
+    margin-bottom: clamp(20px, 2.5vw, 28px);
     text-align: center;
 }
 
@@ -339,43 +358,90 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    max-width: 52ch;
+    gap: 10px;
+    max-width: 56ch;
     margin-inline: auto;
 }
 
 .home-missing-marquee__eyebrow {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.74rem;
-    font-weight: 700;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.1em;
+    color: #b91c1c;
+    background: linear-gradient(135deg, rgba(254, 226, 226, 0.95) 0%, rgba(255, 255, 255, 0.92) 100%);
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    box-shadow:
+        0 4px 14px rgba(185, 28, 28, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.home-missing-marquee__eyebrow i {
+    font-size: 0.95rem;
     color: #dc2626;
 }
 
 .home-missing-marquee__title {
     margin: 0;
-    font-size: clamp(1.2rem, 2.2vw, 1.6rem);
+    font-family: "Fraunces", Georgia, "Times New Roman", serif;
+    font-size: clamp(1.45rem, 3vw, 2rem);
     font-weight: 800;
-    color: #1e293b;
-    line-height: 1.2;
+    font-variation-settings: "opsz" 72;
+    color: #0f172a;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
 }
 
 .home-missing-marquee__desc {
     margin: 0;
-    font-size: 0.88rem;
-    color: #64748b;
-    line-height: 1.5;
+    font-size: clamp(0.9rem, 1.6vw, 0.98rem);
+    color: #475569;
+    line-height: 1.65;
+    font-weight: 500;
 }
 
 .home-missing-marquee__count {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: #94a3b8;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #0f766e;
+    background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 1px solid rgba(45, 212, 191, 0.45);
+    box-shadow:
+        0 6px 18px rgba(13, 148, 136, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.85);
     white-space: nowrap;
     flex-shrink: 0;
+}
+
+.home-missing-marquee__count-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.75rem;
+    height: 1.75rem;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #ffffff;
+    background: linear-gradient(180deg, #14b8a6 0%, #0d9488 100%);
+    box-shadow: 0 2px 8px rgba(13, 148, 136, 0.35);
+}
+
+.home-missing-marquee__count-label {
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
 }
 
 .home-missing-marquee__track {
@@ -404,9 +470,9 @@
 
 .home-missing-marquee__inner {
     display: flex;
-    gap: 16px;
+    gap: 20px;
     flex-shrink: 0;
-    padding-right: 16px;
+    padding-right: 20px;
     will-change: transform;
 }
 
@@ -446,31 +512,50 @@
 }
 
 .home-missing-card {
-    flex: 0 0 220px;
-    min-width: 220px;
-    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    /* .content_display uses text-align: center — reset so meta rows span full card width */
+    text-align: left;
+    flex: 0 0 320px;
+    min-width: 320px;
+    border-radius: 24px;
     overflow: hidden;
     background: #ffffff;
-    border: 1px solid rgba(226, 232, 240, 0.95);
+    border: 2px solid #ffffff;
     box-shadow:
-        0 1px 2px rgba(15, 23, 42, 0.04),
-        0 8px 22px rgba(15, 23, 42, 0.06);
-    transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+        0 2px 4px rgba(15, 23, 42, 0.04),
+        0 12px 32px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(148, 163, 184, 0.12);
+    transition:
+        box-shadow 0.28s ease,
+        transform 0.28s ease,
+        border-color 0.28s ease;
 }
 
 .home-missing-card:hover {
     box-shadow:
-        0 4px 6px rgba(15, 23, 42, 0.06),
-        0 16px 36px rgba(15, 23, 42, 0.1);
-    transform: translateY(-4px);
-    border-color: rgba(147, 197, 253, 0.45);
+        0 8px 16px rgba(13, 148, 136, 0.1),
+        0 20px 44px rgba(15, 23, 42, 0.12),
+        0 0 0 1px rgba(45, 212, 191, 0.35);
+    transform: translateY(-5px);
+    border-color: rgba(255, 255, 255, 1);
 }
 
 .home-missing-card__media {
     position: relative;
     aspect-ratio: 4 / 3;
     overflow: hidden;
-    background: linear-gradient(145deg, #fef2f2, #f1f5f9);
+    background: linear-gradient(155deg, #ecfdf5 0%, #f0f9ff 50%, #fef2f2 100%);
+}
+
+.home-missing-card__media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent 45%, rgba(15, 23, 42, 0.18) 100%);
+    opacity: 0.85;
 }
 
 .home-missing-card__img {
@@ -478,6 +563,11 @@
     height: 100%;
     object-fit: cover;
     display: block;
+    transition: transform 0.35s ease;
+}
+
+.home-missing-card:hover .home-missing-card__img {
+    transform: scale(1.04);
 }
 
 .home-missing-card__placeholder {
@@ -486,88 +576,159 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2.2rem;
-    color: #f87171;
-    background: linear-gradient(135deg, #fef2f2, #fee2e2);
+    font-size: 2.5rem;
+    color: #f43f5e;
+    background: linear-gradient(145deg, #fff1f2, #ffe4e6);
 }
 
 .home-missing-card__badge {
     position: absolute;
-    top: 10px;
-    left: 10px;
-    padding: 5px 11px;
-    border-radius: 10px;
-    font-size: 0.68rem;
+    top: 12px;
+    left: 12px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px 7px 10px;
+    border-radius: 999px;
+    font-size: 0.65rem;
     font-weight: 800;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    background: rgba(254, 226, 226, 0.96);
-    color: #991b1b;
-    border: 1px solid rgba(252, 165, 165, 0.45);
-    backdrop-filter: blur(6px);
+    color: #ffffff;
+    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+    border: 1px solid rgba(254, 202, 202, 0.5);
+    box-shadow:
+        0 6px 16px rgba(185, 28, 28, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(8px);
+}
+
+.home-missing-card__badge i {
+    font-size: 0.75rem;
+    opacity: 0.95;
 }
 
 .home-missing-card__body {
-    padding: 14px 16px 16px;
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    padding: 18px 16px 18px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    align-items: stretch;
+    gap: 12px;
     text-align: left;
+    background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+    box-sizing: border-box;
 }
 
 .home-missing-card__name {
     margin: 0;
-    font-size: clamp(0.98rem, 1.8vw, 1.06rem);
+    font-size: clamp(1.08rem, 1.9vw, 1.2rem);
     font-weight: 800;
     color: #0f172a;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     letter-spacing: -0.02em;
+    line-height: 1.25;
 }
 
-.home-missing-card__detail {
+.home-missing-card__meta {
+    list-style: none;
     margin: 0;
-    font-size: 0.82rem;
-    color: #475569;
+    padding: 0;
+    width: 100%;
     display: flex;
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: stretch;
     gap: 8px;
-    line-height: 1.4;
-    white-space: normal;
+    box-sizing: border-box;
 }
 
-.home-missing-card__detail i {
-    font-size: 0.88rem;
-    flex-shrink: 0;
-    margin-top: 2px;
-    color: #3b82f6;
-}
-
-.home-missing-card__owner {
+.home-missing-card__row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
     margin: 0;
-    padding-top: 6px;
-    border-top: 1px solid rgba(226, 232, 240, 0.85);
-    font-size: 0.82rem;
-    color: #334155;
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 0.86rem;
     font-weight: 600;
-    line-height: 1.4;
-    white-space: normal;
+    color: #334155;
+    line-height: 1.45;
+    text-align: left;
+    border: 1px solid rgba(226, 232, 240, 0.85);
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.98) 0%, rgba(241, 245, 249, 0.65) 100%);
+    box-sizing: border-box;
 }
 
-.home-missing-card__owner i {
-    flex-shrink: 0;
-    margin-top: 2px;
-    color: #64748b;
+.home-missing-card__row > span {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.home-missing-card__row > i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.home-missing-card__row--location > i {
+    color: #0f7663;
+    background: rgba(13, 148, 136, 0.14);
+    border: 1px solid rgba(45, 212, 191, 0.25);
+}
+
+.home-missing-card__row--date > i {
+    color: #b45309;
+    background: rgba(245, 158, 11, 0.16);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.home-missing-card__row--owner > i {
+    color: #1d4ed8;
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(147, 197, 253, 0.45);
+}
+
+.home-missing-card__row--owner {
+    font-weight: 700;
+    color: #1e293b;
+    background: linear-gradient(180deg, rgba(239, 246, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
+    border-color: rgba(191, 219, 254, 0.65);
+}
+
+@media (min-width: 768px) {
+    .home-missing-marquee__head {
+        flex-direction: row;
+        align-items: flex-start;
+        justify-content: space-between;
+        text-align: left;
+        gap: 20px;
+    }
+
+    .home-missing-marquee__copy {
+        align-items: flex-start;
+        text-align: left;
+        margin-inline: 0;
+    }
 }
 
 @media (max-width: 767.98px) {
     .home-missing-card {
-        flex: 0 0 min(220px, 78vw);
-        min-width: min(220px, 78vw);
+        flex: 0 0 min(300px, 88vw);
+        min-width: min(300px, 88vw);
     }
 
     .home-missing-marquee__head {
@@ -9779,5 +9940,4 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
         font-size: 0.67rem !important;
     }
 }
-
 

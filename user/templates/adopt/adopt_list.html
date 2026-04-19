@@ -25,106 +25,11 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260418finder-adopt-mirror-claim-rows">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260419finder-post-picker-cards">
 {% endblock %}
 
 {% block content %}
 <div class="finder-page">
-    <section class="finder-hero">
-        <div class="finder-hero__copy">
-            {% if request.user.is_authenticated %}
-            <div class="finder-post-launcher" data-finder-post-menu>
-                <button
-                    type="button"
-                    class="finder-post-trigger finder-post-trigger--dropdown"
-                    data-finder-post-trigger
-                    aria-controls="finderPostTypeMenu"
-                    aria-expanded="false"
-                    aria-haspopup="menu"
-                    aria-label="Post a dog"
-                >
-                    <span class="finder-post-trigger__icon" aria-hidden="true">
-                        <i class="bi bi-pen"></i>
-                    </span>
-                    <span class="finder-post-trigger__copy">
-                        <span class="finder-post-trigger__label">Create Post</span>
-                    </span>
-                    <span class="finder-post-trigger__caret" aria-hidden="true">
-                        <i class="bi bi-chevron-down"></i>
-                    </span>
-                </button>
-
-                <div class="finder-post-menu" id="finderPostTypeMenu" data-finder-post-menu-panel hidden>
-                    <button type="button" class="finder-post-menu__option finder-post-menu__option--adoption" data-finder-post-choice="adoption">
-                        <span class="finder-post-menu__option-icon" aria-hidden="true">
-                            <i class="bi bi-heart-pulse"></i>
-                        </span>
-                        <span class="finder-post-menu__option-copy">
-                            <strong>For Adoption</strong>
-                        </span>
-                        <i class="bi bi-arrow-right-short finder-post-menu__option-arrow" aria-hidden="true"></i>
-                    </button>
-                    <button type="button" class="finder-post-menu__option finder-post-menu__option--missing" data-finder-post-choice="missing">
-                        <span class="finder-post-menu__option-icon" aria-hidden="true">
-                            <i class="bi bi-broadcast-pin"></i>
-                        </span>
-                        <span class="finder-post-menu__option-copy">
-                            <strong>Missing Dog</strong>
-                        </span>
-                        <i class="bi bi-arrow-right-short finder-post-menu__option-arrow" aria-hidden="true"></i>
-                    </button>
-                </div>
-            </div>
-            {% else %}
-            <button
-                type="button"
-                class="finder-post-trigger finder-post-trigger--guest"
-                data-auth-modal-trigger="login"
-                data-auth-next-url="{{ finder_post_entry_url }}"
-                aria-label="Post a dog"
-            >
-                <span class="finder-post-trigger__icon" aria-hidden="true">
-                    <i class="bi bi-pen"></i>
-                </span>
-                <span class="finder-post-trigger__copy">
-                    <span class="finder-post-trigger__label">Create Post</span>
-                </span>
-            </button>
-            {% endif %}
-
-            {% if request_links %}
-            <div class="finder-hero__actions">
-                <details class="finder-request-menu" data-finder-request-menu>
-                    <summary class="finder-request-menu__summary">
-                        <span class="finder-request-menu__summary-icon" aria-hidden="true">
-                            <i class="bi bi-folder2-open"></i>
-                        </span>
-                        <span class="finder-request-menu__summary-label">Requests</span>
-                        <span class="finder-request-menu__summary-caret" aria-hidden="true">
-                            <i class="bi bi-chevron-down"></i>
-                        </span>
-                    </summary>
-                    <div class="finder-request-menu__panel">
-                        {% for link in request_links %}
-                        <a
-                            href="{{ link.url }}"
-                            class="finder-request-menu__option"
-                            {% if not request.user.is_authenticated %}
-                            data-auth-modal-trigger="login"
-                            data-auth-next-url="{{ link.url }}"
-                            {% endif %}
-                        >
-                            <span>{{ link.label }}</span>
-                            <i class="{{ link.icon_class }}" aria-hidden="true"></i>
-                        </a>
-                        {% endfor %}
-                    </div>
-                </details>
-            </div>
-            {% endif %}
-        </div>
-    </section>
-
     {% if request.user.is_authenticated %}
     <div
         class="modal fade finder-post-modal"
@@ -200,6 +105,101 @@
                     <span class="finder-filter-shell__count">{{ active_filter_count }} active filter{{ active_filter_count|pluralize }}</span>
                     {% endif %}
                 </div>
+
+                <section class="finder-hero finder-hero--toolstrip" aria-label="Create a post and open requests">
+                    <div class="finder-hero__copy">
+                        {% if request.user.is_authenticated %}
+                        <div class="finder-post-launcher" data-finder-post-menu>
+                            <button
+                                type="button"
+                                class="finder-post-trigger finder-post-trigger--dropdown"
+                                data-finder-post-trigger
+                                aria-controls="finderPostTypeMenu"
+                                aria-expanded="false"
+                                aria-haspopup="menu"
+                                aria-label="Post a dog"
+                            >
+                                <span class="finder-post-trigger__icon" aria-hidden="true">
+                                    <i class="bi bi-pen"></i>
+                                </span>
+                                <span class="finder-post-trigger__copy">
+                                    <span class="finder-post-trigger__label">Create Post</span>
+                                </span>
+                                <span class="finder-post-trigger__caret" aria-hidden="true">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </button>
+
+                            <div class="finder-post-menu finder-post-menu--picker-cards" id="finderPostTypeMenu" data-finder-post-menu-panel hidden>
+                                <button type="button" class="finder-post-menu__option finder-post-menu__option--adoption" data-finder-post-choice="adoption">
+                                    <span class="finder-post-menu__option-icon" aria-hidden="true">
+                                        <i class="bi bi-heart-pulse"></i>
+                                    </span>
+                                    <span class="finder-post-menu__option-copy">
+                                        <strong>For Adoption</strong>
+                                    </span>
+                                    <i class="bi bi-chevron-right finder-post-menu__option-arrow" aria-hidden="true"></i>
+                                </button>
+                                <button type="button" class="finder-post-menu__option finder-post-menu__option--missing" data-finder-post-choice="missing">
+                                    <span class="finder-post-menu__option-icon" aria-hidden="true">
+                                        <i class="bi bi-broadcast-pin"></i>
+                                    </span>
+                                    <span class="finder-post-menu__option-copy">
+                                        <strong>Missing Dog</strong>
+                                    </span>
+                                    <i class="bi bi-chevron-right finder-post-menu__option-arrow" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% else %}
+                        <button
+                            type="button"
+                            class="finder-post-trigger finder-post-trigger--guest"
+                            data-auth-modal-trigger="login"
+                            data-auth-next-url="{{ finder_post_entry_url }}"
+                            aria-label="Post a dog"
+                        >
+                            <span class="finder-post-trigger__icon" aria-hidden="true">
+                                <i class="bi bi-pen"></i>
+                            </span>
+                            <span class="finder-post-trigger__copy">
+                                <span class="finder-post-trigger__label">Create Post</span>
+                            </span>
+                        </button>
+                        {% endif %}
+
+                        {% if request_links %}
+                        <div class="finder-hero__actions">
+                            <details class="finder-request-menu" data-finder-request-menu>
+                                <summary class="finder-request-menu__summary">
+                                    <span class="finder-request-menu__summary-icon" aria-hidden="true">
+                                        <i class="bi bi-folder2-open"></i>
+                                    </span>
+                                    <span class="finder-request-menu__summary-label">Requests</span>
+                                    <span class="finder-request-menu__summary-caret" aria-hidden="true">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </span>
+                                </summary>
+                                <div class="finder-request-menu__panel">
+                                    {% for link in request_links %}
+                                    <a
+                                        href="{{ link.url }}"
+                                        class="finder-request-menu__option"
+                                        {% if not request.user.is_authenticated %}
+                                        data-auth-modal-trigger="login"
+                                        data-auth-next-url="{{ link.url }}"
+                                        {% endif %}
+                                    >
+                                        <span>{{ link.label }}</span>
+                                        <i class="{{ link.icon_class }}" aria-hidden="true"></i>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            </details>
+                        </div>
+                        {% endif %}
+                    </div>
+                </section>
             </div>
 
             <div class="finder-filter-backdrop" data-finder-filter-close aria-hidden="true"></div>

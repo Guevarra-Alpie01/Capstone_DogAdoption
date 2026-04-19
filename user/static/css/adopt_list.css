@@ -1675,24 +1675,26 @@
     height: 44px;
     padding: 0;
     flex-shrink: 0;
-    border: 1px solid #e9e2d9;
+    border: 1px solid rgba(59, 130, 246, 0.45);
     border-radius: 12px;
-    background: #ffffff;
-    color: #475569;
+    background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
+    color: #2563eb;
     font-size: 1.15rem;
     line-height: 1;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    box-shadow:
+        0 2px 8px rgba(37, 99, 235, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
     transition: transform 0.16s ease, border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease,
         box-shadow 0.16s ease;
 }
 
 .finder-toolbar__close:hover,
 .finder-toolbar__close:focus-visible {
-    border-color: #b9d6c0;
-    background: #f8fafc;
-    color: #1e293b;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    border-color: #3b82f6;
+    background: linear-gradient(180deg, #dbeafe 0%, #eff6ff 100%);
+    color: #1d4ed8;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.22);
 }
 
 .finder-toolbar__controls {
@@ -1865,6 +1867,8 @@
 }
 
 .finder-card {
+    /* Reserve space for footer (timer/CTAs + utilities); smaller value = taller view-details overlay */
+    --finder-details-inset-bottom: calc(9.5rem + env(safe-area-inset-bottom, 0px));
     position: relative;
     display: flex;
     flex-direction: column;
@@ -1882,6 +1886,11 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.96);
     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
     overflow: hidden;
+}
+
+/* User-submitted cards: single utilities row — still tall enough that the pink panel never overlaps the buttons */
+.finder-card--footer-compact {
+    --finder-details-inset-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
 }
 
 .finder-card:hover {
@@ -2387,12 +2396,20 @@
 
 .finder-card__details {
     position: absolute;
-    inset: 0;
+    top: 0;
+    right: 0;
+    left: 0;
+    /* Tall overlay: use most of the card above the footer row; cap by viewport on small screens */
+    height: calc(100% - var(--finder-details-inset-bottom));
+    max-height: min(
+        calc(100dvh - 52px),
+        calc(100% - var(--finder-details-inset-bottom))
+    );
     z-index: 5;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px 14px 150px;
+    gap: 6px;
+    padding: 12px 10px 10px 14px;
     border: 0;
     border-radius: 0;
     background-color: #fff5f8;
@@ -2403,7 +2420,8 @@
     background-size: auto, 112px 112px;
     background-position: center, 12px 8px;
     box-shadow: none;
-    overflow-y: auto;
+    /* Scroll happens on .finder-card__details-grid so the paw header stays put and rows never sit under the buttons */
+    overflow: hidden;
     transform: translateY(100%);
     opacity: 0;
     transition: transform 0.24s ease, opacity 0.24s ease;
@@ -2450,6 +2468,15 @@
     display: flex;
     flex-direction: column;
     gap: 0;
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+    padding-right: 4px;
+    margin-right: -2px;
 }
 
 .finder-card__detail-item {
@@ -2582,7 +2609,7 @@
 
 .finder-card__footer {
     position: relative;
-    z-index: 6;
+    z-index: 6; /* stays above card body; details panel ends above footer (see --finder-details-inset-bottom) */
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -2590,6 +2617,7 @@
     gap: 4px;
     margin-top: 0;
     width: 100%;
+    flex-shrink: 0;
 }
 
 .finder-card__footer--featured {
@@ -3632,10 +3660,10 @@ body.finder-filter-open .site-footer {
     }
 
     .finder-card__details {
-        padding: 14px 14px calc(190px + env(safe-area-inset-bottom));
+        padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
         overscroll-behavior: contain;
         scrollbar-gutter: stable;
-        max-height: calc(100dvh - 120px);
+        /* max-height comes from base .finder-card__details (respects --finder-details-inset-bottom) */
         -webkit-overflow-scrolling: touch;
     }
 
@@ -4049,13 +4077,8 @@ body.finder-filter-open .site-footer {
 }
 
 @media (max-width: 575.98px) {
-    .finder-card {
-        overflow: visible;
-    }
-
     .finder-card__details {
-        max-height: calc(100dvh - 108px);
-        padding: 12px 12px calc(208px + env(safe-area-inset-bottom));
+        padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
     }
 
     .finder-card__details-grid {

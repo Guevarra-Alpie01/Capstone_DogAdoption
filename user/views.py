@@ -2426,8 +2426,18 @@ def _build_public_post_listing(request, listing_mode):
         )
         .order_by("-created_at")
     )
+    user_adoption_posts = list(user_adoption_qs)
+    viewer_user_adoption_post_ids = set()
+    if getattr(request.user, "is_authenticated", False) and user_adoption_posts:
+        viewer_user_adoption_post_ids = set(
+            UserAdoptionRequest.objects.filter(
+                requester=request.user,
+                post_id__in=[post.id for post in user_adoption_posts],
+            ).values_list("post_id", flat=True)
+        )
+
     user_adoption_items = []
-    for upost in user_adoption_qs:
+    for upost in user_adoption_posts:
         if any(
             selected_filters[k]
             and not _rescue_finder_post_matches(upost, k, selected_filters[k])
@@ -2437,6 +2447,15 @@ def _build_public_post_listing(request, listing_mode):
         match_score = _rescue_finder_match_score(upost, selected_filters)
         location_label = " ".join((upost.location or "").split()) or "Location not listed"
         detail_url = reverse("user:user_adoption_post_detail", args=[upost.id])
+        viewer_is_owner = bool(
+            getattr(request.user, "is_authenticated", False)
+            and upost.owner_id == request.user.id
+        )
+        viewer_has_user_adoption_request = upost.id in viewer_user_adoption_post_ids
+        show_user_adoption_request_cta = (
+            not getattr(request.user, "is_authenticated", False)
+            or (not viewer_is_owner and not viewer_has_user_adoption_request)
+        )
         user_adoption_items.append({
             "post": upost,
             "post_id": upost.id,
@@ -2455,7 +2474,11 @@ def _build_public_post_listing(request, listing_mode):
             "match_score": match_score,
             "created_at": upost.created_at,
             "detail_url": detail_url,
+            "request_url": reverse("user:adopt_user_post", args=[upost.id]),
             "share_url": _finder_share_url_user_adoption(request, upost.id),
+            "viewer_is_owner": viewer_is_owner,
+            "viewer_has_user_adoption_request": viewer_has_user_adoption_request,
+            "show_user_adoption_request_cta": show_user_adoption_request_cta,
             "sort_deadline_ts": float("inf"),
         })
 
@@ -4397,11 +4420,33 @@ def user_adoption_post_detail(request, post_id):
     if not description:
         description = f"{post.dog_name} is available for adoption in {post.location or 'Bayawan'}."
 
+    viewer_is_owner = bool(
+        getattr(request.user, "is_authenticated", False)
+        and post.owner_id == request.user.id
+    )
+    viewer_has_user_adoption_request = False
+    if getattr(request.user, "is_authenticated", False) and not viewer_is_owner:
+        viewer_has_user_adoption_request = UserAdoptionRequest.objects.filter(
+            post=post,
+            requester=request.user,
+        ).exists()
+    show_adopt_cta = (
+        post.status == "available"
+        and (
+            not getattr(request.user, "is_authenticated", False)
+            or (not viewer_is_owner and not viewer_has_user_adoption_request)
+        )
+    )
+
     return render(request, "adopt/user_adoption_post_detail.html", {
         "post": post,
         "og_image_url": og_image_url,
         "og_description": description,
         "first_image_url": _first_prefetched_image_url(post.images.all()),
+        "viewer_is_owner": viewer_is_owner,
+        "viewer_has_user_adoption_request": viewer_has_user_adoption_request,
+        "show_adopt_cta": show_adopt_cta,
+        "request_url": reverse("user:adopt_user_post", args=[post.id]),
     })
 
 

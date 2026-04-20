@@ -28,6 +28,38 @@
         {% endif %}
 
         <div class="finder-card__footer">
+            <div class="finder-card__actions finder-card__actions--stack">
+                {% if item.show_user_adoption_request_cta %}
+                    {% if request.user.is_authenticated %}
+                    <button
+                        type="button"
+                        class="btn-action btn-action--primary js-open-adoption-request-modal"
+                        data-request-url="{{ item.request_url }}"
+                        data-dog-name="{{ item.dog_name|default:'Unnamed Dog' }}"
+                        data-owner-name="{{ item.owner_full_name|default:item.owner_username }}"
+                        data-location="{{ item.location_label|default:'-' }}"
+                    >
+                        <span>Adopt</span>
+                    </button>
+                    {% else %}
+                    <a
+                        href="{{ item.request_url }}"
+                        class="btn-action btn-action--primary"
+                        data-auth-modal-trigger="login"
+                        data-auth-next-url="{{ item.request_url }}"
+                    >
+                        <span>Adopt</span>
+                    </a>
+                    {% endif %}
+                {% elif item.viewer_has_user_adoption_request %}
+                <p class="finder-card__status-note" role="status">You already requested adoption for this dog.</p>
+                {% elif item.viewer_is_owner %}
+                <p class="finder-card__status-note">This is your adoption post.</p>
+                {% else %}
+                <span class="finder-card__action-placeholder" aria-hidden="true"></span>
+                {% endif %}
+            </div>
+
             <div class="finder-card__utilities">
                 <button
                     type="button"

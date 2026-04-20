@@ -18,7 +18,7 @@ from django.utils import timezone
 
 from dogadoption_admin.barangays import BAYAWAN_BARANGAYS
 from dogadoption_admin.models import DogAnnouncement, Post, PostImage, PostRequest
-from user.models import Profile, UserAdoptionPost
+from user.models import Profile, UserAdoptionPost, UserAdoptionRequest
 
 
 class UserHomeFeedTests(TestCase):
@@ -763,6 +763,112 @@ class UserHomeFeedTests(TestCase):
         self.assertEqual(response.context["current_purpose"], "all")
         staff_ids = {row["post"].id for row in response.context["posts"]}
         self.assertEqual(staff_ids, {claim_post.id, adopt_post.id})
+
+    def test_adopt_list_shows_adopt_button_for_available_user_posts(self):
+        owner = User.objects.create_user(
+            username="finderuserpostowner",
+            password="secret123",
+            first_name="Owner",
+            last_name="User",
+        )
+        member = User.objects.create_user(
+            username="finderuserpostmember",
+            password="secret123",
+        )
+        user_post = UserAdoptionPost.objects.create(
+            owner=owner,
+            dog_name="Sunny",
+            location="Tinago",
+            description="Friendly and ready for a new home.",
+            status="available",
+        )
+        self.client.force_login(member)
+
+        response = self.client.get(reverse("user:adopt_list"))
+
+        self.assertEqual(response.status_code, 200)
+        listing_item = next(
+            item
+            for item in response.context["user_adoption_posts"]
+            if item["post"].id == user_post.id
+        )
+        self.assertTrue(listing_item["show_user_adoption_request_cta"])
+        self.assertFalse(listing_item["viewer_is_owner"])
+        self.assertFalse(listing_item["viewer_has_user_adoption_request"])
+        self.assertContains(
+            response,
+            f'data-request-url="{listing_item["request_url"]}"',
+            html=False,
+        )
+        self.assertContains(response, "Adopt")
+
+    def test_adopt_list_hides_adopt_button_when_user_already_requested_user_post(self):
+        owner = User.objects.create_user(
+            username="finderrequestowner",
+            password="secret123",
+        )
+        member = User.objects.create_user(
+            username="finderrequestmember",
+            password="secret123",
+        )
+        user_post = UserAdoptionPost.objects.create(
+            owner=owner,
+            dog_name="Comet",
+            location="Villareal",
+            status="available",
+        )
+        UserAdoptionRequest.objects.create(
+            post=user_post,
+            requester=member,
+            status="pending",
+        )
+        self.client.force_login(member)
+
+        response = self.client.get(reverse("user:adopt_list"))
+
+        self.assertEqual(response.status_code, 200)
+        listing_item = next(
+            item
+            for item in response.context["user_adoption_posts"]
+            if item["post"].id == user_post.id
+        )
+        self.assertFalse(listing_item["show_user_adoption_request_cta"])
+        self.assertTrue(listing_item["viewer_has_user_adoption_request"])
+        self.assertContains(response, "You already requested adoption for this dog.")
+        self.assertNotContains(
+            response,
+            f'data-request-url="{listing_item["request_url"]}"',
+            html=False,
+        )
+
+    def test_user_adoption_post_detail_shows_adopt_link_for_other_users(self):
+        owner = User.objects.create_user(
+            username="detailpostowner",
+            password="secret123",
+        )
+        member = User.objects.create_user(
+            username="detailpostmember",
+            password="secret123",
+        )
+        user_post = UserAdoptionPost.objects.create(
+            owner=owner,
+            dog_name="Peanut",
+            location="Narra",
+            status="available",
+        )
+        self.client.force_login(member)
+
+        response = self.client.get(
+            reverse("user:user_adoption_post_detail", args=[user_post.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'href="{response.context["request_url"]}"',
+            html=False,
+        )
+        self.assertContains(response, "Adopt")
 
     def test_claim_list_filter_preferences_sort_best_match_first(self):
         staff_user = User.objects.create_user(

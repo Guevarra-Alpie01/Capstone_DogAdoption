@@ -46,8 +46,29 @@
 
             <div class="post-detail-pills">
                 <span class="post-detail-pill post-detail-pill--phase">User Adoption Post</span>
-                <span class="post-detail-pill post-detail-pill--time">Available</span>
+                <span class="post-detail-pill post-detail-pill--time">{{ post.get_status_display }}</span>
             </div>
+
+            {% if show_adopt_cta %}
+            <div class="post-detail-actions">
+                <a
+                    href="{{ request_url }}"
+                    class="post-detail-action-btn"
+                    {% if not request.user.is_authenticated %}
+                    data-auth-modal-trigger="login"
+                    data-auth-next-url="{{ request_url }}"
+                    {% endif %}
+                >
+                    Adopt
+                </a>
+            </div>
+            {% elif viewer_has_user_adoption_request %}
+            <p class="post-detail-status-note" role="status">You already requested adoption for this dog.</p>
+            {% elif viewer_is_owner %}
+            <p class="post-detail-status-note">This is your adoption post.</p>
+            {% elif post.status == "adopted" %}
+            <p class="post-detail-status-note">This dog is no longer available for adoption.</p>
+            {% endif %}
 
             <dl class="post-detail-facts" role="list">
                 <div class="post-detail-fact">

@@ -71,6 +71,10 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    min-height: 56px;
+    padding: 0 14px;
+    position: relative;
+    z-index: 1;
 }
 
 .admin-topbar-start,
@@ -97,7 +101,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 18px;
+    gap: clamp(12px, 2vw, 26px);
     flex-wrap: nowrap;
     max-width: 100%;
 }
@@ -189,28 +193,72 @@ body {
 }
 
 .admin-topbar-actions {
-    gap: 0.9rem !important;
+    gap: 12px !important;
     flex-shrink: 0;
 }
 
 .app-topbar .nav-bell {
-    background: transparent !important;
-    transition: background-color 0.18s ease, box-shadow 0.18s ease;
+    background: rgba(255, 255, 255, 0.45) !important;
+    border: 1px solid rgba(33, 77, 49, 0.08);
+    transition: background-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
 
 .app-topbar .nav-bell:hover,
 .app-topbar .nav-bell:focus-visible {
-    background: rgba(255, 249, 214, 0.48) !important;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
+    background: rgba(255, 250, 226, 0.92) !important;
+    box-shadow: 0 0 0 1px rgba(212, 183, 73, 0.2);
+    transform: translateY(-1px);
 }
 
 .app-topbar {
     font-family: var(--shell-ui-font);
     -webkit-font-smoothing: antialiased;
-    background: #f7c600 !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1030;
+    isolation: isolate;
+    background:
+        linear-gradient(180deg, #ffdd4f 0%, #f7c600 58%, #e0ad00 100%) !important;
     border-bottom: 1px solid #9b8b00 !important;
-    backdrop-filter: none;
-    box-shadow: 0 8px 18px rgba(120, 103, 0, 0.16);
+    box-shadow:
+        0 10px 24px rgba(120, 103, 0, 0.18),
+        inset 0 1px 0 rgba(255, 246, 184, 0.5);
+    backdrop-filter: blur(0) saturate(1);
+    -webkit-backdrop-filter: blur(0) saturate(1);
+    transition:
+        background 0.28s ease,
+        border-color 0.28s ease,
+        box-shadow 0.28s ease,
+        backdrop-filter 0.28s ease,
+        -webkit-backdrop-filter 0.28s ease;
+}
+
+.app-topbar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.08) 34%, transparent 100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+}
+
+.app-topbar.is-scrolled {
+    background:
+        linear-gradient(180deg, rgba(255, 221, 79, 0.76) 0%, rgba(247, 198, 0, 0.7) 58%, rgba(224, 173, 0, 0.66) 100%) !important;
+    border-bottom-color: rgba(155, 139, 0, 0.54) !important;
+    box-shadow:
+        0 16px 32px rgba(120, 103, 0, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.36);
+    backdrop-filter: blur(16px) saturate(1.45);
+    -webkit-backdrop-filter: blur(16px) saturate(1.45);
+}
+
+.app-topbar.is-scrolled::before {
+    opacity: 1;
 }
 
 .navbar-brand.admin-brand {
@@ -218,7 +266,7 @@ body {
     align-items: center;
     flex: 0 1 auto;
     gap: 10px;
-    color: #1f4a19 !important;
+    color: #111111 !important;
     text-decoration: none;
     margin-left: 12px !important;
     min-width: 0;
@@ -231,7 +279,7 @@ body {
 .navbar-brand.admin-brand:hover,
 .navbar-brand.admin-brand:focus,
 .navbar-brand.admin-brand:active {
-    color: #1f4a19 !important;
+    color: #111111 !important;
     background: transparent !important;
     box-shadow: none !important;
     opacity: 1 !important;
@@ -242,8 +290,8 @@ body {
 }
 
 .admin-brand-logo {
-    width: 34px;
-    height: 34px;
+    width: 38px;
+    height: 38px;
     border-radius: 0;
     object-fit: cover;
     border: 0;
@@ -278,7 +326,7 @@ body {
 
 .nav-bell .bi,
 .topbar-nav-icon {
-    color: #1d4318 !important;
+    color: #111111 !important;
 }
 
 .sidebar-toggle-btn,

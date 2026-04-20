@@ -226,14 +226,14 @@
     transition: background-color 0.16s ease, color 0.16s ease;
 }
 
-.finder-request-menu__option > span {
+.finder-request-menu__option>span {
     flex: 1 1 auto;
     min-width: 0;
     overflow-wrap: anywhere;
     text-align: center;
 }
 
-.finder-request-menu__option + .finder-request-menu__option {
+.finder-request-menu__option+.finder-request-menu__option {
     margin-top: 4px;
 }
 
@@ -451,7 +451,7 @@
     transition: transform 0.16s ease, border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
 }
 
-.finder-post-menu__option + .finder-post-menu__option {
+.finder-post-menu__option+.finder-post-menu__option {
     margin-top: 4px;
 }
 
@@ -568,7 +568,7 @@
     text-align: left;
 }
 
-.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option + .finder-post-menu__option {
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option+.finder-post-menu__option {
     margin-top: 0;
 }
 
@@ -634,8 +634,10 @@
     .finder-post-menu.finder-post-menu--picker-cards {
         flex-direction: column;
         flex-wrap: nowrap;
-        width: min(100vw - 16px, 320px);
+        width: min(100vw - 20px, 320px);
         min-width: 0;
+        left: 0 !important;
+        right: auto !important;
     }
 
     .finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option {
@@ -644,7 +646,8 @@
     }
 
     .finder-post-menu.finder-post-menu--picker-cards::before {
-        right: 18px;
+        left: 22px !important;
+        right: auto !important;
     }
 }
 
@@ -759,7 +762,7 @@
 
 .post-type-toggle {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 8px;
     margin-bottom: 14px;
     background: #f8fafc;
@@ -1036,6 +1039,21 @@
     max-width: 100%;
 }
 
+@media (max-width: 767.98px) {
+    .finder-filter-shell__head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .finder-hero--toolstrip {
+        order: 1;
+    }
+
+    .finder-filter-shell__actions {
+        order: 2;
+    }
+}
+
 .finder-filter-shell__actions {
     display: flex;
     align-items: center;
@@ -1170,10 +1188,8 @@
     z-index: 1025;
     width: min(360px, calc(100vw - 32px));
     max-width: 360px;
-    max-height: min(
-        calc(100dvh - var(--finder-topbar-offset) - 20px),
-        calc(100vh - var(--finder-topbar-offset) - 20px)
-    );
+    max-height: min(calc(100dvh - var(--finder-topbar-offset) - 20px),
+            calc(100vh - var(--finder-topbar-offset) - 20px));
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -1433,8 +1449,8 @@
     touch-action: manipulation;
 }
 
-.finder-purpose-menu__summary > *,
-.finder-filter-group__summary > *,
+.finder-purpose-menu__summary>*,
+.finder-filter-group__summary>*,
 .finder-filter-option__box,
 .finder-filter-option__label {
     pointer-events: none;
@@ -2057,7 +2073,7 @@
     overflow: hidden;
 }
 
-.finder-results + .finder-results {
+.finder-results+.finder-results {
     margin-top: 2.5rem;
 }
 
@@ -2427,10 +2443,8 @@
     left: 0;
     /* Tall overlay: use most of the card above the footer row; cap by viewport on small screens */
     height: calc(100% - var(--finder-details-inset-bottom));
-    max-height: min(
-        calc(100dvh - 52px),
-        calc(100% - var(--finder-details-inset-bottom))
-    );
+    max-height: min(calc(100dvh - 52px),
+            calc(100% - var(--finder-details-inset-bottom)));
     z-index: 5;
     display: flex;
     flex-direction: column;
@@ -2635,7 +2649,8 @@
 
 .finder-card__footer {
     position: relative;
-    z-index: 6; /* stays above card body; details panel ends above footer (see --finder-details-inset-bottom) */
+    z-index: 6;
+    /* stays above card body; details panel ends above footer (see --finder-details-inset-bottom) */
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -3051,6 +3066,7 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.85),
         0 4px 10px rgba(37, 99, 235, 0.2);
 }
+
 .finder-card__footer .btn-action--primary:hover,
 .finder-card__footer .btn-action--primary:focus-visible {
     filter: brightness(1.03);
@@ -3478,7 +3494,7 @@ body.finder-filter-open .site-footer {
     min-width: 0;
 }
 
-.share-panel-header > div:first-child {
+.share-panel-header>div:first-child {
     min-width: 0;
     flex: 1 1 auto;
 }
@@ -3541,7 +3557,7 @@ body.finder-filter-open .site-footer {
     transition: transform 0.15s ease, box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
 }
 
-.share-option > span:last-child {
+.share-option>span:last-child {
     line-height: 1.2;
     max-width: 100%;
     overflow-wrap: anywhere;
@@ -3566,10 +3582,21 @@ body.finder-filter-open .site-footer {
     box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.18);
 }
 
-.share-facebook { background: #1877f2; }
-.share-messenger { background: #0084ff; }
-.share-x { background: #111827; }
-.share-instagram { background: #e1306c; }
+.share-facebook {
+    background: #1877f2;
+}
+
+.share-messenger {
+    background: #0084ff;
+}
+
+.share-x {
+    background: #111827;
+}
+
+.share-instagram {
+    background: #e1306c;
+}
 
 .share-url-label {
     font-size: 0.73rem;
@@ -3692,6 +3719,7 @@ body.finder-filter-open .site-footer {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
+
 @media (max-width: 991.98px) {
     .finder-page {
         --finder-topbar-offset: 66px;
@@ -3766,10 +3794,8 @@ body.finder-filter-open .site-footer {
         z-index: 1110;
         width: min(420px, calc(100vw - 32px));
         max-width: min(420px, calc(100vw - 32px));
-        max-height: min(
-            calc(100dvh - var(--finder-topbar-offset) - 20px),
-            calc(100vh - var(--finder-topbar-offset) - 20px)
-        );
+        max-height: min(calc(100dvh - var(--finder-topbar-offset) - 20px),
+                calc(100vh - var(--finder-topbar-offset) - 20px));
         display: flex;
         flex-direction: column;
         min-height: 0;
@@ -3835,7 +3861,7 @@ body.finder-filter-open .site-footer {
     }
 
     /* .finder-content is a *sibling* of form.finder-layout, not a child — descendant selector never matched. */
-    .finder-layout.is-filter-open ~ .finder-content {
+    .finder-layout.is-filter-open~.finder-content {
         display: none !important;
     }
 
@@ -4628,12 +4654,10 @@ body.finder-filter-open .site-footer {
     justify-content: center;
     padding: 16px 14px 44px;
     text-align: center;
-    background: linear-gradient(
-        155deg,
-        rgba(15, 23, 42, 0.94) 0%,
-        rgba(22, 78, 58, 0.88) 42%,
-        rgba(15, 23, 42, 0.96) 100%
-    );
+    background: linear-gradient(155deg,
+            rgba(15, 23, 42, 0.94) 0%,
+            rgba(22, 78, 58, 0.88) 42%,
+            rgba(15, 23, 42, 0.96) 100%);
     border-radius: 13px;
     pointer-events: auto;
     transform: translateY(0);

@@ -2,29 +2,82 @@
 {% block content %}
 
 <style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        z-index: 1050;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 30px 20px;
+        overflow-y: auto;
+        animation: overlayFadeIn 0.3s ease;
+    }
+
+    @keyframes overlayFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes cardSlideIn {
+        from { opacity: 0; transform: translateY(30px) scale(0.96); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
     .claim-theme-card {
-        border: 1px solid rgba(36, 94, 40, 0.14);
-        border-radius: 16px;
-        box-shadow: 0 14px 36px rgba(20, 55, 35, 0.1);
-        background: linear-gradient(165deg, #f0f7f3 0%, #e5f2ea 42%, #eaf6ef 100%);
+        position: relative;
+        border: none;
+        border-radius: 28px;
+        box-shadow: 0 30px 80px rgba(15, 23, 42, 0.2);
+        background: #ffffff;
+        overflow: hidden;
+        width: 100%;
+        max-width: 1080px;
+        margin: auto;
+        animation: cardSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     .claim-theme-header {
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(245, 251, 247, 0.9) 100%);
-        border-bottom: 1px solid rgba(36, 94, 40, 0.1);
-        border-radius: 16px 16px 0 0;
+        background: #ffffff;
+        border-bottom: none;
+        padding: 32px 32px 12px !important;
     }
 
-    .claim-theme-header-row {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 12px;
+    .claim-preview {
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        overflow: visible;
     }
 
-    .claim-theme-header-text {
-        min-width: 0;
-        flex: 1;
+    .claim-preview-profile {
+        padding: 0 0 24px;
+    }
+
+    .claim-preview-image-wrapper {
+        width: 100%;
+        aspect-ratio: 16 / 11;
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    }
+
+    .claim-preview-profile-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .claim-content {
+        padding: 0 32px 32px;
     }
 
     .claim-theme-close {
@@ -32,143 +85,129 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 40px;
-        height: 40px;
-        margin: -4px -6px 0 0;
+        width: 44px;
+        height: 44px;
+        margin: -8px -8px 0 0;
         padding: 0;
-        border: 1px solid rgba(36, 94, 40, 0.12);
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.65);
-        color: #475569;
+        border: 1px solid #2563eb;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #4f8df7 0%, #2563eb 100%);
+        color: #ffffff;
         text-decoration: none;
-        line-height: 0;
-        transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        transition: all 0.2s ease;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+        z-index: 10;
     }
 
     .claim-theme-close svg {
-        width: 18px;
-        height: 18px;
+        width: 22px;
+        height: 22px;
         stroke: currentColor;
-        stroke-width: 2;
-        stroke-linecap: round;
+        stroke-width: 3;
     }
 
     .claim-theme-close:hover {
-        color: #1d4ed8;
-        background: rgba(59, 130, 246, 0.12);
-        border-color: rgba(29, 78, 216, 0.22);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+        color: #ffffff;
     }
 
-    .claim-theme-close:focus-visible {
-        outline: 2px solid rgba(36, 94, 40, 0.45);
-        outline-offset: 2px;
+    @media (min-width: 992px) {
+        .claim-layout {
+            display: grid;
+            grid-template-columns: 1.15fr 1fr;
+            gap: 40px;
+            align-items: start;
+        }
     }
 
-    .claim-preview {
-        border: 1px solid #ececec;
-        border-radius: 12px;
-        background: #ffffff;
-        border-color: #dbe5f3;
-        overflow: hidden;
-    }
-
-    .claim-content {
-        padding: 16px 18px;
-        background: transparent;
-    }
-
-    .claim-layout {
+    .claim-preview-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr);
-        gap: 14px;
-        align-items: start;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 24px;
     }
 
-    .claim-preview-head {
+    .attr-card {
+        background: #f8fafc;
+        border: 1px solid #edf2f7;
+        border-radius: 16px;
+        padding: 12px 16px;
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 12px 14px;
-        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-        border-bottom: 1px solid #e2e8f0;
+        gap: 14px;
+    }
+
+    .attr-icon-box {
+        width: 38px;
+        height: 38px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #64748b;
+        flex-shrink: 0;
+    }
+
+    .attr-content {
+        min-width: 0;
+    }
+
+    .attr-label {
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-bottom: 1px;
+    }
+
+    .attr-value {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 800;
+        color: #1e293b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .attr-card--full {
+        grid-column: span 2;
     }
 
     .claim-preview-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: linear-gradient(145deg, #3b82f6 0%, #1d4ed8 100%);
-        flex-shrink: 0;
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        display: none;
     }
 
     .claim-preview-title {
-        margin: 0;
-        font-size: 0.98rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        color: #0f172a;
+        display: none;
     }
 
-    .claim-preview,
-    .claim-summary-list {
-        font-family: var(--shell-ui-font, "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif);
-        -webkit-font-smoothing: antialiased;
+    /* Decorative Paws */
+    .paw-decoration {
+        position: absolute;
+        color: #e2e8f0;
+        opacity: 0.5;
+        pointer-events: none;
+        z-index: 0;
     }
-
-    .claim-summary-list {
-        padding: 4px 12px 12px;
-        display: flex;
-        flex-direction: column;
-        gap: 0;
-    }
-
-    .claim-summary-item {
-        display: grid;
-        grid-template-columns: minmax(96px, 38%) minmax(0, 1fr);
-        gap: 12px 16px;
-        align-items: baseline;
-        padding: 12px 6px;
-        border-bottom: 1px solid rgba(15, 23, 42, 0.06);
-    }
-
-    .claim-summary-item:last-child {
-        border-bottom: none;
-        padding-bottom: 4px;
-    }
-
-    .claim-summary-label {
-        font-size: 0.7rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: #64748b;
-        font-weight: 600;
-        line-height: 1.35;
-        margin: 0;
-    }
-
-    .claim-summary-value {
-        margin: 0;
-        font-size: 0.94rem;
-        line-height: 1.45;
-        color: #0f172a;
-        font-weight: 600;
-        letter-spacing: -0.015em;
-        text-align: right;
-        word-break: break-word;
-    }
+    .paw-1 { top: 60px; right: 30px; font-size: 2.5rem; transform: rotate(15deg); }
+    .paw-2 { bottom: 40px; right: 340px; font-size: 3rem; transform: rotate(-20deg); }
 
     .adopt-confirm-photos {
-        padding: 0 12px 14px;
-        border-top: 1px solid rgba(15, 23, 42, 0.06);
+        padding: 0 18px 18px;
+        border-top: none;
     }
 
     .adopt-confirm-photos-title {
-        margin: 12px 0 8px;
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
+        margin: 0 0 10px;
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
         text-transform: uppercase;
         color: #64748b;
     }
@@ -176,15 +215,20 @@
     .adopt-confirm-photos-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 10px;
     }
 
     .adopt-confirm-photos-row img {
-        width: 72px;
-        height: 72px;
+        width: 64px;
+        height: 64px;
         object-fit: cover;
         border-radius: 12px;
         border: 1px solid #e2e8f0;
+        transition: transform 0.2s ease;
+    }
+
+    .adopt-confirm-photos-row img:hover {
+        transform: scale(1.05);
     }
 
     .claim-form .form-label {
@@ -201,23 +245,21 @@
     .claim-actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 12px;
         justify-content: center;
-        margin-top: clamp(24px, 5vw, 40px);
-        padding-top: clamp(18px, 3.5vw, 28px);
-        border-top: 1px solid rgba(15, 23, 42, 0.07);
-    }
-
-    .claim-actions .btn {
-        min-width: 128px;
-        font-weight: 700;
+        margin-top: 24px;
+        padding-top: 0;
+        border-top: none;
     }
 
     .btn-claim-submit {
         background: #198754;
         border-color: #198754;
         color: #ffffff;
-        font-weight: 700;
+        font-weight: 800;
+        padding: 12px 32px;
+        border-radius: 12px;
+        font-size: 1rem;
         box-shadow: 0 10px 24px rgba(25, 135, 84, 0.28);
     }
 
@@ -246,103 +288,73 @@
         }
     }
 
-    @media (max-width: 768px) {
-        .claim-content {
-            padding: 12px;
-        }
-
+    @media (max-width: 991px) {
         .claim-theme-header {
-            padding: 14px 16px;
+            padding: 30px 24px 12px !important;
+            text-align: center;
         }
-
-        .claim-theme-header h4 {
-            font-size: 1.15rem;
-        }
-
-        .claim-summary-list {
-            padding: 4px 10px 12px;
-        }
-
-        .claim-summary-item {
-            grid-template-columns: minmax(84px, 42%) minmax(0, 1fr);
-            padding: 11px 4px;
-            gap: 10px 12px;
-        }
-
-        .claim-summary-value {
-            font-size: 0.9rem;
-        }
-
-        .claim-summary-list.claim-summary-list--collapsed .claim-summary-item:nth-child(n + 3) {
-            display: none !important;
-        }
-
-        .claim-summary-more-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            margin: 2px 0 0;
-            padding: 10px 12px;
-            border: none;
-            border-radius: 10px;
-            background: rgba(29, 78, 216, 0.08);
-            color: #1d4ed8;
-            font-family: inherit;
-            font-size: 0.88rem;
-            font-weight: 700;
-            letter-spacing: -0.01em;
-            cursor: pointer;
-            transition: background 0.18s ease, color 0.18s ease;
-        }
-
-        .claim-summary-more-btn:hover {
-            background: rgba(29, 78, 216, 0.14);
-            color: #1e40af;
-        }
-
-        .claim-summary-more-btn:focus-visible {
-            outline: 2px solid rgba(29, 78, 216, 0.45);
-            outline-offset: 2px;
-        }
-
-        .claim-actions {
+        .claim-theme-header .d-flex {
             flex-direction: column;
-            align-items: stretch;
+            align-items: center !important;
         }
-
-        .claim-actions .btn {
-            width: 100%;
-            min-width: 0;
+        .claim-theme-close {
+            position: absolute;
+            top: 24px;
+            right: 24px;
         }
-
-        .claim-form .row {
-            gap: 10px !important;
+        .claim-theme-header h2 {
+            font-size: 1.5rem !important;
+            margin-top: 20px;
         }
-
-        .claim-form .form-control,
-        .claim-form .form-label {
-            font-size: 0.95rem;
+        .claim-content {
+            padding: 0 24px 40px;
         }
+    }
 
-        .claim-form .text-muted.small {
-            font-size: 0.82rem;
+    @media (max-width: 576px) {
+        .claim-preview-grid {
+            grid-template-columns: 1fr;
+        }
+        .claim-theme-header {
+            padding: 40px 16px 12px !important;
+        }
+        .claim-theme-header h2 {
+            font-size: 1.4rem !important;
+        }
+        .claim-content {
+            padding: 0 16px 30px;
+        }
+        .attr-card {
+            padding: 10px 14px;
+        }
+        .claim-preview-image-wrapper {
+            max-width: 400px;
+            margin-inline: auto;
+        }
+    }
+
+    @media (min-width: 769px) {
+        .claim-summary-more-btn {
+            display: none !important;
         }
     }
 
 </style>
 
-<div class="container py-2">
+<div class="modal-overlay" id="adoptModalOverlay">
     <div class="claim-theme-card">
-        <div class="claim-theme-header px-4 py-3">
-            <div class="claim-theme-header-row">
-                <div class="claim-theme-header-text">
-                    <h4 class="mb-1 fw-bold text-dark">
+        <i class="bi bi-paw-fill paw-decoration paw-1"></i>
+        <i class="bi bi-paw-fill paw-decoration paw-2"></i>
+
+        <div class="claim-theme-header">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h2 class="mb-1 fw-bold text-dark" style="font-size: 1.75rem;">
                         {% if post.current_phase == 'claim' %}Reserve Adoption{% else %}Adoption Request{% endif %}
-                    </h4>
-                    <p class="mb-0 text-dark small">
+                    </h2>
+                    <p class="mb-0 text-secondary" style="font-size: 0.95rem;">
                         {% if post.current_phase == 'claim' %}
-                        Pick an available appointment date. If no ownership claim is approved, your request can move forward after the claim window closes.
+                        Pick an available appointment date to reserve this dog.
                         {% else %}
                         Pick an available appointment date to submit your adoption request.
                         {% endif %}
@@ -350,13 +362,14 @@
                 </div>
                 <a
                     id="adoptCloseLink"
-                    href="{{ cancel_url }}"
+                    href="{% url 'user:adopt_list' %}"
                     class="claim-theme-close"
-                    aria-label="Close and go back"
+                    aria-label="Close"
                     title="Close (Esc)"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <path d="M18 6L6 18M6 6l12 12" />
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
                     </svg>
                 </a>
             </div>
@@ -365,95 +378,76 @@
         <div class="claim-content">
             <div class="claim-layout">
                 <div class="claim-preview">
-                    <div class="claim-preview-head">
-                        <span class="claim-preview-dot"></span>
-                        <h6 class="claim-preview-title">Post Summary</h6>
-                    </div>
-
-                    <div class="claim-summary-list" id="adoptSummaryList">
-                        <div class="claim-summary-item">
-                            <span class="claim-summary-label">Listing</span>
-                            <span class="claim-summary-value">{{ post.display_title|default:"Dog Listing" }}</span>
-                        </div>
-
-                        {% if post.display_breed %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Breed</span>
-                                <span class="claim-summary-value">{{ post.display_breed }}</span>
-                            </div>
-                        {% endif %}
-
-                        {% if post.display_age_group %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Age</span>
-                                <span class="claim-summary-value">{{ post.display_age_group }}</span>
-                            </div>
-                        {% endif %}
-
-                        {% if post.display_size_group %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Size</span>
-                                <span class="claim-summary-value">{{ post.display_size_group }}</span>
-                            </div>
-                        {% endif %}
-
-                        {% if post.gender %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Gender</span>
-                                <span class="claim-summary-value">{{ post.get_gender_display }}</span>
-                            </div>
-                        {% endif %}
-
-                        {% if post.display_coat_length %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Coat</span>
-                                <span class="claim-summary-value">{{ post.display_coat_length }}</span>
-                            </div>
-                        {% endif %}
-
-                        {% if post.display_colors %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Color</span>
-                                <span class="claim-summary-value">{{ post.display_colors }}</span>
-                            </div>
-                        {% endif %}
-
-                        {% if post.location %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Location</span>
-                                <span class="claim-summary-value">{{ post.location }}</span>
-                            </div>
-                        {% endif %}
-
-                        {% if post.rescued_date %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Rescued On</span>
-                                <span class="claim-summary-value">{{ post.rescued_date|date:"M d, Y" }}</span>
-                            </div>
-                        {% endif %}
-                    </div>
-
-                    <button
-                        type="button"
-                        class="claim-summary-more-btn"
-                        id="adoptSummaryMoreBtn"
-                        aria-expanded="false"
-                        aria-controls="adoptSummaryList"
-                        hidden
-                    >
-                        View more
-                    </button>
-
                     {% if post.images.exists %}
-                        <div class="adopt-confirm-photos">
-                            <div class="adopt-confirm-photos-title">Photos</div>
-                            <div class="adopt-confirm-photos-row">
-                                {% for image in post.images.all %}
-                                    <img src="{{ image.image.url }}" alt="{{ post.display_title|default:'Dog photo' }}" width="72" height="72">
-                                {% endfor %}
+                        <div class="claim-preview-profile">
+                            <div class="claim-preview-image-wrapper">
+                                <img src="{{ post.images.first.image.url }}" alt="{{ post.display_title|default:'Dog photo' }}" class="claim-preview-profile-img">
                             </div>
                         </div>
                     {% endif %}
+
+                    <div class="claim-preview-grid">
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-journal-text"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Listing</span>
+                                <span class="attr-value">{{ post.display_title|default:"Dog Listing" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-hourglass-split"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Age</span>
+                                <span class="attr-value">{{ post.display_age_group|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12,2C10,2 4,4 4,10C4,12 5,14 6,15V21H9V18H15V21H18V15C19,14 20,12 20,10C20,4 14,2 12,2M12,4C14,4 18,5 18,10C18,11.5 17.5,13 16,14V16H8V14C6.5,13 6,11.5 6,10C6,5 10,4 12,4Z"/>
+                                </svg>
+                            </div>
+                            <div class="attr-content">
+                                <span class="attr-label">Breed</span>
+                                <span class="attr-value">{{ post.display_breed|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-rulers"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Size</span>
+                                <span class="attr-value">{{ post.display_size_group|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-gender-ambiguous"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Gender</span>
+                                <span class="attr-value">{{ post.get_gender_display|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-palette"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Color</span>
+                                <span class="attr-value">{{ post.display_colors|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-geo-alt"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Location</span>
+                                <span class="attr-value">{{ post.location|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-calendar-event"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Rescued On</span>
+                                <span class="attr-value">{{ post.rescued_date|date:"M d, Y"|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <form
@@ -470,13 +464,13 @@
                     <input type="hidden" name="return_to" value="{{ return_to }}">
                     {% endif %}
 
-                    <div class="mb-2 mt-1">
+                    <div class="mb-2">
                         {% include "partials/appointment_picker.html" with submit_btn_id="confirm_btn" %}
                     </div>
 
                     <div class="claim-actions">
                         <button type="submit" id="confirm_btn" class="btn btn-claim-submit" {% if not available_dates %}disabled{% endif %}>
-                            {% if post.current_phase == 'claim' %}Reserve Adoption{% else %}Confirm Request{% endif %}
+                            Confirm Request
                         </button>
                     </div>
                 </form>

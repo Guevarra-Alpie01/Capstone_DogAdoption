@@ -30,10 +30,430 @@
 
     <p class="text-muted mb-4">Send this request to the owner of the post?</p>
 
+<<<<<<< Updated upstream
     <form method="post" class="d-flex gap-2">
         {% csrf_token %}
         <button type="submit" class="btn btn-success">Confirm Request</button>
         <a href="{% url 'user:user_home' %}" class="btn btn-cancel-action">Cancel</a>
     </form>
+=======
+    .modal-bg-iframe {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+        z-index: 1040;
+        pointer-events: none;
+    }
+
+    @keyframes overlayFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes cardSlideIn {
+        from { opacity: 0; transform: translateY(30px) scale(0.96); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .claim-theme-card {
+        position: relative;
+        border: none;
+        border-radius: 28px;
+        box-shadow: 0 30px 80px rgba(15, 23, 42, 0.2);
+        background: #ffffff;
+        overflow: hidden;
+        width: 100%;
+        max-width: 1080px;
+        margin: auto;
+        animation: cardSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .claim-theme-header {
+        background: #ffffff;
+        border-bottom: none;
+        padding: 32px 32px 12px !important;
+    }
+
+    .claim-preview {
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        overflow: visible;
+    }
+
+    .claim-preview-profile {
+        padding: 0 0 24px;
+    }
+
+    .claim-preview-image-wrapper {
+        width: 100%;
+        aspect-ratio: 16 / 11;
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    }
+
+    .claim-preview-profile-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .claim-content {
+        padding: 0 32px 32px;
+    }
+
+    .claim-theme-close {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        margin: -8px -8px 0 0;
+        padding: 0;
+        border: 1px solid #2563eb;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #4f8df7 0%, #2563eb 100%);
+        color: #ffffff;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+        z-index: 10;
+    }
+
+    .claim-theme-close svg {
+        width: 22px;
+        height: 22px;
+        stroke: currentColor;
+        stroke-width: 3;
+    }
+
+    .claim-theme-close:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+        color: #ffffff;
+    }
+
+    @media (min-width: 992px) {
+        .claim-layout {
+            display: grid;
+            grid-template-columns: 1.15fr 1fr;
+            gap: 40px;
+            align-items: start;
+        }
+    }
+
+    .claim-preview-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .attr-card {
+        background: #f8fafc;
+        border: 1px solid #edf2f7;
+        border-radius: 16px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .attr-icon-box {
+        width: 38px;
+        height: 38px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #64748b;
+        flex-shrink: 0;
+    }
+
+    .attr-content {
+        min-width: 0;
+    }
+
+    .attr-label {
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-bottom: 1px;
+    }
+
+    .attr-value {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 800;
+        color: #1e293b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .attr-card--full {
+        grid-column: span 2;
+    }
+
+    .claim-preview-dot {
+        display: none;
+    }
+
+    .claim-preview-title {
+        display: none;
+    }
+
+    /* Decorative Paws */
+    .paw-decoration {
+        position: absolute;
+        color: #e2e8f0;
+        opacity: 0.5;
+        pointer-events: none;
+        z-index: 0;
+    }
+    .paw-1 { top: 60px; right: 30px; font-size: 2.5rem; transform: rotate(15deg); }
+    .paw-2 { bottom: 40px; right: 340px; font-size: 3rem; transform: rotate(-20deg); }
+
+    .claim-summary-value a {
+        color: #1d4ed8;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .claim-summary-value a:hover {
+        text-decoration: underline;
+    }
+
+    .claim-form .form-label {
+        margin-bottom: 4px;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .claim-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 24px;
+        padding-top: 0;
+        border-top: none;
+    }
+
+    .btn-claim-submit {
+        background: #198754;
+        border-color: #198754;
+        color: #ffffff;
+        font-weight: 800;
+        padding: 12px 32px;
+        border-radius: 12px;
+        font-size: 1rem;
+        box-shadow: 0 10px 24px rgba(25, 135, 84, 0.28);
+    }
+
+    .btn-claim-submit:hover {
+        background: #157347;
+        border-color: #157347;
+        color: #ffffff;
+        box-shadow: 0 12px 28px rgba(25, 135, 84, 0.32);
+    }
+
+    @media (min-width: 769px) {
+        .claim-summary-more-btn {
+            display: none !important;
+        }
+    }
+
+    @media (min-width: 992px) {
+        .claim-layout {
+            grid-template-columns: minmax(280px, 34%) minmax(0, 1fr);
+            gap: 16px;
+        }
+
+        .claim-preview {
+            position: sticky;
+            top: 84px;
+        }
+    }
+
+    @media (max-width: 991px) {
+        .claim-theme-header {
+            padding: 30px 24px 12px !important;
+            text-align: center;
+        }
+        .claim-theme-header .d-flex {
+            flex-direction: column;
+            align-items: center !important;
+        }
+        .claim-theme-close {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+        }
+        .claim-theme-header h2 {
+            font-size: 1.5rem !important;
+            margin-top: 20px;
+        }
+        .claim-content {
+            padding: 0 24px 40px;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .claim-preview-grid {
+            grid-template-columns: 1fr;
+        }
+        .claim-theme-header {
+            padding: 40px 16px 12px !important;
+        }
+        .claim-theme-header h2 {
+            font-size: 1.4rem !important;
+        }
+        .claim-content {
+            padding: 0 16px 30px;
+        }
+        .attr-card {
+            padding: 10px 14px;
+        }
+        .claim-preview-image-wrapper {
+            max-width: 400px;
+            margin-inline: auto;
+        }
+    }
+
+</style>
+
+<iframe class="modal-bg-iframe" src="{% url 'user:adopt_list' %}" tabindex="-1" aria-hidden="true"></iframe>
+
+<div class="modal-overlay" id="adoptUserModalOverlay">
+    <div class="claim-theme-card">
+        <i class="bi bi-paw-fill paw-decoration paw-1"></i>
+        <i class="bi bi-paw-fill paw-decoration paw-2"></i>
+
+        <div class="claim-theme-header">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h2 class="mb-1 fw-bold text-dark" style="font-size: 1.75rem;">Confirm Adoption Request</h2>
+                    <p class="mb-0 text-secondary" style="font-size: 0.95rem;">Review the listing, then send your request to the post owner.</p>
+                </div>
+                <a
+                    id="adoptUserCloseLink"
+                    href="{% url 'user:adopt_list' %}"
+                    class="claim-theme-close"
+                    aria-label="Close"
+                    title="Close (Esc)"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </a>
+            </div>
+        </div>
+
+        <div class="claim-content">
+            <div class="claim-layout">
+                <div class="claim-preview">
+                    {% if post.images.exists %}
+                        <div class="claim-preview-profile">
+                            <div class="claim-preview-image-wrapper">
+                                <img src="{{ post.images.first.image.url }}" alt="{{ post.display_title|default:'Dog photo' }}" class="claim-preview-profile-img">
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <div class="claim-preview-grid">
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-list-stars"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Name</span>
+                                <span class="attr-value">{{ post.dog_name }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-hourglass-split"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Age</span>
+                                <span class="attr-value">{{ post.display_age_group|default:post.age|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12,2C10,2 4,4 4,10C4,12 5,14 6,15V21H9V18H15V21H18V15C19,14 20,12 20,10C20,4 14,2 12,2M12,4C14,4 18,5 18,10C18,11.5 17.5,13 16,14V16H8V14C6.5,13 6,11.5 6,10C6,5 10,4 12,4Z"/>
+                                </svg>
+                            </div>
+                            <div class="attr-content">
+                                <span class="attr-label">Breed</span>
+                                <span class="attr-value">{{ post.display_breed|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-rulers"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Size</span>
+                                <span class="attr-value">{{ post.display_size_group|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-gender-ambiguous"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Gender</span>
+                                <span class="attr-value">{{ post.get_gender_display|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-palette"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Color</span>
+                                <span class="attr-value">{{ post.display_colors|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-geo-alt"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Location</span>
+                                <span class="attr-value">{{ post.location|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-person-badge"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Posted By</span>
+                                <span class="attr-value">{{ post.owner.get_full_name|default:post.owner.username }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <form
+                    method="post"
+                    class="claim-form"
+                    data-confirm-modal
+                    data-confirm-title="Confirm request"
+                    data-confirm-message="Send this adoption request to the owner of this post?"
+                    data-confirm-submit-label="Confirm"
+                >
+                    {% csrf_token %}
+                    <div class="claim-actions">
+                        <button type="submit" class="btn btn-claim-submit">Confirm Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+>>>>>>> Stashed changes
 </div>
 {% endblock %}

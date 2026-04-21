@@ -10,7 +10,7 @@ from .models import MissingDogPost, UserAdoptionPost
 class RescueFinderForm(forms.Form):
     PURPOSE_CHOICES = [
         ("all", "All"),
-        ("claim", "Claim"),
+        ("claim", "Redeem"),
         ("adopt", "Adopt"),
     ]
     FILTER_FIELDS = (

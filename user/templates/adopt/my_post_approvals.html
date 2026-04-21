@@ -1,0 +1,368 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .post-approval-shell {
+        max-width: 1120px;
+        margin: 0 auto;
+    }
+
+    .post-approval-hero {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 20px;
+        border: 1px solid #dbe3ef;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #ffffff 0%, #f6f9ff 100%);
+        margin-bottom: 16px;
+    }
+
+    .post-approval-title {
+        margin: 0;
+        font-size: clamp(1.45rem, 2.2vw, 2rem);
+        line-height: 1.1;
+        color: #0f172a;
+        font-weight: 800;
+    }
+
+    .post-approval-subtitle {
+        margin: 8px 0 0;
+        font-size: 0.95rem;
+        color: #475569;
+        max-width: 52ch;
+    }
+
+    .post-approval-hero-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+    }
+
+    .post-approval-action-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 160px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        text-decoration: none;
+        font-weight: 700;
+        background: #2f5b27;
+        color: #ffffff;
+    }
+
+    .post-approval-action-link:hover {
+        color: #ffffff;
+        opacity: 0.95;
+    }
+
+    .post-approval-summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .post-approval-summary-card {
+        display: block;
+        border: 1px solid #dbe3ef;
+        border-radius: 14px;
+        background: #ffffff;
+        padding: 12px 14px;
+        text-decoration: none;
+        transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .post-approval-summary-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+    }
+
+    .post-approval-summary-card.is-active {
+        border-color: #1f6b4f;
+        background: linear-gradient(135deg, #d8f5e7 0%, #ecfdf3 100%);
+        box-shadow: 0 0 0 2px rgba(31, 107, 79, 0.16), 0 10px 18px rgba(31, 107, 79, 0.16);
+    }
+
+    .post-approval-summary-card.is-active span,
+    .post-approval-summary-card.is-active strong {
+        color: #14532d;
+    }
+
+    .post-approval-summary-card span {
+        display: block;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #64748b;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .post-approval-summary-card strong {
+        font-size: 1.35rem;
+        color: #0f172a;
+    }
+
+    .post-approval-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        align-items: start;
+    }
+
+    .post-approval-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        border: 1px solid #dbe3ef;
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+        overflow: hidden;
+    }
+
+    .post-approval-main {
+        flex: 1 1 auto;
+        padding: 16px 18px 14px;
+    }
+
+    .post-approval-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .post-approval-kind {
+        margin: 0 0 4px;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #64748b;
+        font-weight: 800;
+    }
+
+    .post-approval-name {
+        margin: 0;
+        font-size: 1.15rem;
+        color: #0f172a;
+        font-weight: 800;
+        line-height: 1.15;
+    }
+
+    .post-approval-meta-line {
+        margin: 4px 0 0;
+        font-size: 0.9rem;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .post-approval-meta-line .bi {
+        font-size: 0.88rem;
+        color: #475569;
+    }
+
+    .post-approval-status {
+        border-radius: 999px;
+        padding: 5px 11px;
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        border: 1px solid #cbd5e1;
+        background: #f1f5f9;
+        color: #334155;
+    }
+
+    .post-approval-status.is-pending {
+        background: #fff7e6;
+        color: #b45309;
+        border-color: #fcd34d;
+    }
+
+    .post-approval-status.is-approved {
+        background: #ecfdf3;
+        color: #166534;
+        border-color: #86efac;
+    }
+
+    .post-approval-status.is-rejected {
+        background: #fef2f2;
+        color: #b91c1c;
+        border-color: #fca5a5;
+    }
+
+    .post-approval-footer {
+        border-top: 1px solid #edf2f7;
+        background: #fbfdff;
+        padding: 12px 18px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .post-approval-open {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: #1f6b4f;
+        text-decoration: none;
+    }
+
+    .post-approval-open:hover {
+        color: #14532d;
+    }
+
+    .post-approval-empty {
+        border: 1px dashed #cbd5e1;
+        border-radius: 14px;
+        background: #ffffff;
+        padding: 26px 18px;
+        text-align: center;
+        color: #475569;
+        grid-column: 1 / -1;
+    }
+
+    .post-approval-empty h3 {
+        margin: 0 0 6px;
+        font-size: 1.05rem;
+        color: #0f172a;
+        font-weight: 800;
+    }
+
+    .post-approval-empty p {
+        margin: 0;
+        font-size: 0.9rem;
+    }
+
+    .post-approval-load-more {
+        margin-top: 10px;
+        text-align: center;
+    }
+
+    @media (max-width: 991.98px) {
+        .post-approval-list {
+            grid-template-columns: 1fr;
+        }
+
+        .post-approval-summary {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        .post-approval-hero {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .post-approval-summary {
+            grid-template-columns: 1fr;
+        }
+
+        .post-approval-head {
+            flex-direction: column;
+            gap: 8px;
+        }
+    }
+</style>
+
+<section class="post-approval-shell mt-3">
+    <div class="post-approval-hero">
+        <div>
+            <h1 class="post-approval-title">My Post Approvals</h1>
+            <p class="post-approval-subtitle">
+                See whether your adoption listings and missing dog posts are still waiting on staff review, live on the site, or declined.
+            </p>
+        </div>
+        <div class="post-approval-hero-actions">
+            <a href="{{ browse_url }}" class="post-approval-action-link">Find a Dog</a>
+        </div>
+    </div>
+
+    <div class="post-approval-summary">
+        <a href="?status=total" class="post-approval-summary-card {% if current_status == 'total' %}is-active{% endif %}">
+            <span>Total</span>
+            <strong>{{ summary.total }}</strong>
+        </a>
+        <a href="?status=pending" class="post-approval-summary-card {% if current_status == 'pending' %}is-active{% endif %}">
+            <span>Pending review</span>
+            <strong>{{ summary.pending }}</strong>
+        </a>
+        <a href="?status=accepted" class="post-approval-summary-card {% if current_status == 'accepted' %}is-active{% endif %}">
+            <span>Approved / active</span>
+            <strong>{{ summary.accepted }}</strong>
+        </a>
+        <a href="?status=rejected" class="post-approval-summary-card {% if current_status == 'rejected' %}is-active{% endif %}">
+            <span>Declined</span>
+            <strong>{{ summary.rejected }}</strong>
+        </a>
+    </div>
+
+    <div class="post-approval-list">
+        {% for row in submissions %}
+        <article class="post-approval-card">
+            <div class="post-approval-main">
+                <div class="post-approval-head">
+                    <div>
+                        <p class="post-approval-kind">{{ row.kind_label }}</p>
+                        <h2 class="post-approval-name">{{ row.title }}</h2>
+                        {% if row.location %}
+                        <p class="post-approval-meta-line">
+                            <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+                            <span>{{ row.location }}</span>
+                        </p>
+                        {% endif %}
+                        <p class="post-approval-meta-line">
+                            <i class="bi bi-calendar2-week" aria-hidden="true"></i>
+                            <span>Submitted {{ row.created_at|date:"M d, Y" }}</span>
+                        </p>
+                    </div>
+                    {% if row.bucket == 'pending' %}
+                    <span class="post-approval-status is-pending">{{ row.status_label }}</span>
+                    {% elif row.bucket == 'rejected' %}
+                    <span class="post-approval-status is-rejected">{{ row.status_label }}</span>
+                    {% else %}
+                    <span class="post-approval-status is-approved">{{ row.status_label }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="post-approval-footer">
+                <a href="{{ row.detail_url }}" class="post-approval-open">
+                    {% if row.kind == 'adoption' %}
+                    <span>View listing</span>
+                    <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+                    {% else %}
+                    <span>View on profile</span>
+                    <i class="bi bi-person-badge" aria-hidden="true"></i>
+                    {% endif %}
+                </a>
+            </div>
+        </article>
+        {% empty %}
+        <div class="post-approval-empty">
+            <h3>No posts in this filter</h3>
+            <p>Create an adoption or missing dog post from Find a Dog, or switch to another summary tab.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if page_obj and page_obj.has_next %}
+    <div class="post-approval-load-more">
+        <a class="post-approval-action-link" href="?status={{ current_status|default:'pending'|urlencode }}&page={{ page_obj.next_page_number }}">Load more</a>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

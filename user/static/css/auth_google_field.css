@@ -1,0 +1,169 @@
+/* Google-style outlined text fields (login + signup, modal + full page) */
+
+.g-field {
+    position: relative;
+    margin-bottom: 1.15rem;
+    --g-field-notch-bg: #ffffff;
+}
+
+.g-field:last-of-type {
+    margin-bottom: 1.15rem;
+}
+
+.auth-grid-two .g-field {
+    margin-bottom: 0;
+}
+
+.login-paws-form .g-field {
+    margin-bottom: 0;
+}
+
+.login-form .g-field,
+.signup-form .g-field {
+    margin-bottom: 14px;
+}
+
+.login-form .auth-grid-two .g-field,
+.signup-form .auth-grid-two .g-field {
+    margin-bottom: 0;
+}
+
+.signup-form .auth-grid-two {
+    margin-bottom: 14px;
+}
+
+.g-field__input {
+    display: block;
+    width: 100%;
+    min-height: 56px;
+    padding: 16px 12px;
+    border: 1px solid #202124;
+    border-radius: 4px;
+    font-size: 16px;
+    line-height: 1.4;
+    background: #fff;
+    color: #202124;
+    box-shadow: none;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.g-field__input::placeholder {
+    color: transparent;
+}
+
+.g-field__input:hover {
+    border-color: #000000;
+}
+
+.g-field__input:focus {
+    border-color: #202124;
+    box-shadow: 0 0 0 1px #202124;
+    outline: none;
+}
+
+.g-field__input:disabled {
+    background: #f8f9fa;
+    color: #5f6368;
+}
+
+/* Outlined label: centered at rest; floats to top border with white notch (no dark block) */
+.g-field__label {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    max-width: calc(100% - 32px);
+    padding: 0 4px;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.25;
+    color: #6b7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+    transform: translateY(-50%);
+    transform-origin: left center;
+    background: transparent;
+    transition:
+        top 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+        transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+        font-size 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+        background 0.2s ease;
+    z-index: 2;
+}
+
+.g-field__input:focus + .g-field__label,
+.g-field__input:not(:placeholder-shown) + .g-field__label,
+.g-field--has-value .g-field__label {
+    top: 0;
+    transform: translateY(-56%);
+    max-width: calc(100% - 24px);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.1;
+    color: #111827;
+    padding: 0 6px;
+    background: var(--g-field-notch-bg);
+    box-shadow:
+        -6px 0 0 var(--g-field-notch-bg),
+        6px 0 0 var(--g-field-notch-bg);
+}
+
+.g-field__input:not(:focus):not(:placeholder-shown) + .g-field__label,
+.g-field--has-value .g-field__label {
+    color: #111827;
+}
+
+.g-field__input:focus + .g-field__label {
+    color: #111827;
+}
+
+/* Chrome autofill: keep label floated + white interior */
+.g-field__input:-webkit-autofill,
+.g-field__input:-webkit-autofill:hover {
+    -webkit-text-fill-color: #202124;
+    -webkit-box-shadow: 0 0 0 1000px #fff inset;
+    box-shadow: 0 0 0 1000px #fff inset;
+    transition: background-color 9999s ease-out 0s;
+}
+
+.g-field__input:-webkit-autofill:focus {
+    -webkit-text-fill-color: #202124;
+    -webkit-box-shadow: 0 0 0 1000px #fff inset;
+    box-shadow: 0 0 0 1000px #fff inset, 0 0 0 1px #202124;
+    transition: background-color 9999s ease-out 0s;
+}
+
+.g-field__input:-webkit-autofill + .g-field__label {
+    top: 0;
+    transform: translateY(-56%);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.1;
+    color: #111827;
+    padding: 0 6px;
+    background: var(--g-field-notch-bg);
+    box-shadow:
+        -6px 0 0 var(--g-field-notch-bg),
+        6px 0 0 var(--g-field-notch-bg);
+}
+
+/* Invalid: red border only; label stays dark text */
+.g-field__input:invalid:not(:placeholder-shown):not(:focus) {
+    border-color: #d93025;
+}
+
+.g-field__input:invalid:not(:placeholder-shown):not(:focus) + .g-field__label {
+    color: #111827;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .g-field__input,
+    .g-field__label {
+        transition: none;
+    }
+}

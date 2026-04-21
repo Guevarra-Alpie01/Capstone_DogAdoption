@@ -1,35 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
-    <div class="card shadow p-4">
-        <h3 class="mb-3">Confirm Adoption Request</h3>
-    <p class="mb-1"><strong>Dog:</strong> {{ post.dog_name }}</p>
-    {% if post.display_breed %}
-        <p class="mb-1"><strong>Breed:</strong> {{ post.display_breed }}</p>
-    {% endif %}
-    {% if post.display_age_group %}
-        <p class="mb-1"><strong>Age Group:</strong> {{ post.display_age_group }}</p>
-    {% elif post.age %}
-        <p class="mb-1"><strong>Age:</strong> {{ post.age }}</p>
-    {% endif %}
-    {% if post.display_size_group %}
-        <p class="mb-1"><strong>Size:</strong> {{ post.display_size_group }}</p>
-    {% endif %}
-    {% if post.gender %}
-        <p class="mb-1"><strong>Gender:</strong> {{ post.get_gender_display }}</p>
-    {% endif %}
-    {% if post.display_coat_length %}
-        <p class="mb-1"><strong>Coat:</strong> {{ post.display_coat_length }}</p>
-    {% endif %}
-    {% if post.display_colors %}
-        <p class="mb-1"><strong>Color:</strong> {{ post.display_colors }}</p>
-    {% endif %}
-    <p class="mb-1"><strong>Posted by:</strong> <a href="{% url 'user:view_user_profile' post.owner.id %}?next={% url 'user:adopt_user_post' post.id %}&label=Back+to+Request" class="text-decoration-none">{{ post.owner.get_full_name|default:post.owner.username }}</a></p>
-    {% if post.location %}
-        <p class="mb-3"><strong>Location:</strong> {{ post.location }}</p>
-    {% endif %}
 
-    <p class="text-muted mb-4">Send this request to the owner of the post?</p>
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        z-index: 1050;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 30px 20px;
+        overflow-y: auto;
+        animation: overlayFadeIn 0.3s ease;
+    }
 
+<<<<<<< HEAD
 <<<<<<< Updated upstream
     <form method="post" class="d-flex gap-2">
         {% csrf_token %}
@@ -48,6 +39,8 @@
         pointer-events: none;
     }
 
+=======
+>>>>>>> 95b1f3fe35e72e13afb6876b909212e33f5eb556
     @keyframes overlayFadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
@@ -335,8 +328,11 @@
 
 </style>
 
+<<<<<<< HEAD
 <iframe class="modal-bg-iframe" src="{% url 'user:adopt_list' %}" tabindex="-1" aria-hidden="true"></iframe>
 
+=======
+>>>>>>> 95b1f3fe35e72e13afb6876b909212e33f5eb556
 <div class="modal-overlay" id="adoptUserModalOverlay">
     <div class="claim-theme-card">
         <i class="bi bi-paw-fill paw-decoration paw-1"></i>
@@ -454,6 +450,92 @@
             </div>
         </div>
     </div>
+<<<<<<< HEAD
 >>>>>>> Stashed changes
+=======
+>>>>>>> 95b1f3fe35e72e13afb6876b909212e33f5eb556
 </div>
+
+<script>
+(function () {
+    var list = document.getElementById("adoptUserSummaryList");
+    var btn = document.getElementById("adoptUserSummaryMoreBtn");
+    if (!list || !btn) {
+        return;
+    }
+    var mq = window.matchMedia("(max-width: 768px)");
+    var expanded = false;
+
+    function applyMobileCollapseState() {
+        var items = list.querySelectorAll(".claim-summary-item");
+        var needsToggle = items.length > 2 && mq.matches;
+        btn.hidden = !needsToggle;
+        if (!mq.matches) {
+            list.classList.remove("claim-summary-list--collapsed");
+            expanded = false;
+            btn.setAttribute("aria-expanded", "true");
+            btn.textContent = "View more";
+            return;
+        }
+        if (!needsToggle) {
+            list.classList.remove("claim-summary-list--collapsed");
+            expanded = false;
+            return;
+        }
+        list.classList.toggle("claim-summary-list--collapsed", !expanded);
+        btn.setAttribute("aria-expanded", expanded ? "true" : "false");
+        btn.textContent = expanded ? "View less" : "View more";
+    }
+
+    btn.addEventListener("click", function () {
+        if (!mq.matches) {
+            return;
+        }
+        expanded = !expanded;
+        applyMobileCollapseState();
+    });
+
+    if (typeof mq.addEventListener === "function") {
+        mq.addEventListener("change", function () {
+            expanded = false;
+            applyMobileCollapseState();
+        });
+    } else if (typeof mq.addListener === "function") {
+        mq.addListener(function () {
+            expanded = false;
+            applyMobileCollapseState();
+        });
+    }
+
+    applyMobileCollapseState();
+})();
+
+(function () {
+    var closeLink = document.getElementById("adoptUserCloseLink");
+    if (!closeLink || !closeLink.getAttribute("href")) {
+        return;
+    }
+    document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape" || e.defaultPrevented) {
+            return;
+        }
+        var t = e.target;
+        var tag = t && t.tagName;
+        if (tag === "TEXTAREA") {
+            return;
+        }
+        if (tag === "INPUT") {
+            var type = (t.type || "").toLowerCase();
+            if (type !== "button" && type !== "submit" && type !== "reset" && type !== "checkbox" && type !== "radio") {
+                return;
+            }
+        }
+        if (tag === "SELECT") {
+            return;
+        }
+        window.location.href = closeLink.href;
+    });
+})();
+</script>
+
 {% endblock %}

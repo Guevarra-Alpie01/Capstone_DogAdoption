@@ -2,40 +2,39 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/admin_home/post_history.css' %}?v=20260409b">
+<link rel="stylesheet" href="{% static 'css/admin_home/post_history.css' %}?v=20260417history-ui">
 {% endblock %}
 
 {% block content %}
 <section class="history-page">
     <div class="history-page-header">
         <a href="{% url 'dogadoption_admin:post_list' %}" class="history-back-link">
-            <span class="history-back-link-icon">
-                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+            <span class="history-back-link-icon" aria-hidden="true">
+                <i class="bi bi-arrow-left"></i>
             </span>
             <span class="history-back-link-copy">
-                <small>Return</small>
-                <strong>Back to Posts</strong>
+                <span class="history-back-link-eyebrow">Return</span>
+                <span class="history-back-link-title">Back to Posts</span>
             </span>
         </a>
-    </div>
-
-    <div class="history-page-summary">
-        <a href="?{{ history_all_qs }}" class="history-summary-pill{% if history_active_filter == 'all' %} is-active{% endif %}">
-            <strong>{{ history_total }}</strong>
-            <span>Total record{{ history_total|pluralize }}</span>
-        </a>
-        <a href="?{{ history_adopted_qs }}" class="history-summary-pill history-summary-pill--adopted{% if history_active_filter == 'adopted' %} is-active{% endif %}">
-            <strong>{{ history_adopted_total }}</strong>
-            <span>Adopted</span>
-        </a>
-        <a href="?{{ history_redeemed_qs }}" class="history-summary-pill history-summary-pill--redeemed{% if history_active_filter == 'redeemed' %} is-active{% endif %}">
-            <strong>{{ history_redeemed_total }}</strong>
-            <span>Redeemed</span>
-        </a>
-        <a href="?{{ history_unresolved_qs }}" class="history-summary-pill history-summary-pill--unresolved{% if history_active_filter == 'unresolved' %} is-active{% endif %}">
-            <strong>{{ history_unresolved_total }}</strong>
-            <span>Not Adopted / Redeemed</span>
-        </a>
+        <nav class="history-filter-tabs" aria-label="Filter history records">
+            <a href="?{{ history_all_qs }}" class="history-filter-tab{% if history_active_filter == 'all' %} is-active{% endif %}">
+                <span class="history-filter-tab-label">All</span>
+                <span class="history-filter-tab-count">{{ history_total }}</span>
+            </a>
+            <a href="?{{ history_adopted_qs }}" class="history-filter-tab history-filter-tab--adopted{% if history_active_filter == 'adopted' %} is-active{% endif %}">
+                <span class="history-filter-tab-label">Adopted</span>
+                <span class="history-filter-tab-count">{{ history_adopted_total }}</span>
+            </a>
+            <a href="?{{ history_redeemed_qs }}" class="history-filter-tab history-filter-tab--redeemed{% if history_active_filter == 'redeemed' %} is-active{% endif %}">
+                <span class="history-filter-tab-label">Redeemed</span>
+                <span class="history-filter-tab-count">{{ history_redeemed_total }}</span>
+            </a>
+            <a href="?{{ history_unresolved_qs }}" class="history-filter-tab history-filter-tab--pending{% if history_active_filter == 'unresolved' %} is-active{% endif %}">
+                <span class="history-filter-tab-label">Pending</span>
+                <span class="history-filter-tab-count">{{ history_unresolved_total }}</span>
+            </a>
+        </nav>
     </div>
 
     <section class="history-page-card">
@@ -158,7 +157,7 @@
             {% endif %}
         {% else %}
             <div class="history-empty-state">
-                <i class="fas fa-history" aria-hidden="true"></i>
+                <i class="bi bi-clock-history" aria-hidden="true"></i>
                 <h3>No history records yet</h3>
                 <p>No records were found for this selected dashboard view.</p>
             </div>

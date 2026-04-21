@@ -1,10 +1,12 @@
 from uuid import uuid4
 
+from django.conf import settings
 from django.core.cache import cache
 from django.db import connections
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
+from django.utils.crypto import constant_time_compare
 
 from dogadoption_admin.access import get_staff_landing_url
 from .observability import runtime_metrics
@@ -36,7 +38,16 @@ def health_live(request):
     )
 
 
+_HEALTH_READY_CACHE_KEY = "health:ready:snapshot:v1"
+
+
 def health_ready(request):
+    ttl = int(getattr(settings, "HEALTH_READY_CACHE_SECONDS", 0) or 0)
+    if ttl > 0:
+        cached = cache.get(_HEALTH_READY_CACHE_KEY)
+        if isinstance(cached, dict) and "body" in cached and "status" in cached:
+            return JsonResponse(cached["body"], status=int(cached["status"]))
+
     checks = {}
     is_ready = True
 
@@ -61,21 +72,35 @@ def health_ready(request):
         is_ready = False
         checks["cache"] = f"error:{type(exc).__name__}"
 
-    return JsonResponse(
-        {
-            "status": "ok" if is_ready else "degraded",
-            "service": "pet_adoption",
-            "timestamp": timezone.now().isoformat(),
-            "checks": checks,
-        },
-        status=200 if is_ready else 503,
-    )
+    body = {
+        "status": "ok" if is_ready else "degraded",
+        "service": "pet_adoption",
+        "timestamp": timezone.now().isoformat(),
+        "checks": checks,
+    }
+    status = 200 if is_ready else 503
+    if ttl > 0:
+        cache.set(
+            _HEALTH_READY_CACHE_KEY,
+            {"body": body, "status": status},
+            timeout=ttl,
+        )
+    return JsonResponse(body, status=status)
 
 
 def health_metrics(request):
+    token = getattr(settings, "HEALTH_METRICS_TOKEN", "") or ""
+    top_n = _parse_positive_int(request.GET.get("limit"), default=25, max_value=100)
+    if token:
+        query_token = (request.GET.get("token") or "").strip()
+        header_token = (request.headers.get("X-Health-Metrics-Token") or "").strip()
+        if constant_time_compare(query_token, token) or constant_time_compare(
+            header_token, token
+        ):
+            return JsonResponse(runtime_metrics.snapshot(top_n=top_n))
+
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated or not user.is_staff:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    top_n = _parse_positive_int(request.GET.get("limit"), default=25, max_value=100)
     return JsonResponse(runtime_metrics.snapshot(top_n=top_n))

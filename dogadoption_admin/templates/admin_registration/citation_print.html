@@ -316,13 +316,24 @@
                     <div class="penalty-amount">PHP {{ p.amount }}</div>
                 </div>
             {% empty %}
-                <p class="empty-note">No selected penalties for this citation.</p>
+                {% if not penalty_subitems %}
+                    <p class="empty-note">No selected penalties for this citation.</p>
+                {% endif %}
+            {% endfor %}
+            {% for s in penalty_subitems %}
+                <div class="penalty-row penalty-row--subitem">
+                    <div class="penalty-label">
+                        Fee line<br>
+                        {{ s.label }}
+                    </div>
+                    <div class="penalty-amount">PHP {{ s.amount }}</div>
+                </div>
             {% endfor %}
         </div>
 
         <div class="total-box">
             <div class="total-label">TOTAL AMOUNT TO BE PAID</div>
-            <div class="total-amount">PHP {{ total_amount }}</div>
+            <div class="total-amount">PHP {{ total_amount|floatformat:2 }}</div>
         </div>
 
         <div class="footer">

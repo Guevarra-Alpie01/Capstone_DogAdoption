@@ -1,4 +1,5 @@
-<article class="finder-card">
+{% load static %}
+<article id="finder-highlight-user-{{ item.post_id }}" class="finder-card finder-card--footer-compact" data-finder-highlight-root="user">
     <div class="finder-card__media">
         {% if item.main_image_url %}
         <a href="{{ item.main_image_url }}" class="finder-card__media-link js-finder-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ item.breed_label|default:item.dog_name|default:'Dog image' }}" aria-label="View full image">
@@ -18,17 +19,7 @@
     </div>
 
     <div class="finder-card__body">
-        <div class="finder-card__head">
-            <div class="finder-card__title-wrap">
-                <p class="finder-card__label">{{ item.breed_label }}</p>
-                <h3 class="finder-card__breed-title">{{ item.dog_name }}</h3>
-                <p class="finder-card__breed">
-                    <span class="finder-card__breed-icon" aria-hidden="true">
-                        <i class="bi bi-geo-alt-fill"></i>
-                    </span>
-                    <span>{{ item.location_label }}</span>
-                </p>
-            </div>
+        <div class="finder-card__head finder-card__head--minimal finder-card__head--centered">
             <span class="finder-card__phase-title">Posted by {{ item.owner_username }}</span>
         </div>
 
@@ -37,6 +28,38 @@
         {% endif %}
 
         <div class="finder-card__footer">
+            <div class="finder-card__actions finder-card__actions--stack">
+                {% if item.show_user_adoption_request_cta %}
+                    {% if request.user.is_authenticated %}
+                    <button
+                        type="button"
+                        class="btn-action btn-action--primary js-open-adoption-request-modal"
+                        data-request-url="{{ item.request_url }}"
+                        data-dog-name="{{ item.dog_name|default:'Unnamed Dog' }}"
+                        data-owner-name="{{ item.owner_full_name|default:item.owner_username }}"
+                        data-location="{{ item.location_label|default:'-' }}"
+                    >
+                        <span>Adopt</span>
+                    </button>
+                    {% else %}
+                    <a
+                        href="{{ item.request_url }}"
+                        class="btn-action btn-action--primary"
+                        data-auth-modal-trigger="login"
+                        data-auth-next-url="{{ item.request_url }}"
+                    >
+                        <span>Adopt</span>
+                    </a>
+                    {% endif %}
+                {% elif item.viewer_has_user_adoption_request %}
+                <p class="finder-card__status-note" role="status">You already requested adoption for this dog.</p>
+                {% elif item.viewer_is_owner %}
+                <p class="finder-card__status-note">This is your adoption post.</p>
+                {% else %}
+                <span class="finder-card__action-placeholder" aria-hidden="true"></span>
+                {% endif %}
+            </div>
+
             <div class="finder-card__utilities">
                 <button
                     type="button"
@@ -45,6 +68,7 @@
                     aria-controls="finder-card-details-user-{{ item.post_id }}"
                     data-finder-info-toggle
                 >
+                    <i class="bi bi-info-circle" aria-hidden="true"></i>
                     <span data-finder-info-label>View Info</span>
                 </button>
                 <button
@@ -56,7 +80,7 @@
                     data-finder-share
                     aria-label="Share {{ item.dog_name }}"
                 >
-                    <i class="bi bi-share" aria-hidden="true"></i>
+                    <i class="bi bi-share-fill" aria-hidden="true"></i>
                     <span>Share</span>
                 </button>
             </div>
@@ -69,11 +93,12 @@
         data-finder-info-panel
         hidden
     >
+        <div class="finder-card__details-head" aria-hidden="true">
+            <img class="finder-card__details-paw" src="{% static 'images/paw-single-soft.svg' %}" width="26" height="26" alt="">
+            <span class="finder-card__details-head-line"></span>
+            <img class="finder-card__details-paw finder-card__details-paw--mirror" src="{% static 'images/paw-single-soft.svg' %}" width="26" height="26" alt="">
+        </div>
         <div class="finder-card__details-grid">
-            <div class="finder-card__detail-item">
-                <span>Breed</span>
-                <strong>{{ item.breed_label }}</strong>
-            </div>
             <div class="finder-card__detail-item">
                 <span>Location</span>
                 <strong>{{ item.location_label }}</strong>

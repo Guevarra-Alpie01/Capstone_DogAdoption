@@ -1,24 +1,43 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block page_title %}{% if announcement_og_title %}{{ announcement_og_title }}{% else %}Announcements | Bayawan Vet{% endif %}{% endblock %}
+
+{% block og_meta %}
+{% if announcement_og_title %}
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bayawan Vet">
+<meta property="og:title" content="{{ announcement_og_title }}">
+<meta property="og:description" content="{{ announcement_og_description }}">
+<meta property="og:url" content="{{ announcement_og_url }}">
+{% if announcement_og_image %}
+<meta property="og:image" content="{{ announcement_og_image }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ announcement_og_title }}">
+<meta name="twitter:description" content="{{ announcement_og_description }}">
+{% if announcement_og_image %}
+<meta name="twitter:image" content="{{ announcement_og_image }}">
+{% endif %}
+{% endif %}
+{% endblock %}
+
 {% block extra_css %}
+<<<<<<< HEAD
 <<<<<<< HEAD
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260413modern-announcements">
 =======
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260413pinned-popup">
 >>>>>>> b2f644365bd9454cd85130802ec561acbfae04d0
+=======
+<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260419ann-white-borders">
+>>>>>>> 95b1f3fe35e72e13afb6876b909212e33f5eb556
 {% endblock %}
 
 {% block content %}
-<div class="user-ann-board">
-    <div class="user-ann-header">
-        <div class="user-ann-header-copy">
-            <div class="user-ann-header-text">
-                <h2 class="user-ann-title">Announcements</h2>
-            </div>
-        </div>
-    </div>
-
+<div class="user-ann-board user-ann-v2">
     <div class="user-ann-mobile-tabs announcement-mobile-tabs announcement-mobile-tabs--compact-stack"
          data-user-mobile-announcement-tabs
          data-mobile-announcement-tabs
@@ -52,10 +71,14 @@
                 <div class="user-ann-column-head">
                     <div class="user-ann-column-title-row">
                         <span class="user-ann-kicker">
-                            <i class="bi bi-pin-angle-fill"></i>
+                            <i class="bi bi-star-fill" aria-hidden="true"></i>
                             <span>Pinned Announcements</span>
                         </span>
                         <span class="user-ann-count">{{ pinned_count }}</span>
+                    </div>
+                    <div class="user-ann-column-chips" aria-hidden="true">
+                        <span class="user-ann-chip">Dog announcements</span>
+                        <span class="user-ann-chip user-ann-chip--accent">Pinned</span>
                     </div>
                 </div>
             </div>
@@ -74,12 +97,19 @@
         <section class="user-ann-column user-ann-column-regular" data-user-mobile-announcement-section="regular">
             <div class="user-ann-column-header">
                 <div class="user-ann-column-head">
-                    <div class="user-ann-column-title-row">
+                    <div class="user-ann-column-title-row user-ann-column-title-row--main">
                         <span class="user-ann-kicker">
-                            <i class="bi bi-journal-text"></i>
+                            <i class="bi bi-newspaper" aria-hidden="true"></i>
                             <span>Main Feed</span>
                         </span>
-                        <span class="user-ann-count user-ann-count-regular">{{ regular_total }}</span>
+                        <span class="user-ann-column-title-tools">
+                            <span class="user-ann-column-search-icon" aria-hidden="true"><i class="bi bi-search"></i></span>
+                            <span class="user-ann-count user-ann-count-regular">{{ regular_total }}</span>
+                        </span>
+                    </div>
+                    <div class="user-ann-column-chips" aria-hidden="true">
+                        <span class="user-ann-chip">Dog announcements</span>
+                        <span class="user-ann-chip user-ann-chip--accent">Main feed</span>
                     </div>
                 </div>
             </div>
@@ -118,10 +148,14 @@
                 <div class="user-ann-column-head">
                     <div class="user-ann-column-title-row">
                         <span class="user-ann-kicker">
-                            <i class="bi bi-bookmark-star-fill"></i>
+                            <i class="bi bi-bookmark-star-fill" aria-hidden="true"></i>
                             <span>Campaign</span>
                         </span>
                         <span class="user-ann-count user-ann-count-education">{{ campaign_count }}</span>
+                    </div>
+                    <div class="user-ann-column-chips" aria-hidden="true">
+                        <span class="user-ann-chip">Dog announcements</span>
+                        <span class="user-ann-chip user-ann-chip--accent">Campaign</span>
                     </div>
                 </div>
             </div>
@@ -146,8 +180,72 @@
     </div>
 </div>
 
+<div id="sharePanel" class="share-panel" hidden>
+    <div class="share-panel-header">
+        <div>
+            <h3 class="share-panel-title">Share Post</h3>
+            <p class="share-panel-subtitle">Choose where to share this dog post</p>
+        </div>
+        <button type="button" id="closeSharePanelBtn" class="share-panel-close" aria-label="Close share panel">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+    </div>
+    <div class="share-options">
+        <button type="button" class="share-option" data-network="facebook">
+            <span class="share-logo share-facebook"><i class="bi bi-facebook" aria-hidden="true"></i></span>
+            <span>Facebook</span>
+        </button>
+        <button type="button" class="share-option" data-network="messenger">
+            <span class="share-logo share-messenger"><i class="bi bi-messenger" aria-hidden="true"></i></span>
+            <span>Messenger</span>
+        </button>
+        <button type="button" class="share-option" data-network="x">
+            <span class="share-logo share-x"><i class="bi bi-twitter-x" aria-hidden="true"></i></span>
+            <span>X</span>
+        </button>
+        <button type="button" class="share-option" data-network="instagram">
+            <span class="share-logo share-instagram"><i class="bi bi-instagram" aria-hidden="true"></i></span>
+            <span>Instagram</span>
+        </button>
+    </div>
+    <label for="shareLinkInput" class="share-url-label">Share Link</label>
+    <div class="share-link-row">
+        <input id="shareLinkInput" type="text" readonly>
+        <button type="button" id="copyShareLinkBtn" class="share-copy-btn">Copy Link</button>
+    </div>
+    <div id="sharePanelStatus" class="share-panel-status" aria-live="polite"></div>
+</div>
+
 <script>
 (function () {
+    function openFacebookShareUrl(webShareUrl) {
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        if (!isMobile) {
+            window.open(webShareUrl, '_blank', 'noopener');
+            return;
+        }
+
+        const appShareUrl = 'fb://facewebmodal/f?href=' + encodeURIComponent(webShareUrl);
+        let fallbackTimer = null;
+
+        function cancelFallbackOnAppOpen() {
+            if (document.hidden && fallbackTimer) {
+                clearTimeout(fallbackTimer);
+                fallbackTimer = null;
+                document.removeEventListener('visibilitychange', cancelFallbackOnAppOpen);
+            }
+        }
+
+        document.addEventListener('visibilitychange', cancelFallbackOnAppOpen);
+
+        fallbackTimer = setTimeout(() => {
+            document.removeEventListener('visibilitychange', cancelFallbackOnAppOpen);
+            window.location.href = webShareUrl;
+        }, 900);
+
+        window.location.href = appShareUrl;
+    }
+
     function initPhotoViewer(viewer) {
         const image = viewer.querySelector('.fb-photo-main');
         const prevBtn = viewer.querySelector('.fb-photo-prev');
@@ -195,7 +293,202 @@
     const mobileLayout = window.matchMedia('(max-width: 767.98px)');
     const modal = document.querySelector('[data-pinned-announcement-modal]');
     const modalContent = modal?.querySelector('[data-pinned-announcement-content]') || null;
+    const sharePanelRoot = document.getElementById('sharePanel');
+    const sharePanelDefaultParent = sharePanelRoot ? sharePanelRoot.parentElement : null;
     let lastFocusedTrigger = null;
+    let activeShareUrl = '';
+    let activeShareTrigger = null;
+
+    function restoreSharePanelParent() {
+        const panel = document.getElementById('sharePanel');
+        if (!panel || !sharePanelDefaultParent) return;
+        if (panel.parentElement !== sharePanelDefaultParent) {
+            sharePanelDefaultParent.appendChild(panel);
+        }
+        panel.classList.remove('is-inline-mobile');
+    }
+
+    function setShareStatus(message) {
+        const statusEl = document.getElementById('sharePanelStatus');
+        if (!statusEl) return;
+        statusEl.textContent = message || '';
+    }
+
+    function positionSharePanel() {
+        const panel = document.getElementById('sharePanel');
+        if (!panel || panel.hidden || !activeShareTrigger) return;
+
+        const isMobile = window.matchMedia('(max-width: 768px)').matches;
+        if (isMobile) {
+            panel.classList.add('is-inline-mobile');
+            panel.style.left = '';
+            panel.style.right = '';
+            panel.style.top = '';
+            panel.style.bottom = '';
+            return;
+        }
+        if (panel.classList.contains('is-inline-mobile')) {
+            restoreSharePanelParent();
+        }
+
+        panel.style.right = '';
+        panel.style.bottom = '';
+        const triggerRect = activeShareTrigger.getBoundingClientRect();
+        const panelWidth = panel.offsetWidth || 348;
+        const margin = 12;
+        let left = triggerRect.right - panelWidth;
+        left = Math.max(margin, left);
+        left = Math.min(left, window.innerWidth - panelWidth - margin);
+        const top = Math.min(
+            triggerRect.bottom + 10,
+            window.innerHeight - panel.offsetHeight - margin
+        );
+
+        panel.style.left = `${left}px`;
+        panel.style.top = `${Math.max(margin, top)}px`;
+    }
+
+    function openSharePanel(triggerEl, shareUrl) {
+        const panel = document.getElementById('sharePanel');
+        const input = document.getElementById('shareLinkInput');
+        if (!panel || !input) return;
+
+        activeShareUrl = shareUrl;
+        activeShareTrigger = triggerEl;
+        input.value = shareUrl;
+        panel.hidden = false;
+        const isMobile = window.matchMedia('(max-width: 768px)').matches;
+        if (isMobile) {
+            const mountAfterEl =
+                triggerEl.closest('.user-ann-popup-actions')
+                || triggerEl.closest('.user-ann-action-row')
+                || triggerEl.closest('.user-ann-card-footer')
+                || triggerEl.parentElement;
+            if (mountAfterEl && mountAfterEl.parentElement) {
+                mountAfterEl.insertAdjacentElement('afterend', panel);
+                panel.classList.add('is-inline-mobile');
+            }
+            panel.style.left = '';
+            panel.style.right = '';
+            panel.style.top = '';
+            panel.style.bottom = '';
+        } else {
+            restoreSharePanelParent();
+        }
+        positionSharePanel();
+        setShareStatus('');
+    }
+
+    function closeSharePanel() {
+        const panel = document.getElementById('sharePanel');
+        if (!panel) return;
+        panel.hidden = true;
+        activeShareUrl = '';
+        activeShareTrigger = null;
+        setShareStatus('');
+        restoreSharePanelParent();
+    }
+
+    async function copyShareLink() {
+        if (!activeShareUrl) return;
+        try {
+            await navigator.clipboard.writeText(activeShareUrl);
+            setShareStatus('Link copied.');
+        } catch (error) {
+            const input = document.getElementById('shareLinkInput');
+            if (!input) return;
+            input.focus();
+            input.select();
+            document.execCommand('copy');
+            setShareStatus('Link copied.');
+        }
+    }
+
+    function shareViaMessenger(url) {
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        if (!isMobile) {
+            copyShareLink();
+            window.open('https://www.messenger.com/', '_blank', 'noopener');
+            setShareStatus('Link copied. Paste it in Messenger.');
+            return;
+        }
+
+        const messengerAppUrl = 'fb-messenger://share/?link=' + encodeURIComponent(url);
+        const fallback = setTimeout(() => {
+            window.open('https://www.messenger.com/', '_blank', 'noopener');
+            setShareStatus('Open Messenger and paste the copied link.');
+        }, 900);
+
+        document.addEventListener('visibilitychange', function onHide() {
+            if (document.hidden) {
+                clearTimeout(fallback);
+                document.removeEventListener('visibilitychange', onHide);
+            }
+        });
+
+        window.location.href = messengerAppUrl;
+    }
+
+    function initSharePanel() {
+        const panel = document.getElementById('sharePanel');
+        const optionBtns = document.querySelectorAll('.share-option[data-network]');
+        const copyBtn = document.getElementById('copyShareLinkBtn');
+        const closeBtn = document.getElementById('closeSharePanelBtn');
+
+        document.addEventListener('click', (event) => {
+            const shareBtn = event.target.closest('.js-open-share');
+            if (shareBtn) {
+                const shareUrl = shareBtn.getAttribute('data-share-url');
+                if (!shareUrl) return;
+                openSharePanel(shareBtn, shareUrl);
+                return;
+            }
+
+            if (!panel || panel.hidden) return;
+            const clickedInsidePanel = event.target.closest('#sharePanel');
+            if (!clickedInsidePanel) {
+                closeSharePanel();
+            }
+        });
+
+        optionBtns.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                if (!activeShareUrl) return;
+                const network = btn.getAttribute('data-network');
+                const encodedUrl = encodeURIComponent(activeShareUrl);
+
+                if (network === 'facebook') {
+                    openFacebookShareUrl(`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`);
+                    return;
+                }
+                if (network === 'messenger') {
+                    shareViaMessenger(activeShareUrl);
+                    return;
+                }
+                if (network === 'x') {
+                    window.open(`https://twitter.com/intent/tweet?url=${encodedUrl}`, '_blank', 'noopener');
+                    return;
+                }
+                if (network === 'instagram') {
+                    copyShareLink();
+                    window.open('https://www.instagram.com/', '_blank', 'noopener');
+                    setShareStatus('Link copied. Paste it in Instagram.');
+                }
+            });
+        });
+
+        copyBtn?.addEventListener('click', copyShareLink);
+        closeBtn?.addEventListener('click', closeSharePanel);
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeSharePanel();
+            }
+        });
+
+        window.addEventListener('resize', positionSharePanel);
+        window.addEventListener('scroll', positionSharePanel, true);
+    }
 
     function setActiveSection(sectionKey) {
         if (!board) return;
@@ -239,6 +532,7 @@
     });
 
     syncMobileSections();
+    initSharePanel();
     if (typeof mobileLayout.addEventListener === 'function') {
         mobileLayout.addEventListener('change', syncMobileSections);
     } else if (typeof mobileLayout.addListener === 'function') {
@@ -281,6 +575,30 @@
         if (event.key === 'Escape' && modal && !modal.hidden) {
             closePinnedAnnouncementModal();
         }
+    });
+})();
+
+(function () {
+    document.addEventListener("DOMContentLoaded", function () {
+        var params = new URLSearchParams(window.location.search);
+        var h = params.get("highlight");
+        if (!h || !/^\d+$/.test(h)) {
+            return;
+        }
+        var el = document.getElementById("announcement-card-" + h);
+        if (!el) {
+            return;
+        }
+        el.classList.add("user-ann-card--shared-highlight");
+        var bucket = el.getAttribute("data-bucket") || "";
+        var tabKey = bucket === "ordinary" ? "regular" : bucket;
+        var tabBtn = document.querySelector('[data-user-mobile-announcement-tab="' + tabKey + '"]');
+        if (tabBtn && typeof tabBtn.click === "function") {
+            tabBtn.click();
+        }
+        window.setTimeout(function () {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 150);
     });
 })();
 </script>

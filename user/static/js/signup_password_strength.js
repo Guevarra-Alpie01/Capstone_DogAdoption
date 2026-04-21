@@ -59,7 +59,7 @@
             return;
         }
 
-        const inputGroup = input.closest(".input-group");
+        const inputGroup = input.closest(".input-group") || input.closest(".g-field");
         const status = guide.querySelector("[data-password-strength-status]");
         const fill = guide.querySelector("[data-password-strength-fill]");
         const ruleItems = guide.querySelectorAll("[data-password-rule]");

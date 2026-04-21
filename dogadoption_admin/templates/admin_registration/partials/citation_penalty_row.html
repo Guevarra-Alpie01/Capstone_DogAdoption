@@ -1,0 +1,121 @@
+{% comment %}
+  Section 29 selectable row + optional <details> with fee sub-lines (stored on Citation.penalty_subitems).
+  Context: penalty, selected_penalty_ids, selected_subitem_codes
+{% endcomment %}
+<div class="citation-penalty-block">
+    <label class="radio-item">
+        <input
+            type="checkbox"
+            name="penalties"
+            value="{{ penalty.id }}"
+            class="violation-check"
+            {% if penalty.id in selected_penalty_ids %}checked{% endif %}
+        >
+        <span class="number">{{ penalty.number }}.</span>
+        <span class="title">{{ penalty.title }}</span>
+        <span class="amount">PHP {{ penalty.amount }}</span>
+    </label>
+    {% if penalty.number == 14 %}
+        <details class="citation-penalty-more">
+            <summary class="citation-penalty-more__toggle">See details</summary>
+            <div class="citation-penalty-more__body citation-penalty-more__body--subchecks">
+                <label class="citation-subitem">
+                    <input
+                        type="checkbox"
+                        name="penalty_subitem"
+                        value="s29_14_fine"
+                        class="violation-subcheck"
+                        data-main-penalty-id="{{ penalty.id }}"
+                        {% if 's29_14_fine' in selected_subitem_codes %}checked{% endif %}
+                    >
+                    <span class="citation-subitem__label">Fine (4th offense — forced neutering)</span>
+                    <span class="citation-subitem__amount">PHP 5,000.00</span>
+                </label>
+            </div>
+        </details>
+    {% elif penalty.number == 15 %}
+        <details class="citation-penalty-more">
+            <summary class="citation-penalty-more__toggle">See requirements</summary>
+            <ul class="citation-penalty-more__list">
+                <li>Yellow card (anti-rabies vaccination)</li>
+                <li>Microchip</li>
+                <li>Rabies vaccination</li>
+                <li>Collar / tag</li>
+                <li>Barangay registration</li>
+                <li>Applicable fees, fines, and penalties settled</li>
+            </ul>
+        </details>
+    {% elif penalty.number == 20 %}
+        <details class="citation-penalty-more">
+            <summary class="citation-penalty-more__toggle">See all tiers</summary>
+            <div class="citation-penalty-more__body citation-penalty-more__body--subchecks">
+                <label class="citation-subitem">
+                    <input
+                        type="checkbox"
+                        name="penalty_subitem"
+                        value="s29_20_24h"
+                        class="violation-subcheck"
+                        data-main-penalty-id="{{ penalty.id }}"
+                        {% if 's29_20_24h' in selected_subitem_codes %}checked{% endif %}
+                    >
+                    <span class="citation-subitem__label">Within 24 hrs</span>
+                    <span class="citation-subitem__amount">PHP 500.00</span>
+                </label>
+                <label class="citation-subitem">
+                    <input
+                        type="checkbox"
+                        name="penalty_subitem"
+                        value="s29_20_48h"
+                        class="violation-subcheck"
+                        data-main-penalty-id="{{ penalty.id }}"
+                        {% if 's29_20_48h' in selected_subitem_codes %}checked{% endif %}
+                    >
+                    <span class="citation-subitem__label">Within 48 hrs</span>
+                    <span class="citation-subitem__amount">PHP 1,000.00</span>
+                </label>
+                <label class="citation-subitem">
+                    <input
+                        type="checkbox"
+                        name="penalty_subitem"
+                        value="s29_20_72h"
+                        class="violation-subcheck"
+                        data-main-penalty-id="{{ penalty.id }}"
+                        {% if 's29_20_72h' in selected_subitem_codes %}checked{% endif %}
+                    >
+                    <span class="citation-subitem__label">Within 72 hrs</span>
+                    <span class="citation-subitem__amount">PHP 1,500.00</span>
+                </label>
+            </div>
+        </details>
+    {% elif penalty.number == 24 %}
+        <details class="citation-penalty-more">
+            <summary class="citation-penalty-more__toggle">See excess rates</summary>
+            <div class="citation-penalty-more__body citation-penalty-more__body--subchecks">
+                <label class="citation-subitem">
+                    <input
+                        type="checkbox"
+                        name="penalty_subitem"
+                        value="s29_24_ex1"
+                        class="violation-subcheck"
+                        data-main-penalty-id="{{ penalty.id }}"
+                        {% if 's29_24_ex1' in selected_subitem_codes %}checked{% endif %}
+                    >
+                    <span class="citation-subitem__label">1 excess</span>
+                    <span class="citation-subitem__amount">PHP 500.00</span>
+                </label>
+                <label class="citation-subitem">
+                    <input
+                        type="checkbox"
+                        name="penalty_subitem"
+                        value="s29_24_ex2"
+                        class="violation-subcheck"
+                        data-main-penalty-id="{{ penalty.id }}"
+                        {% if 's29_24_ex2' in selected_subitem_codes %}checked{% endif %}
+                    >
+                    <span class="citation-subitem__label">2 excess</span>
+                    <span class="citation-subitem__amount">PHP 1,000.00</span>
+                </label>
+            </div>
+        </details>
+    {% endif %}
+</div>

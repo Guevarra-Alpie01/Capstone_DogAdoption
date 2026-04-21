@@ -1,143 +1,564 @@
 {% extends 'base.html' %}
-{% load static %}
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_confirm.css' %}?v=20260406reserve-adoption">
-{% endblock %}
 {% block content %}
-<div class="adoption-review-page">
-    <section class="adoption-review-shell">
-        <header class="adoption-review-header">
-            <div>
-                <span class="adoption-review-kicker">
-                    {% if post.current_phase == 'claim' %}Adoption Reservation{% else %}Adoption Request{% endif %}
-                </span>
-                <h1 class="adoption-review-title">
-                    {% if post.current_phase == 'claim' %}Reserve Adoption{% else %}Adoption Review{% endif %}
-                </h1>
-                <p class="adoption-review-intro">
-                    {% if post.current_phase == 'claim' %}
-                    Choose one available appointment date to reserve your adoption request. If no owner claim is approved, your request moves forward once the claim window closes.
-                    {% else %}
-                    Check the dog details, choose one available appointment date, and send your request.
-                    {% endif %}
-                </p>
-            </div>
-            <a href="{{ status_url }}" class="adoption-review-status-link">
-                <i class="bi bi-house-door" aria-hidden="true"></i>
-                <span>View My Adoption Requests</span>
-            </a>
-        </header>
 
-        <section class="adoption-review-section adoption-review-overview">
-            <div class="adoption-review-copy">
-                <h2 class="adoption-review-section-title">{{ post.display_title|default:"Dog Listing" }}</h2>
-                {% if post.current_phase == 'claim' %}
-                <div class="adoption-review-highlight" role="note">
-                    <span class="adoption-review-highlight-icon" aria-hidden="true">
-                        <i class="bi bi-heart-fill"></i>
-                    </span>
-                    <div class="adoption-review-highlight-copy">
-                        <strong>Reserved while the claim window is still open</strong>
-                        <span>This keeps your adoption request queued in case the dog is not claimed by an owner.</span>
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        z-index: 1050;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 30px 20px;
+        overflow-y: auto;
+        animation: overlayFadeIn 0.3s ease;
+    }
+
+    @keyframes overlayFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes cardSlideIn {
+        from { opacity: 0; transform: translateY(30px) scale(0.96); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .claim-theme-card {
+        position: relative;
+        border: none;
+        border-radius: 28px;
+        box-shadow: 0 30px 80px rgba(15, 23, 42, 0.2);
+        background: #ffffff;
+        overflow: hidden;
+        width: 100%;
+        max-width: 1080px;
+        margin: auto;
+        animation: cardSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .claim-theme-header {
+        background: #ffffff;
+        border-bottom: none;
+        padding: 32px 32px 12px !important;
+    }
+
+    .claim-preview {
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        overflow: visible;
+    }
+
+    .claim-preview-profile {
+        padding: 0 0 24px;
+    }
+
+    .claim-preview-image-wrapper {
+        width: 100%;
+        aspect-ratio: 16 / 11;
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    }
+
+    .claim-preview-profile-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .claim-content {
+        padding: 0 32px 32px;
+    }
+
+    .claim-theme-close {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        margin: -8px -8px 0 0;
+        padding: 0;
+        border: 1px solid #2563eb;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #4f8df7 0%, #2563eb 100%);
+        color: #ffffff;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+        z-index: 10;
+    }
+
+    .claim-theme-close svg {
+        width: 22px;
+        height: 22px;
+        stroke: currentColor;
+        stroke-width: 3;
+    }
+
+    .claim-theme-close:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+        color: #ffffff;
+    }
+
+    @media (min-width: 992px) {
+        .claim-layout {
+            display: grid;
+            grid-template-columns: 1.15fr 1fr;
+            gap: 40px;
+            align-items: start;
+        }
+    }
+
+    .claim-preview-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .attr-card {
+        background: #f8fafc;
+        border: 1px solid #edf2f7;
+        border-radius: 16px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .attr-icon-box {
+        width: 38px;
+        height: 38px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #64748b;
+        flex-shrink: 0;
+    }
+
+    .attr-content {
+        min-width: 0;
+    }
+
+    .attr-label {
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-bottom: 1px;
+    }
+
+    .attr-value {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 800;
+        color: #1e293b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .attr-card--full {
+        grid-column: span 2;
+    }
+
+    .claim-preview-dot {
+        display: none;
+    }
+
+    .claim-preview-title {
+        display: none;
+    }
+
+    /* Decorative Paws */
+    .paw-decoration {
+        position: absolute;
+        color: #e2e8f0;
+        opacity: 0.5;
+        pointer-events: none;
+        z-index: 0;
+    }
+    .paw-1 { top: 60px; right: 30px; font-size: 2.5rem; transform: rotate(15deg); }
+    .paw-2 { bottom: 40px; right: 340px; font-size: 3rem; transform: rotate(-20deg); }
+
+    .adopt-confirm-photos {
+        padding: 0 18px 18px;
+        border-top: none;
+    }
+
+    .adopt-confirm-photos-title {
+        margin: 0 0 10px;
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #64748b;
+    }
+
+    .adopt-confirm-photos-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .adopt-confirm-photos-row img {
+        width: 64px;
+        height: 64px;
+        object-fit: cover;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        transition: transform 0.2s ease;
+    }
+
+    .adopt-confirm-photos-row img:hover {
+        transform: scale(1.05);
+    }
+
+    .claim-form .form-label {
+        margin-bottom: 4px;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .claim-form .form-control {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.65rem;
+    }
+
+    .claim-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 24px;
+        padding-top: 0;
+        border-top: none;
+    }
+
+    .btn-claim-submit {
+        background: #198754;
+        border-color: #198754;
+        color: #ffffff;
+        font-weight: 800;
+        padding: 12px 32px;
+        border-radius: 12px;
+        font-size: 1rem;
+        box-shadow: 0 10px 24px rgba(25, 135, 84, 0.28);
+    }
+
+    .btn-claim-submit:hover {
+        background: #157347;
+        border-color: #157347;
+        color: #ffffff;
+        box-shadow: 0 12px 28px rgba(25, 135, 84, 0.32);
+    }
+
+    @media (min-width: 769px) {
+        .claim-summary-more-btn {
+            display: none !important;
+        }
+    }
+
+    @media (min-width: 992px) {
+        .claim-layout {
+            grid-template-columns: minmax(280px, 34%) minmax(0, 1fr);
+            gap: 16px;
+        }
+
+        .claim-preview {
+            position: sticky;
+            top: 84px;
+        }
+    }
+
+    @media (max-width: 991px) {
+        .claim-theme-header {
+            padding: 30px 24px 12px !important;
+            text-align: center;
+        }
+        .claim-theme-header .d-flex {
+            flex-direction: column;
+            align-items: center !important;
+        }
+        .claim-theme-close {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+        }
+        .claim-theme-header h2 {
+            font-size: 1.5rem !important;
+            margin-top: 20px;
+        }
+        .claim-content {
+            padding: 0 24px 40px;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .claim-preview-grid {
+            grid-template-columns: 1fr;
+        }
+        .claim-theme-header {
+            padding: 40px 16px 12px !important;
+        }
+        .claim-theme-header h2 {
+            font-size: 1.4rem !important;
+        }
+        .claim-content {
+            padding: 0 16px 30px;
+        }
+        .attr-card {
+            padding: 10px 14px;
+        }
+        .claim-preview-image-wrapper {
+            max-width: 400px;
+            margin-inline: auto;
+        }
+    }
+
+    @media (min-width: 769px) {
+        .claim-summary-more-btn {
+            display: none !important;
+        }
+    }
+
+</style>
+
+<div class="modal-overlay" id="adoptModalOverlay">
+    <div class="claim-theme-card">
+        <i class="bi bi-paw-fill paw-decoration paw-1"></i>
+        <i class="bi bi-paw-fill paw-decoration paw-2"></i>
+
+        <div class="claim-theme-header">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h2 class="mb-1 fw-bold text-dark" style="font-size: 1.75rem;">
+                        {% if post.current_phase == 'claim' %}Reserve Adoption{% else %}Adoption Request{% endif %}
+                    </h2>
+                    <p class="mb-0 text-secondary" style="font-size: 0.95rem;">
+                        {% if post.current_phase == 'claim' %}
+                        Pick an available appointment date to reserve this dog.
+                        {% else %}
+                        Pick an available appointment date to submit your adoption request.
+                        {% endif %}
+                    </p>
+                </div>
+                <a
+                    id="adoptCloseLink"
+                    href="{% url 'user:adopt_list' %}"
+                    class="claim-theme-close"
+                    aria-label="Close"
+                    title="Close (Esc)"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </a>
+            </div>
+        </div>
+
+        <div class="claim-content">
+            <div class="claim-layout">
+                <div class="claim-preview">
+                    {% if post.images.exists %}
+                        <div class="claim-preview-profile">
+                            <div class="claim-preview-image-wrapper">
+                                <img src="{{ post.images.first.image.url }}" alt="{{ post.display_title|default:'Dog photo' }}" class="claim-preview-profile-img">
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <div class="claim-preview-grid">
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-journal-text"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Listing</span>
+                                <span class="attr-value">{{ post.display_title|default:"Dog Listing" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-hourglass-split"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Age</span>
+                                <span class="attr-value">{{ post.display_age_group|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12,2C10,2 4,4 4,10C4,12 5,14 6,15V21H9V18H15V21H18V15C19,14 20,12 20,10C20,4 14,2 12,2M12,4C14,4 18,5 18,10C18,11.5 17.5,13 16,14V16H8V14C6.5,13 6,11.5 6,10C6,5 10,4 12,4Z"/>
+                                </svg>
+                            </div>
+                            <div class="attr-content">
+                                <span class="attr-label">Breed</span>
+                                <span class="attr-value">{{ post.display_breed|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-rulers"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Size</span>
+                                <span class="attr-value">{{ post.display_size_group|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-gender-ambiguous"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Gender</span>
+                                <span class="attr-value">{{ post.get_gender_display|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-palette"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Color</span>
+                                <span class="attr-value">{{ post.display_colors|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-geo-alt"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Location</span>
+                                <span class="attr-value">{{ post.location|default:"N/A" }}</span>
+                            </div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="attr-icon-box"><i class="bi bi-calendar-event"></i></div>
+                            <div class="attr-content">
+                                <span class="attr-label">Rescued On</span>
+                                <span class="attr-value">{{ post.rescued_date|date:"M d, Y"|default:"N/A" }}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                {% endif %}
-                <div class="adoption-review-meta">
-                    {% if post.display_breed %}
-                        <div class="review-meta-card">
-                            <span class="review-meta-label">Breed</span>
-                            <span class="review-meta-value">{{ post.display_breed }}</span>
-                        </div>
-                    {% endif %}
-                    {% if post.display_age_group %}
-                        <div class="review-meta-card">
-                            <span class="review-meta-label">Age</span>
-                            <span class="review-meta-value">{{ post.display_age_group }}</span>
-                        </div>
-                    {% endif %}
-                    {% if post.display_size_group %}
-                        <div class="review-meta-card">
-                            <span class="review-meta-label">Size</span>
-                            <span class="review-meta-value">{{ post.display_size_group }}</span>
-                        </div>
-                    {% endif %}
-                    {% if post.gender %}
-                        <div class="review-meta-card">
-                            <span class="review-meta-label">Gender</span>
-                            <span class="review-meta-value">{{ post.get_gender_display }}</span>
-                        </div>
-                    {% endif %}
-                    {% if post.display_coat_length %}
-                        <div class="review-meta-card">
-                            <span class="review-meta-label">Coat</span>
-                            <span class="review-meta-value">{{ post.display_coat_length }}</span>
-                        </div>
-                    {% endif %}
-                    {% if post.display_colors %}
-                        <div class="review-meta-card">
-                            <span class="review-meta-label">Color</span>
-                            <span class="review-meta-value">{{ post.display_colors }}</span>
-                        </div>
-                    {% endif %}
-                    {% if post.location %}
-                        <div class="review-meta-card">
-                            <span class="review-meta-label">Location</span>
-                            <span class="review-meta-value">{{ post.location }}</span>
-                        </div>
+
+                <form
+                    method="post"
+                    id="adoptForm"
+                    class="claim-form"
+                    data-confirm-modal
+                    data-confirm-title="{% if post.current_phase == 'claim' %}Confirm reservation{% else %}Confirm adoption request{% endif %}"
+                    data-confirm-message="{% if post.current_phase == 'claim' %}Reserve adoption for this dog with your selected appointment date?{% else %}Submit this adoption request with your selected appointment date?{% endif %}"
+                    data-confirm-submit-label="{% if post.current_phase == 'claim' %}Reserve{% else %}Submit{% endif %}"
+                >
+                    {% csrf_token %}
+                    {% if return_to %}
+                    <input type="hidden" name="return_to" value="{{ return_to }}">
                     {% endif %}
 
-                    {% if post.rescued_date %}
-                        <div class="review-meta-card">
-                            <span class="review-meta-label">Rescued on</span>
-                            <span class="review-meta-value">{{ post.rescued_date|date:"M d, Y" }}</span>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            {% if post.images.exists %}
-                <div class="adoption-review-gallery">
-                    <h3 class="adoption-review-subtitle">Dog Photos</h3>
-                    <div class="adoption-review-photos">
-                        {% for image in post.images.all %}
-                            <img src="{{ image.image.url }}"
-                                 alt="{{ post.display_title|default:'Dog photo' }}"
-                                 width="112"
-                                 height="112">
-                        {% endfor %}
+                    <div class="mb-2">
+                        {% include "partials/appointment_picker.html" with submit_btn_id="confirm_btn" %}
                     </div>
-                </div>
-            {% endif %}
-        </section>
 
-        <section class="adoption-review-section adoption-review-schedule">
-            <h2 class="adoption-review-section-title">Preferred Appointment Date</h2>
-            <p class="adoption-review-section-note">
-                {% if post.current_phase == 'claim' %}
-                Reserve one available date now. The request stays on hold during the owner-claim period and only becomes reviewable if the dog is still unclaimed after that window.
-                {% else %}
-                Choose one available date to continue. After submission, the post stays visible and admin approval opens after a 1-day verification window.
-                {% endif %}
-            </p>
-
-            <form method="post" id="adoptForm" class="adoption-review-form">
-                {% csrf_token %}
-                <div class="adoption-review-picker">
-                    {% include "partials/appointment_picker.html" with submit_btn_id="confirm_btn" %}
-                </div>
-
-                <div class="adoption-review-actions">
-                    <a href="{{ cancel_url }}" class="btn btn-cancel-action adoption-review-btn adoption-review-btn-cancel">
-                        Cancel
-                    </a>
-
-                    <button type="submit" id="confirm_btn" class="btn btn-success adoption-review-btn" {% if not available_dates %}disabled{% endif %}>
-                        <i class="bi {% if post.current_phase == 'claim' %}bi-heart-fill{% else %}bi-house-heart{% endif %}" aria-hidden="true"></i>
-                        <span>{% if post.current_phase == 'claim' %}Reserve Adoption{% else %}Confirm Request{% endif %}</span>
-                    </button>
-                </div>
-            </form>
-        </section>
-    </section>
+                    <div class="claim-actions">
+                        <button type="submit" id="confirm_btn" class="btn btn-claim-submit" {% if not available_dates %}disabled{% endif %}>
+                            Confirm Request
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+(function () {
+    var list = document.getElementById("adoptSummaryList");
+    var btn = document.getElementById("adoptSummaryMoreBtn");
+    if (!list || !btn) {
+        return;
+    }
+    var mq = window.matchMedia("(max-width: 768px)");
+    var expanded = false;
+
+    function applyMobileCollapseState() {
+        var items = list.querySelectorAll(".claim-summary-item");
+        var needsToggle = items.length > 2 && mq.matches;
+        btn.hidden = !needsToggle;
+        if (!mq.matches) {
+            list.classList.remove("claim-summary-list--collapsed");
+            expanded = false;
+            btn.setAttribute("aria-expanded", "true");
+            btn.textContent = "View more";
+            return;
+        }
+        if (!needsToggle) {
+            list.classList.remove("claim-summary-list--collapsed");
+            expanded = false;
+            return;
+        }
+        list.classList.toggle("claim-summary-list--collapsed", !expanded);
+        btn.setAttribute("aria-expanded", expanded ? "true" : "false");
+        btn.textContent = expanded ? "View less" : "View more";
+    }
+
+    btn.addEventListener("click", function () {
+        if (!mq.matches) {
+            return;
+        }
+        expanded = !expanded;
+        applyMobileCollapseState();
+    });
+
+    if (typeof mq.addEventListener === "function") {
+        mq.addEventListener("change", function () {
+            expanded = false;
+            applyMobileCollapseState();
+        });
+    } else if (typeof mq.addListener === "function") {
+        mq.addListener(function () {
+            expanded = false;
+            applyMobileCollapseState();
+        });
+    }
+
+    applyMobileCollapseState();
+})();
+
+(function () {
+    var closeLink = document.getElementById("adoptCloseLink");
+    if (!closeLink || !closeLink.getAttribute("href")) {
+        return;
+    }
+    document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape" || e.defaultPrevented) {
+            return;
+        }
+        var t = e.target;
+        var tag = t && t.tagName;
+        if (tag === "TEXTAREA") {
+            return;
+        }
+        if (tag === "INPUT") {
+            var type = (t.type || "").toLowerCase();
+            if (type !== "button" && type !== "submit" && type !== "reset" && type !== "checkbox" && type !== "radio") {
+                return;
+            }
+        }
+        if (tag === "SELECT") {
+            return;
+        }
+        window.location.href = closeLink.href;
+    });
+})();
+</script>
+
 {% endblock %}

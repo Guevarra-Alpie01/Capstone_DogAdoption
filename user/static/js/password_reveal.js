@@ -16,7 +16,6 @@
         toggles.forEach((button) => {
             let locked = false;
 
-            // Hover/press to reveal while interacting.
             button.addEventListener("mouseenter", function () {
                 if (!locked) setVisibility(button, true);
             });
@@ -40,12 +39,30 @@
                 if (!locked) setVisibility(button, false);
             });
 
-            // Click fallback for accessibility.
             button.addEventListener("click", function (e) {
                 e.preventDefault();
                 locked = !locked;
                 setVisibility(button, locked);
             });
         });
+
+        var loginCheck = document.getElementById("loginShowPassword");
+        if (loginCheck) {
+            loginCheck.addEventListener("change", function () {
+                var pw = document.getElementById("loginModalPassword");
+                if (pw) pw.type = this.checked ? "text" : "password";
+            });
+        }
+
+        var signupCheck = document.getElementById("signupShowPassword");
+        if (signupCheck) {
+            signupCheck.addEventListener("change", function () {
+                var show = this.checked;
+                var pw = document.getElementById("signupModalPassword");
+                var cpw = document.getElementById("signupModalConfirmPassword");
+                if (pw) pw.type = show ? "text" : "password";
+                if (cpw) cpw.type = show ? "text" : "password";
+            });
+        }
     });
 })();

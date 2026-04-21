@@ -25,16 +25,32 @@
             </div>
         </div>
 
-        <div class="post-type-toggle" id="postTypeToggle" data-active-type="{% if selected_type == 'missing' %}missing{% else %}adoption{% endif %}">
-            <button type="button" class="post-type-btn js-post-type-btn" data-type="adoption">
-                <i class="bi bi-house-heart"></i>
-                <span>For Adoption</span>
-            </button>
-            <button type="button" class="post-type-btn js-post-type-btn" data-type="missing">
-                <i class="bi bi-exclamation-triangle"></i>
-                <span>Missing Dog</span>
-            </button>
-        </div>
+        <details class="post-type-menu" id="postTypeToggle" data-active-type="{% if selected_type == 'missing' %}missing{% else %}adoption{% endif %}">
+            <summary class="post-type-menu__summary">
+                <span class="post-type-menu__summary-icon" aria-hidden="true">
+                    <i class="bi bi-ui-radios-grid"></i>
+                </span>
+                <span class="post-type-menu__summary-copy">
+                    <span class="post-type-menu__summary-title">Post Type</span>
+                    <span class="post-type-menu__summary-label" data-post-type-current-label>
+                        {% if selected_type == 'missing' %}Missing Dog{% else %}For Adoption{% endif %}
+                    </span>
+                </span>
+                <span class="post-type-menu__summary-caret" aria-hidden="true">
+                    <i class="bi bi-chevron-down"></i>
+                </span>
+            </summary>
+            <div class="post-type-menu__options">
+                <button type="button" class="post-type-btn js-post-type-btn" data-type="adoption">
+                    <i class="bi bi-house-heart"></i>
+                    <span>For Adoption</span>
+                </button>
+                <button type="button" class="post-type-btn js-post-type-btn" data-type="missing">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <span>Missing Dog</span>
+                </button>
+            </div>
+        </details>
 
         <form method="POST" enctype="multipart/form-data" novalidate class="post-create-form">
             {% csrf_token %}
@@ -63,6 +79,7 @@
     document.addEventListener("DOMContentLoaded", function () {
         const typeButtons = document.querySelectorAll("#postTypeToggle .js-post-type-btn");
         const postTypeToggle = document.getElementById("postTypeToggle");
+        const postTypeCurrentLabel = document.querySelector("[data-post-type-current-label]");
         const adoptionFields = document.getElementById("adoptionFields");
         const missingFields = document.getElementById("missingFields");
         const postTypeInput = document.getElementById("postTypeInput");
@@ -107,6 +124,10 @@
             setPanelDisabled(missingFields, !isMissing);
             if (postTypeToggle) {
                 postTypeToggle.dataset.activeType = postTypeInput.value;
+                postTypeToggle.open = false;
+            }
+            if (postTypeCurrentLabel) {
+                postTypeCurrentLabel.textContent = isMissing ? "Missing Dog" : "For Adoption";
             }
             syncAdoptionAttributeFields();
         }

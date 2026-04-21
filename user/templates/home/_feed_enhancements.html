@@ -17,11 +17,12 @@
         </div>
     </div>
 </div>
+<div id="sharePanelBackdrop" class="share-panel-backdrop" hidden aria-hidden="true"></div>
 <div id="sharePanel" class="share-panel" hidden>
     <div class="share-panel-header">
         <div>
-            <h3 class="share-panel-title">Share Post</h3>
-            <p class="share-panel-subtitle">Choose where to share this dog post</p>
+            <h3 class="share-panel-title">Share</h3>
+            <p class="share-panel-subtitle">Choose a platform or copy the link</p>
         </div>
         <button type="button" id="closeSharePanelBtn" class="share-panel-close" aria-label="Close share panel">
             <i class="bi bi-x-lg" aria-hidden="true"></i>
@@ -90,14 +91,24 @@
     let activeShareTrigger = null;
     const sharePanelRoot = document.getElementById("sharePanel");
     const sharePanelDefaultParent = sharePanelRoot ? sharePanelRoot.parentElement : null;
-
     function restoreSharePanelParent() {
         const panel = document.getElementById("sharePanel");
         if (!panel || !sharePanelDefaultParent) return;
         if (panel.parentElement !== sharePanelDefaultParent) {
             sharePanelDefaultParent.appendChild(panel);
         }
-        panel.classList.remove("is-inline-mobile");
+        panel.classList.remove("is-inline-mobile", "is-mobile-sheet");
+    }
+
+    function restoreShareBackdropSibling() {
+        const backdrop = document.getElementById("sharePanelBackdrop");
+        const panel = document.getElementById("sharePanel");
+        if (!backdrop || !sharePanelDefaultParent || !panel) {
+            return;
+        }
+        if (backdrop.parentElement === document.body && panel.parentElement === sharePanelDefaultParent) {
+            sharePanelDefaultParent.insertBefore(backdrop, panel);
+        }
     }
 
     function setShareStatus(message) {
@@ -109,27 +120,32 @@
     function openSharePanel(triggerEl, shareUrl) {
         const panel = document.getElementById("sharePanel");
         const input = document.getElementById("shareLinkInput");
+        const backdrop = document.getElementById("sharePanelBackdrop");
         if (!panel || !input) return;
 
         activeShareUrl = shareUrl;
         activeShareTrigger = triggerEl;
         input.value = shareUrl;
         panel.hidden = false;
-        const isMobile = window.matchMedia("(max-width: 768px)").matches;
-        if (isMobile) {
-            const mountAfterEl =
-                triggerEl.closest(".admin-actions")
-                || triggerEl.closest(".text-center.mt-3")
-                || triggerEl.parentElement;
-            if (mountAfterEl && mountAfterEl.parentElement) {
-                mountAfterEl.insertAdjacentElement("afterend", panel);
-                panel.classList.add("is-inline-mobile");
-            }
+        const isNarrow = window.matchMedia("(max-width: 768px)").matches;
+
+        if (isNarrow && backdrop) {
+            backdrop.hidden = false;
+            document.body.style.overflow = "hidden";
+            panel.classList.remove("is-inline-mobile");
+            panel.classList.add("is-mobile-sheet");
+            document.body.appendChild(backdrop);
+            document.body.appendChild(panel);
             panel.style.left = "";
             panel.style.right = "";
             panel.style.top = "";
             panel.style.bottom = "";
         } else {
+            if (backdrop) {
+                backdrop.hidden = true;
+            }
+            document.body.style.overflow = "";
+            panel.classList.remove("is-mobile-sheet");
             restoreSharePanelParent();
         }
         positionSharePanel();
@@ -138,8 +154,16 @@
 
     function closeSharePanel() {
         const panel = document.getElementById("sharePanel");
+        const backdrop = document.getElementById("sharePanelBackdrop");
+        if (backdrop) {
+            backdrop.hidden = true;
+        }
+        document.body.style.overflow = "";
         if (!panel) return;
         panel.hidden = true;
+        panel.classList.remove("is-mobile-sheet", "is-inline-mobile");
+        restoreSharePanelParent();
+        restoreShareBackdropSibling();
         activeShareUrl = "";
         activeShareTrigger = null;
         setShareStatus("");
@@ -148,6 +172,10 @@
     function positionSharePanel() {
         const panel = document.getElementById("sharePanel");
         if (!panel || panel.hidden || !activeShareTrigger) return;
+
+        if (panel.classList.contains("is-mobile-sheet")) {
+            return;
+        }
 
         const isMobile = window.matchMedia("(max-width: 768px)").matches;
         if (isMobile) {
@@ -220,18 +248,26 @@
     }
 
     function initSharePanel() {
+        if (window.__bayawanVetSharePanelInitialized) {
+            return;
+        }
         const panel = document.getElementById("sharePanel");
-        const openBtns = document.querySelectorAll(".js-open-share");
+        if (!panel) {
+            return;
+        }
+        window.__bayawanVetSharePanelInitialized = true;
+
         const optionBtns = document.querySelectorAll(".share-option[data-network]");
         const copyBtn = document.getElementById("copyShareLinkBtn");
         const closeBtn = document.getElementById("closeSharePanelBtn");
 
-        openBtns.forEach((btn) => {
-            btn.addEventListener("click", () => {
-                const shareUrl = btn.getAttribute("data-share-url");
-                if (!shareUrl) return;
-                openSharePanel(btn, shareUrl);
-            });
+        document.addEventListener("click", (event) => {
+            const btn = event.target.closest(".js-open-share");
+            if (!btn) return;
+            const shareUrl = btn.getAttribute("data-share-url");
+            if (!shareUrl) return;
+            event.preventDefault();
+            openSharePanel(btn, shareUrl);
         });
 
         optionBtns.forEach((btn) => {
@@ -266,6 +302,13 @@
 
         if (closeBtn) {
             closeBtn.addEventListener("click", closeSharePanel);
+        }
+
+        const backdropEl = document.getElementById("sharePanelBackdrop");
+        if (backdropEl) {
+            backdropEl.addEventListener("click", () => {
+                closeSharePanel();
+            });
         }
 
         document.addEventListener("click", (event) => {
@@ -400,6 +443,7 @@
     function initCreatePostModal() {
         const typeButtons = document.querySelectorAll("#homePostTypeToggle .js-post-type-btn");
         const postTypeToggle = document.getElementById("homePostTypeToggle");
+        const postTypeCurrentLabel = document.querySelector("#homePostTypeToggle [data-post-type-current-label]");
         const adoptionFields = document.getElementById("homeAdoptionFields");
         const missingFields = document.getElementById("homeMissingFields");
         const postTypeInput = document.getElementById("homePostTypeInput");
@@ -449,6 +493,10 @@
             setPanelDisabled(missingFields, !isMissing);
             if (postTypeToggle) {
                 postTypeToggle.dataset.activeType = postTypeInput.value;
+                postTypeToggle.open = false;
+            }
+            if (postTypeCurrentLabel) {
+                postTypeCurrentLabel.textContent = isMissing ? "Missing Dog" : "For Adoption";
             }
             syncAdoptionAttributeFields();
         }

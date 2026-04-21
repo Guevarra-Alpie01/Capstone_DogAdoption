@@ -1,0 +1,280 @@
+/* Share panel (Facebook, Messenger, X, Instagram + copy link) — used on home feed and announcement pages */
+
+.share-panel {
+    position: fixed;
+    /* Above pinned announcement modal (2400) and typical Bootstrap modals */
+    z-index: 2600;
+    box-sizing: border-box;
+    width: min(348px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #dbe3ef;
+    border-radius: 16px;
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.2);
+    padding: 14px;
+    padding-left: max(14px, env(safe-area-inset-left, 0px));
+    padding-right: max(14px, env(safe-area-inset-right, 0px));
+    padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+}
+
+.share-panel.is-inline-mobile {
+    position: static;
+    width: 100%;
+    max-width: none;
+    margin-top: 10px;
+    z-index: auto;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+    left: auto;
+    right: auto;
+    top: auto;
+    bottom: auto;
+}
+
+.share-panel-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2590;
+    background: rgba(15, 23, 42, 0.52);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+.share-panel.is-mobile-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    border-radius: 18px 18px 0 0;
+    z-index: 2610;
+    max-height: min(88vh, 560px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -16px 44px rgba(15, 23, 42, 0.28);
+}
+
+.share-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+    min-width: 0;
+}
+
+.share-panel-header > div:first-child {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.share-panel-title {
+    margin: 0;
+    color: #0f172a;
+    font-size: 1.06rem;
+    font-weight: 800;
+}
+
+.share-panel-subtitle {
+    margin: 2px 0 0;
+    color: #64748b;
+    font-size: 0.77rem;
+    line-height: 1.35;
+}
+
+.share-panel-close {
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #475569;
+    border-radius: 999px;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.share-panel-close:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+/* Announcement pages only: make the share panel close button blue */
+body.announcement-page .share-panel-close {
+    border: 1px solid #2563eb !important;
+    background: linear-gradient(180deg, #4f8df7 0%, #2563eb 100%) !important;
+    color: #ffffff !important;
+}
+
+body.announcement-page .share-panel-close:hover,
+body.announcement-page .share-panel-close:focus-visible {
+    border-color: #1d4ed8 !important;
+    background: linear-gradient(180deg, #3f7ff0 0%, #1d4ed8 100%) !important;
+    color: #ffffff !important;
+}
+
+.share-options {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.share-option {
+    border: 1px solid #dbe3ef;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #334155;
+    padding: 8px 6px;
+    border-radius: 11px;
+    cursor: pointer;
+    min-width: 0;
+    text-align: center;
+    transition: transform 0.15s ease, box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.share-option > span:last-child {
+    line-height: 1.2;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.share-option:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+}
+
+.share-logo {
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.98rem;
+    box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.18);
+}
+
+.share-facebook { background: #1877f2; }
+.share-messenger { background: #0084ff; }
+.share-x { background: #111827; }
+.share-instagram { background: #e1306c; }
+
+.share-url-label {
+    font-size: 0.73rem;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.share-link-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 8px;
+}
+
+#shareLinkInput {
+    flex: 1 1 160px;
+    min-width: 0;
+    width: auto;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 0.78rem;
+    color: #334155;
+    background: #ffffff;
+}
+
+.share-copy-btn {
+    border: 1px solid #1f6b4f;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #2b8a62 0%, #1f6b4f 100%);
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-weight: 800;
+    padding: 8px 12px;
+    min-width: 88px;
+    min-height: 40px;
+    flex: 0 0 auto;
+    cursor: pointer;
+}
+
+.share-copy-btn:hover {
+    filter: brightness(1.03);
+    transform: translateY(-1px);
+}
+
+.share-panel-status {
+    min-height: 18px;
+    margin-top: 9px;
+    font-size: 0.75rem;
+    color: #0f766e;
+    font-weight: 700;
+}
+
+@media (max-width: 640px) {
+    .share-options {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .share-option {
+        min-height: 4.75rem;
+        padding: 10px 8px;
+        font-size: 0.74rem;
+    }
+
+    .share-logo {
+        width: 36px;
+        height: 36px;
+        font-size: 0.92rem;
+    }
+}
+
+@media (max-width: 400px) {
+    .share-panel:not(.is-inline-mobile) {
+        width: calc(100vw - 16px);
+        max-width: calc(100vw - 16px);
+    }
+
+    .share-panel-title {
+        font-size: 1rem;
+    }
+
+    .share-panel-subtitle {
+        font-size: 0.72rem;
+    }
+
+    .share-link-row {
+        flex-direction: column;
+        flex-wrap: nowrap;
+    }
+
+    #shareLinkInput {
+        flex: none;
+        width: 100%;
+    }
+
+    .share-copy-btn {
+        width: 100%;
+        min-height: 44px;
+    }
+}

@@ -46,6 +46,7 @@ import math
 # Shared models from the admin app
 from dogadoption_admin.access import get_staff_landing_url
 from dogadoption_admin.barangays import BAYAWAN_BARANGAYS
+from dogadoption_admin.citation_subitems import citation_fee_total, normalize_subitems
 from dogadoption_admin.models import (
     AdminNotification,
     AnnouncementComment,
@@ -71,11 +72,11 @@ from .forms import MissingDogPostForm, RescueFinderForm, UserAdoptionPostForm
 from .avatar_cache import invalidate_cached_profile_avatar
 from .notification_utils import (
     build_user_notification_payload,
+    build_user_notification_summary,
     build_user_registered_dog_vaccination_status_map,
     build_user_vaccination_reminder_summary,
     bump_user_home_feed_namespace,
     get_user_home_feed_namespace,
-    get_user_notification_read_keys,
     invalidate_user_notification_content,
     invalidate_user_notification_payload,
     mark_user_notification_read,
@@ -106,11 +107,13 @@ _signup_username_validator = ASCIIUsernameValidator()
 RESCUE_FINDER_PAGE_SIZE = 12
 RESCUE_FINDER_RECOMMENDATION_LIMIT = 4
 HOME_FEATURED_CAROUSEL_LIMIT = 5
+HOME_FEATURED_UNIFIED_CAROUSEL_LIMIT = 8
 HOME_SPOTLIGHT_DISPLAY_LIMIT = 4
 HOME_SPOTLIGHT_FALLBACK_CANDIDATE_LIMIT = 60
 HOME_FEATURED_CANDIDATE_LIMIT = 60
 HOME_SPOTLIGHT_URGENCY_THRESHOLD_SECONDS = 24 * 60 * 60
 GOOGLE_SIGNUP_SESSION_KEY = "google_signup_data"
+LOGIN_USERNAME_PREFILL_SESSION_KEY = "login_username_prefill"
 
 
 def _safe_media_url(file_field):
@@ -694,16 +697,18 @@ def _complete_google_login(request, google_account, *, next_url=""):
         login(request, existing_user)
         _clear_social_signup_session(request)
         messages.success(request, "Signed in with Google.")
-        if next_url:
+        if existing_user.is_staff:
+            response = redirect(next_url or get_staff_landing_url(existing_user))
+            response.set_cookie("admin_sessionid", request.session.session_key)
+            return response
+
+        if not profile.address and not next_url:
+            response = redirect("user:complete_google_profile")
+        elif next_url:
             response = redirect(next_url)
-        elif existing_user.is_staff:
-            response = redirect(get_staff_landing_url(existing_user))
         else:
             response = redirect("user:user_home")
-        if existing_user.is_staff:
-            response.set_cookie("admin_sessionid", request.session.session_key)
-        else:
-            response.delete_cookie("admin_sessionid")
+        response.delete_cookie("admin_sessionid")
         return response
 
     try:
@@ -718,19 +723,48 @@ def _complete_google_login(request, google_account, *, next_url=""):
     login(request, created_user)
     _clear_social_signup_session(request)
     _clear_signup_session_state(request, delete_temp_faces=True)
-    messages.success(request, "Signed in with Google. You can complete your profile later from Edit Profile.")
+    messages.success(request, "Signed in with Google.")
 
-    if next_url:
-        response = redirect(next_url)
-    elif created_user.is_staff:
-        response = redirect(get_staff_landing_url(created_user))
-    else:
-        response = redirect("user:user_home")
     if created_user.is_staff:
+        if next_url:
+            response = redirect(next_url)
+        else:
+            response = redirect(get_staff_landing_url(created_user))
         response.set_cookie("admin_sessionid", request.session.session_key)
-    else:
-        response.delete_cookie("admin_sessionid")
+        return response
+
+    response = redirect("user:complete_google_profile")
+    response.delete_cookie("admin_sessionid")
     return response
+
+
+@login_required(login_url="/user/user-login/")
+def complete_google_profile(request):
+    """Let a new Google user fill in their barangay before entering the app."""
+    profile = getattr(request.user, "profile", None)
+    if profile is None:
+        profile, _ = Profile.objects.get_or_create(
+            user=request.user,
+            defaults={"address": "", "age": 18, "consent_given": True},
+        )
+
+    if profile.address:
+        return redirect("user:user_home")
+
+    if request.method == "POST":
+        raw_barangay = request.POST.get("address", "").strip()
+        barangay = _resolve_barangay_name(raw_barangay)
+        if not barangay:
+            return render(request, "complete_profile.html", {
+                "error": "Please select a valid barangay from the suggestions.",
+                "form_barangay": raw_barangay,
+            })
+        profile.address = barangay
+        profile.save(update_fields=["address"])
+        messages.success(request, "Profile updated! Welcome to the app.")
+        return redirect("user:user_home")
+
+    return render(request, "complete_profile.html")
 
 
 def _delete_temp_signup_face_images(image_paths):
@@ -1127,14 +1161,17 @@ def _build_profile_violation_summary(profile_user):
             f"Sec. {penalty.section.number} #{penalty.number} - {penalty.title}"
             for penalty in penalties
         ]
-        total_amount = sum((penalty.amount for penalty in penalties), 0)
+        sub_norm = normalize_subitems(getattr(citation, "penalty_subitems", None))
+        for row in sub_norm:
+            violation_labels.append(row.get("label") or row.get("code") or "Fee line")
+        total_amount = citation_fee_total(penalties, sub_norm)
 
         user_violation_records.append(
             {
                 "citation_id": citation.id,
                 "date_issued": citation.date_issued,
                 "violations": violation_labels,
-                "violation_count": len(penalties),
+                "violation_count": len(penalties) + len(sub_norm),
                 "total_amount": total_amount,
                 "remarks": (citation.remarks or "").strip(),
             }
@@ -1275,12 +1312,22 @@ def login_view(request):
     if request.user.is_authenticated:
         if request.user.is_staff:
             return redirect(get_staff_landing_url(request.user))
+        resume_url = _get_safe_next_url(request, request.GET.get("next"))
+        if resume_url:
+            return redirect(resume_url)
         return redirect("user:user_home")
 
     next_url = _get_safe_next_url(
         request,
         (request.POST.get("next") if request.method == "POST" else request.GET.get("next")) or request.GET.get("next"),
     )
+
+    login_form_prefill = {}
+    if request.method == "GET":
+        prefill_username = (request.session.pop(LOGIN_USERNAME_PREFILL_SESSION_KEY, None) or "").strip()
+        if prefill_username:
+            login_form_prefill = {"username": prefill_username}
+
     auth_source = (request.POST.get("auth_source") or "").strip() if request.method == "POST" else ""
 
     def render_login_error(message, username=""):
@@ -1319,7 +1366,8 @@ def login_view(request):
         if _user_requires_email_verification(existing_user):
             return render_login_error("Please verify your email address before logging in.", username)
 
-        user = authenticate(request, username=username, password=password)
+        auth_username = existing_user.username if existing_user is not None else username
+        user = authenticate(request, username=auth_username, password=password)
 
         if user is not None:
             if user.is_staff:
@@ -1333,9 +1381,19 @@ def login_view(request):
             response.delete_cookie("admin_sessionid")
             return response
 
-        return render_login_error("Invalid username or password", username)
+        invalid_msg = "The username or password you entered is incorrect. Please try again."
+        if auth_source == "modal":
+            return render_login_error(invalid_msg, username)
 
-    return _render_login_page(request, next_url=next_url)
+        request.session[LOGIN_USERNAME_PREFILL_SESSION_KEY] = username
+        request.session.modified = True
+        messages.error(request, invalid_msg)
+        login_redirect = reverse("user:login")
+        if next_url:
+            login_redirect = f"{login_redirect}?{urlencode({'next': next_url})}"
+        return redirect(login_redirect)
+
+    return _render_login_page(request, login_form_data=login_form_prefill, next_url=next_url)
 
 
 @csrf_exempt
@@ -1379,42 +1437,36 @@ def mark_notifications_seen(request):
         request,
         [item.get("key", "") for item in payload.get("items", [])],
     )
-    return JsonResponse({"ok": True, "unread_count": 0})
+    summary = build_user_notification_summary(request)
+    return JsonResponse({"ok": True, "unread_count": summary["unread_count"]})
 
 
-def _build_user_notification_summary(request):
-    payload = build_user_notification_payload(request.user)
-    read_keys = get_user_notification_read_keys(request)
-    notifications = []
-    unread_count = 0
-    for item in payload.get("items", []):
-        notification_key = item.get("key", "")
-        target_url = item.get("url") or reverse("user:user_home")
-        is_unread = bool(notification_key and notification_key not in read_keys)
-        if is_unread:
-            unread_count += 1
-        notifications.append({
-            "kind": item.get("kind", "notification"),
-            "title": item.get("title", ""),
-            "message": item.get("message", ""),
-            "url": target_url,
-            "created_label": item.get("created_label", ""),
-            "is_unread": is_unread,
-            "open_url": "{}?{}".format(
-                reverse("user:open_notification"),
-                urlencode({"key": notification_key, "next": target_url}),
-            ),
-        })
-    return {
-        "unread_count": unread_count,
-        "notifications": notifications,
-    }
+@require_POST
+@user_only
+def mark_notification_read(request):
+    """Mark a single notification as read (session-scoped); returns updated unread count."""
+    notification_key = ""
+    content_type = (request.content_type or "").lower()
+    if "application/json" in content_type:
+        try:
+            body = json.loads(request.body.decode() or "{}")
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            body = {}
+        if isinstance(body, dict):
+            notification_key = (body.get("key") or "").strip()
+    else:
+        notification_key = (request.POST.get("key") or "").strip()
+
+    if notification_key:
+        mark_user_notification_read(request, notification_key)
+    summary = build_user_notification_summary(request)
+    return JsonResponse({"ok": True, "unread_count": summary["unread_count"]})
 
 
 @user_only
 def notification_summary(request):
     """Return the current user's notification badge and dropdown data."""
-    return JsonResponse(_build_user_notification_summary(request))
+    return JsonResponse(build_user_notification_summary(request))
 
 
 @user_only
@@ -1430,7 +1482,7 @@ def open_notification(request):
         None,
     )
 
-    if matching_item and notification_key:
+    if notification_key:
         mark_user_notification_read(request, notification_key)
 
     target = (
@@ -1589,9 +1641,6 @@ def _pluralized_time_label(value, singular):
 
 
 def _featured_time_left_emphasis(phase_payload):
-    if phase_payload["is_pending_review"]:
-        return "Pending review"
-
     days = phase_payload["days_left"]
     hours = phase_payload["hours_left"]
     minutes = phase_payload["minutes_left"]
@@ -1605,9 +1654,6 @@ def _featured_time_left_emphasis(phase_payload):
 
 
 def _featured_time_left_tone(phase_payload):
-    if phase_payload["is_pending_review"]:
-        return "review"
-
     total_minutes = (
         phase_payload["days_left"] * 24 * 60
         + phase_payload["hours_left"] * 60
@@ -1621,10 +1667,8 @@ def _featured_time_left_tone(phase_payload):
 
 
 def _featured_time_left_context(phase, phase_payload):
-    if phase_payload["is_pending_review"]:
-        return "Admin verification is underway."
     if phase == "claim":
-        return "Before the owner-claim window closes."
+        return "Before the owner redemption window closes."
     return "Before the adoption window closes."
 
 
@@ -1640,7 +1684,7 @@ def _post_phase_payload(post):
         else None
     )
     days = hours = minutes = 0
-    if phase in {"claim", "adopt"} and not is_pending_review:
+    if phase in {"claim", "adopt"}:
         days, hours, minutes = _split_time_left(post.time_left())
     return {
         "phase": phase,
@@ -1650,6 +1694,42 @@ def _post_phase_payload(post):
         "is_pending_review": is_pending_review,
         "pending_review_until": pending_review_until,
         "pending_review_until_label": _format_datetime_label(pending_review_until),
+    }
+
+
+def _viewer_staff_post_request_map(user, post_ids):
+    """Map staff Post id -> claim/adopt flags for PostRequest rows by this user (any status)."""
+    if not user or not getattr(user, "is_authenticated", False) or not post_ids:
+        return {}
+    normalized_ids = list({int(pk) for pk in post_ids})
+    flags = {pid: {"claim": False, "adopt": False} for pid in normalized_ids}
+    for pid, rtype in PostRequest.objects.filter(
+        user=user, post_id__in=normalized_ids
+    ).values_list("post_id", "request_type"):
+        if pid in flags and rtype in ("claim", "adopt"):
+            flags[pid][rtype] = True
+    return flags
+
+
+def _staff_post_public_cta_flags(phase, user, vf):
+    """Which claim/reserve/adopt buttons to show on public cards (guests always see CTAs).
+
+    Logged-in users: claim and reserve (adopt-type request during claim phase) are mutually
+    exclusive — only one request type per post. Same for adopt phase vs an existing claim row.
+    """
+    vf = vf or {"claim": False, "adopt": False}
+    if not user or not getattr(user, "is_authenticated", False):
+        return {
+            "show_claim_cta": phase == "claim",
+            "show_reserve_adoption_cta": phase == "claim",
+            "show_adopt_cta": phase == "adopt",
+        }
+    has_claim = vf["claim"]
+    has_adopt = vf["adopt"]
+    return {
+        "show_claim_cta": phase == "claim" and not has_claim and not has_adopt,
+        "show_reserve_adoption_cta": phase == "claim" and not has_claim and not has_adopt,
+        "show_adopt_cta": phase == "adopt" and not has_adopt and not has_claim,
     }
 
 
@@ -1677,6 +1757,7 @@ def _build_rescue_finder_form(*args, location_choices=None, default_purpose="all
 
 
 def _finder_default_purpose(listing_mode):
+    """Fresh visits and cleared filters use Purpose = All so every listing is visible."""
     return "all"
 
 
@@ -1739,46 +1820,330 @@ def _rescue_finder_title(post):
     return " ".join((post.display_title or "Dog Listing").split())
 
 
-def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
+def _announcement_feed_share_url(request, announcement_id):
+    """Public share link: announcements board with ?highlight=<id> (scrolls to the card)."""
+    base = request.build_absolute_uri(reverse("user:announcement_list"))
+    return f"{base}?{urlencode({'highlight': str(announcement_id)})}"
+
+
+def _finder_share_url_staff(request, post, phase_payload):
+    """
+    Public share link: Find a Dog listing scrolled to this card (guests can view the card).
+    Claim-phase staff posts use the claim list; adopt-phase use the adopt list; closed posts
+    fall back to the read-only post detail overlay.
+    """
+    phase = phase_payload["phase"]
+    pid = post.id
+    hl = urlencode({"highlight": f"staff:{pid}"})
+    if phase == "claim":
+        base = request.build_absolute_uri(reverse("user:redeem_list"))
+        return f"{base}?purpose=claim&{hl}"
+    if phase == "adopt":
+        base = request.build_absolute_uri(reverse("user:adopt_list"))
+        return f"{base}?purpose=adopt&{hl}"
+    return request.build_absolute_uri(reverse("user:post_detail", args=[pid]))
+
+
+def _finder_share_url_user_adoption(request, user_post_id):
+    """Share link to Find a Dog with the user adoption card highlighted."""
+    base = request.build_absolute_uri(reverse("user:adopt_list"))
+    return f"{base}?{urlencode({'purpose': 'adopt', 'highlight': f'user:{user_post_id}'})}"
+
+
+def _parse_finder_highlight(raw):
+    raw = (raw or "").strip()
+    if ":" not in raw:
+        return None, None
+    kind, _, rest = raw.partition(":")
+    kind = kind.strip().lower()
+    rest = rest.strip()
+    if kind not in {"staff", "user"} or not rest.isdigit():
+        return None, None
+    return kind, int(rest)
+
+
+def _absolute_uri_for_og(request, path_or_url):
+    """Build an absolute http(s) URL for Open Graph image fields."""
+    if not path_or_url:
+        return ""
+    raw = (path_or_url or "").strip()
+    if raw.startswith(("http://", "https://")):
+        return raw
+    if raw.startswith("//"):
+        return f"{request.scheme}:{raw}"
+    return request.build_absolute_uri(raw if raw.startswith("/") else f"/{raw}")
+
+
+def _finder_highlight_open_graph(request):
+    """
+    When ?highlight= points at a finder card, expose og:image and text for link previews
+    (Facebook, Messenger, X, etc.).
+    """
+    kind, hid = _parse_finder_highlight(request.GET.get("highlight"))
+    if not kind or not hid:
+        return {}
+
+    og_url = request.build_absolute_uri(request.get_full_path())
+    site = "Bayawan Vet"
+
+    if kind == "staff":
+        post = (
+            Post.objects.filter(id=hid, is_history=False)
+            .prefetch_related("images")
+            .first()
+        )
+        if not post:
+            return {}
+        img_rel = _first_prefetched_image_url(post.images.all())
+        og_image = _absolute_uri_for_og(request, img_rel)
+        title = _rescue_finder_title(post)
+        location_label = " ".join((post.location or "").split()) or "Bayawan City"
+        phase_payload = _post_phase_payload(post)
+        phase = phase_payload["phase"]
+        if phase == "claim":
+            phase_note = "Owner redemption window is open."
+        elif phase == "adopt":
+            phase_note = "Ready for adoption."
+        else:
+            phase_note = "Bayawan Vet rescue listing."
+        desc = f"{title} — {location_label}. {phase_note}"
+        if len(desc) > 300:
+            desc = f"{desc[:297].rstrip()}..."
+        return {
+            "finder_og_title": f"{title} | {site}",
+            "finder_og_description": desc,
+            "finder_og_image": og_image,
+            "finder_og_url": og_url,
+        }
+
+    if kind == "user":
+        upost = (
+            UserAdoptionPost.objects.filter(id=hid)
+            .prefetch_related("images")
+            .first()
+        )
+        if not upost:
+            return {}
+        img_rel = _first_prefetched_image_url(upost.images.all())
+        og_image = _absolute_uri_for_og(request, img_rel)
+        loc = " ".join((upost.location or "").split()) or "Bayawan City"
+        dog = (upost.dog_name or "Dog").strip() or "Dog"
+        breed = upost.display_breed or "Adoption"
+        desc = f"{dog} ({breed}) — {loc}. Community adoption listing on Bayawan Vet."
+        if len(desc) > 300:
+            desc = f"{desc[:297].rstrip()}..."
+        return {
+            "finder_og_title": f"{dog} — {breed} | {site}",
+            "finder_og_description": desc,
+            "finder_og_image": og_image,
+            "finder_og_url": og_url,
+        }
+
+    return {}
+
+
+def _announcement_highlight_open_graph(request):
+    """Open Graph tags when ?highlight=<id> targets a specific announcement card."""
+    raw = (request.GET.get("highlight") or "").strip()
+    if not raw.isdigit():
+        return {}
+    pk = int(raw)
+    post = (
+        DogAnnouncement.objects.select_related("created_by")
+        .prefetch_related(
+            Prefetch(
+                "images",
+                queryset=DogAnnouncementImage.objects.only(
+                    "id",
+                    "announcement_id",
+                    "image",
+                    "created_at",
+                ).order_by("created_at", "id"),
+                to_attr="prefetched_images",
+            ),
+        )
+        .filter(pk=pk)
+        .first()
+    )
+    if not post:
+        return {}
+
+    og_image = ""
+    if post.background_image:
+        og_image = request.build_absolute_uri(post.background_image.url)
+    elif getattr(post, "prefetched_images", None):
+        og_image = request.build_absolute_uri(post.prefetched_images[0].image.url)
+    else:
+        og_image = request.build_absolute_uri(static("images/bayawan_logo.webp"))
+
+    plain = strip_tags(post.content or "").strip()
+    if len(plain) > 200:
+        plain = f"{plain[:197].rstrip()}..."
+    if not plain:
+        plain = "Announcement from Bayawan Vet."
+
+    title = (post.title or "Announcement").strip()
+    og_url = request.build_absolute_uri(request.get_full_path())
+    site = "Bayawan Vet"
+
+    return {
+        "announcement_og_title": f"{title} | {site}",
+        "announcement_og_description": plain,
+        "announcement_og_image": og_image,
+        "announcement_og_url": og_url,
+    }
+
+
+def _finder_maybe_redirect_for_highlight(
+    request,
+    claim_items,
+    adopt_items,
+    user_adoption_items,
+    selected_purpose,
+):
+    """
+    When ?highlight= is present, redirect to the correct purpose and page so the
+    target card is in the unified paginated list.
+    """
+    kind, hid = _parse_finder_highlight(request.GET.get("highlight"))
+    if not kind or not hid:
+        return None
+
+    path = request.path
+    params = request.GET.copy()
+    highlight_val = f"{kind}:{hid}"
+
+    def _find_index(entries):
+        if kind == "user":
+            return next(
+                (
+                    i
+                    for i, e in enumerate(entries)
+                    if e[0] == "user" and e[1].get("post_id") == hid
+                ),
+                None,
+            )
+        return next(
+            (
+                i
+                for i, e in enumerate(entries)
+                if e[0] == "staff" and e[1]["post"].id == hid
+            ),
+            None,
+        )
+
+    purpose_candidates = [selected_purpose]
+    if selected_purpose != "all":
+        purpose_candidates.append("all")
+
+    target_idx = None
+    target_purpose = None
+    for purpose in purpose_candidates:
+        entries = _finder_unified_entries(
+            purpose, claim_items, adopt_items, user_adoption_items
+        )
+        idx = _find_index(entries)
+        if idx is not None:
+            target_idx = idx
+            target_purpose = purpose
+            break
+
+    if target_idx is None:
+        return None
+
+    page_need = target_idx // RESCUE_FINDER_PAGE_SIZE + 1
+    cur_page = int(request.GET.get("page") or 1)
+    params["highlight"] = highlight_val
+
+    if target_purpose != selected_purpose or cur_page != page_need:
+        params["purpose"] = target_purpose
+        params["page"] = str(page_need)
+        return f"{path}?{params.urlencode()}"
+    return None
+
+
+def _announcement_maybe_redirect_for_highlight(request):
+    raw = (request.GET.get("highlight") or "").strip()
+    if not raw.isdigit():
+        return None
+    pk = int(raw)
+    bucket_data = DogAnnouncement.objects.filter(pk=pk).values_list("display_bucket", flat=True).first()
+    if bucket_data is None:
+        return None
+    if bucket_data in (
+        DogAnnouncement.BUCKET_PINNED,
+        DogAnnouncement.BUCKET_CAMPAIGN,
+    ):
+        return None
+
+    regular_qs = (
+        _announcement_feed_queryset()
+        .exclude(
+            display_bucket__in=[
+                DogAnnouncement.BUCKET_PINNED,
+                DogAnnouncement.BUCKET_CAMPAIGN,
+            ]
+        )
+        .order_by("-created_at")
+    )
+    ids = list(regular_qs.values_list("id", flat=True))
+    if pk not in ids:
+        return None
+
+    pos = ids.index(pk)
+    page_need = pos // PUBLIC_ANNOUNCEMENT_PAGE_SIZE + 1
+    cur = int(request.GET.get("page") or 1)
+    if cur == page_need:
+        return None
+
+    params = request.GET.copy()
+    params["page"] = str(page_need)
+    params["highlight"] = str(pk)
+    return f"{reverse('user:announcement_list')}?{params.urlencode()}"
+
+
+def _build_rescue_finder_card_item(
+    request,
+    post,
+    phase_payload,
+    match_score,
+    *,
+    viewer_request_map=None,
+):
     phase = phase_payload["phase"]
     days = phase_payload["days_left"]
     hours = phase_payload["hours_left"]
     minutes = phase_payload["minutes_left"]
-    is_pending_review = phase_payload["is_pending_review"]
     pending_review_until_label = phase_payload["pending_review_until_label"]
     location_label = " ".join((post.location or "").split()) or "Location not listed"
     countdown_deadline = (
-        phase_payload["pending_review_until"]
-        if is_pending_review
-        else (
-            post.claim_deadline()
-            if phase == "claim"
-            else post.adoption_deadline()
-        )
+        post.claim_deadline()
+        if phase == "claim"
+        else post.adoption_deadline()
     )
     countdown_deadline_local = (
         timezone.localtime(countdown_deadline)
         if countdown_deadline and timezone.is_aware(countdown_deadline)
         else countdown_deadline
     )
-    pending_state_detail = (
-        f"Verification until {pending_review_until_label}"
-        if is_pending_review and pending_review_until_label
-        else ""
-    )
-    phase_title = "Ready for Claim" if phase == "claim" else "Ready for Adoption"
-    if is_pending_review:
-        phase_title = "Claim Pending Review" if phase == "claim" else "Adoption Pending Review"
-    share_url = request.build_absolute_uri(reverse("user:post_detail", args=[post.id]))
+    phase_title = "Ready to Redeem" if phase == "claim" else "Ready for Adoption"
+    share_url = _finder_share_url_staff(request, post, phase_payload)
     action_url = (
-        reverse("user:claim_confirm", args=[post.id])
+        reverse("user:redeem_confirm", args=[post.id])
         if phase == "claim"
         else reverse("user:adopt_confirm", args=[post.id])
     )
+    reserve_adoption_url = reverse("user:adopt_confirm", args=[post.id])
+    vf = {"claim": False, "adopt": False}
+    if getattr(request.user, "is_authenticated", False):
+        if viewer_request_map is None:
+            viewer_request_map = _viewer_staff_post_request_map(request.user, [post.id])
+        vf = viewer_request_map.get(post.id, vf)
+    cta_flags = _staff_post_public_cta_flags(phase, request.user, vf)
     return {
         "post": post,
         "phase": phase,
-        "phase_label": "Claim" if phase == "claim" else "Adopt",
+        "phase_label": "Redeem" if phase == "claim" else "Adopt",
         "phase_title": phase_title,
         "days_left": days,
         "hours_left": hours,
@@ -1794,35 +2159,32 @@ def _build_rescue_finder_card_item(request, post, phase_payload, match_score):
         "location_label": location_label,
         "barangay_label": location_label,
         "detail_url": reverse("user:post_detail", args=[post.id]),
-        "action_label": "Claim" if phase == "claim" else "Adopt",
+        "action_label": "Redeem" if phase == "claim" else "Adopt",
         "action_url": action_url,
-        "time_left_badge": (
-            "Pending Admin Review"
-            if is_pending_review
-            else f"{days}d {hours}h {minutes}m left"
-        ),
-        "countdown_date_heading": (
-            "Verification Until"
-            if is_pending_review
-            else ("Claim Ends" if phase == "claim" else "Adoption Ends")
-        ),
+        "reserve_adoption_url": reserve_adoption_url,
+        "viewer_has_claim_request": vf["claim"],
+        "viewer_has_adopt_request": vf["adopt"],
+        **cta_flags,
+        "time_left_badge": f"{days}d {hours}h {minutes}m left",
+        "countdown_date_heading": "Redemption Ends" if phase == "claim" else "Adoption Ends",
         "countdown_date_label": (
-            pending_review_until_label
-            if is_pending_review and pending_review_until_label
-            else (
-                countdown_deadline_local.strftime("%b %d, %Y")
-                if countdown_deadline_local
-                else "Date pending"
-            )
+            countdown_deadline_local.strftime("%b %d, %Y")
+            if countdown_deadline_local
+            else "Date pending"
         ),
         "share_url": share_url,
         "match_score": match_score,
-        "is_pending_review": is_pending_review,
-        "show_countdown": not is_pending_review,
-        "pending_state_label": "Pending admin review" if is_pending_review else "",
-        "pending_state_detail": pending_state_detail,
+        "is_pending_review": phase_payload["is_pending_review"],
+        "show_countdown": phase in {"claim", "adopt"} and bool(countdown_deadline),
+        "pending_state_label": "",
+        "pending_state_detail": "",
         "pending_review_until_label": pending_review_until_label,
         "deadline_iso": countdown_deadline.isoformat() if countdown_deadline else "",
+        "sort_deadline_ts": (
+            countdown_deadline.timestamp()
+            if countdown_deadline
+            else float("inf")
+        ),
     }
 
 
@@ -1934,6 +2296,46 @@ def _filter_user_adoption_posts(posts_qs, filter_type):
     return posts_qs, filter_type
 
 
+def _finder_unified_sort_key(entry):
+    """Sort by soonest window end (claim or adopt), then match quality, then stability."""
+    kind, item = entry
+    deadline_ts = item.get("sort_deadline_ts")
+    if deadline_ts is None:
+        deadline_ts = float("inf")
+    if kind == "user":
+        return (
+            deadline_ts,
+            -item.get("match_score", 0),
+            0 if item.get("main_image_url") else 1,
+            -item["created_at"].timestamp(),
+            item["post_id"],
+        )
+    return (
+        deadline_ts,
+        -item.get("match_score", 0),
+        0 if item.get("main_image_url") else 1,
+        item["post"].id,
+    )
+
+
+def _finder_unified_entries(selected_purpose, claim_items, adopt_items, user_adoption_items):
+    """Merge finder rows for the active Purpose filter (single scrollable list)."""
+    if selected_purpose == "all":
+        parts = (
+            [("staff", c) for c in claim_items]
+            + [("staff", a) for a in adopt_items]
+            + [("user", u) for u in user_adoption_items]
+        )
+    elif selected_purpose == "claim":
+        parts = [("staff", c) for c in claim_items]
+    elif selected_purpose == "adopt":
+        parts = [("staff", a) for a in adopt_items] + [("user", u) for u in user_adoption_items]
+    else:
+        parts = []
+    parts.sort(key=_finder_unified_sort_key)
+    return parts
+
+
 def _build_public_post_listing(request, listing_mode):
     """Build the rescue finder page using real rescue-post phases and profile filters."""
     preferred_purpose = _finder_default_purpose(listing_mode)
@@ -1979,24 +2381,38 @@ def _build_public_post_listing(request, listing_mode):
     active_filter_chips = _build_rescue_finder_selected_chips(finder_form, selected_filters)
     active_filter_count = len(active_filter_chips)
 
+    open_post_ids = [p.id for p, _ in open_post_rows]
+    viewer_staff_request_map = _viewer_staff_post_request_map(request.user, open_post_ids)
+
     claim_items = []
     adopt_items = []
-    _sort_key = lambda item: (
-        -item["match_score"],
-        0 if item["main_image_url"] else 1,
-        -item["post"].created_at.timestamp(),
-        item["post"].id,
-    )
+
+    def _staff_finder_sort_key(item):
+        ts = item.get("sort_deadline_ts")
+        if ts is None:
+            ts = float("inf")
+        return (
+            ts,
+            -item["match_score"],
+            0 if item["main_image_url"] else 1,
+            item["post"].id,
+        )
     for post, phase_payload in open_post_rows:
         phase = phase_payload["phase"]
         match_score = _rescue_finder_match_score(post, selected_filters)
-        card = _build_rescue_finder_card_item(request, post, phase_payload, match_score)
+        card = _build_rescue_finder_card_item(
+            request,
+            post,
+            phase_payload,
+            match_score,
+            viewer_request_map=viewer_staff_request_map,
+        )
         if phase == "claim":
             claim_items.append(card)
         else:
             adopt_items.append(card)
-    claim_items.sort(key=_sort_key)
-    adopt_items.sort(key=_sort_key)
+    claim_items.sort(key=_staff_finder_sort_key)
+    adopt_items.sort(key=_staff_finder_sort_key)
 
     user_adoption_qs = (
         UserAdoptionPost.objects
@@ -2010,8 +2426,18 @@ def _build_public_post_listing(request, listing_mode):
         )
         .order_by("-created_at")
     )
+    user_adoption_posts = list(user_adoption_qs)
+    viewer_user_adoption_post_ids = set()
+    if getattr(request.user, "is_authenticated", False) and user_adoption_posts:
+        viewer_user_adoption_post_ids = set(
+            UserAdoptionRequest.objects.filter(
+                requester=request.user,
+                post_id__in=[post.id for post in user_adoption_posts],
+            ).values_list("post_id", flat=True)
+        )
+
     user_adoption_items = []
-    for upost in user_adoption_qs:
+    for upost in user_adoption_posts:
         if any(
             selected_filters[k]
             and not _rescue_finder_post_matches(upost, k, selected_filters[k])
@@ -2021,6 +2447,15 @@ def _build_public_post_listing(request, listing_mode):
         match_score = _rescue_finder_match_score(upost, selected_filters)
         location_label = " ".join((upost.location or "").split()) or "Location not listed"
         detail_url = reverse("user:user_adoption_post_detail", args=[upost.id])
+        viewer_is_owner = bool(
+            getattr(request.user, "is_authenticated", False)
+            and upost.owner_id == request.user.id
+        )
+        viewer_has_user_adoption_request = upost.id in viewer_user_adoption_post_ids
+        show_user_adoption_request_cta = (
+            not getattr(request.user, "is_authenticated", False)
+            or (not viewer_is_owner and not viewer_has_user_adoption_request)
+        )
         user_adoption_items.append({
             "post": upost,
             "post_id": upost.id,
@@ -2039,19 +2474,47 @@ def _build_public_post_listing(request, listing_mode):
             "match_score": match_score,
             "created_at": upost.created_at,
             "detail_url": detail_url,
-            "share_url": request.build_absolute_uri(detail_url),
+            "request_url": reverse("user:adopt_user_post", args=[upost.id]),
+            "share_url": _finder_share_url_user_adoption(request, upost.id),
+            "viewer_is_owner": viewer_is_owner,
+            "viewer_has_user_adoption_request": viewer_has_user_adoption_request,
+            "show_user_adoption_request_cta": show_user_adoption_request_cta,
+            "sort_deadline_ts": float("inf"),
         })
 
     user_adopt_count = len(user_adoption_items)
     phase_counts["adopt"] += user_adopt_count
     phase_counts["all"] += user_adopt_count
 
-    claim_page_obj = Paginator(claim_items, RESCUE_FINDER_PAGE_SIZE).get_page(
-        request.GET.get("page", 1) if selected_purpose in ("all", "claim") else 1
+    unified_entries_all = _finder_unified_entries(
+        selected_purpose, claim_items, adopt_items, user_adoption_items
     )
-    adopt_page_obj = Paginator(adopt_items, RESCUE_FINDER_PAGE_SIZE).get_page(
-        request.GET.get("page", 1) if selected_purpose in ("all", "adopt") else 1
-    )
+    recommended_posts = []
+    if active_filter_count:
+        best_item = None
+        best_score = -1
+        for entry_kind, entry_item in unified_entries_all:
+            if entry_kind != "staff":
+                continue
+            sc = entry_item.get("match_score", 0)
+            if sc > best_score:
+                best_score = sc
+                best_item = entry_item
+        if best_item is not None and best_score > 0:
+            recommended_posts = [best_item]
+
+    unified_paginator = Paginator(unified_entries_all, RESCUE_FINDER_PAGE_SIZE)
+    unified_page_obj = unified_paginator.get_page(request.GET.get("page", 1))
+    page_pairs = list(unified_page_obj.object_list)
+    finder_unified_rows = [{"kind": k, "item": item} for k, item in page_pairs]
+    posts = [item for k, item in page_pairs if k == "staff"]
+    claim_posts = [
+        item for k, item in page_pairs if k == "staff" and item["phase"] == "claim"
+    ]
+    adopt_posts = [
+        item for k, item in page_pairs if k == "staff" and item["phase"] == "adopt"
+    ]
+    user_adoption_posts = [item for k, item in page_pairs if k == "user"]
 
     purpose_options = [
         {
@@ -2062,7 +2525,7 @@ def _build_public_post_listing(request, listing_mode):
         },
         {
             "value": "claim",
-            "label": purpose_choice_map.get("claim", "Claim"),
+            "label": purpose_choice_map.get("claim", "Redeem"),
             "count": phase_counts["claim"],
             "icon_key": "claim",
         },
@@ -2078,7 +2541,15 @@ def _build_public_post_listing(request, listing_mode):
         purpose_options[0],
     )
 
-    return {
+    highlight_redirect = _finder_maybe_redirect_for_highlight(
+        request,
+        claim_items,
+        adopt_items,
+        user_adoption_items,
+        selected_purpose,
+    )
+
+    context = {
         "listing_mode": listing_mode,
         "page_title": "Find a Dog",
         "page_description": "Browse active dogs and post a dog for adoption or as missing.",
@@ -2094,19 +2565,23 @@ def _build_public_post_listing(request, listing_mode):
         ),
         "active_filter_chips": active_filter_chips,
         "active_filter_count": active_filter_count,
-        "claim_posts": list(claim_page_obj.object_list),
-        "claim_page_obj": claim_page_obj,
-        "adopt_posts": list(adopt_page_obj.object_list),
-        "adopt_page_obj": adopt_page_obj,
-        "user_adoption_posts": user_adoption_items,
+        "finder_unified_rows": finder_unified_rows,
+        "unified_page_obj": unified_page_obj,
+        "finder_pagination_items": _build_pagination_tokens(unified_page_obj),
+        "recommended_posts": recommended_posts,
+        "claim_posts": claim_posts,
+        "adopt_posts": adopt_posts,
+        "posts": posts,
+        "user_adoption_posts": user_adoption_posts,
         "pagination_query": _pagination_query_without_page(request.GET),
-        "clear_filters_url": reverse(
-            "user:claim_list" if listing_mode == "claim" else "user:adopt_list"
+        "clear_filters_url": (
+            f"{reverse('user:redeem_list' if listing_mode == 'claim' else 'user:adopt_list')}"
+            f"?{urlencode({'purpose': 'all'})}"
         ),
         "request_links": [
             {
-                "url": reverse("user:my_claims"),
-                "label": "My Claim Requests",
+                "url": reverse("user:my_redemptions"),
+                "label": "My Redemption Requests",
                 "icon_class": "bi bi-shield",
             },
             {
@@ -2114,8 +2589,14 @@ def _build_public_post_listing(request, listing_mode):
                 "label": "My Adoption Requests",
                 "icon_class": "bi bi-house-door",
             },
+            {
+                "url": reverse("user:my_post_approvals"),
+                "label": "My Post Approvals",
+                "icon_class": "bi bi-file-earmark-check",
+            },
         ],
     }
+    return context, highlight_redirect
 
 
 def _build_home_featured_rescue_sections(request):
@@ -2126,6 +2607,8 @@ def _build_home_featured_rescue_sections(request):
     )
     Post.attach_active_appointment_dates(raw_open_posts)
     section_items = {"claim": [], "adopt": []}
+    featured_post_ids = [p.id for p in raw_open_posts]
+    viewer_staff_request_map = _viewer_staff_post_request_map(request.user, featured_post_ids)
 
     for post in raw_open_posts:
         phase_payload = _post_phase_payload(post)
@@ -2133,63 +2616,66 @@ def _build_home_featured_rescue_sections(request):
         if phase not in section_items or len(section_items[phase]) >= HOME_FEATURED_CAROUSEL_LIMIT:
             continue
 
-        card_item = _build_rescue_finder_card_item(request, post, phase_payload, 0)
+        card_item = _build_rescue_finder_card_item(
+            request,
+            post,
+            phase_payload,
+            0,
+            viewer_request_map=viewer_staff_request_map,
+        )
         card_item.update({
             "home_action_url": f'{card_item["action_url"]}?return_to=home',
             "barangay_label": card_item["location_label"],
+            "carousel_phase": phase,
         })
         section_items[phase].append(card_item)
 
         if all(len(items) >= HOME_FEATURED_CAROUSEL_LIMIT for items in section_items.values()):
             break
 
+    claim_queue = list(section_items["claim"])
+    adopt_queue = list(section_items["adopt"])
+    unified_items = []
+    while len(unified_items) < HOME_FEATURED_UNIFIED_CAROUSEL_LIMIT and (claim_queue or adopt_queue):
+        if claim_queue:
+            unified_items.append(claim_queue.pop(0))
+        if len(unified_items) >= HOME_FEATURED_UNIFIED_CAROUSEL_LIMIT:
+            break
+        if adopt_queue:
+            unified_items.append(adopt_queue.pop(0))
+
+    input_ids = [
+        f"home-carousel-browse-{index}"
+        for index in range(1, len(unified_items) + 1)
+    ]
+    for index, item in enumerate(unified_items):
+        item["input_id"] = input_ids[index]
+        item["previous_input_id"] = input_ids[index - 1] if input_ids else ""
+        item["next_input_id"] = input_ids[(index + 1) % len(input_ids)] if input_ids else ""
+
     sections = [
         {
-            "key": "claim",
-            "title": "Claim Ready",
-            "eyebrow": "Owner Claim Window",
-            "description": "Dogs still within the owner claim window.",
-            "browse_url": reverse("user:claim_list"),
-            "empty_message": "No dogs are currently in the claim window.",
-            "items": section_items["claim"],
-        },
-        {
-            "key": "adopt",
-            "title": "Ready to Adopt",
-            "eyebrow": "Adoption Window",
-            "description": "Dogs ready to meet their next family.",
+            "key": "browse",
+            "title": "Find dogs waiting for you",
+            "eyebrow": "Browse dogs",
+            "description": "Meet rescues open for owner redemption or ready to adopt—swipe through and take the next step.",
             "browse_url": reverse("user:adopt_list"),
-            "empty_message": "No dogs are currently ready for adoption.",
-            "items": section_items["adopt"],
+            "browse_url_redeem": reverse("user:redeem_list"),
+            "empty_message": "No dogs are in the redemption or adoption windows right now. Check back soon.",
+            "items": unified_items,
         },
     ]
-
-    for section in sections:
-        input_ids = [
-            f'home-carousel-{section["key"]}-{index}'
-            for index in range(1, len(section["items"]) + 1)
-        ]
-        for index, item in enumerate(section["items"]):
-            item["input_id"] = input_ids[index]
-            item["previous_input_id"] = input_ids[index - 1] if input_ids else ""
-            item["next_input_id"] = input_ids[(index + 1) % len(input_ids)] if input_ids else ""
 
     return sections
 
 
 def _home_spotlight_remaining_seconds(post, phase_payload):
-    if phase_payload["is_pending_review"]:
-        deadline = phase_payload["pending_review_until"]
-        if deadline:
-            return max(int((deadline - timezone.now()).total_seconds()), 0)
-        return 0
     return max(int(post.time_left().total_seconds()), 0)
 
 
 def _home_spotlight_sort_key(item):
     post, phase_payload = item
     return (
-        1 if phase_payload["is_pending_review"] else 0,
         _home_spotlight_remaining_seconds(post, phase_payload),
         post.created_at.timestamp() if post.created_at else 0,
         post.id,
@@ -2225,17 +2711,26 @@ def _home_spotlight_pick_auto_pairs(candidate_pairs, limit):
     return _home_spotlight_random_fill(candidate_pairs, limit)
 
 
-def _build_home_spotlight_card(request, post, phase_payload, *, is_auto_highlighted=False):
+def _build_home_spotlight_card(
+    request,
+    post,
+    phase_payload,
+    *,
+    is_auto_highlighted=False,
+    viewer_request_map=None,
+):
     phase = phase_payload["phase"]
-    card_item = _build_rescue_finder_card_item(request, post, phase_payload, 0)
+    card_item = _build_rescue_finder_card_item(
+        request,
+        post,
+        phase_payload,
+        0,
+        viewer_request_map=viewer_request_map,
+    )
     countdown_deadline = (
-        phase_payload["pending_review_until"]
-        if phase_payload["is_pending_review"]
-        else (
-            post.claim_deadline()
-            if phase == "claim"
-            else post.adoption_deadline()
-        )
+        post.claim_deadline()
+        if phase == "claim"
+        else post.adoption_deadline()
     )
     countdown_deadline_local = (
         timezone.localtime(countdown_deadline)
@@ -2248,33 +2743,36 @@ def _build_home_spotlight_card(request, post, phase_payload, *, is_auto_highligh
         else post.pinned_at
     )
 
-    if phase_payload["is_pending_review"]:
+    if phase == "claim":
         spotlight_copy = (
-            "Auto-highlighted because it is still awaiting admin verification."
+            "Auto-highlighted because it has the least time left before the redemption window closes."
             if is_auto_highlighted
-            else "Pinned while the request is still under admin verification."
+            else "Still within the owner redemption window."
         )
-        primary_cta_label = "View Status"
-        primary_cta_url = reverse("user:post_detail", args=[post.id])
-        primary_requires_auth = False
-    elif phase == "claim":
-        spotlight_copy = (
-            "Auto-highlighted because it has the least time left before the claim window closes."
-            if is_auto_highlighted
-            else "Still within the owner claim window."
-        )
-        primary_cta_label = "Claim Dog"
-        primary_cta_url = f'{card_item["action_url"]}?return_to=home'
-        primary_requires_auth = True
     else:
         spotlight_copy = (
             "Auto-highlighted because it has the least time left before adoption closes."
             if is_auto_highlighted
             else "Ready for a new family to adopt."
         )
+
+    show_spotlight_primary_cta = False
+    primary_cta_label = ""
+    primary_cta_url = ""
+    primary_requires_auth = True
+    if phase == "claim":
+        if card_item["show_claim_cta"]:
+            show_spotlight_primary_cta = True
+            primary_cta_label = "Redeem Dog"
+            primary_cta_url = f'{card_item["action_url"]}?return_to=home'
+        elif card_item["show_reserve_adoption_cta"]:
+            show_spotlight_primary_cta = True
+            primary_cta_label = "Reserve Adoption"
+            primary_cta_url = f'{card_item["reserve_adoption_url"]}?return_to=home'
+    elif phase == "adopt" and card_item["show_adopt_cta"]:
+        show_spotlight_primary_cta = True
         primary_cta_label = "Adopt Dog"
         primary_cta_url = f'{card_item["action_url"]}?return_to=home'
-        primary_requires_auth = True
 
     return {
         "post": post,
@@ -2292,27 +2790,12 @@ def _build_home_spotlight_card(request, post, phase_payload, *, is_auto_highligh
         "gender_label": card_item["gender_label"],
         "coat_label": card_item["coat_label"],
         "color_label": card_item["color_label"],
-        "time_left_badge": (
-            "Pending admin review"
-            if phase_payload["is_pending_review"]
-            else (
-                f'{phase_payload["days_left"]}d {phase_payload["hours_left"]}h '
-                f'{phase_payload["minutes_left"]}m left'
-            )
-        ),
-        "countdown_date_heading": (
-            "Verification Until"
-            if phase_payload["is_pending_review"]
-            else ("Claim Ends" if phase == "claim" else "Adoption Ends")
-        ),
+        "time_left_badge": card_item["time_left_badge"],
+        "countdown_date_heading": card_item["countdown_date_heading"],
         "countdown_date_label": (
-            phase_payload["pending_review_until_label"]
-            if phase_payload["is_pending_review"]
-            else (
-                countdown_deadline_local.strftime("%b %d, %Y %I:%M %p")
-                if countdown_deadline_local
-                else "Date pending"
-            )
+            countdown_deadline_local.strftime("%b %d, %Y %I:%M %p")
+            if countdown_deadline_local
+            else "Date pending"
         ),
         "support_title": (
             "Auto-highlighted by Bayawan Vet"
@@ -2320,9 +2803,15 @@ def _build_home_spotlight_card(request, post, phase_payload, *, is_auto_highligh
             else "Pinned by Bayawan Vet"
         ),
         "spotlight_copy": spotlight_copy,
+        "show_spotlight_primary_cta": show_spotlight_primary_cta,
         "primary_cta_label": primary_cta_label,
         "primary_cta_url": primary_cta_url,
         "primary_requires_auth": primary_requires_auth,
+        "viewer_has_claim_request": card_item["viewer_has_claim_request"],
+        "viewer_has_adopt_request": card_item["viewer_has_adopt_request"],
+        "show_claim_cta": card_item["show_claim_cta"],
+        "show_reserve_adoption_cta": card_item["show_reserve_adoption_cta"],
+        "show_adopt_cta": card_item["show_adopt_cta"],
         "pinned_on_label": (
             "Auto-selected from soonest deadline"
             if is_auto_highlighted
@@ -2522,7 +3011,10 @@ def _render_public_post_listing_page(request, listing_mode):
         adoption_form = _build_user_adoption_post_form()
         missing_form = _build_missing_dog_post_form()
 
-    context = _build_public_post_listing(request, listing_mode)
+    listing_context, finder_highlight_redirect = _build_public_post_listing(request, listing_mode)
+    if finder_highlight_redirect:
+        return redirect(finder_highlight_redirect)
+    context = listing_context
     context.update({
         "selected_type": selected_type,
         "adoption_form": adoption_form,
@@ -2544,6 +3036,7 @@ def _render_public_post_listing_page(request, listing_mode):
             selected_type="missing",
         ),
     })
+    context.update(_finder_highlight_open_graph(request))
     return render(request, "adopt/adopt_list.html", context)
 
 
@@ -2577,11 +3070,11 @@ def _render_confirm_page(request, template_name, post, available_dates, request_
 
 
 def _request_history_route_name(request_type):
-    return "user:my_claims" if request_type == "claim" else "user:adopt_status"
+    return "user:my_redemptions" if request_type == "claim" else "user:adopt_status"
 
 
 def _public_listing_route_name(request_type):
-    return "user:claim_list" if request_type == "claim" else "user:adopt_list"
+    return "user:redeem_list" if request_type == "claim" else "user:adopt_list"
 
 
 def _request_status_summary(items):
@@ -2600,6 +3093,68 @@ def _request_status_summary_from_qs(queryset, accepted_status="accepted", reject
         accepted=Count("id", filter=Q(status=accepted_status)),
         rejected=Count("id", filter=Q(status=rejected_status)),
     )
+
+
+def _user_post_submission_review_bucket(status):
+    """Map user adoption / missing post status to summary buckets (admin review)."""
+    if status == "pending_review":
+        return "pending"
+    if status == "declined":
+        return "rejected"
+    return "accepted"
+
+
+def _collect_user_post_submissions(user):
+    """Rows for posts the user created that go through staff approval (adopt + missing)."""
+    entries = []
+    profile_url = reverse("user:edit_profile")
+    adoption_qs = (
+        UserAdoptionPost.objects.filter(owner=user)
+        .only("id", "dog_name", "location", "status", "created_at")
+        .order_by("-created_at")
+    )
+    for post in adoption_qs:
+        bucket = _user_post_submission_review_bucket(post.status)
+        entries.append({
+            "kind": "adoption",
+            "kind_label": "Adoption post",
+            "title": post.dog_name,
+            "location": post.location or "",
+            "status": post.status,
+            "status_label": post.get_status_display(),
+            "bucket": bucket,
+            "created_at": post.created_at,
+            "detail_url": reverse("user:user_adoption_post_detail", args=[post.id]),
+        })
+    missing_qs = (
+        MissingDogPost.objects.filter(owner=user)
+        .only("id", "dog_name", "location", "status", "created_at")
+        .order_by("-created_at")
+    )
+    for post in missing_qs:
+        bucket = _user_post_submission_review_bucket(post.status)
+        entries.append({
+            "kind": "missing",
+            "kind_label": "Missing dog post",
+            "title": post.dog_name,
+            "location": post.location or "",
+            "status": post.status,
+            "status_label": post.get_status_display(),
+            "bucket": bucket,
+            "created_at": post.created_at,
+            "detail_url": f"{profile_url}#profile-post-missing-{post.id}",
+        })
+    entries.sort(key=lambda row: row["created_at"], reverse=True)
+    return entries
+
+
+def _user_post_submissions_summary(entries):
+    return {
+        "total": len(entries),
+        "pending": sum(1 for row in entries if row["bucket"] == "pending"),
+        "accepted": sum(1 for row in entries if row["bucket"] == "accepted"),
+        "rejected": sum(1 for row in entries if row["bucket"] == "rejected"),
+    }
 
 
 def _create_post_request_with_images(request, post, request_type, appointment_date):
@@ -2645,6 +3200,24 @@ def _handle_confirm_request(
     if not is_open_fn(post):
         messages.warning(request, not_open_message)
         return redirect(listing_url)
+
+    other_type = "adopt" if request_type == "claim" else "claim"
+    if PostRequest.objects.filter(
+        user=request.user,
+        post=post,
+        request_type=other_type,
+    ).exists():
+        if request_type == "claim":
+            messages.warning(
+                request,
+                "You already reserved adoption for this dog. You cannot submit a redemption request for the same post.",
+            )
+            return redirect(reverse("user:my_redemptions"))
+        messages.warning(
+            request,
+            "You already submitted a redemption for this dog. You cannot submit an adoption request for the same post.",
+        )
+        return redirect(reverse("user:adopt_status"))
 
     if PostRequest.objects.filter(
         user=request.user,
@@ -2722,6 +3295,45 @@ def _pagination_query_without_page(querydict):
     params = querydict.copy()
     params.pop("page", None)
     return params.urlencode()
+
+
+def _build_pagination_tokens(page_obj, *, edge_count=1, sibling_count=1):
+    """Return a compact page sequence with ellipsis markers."""
+    if not page_obj:
+        return []
+
+    total_pages = page_obj.paginator.num_pages
+    if total_pages <= 1:
+        return []
+
+    current_page = page_obj.number
+    pages = set()
+
+    for page_number in range(1, min(total_pages, edge_count) + 1):
+        pages.add(page_number)
+    for page_number in range(max(1, total_pages - edge_count + 1), total_pages + 1):
+        pages.add(page_number)
+    for page_number in range(
+        max(1, current_page - sibling_count),
+        min(total_pages, current_page + sibling_count) + 1,
+    ):
+        pages.add(page_number)
+
+    tokens = []
+    previous_page = None
+    for page_number in sorted(pages):
+        if previous_page is not None and page_number - previous_page > 1:
+            tokens.append({
+                "type": "ellipsis",
+                "key": f"ellipsis-{previous_page}-{page_number}",
+            })
+        tokens.append({
+            "type": "page",
+            "number": page_number,
+            "is_current": page_number == current_page,
+        })
+        previous_page = page_number
+    return tokens
 
 
 def _feed_cache_key(prefix, query, feed_token="", viewer_id=None):
@@ -3147,6 +3759,17 @@ def _hydrate_home_feed_items(request, feed_rows):
         ).filter(id__in=ids_by_type["missing"])
     }
 
+    viewer_staff_request_map = _viewer_staff_post_request_map(
+        request.user, ids_by_type["admin"]
+    )
+    viewer_user_adoption_post_ids = set()
+    if getattr(request.user, "is_authenticated", False) and ids_by_type["user"]:
+        viewer_user_adoption_post_ids = set(
+            UserAdoptionRequest.objects.filter(
+                requester=request.user, post_id__in=ids_by_type["user"]
+            ).values_list("post_id", flat=True)
+        )
+
     combined_posts = []
     default_admin_avatar_url = static("images/officialseal.webp")
     default_profile_avatar_url = static("images/default-user-image.jpg")
@@ -3169,10 +3792,15 @@ def _hydrate_home_feed_items(request, feed_rows):
             is_open_for_adoption = phase in ["claim", "adopt"]
 
             deadline = None
-            if phase == "claim" and not phase_payload["is_pending_review"]:
+            if phase == "claim":
                 deadline = p.claim_deadline()
-            elif phase == "adopt" and not phase_payload["is_pending_review"]:
+            elif phase == "adopt":
                 deadline = p.adoption_deadline()
+
+            vf = viewer_staff_request_map.get(
+                p.id, {"claim": False, "adopt": False}
+            )
+            cta = _staff_post_public_cta_flags(phase, request.user, vf)
 
             combined_posts.append({
                 "post": p,
@@ -3186,20 +3814,20 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "is_open_for_adoption": is_open_for_adoption,
                 "phase": phase,
                 "is_pending_review": phase_payload["is_pending_review"],
-                "show_countdown": bool(deadline),
+                "show_countdown": phase in {"claim", "adopt"} and bool(deadline),
                 "pending_review_until": phase_payload["pending_review_until"],
                 "pending_review_until_label": phase_payload["pending_review_until_label"],
-                "pending_state_label": "Pending admin review" if phase_payload["is_pending_review"] else "",
-                "pending_state_detail": (
-                    f'Verification until {phase_payload["pending_review_until_label"]}'
-                    if phase_payload["is_pending_review"] and phase_payload["pending_review_until_label"]
-                    else ""
-                ),
+                "pending_state_label": "",
+                "pending_state_detail": "",
                 "posted_label": _format_posted_label(p.created_at),
                 "deadline_iso": deadline.isoformat() if deadline else "",
                 "image_count": len(gallery_images),
                 "gallery_images": gallery_images,
                 "main_image": main_image,
+                "share_url": _finder_share_url_staff(request, p, phase_payload),
+                "viewer_has_claim_request": vf["claim"],
+                "viewer_has_adopt_request": vf["adopt"],
+                **cta,
             })
             continue
 
@@ -3223,9 +3851,7 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "image_count": len(announcement_images),
                 "gallery_images": announcement_images,
                 "has_media": bool(p.background_image or announcement_images),
-                "share_url": request.build_absolute_uri(
-                    reverse("user:announcement_share_preview", args=[p.id])
-                ),
+                "share_url": _announcement_feed_share_url(request, p.id),
             })
             continue
 
@@ -3240,6 +3866,12 @@ def _hydrate_home_feed_items(request, feed_rows):
                 p.owner_id,
                 next_url=profile_return_url,
                 back_label=profile_back_label,
+            )
+
+            has_user_adoption_request = p.id in viewer_user_adoption_post_ids
+            show_user_adoption_request_cta = (
+                not getattr(request.user, "is_authenticated", False)
+                or not has_user_adoption_request
             )
 
             combined_posts.append({
@@ -3262,9 +3894,9 @@ def _hydrate_home_feed_items(request, feed_rows):
                 ),
                 "author_profile_url": profile_url,
                 "owner_request_url": f"{reverse('user:edit_profile')}#post-requests-{p.id}",
-                "share_url": request.build_absolute_uri(
-                    reverse("user:user_adoption_post_detail", args=[p.id])
-                ),
+                "share_url": _finder_share_url_user_adoption(request, p.id),
+                "viewer_has_user_adoption_request": has_user_adoption_request,
+                "show_user_adoption_request_cta": show_user_adoption_request_cta,
             })
             continue
 
@@ -3788,11 +4420,33 @@ def user_adoption_post_detail(request, post_id):
     if not description:
         description = f"{post.dog_name} is available for adoption in {post.location or 'Bayawan'}."
 
+    viewer_is_owner = bool(
+        getattr(request.user, "is_authenticated", False)
+        and post.owner_id == request.user.id
+    )
+    viewer_has_user_adoption_request = False
+    if getattr(request.user, "is_authenticated", False) and not viewer_is_owner:
+        viewer_has_user_adoption_request = UserAdoptionRequest.objects.filter(
+            post=post,
+            requester=request.user,
+        ).exists()
+    show_adopt_cta = (
+        post.status == "available"
+        and (
+            not getattr(request.user, "is_authenticated", False)
+            or (not viewer_is_owner and not viewer_has_user_adoption_request)
+        )
+    )
+
     return render(request, "adopt/user_adoption_post_detail.html", {
         "post": post,
         "og_image_url": og_image_url,
         "og_description": description,
         "first_image_url": _first_prefetched_image_url(post.images.all()),
+        "viewer_is_owner": viewer_is_owner,
+        "viewer_has_user_adoption_request": viewer_has_user_adoption_request,
+        "show_adopt_cta": show_adopt_cta,
+        "request_url": reverse("user:adopt_user_post", args=[post.id]),
     })
 
 
@@ -4551,7 +5205,7 @@ def adopt_status(request):
 
     return render(request, 'adopt/adopt.html', {
         'summary': summary,
-        'browse_url': reverse("user:claim_list"),
+        'browse_url': reverse("user:redeem_list"),
         'current_source': source_type,
         'current_status': status_filter,
         'show_staff_requests': show_staff_requests,
@@ -4563,6 +5217,31 @@ def adopt_status(request):
         'staff_summary': staff_summary,
         'user_summary': user_summary,
     })
+
+
+@user_only
+def my_post_approvals(request):
+    """List the current user's adoption and missing-dog posts and staff approval status."""
+    status_filter = request.GET.get("status", "pending")
+    if status_filter not in {"total", "pending", "accepted", "rejected"}:
+        status_filter = "pending"
+
+    all_entries = _collect_user_post_submissions(request.user)
+    summary = _user_post_submissions_summary(all_entries)
+    if status_filter == "total":
+        filtered = all_entries
+    else:
+        filtered = [row for row in all_entries if row["bucket"] == status_filter]
+
+    page_obj = Paginator(filtered, 10).get_page(request.GET.get("page", 1))
+    return render(request, "adopt/my_post_approvals.html", {
+        "submissions": list(page_obj.object_list),
+        "summary": summary,
+        "current_status": status_filter,
+        "page_obj": page_obj,
+        "browse_url": reverse("user:adopt_list"),
+    })
+
 
 def adopt_confirm(request, post_id):
     """Confirm and submit an adoption request for a staff-managed post."""
@@ -4589,7 +5268,7 @@ def adopt_confirm(request, post_id):
             else "You already submitted an adoption request."
         ),
         success_message=lambda post: (
-            "Adoption reserved. If no owner claim is approved, admin review opens after the claim window closes."
+            "Adoption reserved. If no owner redemption is approved, admin review opens after the redemption window closes."
             if post.current_phase() == "claim"
             else "Adoption request submitted. The post stays visible while admin verification runs for 1 day."
         ),
@@ -4628,14 +5307,16 @@ def _decorate_announcement_posts(posts, request):
             post.created_by, default_admin_avatar_url
         )
         post.content_display = _clean_announcement_text_for_display(post.content)
-        post.share_url = request.build_absolute_uri(
-            reverse("user:announcement_share_preview", args=[post.id])
-        )
+        post.share_url = _announcement_feed_share_url(request, post.id)
     return posts
 
 
 def announcement_list(request):
     """Render the public announcement feed grouped by display bucket."""
+    board_redirect = _announcement_maybe_redirect_for_highlight(request)
+    if board_redirect:
+        return redirect(board_redirect)
+
     bucket_counts = {
         row["display_bucket"]: row["total"]
         for row in DogAnnouncement.objects.values("display_bucket").annotate(
@@ -4674,7 +5355,7 @@ def announcement_list(request):
     regular_total = max(total_announcements - pinned_count - campaign_count, 0)
     pagination_query = _pagination_query_without_page(request.GET)
 
-    return render(request, 'announcement/announcement.html', {
+    board_context = {
         'pinned_announcements': pinned_announcements,
         'campaign_announcements': campaign_announcements,
         'regular_announcements': regular_announcements,
@@ -4683,7 +5364,9 @@ def announcement_list(request):
         'regular_total': regular_total,
         'regular_page_obj': regular_page_obj,
         'announcement_pagination_query': pagination_query,
-    })
+    }
+    board_context.update(_announcement_highlight_open_graph(request))
+    return render(request, 'announcement/announcement.html', board_context)
 
 
 def announcement_detail(request, post_id):
@@ -4724,58 +5407,13 @@ def announcement_detail(request, post_id):
         'post': post,
         'og_image_url': og_image_url,
         'og_description': plain_description,
-        'share_url': request.build_absolute_uri(
-            reverse("user:announcement_share_preview", args=[post.id])
-        ),
+        'share_url': _announcement_feed_share_url(request, post.id),
     })
 
 
 def announcement_share_preview(request, post_id):
-    """Render metadata-friendly announcement content for social sharing."""
-    post = get_object_or_404(
-        DogAnnouncement.objects.select_related("created_by").prefetch_related(
-            Prefetch(
-                "images",
-                queryset=DogAnnouncementImage.objects.only(
-                    "id",
-                    "announcement_id",
-                    "image",
-                    "created_at",
-                ).order_by("created_at", "id"),
-                to_attr="prefetched_images",
-            ),
-        ),
-        id=post_id,
-    )
-
-    primary_image_url = ""
-    if post.background_image:
-        primary_image_url = request.build_absolute_uri(post.background_image.url)
-    elif getattr(post, "prefetched_images", None):
-        primary_image_url = request.build_absolute_uri(post.prefetched_images[0].image.url)
-    else:
-        primary_image_url = request.build_absolute_uri(static("images/bayawan_logo.webp"))
-
-    plain_caption = strip_tags(post.content or "").strip()
-    if len(plain_caption) > 220:
-        plain_caption = f"{plain_caption[:217].rstrip()}..."
-    if not plain_caption:
-        plain_caption = "Announcement update from Bayawan Vet."
-
-    detail_url = request.build_absolute_uri(reverse("user:announcement_detail", args=[post.id]))
-    share_url = request.build_absolute_uri(reverse("user:announcement_share_preview", args=[post.id]))
-
-    return render(
-        request,
-        "announcement/announcement_share_preview.html",
-        {
-            "post": post,
-            "primary_image_url": primary_image_url,
-            "plain_caption": plain_caption,
-            "detail_url": detail_url,
-            "share_url": share_url,
-        },
-    )
+    """Legacy share path: redirect to the announcements board with highlight=<id>."""
+    return redirect(f"{reverse('user:announcement_list')}?{urlencode({'highlight': str(post_id)})}")
 
 
 @user_only
@@ -4794,10 +5432,10 @@ def announcement_comment(request, post_id):
         next_url = reverse('user:announcement_list')
     return redirect(next_url)
 
-# Navigation 3/5: Claim continued
+# Navigation 3/5: Redeem continued
 @user_only
-def my_claims(request):
-    """Show the current user's submitted claim requests and their statuses."""
+def my_redemptions(request):
+    """Show the current user's submitted redemption requests and their statuses."""
     status_filter = request.GET.get("status", "pending")
     if status_filter not in {"total", "pending", "accepted", "rejected"}:
         status_filter = "pending"
@@ -4818,17 +5456,17 @@ def my_claims(request):
         'summary': summary,
         'current_status': status_filter,
         'page_obj': page_obj,
-        'browse_url': reverse("user:claim_list"),
+        'browse_url': reverse("user:redeem_list"),
     })
 
 
-def claim_list(request):
-    """Browse dogs that are still available to be claimed."""
+def redeem_list(request):
+    """Browse dogs that are still available for owner redemption."""
     return _render_public_post_listing_page(request, "claim")
 
 
-def claim_confirm(request, post_id):
-    """Confirm and submit a claim request for a staff-managed post."""
+def redeem_confirm(request, post_id):
+    """Confirm and submit a redemption request for a staff-managed post."""
     access_response = _require_public_member_or_auth_modal(
         request,
         next_url=request.get_full_path(),
@@ -4841,7 +5479,7 @@ def claim_confirm(request, post_id):
         request_type="claim",
         template_name="claim/claim_confirm.html",
         is_open_fn=lambda post: post.is_open_for_claim(),
-        not_open_message="Claim period has ended for this post.",
-        duplicate_message="You already submitted a claim for this dog.",
-        success_message="Claim submitted. The post stays visible while admin verification runs for 1 day.",
+        not_open_message="Redemption period has ended for this post.",
+        duplicate_message="You already submitted a redemption for this dog.",
+        success_message="Redemption submitted. The post stays visible while admin verification runs for 1 day.",
     )

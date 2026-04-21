@@ -41,15 +41,15 @@ class PostRequestVerificationWindowTests(TestCase):
         )
         self.flow_config = {
             "claim": {
-                "confirm_route": "user:claim_confirm",
-                "list_route": "user:claim_list",
-                "history_route": "user:my_claims",
+                "confirm_route": "user:redeem_confirm",
+                "list_route": "user:redeem_list",
+                "history_route": "user:my_redemptions",
                 "admin_bucket": "claim_posts",
                 "accepted_post_status": "reunited",
                 "initial_created_at": lambda now: now,
                 "expired_created_at": lambda now: now - timedelta(days=1, hours=1),
                 "home_action_url": lambda post_id: (
-                    f'{reverse("user:claim_confirm", args=[post_id])}?return_to=home'
+                    f'{reverse("user:redeem_confirm", args=[post_id])}?return_to=home'
                 ),
             },
             "adopt": {
@@ -174,7 +174,7 @@ class PostRequestVerificationWindowTests(TestCase):
 
         member_client = self._client_for(self.second_member)
 
-        claim_list_response = member_client.get(reverse("user:claim_list"))
+        claim_list_response = member_client.get(reverse("user:redeem_list"))
         self.assertNotIn(post.id, self._item_ids(claim_list_response.context["posts"]))
 
         adopt_list_response = member_client.get(reverse("user:adopt_list"))

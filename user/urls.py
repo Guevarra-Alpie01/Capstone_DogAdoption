@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path
+from django.views.generic import RedirectView
 from . import views
 
 app_name="user"
@@ -14,8 +15,10 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('notifications/open/', views.open_notification, name='open_notification'),
     path('notifications/summary/', views.notification_summary, name='notification_summary'),
+    path('notifications/read/', views.mark_notification_read, name='mark_notification_read'),
     path('notifications/seen/', views.mark_notifications_seen, name='mark_notifications_seen'),
     path('sign-up/', views.signup_view, name="signup"),
+    path('complete-profile/', views.complete_google_profile, name="complete_google_profile"),
     path('verify-email/<str:uidb64>/<str:token>/', views.verify_email, name="verify_email"),
 
     # Shared profile and utility routes
@@ -42,10 +45,22 @@ urlpatterns = [
     path('request/<captureid:req_id>/edit/', views.edit_dog_capture_request, name='edit_dog_capture_request'),
     path('request/<captureid:req_id>/delete/', views.delete_dog_capture_request, name='delete_dog_capture_request'),
 
-    # Navigation 3/5: Claim
-    path('claim-list/', views.claim_list, name='claim_list'),
-    path('my-claims/', views.my_claims, name='my_claims'),
-    path('claim/<adminpostid:post_id>/', views.claim_confirm, name='claim_confirm'),
+    # Navigation 3/5: Redeem (owner redemption; legacy /claim-* URLs redirect permanently)
+    path('redeem-list/', views.redeem_list, name='redeem_list'),
+    path('my-redemptions/', views.my_redemptions, name='my_redemptions'),
+    path('redeem/<adminpostid:post_id>/', views.redeem_confirm, name='redeem_confirm'),
+    path(
+        'claim-list/',
+        RedirectView.as_view(pattern_name='user:redeem_list', permanent=True, query_string=True),
+    ),
+    path(
+        'my-claims/',
+        RedirectView.as_view(pattern_name='user:my_redemptions', permanent=True, query_string=True),
+    ),
+    path(
+        'claim/<adminpostid:post_id>/',
+        RedirectView.as_view(pattern_name='user:redeem_confirm', permanent=True, query_string=True),
+    ),
 
     # Navigation 4/5: Announcement
     path('announcements/', views.announcement_list, name='announcement_list'),
@@ -55,6 +70,7 @@ urlpatterns = [
 
     # Navigation 5/5: Adopt
     path("adopt-list/", views.adopt_list, name="adopt_list"),
+    path("adopt/my-post-approvals/", views.my_post_approvals, name="my_post_approvals"),
     path('adopt/status/', views.adopt_status, name='adopt_status'),
     path('adopt/<adminpostid:post_id>/', views.adopt_confirm, name='adopt_confirm'),
 ]

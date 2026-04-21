@@ -1,98 +1,35 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block page_title %}{% if finder_og_title %}{{ finder_og_title }}{% else %}Find a Dog | Bayawan Vet{% endif %}{% endblock %}
+
+{% block og_meta %}
+{% if finder_og_title %}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Bayawan Vet">
+<meta property="og:title" content="{{ finder_og_title }}">
+<meta property="og:description" content="{{ finder_og_description }}">
+<meta property="og:url" content="{{ finder_og_url }}">
+{% if finder_og_image %}
+<meta property="og:image" content="{{ finder_og_image }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ finder_og_title }}">
+<meta name="twitter:description" content="{{ finder_og_description }}">
+{% if finder_og_image %}
+<meta name="twitter:image" content="{{ finder_og_image }}">
+{% endif %}
+{% endif %}
+{% endblock %}
+
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260415finder-post-launcher-front-layer-fix1">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260419finder-utilities-reminder-stack">
 {% endblock %}
 
 {% block content %}
 <div class="finder-page">
-    <section class="finder-hero">
-        <div class="finder-hero__copy">
-            {% if request.user.is_authenticated %}
-            <div class="finder-post-launcher" data-finder-post-menu>
-                <button
-                    type="button"
-                    class="finder-post-trigger finder-post-trigger--dropdown"
-                    data-finder-post-trigger
-                    aria-controls="finderPostTypeMenu"
-                    aria-expanded="false"
-                    aria-haspopup="menu"
-                    aria-label="Post a dog"
-                >
-                    <span class="finder-post-trigger__icon" aria-hidden="true">
-                        <i class="bi bi-plus-circle-fill"></i>
-                    </span>
-                    <span class="finder-post-trigger__copy">
-                        <span class="finder-post-trigger__kicker">Quick Action</span>
-                        <span class="finder-post-trigger__label">Post a Dog</span>
-                    </span>
-                    <span class="finder-post-trigger__caret" aria-hidden="true">
-                        <i class="bi bi-chevron-down"></i>
-                    </span>
-                </button>
-
-                <div class="finder-post-menu" id="finderPostTypeMenu" data-finder-post-menu-panel hidden>
-                    <button type="button" class="finder-post-menu__option finder-post-menu__option--adoption" data-finder-post-choice="adoption">
-                        <span class="finder-post-menu__option-icon" aria-hidden="true">
-                            <i class="bi bi-house-heart"></i>
-                        </span>
-                        <span class="finder-post-menu__option-copy">
-                            <strong>For Adoption</strong>
-                            <span>Publish a dog that is ready for a home.</span>
-                        </span>
-                        <i class="bi bi-arrow-right-short finder-post-menu__option-arrow" aria-hidden="true"></i>
-                    </button>
-                    <button type="button" class="finder-post-menu__option finder-post-menu__option--missing" data-finder-post-choice="missing">
-                        <span class="finder-post-menu__option-icon" aria-hidden="true">
-                            <i class="bi bi-exclamation-triangle"></i>
-                        </span>
-                        <span class="finder-post-menu__option-copy">
-                            <strong>Missing Dog</strong>
-                            <span>Report a lost dog with location details.</span>
-                        </span>
-                        <i class="bi bi-arrow-right-short finder-post-menu__option-arrow" aria-hidden="true"></i>
-                    </button>
-                </div>
-            </div>
-            {% else %}
-            <button
-                type="button"
-                class="finder-post-trigger finder-post-trigger--guest"
-                data-auth-modal-trigger="login"
-                data-auth-next-url="{{ finder_post_entry_url }}"
-                aria-label="Post a dog"
-            >
-                <span class="finder-post-trigger__icon" aria-hidden="true">
-                    <i class="bi bi-plus-circle-fill"></i>
-                </span>
-                <span class="finder-post-trigger__copy">
-                    <span class="finder-post-trigger__kicker">Quick Action</span>
-                    <span class="finder-post-trigger__label">Post a Dog</span>
-                </span>
-            </button>
-            {% endif %}
-        </div>
-
-        {% if request_links %}
-        <div class="finder-hero__actions">
-            {% for link in request_links %}
-            <a
-                href="{{ link.url }}"
-                class="finder-hero__link"
-                {% if not request.user.is_authenticated %}
-                data-auth-modal-trigger="login"
-                data-auth-next-url="{{ link.url }}"
-                {% endif %}
-            >
-                <span>{{ link.label }}</span>
-                <i class="{{ link.icon_class }}" aria-hidden="true"></i>
-            </a>
-            {% endfor %}
-        </div>
-        {% endif %}
-    </section>
-
     {% if request.user.is_authenticated %}
     <div
         class="modal fade finder-post-modal"
@@ -149,9 +86,6 @@
         <section class="finder-filter-shell">
             <div class="finder-filter-shell__head">
                 <div class="finder-filter-shell__actions">
-                    {% if active_filter_count %}
-                    <span class="finder-filter-shell__count">{{ active_filter_count }} active filter{{ active_filter_count|pluralize }}</span>
-                    {% endif %}
                     <button
                         type="button"
                         class="finder-filter-toggle"
@@ -167,7 +101,105 @@
                             <i class="bi bi-chevron-up"></i>
                         </span>
                     </button>
+                    {% if active_filter_count %}
+                    <span class="finder-filter-shell__count">{{ active_filter_count }} active filter{{ active_filter_count|pluralize }}</span>
+                    {% endif %}
                 </div>
+
+                <section class="finder-hero finder-hero--toolstrip" aria-label="Create a post and open requests">
+                    <div class="finder-hero__copy">
+                        {% if request.user.is_authenticated %}
+                        <div class="finder-post-launcher" data-finder-post-menu>
+                            <button
+                                type="button"
+                                class="finder-post-trigger finder-post-trigger--dropdown"
+                                data-finder-post-trigger
+                                aria-controls="finderPostTypeMenu"
+                                aria-expanded="false"
+                                aria-haspopup="menu"
+                                aria-label="Post a dog"
+                            >
+                                <span class="finder-post-trigger__icon" aria-hidden="true">
+                                    <i class="bi bi-pen"></i>
+                                </span>
+                                <span class="finder-post-trigger__copy">
+                                    <span class="finder-post-trigger__label">Create Post</span>
+                                </span>
+                                <span class="finder-post-trigger__caret" aria-hidden="true">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </button>
+
+                            <div class="finder-post-menu finder-post-menu--picker-cards" id="finderPostTypeMenu" data-finder-post-menu-panel hidden>
+                                <button type="button" class="finder-post-menu__option finder-post-menu__option--adoption" data-finder-post-choice="adoption">
+                                    <span class="finder-post-menu__option-icon" aria-hidden="true">
+                                        <i class="bi bi-heart-pulse"></i>
+                                    </span>
+                                    <span class="finder-post-menu__option-copy">
+                                        <strong>For Adoption</strong>
+                                    </span>
+                                    <i class="bi bi-chevron-right finder-post-menu__option-arrow" aria-hidden="true"></i>
+                                </button>
+                                <button type="button" class="finder-post-menu__option finder-post-menu__option--missing" data-finder-post-choice="missing">
+                                    <span class="finder-post-menu__option-icon" aria-hidden="true">
+                                        <i class="bi bi-broadcast-pin"></i>
+                                    </span>
+                                    <span class="finder-post-menu__option-copy">
+                                        <strong>Missing Dog</strong>
+                                    </span>
+                                    <i class="bi bi-chevron-right finder-post-menu__option-arrow" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% else %}
+                        <button
+                            type="button"
+                            class="finder-post-trigger finder-post-trigger--guest"
+                            data-auth-modal-trigger="login"
+                            data-auth-next-url="{{ finder_post_entry_url }}"
+                            aria-label="Post a dog"
+                        >
+                            <span class="finder-post-trigger__icon" aria-hidden="true">
+                                <i class="bi bi-pen"></i>
+                            </span>
+                            <span class="finder-post-trigger__copy">
+                                <span class="finder-post-trigger__label">Create Post</span>
+                            </span>
+                        </button>
+                        {% endif %}
+
+                        {% if request_links %}
+                        <div class="finder-hero__actions">
+                            <details class="finder-request-menu" data-finder-request-menu>
+                                <summary class="finder-request-menu__summary">
+                                    <span class="finder-request-menu__summary-icon" aria-hidden="true">
+                                        <i class="bi bi-folder2-open"></i>
+                                    </span>
+                                    <span class="finder-request-menu__summary-label">Requests</span>
+                                    <span class="finder-request-menu__summary-caret" aria-hidden="true">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </span>
+                                </summary>
+                                <div class="finder-request-menu__panel">
+                                    {% for link in request_links %}
+                                    <a
+                                        href="{{ link.url }}"
+                                        class="finder-request-menu__option"
+                                        {% if not request.user.is_authenticated %}
+                                        data-auth-modal-trigger="login"
+                                        data-auth-next-url="{{ link.url }}"
+                                        {% endif %}
+                                    >
+                                        <span>{{ link.label }}</span>
+                                        <i class="{{ link.icon_class }}" aria-hidden="true"></i>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            </details>
+                        </div>
+                        {% endif %}
+                    </div>
+                </section>
             </div>
 
             <div class="finder-filter-backdrop" data-finder-filter-close aria-hidden="true"></div>
@@ -176,7 +208,12 @@
                 <nav class="finder-toolbar" id="finderFiltersPanel" data-finder-toolbar aria-label="Dog search filters">
                     <div class="finder-toolbar__header">
                         <h3 class="finder-toolbar__title">Filters</h3>
-                        <a href="{{ clear_filters_url }}" class="finder-toolbar__clear-link">Clear All</a>
+                        <div class="finder-toolbar__header-actions">
+                            <a href="{{ clear_filters_url }}" class="finder-toolbar__clear-btn">Clear All</a>
+                            <button type="button" class="finder-toolbar__close" data-finder-filter-close aria-label="Close filters">
+                                <i class="bi bi-x-lg" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="finder-toolbar__controls">
@@ -260,21 +297,15 @@
                             </details>
                             {% endfor %}
                         </div>
+                    </div>
 
-                        <div class="finder-toolbar__footer">
-                            <a href="{{ clear_filters_url }}" class="finder-toolbar__action finder-toolbar__action--clear">
-                                <span class="finder-toolbar__action-icon">
-                                    {% include "adopt/_finder_icon.html" with icon_name="clear" %}
-                                </span>
-                                <span class="finder-toolbar__action-text">Clear</span>
-                            </a>
-                            <button type="submit" class="finder-toolbar__action finder-toolbar__action--apply">
-                                <span class="finder-toolbar__action-icon">
-                                    {% include "adopt/_finder_icon.html" with icon_name="apply" %}
-                                </span>
-                                <span class="finder-toolbar__action-text">Search</span>
-                            </button>
-                        </div>
+                    <div class="finder-toolbar__apply-wrap">
+                        <button type="submit" class="finder-toolbar__action finder-toolbar__action--apply">
+                            <span class="finder-toolbar__action-icon">
+                                {% include "adopt/_finder_icon.html" with icon_name="apply" %}
+                            </span>
+                            <span class="finder-toolbar__action-text">Search</span>
+                        </button>
                     </div>
                 </nav>
             </div>
@@ -284,96 +315,102 @@
 
     <div class="finder-content">
 
-        {% if current_purpose == "all" or current_purpose == "claim" %}
         <section class="finder-results">
             <div class="finder-section__head">
                 <div>
-                    <h2 class="finder-section__title">Dogs Ready for Redemption</h2>
-                    <p class="finder-section__text">These dogs are still within the owner-claim window.</p>
+                    <h2 class="finder-section__title">Find Dogs</h2>
+                    <p class="finder-section__text">Browse rescue listings and community adoption posts. Use Purpose and filters to narrow the list.</p>
                 </div>
-                <p class="finder-section__meta">{{ claim_page_obj.paginator.count }} dog{{ claim_page_obj.paginator.count|pluralize }}</p>
+                <p class="finder-section__meta">{{ unified_page_obj.paginator.count }} result{{ unified_page_obj.paginator.count|pluralize }}</p>
             </div>
 
-            {% if claim_posts %}
+            {% if finder_unified_rows %}
             <div class="finder-card-grid">
-                {% for item in claim_posts %}
-                {% include "adopt/_finder_card.html" with item=item active_filter_count=active_filter_count %}
+                {% for row in finder_unified_rows %}
+                    {% if row.kind == "staff" %}
+                    {% include "adopt/_finder_card.html" with item=row.item active_filter_count=active_filter_count %}
+                    {% else %}
+                    {% include "adopt/_user_adoption_card.html" with item=row.item active_filter_count=active_filter_count %}
+                    {% endif %}
                 {% endfor %}
             </div>
-            {% if claim_page_obj.has_next %}
-            <div class="finder-load-more">
-                <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ claim_page_obj.next_page_number }}" class="finder-load-more__link">Load more dogs</a>
-            </div>
+            {% if unified_page_obj.paginator.num_pages > 1 %}
+            <nav class="finder-pagination" aria-label="Find a Dog pagination" data-finder-pagination>
+                <div class="finder-pagination__shell">
+                    <div class="finder-pagination__overview">
+                        <div class="finder-pagination__copy">
+                            <span class="finder-pagination__eyebrow">Page Navigator</span>
+                            <p class="finder-pagination__status">Page {{ unified_page_obj.number }} of {{ unified_page_obj.paginator.num_pages }}</p>
+                            <p class="finder-pagination__hint">Showing {{ unified_page_obj.start_index }} to {{ unified_page_obj.end_index }} of {{ unified_page_obj.paginator.count }} dog post{{ unified_page_obj.paginator.count|pluralize }}.</p>
+                        </div>
+                        <button
+                            type="button"
+                            class="finder-pagination__toggle"
+                            data-finder-pagination-toggle
+                            aria-expanded="false"
+                            aria-controls="finderPaginationPanel"
+                        >
+                            <span class="finder-pagination__toggle-icon" aria-hidden="true">
+                                <i class="bi bi-grid-3x3-gap"></i>
+                            </span>
+                            <span class="finder-pagination__toggle-text" data-finder-pagination-toggle-label>Show pages</span>
+                        </button>
+                    </div>
+
+                    <div class="finder-pagination__quick">
+                        {% if unified_page_obj.has_previous %}
+                        <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ unified_page_obj.previous_page_number }}" class="finder-pagination__nav finder-pagination__nav--prev">
+                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                            <span>Previous</span>
+                        </a>
+                        {% else %}
+                        <span class="finder-pagination__nav is-disabled" aria-disabled="true">
+                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                            <span>Previous</span>
+                        </span>
+                        {% endif %}
+
+                        <div class="finder-pagination__current" aria-live="polite" aria-atomic="true">
+                            <span class="finder-pagination__current-label">Current page</span>
+                            <strong>{{ unified_page_obj.number }}</strong>
+                            <span class="finder-pagination__current-total">of {{ unified_page_obj.paginator.num_pages }}</span>
+                        </div>
+
+                        {% if unified_page_obj.has_next %}
+                        <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ unified_page_obj.next_page_number }}" class="finder-pagination__nav finder-pagination__nav--next">
+                            <span>Next</span>
+                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </a>
+                        {% else %}
+                        <span class="finder-pagination__nav is-disabled" aria-disabled="true">
+                            <span>Next</span>
+                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="finder-pagination__panel" id="finderPaginationPanel" data-finder-pagination-panel hidden>
+                        {% for item in finder_pagination_items %}
+                            {% if item.type == "ellipsis" %}
+                            <span class="finder-pagination__gap" aria-hidden="true">&hellip;</span>
+                            {% elif item.is_current %}
+                            <span class="finder-pagination__page is-current" aria-current="page">{{ item.number }}</span>
+                            {% else %}
+                            <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ item.number }}" class="finder-pagination__page">{{ item.number }}</a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </nav>
             {% endif %}
             {% else %}
             <div class="finder-empty finder-empty--inline">
-                <h3>No dogs ready for redemption</h3>
-                <p>There are no dogs in the claim window right now.</p>
+                <h3>No dogs found</h3>
+                <p>No dogs match this Purpose and filters right now.</p>
+                <a href="{{ clear_filters_url }}" class="finder-empty__link">Reset search</a>
             </div>
             {% endif %}
         </section>
-        {% endif %}
-
-        {% if current_purpose == "all" or current_purpose == "adopt" %}
-        <section class="finder-results">
-            <div class="finder-section__head">
-                <div>
-                    <h2 class="finder-section__title">Dogs Ready for Adoption</h2>
-                    <p class="finder-section__text">These dogs have moved into the adoption window.</p>
-                </div>
-                <p class="finder-section__meta">{{ adopt_page_obj.paginator.count }} dog{{ adopt_page_obj.paginator.count|pluralize }}</p>
-            </div>
-
-            {% if adopt_posts %}
-            <div class="finder-card-grid">
-                {% for item in adopt_posts %}
-                {% include "adopt/_finder_card.html" with item=item active_filter_count=active_filter_count %}
-                {% endfor %}
-            </div>
-            {% if adopt_page_obj.has_next %}
-            <div class="finder-load-more">
-                <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ adopt_page_obj.next_page_number }}" class="finder-load-more__link">Load more dogs</a>
-            </div>
-            {% endif %}
-            {% else %}
-            <div class="finder-empty finder-empty--inline">
-                <h3>No dogs ready for adoption</h3>
-                <p>There are no dogs in the adoption window right now.</p>
-            </div>
-            {% endif %}
-        </section>
-
-        <section class="finder-results">
-            <div class="finder-section__head">
-                <div>
-                    <h2 class="finder-section__title">User Adoption Posts</h2>
-                    <p class="finder-section__text">Dogs posted for adoption by community members.</p>
-                </div>
-                <p class="finder-section__meta">{{ user_adoption_posts|length }} post{{ user_adoption_posts|length|pluralize }}</p>
-            </div>
-
-            {% if user_adoption_posts %}
-            <div class="finder-card-grid">
-                {% for item in user_adoption_posts %}
-                {% include "adopt/_user_adoption_card.html" with item=item active_filter_count=active_filter_count %}
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="finder-empty finder-empty--inline">
-                <h3>No user adoption posts</h3>
-                <p>No community members have posted dogs for adoption yet.</p>
-            </div>
-            {% endif %}
-        </section>
-        {% endif %}
-
-        {% if current_purpose == "all" and not claim_posts and not adopt_posts and not user_adoption_posts %}
-        <div class="finder-empty">
-            <h3>No dogs found</h3>
-            <p>There are no active dogs for this view right now. Check back again soon.</p>
-            <a href="{{ clear_filters_url }}" class="finder-empty__link">Reset search</a>
-        </div>
-        {% endif %}
 
     </div>
 </div>
@@ -408,6 +445,11 @@
     const infoToggleButtons = document.querySelectorAll('[data-finder-info-toggle]');
     const shareButtons = document.querySelectorAll('[data-finder-share]');
     const shareStatus = document.getElementById('finderShareStatus');
+    const paginationShell = document.querySelector('[data-finder-pagination]');
+    const paginationToggle = paginationShell?.querySelector('[data-finder-pagination-toggle]');
+    const paginationPanel = paginationShell?.querySelector('[data-finder-pagination-panel]');
+    const paginationToggleLabel = paginationShell?.querySelector('[data-finder-pagination-toggle-label]');
+    const paginationDesktopQuery = window.matchMedia('(min-width: 992px)');
     const postMenu = document.querySelector('[data-finder-post-menu]');
     const postTrigger = document.querySelector('[data-finder-post-trigger]');
     const postMenuPanel = document.querySelector('[data-finder-post-menu-panel]');
@@ -417,6 +459,7 @@
     const postTypeInput = document.getElementById('finderPostTypeInput');
     const adoptionFields = document.getElementById('finderAdoptionFields');
     const missingFields = document.getElementById('finderMissingFields');
+    const PAGINATION_PREF_KEY = 'finderPaginationExpanded';
 
     function closeFilterGroups(exceptGroup = null) {
         filterGroups.forEach((group) => {
@@ -538,6 +581,54 @@
         group.style.display = shouldShow ? '' : 'none';
     }
 
+    function readPaginationPreference() {
+        try {
+            const storedValue = window.localStorage.getItem(PAGINATION_PREF_KEY);
+            if (storedValue === 'true') return true;
+            if (storedValue === 'false') return false;
+        } catch (error) {
+            return null;
+        }
+        return null;
+    }
+
+    function writePaginationPreference(shouldExpand) {
+        try {
+            window.localStorage.setItem(PAGINATION_PREF_KEY, shouldExpand ? 'true' : 'false');
+        } catch (error) {
+            // Ignore storage failures so pagination still works without saved state.
+        }
+    }
+
+    function syncPaginationUi(shouldExpand) {
+        if (!paginationShell) return;
+        paginationShell.classList.toggle('is-expanded', shouldExpand);
+        if (paginationPanel) {
+            paginationPanel.hidden = !shouldExpand;
+        }
+        if (paginationToggle) {
+            paginationToggle.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
+        }
+        if (paginationToggleLabel) {
+            paginationToggleLabel.textContent = shouldExpand ? 'Hide pages' : 'Show pages';
+        }
+    }
+
+    function setPaginationExpanded(shouldExpand, { persist = true } = {}) {
+        const isExpanded = Boolean(shouldExpand);
+        syncPaginationUi(isExpanded);
+        if (persist) {
+            writePaginationPreference(isExpanded);
+        }
+    }
+
+    function applyPaginationPreference() {
+        if (!paginationShell) return;
+        const savedPreference = readPaginationPreference();
+        const shouldExpand = savedPreference === null ? paginationDesktopQuery.matches : savedPreference;
+        setPaginationExpanded(shouldExpand, { persist: false });
+    }
+
     function syncAdoptionAttributeFields() {
         const breedSelect = adoptionFields?.querySelector('select[name$="-breed"]');
         const breedOtherGroup = adoptionFields?.querySelector('[data-adoption-breed-other-group]');
@@ -652,7 +743,7 @@
     filterGroups.forEach((group) => {
         syncFilterGroupState(group);
         group.addEventListener('toggle', () => {
-            if (group.open && !mobileQuery.matches) {
+            if (group.open) {
                 closeFilterGroups(group);
                 closePurposeMenu();
             }
@@ -660,9 +751,7 @@
         group.querySelectorAll('input[type="radio"]').forEach((input) => {
             input.addEventListener('change', () => {
                 syncFilterGroupState(group);
-                if (!mobileQuery.matches) {
-                    group.open = false;
-                }
+                group.open = false;
             });
         });
     });
@@ -688,10 +777,17 @@
             if (!purposeSelect) return;
             purposeSelect.value = option.getAttribute('data-purpose') || purposeSelect.value;
             syncPurposeOptions();
-            if (!mobileQuery.matches) {
-                closePurposeMenu();
-            }
+            closePurposeMenu();
         });
+    });
+
+    const requestMenu = document.querySelector('[data-finder-request-menu]');
+    requestMenu?.addEventListener('toggle', () => {
+        if (requestMenu.open && !mobileQuery.matches) {
+            closeFilterGroups();
+            closePurposeMenu();
+            closePostMenu();
+        }
     });
 
     filterToggleButtons.forEach((button) => {
@@ -707,6 +803,7 @@
     filterCloseTriggers?.forEach((trigger) => {
         trigger.addEventListener('click', () => {
             setMobileFiltersOpen(false);
+            setDesktopFiltersCollapsed(true);
         });
     });
 
@@ -722,6 +819,12 @@
         }
     });
 
+    paginationToggle?.addEventListener('click', () => {
+        setPaginationExpanded(!paginationShell?.classList.contains('is-expanded'));
+    });
+
+    applyPaginationPreference();
+
     const handleViewportChange = () => {
         resetTransientFilterUi();
         setMobileFiltersOpen(false);
@@ -730,12 +833,29 @@
         } else {
             setDesktopFiltersCollapsed(true);
         }
+        if (readPaginationPreference() === null) {
+            setPaginationExpanded(paginationDesktopQuery.matches, { persist: false });
+        }
     };
 
     if (typeof mobileQuery.addEventListener === 'function') {
         mobileQuery.addEventListener('change', handleViewportChange);
     } else if (typeof mobileQuery.addListener === 'function') {
         mobileQuery.addListener(handleViewportChange);
+    }
+
+    if (typeof paginationDesktopQuery.addEventListener === 'function') {
+        paginationDesktopQuery.addEventListener('change', () => {
+            if (readPaginationPreference() === null) {
+                setPaginationExpanded(paginationDesktopQuery.matches, { persist: false });
+            }
+        });
+    } else if (typeof paginationDesktopQuery.addListener === 'function') {
+        paginationDesktopQuery.addListener(() => {
+            if (readPaginationPreference() === null) {
+                setPaginationExpanded(paginationDesktopQuery.matches, { persist: false });
+            }
+        });
     }
 
     window.addEventListener('pageshow', () => {
@@ -746,6 +866,7 @@
         } else {
             setDesktopFiltersCollapsed(true);
         }
+        applyPaginationPreference();
     });
 
     function announceShareStatus(message) {
@@ -929,11 +1050,17 @@
         if (!event.target.closest('[data-finder-post-menu]')) {
             closePostMenu();
         }
+        if (requestMenu?.open && !event.target.closest('[data-finder-request-menu]')) {
+            requestMenu.open = false;
+        }
     });
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             closePostMenu();
+            if (requestMenu?.open) {
+                requestMenu.open = false;
+            }
             if (!postModal) {
                 hidePostModalElement();
             }
@@ -999,25 +1126,211 @@
 })();
 
 (function () {
-    function updateCountdowns() {
-        var timers = document.querySelectorAll('[data-countdown-deadline]');
+    var TICK_MS = 30000;
+    var FLIP_MS = 520;
+    var FLIP_SWAP_AT = 260;
+    var timerId = null;
+
+    function pad2(n) {
+        return n < 10 ? '0' + n : String(n);
+    }
+
+    function wantsReducedMotion() {
+        try {
+            return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function setUnitValue(unit, newText, allowFlip) {
+        if (!unit) return;
+        var num = unit.querySelector('.finder-flip-unit__num');
+        if (!num) return;
+        var last = unit.getAttribute('data-cd-last');
+        if (!unit.hasAttribute('data-cd-hydrated')) {
+            num.textContent = newText;
+            unit.setAttribute('data-cd-hydrated', '1');
+            unit.setAttribute('data-cd-last', newText);
+            return;
+        }
+        if (last === newText) return;
+        if (!allowFlip || wantsReducedMotion()) {
+            num.textContent = newText;
+            unit.setAttribute('data-cd-last', newText);
+            return;
+        }
+        var prevT = unit.__cdFlipClear;
+        if (prevT) {
+            clearTimeout(prevT.t1);
+            clearTimeout(prevT.t2);
+        }
+        unit.classList.remove('is-flipping');
+        void unit.offsetWidth;
+        unit.classList.add('is-flipping');
+        var t1 = setTimeout(function () {
+            num.textContent = newText;
+            unit.setAttribute('data-cd-last', newText);
+        }, FLIP_SWAP_AT);
+        var t2 = setTimeout(function () {
+            unit.classList.remove('is-flipping');
+            unit.__cdFlipClear = null;
+        }, FLIP_MS);
+        unit.__cdFlipClear = { t1: t1, t2: t2 };
+    }
+
+    function updateFlipCountdowns() {
+        if (document.visibilityState === 'hidden') return;
+        var roots = document.querySelectorAll('.finder-flip-timer[data-countdown-deadline]');
         var now = Date.now();
-        timers.forEach(function (el) {
-            var iso = el.getAttribute('data-countdown-deadline');
+        roots.forEach(function (root) {
+            var iso = root.getAttribute('data-countdown-deadline');
             if (!iso) return;
             var deadline = new Date(iso).getTime();
             var diff = Math.max(Math.floor((deadline - now) / 1000), 0);
+            if (diff <= 0) {
+                root.classList.add('finder-flip-timer--expired');
+                ['d', 'h', 'm'].forEach(function (k) {
+                    var unit = root.querySelector('.finder-flip-unit[data-countdown-key="' + k + '"]');
+                    setUnitValue(unit, k === 'd' ? '0' : '00', false);
+                });
+                root.setAttribute('aria-label', 'This window has ended');
+                return;
+            }
+            root.classList.remove('finder-flip-timer--expired');
             var d = Math.floor(diff / 86400);
             var h = Math.floor((diff % 86400) / 3600);
             var m = Math.floor((diff % 3600) / 60);
-            var textEl = el.querySelector('[data-countdown-text]');
-            if (textEl) {
-                textEl.textContent = diff > 0 ? d + 'd ' + h + 'h ' + m + 'm left' : 'Time expired';
-            }
+            var map = { d: String(d), h: pad2(h), m: pad2(m) };
+            Object.keys(map).forEach(function (k) {
+                var unit = root.querySelector('.finder-flip-unit[data-countdown-key="' + k + '"]');
+                setUnitValue(unit, map[k], true);
+            });
+            var ctx = root.getAttribute('data-countdown-context') || '';
+            var ctxPhrase =
+                ctx === 'claim'
+                    ? 'Time left for redemption'
+                    : ctx === 'adopt'
+                      ? 'Time left for adoption'
+                      : 'Time remaining';
+            root.setAttribute(
+                'aria-label',
+                ctxPhrase + ': ' + d + ' days, ' + h + ' hours, ' + m + ' minutes'
+            );
         });
     }
-    updateCountdowns();
-    setInterval(updateCountdowns, 30000);
+
+    function start() {
+        if (timerId) clearInterval(timerId);
+        updateFlipCountdowns();
+        timerId = setInterval(updateFlipCountdowns, TICK_MS);
+    }
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+            updateFlipCountdowns();
+        } else {
+            document.querySelectorAll('.finder-flip-unit.is-flipping').forEach(function (unit) {
+                unit.classList.remove('is-flipping');
+                if (unit.__cdFlipClear) {
+                    clearTimeout(unit.__cdFlipClear.t1);
+                    clearTimeout(unit.__cdFlipClear.t2);
+                    unit.__cdFlipClear = null;
+                }
+            });
+        }
+    });
+
+    start();
+})();
+</script>
+<script>
+(function () {
+    var STORAGE_KEY = "bayawan_finder_reminder_toggle_v2";
+    var LEGACY_KEY = "bayawan_finder_request_reminders_dismissed";
+
+    function readToggleMap() {
+        var map = {};
+        try {
+            map = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+        } catch (e) {
+            map = {};
+        }
+        try {
+            var legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || "{}");
+            Object.keys(legacy).forEach(function (k) {
+                if (legacy[k] === true && map[k] === undefined) {
+                    map[k] = "collapsed";
+                }
+            });
+        } catch (e) {}
+        return map;
+    }
+
+    function writeToggleMap(map) {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+        } catch (e) {}
+    }
+
+    function syncToggleUi(media, btn, collapsed) {
+        if (collapsed) {
+            media.classList.add("is-reminder-collapsed");
+        } else {
+            media.classList.remove("is-reminder-collapsed");
+        }
+        var expanded = btn.getAttribute("data-label-expanded") || "Hide reminder";
+        var collapsedLabel = btn.getAttribute("data-label-collapsed") || "Show reminder";
+        btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        btn.setAttribute("aria-label", collapsed ? collapsedLabel : expanded);
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        var map = readToggleMap();
+        document.querySelectorAll("[data-finder-request-reminder]").forEach(function (stack) {
+            var key = stack.getAttribute("data-reminder-key");
+            var media = stack.closest(".finder-card__media");
+            var btn = stack.querySelector(".finder-card__reminder-toggle");
+            if (!key || !media || !btn) {
+                return;
+            }
+            var stored = map[key];
+            var collapsed = stored === "collapsed";
+            syncToggleUi(media, btn, collapsed);
+
+            btn.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var nextCollapsed = !media.classList.contains("is-reminder-collapsed");
+                syncToggleUi(media, btn, nextCollapsed);
+                var nextMap = readToggleMap();
+                nextMap[key] = nextCollapsed ? "collapsed" : "expanded";
+                writeToggleMap(nextMap);
+            });
+        });
+    });
+})();
+</script>
+<script>
+(function () {
+    document.addEventListener("DOMContentLoaded", function () {
+        var params = new URLSearchParams(window.location.search);
+        var hl = params.get("highlight");
+        if (!hl) {
+            return;
+        }
+        var el = null;
+        if (hl.indexOf("staff:") === 0) {
+            el = document.getElementById("finder-highlight-staff-" + hl.slice(6));
+        } else if (hl.indexOf("user:") === 0) {
+            el = document.getElementById("finder-highlight-user-" + hl.slice(5));
+        }
+        if (!el) {
+            return;
+        }
+        el.classList.add("finder-card--shared-highlight");
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
 })();
 </script>
 {% include 'home/_feed_enhancements.html' %}

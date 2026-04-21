@@ -18,7 +18,7 @@ from django.utils import timezone
 
 from dogadoption_admin.barangays import BAYAWAN_BARANGAYS
 from dogadoption_admin.models import DogAnnouncement, Post, PostImage, PostRequest
-from user.models import Profile, UserAdoptionPost
+from user.models import Profile, UserAdoptionPost, UserAdoptionRequest
 
 
 class UserHomeFeedTests(TestCase):
@@ -186,7 +186,7 @@ class UserHomeFeedTests(TestCase):
         )
         self.assertContains(
             response,
-            'data-auth-next-url="/user/claim/',
+            'data-auth-next-url="/user/redeem/',
             html=False,
         )
         self.assertContains(
@@ -362,20 +362,20 @@ class UserHomeFeedTests(TestCase):
         response = self.client.get(reverse("user:user_home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Claim Dog")
+        self.assertContains(response, "Redeem Dog")
         self.assertContains(response, "Adopt Dog")
         self.assertContains(response, claim_post.display_breed)
         self.assertContains(response, adopt_post.display_breed)
-        self.assertContains(response, f'href="{reverse("user:claim_list")}"', html=False)
+        self.assertContains(response, f'href="{reverse("user:redeem_list")}"', html=False)
         self.assertContains(response, f'href="{reverse("user:adopt_list")}"', html=False)
         self.assertContains(response, "home-carousel-claim-1")
         self.assertContains(response, "home-carousel-adopt-1")
         self.assertContains(response, "View Details")
-        self.assertContains(response, "Open Post Page")
+        self.assertContains(response, 'aria-label="Open ', html=False)
         self.assertContains(response, "data-dog-detail-toggle", html=False)
         self.assertContains(response, "data-dog-detail-panel", html=False)
         self.assertContains(response, "Barangay")
-        self.assertContains(response, "Claim Ends")
+        self.assertContains(response, "Redemption Ends")
         self.assertContains(response, claim_deadline_label)
 
     def test_pinned_spotlight_view_post_and_view_status_include_popup_hooks(self):
@@ -407,12 +407,12 @@ class UserHomeFeedTests(TestCase):
         response = self.client.get(reverse("user:user_home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "View Status")
+        self.assertContains(response, "Redeem Dog")
         self.assertContains(response, "View Post")
         self.assertContains(response, "data-home-spotlight-card", count=1, html=False)
         self.assertContains(response, "data-home-spotlight-detail-toggle", count=2, html=False)
         self.assertContains(response, "data-home-spotlight-detail-panel", count=1, html=False)
-        self.assertContains(response, "Verification Until")
+        self.assertContains(response, "Redemption Ends")
         self.assertContains(response, "Coat")
         self.assertContains(response, "Color")
 
@@ -468,7 +468,7 @@ class UserHomeFeedTests(TestCase):
             location="Bayawan",
             claim_days=3,
         )
-        claim_url = f'{reverse("user:claim_confirm", args=[post.id])}?return_to=home'
+        claim_url = f'{reverse("user:redeem_confirm", args=[post.id])}?return_to=home'
 
         response = self.client.get(claim_url)
 
@@ -512,7 +512,7 @@ class UserHomeFeedTests(TestCase):
             location="Bayawan",
             claim_days=3,
         )
-        claim_url = reverse("user:claim_confirm", args=[post.id])
+        claim_url = reverse("user:redeem_confirm", args=[post.id])
 
         response = self.client.get(claim_url)
 
@@ -535,11 +535,11 @@ class UserHomeFeedTests(TestCase):
             claim_days=3,
         )
 
-        response = self.client.get(reverse("user:claim_list"))
+        response = self.client.get(reverse("user:redeem_list"))
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "adopt/adopt_list.html")
-        self.assertContains(response, "Dog Rescue Finder")
+        self.assertContains(response, "Find a Dog")
         self.assertContains(response, 'data-auth-modal-trigger="login"', html=False)
 
     def test_guest_can_open_post_detail_without_login(self):
@@ -578,7 +578,7 @@ class UserHomeFeedTests(TestCase):
             location="Bayawan",
             claim_days=3,
         )
-        claim_url = reverse("user:claim_confirm", args=[post.id])
+        claim_url = reverse("user:redeem_confirm", args=[post.id])
 
         response = self.client.post(
             reverse("user:login"),
@@ -609,12 +609,13 @@ class UserHomeFeedTests(TestCase):
         )
         self.client.force_login(member)
 
-        response = self.client.get(f'{reverse("user:claim_confirm", args=[post.id])}?return_to=home')
+        response = self.client.get(f'{reverse("user:redeem_confirm", args=[post.id])}?return_to=home')
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="claimCloseLink"', html=False)
         self.assertContains(
             response,
-            f'href="{reverse("user:user_home")}" class="btn btn-claim-cancel"',
+            f'href="{reverse("user:user_home")}"',
             html=False,
         )
 
@@ -636,12 +637,13 @@ class UserHomeFeedTests(TestCase):
         )
         self.client.force_login(member)
 
-        response = self.client.get(reverse("user:claim_confirm", args=[post.id]))
+        response = self.client.get(reverse("user:redeem_confirm", args=[post.id]))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="claimCloseLink"', html=False)
         self.assertContains(
             response,
-            f'href="{reverse("user:claim_list")}" class="btn btn-claim-cancel"',
+            f'href="{reverse("user:redeem_list")}"',
             html=False,
         )
 
@@ -663,14 +665,10 @@ class UserHomeFeedTests(TestCase):
         )
         self.client.force_login(member)
 
-        response = self.client.get(reverse("user:claim_list"))
+        response = self.client.get(reverse("user:redeem_list"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(
-            response,
-            f'href="{reverse("user:claim_confirm", args=[post.id])}"',
-            html=False,
-        )
+        self.assertContains(response, reverse("user:redeem_confirm", args=[post.id]), html=False)
         self.assertNotContains(response, 'data-auth-modal-trigger="login"', html=False)
 
     def test_claim_list_renders_deadline_and_detail_action_in_overlay_card(self):
@@ -691,16 +689,12 @@ class UserHomeFeedTests(TestCase):
         )
         claim_deadline_label = timezone.localtime(post.claim_deadline()).strftime("%b %d, %Y")
 
-        response = self.client.get(reverse("user:claim_list"))
+        response = self.client.get(reverse("user:redeem_list"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "View Details")
-        self.assertContains(
-            response,
-            f'href="{reverse("user:post_detail", args=[post.id])}"',
-            html=False,
-        )
-        self.assertContains(response, "Claim Ends")
+        self.assertContains(response, "View Info")
+        self.assertContains(response, post.display_breed or post.display_title)
+        self.assertContains(response, "Redemption Ends")
         self.assertContains(response, claim_deadline_label)
 
     def test_claim_list_shows_reserve_adoption_button_for_claim_phase_posts(self):
@@ -721,17 +715,13 @@ class UserHomeFeedTests(TestCase):
         )
         self.client.force_login(member)
 
-        response = self.client.get(reverse("user:claim_list"))
+        response = self.client.get(reverse("user:redeem_list"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Reserve Adoption")
-        self.assertContains(
-            response,
-            f'href="{reverse("user:adopt_confirm", args=[post.id])}"',
-            html=False,
-        )
+        self.assertContains(response, reverse("user:adopt_confirm", args=[post.id]), html=False)
 
-    def test_adopt_list_defaults_to_adoption_phase_in_rescue_finder(self):
+    def test_adopt_list_defaults_to_all_purpose_in_rescue_finder(self):
         staff_user = User.objects.create_user(
             username="finderadoptstaff",
             password="secret123",
@@ -770,10 +760,115 @@ class UserHomeFeedTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'name="purpose"', html=False)
-        self.assertEqual(response.context["current_purpose"], "adopt")
-        self.assertEqual(len(response.context["posts"]), 1)
-        self.assertEqual(response.context["posts"][0]["post"].id, adopt_post.id)
-        self.assertNotEqual(response.context["posts"][0]["post"].id, claim_post.id)
+        self.assertEqual(response.context["current_purpose"], "all")
+        staff_ids = {row["post"].id for row in response.context["posts"]}
+        self.assertEqual(staff_ids, {claim_post.id, adopt_post.id})
+
+    def test_adopt_list_shows_adopt_button_for_available_user_posts(self):
+        owner = User.objects.create_user(
+            username="finderuserpostowner",
+            password="secret123",
+            first_name="Owner",
+            last_name="User",
+        )
+        member = User.objects.create_user(
+            username="finderuserpostmember",
+            password="secret123",
+        )
+        user_post = UserAdoptionPost.objects.create(
+            owner=owner,
+            dog_name="Sunny",
+            location="Tinago",
+            description="Friendly and ready for a new home.",
+            status="available",
+        )
+        self.client.force_login(member)
+
+        response = self.client.get(reverse("user:adopt_list"))
+
+        self.assertEqual(response.status_code, 200)
+        listing_item = next(
+            item
+            for item in response.context["user_adoption_posts"]
+            if item["post"].id == user_post.id
+        )
+        self.assertTrue(listing_item["show_user_adoption_request_cta"])
+        self.assertFalse(listing_item["viewer_is_owner"])
+        self.assertFalse(listing_item["viewer_has_user_adoption_request"])
+        self.assertContains(
+            response,
+            f'data-request-url="{listing_item["request_url"]}"',
+            html=False,
+        )
+        self.assertContains(response, "Adopt")
+
+    def test_adopt_list_hides_adopt_button_when_user_already_requested_user_post(self):
+        owner = User.objects.create_user(
+            username="finderrequestowner",
+            password="secret123",
+        )
+        member = User.objects.create_user(
+            username="finderrequestmember",
+            password="secret123",
+        )
+        user_post = UserAdoptionPost.objects.create(
+            owner=owner,
+            dog_name="Comet",
+            location="Villareal",
+            status="available",
+        )
+        UserAdoptionRequest.objects.create(
+            post=user_post,
+            requester=member,
+            status="pending",
+        )
+        self.client.force_login(member)
+
+        response = self.client.get(reverse("user:adopt_list"))
+
+        self.assertEqual(response.status_code, 200)
+        listing_item = next(
+            item
+            for item in response.context["user_adoption_posts"]
+            if item["post"].id == user_post.id
+        )
+        self.assertFalse(listing_item["show_user_adoption_request_cta"])
+        self.assertTrue(listing_item["viewer_has_user_adoption_request"])
+        self.assertContains(response, "You already requested adoption for this dog.")
+        self.assertNotContains(
+            response,
+            f'data-request-url="{listing_item["request_url"]}"',
+            html=False,
+        )
+
+    def test_user_adoption_post_detail_shows_adopt_link_for_other_users(self):
+        owner = User.objects.create_user(
+            username="detailpostowner",
+            password="secret123",
+        )
+        member = User.objects.create_user(
+            username="detailpostmember",
+            password="secret123",
+        )
+        user_post = UserAdoptionPost.objects.create(
+            owner=owner,
+            dog_name="Peanut",
+            location="Narra",
+            status="available",
+        )
+        self.client.force_login(member)
+
+        response = self.client.get(
+            reverse("user:user_adoption_post_detail", args=[user_post.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'href="{response.context["request_url"]}"',
+            html=False,
+        )
+        self.assertContains(response, "Adopt")
 
     def test_claim_list_filter_preferences_sort_best_match_first(self):
         staff_user = User.objects.create_user(
@@ -812,7 +907,7 @@ class UserHomeFeedTests(TestCase):
         self.client.force_login(member)
 
         response = self.client.get(
-            reverse("user:claim_list"),
+            reverse("user:redeem_list"),
             {
                 "purpose": "all",
                 "breed": "labrador",
@@ -846,7 +941,7 @@ class UserHomeFeedTests(TestCase):
         )
         self.client.force_login(member)
 
-        response = self.client.get(reverse("user:claim_list"))
+        response = self.client.get(reverse("user:redeem_list"))
 
         self.assertEqual(response.status_code, 200)
         location_section = next(
@@ -872,7 +967,7 @@ class UserHomeFeedTests(TestCase):
             location="Bayawan",
             claim_days=3,
         )
-        claim_url = reverse("user:claim_confirm", args=[post.id])
+        claim_url = reverse("user:redeem_confirm", args=[post.id])
 
         response = self.client.post(
             reverse("user:login"),
@@ -886,7 +981,7 @@ class UserHomeFeedTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "home/user_home.html")
-        self.assertContains(response, "Invalid username or password")
+        self.assertContains(response, "The username or password you entered is incorrect")
         self.assertContains(response, f'value="{claim_url}"', html=False)
 
     def test_modal_signup_error_re_renders_home_with_signup_popup(self):
@@ -901,7 +996,7 @@ class UserHomeFeedTests(TestCase):
             location="Bayawan",
             claim_days=3,
         )
-        claim_url = reverse("user:claim_confirm", args=[post.id])
+        claim_url = reverse("user:redeem_confirm", args=[post.id])
 
         response = self.client.post(
             reverse("user:signup"),

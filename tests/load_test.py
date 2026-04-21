@@ -3,14 +3,22 @@ Locust suite for the Capstone Dog Adoption Django backend.
 
 What this file covers:
 - realistic public, authenticated user, and admin browsing flows
+- broad GET coverage of user and vetadmin URL modules (static routes + link discovery)
 - authenticated POST flows with CSRF handling
 - adaptive stress profile that stops when the app degrades
 - basic SQL injection and XSS probes with CSV findings export
+
+Default concurrency (overridable via env):
+- LOAD_TEST_PUBLIC_FIXED_COUNT default 8 (anonymous landing, auth pages, health)
+- LOAD_TEST_USER_FIXED_COUNT default 50 (requires LOAD_TEST_USER_* credentials)
+- LOAD_TEST_ADMIN_FIXED_COUNT default 7 (requires LOAD_TEST_ADMIN_* credentials)
+- Steady ramp targets are auto-sized to at least the sum of those fixed counts
 
 Safe defaults:
 - login/logout are exercised, but repeated session cycling is disabled by default
 - write-heavy tasks are opt-in and sampled to avoid polluting shared staging data
 - security probes are sampled so they do not dominate normal traffic
+- heavy export/download endpoints are not included in the default crawl
 """
 
 from __future__ import annotations
@@ -34,8 +42,27 @@ from locust.runners import WorkerRunner
 CSRF_RE = re.compile(r'name=["\']csrfmiddlewaretoken["\']\s+value=["\']([^"\']+)["\']')
 USER_ADOPT_PATH_RE = re.compile(r"(/user/user-adopt/[^\"'\s<]+/)")
 STAFF_ADOPT_PATH_RE = re.compile(r"(/user/adopt/[^\"'\s<]+/)")
-CLAIM_PATH_RE = re.compile(r"(/user/claim/[^\"'\s<]+/)")
+CLAIM_PATH_RE = re.compile(r"(/user/(?:claim|redeem)/[^\"'\s<]+/)")
 ANNOUNCEMENT_COMMENT_PATH_RE = re.compile(r"(/user/announcements/[^\"'\s<]+/comment/)")
+POST_DETAIL_PATH_RE = re.compile(r"(/user/post/\d+/)")
+ANNOUNCEMENT_DETAIL_PATH_RE = re.compile(r"(/user/announcements/\d+/)")
+ANNOUNCEMENT_SHARE_PATH_RE = re.compile(r"(/user/announcements/share/\d+/)")
+USER_ADOPT_DETAIL_PATH_RE = re.compile(r"(/user/user-adopt/\d+/detail/)")
+CAPTURE_REQUEST_EDIT_PATH_RE = re.compile(r"(/user/request/[^/\"'\s<]+/edit/)")
+USER_PROFILE_PATH_RE = re.compile(r"(/user/profile/\d+/)")
+USER_PROFILE_REQUESTER_PATH_RE = re.compile(r"(/user/profile/requester/\d+/)")
+ADMIN_VIEW_USER_PROFILE_PATH_RE = re.compile(r"(/user/profile/view/\d+/)")
+ADMIN_POST_EDIT_PATH_RE = re.compile(r"(/vetadmin/posts/\d+/edit/)")
+ADMIN_POST_REQUESTS_PATH_RE = re.compile(r"(/vetadmin/post/\d+/requests/)")
+ADMIN_POST_CLAIMS_PATH_RE = re.compile(r"(/vetadmin/posts/\d+/claims/)")
+ADMIN_POST_HISTORY_RECORD_PATH_RE = re.compile(r"(/vetadmin/posts/\d+/history-record/)")
+ADMIN_CAPTURE_UPDATE_PATH_RE = re.compile(r"(/vetadmin/dog-capture/request/[^/\"'\s<]+/update/)")
+ADMIN_ANNOUNCEMENT_EDIT_PATH_RE = re.compile(r"(/vetadmin/announcements/\d+/edit/)")
+ADMIN_MED_RECORD_PATH_RE = re.compile(r"(/vetadmin/med-records/[^/\"'\s<]+/)")
+ADMIN_CERTIFICATE_PRINT_PATH_RE = re.compile(r"(/vetadmin/certificate/\d+/)")
+ADMIN_USER_DETAIL_PATH_RE = re.compile(r"(/vetadmin/admin/user/\d+/)")
+ADMIN_REGISTRATION_PROFILE_PATH_RE = re.compile(r"(/vetadmin/registration/profile/\d+/)")
+ADMIN_USER_VIOLATIONS_PATH_RE = re.compile(r"(/vetadmin/users/\d+/violations/)")
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -159,6 +186,7 @@ class LoadSuiteSettings:
     stress_p95_threshold_ms: int
     output_dir: Path
     report_prefix: str
+    admin_announcement_create_slug: str
 
     @classmethod
     def from_env(cls) -> "LoadSuiteSettings":
@@ -173,18 +201,34 @@ class LoadSuiteSettings:
         if profile not in {"steady", "stress"}:
             profile = "steady"
 
-        ramp_users = _parse_csv_ints(
-            os.getenv("LOAD_TEST_RAMP_USERS", ""),
-            [10, 50, 100, 500],
-        )
-        ramp_stage_seconds = _parse_csv_ints(
-            os.getenv("LOAD_TEST_RAMP_STAGE_SECONDS", ""),
-            [60, 120, 180, 240],
-        )
-        ramp_spawn_rates = _parse_csv_floats(
-            os.getenv("LOAD_TEST_RAMP_SPAWN_RATES", ""),
-            [2.0, 5.0, 10.0, 25.0],
-        )
+        public_fixed_count = max(0, env_int("LOAD_TEST_PUBLIC_FIXED_COUNT", 8))
+        user_fixed_count = max(0, env_int("LOAD_TEST_USER_FIXED_COUNT", 50))
+        admin_fixed_count = max(0, env_int("LOAD_TEST_ADMIN_FIXED_COUNT", 7))
+
+        user_credentials = _parse_credentials("LOAD_TEST_USER")
+        admin_credentials = _parse_credentials("LOAD_TEST_ADMIN")
+
+        ramp_users_env = (os.getenv("LOAD_TEST_RAMP_USERS") or "").strip()
+        if ramp_users_env:
+            ramp_users = _parse_csv_ints(
+                ramp_users_env,
+                [10, 50, 100, 500],
+            )
+            ramp_stage_seconds = _parse_csv_ints(
+                os.getenv("LOAD_TEST_RAMP_STAGE_SECONDS", ""),
+                [60, 120, 180, 240],
+            )
+            ramp_spawn_rates = _parse_csv_floats(
+                os.getenv("LOAD_TEST_RAMP_SPAWN_RATES", ""),
+                [2.0, 5.0, 10.0, 25.0],
+            )
+        else:
+            user_floor = max(0, user_fixed_count) if user_credentials else 0
+            admin_floor = max(0, admin_fixed_count) if admin_credentials else 0
+            floor = max(1, public_fixed_count + user_floor + admin_floor)
+            ramp_users = [floor, min(floor * 2, 250), min(floor * 3, 500)]
+            ramp_stage_seconds = [90, 120, 180]
+            ramp_spawn_rates = [4.0, 10.0, 20.0]
 
         if len(ramp_stage_seconds) < len(ramp_users):
             ramp_stage_seconds.extend(
@@ -197,13 +241,20 @@ class LoadSuiteSettings:
                 * (len(ramp_users) - len(ramp_spawn_rates))
             )
 
+        stress_floor = max(
+            1,
+            public_fixed_count
+            + (user_fixed_count if user_credentials else 0)
+            + (admin_fixed_count if admin_credentials else 0),
+        )
+
         return cls(
             profile=profile,
-            user_credentials=_parse_credentials("LOAD_TEST_USER"),
-            admin_credentials=_parse_credentials("LOAD_TEST_ADMIN"),
-            public_fixed_count=max(0, env_int("LOAD_TEST_PUBLIC_FIXED_COUNT", 0)),
-            user_fixed_count=max(0, env_int("LOAD_TEST_USER_FIXED_COUNT", 0)),
-            admin_fixed_count=max(0, env_int("LOAD_TEST_ADMIN_FIXED_COUNT", 0)),
+            user_credentials=user_credentials,
+            admin_credentials=admin_credentials,
+            public_fixed_count=public_fixed_count,
+            user_fixed_count=user_fixed_count,
+            admin_fixed_count=admin_fixed_count,
             wait_min_seconds=env_float("LOAD_TEST_WAIT_MIN_SECONDS", 1.0),
             wait_max_seconds=env_float("LOAD_TEST_WAIT_MAX_SECONDS", 4.0),
             enable_writes=env_bool("LOAD_TEST_ENABLE_WRITES", False),
@@ -250,16 +301,23 @@ class LoadSuiteSettings:
             ramp_users=ramp_users,
             ramp_stage_seconds=ramp_stage_seconds[: len(ramp_users)],
             ramp_spawn_rates=ramp_spawn_rates[: len(ramp_users)],
-            stress_start_users=env_int("LOAD_TEST_STRESS_START_USERS", 10),
+            stress_start_users=env_int("LOAD_TEST_STRESS_START_USERS", stress_floor),
             stress_step_users=env_int("LOAD_TEST_STRESS_STEP_USERS", 40),
             stress_step_seconds=env_int("LOAD_TEST_STRESS_STEP_SECONDS", 60),
             stress_spawn_rate=env_float("LOAD_TEST_STRESS_SPAWN_RATE", 10.0),
-            stress_max_users=env_int("LOAD_TEST_STRESS_MAX_USERS", 800),
+            stress_max_users=env_int(
+                "LOAD_TEST_STRESS_MAX_USERS",
+                max(800, stress_floor * 4),
+            ),
             stress_max_duration_seconds=env_int("LOAD_TEST_STRESS_MAX_DURATION_SECONDS", 1800),
             stress_fail_ratio_threshold=env_float("LOAD_TEST_STRESS_FAIL_RATIO", 0.10),
             stress_p95_threshold_ms=env_int("LOAD_TEST_STRESS_P95_MS", 5000),
             output_dir=output_dir,
             report_prefix=(os.getenv("LOAD_TEST_REPORT_PREFIX") or timestamp_prefix).strip(),
+            admin_announcement_create_slug=(
+                os.getenv("LOAD_TEST_ADMIN_ANNOUNCEMENT_SLUG") or "dog-announcements"
+            ).strip()
+            or "dog-announcements",
         )
 
 
@@ -366,7 +424,8 @@ def on_test_start(environment, **kwargs):
         f"user_fixed={SETTINGS.user_fixed_count}, "
         f"admin_fixed={SETTINGS.admin_fixed_count}, "
         f"user_creds={len(SETTINGS.user_credentials)}, "
-        f"admin_creds={len(SETTINGS.admin_credentials)}"
+        f"admin_creds={len(SETTINGS.admin_credentials)}, "
+        f"steady_ramp={SETTINGS.ramp_users}"
     )
     if SETTINGS.user_fixed_count and not SETTINGS.user_credentials:
         print("WARNING: LOAD_TEST_USER_FIXED_COUNT is set, but no user credentials were provided.")
@@ -552,6 +611,25 @@ class CapstoneUserBase(HttpUser):
         self.staff_adopt_paths: list[str] = []
         self.claim_paths: list[str] = []
         self.announcement_comment_paths: list[str] = []
+        self.post_detail_paths: list[str] = []
+        self.announcement_detail_paths: list[str] = []
+        self.announcement_share_paths: list[str] = []
+        self.user_adopt_detail_paths: list[str] = []
+        self.capture_request_edit_paths: list[str] = []
+        self.user_profile_paths: list[str] = []
+        self.user_profile_requester_paths: list[str] = []
+        self.admin_view_user_profile_paths: list[str] = []
+        self.admin_post_edit_paths: list[str] = []
+        self.admin_post_requests_paths: list[str] = []
+        self.admin_post_claims_paths: list[str] = []
+        self.admin_post_history_record_paths: list[str] = []
+        self.admin_capture_update_paths: list[str] = []
+        self.admin_announcement_edit_paths: list[str] = []
+        self.admin_med_record_paths: list[str] = []
+        self.admin_certificate_print_paths: list[str] = []
+        self.admin_user_detail_paths: list[str] = []
+        self.admin_registration_profile_paths: list[str] = []
+        self.admin_user_violations_paths: list[str] = []
         self.last_security_probe_at = 0.0
         self.write_enabled = SETTINGS.enable_writes and (
             random.random() <= SETTINGS.write_user_sample_rate
@@ -632,6 +710,93 @@ class CapstoneUserBase(HttpUser):
                 ANNOUNCEMENT_COMMENT_PATH_RE.findall(html)
             )
         )
+        self.post_detail_paths = list(
+            set(self.post_detail_paths).union(POST_DETAIL_PATH_RE.findall(html))
+        )
+        self.announcement_detail_paths = list(
+            set(self.announcement_detail_paths).union(
+                ANNOUNCEMENT_DETAIL_PATH_RE.findall(html)
+            )
+        )
+        self.announcement_share_paths = list(
+            set(self.announcement_share_paths).union(
+                ANNOUNCEMENT_SHARE_PATH_RE.findall(html)
+            )
+        )
+        self.user_adopt_detail_paths = list(
+            set(self.user_adopt_detail_paths).union(
+                USER_ADOPT_DETAIL_PATH_RE.findall(html)
+            )
+        )
+        self.capture_request_edit_paths = list(
+            set(self.capture_request_edit_paths).union(
+                CAPTURE_REQUEST_EDIT_PATH_RE.findall(html)
+            )
+        )
+        self.user_profile_paths = list(
+            set(self.user_profile_paths).union(USER_PROFILE_PATH_RE.findall(html))
+        )
+        self.user_profile_requester_paths = list(
+            set(self.user_profile_requester_paths).union(
+                USER_PROFILE_REQUESTER_PATH_RE.findall(html)
+            )
+        )
+        self.admin_view_user_profile_paths = list(
+            set(self.admin_view_user_profile_paths).union(
+                ADMIN_VIEW_USER_PROFILE_PATH_RE.findall(html)
+            )
+        )
+        self.admin_post_edit_paths = list(
+            set(self.admin_post_edit_paths).union(ADMIN_POST_EDIT_PATH_RE.findall(html))
+        )
+        self.admin_post_requests_paths = list(
+            set(self.admin_post_requests_paths).union(
+                ADMIN_POST_REQUESTS_PATH_RE.findall(html)
+            )
+        )
+        self.admin_post_claims_paths = list(
+            set(self.admin_post_claims_paths).union(
+                ADMIN_POST_CLAIMS_PATH_RE.findall(html)
+            )
+        )
+        self.admin_post_history_record_paths = list(
+            set(self.admin_post_history_record_paths).union(
+                ADMIN_POST_HISTORY_RECORD_PATH_RE.findall(html)
+            )
+        )
+        self.admin_capture_update_paths = list(
+            set(self.admin_capture_update_paths).union(
+                ADMIN_CAPTURE_UPDATE_PATH_RE.findall(html)
+            )
+        )
+        self.admin_announcement_edit_paths = list(
+            set(self.admin_announcement_edit_paths).union(
+                ADMIN_ANNOUNCEMENT_EDIT_PATH_RE.findall(html)
+            )
+        )
+        self.admin_med_record_paths = list(
+            set(self.admin_med_record_paths).union(ADMIN_MED_RECORD_PATH_RE.findall(html))
+        )
+        self.admin_certificate_print_paths = list(
+            set(self.admin_certificate_print_paths).union(
+                ADMIN_CERTIFICATE_PRINT_PATH_RE.findall(html)
+            )
+        )
+        self.admin_user_detail_paths = list(
+            set(self.admin_user_detail_paths).union(
+                ADMIN_USER_DETAIL_PATH_RE.findall(html)
+            )
+        )
+        self.admin_registration_profile_paths = list(
+            set(self.admin_registration_profile_paths).union(
+                ADMIN_REGISTRATION_PROFILE_PATH_RE.findall(html)
+            )
+        )
+        self.admin_user_violations_paths = list(
+            set(self.admin_user_violations_paths).union(
+                ADMIN_USER_VIOLATIONS_PATH_RE.findall(html)
+            )
+        )
 
     def _maybe_reauthenticate(self, response, *, expected_prefix: str) -> bool:
         final_url = (getattr(response, "url", "") or "").lower()
@@ -649,7 +814,7 @@ class CapstoneUserBase(HttpUser):
         body = getattr(response, "text", "") or ""
         if response.status_code == 429 or "Too many requests" in body:
             return "Login failed: rate limited by the backend."
-        if "Invalid username or password" in body:
+        if "The username or password you entered is incorrect" in body:
             return "Login failed: invalid load-test credentials."
         if response.status_code >= 400:
             return f"Login failed with HTTP {response.status_code}."
@@ -858,6 +1023,42 @@ class PublicVisitor(HttpUser):
             else:
                 response.success()
 
+    @task(1)
+    def health_metrics(self):
+        token = (os.getenv("LOAD_TEST_HEALTH_METRICS_TOKEN") or "").strip()
+        path = "/health/metrics/"
+        if token:
+            path = f"{path}?token={quote_plus(token)}"
+        with self.client.get(path, name="GET /health/metrics/", catch_response=True) as response:
+            if response.status_code >= 400:
+                response.failure(f"Health metrics failed with {response.status_code}")
+            else:
+                response.success()
+
+    @task(1)
+    def privacy_policy(self):
+        with self.client.get(
+            "/user/privacy-policy/",
+            name="GET /user/privacy-policy/",
+            catch_response=True,
+        ) as response:
+            if response.status_code >= 400:
+                response.failure(f"Privacy policy failed with {response.status_code}")
+            else:
+                response.success()
+
+    @task(1)
+    def data_deletion(self):
+        with self.client.get(
+            "/user/data-deletion/",
+            name="GET /user/data-deletion/",
+            catch_response=True,
+        ) as response:
+            if response.status_code >= 400:
+                response.failure(f"Data deletion page failed with {response.status_code}")
+            else:
+                response.success()
+
 
 class UserJourney(CapstoneUserBase):
     abstract = not bool(SETTINGS.user_credentials)
@@ -916,22 +1117,23 @@ class UserJourney(CapstoneUserBase):
             catch_response=True,
         ) as response:
             self._capture_csrf(response)
+            self._capture_discovery(response.text)
             if not self._maybe_reauthenticate(response, expected_prefix="/user/request/"):
                 response.failure("Request page redirected to login.")
             else:
                 response.success()
 
     @task(2)
-    def browse_claim_list(self):
+    def browse_redeem_list(self):
         with self.client.get(
-            "/user/claim-list/",
-            name="GET /user/claim-list/",
+            "/user/redeem-list/",
+            name="GET /user/redeem-list/",
             catch_response=True,
         ) as response:
             self._capture_csrf(response)
             self._capture_discovery(response.text)
-            if not self._maybe_reauthenticate(response, expected_prefix="/user/claim-list/"):
-                response.failure("Claim list redirected to login.")
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/redeem-list/"):
+                response.failure("Redeem list redirected to login.")
             else:
                 response.success()
 
@@ -976,6 +1178,247 @@ class UserJourney(CapstoneUserBase):
             self._capture_discovery(response.text)
             if response.status_code >= 400:
                 response.failure(f"Feed search failed with {response.status_code}")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_privacy_policy_auth(self):
+        with self.client.get(
+            "/user/privacy-policy/",
+            name="GET /user/privacy-policy/ (auth)",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            if response.status_code >= 400:
+                response.failure(f"Privacy policy failed with {response.status_code}")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_data_deletion_auth(self):
+        with self.client.get(
+            "/user/data-deletion/",
+            name="GET /user/data-deletion/ (auth)",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            if response.status_code >= 400:
+                response.failure(f"Data deletion page failed with {response.status_code}")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_complete_profile(self):
+        with self.client.get(
+            "/user/complete-profile/",
+            name="GET /user/complete-profile/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            if response.status_code >= 400:
+                response.failure(f"Complete profile failed with {response.status_code}")
+            else:
+                response.success()
+
+    @task(3)
+    def browse_profile_edit(self):
+        with self.client.get(
+            "/user/profile/edit/",
+            name="GET /user/profile/edit/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/profile/edit/"):
+                response.failure("Edit profile redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_post_create(self):
+        with self.client.get(
+            "/user/post/create/",
+            name="GET /user/post/create/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/post/create/"):
+                response.failure("Create post page redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(3)
+    def browse_user_adoption_requests_page(self):
+        with self.client.get(
+            "/user/user-adopt/requests/",
+            name="GET /user/user-adopt/requests/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/user-adopt/requests/"):
+                response.failure("Adoption requests page redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_my_redemptions(self):
+        with self.client.get(
+            "/user/my-redemptions/",
+            name="GET /user/my-redemptions/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/my-redemptions/"):
+                response.failure("My redemptions redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_notification_open_safe(self):
+        with self.client.get(
+            "/user/notifications/open/?next=/user/",
+            name="GET /user/notifications/open/",
+            catch_response=True,
+            allow_redirects=True,
+        ) as response:
+            if response.status_code >= 400:
+                response.failure(f"Notification open failed with {response.status_code}")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_discovered_post_detail(self):
+        if not self.post_detail_paths:
+            return
+        path = random.choice(self.post_detail_paths)
+        with self.client.get(path, name="GET /user/post/[id]/", catch_response=True) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/post/"):
+                response.failure("Post detail redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_discovered_announcement_detail(self):
+        if not self.announcement_detail_paths:
+            return
+        path = random.choice(self.announcement_detail_paths)
+        with self.client.get(
+            path,
+            name="GET /user/announcements/[id]/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/announcements/"):
+                response.failure("Announcement detail redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_announcement_share(self):
+        if not self.announcement_share_paths:
+            return
+        path = random.choice(self.announcement_share_paths)
+        with self.client.get(
+            path,
+            name="GET /user/announcements/share/[id]/ (redirects to detail)",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/announcements/"):
+                response.failure("Announcement legacy share URL redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_discovered_user_adopt_detail(self):
+        if not self.user_adopt_detail_paths:
+            return
+        path = random.choice(self.user_adopt_detail_paths)
+        with self.client.get(
+            path,
+            name="GET /user/user-adopt/[id]/detail/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/user-adopt/"):
+                response.failure("User adopt detail redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_capture_edit(self):
+        if not self.capture_request_edit_paths:
+            return
+        path = random.choice(self.capture_request_edit_paths)
+        with self.client.get(path, name="GET /user/request/[id]/edit/", catch_response=True) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/request/"):
+                response.failure("Capture request edit redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_discovered_user_profile(self):
+        if not self.user_profile_paths:
+            return
+        path = random.choice(self.user_profile_paths)
+        with self.client.get(path, name="GET /user/profile/[id]/", catch_response=True) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/profile/"):
+                response.failure("User profile redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_user_profile_requester(self):
+        if not self.user_profile_requester_paths:
+            return
+        path = random.choice(self.user_profile_requester_paths)
+        with self.client.get(
+            path,
+            name="GET /user/profile/requester/[id]/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/profile/requester/"):
+                response.failure("Requester profile redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_staff_adopt_page(self):
+        if not self.staff_adopt_paths:
+            return
+        path = random.choice(self.staff_adopt_paths)
+        with self.client.get(path, name="GET /user/adopt/[id]/", catch_response=True) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/adopt/"):
+                response.failure("Staff adopt page redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_redeem_confirm(self):
+        if not self.claim_paths:
+            return
+        path = random.choice(self.claim_paths)
+        with self.client.get(path, name="GET /user/redeem/[id]/", catch_response=True) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/user/redeem/"):
+                response.failure("Redeem confirm redirected unexpectedly.")
             else:
                 response.success()
 
@@ -1102,7 +1545,8 @@ class UserJourney(CapstoneUserBase):
 
 class AdminJourney(CapstoneUserBase):
     abstract = not bool(SETTINGS.admin_credentials)
-    weight = 1
+    # Higher weight so fewer concurrent admins still exercise vetadmin routes heavily.
+    weight = 4
     fixed_count = SETTINGS.admin_fixed_count
     user_label = "admin-user"
     dashboard_path = "/vetadmin/post-list/"
@@ -1119,6 +1563,7 @@ class AdminJourney(CapstoneUserBase):
             catch_response=True,
         ) as response:
             self._capture_csrf(response)
+            self._capture_discovery(response.text)
             if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
                 response.failure("Admin post list redirected to login.")
             else:
@@ -1132,6 +1577,7 @@ class AdminJourney(CapstoneUserBase):
             catch_response=True,
         ) as response:
             self._capture_csrf(response)
+            self._capture_discovery(response.text)
             if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
                 response.failure("Admin request board redirected to login.")
             else:
@@ -1145,6 +1591,7 @@ class AdminJourney(CapstoneUserBase):
             catch_response=True,
         ) as response:
             self._capture_csrf(response)
+            self._capture_discovery(response.text)
             if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
                 response.failure("Registration record redirected to login.")
             else:
@@ -1158,8 +1605,403 @@ class AdminJourney(CapstoneUserBase):
             catch_response=True,
         ) as response:
             self._capture_csrf(response)
+            self._capture_discovery(response.text)
             if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
                 response.failure("Analytics dashboard redirected to login.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_post_history(self):
+        with self.client.get(
+            "/vetadmin/post-history/",
+            name="GET /vetadmin/post-history/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Post history redirected to login.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_create_post(self):
+        with self.client.get(
+            "/vetadmin/create/",
+            name="GET /vetadmin/create/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Create post redirected to login.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_register_dogs(self):
+        with self.client.get(
+            "/vetadmin/register/",
+            name="GET /vetadmin/register/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Register dogs redirected to login.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_dog_certificate(self):
+        with self.client.get(
+            "/vetadmin/dog-certificate/",
+            name="GET /vetadmin/dog-certificate/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Dog certificate redirected to login.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_certificate_list(self):
+        with self.client.get(
+            "/vetadmin/certificates/",
+            name="GET /vetadmin/certificates/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Certificate list redirected to login.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_citation_lookup(self):
+        with self.client.get(
+            "/vetadmin/citation/lookup/",
+            name="GET /vetadmin/citation/lookup/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Citation lookup redirected to login.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_citation_create(self):
+        with self.client.get(
+            "/vetadmin/citation/new/",
+            name="GET /vetadmin/citation/new/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Citation create redirected to login.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_penalty_manager(self):
+        with self.client.get(
+            "/vetadmin/penalties/",
+            name="GET /vetadmin/penalties/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Penalty manager redirected to login.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_admin_announcements(self):
+        with self.client.get(
+            "/vetadmin/admin/announcements/",
+            name="GET /vetadmin/admin/announcements/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Admin announcements redirected to login.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_announcement_create_options(self):
+        with self.client.get(
+            "/vetadmin/announcements/create/",
+            name="GET /vetadmin/announcements/create/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Announcement create options redirected to login.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_announcement_create_form(self):
+        slug = SETTINGS.admin_announcement_create_slug
+        with self.client.get(
+            f"/vetadmin/announcements/create/{slug}/",
+            name="GET /vetadmin/announcements/create/[slug]/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Announcement create form redirected to login.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_admin_users(self):
+        with self.client.get(
+            "/vetadmin/users/",
+            name="GET /vetadmin/users/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Admin users redirected to login.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_admin_profile_edit(self):
+        with self.client.get(
+            "/vetadmin/profile/edit/",
+            name="GET /vetadmin/profile/edit/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Admin profile edit redirected to login.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_admin_notifications(self):
+        with self.client.get(
+            "/vetadmin/notifications/",
+            name="GET /vetadmin/notifications/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Admin notifications redirected to login.")
+            else:
+                response.success()
+
+    @task(2)
+    def browse_user_post_requests(self):
+        with self.client.get(
+            "/vetadmin/user-post-requests/",
+            name="GET /vetadmin/user-post-requests/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("User post requests redirected to login.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_admin_post_edit(self):
+        if not self.admin_post_edit_paths:
+            return
+        path = random.choice(self.admin_post_edit_paths)
+        with self.client.get(path, name="GET /vetadmin/posts/[id]/edit/", catch_response=True) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Admin post edit redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_admin_post_requests(self):
+        if not self.admin_post_requests_paths:
+            return
+        path = random.choice(self.admin_post_requests_paths)
+        with self.client.get(
+            path,
+            name="GET /vetadmin/post/[id]/requests/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Admin adoption requests redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_admin_post_claims(self):
+        if not self.admin_post_claims_paths:
+            return
+        path = random.choice(self.admin_post_claims_paths)
+        with self.client.get(
+            path,
+            name="GET /vetadmin/posts/[id]/claims/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Admin claim requests redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_admin_history_record(self):
+        if not self.admin_post_history_record_paths:
+            return
+        path = random.choice(self.admin_post_history_record_paths)
+        with self.client.get(
+            path,
+            name="GET /vetadmin/posts/[id]/history-record/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("History record redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_admin_capture_update(self):
+        if not self.admin_capture_update_paths:
+            return
+        path = random.choice(self.admin_capture_update_paths)
+        with self.client.get(
+            path,
+            name="GET /vetadmin/dog-capture/request/[id]/update/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Capture update redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_admin_announcement_edit(self):
+        if not self.admin_announcement_edit_paths:
+            return
+        path = random.choice(self.admin_announcement_edit_paths)
+        with self.client.get(
+            path,
+            name="GET /vetadmin/announcements/[id]/edit/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Announcement edit redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_admin_med_record(self):
+        if not self.admin_med_record_paths:
+            return
+        path = random.choice(self.admin_med_record_paths)
+        with self.client.get(
+            path,
+            name="GET /vetadmin/med-records/[id]/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Med record redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_admin_certificate_print(self):
+        if not self.admin_certificate_print_paths:
+            return
+        path = random.choice(self.admin_certificate_print_paths)
+        with self.client.get(
+            path,
+            name="GET /vetadmin/certificate/[id]/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Certificate print redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_admin_user_detail(self):
+        if not self.admin_user_detail_paths:
+            return
+        path = random.choice(self.admin_user_detail_paths)
+        with self.client.get(
+            path,
+            name="GET /vetadmin/admin/user/[id]/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Admin user detail redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_admin_registration_profile(self):
+        if not self.admin_registration_profile_paths:
+            return
+        path = random.choice(self.admin_registration_profile_paths)
+        with self.client.get(
+            path,
+            name="GET /vetadmin/registration/profile/[id]/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("Registration owner profile redirected unexpectedly.")
+            else:
+                response.success()
+
+    @task(1)
+    def browse_discovered_admin_user_violations(self):
+        if not self.admin_user_violations_paths:
+            return
+        path = random.choice(self.admin_user_violations_paths)
+        with self.client.get(
+            path,
+            name="GET /vetadmin/users/[id]/violations/",
+            catch_response=True,
+        ) as response:
+            self._capture_csrf(response)
+            self._capture_discovery(response.text)
+            if not self._maybe_reauthenticate(response, expected_prefix="/vetadmin/"):
+                response.failure("User violations redirected unexpectedly.")
             else:
                 response.success()
 
@@ -1192,6 +2034,7 @@ class AdminJourney(CapstoneUserBase):
             name="GET /vetadmin/registration/users/search/",
             catch_response=True,
         ) as response:
+            self._capture_discovery(response.text)
             if response.status_code >= 400:
                 response.failure(f"Registration user search failed with {response.status_code}")
             else:
@@ -1201,6 +2044,7 @@ class AdminJourney(CapstoneUserBase):
     def admin_user_search(self):
         path = f"/vetadmin/users/search/?q={quote_plus(SETTINGS.search_term)}"
         with self.client.get(path, name="GET /vetadmin/users/search/", catch_response=True) as response:
+            self._capture_discovery(response.text)
             if response.status_code >= 400:
                 response.failure(f"Admin user search failed with {response.status_code}")
             else:

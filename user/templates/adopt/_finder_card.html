@@ -1,5 +1,6 @@
-<article class="finder-card{% if featured %} is-featured{% endif %}">
-    <div class="finder-card__media">
+{% load static %}
+<article id="finder-highlight-staff-{{ item.post.id }}" class="finder-card{% if featured %} is-featured{% endif %}" data-finder-highlight-root="staff">
+    <div class="finder-card__media{% if request.user.is_authenticated %}{% if item.phase == 'claim' %}{% if not item.show_claim_cta or not item.show_reserve_adoption_cta %} finder-card__media--has-reminder{% endif %}{% elif item.phase == 'adopt' and not item.show_adopt_cta %} finder-card__media--has-reminder{% endif %}{% endif %}">
         {% if item.main_image_url %}
         <a href="{{ item.main_image_url }}" class="finder-card__media-link js-finder-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ item.breed_label|default:item.title|default:'Dog image' }}" aria-label="View full image">
             <img src="{{ item.main_image_url }}" width="320" height="320" alt="{{ item.breed_label|default:item.title|default:'Dog image' }}">
@@ -15,49 +16,108 @@
         {% if active_filter_count and item.match_score %}
         <span class="finder-card__match">Match {{ item.match_score }}/{{ active_filter_count }}</span>
         {% endif %}
+        {% if request.user.is_authenticated %}
+            {% if item.phase == 'claim' and not item.show_claim_cta and not item.show_reserve_adoption_cta %}
+            <div class="finder-card__reminder-stack" data-finder-request-reminder data-reminder-key="staff-{{ item.post.id }}-both">
+                <div class="finder-card__reminder-panel" id="finder-reminder-staff-{{ item.post.id }}-both" role="region" aria-label="Your request status">
+                    <p class="finder-card__reminder-panel-text">You already submitted a claim and reserved adoption for this dog.</p>
+                </div>
+                <button type="button" class="finder-card__reminder-toggle" aria-expanded="true" aria-label="Hide reminder and show dog photo" aria-controls="finder-reminder-staff-{{ item.post.id }}-both" data-label-expanded="Hide reminder and show dog photo" data-label-collapsed="Show request reminder">
+                    <i class="bi bi-chevron-up finder-card__reminder-icon finder-card__reminder-icon--when-expanded" aria-hidden="true"></i>
+                    <i class="bi bi-chevron-down finder-card__reminder-icon finder-card__reminder-icon--when-collapsed" aria-hidden="true"></i>
+                </button>
+            </div>
+            {% elif item.phase == 'claim' and not item.show_claim_cta and item.show_reserve_adoption_cta %}
+            <div class="finder-card__reminder-stack" data-finder-request-reminder data-reminder-key="staff-{{ item.post.id }}-claim-only">
+                <div class="finder-card__reminder-panel" id="finder-reminder-staff-{{ item.post.id }}-claim-only" role="region" aria-label="Your request status">
+                    <p class="finder-card__reminder-panel-text">You already submitted a claim request for this dog.</p>
+                </div>
+                <button type="button" class="finder-card__reminder-toggle" aria-expanded="true" aria-label="Hide reminder and show dog photo" aria-controls="finder-reminder-staff-{{ item.post.id }}-claim-only" data-label-expanded="Hide reminder and show dog photo" data-label-collapsed="Show request reminder">
+                    <i class="bi bi-chevron-up finder-card__reminder-icon finder-card__reminder-icon--when-expanded" aria-hidden="true"></i>
+                    <i class="bi bi-chevron-down finder-card__reminder-icon finder-card__reminder-icon--when-collapsed" aria-hidden="true"></i>
+                </button>
+            </div>
+            {% elif item.phase == 'claim' and item.show_claim_cta and not item.show_reserve_adoption_cta %}
+            <div class="finder-card__reminder-stack" data-finder-request-reminder data-reminder-key="staff-{{ item.post.id }}-reserve-only">
+                <div class="finder-card__reminder-panel" id="finder-reminder-staff-{{ item.post.id }}-reserve-only" role="region" aria-label="Your request status">
+                    <p class="finder-card__reminder-panel-text">You already reserved adoption for this dog.</p>
+                </div>
+                <button type="button" class="finder-card__reminder-toggle" aria-expanded="true" aria-label="Hide reminder and show dog photo" aria-controls="finder-reminder-staff-{{ item.post.id }}-reserve-only" data-label-expanded="Hide reminder and show dog photo" data-label-collapsed="Show request reminder">
+                    <i class="bi bi-chevron-up finder-card__reminder-icon finder-card__reminder-icon--when-expanded" aria-hidden="true"></i>
+                    <i class="bi bi-chevron-down finder-card__reminder-icon finder-card__reminder-icon--when-collapsed" aria-hidden="true"></i>
+                </button>
+            </div>
+            {% elif item.phase == 'adopt' and not item.show_adopt_cta %}
+            <div class="finder-card__reminder-stack" data-finder-request-reminder data-reminder-key="staff-{{ item.post.id }}-adopt">
+                <div class="finder-card__reminder-panel" id="finder-reminder-staff-{{ item.post.id }}-adopt" role="region" aria-label="Your request status">
+                    <p class="finder-card__reminder-panel-text">You already submitted an adoption request for this dog.</p>
+                </div>
+                <button type="button" class="finder-card__reminder-toggle" aria-expanded="true" aria-label="Hide reminder and show dog photo" aria-controls="finder-reminder-staff-{{ item.post.id }}-adopt" data-label-expanded="Hide reminder and show dog photo" data-label-collapsed="Show request reminder">
+                    <i class="bi bi-chevron-up finder-card__reminder-icon finder-card__reminder-icon--when-expanded" aria-hidden="true"></i>
+                    <i class="bi bi-chevron-down finder-card__reminder-icon finder-card__reminder-icon--when-collapsed" aria-hidden="true"></i>
+                </button>
+            </div>
+            {% endif %}
+        {% endif %}
     </div>
 
     <div class="finder-card__body{% if featured %} finder-card__body--featured{% endif %}">
-        <div class="finder-card__head">
-            <div class="finder-card__title-wrap">
-                <p class="finder-card__label">Breed</p>
-                <h3 class="finder-card__breed-title">{{ item.breed_label }}</h3>
-                {% if item.title and item.title != item.breed_label %}
-                <p class="finder-card__title">{{ item.title }}</p>
-                {% endif %}
-                <p class="finder-card__breed">
-                    <span class="finder-card__breed-icon" aria-hidden="true">
-                        <i class="bi bi-geo-alt-fill"></i>
-                    </span>
-                    <span>{{ item.location_label }}</span>
+        {% if item.show_countdown %}
+        <div class="finder-card__timer-strip">
+            <div
+                class="finder-flip-timer"
+                {% if item.deadline_iso %}data-countdown-deadline="{{ item.deadline_iso }}"{% endif %}
+                data-countdown-context="{{ item.phase }}"
+                role="timer"
+                aria-live="polite"
+                aria-label="Time remaining in this window"
+            >
+                <p class="finder-flip-timer__caption">
+                    {% if item.phase == 'claim' %}Time left for redemption{% elif item.phase == 'adopt' %}Time left for adoption{% else %}Time remaining{% endif %}
                 </p>
+                <div class="finder-flip-timer__units">
+                    <div class="finder-flip-unit" data-countdown-key="d">
+                        <div class="finder-flip-unit__card">
+                            <span class="finder-flip-unit__hinge" aria-hidden="true"></span>
+                            <div class="finder-flip-unit__surface">
+                                <span class="finder-flip-unit__num" data-countdown-part="d">{{ item.days_left }}</span>
+                            </div>
+                        </div>
+                        <span class="finder-flip-unit__label">Days</span>
+                    </div>
+                    <div class="finder-flip-unit" data-countdown-key="h">
+                        <div class="finder-flip-unit__card">
+                            <span class="finder-flip-unit__hinge" aria-hidden="true"></span>
+                            <div class="finder-flip-unit__surface">
+                                <span class="finder-flip-unit__num" data-countdown-part="h">{{ item.hours_left|stringformat:"02d" }}</span>
+                            </div>
+                        </div>
+                        <span class="finder-flip-unit__label">Hours</span>
+                    </div>
+                    <div class="finder-flip-unit" data-countdown-key="m">
+                        <div class="finder-flip-unit__card">
+                            <span class="finder-flip-unit__hinge" aria-hidden="true"></span>
+                            <div class="finder-flip-unit__surface">
+                                <span class="finder-flip-unit__num" data-countdown-part="m">{{ item.minutes_left|stringformat:"02d" }}</span>
+                            </div>
+                        </div>
+                        <span class="finder-flip-unit__label">Minutes</span>
+                    </div>
+                </div>
             </div>
+        </div>
+        {% endif %}
+        {% if item.phase != 'claim' and item.phase != 'adopt' %}
+        <div class="finder-card__head finder-card__head--minimal">
             <span class="finder-card__phase-title">{{ item.phase_title }}</span>
         </div>
-
-        {% if item.show_countdown %}
-        <span class="finder-card__timer" {% if item.deadline_iso %}data-countdown-deadline="{{ item.deadline_iso }}"{% endif %}>
-            <span class="finder-card__timer-icon" aria-hidden="true">
-                <i class="bi bi-hourglass-split"></i>
-            </span>
-            <span data-countdown-text>{{ item.days_left }}d {{ item.hours_left }}h {{ item.minutes_left }}m left</span>
-        </span>
-        {% else %}
-        <span class="finder-card__timer finder-card__timer--pending">
-            <span class="finder-card__timer-icon" aria-hidden="true">
-                <i class="bi bi-shield-check"></i>
-            </span>
-            <span class="finder-card__timer-copy">
-                <strong>{{ item.pending_state_label }}</strong>
-                {% if item.pending_state_detail %}
-                <small>{{ item.pending_state_detail }}</small>
-                {% endif %}
-            </span>
-        </span>
         {% endif %}
 
         <div class="finder-card__footer{% if featured %} finder-card__footer--featured{% endif %}">
-            <div class="finder-card__actions{% if featured %} finder-card__actions--featured{% endif %}">
+            {% if item.phase == 'adopt' and item.show_adopt_cta %}
+            {# Same vertical slots as redemption cards: primary row / Reserve row / utilities #}
+            <div class="finder-card__actions finder-card__actions--stack{% if featured %} finder-card__actions--featured{% endif %}">
+                <span class="finder-card__action-placeholder" aria-hidden="true"></span>
                 <a
                     href="{{ item.action_url }}"
                     class="btn-action btn-action--primary"
@@ -66,22 +126,9 @@
                     data-auth-next-url="{{ item.action_url }}"
                     {% endif %}
                 >
-                    <span>{% if featured and item.phase == 'claim' %}Redeem{% else %}{{ item.action_label }}{% endif %}</span>
+                    <span>{{ item.action_label }}</span>
                 </a>
-                {% if item.phase == 'claim' %}
-                <a
-                    href="{% url 'user:adopt_confirm' item.post.id %}"
-                    class="btn-action btn-action--reserve"
-                    {% if not request.user.is_authenticated %}
-                    data-auth-modal-trigger="login"
-                    data-auth-next-url="{% url 'user:adopt_confirm' item.post.id %}"
-                    {% endif %}
-                >
-                    <span>Reserve Adoption</span>
-                </a>
-                {% endif %}
             </div>
-
             <div class="finder-card__utilities">
                 <button
                     type="button"
@@ -90,6 +137,7 @@
                     aria-controls="finder-card-details-{{ item.phase }}-{{ item.post.id }}-{% if featured %}featured{% else %}list{% endif %}"
                     data-finder-info-toggle
                 >
+                    <i class="bi bi-info-circle" aria-hidden="true"></i>
                     <span data-finder-info-label>View Info</span>
                 </button>
                 <button
@@ -101,10 +149,69 @@
                     data-finder-share
                     aria-label="Share {{ item.title }}"
                 >
-                    <i class="bi bi-share" aria-hidden="true"></i>
+                    <i class="bi bi-share-fill" aria-hidden="true"></i>
                     <span>Share</span>
                 </button>
             </div>
+            {% else %}
+            <div class="finder-card__actions finder-card__actions--stack{% if featured %} finder-card__actions--featured{% endif %}">
+                {% if item.phase == 'claim' and item.show_claim_cta %}
+                <a
+                    href="{{ item.action_url }}"
+                    class="btn-action btn-action--primary"
+                    {% if not request.user.is_authenticated %}
+                    data-auth-modal-trigger="login"
+                    data-auth-next-url="{{ item.action_url }}"
+                    {% endif %}
+                >
+                    <span>{% if featured %}Redeem{% else %}{{ item.action_label }}{% endif %}</span>
+                </a>
+                {% endif %}
+                {% if item.phase == 'claim' and item.show_reserve_adoption_cta %}
+                <a
+                    href="{{ item.reserve_adoption_url }}"
+                    class="btn-action btn-action--reserve"
+                    {% if not request.user.is_authenticated %}
+                    data-auth-modal-trigger="login"
+                    data-auth-next-url="{{ item.reserve_adoption_url }}"
+                    {% endif %}
+                >
+                    <span>Reserve Adoption</span>
+                </a>
+                {% endif %}
+                {% if item.phase == 'claim' and item.show_claim_cta and item.show_reserve_adoption_cta %}
+                {% elif item.phase == 'claim' and item.show_claim_cta %}
+                <span class="finder-card__action-placeholder" aria-hidden="true"></span>
+                {% elif item.phase == 'claim' and item.show_reserve_adoption_cta %}
+                <span class="finder-card__action-placeholder" aria-hidden="true"></span>
+                {% endif %}
+            </div>
+
+            <div class="finder-card__utilities">
+                <button
+                    type="button"
+                    class="finder-card__utility-btn js-finder-info-toggle"
+                    aria-expanded="false"
+                    aria-controls="finder-card-details-{{ item.phase }}-{{ item.post.id }}-{% if featured %}featured{% else %}list{% endif %}"
+                    data-finder-info-toggle
+                >
+                    <i class="bi bi-info-circle" aria-hidden="true"></i>
+                    <span data-finder-info-label>View Info</span>
+                </button>
+                <button
+                    type="button"
+                    class="finder-card__utility-btn finder-card__utility-btn--share js-open-share"
+                    data-share-url="{{ item.share_url }}"
+                    data-share-title="{{ item.breed_label }} — {{ item.phase_title }}"
+                    data-share-text="Check out this dog on Bayawan Vet: {{ item.breed_label }} in {{ item.location_label }}."
+                    data-finder-share
+                    aria-label="Share {{ item.title }}"
+                >
+                    <i class="bi bi-share-fill" aria-hidden="true"></i>
+                    <span>Share</span>
+                </button>
+            </div>
+            {% endif %}
         </div>
 
     </div>
@@ -115,11 +222,12 @@
         data-finder-info-panel
         hidden
     >
+        <div class="finder-card__details-head" aria-hidden="true">
+            <img class="finder-card__details-paw" src="{% static 'images/paw-single-soft.svg' %}" width="26" height="26" alt="">
+            <span class="finder-card__details-head-line"></span>
+            <img class="finder-card__details-paw finder-card__details-paw--mirror" src="{% static 'images/paw-single-soft.svg' %}" width="26" height="26" alt="">
+        </div>
         <div class="finder-card__details-grid">
-            <div class="finder-card__detail-item">
-                <span>Breed</span>
-                <strong>{{ item.breed_label }}</strong>
-            </div>
             <div class="finder-card__detail-item">
                 <span>Location</span>
                 <strong>{{ item.location_label }}</strong>
@@ -149,15 +257,6 @@
                 <strong>{{ item.countdown_date_label }}</strong>
             </div>
         </div>
-
-        {% if item.phase == 'claim' %}
-        <p class="finder-card__reserve-note">
-            <span class="finder-card__reserve-note-icon" aria-hidden="true">
-                <i class="bi bi-heart-fill"></i>
-            </span>
-            <span>Reserve adoption now in case no owner claim is approved.</span>
-        </p>
-        {% endif %}
 
     </div>
 </article>

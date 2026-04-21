@@ -1,0 +1,236 @@
+/* ================= MAIN CERTIFICATE ================= */
+.certificate {
+  width: 800px;
+  margin: 30px auto;
+  background: #fff;
+  padding: 35px;
+  border: 6px double #3b5e28;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #222;
+  box-shadow: 0 0 15px rgba(0,0,0,0.08);
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #3b5e28;
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+}
+
+.logo-left, .logo-right {
+  width: 65px;
+  height: auto;
+}
+
+.title {
+  flex-grow: 1;
+  text-align: center;
+}
+
+.title h1 {
+  font-size: 20px;
+  color: #3b5e28;
+  margin: 0;
+  font-family: 'Georgia', serif;
+  letter-spacing: 1.5px;
+}
+
+.body-content {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* ROW LINES */
+.line {
+  margin: 10px 0;
+  font-size: 0.95rem;
+  display: flex;
+  border-bottom: 1px dotted #bbb;
+}
+
+.label {
+  font-weight: bold;
+  width: 165px;
+  color: #444;
+}
+
+.underline {
+  flex-grow: 1;
+  color: #000;
+  padding-left: 6px;
+}
+
+.underline.small {
+  max-width: 80px;
+}
+
+/* STATUS OPTIONS */
+.status-group {
+  display: flex;
+  gap: 12px;
+  margin-left: 15px;
+  font-size: 0.8rem;
+}
+
+.status-option {
+  font-weight: 600;
+}
+
+.owner-details {
+  margin-top: 20px;
+}
+
+/* FOOTER */
+.footer {
+  margin-top: 25px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #555;
+  border-top: 1px solid #eee;
+  padding-top: 8px;
+}
+
+/* ================= MEDICAL TABLE SECTION ================= */
+.medical-section {
+  margin-top: 20px;
+}
+
+.med-header {
+  text-align: center;
+  font-size: 15px;
+  margin-bottom: 8px;
+  color: #3b5e28;
+}
+
+.med-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 15px;
+  font-size: 10px;
+}
+
+.med-table th,
+.med-table td {
+  border: 1px solid #000;
+  padding: 4px;
+  text-align: center;
+}
+
+.signature-block {
+  margin-top: 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.signature-line {
+  width: 250px;
+  border-top: 1px solid #111;
+  margin-bottom: 4px;
+}
+
+.signature-label {
+  width: 250px;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #222;
+}
+
+/* PRINT BUTTON */
+.print-btn {
+  margin-top: 20px;
+  background-color: #3b5e28;
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.print-btn:hover {
+  background-color: #2c4820;
+}
+
+/* ================= PRINT SETTINGS ================= */
+@page {
+  size: 8.5in 13in; /* Long bond paper */
+  margin: 0;
+}
+
+@media print {
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /* Hide everything */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Show only certificate */
+  .certificate, .certificate * {
+    visibility: visible !important;
+  }
+
+  .certificate {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 12mm 15mm !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Keep tables on same page */
+  .medical-section {
+    page-break-before: auto !important;
+  }
+
+  .med-table {
+    page-break-inside: avoid;
+    font-size: 9px;
+  }
+
+  /* Hide admin UI elements */
+  .subtop-nav,
+  .sidebar,
+  .admin-footer,
+  nav,
+  header,
+  footer,
+  .print-btn {
+    display: none !important;
+  }
+}
+
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 600px) {
+  .certificate {
+    padding: 20px;
+    max-width: 100%;
+  }
+
+  .logo-left, .logo-right {
+    width: 45px;
+  }
+
+  .title h1 {
+    font-size: 1.3rem;
+  }
+
+  .label {
+    width: 130px;
+  }
+}

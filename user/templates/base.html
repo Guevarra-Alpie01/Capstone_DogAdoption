@@ -1200,6 +1200,15 @@
                 }
             }
 
+            function buildLoginRedirectUrl(nextUrl) {
+                var loginUrl = "{% url 'user:login' %}";
+                var safeNext = (nextUrl || "").trim();
+                if (!safeNext) {
+                    return loginUrl;
+                }
+                return loginUrl + "?" + new URLSearchParams({ next: safeNext }).toString();
+            }
+
             window.openAuthModal = function (target, options) {
                 if (options && Object.prototype.hasOwnProperty.call(options, "nextUrl")) {
                     var incomingNext = options.nextUrl || "";
@@ -1251,12 +1260,12 @@
             document.querySelectorAll("[data-auth-modal-trigger]").forEach(function (trigger) {
                 trigger.addEventListener("click", function (event) {
                     event.preventDefault();
-                    window.openAuthModal(
-                        trigger.getAttribute("data-auth-modal-trigger") || "login",
-                        {
-                            nextUrl: resolveAuthNextFromTrigger(trigger),
-                        }
-                    );
+                    var authTarget = trigger.getAttribute("data-auth-modal-trigger") || "login";
+                    var authNext = resolveAuthNextFromTrigger(trigger);
+                    var opened = window.openAuthModal(authTarget, { nextUrl: authNext });
+                    if (!opened) {
+                        window.location.href = buildLoginRedirectUrl(authNext);
+                    }
                 });
             });
 

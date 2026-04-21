@@ -119,12 +119,8 @@
             <div class="finder-card__actions finder-card__actions--stack{% if featured %} finder-card__actions--featured{% endif %}">
                 <span class="finder-card__action-placeholder" aria-hidden="true"></span>
                 <a
-                    href="{{ item.action_url }}"
+                    href="{% if request.user.is_authenticated %}{{ item.action_url }}{% else %}{% url 'user:login' %}?next={{ item.action_url|urlencode }}{% endif %}"
                     class="btn-action btn-action--primary"
-                    {% if not request.user.is_authenticated %}
-                    data-auth-modal-trigger="login"
-                    data-auth-next-url="{{ item.action_url }}"
-                    {% endif %}
                 >
                     <span>{{ item.action_label }}</span>
                 </a>
@@ -157,24 +153,16 @@
             <div class="finder-card__actions finder-card__actions--stack{% if featured %} finder-card__actions--featured{% endif %}">
                 {% if item.phase == 'claim' and item.show_claim_cta %}
                 <a
-                    href="{{ item.action_url }}"
+                    href="{% if request.user.is_authenticated %}{{ item.action_url }}{% else %}{% url 'user:login' %}?next={{ item.action_url|urlencode }}{% endif %}"
                     class="btn-action btn-action--primary"
-                    {% if not request.user.is_authenticated %}
-                    data-auth-modal-trigger="login"
-                    data-auth-next-url="{{ item.action_url }}"
-                    {% endif %}
                 >
                     <span>{% if featured %}Redeem{% else %}{{ item.action_label }}{% endif %}</span>
                 </a>
                 {% endif %}
                 {% if item.phase == 'claim' and item.show_reserve_adoption_cta %}
                 <a
-                    href="{{ item.reserve_adoption_url }}"
+                    href="{% if request.user.is_authenticated %}{{ item.reserve_adoption_url }}{% else %}{% url 'user:login' %}?next={{ item.reserve_adoption_url|urlencode }}{% endif %}"
                     class="btn-action btn-action--reserve"
-                    {% if not request.user.is_authenticated %}
-                    data-auth-modal-trigger="login"
-                    data-auth-next-url="{{ item.reserve_adoption_url }}"
-                    {% endif %}
                 >
                     <span>Reserve Adoption</span>
                 </a>

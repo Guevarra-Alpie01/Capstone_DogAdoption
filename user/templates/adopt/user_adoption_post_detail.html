@@ -52,12 +52,8 @@
             {% if show_adopt_cta %}
             <div class="post-detail-actions">
                 <a
-                    href="{{ request_url }}"
+                    href="{% if request.user.is_authenticated %}{{ request_url }}{% else %}{% url 'user:login' %}?next={{ request_url|urlencode }}{% endif %}"
                     class="post-detail-action-btn"
-                    {% if not request.user.is_authenticated %}
-                    data-auth-modal-trigger="login"
-                    data-auth-next-url="{{ request_url }}"
-                    {% endif %}
                 >
                     Adopt
                 </a>

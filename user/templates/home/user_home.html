@@ -308,24 +308,16 @@
                                         {% if item.carousel_phase == 'claim' %}
                                             {% if item.show_claim_cta %}
                                             <a
-                                                href="{{ item.home_action_url }}"
+                                                href="{% if request.user.is_authenticated %}{{ item.home_action_url }}{% else %}{% url 'user:login' %}?next={{ item.home_action_url|urlencode }}{% endif %}"
                                                 class="dog-scale-carousel__btn dog-scale-carousel__btn--primary"
-                                                {% if not request.user.is_authenticated %}
-                                                data-auth-modal-trigger="login"
-                                                data-auth-next-url="{{ item.home_action_url }}"
-                                                {% endif %}
                                             >
                                                 Redeem Now
                                                 <span class="visually-hidden">Open redemption confirmation</span>
                                             </a>
                                             {% elif item.show_reserve_adoption_cta %}
                                             <a
-                                                href="{{ item.reserve_adoption_url }}?return_to=home"
+                                                href="{% if request.user.is_authenticated %}{{ item.reserve_adoption_url }}?return_to=home{% else %}{% url 'user:login' %}?next={{ item.reserve_adoption_url|add:'?return_to=home'|urlencode }}{% endif %}"
                                                 class="dog-scale-carousel__btn dog-scale-carousel__btn--primary"
-                                                {% if not request.user.is_authenticated %}
-                                                data-auth-modal-trigger="login"
-                                                data-auth-next-url="{{ item.reserve_adoption_url }}?return_to=home"
-                                                {% endif %}
                                             >
                                                 Reserve Adoption
                                                 <span class="visually-hidden">Reserve adoption</span>
@@ -344,12 +336,8 @@
                                         {% else %}
                                             {% if item.show_adopt_cta %}
                                             <a
-                                                href="{{ item.home_action_url }}"
+                                                href="{% if request.user.is_authenticated %}{{ item.home_action_url }}{% else %}{% url 'user:login' %}?next={{ item.home_action_url|urlencode }}{% endif %}"
                                                 class="dog-scale-carousel__btn dog-scale-carousel__btn--primary"
-                                                {% if not request.user.is_authenticated %}
-                                                data-auth-modal-trigger="login"
-                                                data-auth-next-url="{{ item.home_action_url }}"
-                                                {% endif %}
                                             >
                                                 Adopt Now
                                                 <span class="visually-hidden">Open adoption confirmation</span>

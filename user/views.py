@@ -1278,24 +1278,22 @@ def _require_public_member_or_auth_modal(request, *, next_url=""):
     """
     Guard public claim/adopt entry points.
 
-    Guests are sent to the public home page with the login modal ready, while
-    staff still go to their admin landing page.
+    Guests are sent to the login page with a safe `next` target, while staff
+    still go to their admin landing page.
     """
     if not request.user.is_authenticated:
+        login_url = _build_login_redirect_url(
+            request,
+            next_url or request.get_full_path(),
+        )
         if _is_ajax_request(request):
             return JsonResponse({
                 "ok": False,
                 "auth_required": True,
                 "auth_modal": "login",
-                "login_url": reverse("user:login"),
+                "login_url": login_url,
             }, status=401)
-        return redirect(
-            _build_home_auth_modal_url(
-                request,
-                "login",
-                next_url or request.get_full_path(),
-            )
-        )
+        return redirect(login_url)
     if request.user.is_staff:
         landing_url = get_staff_landing_url(request.user)
         if _is_ajax_request(request):

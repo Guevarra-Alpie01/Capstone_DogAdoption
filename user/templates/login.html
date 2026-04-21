@@ -30,60 +30,35 @@
     <div class="login-paws-body">
         <div class="login-paws-card login-paws-card--with-dog" data-auth-dog-stack>
             <div class="auth-dog-mascot" aria-hidden="true">
-                <img
-                    class="auth-dog-mascot__img auth-dog-mascot__img--idle"
-                    src="{% static 'images/dogstanding-final.png' %}"
-                    alt=""
-                    width="280"
-                    height="220"
-                    decoding="async">
-                <img
-                    class="auth-dog-mascot__img auth-dog-mascot__img--active"
-                    src="{% static 'images/dog_tounge_out-final.png' %}"
-                    alt=""
-                    width="280"
-                    height="220"
+                <img class="auth-dog-mascot__img auth-dog-mascot__img--idle"
+                    src="{% static 'images/dogstanding-final.png' %}" alt="" width="280" height="220" decoding="async">
+                <img class="auth-dog-mascot__img auth-dog-mascot__img--active"
+                    src="{% static 'images/dog_tounge_out-final.png' %}" alt="" width="280" height="220"
                     decoding="async">
             </div>
-                <h1 class="login-paws-title">Welcome back</h1>
-                <p class="login-paws-subtitle">Sign in to continue helping pets find homes in Bayawan City.</p>
+            <h1 class="login-paws-title">Welcome back</h1>
+            <p class="login-paws-subtitle">Sign in to continue helping pets find homes in Bayawan City.</p>
 
-                {% if error %}
-                <div class="login-paws-alert" role="alert">{{ error }}</div>
-                {% endif %}
+            {% if error %}
+            <div class="login-paws-alert" role="alert">{{ error }}</div>
+            {% endif %}
 
-                <form
-                method="post"
-                class="login-paws-form login-form"
-                data-google-auth-form
-                data-google-auth-mode="login"
+            <form method="post" class="login-paws-form login-form" data-google-auth-form data-google-auth-mode="login"
                 data-google-login-uri="{% url 'user:google_auth_login' %}"
-                data-google-client-id="{{ google_client_id|default:'' }}"
-            >
+                data-google-client-id="{{ google_client_id|default:'' }}">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ auth_next|default:'' }}" data-auth-next-field>
                 <input type="hidden" name="google_credential" value="">
 
                 <div class="g-field">
-                    <input type="text"
-                           id="loginPageUsername"
-                           name="username"
-                           class="g-field__input"
-                           placeholder=" "
-                           value="{{ login_form_data.username|default:'' }}"
-                           autocomplete="username"
-                           required>
+                    <input type="text" id="loginPageUsername" name="username" class="g-field__input" placeholder=" "
+                        value="{{ login_form_data.username|default:'' }}" autocomplete="username" required>
                     <label class="g-field__label" for="loginPageUsername">Username</label>
                 </div>
 
                 <div class="g-field">
-                    <input type="password"
-                           id="loginPagePassword"
-                           name="password"
-                           class="g-field__input"
-                           placeholder=" "
-                           autocomplete="current-password"
-                           required>
+                    <input type="password" id="loginPagePassword" name="password" class="g-field__input" placeholder=" "
+                        autocomplete="current-password" required>
                     <label class="g-field__label" for="loginPagePassword">Password</label>
                 </div>
 
@@ -101,10 +76,12 @@
             {% if google_auth_enabled %}
             <div class="login-paws-google-wrap google-signup-shell">
                 <div class="google-signup-button" data-google-auth-button data-google-signup-button></div>
-                <p class="login-paws-google-error auth-inline-alert auth-inline-alert--static d-none" data-google-auth-error data-google-signup-error role="alert"></p>
+                <p class="login-paws-google-error auth-inline-alert auth-inline-alert--static d-none"
+                    data-google-auth-error data-google-signup-error role="alert"></p>
             </div>
             {% else %}
-            <p class="login-paws-google-hint">Google sign-in is not configured. Add <code>GOOGLE_CLIENT_ID</code> to enable it.</p>
+            <p class="login-paws-google-hint">Google sign-in is not configured. Add <code>GOOGLE_CLIENT_ID</code> to
+                enable it.</p>
             {% endif %}
 
             <div class="login-paws-new">

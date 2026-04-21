@@ -1,6 +1,7 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -45,12 +46,15 @@
             --page-transition-exit-y: 12px;
             --page-transition-overlay: linear-gradient(180deg, rgba(255, 252, 246, 0.14) 0%, rgba(245, 239, 228, 0.92) 100%);
         }
+
         html.js-page-transition-ready {
             background: #f7f3ec;
         }
+
         body {
             transition: background-color var(--page-transition-duration) var(--page-transition-ease);
         }
+
         .page-transition-overlay {
             position: fixed;
             inset: 0;
@@ -68,6 +72,7 @@
                 backdrop-filter var(--page-transition-duration) var(--page-transition-ease),
                 -webkit-backdrop-filter var(--page-transition-duration) var(--page-transition-ease);
         }
+
         .page-transition-overlay::after {
             content: "";
             position: absolute;
@@ -75,6 +80,7 @@
             background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 34%);
             opacity: 0.85;
         }
+
         [data-page-transition-surface] {
             opacity: 1;
             transition:
@@ -82,50 +88,61 @@
                 opacity var(--page-transition-duration) var(--page-transition-ease),
                 filter var(--page-transition-duration) var(--page-transition-ease);
         }
+
         body.page-transition-entering [data-page-transition-surface],
         body.page-transition-enter-active [data-page-transition-surface],
         body.page-transition-exiting [data-page-transition-surface] {
             will-change: transform, opacity, filter;
         }
+
         body.page-transition-entering [data-page-transition-surface] {
             opacity: 0;
             transform: translate3d(0, var(--page-transition-entry-y), 0) scale(0.992);
             filter: blur(6px);
         }
+
         body.page-transition-enter-active [data-page-transition-surface] {
             opacity: 1;
             transform: translate3d(0, 0, 0) scale(1);
             filter: blur(0);
         }
+
         body.page-transition-exiting {
             overflow: hidden;
         }
+
         body.page-transition-exiting .page-transition-overlay {
             opacity: 1;
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
         }
+
         body.page-transition-exiting [data-page-transition-surface] {
             opacity: 0;
             transform: translate3d(0, calc(-1 * var(--page-transition-exit-y)), 0) scale(0.986);
             filter: blur(8px);
         }
+
         body.is-guest .page-transition-overlay {
             opacity: 0 !important;
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
         }
+
         body.is-guest [data-page-transition-surface] {
             opacity: 1 !important;
             transform: none !important;
             filter: none !important;
         }
+
         @media (prefers-reduced-motion: reduce) {
+
             .page-transition-overlay,
             [data-page-transition-surface],
             body {
                 transition: none !important;
             }
+
             body.page-transition-entering [data-page-transition-surface],
             body.page-transition-exiting [data-page-transition-surface] {
                 opacity: 1;
@@ -133,6 +150,7 @@
                 filter: none;
             }
         }
+
         .flash-toast-stack {
             position: fixed;
             top: 84px;
@@ -144,6 +162,7 @@
             width: min(92vw, 420px);
             pointer-events: none;
         }
+
         .flash-toast {
             display: flex;
             align-items: flex-start;
@@ -160,11 +179,32 @@
             transform: translateY(-8px);
             animation: flash-toast-in .22s ease-out forwards;
         }
-        .flash-toast.is-success { background: #dcfce7; color: #14532d; }
-        .flash-toast.is-error { background: #fee2e2; color: #7f1d1d; }
-        .flash-toast.is-warning { background: #fef3c7; color: #78350f; }
-        .flash-toast.is-info { background: #e0f2fe; color: #0f4c81; }
-        .flash-toast__text { line-height: 1.35; font-size: 0.95rem; }
+
+        .flash-toast.is-success {
+            background: #dcfce7;
+            color: #14532d;
+        }
+
+        .flash-toast.is-error {
+            background: #fee2e2;
+            color: #7f1d1d;
+        }
+
+        .flash-toast.is-warning {
+            background: #fef3c7;
+            color: #78350f;
+        }
+
+        .flash-toast.is-info {
+            background: #e0f2fe;
+            color: #0f4c81;
+        }
+
+        .flash-toast__text {
+            line-height: 1.35;
+            font-size: 0.95rem;
+        }
+
         .flash-toast__close {
             border: 0;
             background: transparent;
@@ -174,39 +214,52 @@
             padding: 0;
             opacity: .8;
         }
-        .flash-toast__close:hover { opacity: 1; }
+
+        .flash-toast__close:hover {
+            opacity: 1;
+        }
+
         .flash-toast.is-hiding {
             opacity: 0;
             transform: translateY(-6px);
             transition: opacity .2s ease, transform .2s ease;
         }
+
         @keyframes flash-toast-in {
-            from { opacity: 0; transform: translateY(-8px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
+
         @media (max-width: 576px) {
-            .flash-toast-stack { top: 76px; left: 12px; right: 12px; width: auto; }
+            .flash-toast-stack {
+                top: 76px;
+                left: 12px;
+                right: 12px;
+                width: auto;
+            }
         }
     </style>
 </head>
 
-<body class="{% if user.is_authenticated %}is-authenticated{% else %}is-guest{% endif %}{% block body_class %}{% endblock %}">
-<div class="page-transition-overlay" aria-hidden="true" data-page-transition-overlay></div>
+<body
+    class="{% if user.is_authenticated %}is-authenticated{% else %}is-guest{% endif %}{% block body_class %}{% endblock %}">
+    <div class="page-transition-overlay" aria-hidden="true" data-page-transition-overlay></div>
 
-<!-- ================= TOP NAVBAR ================= -->
-<nav class="navbar navbar-expand-lg fixed-top app-topbar">
-    <div class="container-fluid user-topbar-shell">
+    <!-- ================= TOP NAVBAR ================= -->
+    <nav class="navbar navbar-expand-lg fixed-top app-topbar">
+        <div class="container-fluid user-topbar-shell">
 
-        {% if user.is_authenticated %}
+            {% if user.is_authenticated %}
             <div class="user-topbar-start">
-                <button
-                    class="btn sidebar-toggle-btn d-lg-none"
-                    id="sidebarToggle"
-                    type="button"
-                    aria-controls="sidebar-wrapper"
-                    aria-expanded="false"
-                    aria-label="Open navigation menu"
-                >
+                <button class="btn sidebar-toggle-btn d-lg-none" id="sidebarToggle" type="button"
+                    aria-controls="sidebar-wrapper" aria-expanded="false" aria-label="Open navigation menu">
                     <span class="sidebar-toggle-icon" aria-hidden="true">
                         <span class="sidebar-toggle-line sidebar-toggle-line--top"></span>
                         <span class="sidebar-toggle-line sidebar-toggle-line--bottom"></span>
@@ -214,9 +267,7 @@
                 </button>
 
                 <a class="navbar-brand user-brand" href="{% url 'user:user_home' %}">
-                    <img src="{% static 'images/logo.png' %}"
-                         alt="Bayawan Vet paw logo"
-                         class="user-brand-logo">
+                    <img src="{% static 'images/logo.png' %}" alt="Bayawan Vet paw logo" class="user-brand-logo">
                     <span class="user-brand-text">
                         <span class="user-brand-main">Bayawan</span>
                         <span class="user-brand-sub">Vet</span>
@@ -226,117 +277,105 @@
 
             <div class="user-topbar-center d-none d-lg-flex" role="navigation" aria-label="Primary navigation">
                 <div class="user-primary-nav">
-                    {% include 'partials/user_primary_nav_links.html' with nav_item_class='topbar-primary-nav-link' nav_label_class='topbar-primary-nav-label' show_icons=0 %}
+                    {% include 'partials/user_primary_nav_links.html' with nav_item_class='topbar-primary-nav-link'
+                    nav_label_class='topbar-primary-nav-label' show_icons=0 %}
                 </div>
             </div>
 
             <div class="user-topbar-end">
                 <div class="d-flex align-items-center gap-3 user-topbar-actions">
-                <!-- NOTIFICATION DROPDOWN -->
-                <div class="dropdown" data-user-notification-dropdown>
-                    <a href="#"
-                       class="position-relative topbar-icon-btn nav-bell"
-                       data-user-notification-toggle
-                       data-summary-url="{{ user_notifications_summary_url }}"
-                       data-notification-mark-read-url="{{ user_notification_mark_read_url }}"
-                       data-unread-count="{{ user_unread_notifications }}"
-                       data-bs-toggle="dropdown"
-                       aria-expanded="false"
-                       aria-label="Notifications">
-                        <i class="bi bi-bell-fill topbar-nav-icon"></i>
-                    </a>
+                    <!-- NOTIFICATION DROPDOWN -->
+                    <div class="dropdown" data-user-notification-dropdown>
+                        <a href="#" class="position-relative topbar-icon-btn nav-bell" data-user-notification-toggle
+                            data-summary-url="{{ user_notifications_summary_url }}"
+                            data-notification-mark-read-url="{{ user_notification_mark_read_url }}"
+                            data-unread-count="{{ user_unread_notifications }}" data-bs-toggle="dropdown"
+                            aria-expanded="false" aria-label="Notifications">
+                            <i class="bi bi-bell-fill topbar-nav-icon"></i>
+                        </a>
 
-                    <ul class="dropdown-menu dropdown-menu-end notification-dropdown user-notification-dropdown">
-                        <li class="notification-dropdown-head">
-                            <div class="notification-head-copy">
-                                <div class="notification-heading-row">
-                                    <h6>Notifications</h6>
-                                    <span class="notification-count-chip" data-notification-summary-count hidden></span>
-                                </div>
-                            </div>
-                        </li>
-                        <div data-user-notification-list>
-                            <li>
-                                <div class="notification-empty">
-                                    <span class="notification-empty-icon" aria-hidden="true">
-                                        <i class="bi bi-bell-slash"></i>
-                                    </span>
-                                    <strong>Nothing new yet</strong>
-                                    <span>Updates from the city team and the community will appear here.</span>
+                        <ul class="dropdown-menu dropdown-menu-end notification-dropdown user-notification-dropdown">
+                            <li class="notification-dropdown-head">
+                                <div class="notification-head-copy">
+                                    <div class="notification-heading-row">
+                                        <h6>Notifications</h6>
+                                        <span class="notification-count-chip" data-notification-summary-count
+                                            hidden></span>
+                                    </div>
                                 </div>
                             </li>
-                        </div>
-                        <li class="notification-dropdown-footer">
-                            <a class="dropdown-item notification-footer-link" href="{% url 'user:user_home' %}">
-                                Open activity feed
-                                <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
+                            <div data-user-notification-list>
+                                <li>
+                                    <div class="notification-empty">
+                                        <span class="notification-empty-icon" aria-hidden="true">
+                                            <i class="bi bi-bell-slash"></i>
+                                        </span>
+                                        <strong>Nothing new yet</strong>
+                                        <span>Updates from the city team and the community will appear here.</span>
+                                    </div>
+                                </li>
+                            </div>
+                            <li class="notification-dropdown-footer">
+                                <a class="dropdown-item notification-footer-link" href="{% url 'user:user_home' %}">
+                                    Open activity feed
+                                    <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
 
-                <!-- USER DROPDOWN -->
-                <div class="dropdown profile-menu-shift">
-                    <a class="btn p-0 topbar-avatar-btn" href="#" data-bs-toggle="dropdown" aria-expanded="false">
-                        {% if user_topbar_avatar_url %}
-                            <img src="{{ user_topbar_avatar_url }}"
-                                 class="rounded-circle topbar-avatar-img"
-                                 style="object-fit: cover;">
-                        {% else %}
+                    <!-- USER DROPDOWN -->
+                    <div class="dropdown profile-menu-shift">
+                        <a class="btn p-0 topbar-avatar-btn" href="#" data-bs-toggle="dropdown" aria-expanded="false">
+                            {% if user_topbar_avatar_url %}
+                            <img src="{{ user_topbar_avatar_url }}" class="rounded-circle topbar-avatar-img"
+                                style="object-fit: cover;">
+                            {% else %}
                             <img src="{% static 'images/default-user-image.jpg' %}"
-                                 class="rounded-circle topbar-avatar-img"
-                                 style="object-fit: cover;">
-                        {% endif %}
-                    </a>
+                                class="rounded-circle topbar-avatar-img" style="object-fit: cover;">
+                            {% endif %}
+                        </a>
 
-                    <ul class="dropdown-menu dropdown-menu-end profile-dropdown-menu">
-                        <li class="profile-dropdown-head">
-                            <span class="profile-dropdown-kicker">Signed in as</span>
-                            <strong>{{ user.username }}</strong>
-                        </li>
-                        <li>
-                            <a href="{% url 'user:edit_profile' %}" class="dropdown-item profile-dropdown-link">
-                                <span class="profile-dropdown-icon" aria-hidden="true">
-                                    <i class="bi bi-person-circle"></i>
-                                </span>
-                                <span>Profile</span>
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider profile-dropdown-divider"></li>
-                        <li>
-                            <form
-                                method="post"
-                                action="{% url 'user:logout' %}"
-                                class="m-0"
-                                data-confirm-modal
-                                data-confirm-title="Confirm Logout"
-                                data-confirm-message="Are you sure you want to log out?"
-                                data-confirm-submit-label="Log Out"
-                            >
-                                {% csrf_token %}
-                                <button type="submit" class="dropdown-item profile-dropdown-link profile-dropdown-link-danger">
+                        <ul class="dropdown-menu dropdown-menu-end profile-dropdown-menu">
+                            <li class="profile-dropdown-head">
+                                <span class="profile-dropdown-kicker">Signed in as</span>
+                                <strong>{{ user.username }}</strong>
+                            </li>
+                            <li>
+                                <a href="{% url 'user:edit_profile' %}" class="dropdown-item profile-dropdown-link">
                                     <span class="profile-dropdown-icon" aria-hidden="true">
-                                        <i class="bi bi-box-arrow-right"></i>
+                                        <i class="bi bi-person-circle"></i>
                                     </span>
-                                    Log out
-                                </button>
-                            </form>
-                        </li>
-                    </ul>
-                </div>
+                                    <span>Profile</span>
+                                </a>
+                            </li>
+                            <li>
+                                <hr class="dropdown-divider profile-dropdown-divider">
+                            </li>
+                            <li>
+                                <form method="post" action="{% url 'user:logout' %}" class="m-0" data-confirm-modal
+                                    data-confirm-title="Confirm Logout"
+                                    data-confirm-message="Are you sure you want to log out?"
+                                    data-confirm-submit-label="Log Out">
+                                    {% csrf_token %}
+                                    <button type="submit"
+                                        class="dropdown-item profile-dropdown-link profile-dropdown-link-danger">
+                                        <span class="profile-dropdown-icon" aria-hidden="true">
+                                            <i class="bi bi-box-arrow-right"></i>
+                                        </span>
+                                        Log out
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
 
                 </div>
             </div>
-        {% else %}
+            {% else %}
             <div class="user-topbar-start">
-                <button
-                    class="btn sidebar-toggle-btn d-lg-none"
-                    id="sidebarToggle"
-                    type="button"
-                    aria-controls="sidebar-wrapper"
-                    aria-expanded="false"
-                    aria-label="Open navigation menu"
-                >
+                <button class="btn sidebar-toggle-btn d-lg-none" id="sidebarToggle" type="button"
+                    aria-controls="sidebar-wrapper" aria-expanded="false" aria-label="Open navigation menu">
                     <span class="sidebar-toggle-icon" aria-hidden="true">
                         <span class="sidebar-toggle-line sidebar-toggle-line--top"></span>
                         <span class="sidebar-toggle-line sidebar-toggle-line--bottom"></span>
@@ -344,9 +383,7 @@
                 </button>
 
                 <a class="navbar-brand user-brand" href="{% url 'user:user_home' %}">
-                    <img src="{% static 'images/logo.png' %}"
-                         alt="Bayawan Vet paw logo"
-                         class="user-brand-logo">
+                    <img src="{% static 'images/logo.png' %}" alt="Bayawan Vet paw logo" class="user-brand-logo">
                     <span class="user-brand-text">
                         <span class="user-brand-main">Bayawan</span>
                         <span class="user-brand-sub">Vet</span>
@@ -356,627 +393,622 @@
 
             <div class="user-topbar-center d-none d-lg-flex" role="navigation" aria-label="Primary navigation">
                 <div class="user-primary-nav">
-                    {% include 'partials/user_primary_nav_links.html' with nav_item_class='topbar-primary-nav-link' nav_label_class='topbar-primary-nav-label' show_icons=0 %}
+                    {% include 'partials/user_primary_nav_links.html' with nav_item_class='topbar-primary-nav-link'
+                    nav_label_class='topbar-primary-nav-label' show_icons=0 %}
                 </div>
             </div>
 
             <div class="user-topbar-end user-topbar-end--guest">
                 <div class="d-flex align-items-center gap-2 user-topbar-auth-actions">
                     <a href="{% url 'user:login' %}?next={% if auth_next %}{{ auth_next|urlencode }}{% else %}{{ request.get_full_path|urlencode }}{% endif %}"
-                       class="auth-btn login-btn border-0"
-                       data-auth-modal-trigger="login"
-                       data-auth-next-url="{% if auth_next %}{{ auth_next }}{% else %}{{ request.get_full_path }}{% endif %}">
+                        class="auth-btn login-btn border-0" data-auth-modal-trigger="login"
+                        data-auth-next-url="{% if auth_next %}{{ auth_next }}{% else %}{{ request.get_full_path }}{% endif %}">
                         Login
                     </a>
                 </div>
             </div>
-        {% endif %}
-    </div>
-</nav>
+            {% endif %}
+        </div>
+    </nav>
 
-<button type="button" class="user-sidebar-backdrop d-lg-none" data-sidebar-backdrop aria-label="Close navigation menu"></button>
+    <button type="button" class="user-sidebar-backdrop d-lg-none" data-sidebar-backdrop
+        aria-label="Close navigation menu"></button>
 
-<!-- ================= PAGE WRAPPER ================= -->
-<div class="d-flex" id="wrapper" data-page-transition-surface>
+    <!-- ================= PAGE WRAPPER ================= -->
+    <div class="d-flex" id="wrapper" data-page-transition-surface>
 
-    {% include 'sidebar.html' %}
+        {% include 'sidebar.html' %}
 
-    <div id="page-content-wrapper" class="flex-grow-1">
-        <div class="content-container">
-            <div class="container-fluid pt-4 pb-5 mt-4">
-                <main class="site-content">
-                    {% if messages %}
-                    <div class="flash-toast-stack" id="flash-toast-stack" aria-live="polite" aria-atomic="true">
-                        {% for message in messages %}
-                        {% with tags=message.tags|default:'' %}
-                        <div
-                            class="flash-toast {% if 'error' in tags %}is-error{% elif 'warning' in tags %}is-warning{% elif 'success' in tags %}is-success{% else %}is-info{% endif %}"
-                            data-flash-toast
-                            role="status"
-                        >
-                            <div class="flash-toast__text">{{ message }}</div>
-                            <button type="button" class="flash-toast__close" data-flash-toast-close aria-label="Close">&times;</button>
+        <div id="page-content-wrapper" class="flex-grow-1">
+            <div class="content-container">
+                <div class="container-fluid pt-4 pb-5 mt-4">
+                    <main class="site-content">
+                        {% if messages %}
+                        <div class="flash-toast-stack" id="flash-toast-stack" aria-live="polite" aria-atomic="true">
+                            {% for message in messages %}
+                            {% with tags=message.tags|default:'' %}
+                            <div class="flash-toast {% if 'error' in tags %}is-error{% elif 'warning' in tags %}is-warning{% elif 'success' in tags %}is-success{% else %}is-info{% endif %}"
+                                data-flash-toast role="status">
+                                <div class="flash-toast__text">{{ message }}</div>
+                                <button type="button" class="flash-toast__close" data-flash-toast-close
+                                    aria-label="Close">&times;</button>
+                            </div>
+                            {% endwith %}
+                            {% endfor %}
                         </div>
-                        {% endwith %}
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                    {% block content %}{% endblock %}
-                </main>
+                        {% endif %}
+                        {% block content %}{% endblock %}
+                    </main>
 
-                <footer class="site-footer" aria-label="Site footer">
-                    <div class="site-footer__top-curve" aria-hidden="true">
-                        <svg
-                            class="site-footer__curve-svg"
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 -6 1200 54"
-                            preserveAspectRatio="none"
-                            focusable="false"
-                        >
-                            <path
-                                fill="#1a4a38"
-                                d="M0,40 Q600,-4 1200,40 L1200,48 L0,48 Z"
-                            />
-                        </svg>
-                    </div>
-                    <div class="site-footer__panel">
-                        <div class="site-footer__grid">
-                            <div class="site-footer__col site-footer__col--brand">
-                                <a href="{% url 'user:user_home' %}" class="site-footer__brand">
-                                    <span class="site-footer__brand-copy">
-                                        <span class="site-footer__brand-name">Bayawan Vet</span>
-                                    </span>
-                                </a>
-                                <p class="site-footer__office">Bayawan City Veterinary Office</p>
-                                <span class="site-footer__org-badge">Government organization</span>
-                                <address class="site-footer__address">
-                                    <span class="site-footer__address-line">National Highway, Barangay Villareal, Bayawan City</span>
-                                    <span class="site-footer__address-line">Negros Oriental, 6221, Philippines</span>
-                                </address>
-                            </div>
-
-                            <div class="site-footer__col">
-                                <h2 class="site-footer__heading">Contact</h2>
-                                <ul class="site-footer__contact">
-                                    <li>
-                                        <a
-                                            class="site-footer__contact-link"
-                                            href="https://www.google.com/maps/search/?api=1&amp;query=National%20Highway%2C%20Barangay%20Villareal%2C%20Bayawan%20City%2C%20Negros%20Oriental%2C%206221%2C%20Philippines"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                        >
-                                            <span class="site-footer__contact-icon" aria-hidden="true"><i class="bi bi-geo-alt"></i></span>
-                                            <span class="site-footer__contact-address">National Highway, Barangay Villareal, Bayawan City<br>Negros Oriental, 6221, Philippines</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="site-footer__contact-link" href="tel:+639505150983">
-                                            <span class="site-footer__contact-icon" aria-hidden="true"><i class="bi bi-telephone"></i></span>
-                                            <span>0950 515 0983</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="site-footer__contact-link" href="mailto:lgubayawancityvet@gmail.com">
-                                            <span class="site-footer__contact-icon" aria-hidden="true"><i class="bi bi-envelope"></i></span>
-                                            <span>lgubayawancityvet@gmail.com</span>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </div>
-
-                            <div class="site-footer__col site-footer__col--connect">
-                                <h2 class="site-footer__heading">Connect</h2>
-                                <p class="site-footer__connect-lead">Official updates from the city veterinary office.</p>
-                                <p class="site-footer__social-actions">
-                                    <a
-                                        class="site-footer__fb-link"
-                                        href="https://www.facebook.com/profile.php?id=100066583387123"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        Visit Bayawan City Vet on Facebook
+                    <footer class="site-footer" aria-label="Site footer">
+                        <div class="site-footer__top-curve" aria-hidden="true">
+                            <svg class="site-footer__curve-svg" xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 -6 1200 54" preserveAspectRatio="none" focusable="false">
+                                <path fill="#1a4a38" d="M0,40 Q600,-4 1200,40 L1200,48 L0,48 Z" />
+                            </svg>
+                        </div>
+                        <div class="site-footer__panel">
+                            <div class="site-footer__grid">
+                                <div class="site-footer__col site-footer__col--brand">
+                                    <a href="{% url 'user:user_home' %}" class="site-footer__brand">
+                                        <span class="site-footer__brand-copy">
+                                            <span class="site-footer__brand-name">Bayawan Vet</span>
+                                        </span>
                                     </a>
+                                    <p class="site-footer__office">Bayawan City Veterinary Office</p>
+                                    <span class="site-footer__org-badge">Government organization</span>
+                                    <address class="site-footer__address">
+                                        <span class="site-footer__address-line">National Highway, Barangay Villareal,
+                                            Bayawan City</span>
+                                        <span class="site-footer__address-line">Negros Oriental, 6221,
+                                            Philippines</span>
+                                    </address>
+                                </div>
+
+                                <div class="site-footer__col">
+                                    <h2 class="site-footer__heading">Contact</h2>
+                                    <ul class="site-footer__contact">
+                                        <li>
+                                            <a class="site-footer__contact-link"
+                                                href="https://www.google.com/maps/search/?api=1&amp;query=National%20Highway%2C%20Barangay%20Villareal%2C%20Bayawan%20City%2C%20Negros%20Oriental%2C%206221%2C%20Philippines"
+                                                target="_blank" rel="noopener noreferrer">
+                                                <span class="site-footer__contact-icon" aria-hidden="true"><i
+                                                        class="bi bi-geo-alt"></i></span>
+                                                <span class="site-footer__contact-address">National Highway, Barangay
+                                                    Villareal, Bayawan City<br>Negros Oriental, 6221, Philippines</span>
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="site-footer__contact-link" href="tel:+639505150983">
+                                                <span class="site-footer__contact-icon" aria-hidden="true"><i
+                                                        class="bi bi-telephone"></i></span>
+                                                <span>0950 515 0983</span>
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="site-footer__contact-link"
+                                                href="mailto:lgubayawancityvet@gmail.com">
+                                                <span class="site-footer__contact-icon" aria-hidden="true"><i
+                                                        class="bi bi-envelope"></i></span>
+                                                <span>lgubayawancityvet@gmail.com</span>
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                <div class="site-footer__col site-footer__col--connect">
+                                    <h2 class="site-footer__heading">Connect</h2>
+                                    <p class="site-footer__connect-lead">Official updates from the city veterinary
+                                        office.</p>
+                                    <p class="site-footer__social-actions">
+                                        <a class="site-footer__fb-link"
+                                            href="https://www.facebook.com/profile.php?id=100066583387123"
+                                            target="_blank" rel="noopener noreferrer">
+                                            Visit Bayawan City Vet on Facebook
+                                        </a>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="site-footer__bottom">
+                                <p class="site-footer__copyright">
+                                    &copy; {% now "Y" %} Bayawan City Veterinary Office. All rights reserved.
+                                    <span class="site-footer__copyright-sub">Bayawan Vet — online rescue and adoption
+                                        services.</span>
                                 </p>
                             </div>
                         </div>
-
-                        <div class="site-footer__bottom">
-                            <p class="site-footer__copyright">
-                                &copy; {% now "Y" %} Bayawan City Veterinary Office. All rights reserved.
-                                <span class="site-footer__copyright-sub">Bayawan Vet — online rescue and adoption services.</span>
-                            </p>
-                        </div>
-                    </div>
-                </footer>
+                    </footer>
+                </div>
             </div>
         </div>
+
     </div>
 
-</div>
-
-{% if not user.is_authenticated %}
+    {% if not user.is_authenticated %}
     {% if login_error or signup_error %}
-        {% include 'partials/auth_modals.html' %}
-    {% elif request.resolver_match and request.resolver_match.url_name != 'login' and request.resolver_match.url_name != 'signup' %}
-        {% include 'partials/auth_modals.html' %}
+    {% include 'partials/auth_modals.html' %}
+    {% elif request.resolver_match and request.resolver_match.url_name != 'login' and request.resolver_match.url_name !=
+    'signup' %}
+    {% include 'partials/auth_modals.html' %}
     {% endif %}
-{% endif %}
+    {% endif %}
 
-{% include 'partials/shared_confirm_modal.html' %}
+    {% include 'partials/shared_confirm_modal.html' %}
 
-<!-- ================= SCRIPTS ================= -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{% static 'js/shared_confirm_modal.js' %}?v=20260409shared-confirm"></script>
-{% if not user.is_authenticated %}
-<script src="{% static 'js/auth_dog_mascot.js' %}?v=20260416b" defer></script>
-{% endif %}
+    <!-- ================= SCRIPTS ================= -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/shared_confirm_modal.js' %}?v=20260409shared-confirm"></script>
+    {% if not user.is_authenticated %}
+    <script src="{% static 'js/auth_dog_mascot.js' %}?v=20260416b" defer></script>
+    {% endif %}
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const html = document.documentElement;
-    const body = document.body;
-    const surface = document.querySelector('[data-page-transition-surface]');
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    let isNavigating = false;
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const html = document.documentElement;
+            const body = document.body;
+            const surface = document.querySelector('[data-page-transition-surface]');
+            const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+            let isNavigating = false;
 
-    if (!body || !surface) {
-        return;
-    }
+            if (!body || !surface) {
+                return;
+            }
 
-    html.classList.add('js-page-transition-ready');
+            html.classList.add('js-page-transition-ready');
 
-    function prefersReducedMotion() {
-        return !!reduceMotion.matches;
-    }
+            function prefersReducedMotion() {
+                return !!reduceMotion.matches;
+            }
 
-    function isHashOnlyNavigation(currentUrl, nextUrl) {
-        return currentUrl.pathname === nextUrl.pathname
-            && currentUrl.search === nextUrl.search
-            && currentUrl.hash !== nextUrl.hash;
-    }
+            function isHashOnlyNavigation(currentUrl, nextUrl) {
+                return currentUrl.pathname === nextUrl.pathname
+                    && currentUrl.search === nextUrl.search
+                    && currentUrl.hash !== nextUrl.hash;
+            }
 
-    function isSkippableLink(link, event) {
-        if (!link || event.defaultPrevented) {
-            return true;
-        }
+            function isSkippableLink(link, event) {
+                if (!link || event.defaultPrevented) {
+                    return true;
+                }
 
-        if (link.hasAttribute('download')) {
-            return true;
-        }
+                if (link.hasAttribute('download')) {
+                    return true;
+                }
 
-        if (link.getAttribute('target') && link.getAttribute('target') !== '_self') {
-            return true;
-        }
+                if (link.getAttribute('target') && link.getAttribute('target') !== '_self') {
+                    return true;
+                }
 
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
-            return true;
-        }
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+                    return true;
+                }
 
-        if (link.closest('[data-auth-modal-trigger], [data-bs-toggle], [data-bs-target], [data-no-page-transition]')) {
-            return true;
-        }
+                if (link.closest('[data-auth-modal-trigger], [data-bs-toggle], [data-bs-target], [data-no-page-transition]')) {
+                    return true;
+                }
 
-        const href = link.getAttribute('href') || '';
-        if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) {
-            return true;
-        }
+                const href = link.getAttribute('href') || '';
+                if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) {
+                    return true;
+                }
 
-        let nextUrl;
-        try {
-            nextUrl = new URL(link.href, window.location.href);
-        } catch (error) {
-            return true;
-        }
+                let nextUrl;
+                try {
+                    nextUrl = new URL(link.href, window.location.href);
+                } catch (error) {
+                    return true;
+                }
 
-        const currentUrl = new URL(window.location.href);
-        if (nextUrl.origin !== currentUrl.origin || isHashOnlyNavigation(currentUrl, nextUrl)) {
-            return true;
-        }
+                const currentUrl = new URL(window.location.href);
+                if (nextUrl.origin !== currentUrl.origin || isHashOnlyNavigation(currentUrl, nextUrl)) {
+                    return true;
+                }
 
-        return false;
-    }
+                return false;
+            }
 
-    function startEntryTransition() {
-        if (prefersReducedMotion()) {
-            body.classList.remove('page-transition-entering', 'page-transition-enter-active');
-            return;
-        }
+            function startEntryTransition() {
+                if (prefersReducedMotion()) {
+                    body.classList.remove('page-transition-entering', 'page-transition-enter-active');
+                    return;
+                }
 
-        body.classList.add('page-transition-entering');
-        window.requestAnimationFrame(function () {
-            window.requestAnimationFrame(function () {
-                body.classList.add('page-transition-enter-active');
-            });
-        });
+                body.classList.add('page-transition-entering');
+                window.requestAnimationFrame(function () {
+                    window.requestAnimationFrame(function () {
+                        body.classList.add('page-transition-enter-active');
+                    });
+                });
 
-        window.setTimeout(function () {
-            body.classList.remove('page-transition-entering', 'page-transition-enter-active');
-        }, 380);
-    }
+                window.setTimeout(function () {
+                    body.classList.remove('page-transition-entering', 'page-transition-enter-active');
+                }, 380);
+            }
 
-    if (!body.classList.contains('is-authenticated')) {
-        body.classList.remove(
-            'page-transition-entering',
-            'page-transition-enter-active',
-            'page-transition-exiting'
-        );
-        return;
-    }
+            if (!body.classList.contains('is-authenticated')) {
+                body.classList.remove(
+                    'page-transition-entering',
+                    'page-transition-enter-active',
+                    'page-transition-exiting'
+                );
+                return;
+            }
 
-    function navigateWithTransition(nextHref) {
-        if (isNavigating) {
-            return;
-        }
+            function navigateWithTransition(nextHref) {
+                if (isNavigating) {
+                    return;
+                }
 
-        isNavigating = true;
+                isNavigating = true;
 
-        if (prefersReducedMotion()) {
-            window.location.assign(nextHref);
-            return;
-        }
+                if (prefersReducedMotion()) {
+                    window.location.assign(nextHref);
+                    return;
+                }
 
-        body.classList.add('page-transition-exiting');
+                body.classList.add('page-transition-exiting');
 
-        window.setTimeout(function () {
-            window.location.assign(nextHref);
-        }, 260);
-    }
+                window.setTimeout(function () {
+                    window.location.assign(nextHref);
+                }, 260);
+            }
 
-    startEntryTransition();
-
-    window.addEventListener('pageshow', function (event) {
-        isNavigating = false;
-        body.classList.remove('page-transition-exiting');
-
-        if (event.persisted) {
             startEntryTransition();
-        }
-    });
 
-    document.addEventListener('click', function (event) {
-        const link = event.target.closest('a[href]');
-        if (isSkippableLink(link, event)) {
-            return;
-        }
+            window.addEventListener('pageshow', function (event) {
+                isNavigating = false;
+                body.classList.remove('page-transition-exiting');
 
-        event.preventDefault();
-        navigateWithTransition(link.href);
-    });
-
-    document.addEventListener('submit', function (event) {
-        const form = event.target;
-        if (!(form instanceof HTMLFormElement) || isNavigating || event.defaultPrevented) {
-            return;
-        }
-
-        if (form.hasAttribute('data-no-page-transition')) {
-            return;
-        }
-
-        const method = (form.getAttribute('method') || 'get').toLowerCase();
-        const target = form.getAttribute('target') || '';
-        const action = form.getAttribute('action') || window.location.href;
-
-        if (target && target !== '_self') {
-            return;
-        }
-
-        if (form.enctype === 'multipart/form-data') {
-            return;
-        }
-
-        let actionUrl;
-        try {
-            actionUrl = new URL(action, window.location.href);
-        } catch (error) {
-            return;
-        }
-
-        if (actionUrl.origin !== window.location.origin) {
-            return;
-        }
-
-        if (prefersReducedMotion()) {
-            return;
-        }
-
-        if (method === 'get') {
-            event.preventDefault();
-            const formData = new FormData(form);
-            const params = new URLSearchParams();
-            formData.forEach(function (value, key) {
-                if (typeof value === 'string') {
-                    params.append(key, value);
+                if (event.persisted) {
+                    startEntryTransition();
                 }
             });
-            actionUrl.search = params.toString();
-            navigateWithTransition(actionUrl.toString());
-            return;
-        }
 
-        isNavigating = true;
-        body.classList.add('page-transition-exiting');
-    });
-});
-</script>
-
-<script>
-function ensureSharedModalCloseButtons(root) {
-    const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
-    const modalContents = scope.classList && scope.classList.contains('modal-content')
-        ? [scope]
-        : scope.classList && scope.classList.contains('modal')
-            ? Array.from(scope.querySelectorAll('.modal-content'))
-            : Array.from(scope.querySelectorAll('.modal .modal-content'));
-
-    modalContents.forEach(function (content) {
-        if (!content) {
-            return;
-        }
-
-        if (content.closest('.auth-modal')) {
-            return;
-        }
-
-        const existingClose = content.querySelector(
-            '.btn-close, .modal-corner-close, .camera-capture-close, .certificate-next-modal__close, .citation-confirm-modal__close, .announcement-image-lightbox-close, .registration-message-modal__close, .image-lightbox-close, .share-panel-close, .page-close-btn'
-        );
-
-        if (existingClose) {
-            return;
-        }
-
-        const closeBtn = document.createElement('button');
-        closeBtn.type = 'button';
-        closeBtn.className = 'btn-close modal-corner-close';
-        closeBtn.setAttribute('data-bs-dismiss', 'modal');
-        closeBtn.setAttribute('aria-label', 'Close');
-        content.insertBefore(closeBtn, content.firstChild);
-    });
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-    ensureSharedModalCloseButtons(document);
-});
-
-document.addEventListener('show.bs.modal', function (event) {
-    ensureSharedModalCloseButtons(event.target);
-});
-</script>
-
-{% if not user.is_authenticated %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    const wrapper = document.getElementById('wrapper');
-    const sidebarBackdrop = document.querySelector('[data-sidebar-backdrop]');
-    const mobileSidebarMediaQuery = window.matchMedia('(max-width: 991.98px)');
-
-    function setSidebarOpen(isOpen) {
-        if (!wrapper) {
-            return;
-        }
-
-        const shouldOpen = !!isOpen && mobileSidebarMediaQuery.matches;
-        wrapper.classList.toggle('toggled', shouldOpen);
-        document.body.classList.toggle('user-sidebar-open', shouldOpen);
-
-        if (sidebarToggle) {
-            sidebarToggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
-            sidebarToggle.setAttribute(
-                'aria-label',
-                shouldOpen ? 'Close navigation menu' : 'Open navigation menu'
-            );
-            sidebarToggle.classList.toggle('is-open', shouldOpen);
-        }
-    }
-
-    setSidebarOpen(false);
-
-    if (sidebarToggle && wrapper) {
-        sidebarToggle.addEventListener('click', function (event) {
-            event.preventDefault();
-            setSidebarOpen(!wrapper.classList.contains('toggled'));
-        });
-    }
-
-    if (sidebarBackdrop) {
-        sidebarBackdrop.addEventListener('click', function () {
-            setSidebarOpen(false);
-        });
-    }
-
-    document.querySelectorAll('#sidebar-wrapper a').forEach(function (link) {
-        link.addEventListener('click', function () {
-            setSidebarOpen(false);
-        });
-    });
-
-    document.querySelectorAll('[data-sidebar-close]').forEach(function (button) {
-        button.addEventListener('click', function () {
-            setSidebarOpen(false);
-        });
-    });
-
-    function syncSidebarForViewport() {
-        if (!mobileSidebarMediaQuery.matches) {
-            setSidebarOpen(false);
-        }
-    }
-
-    if (typeof mobileSidebarMediaQuery.addEventListener === 'function') {
-        mobileSidebarMediaQuery.addEventListener('change', syncSidebarForViewport);
-    } else if (typeof mobileSidebarMediaQuery.addListener === 'function') {
-        mobileSidebarMediaQuery.addListener(syncSidebarForViewport);
-    }
-
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') {
-            setSidebarOpen(false);
-        }
-    });
-});
-</script>
-{% endif %}
-
-{% if user.is_authenticated %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    const wrapper = document.getElementById('wrapper');
-    const sidebarBackdrop = document.querySelector('[data-sidebar-backdrop]');
-    const mobileSidebarMediaQuery = window.matchMedia('(max-width: 991.98px)');
-    const notificationDropdown = document.querySelector('[data-user-notification-dropdown]');
-    const notificationToggle = document.querySelector('[data-user-notification-toggle]');
-
-    function setSidebarOpen(isOpen) {
-        if (!wrapper) {
-            return;
-        }
-
-        const shouldOpen = !!isOpen && mobileSidebarMediaQuery.matches;
-        wrapper.classList.toggle('toggled', shouldOpen);
-        document.body.classList.toggle('user-sidebar-open', shouldOpen);
-
-        if (sidebarToggle) {
-            sidebarToggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
-            sidebarToggle.setAttribute(
-                'aria-label',
-                shouldOpen ? 'Close navigation menu' : 'Open navigation menu'
-            );
-            sidebarToggle.classList.toggle('is-open', shouldOpen);
-        }
-    }
-
-    setSidebarOpen(false);
-
-    if (sidebarToggle && wrapper) {
-        sidebarToggle.addEventListener('click', function (e) {
-            e.preventDefault();
-            setSidebarOpen(!wrapper.classList.contains('toggled'));
-        });
-    }
-
-    if (sidebarBackdrop) {
-        sidebarBackdrop.addEventListener('click', function () {
-            setSidebarOpen(false);
-        });
-    }
-
-    document.querySelectorAll('#sidebar-wrapper a').forEach(function (link) {
-        link.addEventListener('click', function () {
-            setSidebarOpen(false);
-        });
-    });
-
-    document.querySelectorAll('[data-sidebar-close]').forEach(function (button) {
-        button.addEventListener('click', function () {
-            setSidebarOpen(false);
-        });
-    });
-
-    function syncSidebarForViewport() {
-        if (!mobileSidebarMediaQuery.matches) {
-            setSidebarOpen(false);
-        }
-    }
-
-    if (typeof mobileSidebarMediaQuery.addEventListener === 'function') {
-        mobileSidebarMediaQuery.addEventListener('change', syncSidebarForViewport);
-    } else if (typeof mobileSidebarMediaQuery.addListener === 'function') {
-        mobileSidebarMediaQuery.addListener(syncSidebarForViewport);
-    }
-
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') {
-            setSidebarOpen(false);
-        }
-    });
-
-    function getCookie(name) {
-        const cookieValue = document.cookie
-            .split('; ')
-            .find((row) => row.startsWith(name + '='));
-        return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : '';
-    }
-
-    if (notificationDropdown && notificationToggle) {
-        const summaryUrl = notificationToggle.dataset.summaryUrl || '';
-        const markReadUrl = notificationToggle.dataset.notificationMarkReadUrl || '';
-        const notificationList = notificationDropdown.querySelector('[data-user-notification-list]');
-        const summaryBadge = notificationDropdown.querySelector('[data-notification-summary-count]');
-
-        function notificationMeta(kind) {
-            if (kind === 'accepted_request') return { icon: 'bi-check2-circle', tag: 'Request update' };
-            if (kind === 'vaccination_due') return { icon: 'bi-shield-check', tag: 'Vaccination due' };
-            if (kind === 'vaccination_expired') return { icon: 'bi-exclamation-triangle-fill', tag: 'Vaccination expired' };
-            if (kind === 'announcement') return { icon: 'bi-megaphone-fill', tag: 'Official alert' };
-            if (kind === 'admin_post') return { icon: 'bi-shield-check', tag: 'Rescue post' };
-            if (kind === 'community_post') return { icon: 'bi-people-fill', tag: 'Community post' };
-            if (kind === 'incoming_user_request') return { icon: 'bi-inbox-fill', tag: 'Adoption request' };
-            return { icon: 'bi-bell-fill', tag: 'Notification' };
-        }
-
-        function markNotificationReadThenNavigate(notificationKey, href) {
-            if (!href) {
-                return;
-            }
-            if (!markReadUrl || !notificationKey) {
-                window.location.href = href;
-                return;
-            }
-            fetch(markReadUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': getCookie('csrftoken'),
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify({ key: notificationKey }),
-            }).then(function (response) {
-                return response.ok ? response.json() : null;
-            }).then(function (data) {
-                if (data && typeof data.unread_count === 'number') {
-                    renderNotificationBadge(data.unread_count);
+            document.addEventListener('click', function (event) {
+                const link = event.target.closest('a[href]');
+                if (isSkippableLink(link, event)) {
+                    return;
                 }
-                window.location.href = href;
-            }).catch(function () {
-                window.location.href = href;
+
+                event.preventDefault();
+                navigateWithTransition(link.href);
+            });
+
+            document.addEventListener('submit', function (event) {
+                const form = event.target;
+                if (!(form instanceof HTMLFormElement) || isNavigating || event.defaultPrevented) {
+                    return;
+                }
+
+                if (form.hasAttribute('data-no-page-transition')) {
+                    return;
+                }
+
+                const method = (form.getAttribute('method') || 'get').toLowerCase();
+                const target = form.getAttribute('target') || '';
+                const action = form.getAttribute('action') || window.location.href;
+
+                if (target && target !== '_self') {
+                    return;
+                }
+
+                if (form.enctype === 'multipart/form-data') {
+                    return;
+                }
+
+                let actionUrl;
+                try {
+                    actionUrl = new URL(action, window.location.href);
+                } catch (error) {
+                    return;
+                }
+
+                if (actionUrl.origin !== window.location.origin) {
+                    return;
+                }
+
+                if (prefersReducedMotion()) {
+                    return;
+                }
+
+                if (method === 'get') {
+                    event.preventDefault();
+                    const formData = new FormData(form);
+                    const params = new URLSearchParams();
+                    formData.forEach(function (value, key) {
+                        if (typeof value === 'string') {
+                            params.append(key, value);
+                        }
+                    });
+                    actionUrl.search = params.toString();
+                    navigateWithTransition(actionUrl.toString());
+                    return;
+                }
+
+                isNavigating = true;
+                body.classList.add('page-transition-exiting');
+            });
+        });
+    </script>
+
+    <script>
+        function ensureSharedModalCloseButtons(root) {
+            const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+            const modalContents = scope.classList && scope.classList.contains('modal-content')
+                ? [scope]
+                : scope.classList && scope.classList.contains('modal')
+                    ? Array.from(scope.querySelectorAll('.modal-content'))
+                    : Array.from(scope.querySelectorAll('.modal .modal-content'));
+
+            modalContents.forEach(function (content) {
+                if (!content) {
+                    return;
+                }
+
+                if (content.closest('.auth-modal')) {
+                    return;
+                }
+
+                const existingClose = content.querySelector(
+                    '.btn-close, .modal-corner-close, .camera-capture-close, .certificate-next-modal__close, .citation-confirm-modal__close, .announcement-image-lightbox-close, .registration-message-modal__close, .image-lightbox-close, .share-panel-close, .page-close-btn'
+                );
+
+                if (existingClose) {
+                    return;
+                }
+
+                const closeBtn = document.createElement('button');
+                closeBtn.type = 'button';
+                closeBtn.className = 'btn-close modal-corner-close';
+                closeBtn.setAttribute('data-bs-dismiss', 'modal');
+                closeBtn.setAttribute('aria-label', 'Close');
+                content.insertBefore(closeBtn, content.firstChild);
             });
         }
 
-        function renderNotificationBadge(unreadCount) {
-            notificationToggle.dataset.unreadCount = String(unreadCount || 0);
-            let badge = notificationToggle.querySelector('[data-notification-badge]');
-            if (unreadCount > 0) {
-                if (!badge) {
-                    badge = document.createElement('span');
-                    badge.className = 'notification-badge';
-                    badge.setAttribute('data-notification-badge', '');
-                    notificationToggle.appendChild(badge);
-                }
-                badge.textContent = String(unreadCount);
-                if (summaryBadge) {
-                    summaryBadge.hidden = false;
-                    summaryBadge.textContent = `${unreadCount} new`;
-                }
-            } else {
-                if (badge) {
-                    badge.remove();
-                }
-                if (summaryBadge) {
-                    summaryBadge.hidden = true;
-                    summaryBadge.textContent = '';
-                }
-            }
-        }
+        document.addEventListener('DOMContentLoaded', function () {
+            ensureSharedModalCloseButtons(document);
+        });
 
-        function renderEmptyState() {
-            if (!notificationList) {
-                return;
+        document.addEventListener('show.bs.modal', function (event) {
+            ensureSharedModalCloseButtons(event.target);
+        });
+    </script>
+
+    {% if not user.is_authenticated %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const wrapper = document.getElementById('wrapper');
+            const sidebarBackdrop = document.querySelector('[data-sidebar-backdrop]');
+            const mobileSidebarMediaQuery = window.matchMedia('(max-width: 991.98px)');
+
+            function setSidebarOpen(isOpen) {
+                if (!wrapper) {
+                    return;
+                }
+
+                const shouldOpen = !!isOpen && mobileSidebarMediaQuery.matches;
+                wrapper.classList.toggle('toggled', shouldOpen);
+                document.body.classList.toggle('user-sidebar-open', shouldOpen);
+
+                if (sidebarToggle) {
+                    sidebarToggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+                    sidebarToggle.setAttribute(
+                        'aria-label',
+                        shouldOpen ? 'Close navigation menu' : 'Open navigation menu'
+                    );
+                    sidebarToggle.classList.toggle('is-open', shouldOpen);
+                }
             }
-            notificationList.innerHTML = `
+
+            setSidebarOpen(false);
+
+            if (sidebarToggle && wrapper) {
+                sidebarToggle.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    setSidebarOpen(!wrapper.classList.contains('toggled'));
+                });
+            }
+
+            if (sidebarBackdrop) {
+                sidebarBackdrop.addEventListener('click', function () {
+                    setSidebarOpen(false);
+                });
+            }
+
+            document.querySelectorAll('#sidebar-wrapper a').forEach(function (link) {
+                link.addEventListener('click', function () {
+                    setSidebarOpen(false);
+                });
+            });
+
+            document.querySelectorAll('[data-sidebar-close]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    setSidebarOpen(false);
+                });
+            });
+
+            function syncSidebarForViewport() {
+                if (!mobileSidebarMediaQuery.matches) {
+                    setSidebarOpen(false);
+                }
+            }
+
+            if (typeof mobileSidebarMediaQuery.addEventListener === 'function') {
+                mobileSidebarMediaQuery.addEventListener('change', syncSidebarForViewport);
+            } else if (typeof mobileSidebarMediaQuery.addListener === 'function') {
+                mobileSidebarMediaQuery.addListener(syncSidebarForViewport);
+            }
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') {
+                    setSidebarOpen(false);
+                }
+            });
+        });
+    </script>
+    {% endif %}
+
+    {% if user.is_authenticated %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const wrapper = document.getElementById('wrapper');
+            const sidebarBackdrop = document.querySelector('[data-sidebar-backdrop]');
+            const mobileSidebarMediaQuery = window.matchMedia('(max-width: 991.98px)');
+            const notificationDropdown = document.querySelector('[data-user-notification-dropdown]');
+            const notificationToggle = document.querySelector('[data-user-notification-toggle]');
+
+            function setSidebarOpen(isOpen) {
+                if (!wrapper) {
+                    return;
+                }
+
+                const shouldOpen = !!isOpen && mobileSidebarMediaQuery.matches;
+                wrapper.classList.toggle('toggled', shouldOpen);
+                document.body.classList.toggle('user-sidebar-open', shouldOpen);
+
+                if (sidebarToggle) {
+                    sidebarToggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+                    sidebarToggle.setAttribute(
+                        'aria-label',
+                        shouldOpen ? 'Close navigation menu' : 'Open navigation menu'
+                    );
+                    sidebarToggle.classList.toggle('is-open', shouldOpen);
+                }
+            }
+
+            setSidebarOpen(false);
+
+            if (sidebarToggle && wrapper) {
+                sidebarToggle.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    setSidebarOpen(!wrapper.classList.contains('toggled'));
+                });
+            }
+
+            if (sidebarBackdrop) {
+                sidebarBackdrop.addEventListener('click', function () {
+                    setSidebarOpen(false);
+                });
+            }
+
+            document.querySelectorAll('#sidebar-wrapper a').forEach(function (link) {
+                link.addEventListener('click', function () {
+                    setSidebarOpen(false);
+                });
+            });
+
+            document.querySelectorAll('[data-sidebar-close]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    setSidebarOpen(false);
+                });
+            });
+
+            function syncSidebarForViewport() {
+                if (!mobileSidebarMediaQuery.matches) {
+                    setSidebarOpen(false);
+                }
+            }
+
+            if (typeof mobileSidebarMediaQuery.addEventListener === 'function') {
+                mobileSidebarMediaQuery.addEventListener('change', syncSidebarForViewport);
+            } else if (typeof mobileSidebarMediaQuery.addListener === 'function') {
+                mobileSidebarMediaQuery.addListener(syncSidebarForViewport);
+            }
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') {
+                    setSidebarOpen(false);
+                }
+            });
+
+            function getCookie(name) {
+                const cookieValue = document.cookie
+                    .split('; ')
+                    .find((row) => row.startsWith(name + '='));
+                return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : '';
+            }
+
+            if (notificationDropdown && notificationToggle) {
+                const summaryUrl = notificationToggle.dataset.summaryUrl || '';
+                const markReadUrl = notificationToggle.dataset.notificationMarkReadUrl || '';
+                const notificationList = notificationDropdown.querySelector('[data-user-notification-list]');
+                const summaryBadge = notificationDropdown.querySelector('[data-notification-summary-count]');
+
+                function notificationMeta(kind) {
+                    if (kind === 'accepted_request') return { icon: 'bi-check2-circle', tag: 'Request update' };
+                    if (kind === 'vaccination_due') return { icon: 'bi-shield-check', tag: 'Vaccination due' };
+                    if (kind === 'vaccination_expired') return { icon: 'bi-exclamation-triangle-fill', tag: 'Vaccination expired' };
+                    if (kind === 'announcement') return { icon: 'bi-megaphone-fill', tag: 'Official alert' };
+                    if (kind === 'admin_post') return { icon: 'bi-shield-check', tag: 'Rescue post' };
+                    if (kind === 'community_post') return { icon: 'bi-people-fill', tag: 'Community post' };
+                    if (kind === 'incoming_user_request') return { icon: 'bi-inbox-fill', tag: 'Adoption request' };
+                    return { icon: 'bi-bell-fill', tag: 'Notification' };
+                }
+
+                function markNotificationReadThenNavigate(notificationKey, href) {
+                    if (!href) {
+                        return;
+                    }
+                    if (!markReadUrl || !notificationKey) {
+                        window.location.href = href;
+                        return;
+                    }
+                    fetch(markReadUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': getCookie('csrftoken'),
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ key: notificationKey }),
+                    }).then(function (response) {
+                        return response.ok ? response.json() : null;
+                    }).then(function (data) {
+                        if (data && typeof data.unread_count === 'number') {
+                            renderNotificationBadge(data.unread_count);
+                        }
+                        window.location.href = href;
+                    }).catch(function () {
+                        window.location.href = href;
+                    });
+                }
+
+                function renderNotificationBadge(unreadCount) {
+                    notificationToggle.dataset.unreadCount = String(unreadCount || 0);
+                    let badge = notificationToggle.querySelector('[data-notification-badge]');
+                    if (unreadCount > 0) {
+                        if (!badge) {
+                            badge = document.createElement('span');
+                            badge.className = 'notification-badge';
+                            badge.setAttribute('data-notification-badge', '');
+                            notificationToggle.appendChild(badge);
+                        }
+                        badge.textContent = String(unreadCount);
+                        if (summaryBadge) {
+                            summaryBadge.hidden = false;
+                            summaryBadge.textContent = `${unreadCount} new`;
+                        }
+                    } else {
+                        if (badge) {
+                            badge.remove();
+                        }
+                        if (summaryBadge) {
+                            summaryBadge.hidden = true;
+                            summaryBadge.textContent = '';
+                        }
+                    }
+                }
+
+                function renderEmptyState() {
+                    if (!notificationList) {
+                        return;
+                    }
+                    notificationList.innerHTML = `
                             <li>
                                 <div class="notification-empty">
                                     <span class="notification-empty-icon" aria-hidden="true">
@@ -986,461 +1018,462 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <span>Updates from the city team and the community will appear here.</span>
                                 </div>
                             </li>`;
-        }
-
-        function renderNotifications(items) {
-            if (!notificationList) {
-                return;
-            }
-            notificationList.innerHTML = '';
-            if (!items.length) {
-                renderEmptyState();
-                return;
-            }
-
-            items.forEach(function (item) {
-                const meta = notificationMeta(item.kind);
-                const li = document.createElement('li');
-                const link = document.createElement('a');
-                link.className = `dropdown-item notification-item notification-item--${item.kind}${item.is_unread ? ' unread' : ''}`;
-                link.href = item.open_url;
-                link.dataset.notificationKey = item.key || '';
-
-                const avatar = document.createElement('span');
-                avatar.className = `notification-avatar notification-avatar--${item.kind}`;
-                avatar.setAttribute('aria-hidden', 'true');
-                avatar.innerHTML = `<i class="bi ${meta.icon}"></i>`;
-
-                const copy = document.createElement('span');
-                copy.className = 'notification-copy';
-                const row = document.createElement('span');
-                row.className = 'notification-row';
-
-                const tag = document.createElement('span');
-                tag.className = 'notification-tag';
-                tag.textContent = meta.tag;
-                row.appendChild(tag);
-
-                if (item.is_unread) {
-                    const state = document.createElement('span');
-                    state.className = 'notification-state';
-                    state.textContent = 'New';
-                    row.appendChild(state);
                 }
 
-                const title = document.createElement('span');
-                title.className = 'notif-title';
-                title.textContent = item.title || '';
-
-                const message = document.createElement('span');
-                message.className = 'notif-message';
-                message.textContent = item.message || '';
-
-                const time = document.createElement('span');
-                time.className = 'notif-time';
-                time.innerHTML = '<i class="bi bi-clock-history" aria-hidden="true"></i> ';
-                time.appendChild(document.createTextNode(item.created_label || ''));
-
-                copy.appendChild(row);
-                copy.appendChild(title);
-                copy.appendChild(message);
-                copy.appendChild(time);
-                link.appendChild(avatar);
-                link.appendChild(copy);
-                li.appendChild(link);
-                link.addEventListener('click', function (e) {
-                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+                function renderNotifications(items) {
+                    if (!notificationList) {
                         return;
                     }
-                    const key = link.dataset.notificationKey || '';
-                    const href = link.getAttribute('href') || '';
-                    if (!key || !href) {
+                    notificationList.innerHTML = '';
+                    if (!items.length) {
+                        renderEmptyState();
                         return;
                     }
-                    e.preventDefault();
-                    markNotificationReadThenNavigate(key, href);
+
+                    items.forEach(function (item) {
+                        const meta = notificationMeta(item.kind);
+                        const li = document.createElement('li');
+                        const link = document.createElement('a');
+                        link.className = `dropdown-item notification-item notification-item--${item.kind}${item.is_unread ? ' unread' : ''}`;
+                        link.href = item.open_url;
+                        link.dataset.notificationKey = item.key || '';
+
+                        const avatar = document.createElement('span');
+                        avatar.className = `notification-avatar notification-avatar--${item.kind}`;
+                        avatar.setAttribute('aria-hidden', 'true');
+                        avatar.innerHTML = `<i class="bi ${meta.icon}"></i>`;
+
+                        const copy = document.createElement('span');
+                        copy.className = 'notification-copy';
+                        const row = document.createElement('span');
+                        row.className = 'notification-row';
+
+                        const tag = document.createElement('span');
+                        tag.className = 'notification-tag';
+                        tag.textContent = meta.tag;
+                        row.appendChild(tag);
+
+                        if (item.is_unread) {
+                            const state = document.createElement('span');
+                            state.className = 'notification-state';
+                            state.textContent = 'New';
+                            row.appendChild(state);
+                        }
+
+                        const title = document.createElement('span');
+                        title.className = 'notif-title';
+                        title.textContent = item.title || '';
+
+                        const message = document.createElement('span');
+                        message.className = 'notif-message';
+                        message.textContent = item.message || '';
+
+                        const time = document.createElement('span');
+                        time.className = 'notif-time';
+                        time.innerHTML = '<i class="bi bi-clock-history" aria-hidden="true"></i> ';
+                        time.appendChild(document.createTextNode(item.created_label || ''));
+
+                        copy.appendChild(row);
+                        copy.appendChild(title);
+                        copy.appendChild(message);
+                        copy.appendChild(time);
+                        link.appendChild(avatar);
+                        link.appendChild(copy);
+                        li.appendChild(link);
+                        link.addEventListener('click', function (e) {
+                            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+                                return;
+                            }
+                            const key = link.dataset.notificationKey || '';
+                            const href = link.getAttribute('href') || '';
+                            if (!key || !href) {
+                                return;
+                            }
+                            e.preventDefault();
+                            markNotificationReadThenNavigate(key, href);
+                        });
+                        notificationList.appendChild(li);
+                    });
+                }
+
+                function loadNotificationSummary() {
+                    if (!summaryUrl) {
+                        return;
+                    }
+                    fetch(summaryUrl, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        credentials: 'same-origin',
+                    }).then(function (response) {
+                        if (!response.ok) {
+                            return null;
+                        }
+                        return response.json();
+                    }).then(function (payload) {
+                        if (!payload) {
+                            return;
+                        }
+                        renderNotificationBadge(payload.unread_count || 0);
+                        renderNotifications(payload.notifications || []);
+                    }).catch(function () {
+                        // Ignore transient navbar hydration failures.
+                    });
+                }
+
+                renderNotificationBadge(parseInt(notificationToggle.dataset.unreadCount || '0', 10));
+                loadNotificationSummary();
+                notificationDropdown.addEventListener('shown.bs.dropdown', function () {
+                    loadNotificationSummary();
+                    const unreadCount = parseInt(notificationToggle.dataset.unreadCount || '0', 10);
+                    notificationToggle.setAttribute('aria-label', unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications');
                 });
-                notificationList.appendChild(li);
-            });
-        }
-
-        function loadNotificationSummary() {
-            if (!summaryUrl) {
-                return;
             }
-            fetch(summaryUrl, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                credentials: 'same-origin',
-            }).then(function (response) {
-                if (!response.ok) {
+        });
+    </script>
+    <script src="{% static 'js/barangay_autocomplete.js' %}"></script>
+    {% else %}
+    <script src="{% static 'js/password_reveal.js' %}"></script>
+    <script src="{% static 'js/signup_password_strength.js' %}?v=20260416gfield"></script>
+    <script src="{% static 'js/barangay_autocomplete.js' %}"></script>
+    {% if google_auth_enabled or google_signup_enabled %}
+    <script src="https://accounts.google.com/gsi/client" defer></script>
+    <script src="{% static 'js/google_signup.js' %}?v=20260410j" defer></script>
+    {% endif %}
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            function getModalInstance(modalId) {
+                var modalEl = document.getElementById(modalId);
+                if (!modalEl || !window.bootstrap) {
                     return null;
                 }
-                return response.json();
-            }).then(function (payload) {
-                if (!payload) {
+                return bootstrap.Modal.getOrCreateInstance(modalEl);
+            }
+
+            window.setAuthNext = function (nextUrl) {
+                var normalizedNextUrl = nextUrl || "";
+                document.querySelectorAll("[data-auth-next-field]").forEach(function (field) {
+                    field.value = normalizedNextUrl;
+                });
+                return normalizedNextUrl;
+            };
+
+            function getCurrentAuthNextValue() {
+                var field = document.querySelector("[data-auth-next-field]");
+                return field ? (field.value || "").trim() : "";
+            }
+
+            function isStaffClaimOrAdoptConfirmPath(path) {
+                return /\/(claim|redeem|adopt)\/[^/?#]+\//.test(path || "");
+            }
+
+            /**
+             * If the user already chose Redeem / Adopt / Reserve (confirm URL in the hidden
+             * "next" field), do not replace it with a generic shell path (e.g. current home
+             * URL from the navbar Login link).
+             */
+            function shouldPreserveAuthNext(existing, incoming) {
+                if (!existing || !incoming) {
+                    return false;
+                }
+                if (!isStaffClaimOrAdoptConfirmPath(existing)) {
+                    return false;
+                }
+                if (incoming === existing) {
+                    return false;
+                }
+                if (isStaffClaimOrAdoptConfirmPath(incoming)) {
+                    return false;
+                }
+                return true;
+            }
+
+            function resolveAuthNextFromTrigger(trigger) {
+                var explicit = (trigger.getAttribute("data-auth-next-url") || "").trim();
+                if (explicit) {
+                    return explicit;
+                }
+                var href = trigger.getAttribute("href") || "";
+                if (!href) {
+                    return "";
+                }
+                try {
+                    var parsed = new URL(href, window.location.href);
+                    var fromQuery = parsed.searchParams.get("next");
+                    return fromQuery ? fromQuery : "";
+                } catch (err) {
+                    return "";
+                }
+            }
+
+            window.openAuthModal = function (target, options) {
+                if (options && Object.prototype.hasOwnProperty.call(options, "nextUrl")) {
+                    var incomingNext = options.nextUrl || "";
+                    var existingNext = getCurrentAuthNextValue();
+                    if (!shouldPreserveAuthNext(existingNext, incomingNext)) {
+                        window.setAuthNext(incomingNext);
+                    }
+                }
+                var nextModalId = target === "signup" ? "signupModal" : "loginModal";
+                var nextModal = getModalInstance(nextModalId);
+                if (!nextModal) {
+                    return false;
+                }
+                nextModal.show();
+                return true;
+            };
+
+            window.handleAuthRequiredResponse = async function (response, fallbackTarget) {
+                if (!response || !response.headers) {
+                    return { handled: false, data: null };
+                }
+
+                var contentType = response.headers.get("content-type") || "";
+                var data = null;
+
+                if (contentType.indexOf("application/json") !== -1) {
+                    try {
+                        data = await response.clone().json();
+                    } catch (error) {
+                        data = null;
+                    }
+                }
+
+                if (data && data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                    return { handled: true, data: data };
+                }
+
+                if (data && data.auth_required) {
+                    if (!window.openAuthModal(data.auth_modal || fallbackTarget || "login")) {
+                        window.location.href = data.login_url || "{% url 'user:login' %}";
+                    }
+                    return { handled: true, data: data };
+                }
+
+                return { handled: false, data: data };
+            };
+
+            document.querySelectorAll("[data-auth-modal-trigger]").forEach(function (trigger) {
+                trigger.addEventListener("click", function (event) {
+                    event.preventDefault();
+                    window.openAuthModal(
+                        trigger.getAttribute("data-auth-modal-trigger") || "login",
+                        {
+                            nextUrl: resolveAuthNextFromTrigger(trigger),
+                        }
+                    );
+                });
+            });
+
+            document.querySelectorAll('[data-bs-target="#loginModal"], [data-bs-target="#signupModal"]').forEach(function (trigger) {
+                trigger.addEventListener("click", function () {
+                    if (!trigger.hasAttribute("data-auth-next-url")) {
+                        var existingNext = getCurrentAuthNextValue();
+                        if (!isStaffClaimOrAdoptConfirmPath(existingNext)) {
+                            window.setAuthNext("");
+                        }
+                    }
+                });
+            });
+
+            document.querySelectorAll("[data-auth-switch]").forEach(function (trigger) {
+                trigger.addEventListener("click", function () {
+                    var target = trigger.getAttribute("data-auth-switch");
+                    var currentModalEl = trigger.closest(".modal");
+                    var nextModalId = target === "signup" ? "signupModal" : "loginModal";
+                    var nextModal = getModalInstance(nextModalId);
+
+                    if (!nextModal) {
+                        return;
+                    }
+
+                    if (currentModalEl && window.bootstrap) {
+                        var currentModal = bootstrap.Modal.getInstance(currentModalEl);
+                        if (currentModal) {
+                            currentModal.hide();
+                        }
+                    }
+
+                    setTimeout(function () {
+                        nextModal.show();
+                    }, 120);
+                });
+            });
+
+            window.setAuthNext("{{ auth_next|default:''|escapejs }}");
+
+            var authModal = "{{ auth_modal|default:''|escapejs }}";
+            if (authModal) {
+                window.openAuthModal(authModal);
+            }
+        });
+    </script>
+    {% endif %}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            function hideToast(toast) {
+                if (!toast || toast.dataset.closed === "1") {
                     return;
                 }
-                renderNotificationBadge(payload.unread_count || 0);
-                renderNotifications(payload.notifications || []);
-            }).catch(function () {
-                // Ignore transient navbar hydration failures.
-            });
-        }
-
-        renderNotificationBadge(parseInt(notificationToggle.dataset.unreadCount || '0', 10));
-        loadNotificationSummary();
-        notificationDropdown.addEventListener('shown.bs.dropdown', function () {
-            loadNotificationSummary();
-            const unreadCount = parseInt(notificationToggle.dataset.unreadCount || '0', 10);
-            notificationToggle.setAttribute('aria-label', unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications');
-        });
-    }
-});
-</script>
-<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
-{% else %}
-<script src="{% static 'js/password_reveal.js' %}"></script>
-<script src="{% static 'js/signup_password_strength.js' %}?v=20260416gfield"></script>
-<script src="{% static 'js/barangay_autocomplete.js' %}"></script>
-{% if google_auth_enabled or google_signup_enabled %}
-<script src="https://accounts.google.com/gsi/client" defer></script>
-<script src="{% static 'js/google_signup.js' %}?v=20260410j" defer></script>
-{% endif %}
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    function getModalInstance(modalId) {
-        var modalEl = document.getElementById(modalId);
-        if (!modalEl || !window.bootstrap) {
-            return null;
-        }
-        return bootstrap.Modal.getOrCreateInstance(modalEl);
-    }
-
-    window.setAuthNext = function (nextUrl) {
-        var normalizedNextUrl = nextUrl || "";
-        document.querySelectorAll("[data-auth-next-field]").forEach(function (field) {
-            field.value = normalizedNextUrl;
-        });
-        return normalizedNextUrl;
-    };
-
-    function getCurrentAuthNextValue() {
-        var field = document.querySelector("[data-auth-next-field]");
-        return field ? (field.value || "").trim() : "";
-    }
-
-    function isStaffClaimOrAdoptConfirmPath(path) {
-        return /\/(claim|redeem|adopt)\/[^/?#]+\//.test(path || "");
-    }
-
-    /**
-     * If the user already chose Redeem / Adopt / Reserve (confirm URL in the hidden
-     * "next" field), do not replace it with a generic shell path (e.g. current home
-     * URL from the navbar Login link).
-     */
-    function shouldPreserveAuthNext(existing, incoming) {
-        if (!existing || !incoming) {
-            return false;
-        }
-        if (!isStaffClaimOrAdoptConfirmPath(existing)) {
-            return false;
-        }
-        if (incoming === existing) {
-            return false;
-        }
-        if (isStaffClaimOrAdoptConfirmPath(incoming)) {
-            return false;
-        }
-        return true;
-    }
-
-    function resolveAuthNextFromTrigger(trigger) {
-        var explicit = (trigger.getAttribute("data-auth-next-url") || "").trim();
-        if (explicit) {
-            return explicit;
-        }
-        var href = trigger.getAttribute("href") || "";
-        if (!href) {
-            return "";
-        }
-        try {
-            var parsed = new URL(href, window.location.href);
-            var fromQuery = parsed.searchParams.get("next");
-            return fromQuery ? fromQuery : "";
-        } catch (err) {
-            return "";
-        }
-    }
-
-    window.openAuthModal = function (target, options) {
-        if (options && Object.prototype.hasOwnProperty.call(options, "nextUrl")) {
-            var incomingNext = options.nextUrl || "";
-            var existingNext = getCurrentAuthNextValue();
-            if (!shouldPreserveAuthNext(existingNext, incomingNext)) {
-                window.setAuthNext(incomingNext);
-            }
-        }
-        var nextModalId = target === "signup" ? "signupModal" : "loginModal";
-        var nextModal = getModalInstance(nextModalId);
-        if (!nextModal) {
-            return false;
-        }
-        nextModal.show();
-        return true;
-    };
-
-    window.handleAuthRequiredResponse = async function (response, fallbackTarget) {
-        if (!response || !response.headers) {
-            return { handled: false, data: null };
-        }
-
-        var contentType = response.headers.get("content-type") || "";
-        var data = null;
-
-        if (contentType.indexOf("application/json") !== -1) {
-            try {
-                data = await response.clone().json();
-            } catch (error) {
-                data = null;
-            }
-        }
-
-        if (data && data.redirect_url) {
-            window.location.href = data.redirect_url;
-            return { handled: true, data: data };
-        }
-
-        if (data && data.auth_required) {
-            if (!window.openAuthModal(data.auth_modal || fallbackTarget || "login")) {
-                window.location.href = data.login_url || "{% url 'user:login' %}";
-            }
-            return { handled: true, data: data };
-        }
-
-        return { handled: false, data: data };
-    };
-
-    document.querySelectorAll("[data-auth-modal-trigger]").forEach(function (trigger) {
-        trigger.addEventListener("click", function (event) {
-            event.preventDefault();
-            window.openAuthModal(
-                trigger.getAttribute("data-auth-modal-trigger") || "login",
-                {
-                    nextUrl: resolveAuthNextFromTrigger(trigger),
-                }
-            );
-        });
-    });
-
-    document.querySelectorAll('[data-bs-target="#loginModal"], [data-bs-target="#signupModal"]').forEach(function (trigger) {
-        trigger.addEventListener("click", function () {
-            if (!trigger.hasAttribute("data-auth-next-url")) {
-                var existingNext = getCurrentAuthNextValue();
-                if (!isStaffClaimOrAdoptConfirmPath(existingNext)) {
-                    window.setAuthNext("");
-                }
-            }
-        });
-    });
-
-    document.querySelectorAll("[data-auth-switch]").forEach(function (trigger) {
-        trigger.addEventListener("click", function () {
-            var target = trigger.getAttribute("data-auth-switch");
-            var currentModalEl = trigger.closest(".modal");
-            var nextModalId = target === "signup" ? "signupModal" : "loginModal";
-            var nextModal = getModalInstance(nextModalId);
-
-            if (!nextModal) {
-                return;
-            }
-
-            if (currentModalEl && window.bootstrap) {
-                var currentModal = bootstrap.Modal.getInstance(currentModalEl);
-                if (currentModal) {
-                    currentModal.hide();
-                }
-            }
-
-            setTimeout(function () {
-                nextModal.show();
-            }, 120);
-        });
-    });
-
-    window.setAuthNext("{{ auth_next|default:''|escapejs }}");
-
-    var authModal = "{{ auth_modal|default:''|escapejs }}";
-    if (authModal) {
-        window.openAuthModal(authModal);
-    }
-});
-</script>
-{% endif %}
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    function hideToast(toast) {
-        if (!toast || toast.dataset.closed === "1") {
-            return;
-        }
-        toast.dataset.closed = "1";
-        toast.classList.add("is-hiding");
-        window.setTimeout(function () {
-            toast.remove();
-        }, 220);
-    }
-
-    document.querySelectorAll("[data-flash-toast]").forEach(function (toast, index) {
-        var closeBtn = toast.querySelector("[data-flash-toast-close]");
-        if (closeBtn) {
-            closeBtn.addEventListener("click", function () {
-                hideToast(toast);
-            });
-        }
-
-        window.setTimeout(function () {
-            hideToast(toast);
-        }, 4000 + (index * 250));
-    });
-
-    const responsiveSearchMediaQuery = window.matchMedia('(max-width: 575.98px)');
-    const responsiveSearchControllers = [];
-
-    function initResponsiveSearch(root) {
-        const input = root.querySelector('[data-responsive-search-input]');
-        const toggle = root.querySelector('[data-responsive-search-toggle]');
-        const field = root.querySelector('[data-responsive-search-field]');
-        const allowMobileCollapse = root.dataset.responsiveSearchMode === 'collapsible';
-
-        if (!input || !toggle || !field) {
-            return null;
-        }
-
-        function setCollapsed(collapsed) {
-            const shouldCollapse = allowMobileCollapse && collapsed;
-            root.classList.toggle('is-collapsed', shouldCollapse);
-            root.classList.toggle('is-expanded', !shouldCollapse);
-            toggle.setAttribute('aria-expanded', shouldCollapse ? 'false' : 'true');
-        }
-
-        function sync(forceExpanded) {
-            if (!allowMobileCollapse || !responsiveSearchMediaQuery.matches) {
-                setCollapsed(false);
-                return;
-            }
-
-            if (forceExpanded || input.value.trim()) {
-                setCollapsed(false);
-                return;
-            }
-
-            setCollapsed(document.activeElement !== input);
-        }
-
-        toggle.addEventListener('click', function (event) {
-            if (!allowMobileCollapse || !responsiveSearchMediaQuery.matches || !root.classList.contains('is-collapsed')) {
-                return;
-            }
-
-            event.preventDefault();
-            event.stopPropagation();
-            if (typeof event.stopImmediatePropagation === 'function') {
-                event.stopImmediatePropagation();
-            }
-
-            setCollapsed(false);
-            window.setTimeout(function () {
-                input.focus();
-            }, 0);
-        }, true);
-
-        input.addEventListener('focus', function () {
-            sync(true);
-        });
-
-        input.addEventListener('input', function () {
-            sync(true);
-        });
-
-        input.addEventListener('keydown', function (event) {
-            if (allowMobileCollapse && event.key === 'Escape' && !input.value.trim()) {
-                setCollapsed(true);
-                input.blur();
-            }
-        });
-
-        root.querySelectorAll('[data-responsive-search-clear]').forEach(function (clearControl) {
-            clearControl.addEventListener('click', function () {
+                toast.dataset.closed = "1";
+                toast.classList.add("is-hiding");
                 window.setTimeout(function () {
-                    sync();
-                }, 0);
-            });
-        });
+                    toast.remove();
+                }, 220);
+            }
 
-        document.addEventListener('click', function (event) {
-            if (!allowMobileCollapse || root.contains(event.target) || input.value.trim()) {
+            document.querySelectorAll("[data-flash-toast]").forEach(function (toast, index) {
+                var closeBtn = toast.querySelector("[data-flash-toast-close]");
+                if (closeBtn) {
+                    closeBtn.addEventListener("click", function () {
+                        hideToast(toast);
+                    });
+                }
+
+                window.setTimeout(function () {
+                    hideToast(toast);
+                }, 4000 + (index * 250));
+            });
+
+            const responsiveSearchMediaQuery = window.matchMedia('(max-width: 575.98px)');
+            const responsiveSearchControllers = [];
+
+            function initResponsiveSearch(root) {
+                const input = root.querySelector('[data-responsive-search-input]');
+                const toggle = root.querySelector('[data-responsive-search-toggle]');
+                const field = root.querySelector('[data-responsive-search-field]');
+                const allowMobileCollapse = root.dataset.responsiveSearchMode === 'collapsible';
+
+                if (!input || !toggle || !field) {
+                    return null;
+                }
+
+                function setCollapsed(collapsed) {
+                    const shouldCollapse = allowMobileCollapse && collapsed;
+                    root.classList.toggle('is-collapsed', shouldCollapse);
+                    root.classList.toggle('is-expanded', !shouldCollapse);
+                    toggle.setAttribute('aria-expanded', shouldCollapse ? 'false' : 'true');
+                }
+
+                function sync(forceExpanded) {
+                    if (!allowMobileCollapse || !responsiveSearchMediaQuery.matches) {
+                        setCollapsed(false);
+                        return;
+                    }
+
+                    if (forceExpanded || input.value.trim()) {
+                        setCollapsed(false);
+                        return;
+                    }
+
+                    setCollapsed(document.activeElement !== input);
+                }
+
+                toggle.addEventListener('click', function (event) {
+                    if (!allowMobileCollapse || !responsiveSearchMediaQuery.matches || !root.classList.contains('is-collapsed')) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (typeof event.stopImmediatePropagation === 'function') {
+                        event.stopImmediatePropagation();
+                    }
+
+                    setCollapsed(false);
+                    window.setTimeout(function () {
+                        input.focus();
+                    }, 0);
+                }, true);
+
+                input.addEventListener('focus', function () {
+                    sync(true);
+                });
+
+                input.addEventListener('input', function () {
+                    sync(true);
+                });
+
+                input.addEventListener('keydown', function (event) {
+                    if (allowMobileCollapse && event.key === 'Escape' && !input.value.trim()) {
+                        setCollapsed(true);
+                        input.blur();
+                    }
+                });
+
+                root.querySelectorAll('[data-responsive-search-clear]').forEach(function (clearControl) {
+                    clearControl.addEventListener('click', function () {
+                        window.setTimeout(function () {
+                            sync();
+                        }, 0);
+                    });
+                });
+
+                document.addEventListener('click', function (event) {
+                    if (!allowMobileCollapse || root.contains(event.target) || input.value.trim()) {
+                        return;
+                    }
+                    sync();
+                });
+
+                sync();
+                return { sync: sync };
+            }
+
+            document.querySelectorAll('[data-responsive-search]').forEach(function (root) {
+                const controller = initResponsiveSearch(root);
+                if (controller) {
+                    responsiveSearchControllers.push(controller);
+                }
+            });
+
+            const syncResponsiveSearch = function () {
+                responsiveSearchControllers.forEach(function (controller) {
+                    controller.sync();
+                });
+            };
+
+            if (typeof responsiveSearchMediaQuery.addEventListener === 'function') {
+                responsiveSearchMediaQuery.addEventListener('change', syncResponsiveSearch);
+            } else if (typeof responsiveSearchMediaQuery.addListener === 'function') {
+                responsiveSearchMediaQuery.addListener(syncResponsiveSearch);
+            }
+
+        });
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const topbar = document.querySelector('.app-topbar');
+
+            if (!topbar) {
                 return;
             }
-            sync();
+
+            let ticking = false;
+
+            function syncTopbarGlass() {
+                topbar.classList.toggle('is-scrolled', window.scrollY > 12);
+                ticking = false;
+            }
+
+            function requestSync() {
+                if (ticking) {
+                    return;
+                }
+
+                ticking = true;
+                window.requestAnimationFrame(syncTopbarGlass);
+            }
+
+            syncTopbarGlass();
+            window.addEventListener('scroll', requestSync, { passive: true });
+            window.addEventListener('resize', requestSync, { passive: true });
         });
-
-        sync();
-        return { sync: sync };
-    }
-
-    document.querySelectorAll('[data-responsive-search]').forEach(function (root) {
-        const controller = initResponsiveSearch(root);
-        if (controller) {
-            responsiveSearchControllers.push(controller);
-        }
-    });
-
-    const syncResponsiveSearch = function () {
-        responsiveSearchControllers.forEach(function (controller) {
-            controller.sync();
-        });
-    };
-
-    if (typeof responsiveSearchMediaQuery.addEventListener === 'function') {
-        responsiveSearchMediaQuery.addEventListener('change', syncResponsiveSearch);
-    } else if (typeof responsiveSearchMediaQuery.addListener === 'function') {
-        responsiveSearchMediaQuery.addListener(syncResponsiveSearch);
-    }
-
-});
-</script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const topbar = document.querySelector('.app-topbar');
-
-    if (!topbar) {
-        return;
-    }
-
-    let ticking = false;
-
-    function syncTopbarGlass() {
-        topbar.classList.toggle('is-scrolled', window.scrollY > 12);
-        ticking = false;
-    }
-
-    function requestSync() {
-        if (ticking) {
-            return;
-        }
-
-        ticking = true;
-        window.requestAnimationFrame(syncTopbarGlass);
-    }
-
-    syncTopbarGlass();
-    window.addEventListener('scroll', requestSync, { passive: true });
-    window.addEventListener('resize', requestSync, { passive: true });
-});
-</script>
+    </script>
 
 </body>
+
 </html>

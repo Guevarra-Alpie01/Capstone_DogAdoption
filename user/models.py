@@ -306,6 +306,10 @@ class UserAdoptionPost(models.Model):
     def display_colors(self):
         return ", ".join(self.display_color_list)
 
+    @property
+    def main_image(self):
+        return self.images.first()
+
     def __str__(self):
         return f"{self.dog_name} - {self.owner.username}"
 

@@ -3170,12 +3170,19 @@ def _user_post_submissions_summary(entries):
 
 
 def _create_post_request_with_images(request, post, request_type, appointment_date):
+    valid_id = request.FILES.get('valid_id')
+    vaccination_history = request.FILES.get('vaccination_history')
+    anti_rabies_proof = request.FILES.get('anti_rabies_proof')
+
     req = PostRequest.objects.create(
         user=request.user,
         post=post,
         request_type=request_type,
         status="pending",
         appointment_date=appointment_date,
+        valid_id=valid_id,
+        vaccination_history=vaccination_history,
+        anti_rabies_proof=anti_rabies_proof,
     )
     for img in request.FILES.getlist("images"):
         ClaimImage.objects.create(claim=req, image=img)
@@ -3249,6 +3256,10 @@ def _handle_confirm_request(
 
         if not available_dates.filter(appointment_date=appointment_date).exists():
             messages.error(request, "Selected appointment date is not available.")
+            return _render_confirm_page(request, template_name, post, available_dates, request_type)
+
+        if request_type == "adopt" and not request.FILES.get('valid_id'):
+            messages.error(request, "Valid ID is required to submit an adoption request.")
             return _render_confirm_page(request, template_name, post, available_dates, request_type)
 
         _create_post_request_with_images(request, post, request_type, appointment_date)
@@ -4463,9 +4474,25 @@ def adopt_user_post(request, post_id):
         return redirect("user:user_home")
 
     if request.method == "POST":
-        _, created = UserAdoptionRequest.objects.get_or_create(
+        valid_id = request.FILES.get('valid_id')
+        vaccination_history = request.FILES.get('vaccination_history')
+        anti_rabies_proof = request.FILES.get('anti_rabies_proof')
+
+        if not valid_id:
+            message = "Valid ID is required to submit an adoption request."
+            if is_ajax:
+                return JsonResponse({"ok": False, "message": message}, status=400)
+            messages.error(request, message)
+            return render(request, "adopt/adopt_user_confirm.html", {"post": post})
+
+        req, created = UserAdoptionRequest.objects.get_or_create(
             post=post,
             requester=request.user,
+            defaults={
+                'valid_id': valid_id,
+                'vaccination_history': vaccination_history,
+                'anti_rabies_proof': anti_rabies_proof,
+            }
         )
 
         if created:

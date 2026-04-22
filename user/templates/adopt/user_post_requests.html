@@ -399,6 +399,27 @@
                     </div>
                 </div>
 
+                <div class="submitted-docs mb-4 px-2">
+                    <h5 class="small text-uppercase fw-bold mb-3 text-muted" style="letter-spacing: 0.1em;">Submitted Documents</h5>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% if req.valid_id %}
+                            <a href="{{ req.valid_id.url }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                <i class="bi bi-file-person"></i> Valid ID
+                            </a>
+                        {% endif %}
+                        {% if req.vaccination_history %}
+                            <a href="{{ req.vaccination_history.url }}" target="_blank" class="btn btn-sm btn-outline-success rounded-pill px-3">
+                                <i class="bi bi-shield-check"></i> Vaccination History
+                            </a>
+                        {% endif %}
+                        {% if req.anti_rabies_proof %}
+                            <a href="{{ req.anti_rabies_proof.url }}" target="_blank" class="btn btn-sm btn-outline-warning rounded-pill px-3">
+                                <i class="bi bi-patch-check"></i> Anti-Rabies Proof
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+
                 <div class="request-card-actions">
                     {% if req.status == 'pending' %}
                         <a href="{% url 'user:user_adoption_request_action' req.id 'accept' %}" class="btn-action btn-accept">

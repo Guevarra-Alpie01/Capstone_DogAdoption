@@ -833,8 +833,11 @@ class PostRequest(models.Model):
         blank=True,
         help_text="Final appointment date assigned by admin."
     )
-
     created_at = models.DateTimeField(auto_now_add=True)
+
+    valid_id = models.ImageField(upload_to='adoption_docs/ids/', null=True, blank=True)
+    vaccination_history = models.ImageField(upload_to='adoption_docs/vaccines/', null=True, blank=True)
+    anti_rabies_proof = models.ImageField(upload_to='adoption_docs/anti_rabies/', null=True, blank=True)
 
     class Meta:
         indexes = [

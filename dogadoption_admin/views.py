@@ -107,6 +107,7 @@ from user.models import (
     Profile,
     UserAdoptionImage,
     UserAdoptionPost,
+    UserAdoptionRequest,
 )
 
 
@@ -2657,6 +2658,37 @@ def post_history(request):
         "history_adopted_qs": _build_filter_qs("adopted"),
         "history_redeemed_qs": _build_filter_qs("redeemed"),
         "history_unresolved_qs": _build_filter_qs("unresolved"),
+    })
+
+
+@admin_required
+def user_adoption_history(request):
+    """List completed user-to-user adoptions with poster and adopter info."""
+    adopted_posts = UserAdoptionPost.objects.filter(status='adopted').select_related('owner', 'owner__profile').order_by('-created_at')
+    
+    # Paginate results
+    paginator = Paginator(adopted_posts, 12)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    history_items = []
+    for post in page_obj:
+        # Get the approved request for this post to identify the adopter
+        approved_request = UserAdoptionRequest.objects.filter(
+            post=post, 
+            status='approved'
+        ).select_related('requester', 'requester__profile').first()
+        
+        history_items.append({
+            'post': post,
+            'adopter': approved_request.requester if approved_request else None,
+            'request': approved_request
+        })
+
+    return render(request, 'admin_home/user_adoption_history.html', {
+        'history_items': history_items,
+        'page_obj': page_obj,
+        'return_to': request.get_full_path(),
     })
 
 

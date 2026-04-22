@@ -90,6 +90,7 @@ ADMIN_ROUTE_RULES = {
     "finalize_post": {"any_of": ("can_create_posts",)},
     "delete_post": {"any_of": ("can_create_posts",)},
     "post_history": {"any_of": ("can_view_post_history",)},
+    "user_adoption_history": {"any_of": ("can_view_post_history",)},
     "claim_requests": {"any_of": ("can_view_status_cards",)},
     "adoption_requests": {"any_of": ("can_view_status_cards",)},
     "update_request": {"any_of": ("can_view_status_cards",)},

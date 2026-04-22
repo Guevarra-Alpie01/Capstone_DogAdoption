@@ -1,0 +1,152 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/admin_home/post_history.css' %}?v=20260422history-ui">
+<style>
+    .history-user-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .history-user-cell strong {
+        color: #1e293b;
+        font-size: 0.95rem;
+    }
+    .history-user-cell span {
+        color: #64748b;
+        font-size: 0.85rem;
+    }
+    .history-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 99px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        background: #f0fdf4;
+        color: #15803d;
+    }
+    .history-connector {
+        color: #94a3b8;
+        font-size: 1.2rem;
+        margin: 0 10px;
+    }
+    .history-pair {
+        display: flex;
+        align-items: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="history-page">
+    <div class="history-page-header">
+        <a href="{% url 'dogadoption_admin:post_list' %}" class="history-back-link">
+            <span class="history-back-link-icon" aria-hidden="true">
+                <i class="bi bi-arrow-left"></i>
+            </span>
+            <span class="history-back-link-copy">
+                <span class="history-back-link-eyebrow">Return</span>
+                <span class="history-back-link-title">Back to Posts</span>
+            </span>
+        </a>
+        <div class="history-page-title-shell">
+            <h1 class="history-page-main-title">User to User Adoption History</h1>
+            <p class="history-page-subtitle">Tracking successful adoptions between residents</p>
+        </div>
+    </div>
+
+    <section class="history-page-card">
+        {% if history_items %}
+            <div class="table-responsive">
+                <table class="table table-sm history-page-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Image</th>
+                            <th>Dog Details</th>
+                            <th>Poster (Owner)</th>
+                            <th class="text-center">Action</th>
+                            <th>Adopter</th>
+                            <th>Date Completed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in history_items %}
+                            <tr>
+                                <td>
+                                    {% if item.post.main_image %}
+                                        <div class="history-thumb-wrap">
+                                            <img src="{{ item.post.main_image.image.url }}" alt="{{ item.post.dog_name }}" class="history-thumb">
+                                        </div>
+                                    {% else %}
+                                        <div class="history-thumb-fallback">No image</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="history-copy-cell">
+                                        <strong>{{ item.post.dog_name }}</strong>
+                                        <span>{{ item.post.display_breed }} | {{ item.post.get_gender_display }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="history-user-cell">
+                                        <strong>{{ item.post.owner.get_full_name|default:item.post.owner.username }}</strong>
+                                        <span>@{{ item.post.owner.username }}</span>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="history-connector">
+                                        <i class="bi bi-arrow-right-circle-fill"></i>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if item.adopter %}
+                                        <div class="history-user-cell">
+                                            <strong>{{ item.adopter.get_full_name|default:item.adopter.username }}</strong>
+                                            <span>@{{ item.adopter.username }}</span>
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted italic">Unknown</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="history-copy-cell">
+                                        <strong>{{ item.request.created_at|date:"M d, Y" }}</strong>
+                                        <span class="history-status-badge">
+                                            <i class="bi bi-check-circle-fill"></i> Adopted
+                                        </span>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page_obj.paginator.num_pages > 1 %}
+            <div class="history-pagination">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}" class="history-page-btn">Prev</a>
+                {% else %}
+                    <span class="history-page-btn disabled">Prev</span>
+                {% endif %}
+                <span class="history-page-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}" class="history-page-btn">Next</a>
+                {% else %}
+                    <span class="history-page-btn disabled">Next</span>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% else %}
+            <div class="history-empty-state">
+                <i class="bi bi-people" aria-hidden="true"></i>
+                <h3>No user-to-user adoptions yet</h3>
+                <p>Successful adoptions between residents will appear here once approved.</p>
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

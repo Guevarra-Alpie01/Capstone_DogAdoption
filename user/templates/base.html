@@ -1468,7 +1468,64 @@
             window.addEventListener('resize', requestSync, { passive: true });
         });
     </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Generic handler for details toggle buttons
+            document.addEventListener('click', function(e) {
+                var toggleBtn = e.target.closest('[data-dog-detail-toggle]');
+                
+                if (toggleBtn) {
+                    e.preventDefault();
+                    var panelId = toggleBtn.getAttribute('aria-controls');
+                    if (!panelId) return;
+                    var panel = document.getElementById(panelId);
+                    if (!panel) return;
 
+                    var isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+                    var willExpand = !isExpanded;
+                    toggleBtn.setAttribute('aria-expanded', willExpand);
+                    
+                    if (panel.hasAttribute('hidden') !== null) {
+                        panel.hidden = !willExpand;
+                    }
+                    if (panel.hasAttribute('aria-hidden')) {
+                        panel.setAttribute('aria-hidden', !willExpand);
+                    }
+                    return;
+                }
+
+                var closeBtn = e.target.closest('[data-home-spotlight-detail-close], [data-dog-detail-close]');
+                if (closeBtn) {
+                    e.preventDefault();
+                    var panel = closeBtn.closest('[id]');
+                    if (panel) {
+                        var toggleBtn = document.querySelector('[aria-controls="' + panel.id + '"]');
+                        if (toggleBtn) {
+                            toggleBtn.setAttribute('aria-expanded', 'false');
+                        }
+                        panel.hidden = true;
+                        if (panel.hasAttribute('aria-hidden')) {
+                            panel.setAttribute('aria-hidden', 'true');
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+    <script>
+        /* Prevent carousel arrow labels from scrolling page to top */
+        (function () {
+            document.addEventListener('click', function (e) {
+                var label = e.target.closest('.dog-scale-carousel__control, .dog-scale-carousel__indicator');
+                if (!label) return;
+                var scrollX = window.scrollX || window.pageXOffset;
+                var scrollY = window.scrollY || window.pageYOffset;
+                requestAnimationFrame(function () {
+                    window.scrollTo(scrollX, scrollY);
+                });
+            }, true);
+        })();
+    </script>
 </body>
 
 </html>

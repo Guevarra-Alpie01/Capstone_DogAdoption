@@ -2480,6 +2480,8 @@ def _build_public_post_listing(request, listing_mode):
             "created_at": upost.created_at,
             "detail_url": detail_url,
             "share_url": _finder_share_url_user_adoption(request, upost.id),
+            "is_vaccinated": upost.is_vaccinated,
+            "is_registered": upost.is_registered,
             "sort_deadline_ts": float("inf"),
         })
 
@@ -2594,6 +2596,11 @@ def _build_public_post_listing(request, listing_mode):
                 "url": reverse("user:user_adoption_requests"),
                 "label": "Incoming Adoption Requests",
                 "icon_class": "bi bi-envelope-paper",
+            },
+            {
+                "url": reverse("user:adoption_history"),
+                "label": "Adoption History",
+                "icon_class": "bi bi-journal-text",
             },
             {
                 "url": reverse("user:my_post_approvals"),
@@ -3922,6 +3929,18 @@ def _hydrate_home_feed_items(request, feed_rows):
                 "share_url": _finder_share_url_user_adoption(request, p.id),
                 "viewer_has_user_adoption_request": has_user_adoption_request,
                 "show_user_adoption_request_cta": show_user_adoption_request_cta,
+                "post_id": p.id,
+                "dog_name": p.dog_name,
+                "breed_label": p.display_breed or "Unknown Breed",
+                "age_label": p.display_age_group or "Age not listed",
+                "size_label": p.display_size_group or "Size not listed",
+                "gender_label": p.get_gender_display() if p.gender else "Gender not listed",
+                "coat_label": p.display_coat_length or "Coat not listed",
+                "color_label": p.display_colors or "Color not listed",
+                "location_label": " ".join((p.location or "").split()) or "Location not listed",
+                "main_image_url": _first_prefetched_image_url(post_images),
+                "is_vaccinated": p.is_vaccinated,
+                "is_registered": p.is_registered,
             })
             continue
 
@@ -5505,3 +5524,17 @@ def redeem_confirm(request, post_id):
         duplicate_message="You already submitted a redemption for this dog.",
         success_message="Redemption submitted. The post stays visible while admin verification runs for 1 day.",
     )
+
+
+def user_adoption_history(request):
+    """Render a community-wide history of successful user-to-user adoptions."""
+    history = UserAdoptionRequest.objects.filter(status='approved').select_related(
+        'post', 'requester', 'post__owner'
+    ).order_by('-created_at')
+    
+    context = {
+        'history': history,
+        'page_title': 'Adoption History',
+        'active_nav': 'adopt',
+    }
+    return render(request, 'adopt/adoption_history.html', context)

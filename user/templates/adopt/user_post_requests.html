@@ -237,9 +237,9 @@
         align-items: center;
         justify-content: center;
         padding: 20px;
-        background: rgba(15, 23, 42, 0.4);
-        backdrop-filter: blur(8px);
-        animation: modalFadeIn 0.2s ease-out;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(12px);
+        animation: modalFadeIn 0.25s ease-out;
     }
 
     .action-modal.is-visible {
@@ -249,49 +249,68 @@
     .action-modal-shell {
         background: #ffffff;
         width: 100%;
-        max-width: 440px;
-        border-radius: 28px;
+        max-width: 460px;
+        border-radius: 32px;
         overflow: hidden;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
-        transform: translateY(10px);
-        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.2);
+        transform: scale(0.9) translateY(20px);
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        opacity: 0;
     }
 
     .action-modal.is-visible .action-modal-shell {
-        transform: translateY(0);
+        transform: scale(1) translateY(0);
+        opacity: 1;
     }
 
     .action-modal-content {
-        padding: 32px;
+        padding: 40px;
         text-align: center;
     }
 
     .action-modal-icon {
-        width: 64px;
-        height: 64px;
-        border-radius: 20px;
+        width: 80px;
+        height: 80px;
+        border-radius: 24px;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin: 0 auto 20px;
-        font-size: 1.8rem;
+        margin: 0 auto 24px;
+        font-size: 2.25rem;
+        position: relative;
+    }
+
+    .action-modal-icon::after {
+        content: '';
+        position: absolute;
+        inset: -8px;
+        border-radius: 32px;
+        opacity: 0.15;
     }
 
     .icon-accept { background: #ecfdf5; color: #059669; }
+    .icon-accept::after { background: #059669; }
     .icon-decline { background: #fef2f2; color: #dc2626; }
+    .icon-decline::after { background: #dc2626; }
 
     .action-modal-title {
-        font-size: 1.4rem;
+        font-size: 1.6rem;
         font-weight: 800;
-        color: #1e293b;
-        margin-bottom: 8px;
+        color: #0f172a;
+        margin-bottom: 12px;
+        letter-spacing: -0.02em;
     }
 
     .action-modal-text {
-        color: #64748b;
-        font-size: 0.95rem;
+        color: #475569;
+        font-size: 1rem;
         line-height: 1.6;
-        margin-bottom: 28px;
+        margin-bottom: 32px;
+    }
+
+    .action-modal-text strong {
+        color: #0f172a;
+        font-weight: 700;
     }
 
     .action-modal-btns {
@@ -301,17 +320,18 @@
     }
 
     .btn-modal {
-        height: 48px;
+        height: 54px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 14px;
+        border-radius: 16px;
         font-weight: 700;
-        font-size: 0.9rem;
+        font-size: 0.95rem;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         border: none;
         text-decoration: none;
+        padding: 0 20px;
     }
 
     .btn-modal--cancel {
@@ -321,6 +341,7 @@
 
     .btn-modal--cancel:hover {
         background: #e2e8f0;
+        color: #1e293b;
     }
 
     .btn-modal--confirm-accept {
@@ -330,7 +351,8 @@
 
     .btn-modal--confirm-accept:hover {
         background: #047857;
-        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.2);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(5, 150, 105, 0.25);
     }
 
     .btn-modal--confirm-decline {
@@ -340,7 +362,13 @@
 
     .btn-modal--confirm-decline:hover {
         background: #b91c1c;
-        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(220, 38, 38, 0.25);
+    }
+
+    .btn-modal.is-loading {
+        pointer-events: none;
+        opacity: 0.7;
     }
 
     @keyframes modalFadeIn {
@@ -349,86 +377,85 @@
     }
 
     .request-empty {
-        padding: 60px 20px;
+        padding: 80px 40px;
         text-align: center;
         background: #ffffff;
         border: 2px dashed #e2e8f0;
-        border-radius: 20px;
+        border-radius: 28px;
         color: #64748b;
+    }
+    
+    .request-empty-icon {
+        width: 64px;
+        height: 64px;
+        background: #f8fafc;
+        color: #94a3b8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 20px;
+        font-size: 2rem;
+        margin: 0 auto 20px;
     }
 
     @media (max-width: 991.98px) {
         .request-hero {
-            padding: 20px;
+            padding: 24px;
             flex-direction: column;
-            align-items: stretch;
+            align-items: center;
             text-align: center;
         }
         .request-actions {
-            margin-top: 12px;
+            margin-top: 4px;
+            width: 100%;
         }
         .request-table-header {
             display: none;
         }
         .request-row {
             grid-template-columns: 1fr;
-            gap: 16px;
-            padding: 20px;
-            border-bottom: 8px solid #f8fafc;
+            gap: 20px;
+            padding: 24px;
+            border-bottom: 12px solid #f8fafc;
         }
         .request-cell-dog {
             border-bottom: 1px solid #f1f5f9;
-            padding-bottom: 12px;
+            padding-bottom: 16px;
         }
         .request-cell-user {
             padding-bottom: 4px;
         }
         .request-cell-proof {
             background: #f8fafc;
-            padding: 10px;
-            border-radius: 12px;
+            padding: 14px;
+            border-radius: 16px;
             justify-content: space-between;
         }
         .request-cell-actions {
-            justify-content: flex-start;
-            padding-top: 4px;
-            border-top: none;
+            justify-content: stretch;
+            padding-top: 8px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+        .btn-row-profile {
+            justify-content: center;
+        }
+        .btn-icon-action {
+            width: 100%;
+            height: 42px;
         }
     }
 
     @media (max-width: 480px) {
-        .request-title {
-            font-size: 1.5rem;
+        .action-modal-content {
+            padding: 32px 24px;
         }
-        .request-subtitle {
-            font-size: 0.85rem;
-        }
-        .request-row {
-            padding: 16px;
-        }
-        .dog-thumb {
-            width: 44px;
-            height: 44px;
-        }
-        .dog-info strong {
-            font-size: 0.95rem;
-        }
-        .user-thumb {
-            width: 34px;
-            height: 34px;
-        }
-        .user-info strong {
-            font-size: 0.85rem;
-        }
-        .btn-row-profile {
-            flex: 1;
-            justify-content: center;
+        .action-modal-btns {
+            grid-template-columns: 1fr;
         }
         .request-cell-actions {
-            width: 100%;
-            display: grid;
-            grid-template-columns: 1fr auto auto;
-            gap: 8px;
+            grid-template-columns: 1fr;
         }
     }
 </style>
@@ -440,14 +467,16 @@
             <p class="request-subtitle">Review and manage adoption requests from other users for your posted dogs.</p>
         </div>
         <div class="request-actions">
-            <a href="{% url 'user:adopt_list' %}" class="btn-row-profile" style="height: 46px; border-radius: 14px; background: #1e293b; color: #fff; border: none;">Browse Dogs</a>
+            <a href="{% url 'user:adopt_list' %}" class="btn-row-profile" style="height: 48px; border-radius: 14px; background: #1e293b; color: #fff; border: none; padding: 0 24px;">Browse Dogs</a>
         </div>
     </div>
 
     <div class="request-section">
-        <div class="request-section-head mb-2">
-            <h2 class="request-section-title">Pending Requests</h2>
-            <p class="request-section-meta">{{ requests|length }} total</p>
+        <div class="request-section-head mb-3 d-flex align-items-center justify-content-between">
+            <div>
+                <h2 class="request-section-title h5 mb-0" style="font-weight: 800; color: #0f172a;">Pending Requests</h2>
+            </div>
+            <span class="badge rounded-pill bg-light text-dark border px-3 py-2" style="font-size: 0.8rem; font-weight: 700;">{{ requests|length }} total</span>
         </div>
 
         {% if requests %}
@@ -455,7 +484,7 @@
             <div class="request-table-header">
                 <div>Dog</div>
                 <div>Requester</div>
-                <div>Proof / Status</div>
+                <div>Documents / Status</div>
                 <div style="text-align: right;">Actions</div>
             </div>
 
@@ -478,7 +507,13 @@
 
                 <!-- Requester Info -->
                 <div class="request-cell-user">
+                    {% if req.requester.profile.profile_image %}
                     <img src="{{ req.requester.profile.profile_image.url }}" class="user-thumb" alt="">
+                    {% else %}
+                    <div class="user-thumb d-flex align-items-center justify-content-center bg-primary-subtle text-primary" style="font-size: 0.8rem; font-weight: 800;">
+                        {{ req.requester.username|slice:":1"|upper }}
+                    </div>
+                    {% endif %}
                     <div class="user-info">
                         <strong>{{ req.requester.get_full_name|default:req.requester.username }}</strong>
                         <span>@{{ req.requester.username }}</span>
@@ -487,8 +522,8 @@
 
                 <!-- Proof / Status -->
                 <div class="request-cell-proof">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="d-flex gap-1">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="d-flex gap-2">
                             {% if req.valid_id %}
                                 <a href="{{ req.valid_id.url }}" target="_blank" class="proof-badge" title="Valid ID"><i class="bi bi-person-badge"></i></a>
                             {% endif %}
@@ -508,7 +543,7 @@
                 <!-- Actions -->
                 <div class="request-cell-actions">
                     <a href="{% url 'user:view_user_profile' req.requester.id %}?next={% url 'user:user_adoption_requests' %}&label=Back+to+Requests" class="btn-row-profile" title="View Profile">
-                        <i class="bi bi-person"></i> Profile
+                        <i class="bi bi-person"></i> <span>Profile</span>
                     </a>
                     {% if req.status == 'pending' %}
                         <button type="button" 
@@ -536,19 +571,25 @@
         </div>
         {% else %}
         <div class="request-empty">
-            <i class="bi bi-inbox" style="font-size: 2.5rem; opacity: 0.3;"></i>
-            <h3 class="mt-3">No incoming requests</h3>
+            <div class="request-empty-icon">
+                <i class="bi bi-inbox"></i>
+            </div>
+            <h3>No pending requests</h3>
             <p>When users request to adopt your dogs, they'll appear here for your review.</p>
         </div>
         {% endif %}
 
         {% if page_obj and page_obj.paginator.num_pages > 1 %}
-        <nav class="d-flex justify-content-center gap-2 my-4">
+        <nav class="d-flex justify-content-center gap-3 my-5">
             {% if page_obj.has_previous %}
-                <a class="btn-row-profile" style="padding: 10px 24px;" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                <a class="btn-row-profile" style="padding: 10px 24px; border-radius: 999px;" href="?page={{ page_obj.previous_page_number }}">
+                    <i class="bi bi-arrow-left me-2"></i> Previous
+                </a>
             {% endif %}
             {% if page_obj.has_next %}
-                <a class="request-link is-secondary" style="min-width: 100px;" href="?page={{ page_obj.next_page_number }}">Next</a>
+                <a class="btn-row-profile" style="padding: 10px 24px; border-radius: 999px; background: #fff;" href="?page={{ page_obj.next_page_number }}">
+                    Next <i class="bi bi-arrow-right ms-2"></i>
+                </a>
             {% endif %}
         </nav>
         {% endif %}
@@ -566,8 +607,8 @@
             <p class="action-modal-text" id="modalText">Are you sure you want to proceed with this adoption request?</p>
             
             <div class="action-modal-btns">
-                <button type="button" class="btn-modal btn-modal--cancel" id="modalCancel">Cancel</button>
-                <a href="#" class="btn-modal" id="modalConfirm">Confirm</a>
+                <button type="button" class="btn-modal btn-modal--cancel" id="modalCancel">No, Cancel</button>
+                <a href="#" class="btn-modal" id="modalConfirm">Yes, Proceed</a>
             </div>
         </div>
     </div>
@@ -598,15 +639,15 @@
                 if (action === 'accept') {
                     modalIcon.classList.add('icon-accept');
                     modalIcon.innerHTML = '<i class="bi bi-check2-circle"></i>';
-                    modalTitle.textContent = 'Accept Adoption?';
-                    modalText.innerHTML = `You are about to accept <strong>${userName}'s</strong> request to adopt <strong>${dogName}</strong>. This will reject all other pending requests for this dog.`;
+                    modalTitle.textContent = 'Approve Adoption';
+                    modalText.innerHTML = `You are approving <strong>${userName}</strong> as the new owner of <strong>${dogName}</strong>.<br><br><small class="text-muted">Note: All other pending requests for this dog will be automatically declined.</small>`;
                     modalConfirm.classList.add('btn-modal--confirm-accept');
-                    modalConfirm.textContent = 'Accept Request';
+                    modalConfirm.textContent = 'Confirm Approval';
                 } else {
                     modalIcon.classList.add('icon-decline');
                     modalIcon.innerHTML = '<i class="bi bi-x-circle"></i>';
-                    modalTitle.textContent = 'Decline Request?';
-                    modalText.innerHTML = `Are you sure you want to decline <strong>${userName}'s</strong> request for <strong>${dogName}</strong>?`;
+                    modalTitle.textContent = 'Decline Request';
+                    modalText.innerHTML = `Are you sure you want to decline the adoption request from <strong>${userName}</strong> for <strong>${dogName}</strong>?`;
                     modalConfirm.classList.add('btn-modal--confirm-decline');
                     modalConfirm.textContent = 'Decline Request';
                 }
@@ -619,8 +660,17 @@
         const closeModal = () => modal.classList.remove('is-visible');
         
         modalCancel.addEventListener('click', closeModal);
+        modalConfirm.addEventListener('click', () => {
+            modalConfirm.classList.add('is-loading');
+            modalConfirm.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Processing...';
+        });
+
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeModal();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.classList.contains('is-visible')) closeModal();
         });
     });
 </script>

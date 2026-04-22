@@ -29,6 +29,21 @@
             <p style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 4px 0 0 0;">
                 Posted by {{ item.owner_username }}
             </p>
+
+            <div class="finder-card__health-indicators" style="display: flex; gap: 8px; margin-top: 6px;">
+                {% if item.is_vaccinated %}
+                <span class="finder-health-badge is-vaccinated" title="Vaccinated">
+                    <i class="bi bi-shield-check"></i>
+                    <span>Vaccinated</span>
+                </span>
+                {% endif %}
+                {% if item.is_registered %}
+                <span class="finder-health-badge is-registered" title="Registered">
+                    <i class="bi bi-patch-check"></i>
+                    <span>Registered</span>
+                </span>
+                {% endif %}
+            </div>
         </div>
 
         <div class="finder-card__footer">
@@ -111,6 +126,19 @@
             <div class="finder-card__detail-item">
                 <span>Color</span>
                 <strong>{{ item.color_label }}</strong>
+            </div>
+            <div class="finder-card__detail-item">
+                <span>Health</span>
+                <div class="finder-card__detail-health">
+                    <strong class="{% if item.is_vaccinated %}text-success{% else %}text-muted{% endif %}">
+                        <i class="bi {% if item.is_vaccinated %}bi-check-circle-fill{% else %}bi-x-circle{% endif %}"></i>
+                        Vaccinated
+                    </strong>
+                    <strong class="{% if item.is_registered %}text-success{% else %}text-muted{% endif %}">
+                        <i class="bi {% if item.is_registered %}bi-check-circle-fill{% else %}bi-x-circle{% endif %}"></i>
+                        Registered
+                    </strong>
+                </div>
             </div>
             <div class="finder-card__detail-item">
                 <span>Posted by</span>

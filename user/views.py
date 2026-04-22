@@ -1697,6 +1697,28 @@ def _post_phase_payload(post):
     }
 
 
+def _is_post_time_expired(post, phase_payload):
+    """
+    Return True if the post should be hidden from the public feed.
+
+    A post is expired when:
+    - Its phase is 'closed' (both claim and adoption deadlines have passed), OR
+    - Its remaining countdown is at zero (days == hours == minutes == 0).
+
+    This applies regardless of whether there are pending adoption or claim
+    requests — once the deadline is over the listing is removed from the
+    user-facing pages immediately.
+    """
+    phase = phase_payload.get("phase", "closed")
+    if phase == "closed":
+        return True
+    return (
+        phase_payload.get("days_left", 0) == 0 and
+        phase_payload.get("hours_left", 0) == 0 and
+        phase_payload.get("minutes_left", 0) == 0
+    )
+
+
 def _viewer_staff_post_request_map(user, post_ids):
     """Map staff Post id -> claim/adopt flags for PostRequest rows by this user (any status)."""
     if not user or not getattr(user, "is_authenticated", False) or not post_ids:
@@ -2353,6 +2375,8 @@ def _build_public_post_listing(request, listing_mode):
         phase = phase_payload["phase"]
         if phase not in {"claim", "adopt"}:
             continue
+        if _is_post_time_expired(post, phase_payload):
+            continue
         open_post_rows.append((post, phase_payload))
         phase_counts["all"] += 1
         phase_counts[phase] += 1
@@ -2597,6 +2621,8 @@ def _build_home_featured_rescue_sections(request):
         phase = phase_payload["phase"]
         if phase not in section_items or len(section_items[phase]) >= HOME_FEATURED_CAROUSEL_LIMIT:
             continue
+        if _is_post_time_expired(post, phase_payload):
+            continue
 
         card_item = _build_rescue_finder_card_item(
             request,
@@ -2821,6 +2847,8 @@ def _build_home_pinned_rescue_spotlights(request):
             phase = phase_payload["phase"]
             if phase not in {"claim", "adopt"}:
                 continue
+            if _is_post_time_expired(post, phase_payload):
+                continue
             spotlight_items.append(_build_home_spotlight_card(request, post, phase_payload))
     remaining_slots = HOME_SPOTLIGHT_DISPLAY_LIMIT - len(spotlight_items)
     if remaining_slots > 0:
@@ -2834,6 +2862,8 @@ def _build_home_pinned_rescue_spotlights(request):
         for post in fallback_candidates:
             phase_payload = _post_phase_payload(post)
             if phase_payload["phase"] not in {"claim", "adopt"}:
+                continue
+            if _is_post_time_expired(post, phase_payload):
                 continue
             candidate_pairs.append((post, phase_payload))
 
@@ -3771,6 +3801,8 @@ def _hydrate_home_feed_items(request, feed_rows):
 
             phase_payload = _post_phase_payload(p)
             phase = phase_payload["phase"]
+            if _is_post_time_expired(p, phase_payload):
+                continue
             is_open_for_adoption = phase in ["claim", "adopt"]
 
             deadline = None
@@ -4534,6 +4566,9 @@ def post_detail(request, post_id):
     Post.objects.filter(id=post.id).update(view_count=F("view_count") + 1)
     post.view_count = int(getattr(post, "view_count", 0) or 0) + 1
     phase_payload = _post_phase_payload(post)
+    if _is_post_time_expired(post, phase_payload):
+        messages.info(request, "This listing is no longer available for public viewing.")
+        return redirect("user:user_home")
     card_item = _build_rescue_finder_card_item(request, post, phase_payload, 0)
     back_url = _safe_preview_back_url(request, request.GET.get("next", "")) or reverse("user:user_home")
     back_label = (request.GET.get("label") or "Back to feed").strip()[:48] or "Back to feed"

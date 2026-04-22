@@ -28,6 +28,23 @@
         {% endif %}
 
         <div class="finder-card__footer">
+            <div class="finder-card__actions finder-card__actions--stack">
+                <span class="finder-card__action-placeholder" aria-hidden="true"></span>
+                {% if request.user.is_authenticated and request.user.username == item.owner_username %}
+                {# Hide adopt button for the owner #}
+                {% else %}
+                <a
+                    href="{% url 'user:adopt_user_post' post_id=item.post_id %}"
+                    class="btn-action btn-action--primary"
+                    {% if not request.user.is_authenticated %}
+                    data-auth-modal-trigger="login"
+                    data-auth-next-url="{% url 'user:adopt_user_post' post_id=item.post_id %}"
+                    {% endif %}
+                >
+                    <span>Adopt</span>
+                </a>
+                {% endif %}
+            </div>
             <div class="finder-card__utilities">
                 <button
                     type="button"

@@ -2567,6 +2567,11 @@ def _build_public_post_listing(request, listing_mode):
                 "icon_class": "bi bi-house-door",
             },
             {
+                "url": reverse("user:user_adoption_requests"),
+                "label": "Incoming Adoption Requests",
+                "icon_class": "bi bi-envelope-paper",
+            },
+            {
                 "url": reverse("user:my_post_approvals"),
                 "label": "My Post Approvals",
                 "icon_class": "bi bi-file-earmark-check",

@@ -129,6 +129,22 @@ class UserAdoptionPostForm(forms.ModelForm):
         widget=forms.Select(),
     )
 
+    is_vaccinated = forms.BooleanField(
+        label="Vaccinated",
+        required=False,
+        widget=forms.CheckboxInput(attrs={
+            "class": "form-check-input",
+        }),
+    )
+
+    is_registered = forms.BooleanField(
+        label="Registered",
+        required=False,
+        widget=forms.CheckboxInput(attrs={
+            "class": "form-check-input",
+        }),
+    )
+
     main_image = forms.ImageField(
         required=True,
         widget=forms.ClearableFileInput(attrs={
@@ -152,6 +168,8 @@ class UserAdoptionPostForm(forms.ModelForm):
             "age",
             "description",
             "location",
+            "is_vaccinated",
+            "is_registered",
         ]
         widgets = {
             "dog_name": forms.TextInput(attrs={

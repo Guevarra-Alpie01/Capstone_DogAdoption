@@ -41,7 +41,7 @@
         {% if adoption_form.gender.errors %}<div class="text-danger small">{{ adoption_form.gender.errors|striptags }}</div>{% endif %}
     </div>
 
-    <div class="mb-3">
+    <div class="mb-3 post-field-full">
         <label class="form-label">Coat Length</label>
         {{ adoption_form.coat_length }}
         {% if adoption_form.coat_length.errors %}<div class="text-danger small">{{ adoption_form.coat_length.errors|striptags }}</div>{% endif %}
@@ -49,13 +49,38 @@
 
     <div class="mb-3 post-field-full">
         <label class="form-label">Color</label>
-        <div class="post-checkbox-options" data-adoption-color-options>
-            {% for checkbox in adoption_form.colors %}
-            <label class="post-checkbox-option">
-                {{ checkbox.tag }}
-                <span>{{ checkbox.choice_label }}</span>
-            </label>
-            {% endfor %}
+        <div class="post-checkbox-options-wrapper" data-color-options-wrapper>
+            <div class="post-checkbox-options" data-adoption-color-options>
+                {% for checkbox in adoption_form.colors %}
+                    {% if forloop.counter <= 4 %}
+                        <label class="post-checkbox-option">
+                            {{ checkbox.tag }}
+                            <span>{{ checkbox.choice_label }}</span>
+                        </label>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            
+            <div class="post-checkbox-options-hidden" id="extraColors" hidden>
+                <div class="post-checkbox-options">
+                    {% for checkbox in adoption_form.colors %}
+                        {% if forloop.counter > 4 %}
+                            <label class="post-checkbox-option">
+                                {{ checkbox.tag }}
+                                <span>{{ checkbox.choice_label }}</span>
+                            </label>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% if adoption_form.colors|length > 4 %}
+            <button type="button" class="btn-see-more-colors" data-toggle-colors="extraColors">
+                <span class="see-more-text">See more colors</span>
+                <span class="see-less-text" hidden>See less</span>
+                <i class="bi bi-chevron-down"></i>
+            </button>
+            {% endif %}
         </div>
         {% if adoption_form.colors.errors %}<div class="text-danger small mt-2">{{ adoption_form.colors.errors|striptags }}</div>{% endif %}
     </div>
@@ -66,10 +91,26 @@
         {% if adoption_form.color_other.errors %}<div class="text-danger small">{{ adoption_form.color_other.errors|striptags }}</div>{% endif %}
     </div>
 
-    <div class="mb-3">
+    <div class="mb-3 post-field-full">
         <label class="form-label">Barangay</label>
         {{ adoption_form.location }}
         {% if adoption_form.location.errors %}<div class="text-danger small">{{ adoption_form.location.errors|striptags }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3 post-field-full post-field-horizontal">
+        <label class="form-label mb-0">Health & Registration</label>
+        <div class="post-checkbox-options">
+            <label class="post-checkbox-option">
+                {{ adoption_form.is_vaccinated }}
+                <span>Vaccinated</span>
+            </label>
+            <label class="post-checkbox-option">
+                {{ adoption_form.is_registered }}
+                <span>Registered</span>
+            </label>
+        </div>
+        {% if adoption_form.is_vaccinated.errors %}<div class="text-danger small">{{ adoption_form.is_vaccinated.errors|striptags }}</div>{% endif %}
+        {% if adoption_form.is_registered.errors %}<div class="text-danger small">{{ adoption_form.is_registered.errors|striptags }}</div>{% endif %}
     </div>
 
     <div class="mb-3 post-field-full">
@@ -90,3 +131,37 @@
         <span>{{ adoption_submit_label|default:'Publish Adoption Post' }}</span>
     </button>
 </div>
+
+<script>
+(function() {
+    function initColorToggle() {
+        document.body.addEventListener('click', function(e) {
+            const button = e.target.closest('[data-toggle-colors]');
+            if (!button) return;
+            
+            e.preventDefault();
+            const targetId = button.getAttribute('data-toggle-colors');
+            const target = document.getElementById(targetId);
+            if (!target) return;
+            
+            const isHidden = target.hidden;
+            target.hidden = !isHidden;
+            button.classList.toggle('is-expanded', isHidden);
+            
+            const moreText = button.querySelector('.see-more-text');
+            const lessText = button.querySelector('.see-less-text');
+            
+            if (moreText && lessText) {
+                moreText.hidden = isHidden;
+                lessText.hidden = !isHidden;
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initColorToggle);
+    } else {
+        initColorToggle();
+    }
+})();
+</script>

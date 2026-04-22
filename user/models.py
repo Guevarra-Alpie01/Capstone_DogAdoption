@@ -250,6 +250,9 @@ class UserAdoptionPost(models.Model):
         default='pending_review'
     )
 
+    is_vaccinated = models.BooleanField(default=False)
+    is_registered = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

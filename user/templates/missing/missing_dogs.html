@@ -32,8 +32,6 @@
             inset 0 1px 0 rgba(255, 255, 255, 0.9);
     }
 
-    .md-hero-copy {}
-
     .md-hero-title {
         margin: 0;
         font-size: clamp(1.7rem, 3vw, 2.4rem);
@@ -43,9 +41,7 @@
         line-height: 1.05;
     }
 
-    .md-hero-title span {
-        color: #c53030;
-    }
+    .md-hero-title span { color: #c53030; }
 
     .md-hero-sub {
         margin: 8px 0 0;
@@ -112,9 +108,7 @@
         box-shadow: 0 0 0 3px rgba(197, 48, 48, 0.1);
     }
 
-    .md-search-input::placeholder {
-        color: #94a3b8;
-    }
+    .md-search-input::placeholder { color: #94a3b8; }
 
     .md-sort-wrap {
         display: flex;
@@ -182,9 +176,7 @@
         padding: 4px 0;
     }
 
-    .md-clear-link:hover {
-        color: #c53030;
-    }
+    .md-clear-link:hover { color: #c53030; }
 
     /* ── Grid ── */
     .md-grid {
@@ -205,11 +197,21 @@
             inset 0 1px 0 rgba(255, 255, 255, 0.9);
         overflow: hidden;
         transition: transform 0.18s ease, box-shadow 0.18s ease;
+        cursor: pointer;
     }
 
     .md-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 14px 32px rgba(20, 35, 59, 0.1);
+    }
+
+    /* alerted state */
+    .md-card.is-alerted {
+        border-color: #fde68a;
+        box-shadow:
+            0 4px 18px rgba(20, 35, 59, 0.05),
+            0 0 0 2px rgba(245, 158, 11, 0.28),
+            inset 0 1px 0 rgba(255, 255, 255, 0.9);
     }
 
     .md-card-img-wrap {
@@ -230,9 +232,7 @@
         transition: transform 0.3s ease;
     }
 
-    .md-card:hover .md-card-img {
-        transform: scale(1.03);
-    }
+    .md-card:hover .md-card-img { transform: scale(1.03); }
 
     .md-card-img-placeholder {
         width: 100%;
@@ -262,15 +262,8 @@
         -webkit-backdrop-filter: blur(8px);
     }
 
-    .md-badge--missing {
-        background: rgba(197, 48, 48, 0.88);
-        color: #fff;
-    }
-
-    .md-badge--found {
-        background: rgba(21, 128, 61, 0.88);
-        color: #fff;
-    }
+    .md-badge--missing { background: rgba(197, 48, 48, 0.88); color: #fff; }
+    .md-badge--found   { background: rgba(21, 128, 61, 0.88);  color: #fff; }
 
     .md-badge__dot {
         width: 6px;
@@ -278,6 +271,33 @@
         border-radius: 50%;
         background: currentColor;
         opacity: 0.85;
+    }
+
+    /* Sighting counter pill on image */
+    .md-sighting-pill {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 9px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.62);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        pointer-events: none;
+        transition: background 0.2s ease;
+    }
+
+    .md-sighting-pill i { font-size: 0.68rem; }
+
+    .md-sighting-pill.has-sightings {
+        background: rgba(197, 48, 48, 0.82);
     }
 
     /* Card body */
@@ -337,32 +357,37 @@
         color: #94a3b8;
     }
 
-    .md-card-date-lost i {
-        font-size: 0.72rem;
-    }
+    .md-card-date-lost i { font-size: 0.72rem; }
 
-    /* Card footer */
+    /* Card footer – 3-button row */
     .md-card-footer {
-        padding: 12px 16px 14px;
+        padding: 10px 14px 13px;
+        display: flex;
+        gap: 7px;
     }
 
-    .md-sighting-btn {
-        display: flex;
+    /* shared card button base */
+    .md-card-btn {
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 7px;
-        width: 100%;
-        padding: 10px 16px;
-        border-radius: 14px;
+        gap: 5px;
+        padding: 9px 0;
+        border-radius: 12px;
         border: 1.5px solid #e2e8f0;
         background: #f8fafc;
-        color: #14233b;
-        font-size: 0.86rem;
+        color: #475569;
+        font-size: 0.8rem;
         font-weight: 800;
         cursor: pointer;
-        transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+        transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, transform 0.14s ease;
+        white-space: nowrap;
+        flex: 1;
     }
 
+    .md-card-btn i { font-size: 0.84rem; }
+
+    /* sighting btn */
     .md-sighting-btn:hover {
         background: #fff1f2;
         border-color: #fecaca;
@@ -370,9 +395,62 @@
         transform: translateY(-1px);
     }
 
-    .md-sighting-btn i {
-        font-size: 0.92rem;
+    /* alert btn */
+    .md-alert-btn:hover {
+        background: #fffbeb;
+        border-color: #fde68a;
+        color: #d97706;
+        transform: translateY(-1px);
     }
+
+    .md-alert-btn.is-watching {
+        background: #fffbeb;
+        border-color: #fcd34d;
+        color: #b45309;
+    }
+
+    .md-alert-btn.is-watching .md-alert-label::before { content: "Watching"; }
+    .md-alert-btn:not(.is-watching) .md-alert-label::before { content: "Alert Me"; }
+
+    /* share btn */
+    .md-share-btn:hover {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        color: #2563eb;
+        transform: translateY(-1px);
+    }
+
+    /* ── Toast ── */
+    .md-toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%) translateY(10px);
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        padding: 11px 20px;
+        border-radius: 14px;
+        background: #1e293b;
+        color: #f8fafc;
+        font-size: 0.88rem;
+        font-weight: 700;
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.28);
+        z-index: 9999;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.22s ease, transform 0.22s ease;
+        white-space: nowrap;
+    }
+
+    .md-toast.is-visible {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    .md-toast i { font-size: 1rem; color: #86efac; }
+    .md-toast.is-warn i { color: #fcd34d; }
+    .md-toast.is-info i { color: #93c5fd; }
 
     /* ── Empty state ── */
     .md-empty {
@@ -389,23 +467,9 @@
         text-align: center;
     }
 
-    .md-empty-icon {
-        font-size: 2.4rem;
-        color: #cbd5e1;
-    }
-
-    .md-empty-title {
-        margin: 0;
-        font-size: 1.08rem;
-        font-weight: 800;
-        color: #475569;
-    }
-
-    .md-empty-sub {
-        margin: 0;
-        font-size: 0.9rem;
-        color: #94a3b8;
-    }
+    .md-empty-icon { font-size: 2.4rem; color: #cbd5e1; }
+    .md-empty-title { margin: 0; font-size: 1.08rem; font-weight: 800; color: #475569; }
+    .md-empty-sub   { margin: 0; font-size: 0.9rem; color: #94a3b8; }
 
     /* ── Pagination ── */
     .md-pager {
@@ -433,11 +497,7 @@
         transition: background 0.14s ease, border-color 0.14s ease;
     }
 
-    .md-page-link:hover {
-        background: #fef2f2;
-        border-color: #fecaca;
-        color: #c53030;
-    }
+    .md-page-link:hover { background: #fef2f2; border-color: #fecaca; color: #c53030; }
 
     .md-page-link.is-active {
         background: linear-gradient(180deg, #c53030 0%, #9b2c2c 100%);
@@ -446,54 +506,239 @@
         box-shadow: 0 6px 14px rgba(197, 48, 48, 0.22);
     }
 
-    .md-page-link.is-disabled {
-        opacity: 0.35;
+    .md-page-link.is-disabled { opacity: 0.35; pointer-events: none; }
+
+    /* ── Detail Modal ── */
+    .md-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 18, 30, 0.55);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        z-index: 1060;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        opacity: 0;
         pointer-events: none;
+        transition: opacity 0.22s ease;
     }
+
+    .md-modal-overlay.is-open {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .md-modal {
+        width: 100%;
+        max-width: 560px;
+        max-height: 90vh;
+        background: #ffffff;
+        border-radius: 26px;
+        box-shadow: 0 32px 64px rgba(10, 18, 30, 0.28);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        transform: translateY(16px) scale(0.98);
+        transition: transform 0.24s cubic-bezier(0.34, 1.25, 0.64, 1);
+    }
+
+    .md-modal-overlay.is-open .md-modal {
+        transform: translateY(0) scale(1);
+    }
+
+    .md-modal-img-wrap {
+        width: 100%;
+        aspect-ratio: 16/9;
+        overflow: hidden;
+        background: #f1f5f9;
+        flex-shrink: 0;
+        position: relative;
+    }
+
+    .md-modal-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+        display: block;
+    }
+
+    .md-modal-img-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #cbd5e1;
+        font-size: 3rem;
+    }
+
+    .md-modal-badge {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+    }
+
+    .md-modal-body {
+        padding: 22px 24px 24px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .md-modal-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .md-modal-name {
+        margin: 0;
+        font-size: 1.55rem;
+        font-weight: 900;
+        color: #14233b;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+    }
+
+    .md-modal-close {
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        color: #64748b;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.14s ease, color 0.14s ease;
+    }
+
+    .md-modal-close:hover { background: #fef2f2; border-color: #fecaca; color: #c53030; }
+
+    .md-modal-detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .md-modal-detail-item {
+        background: #f8fafc;
+        border: 1px solid #e8ecf2;
+        border-radius: 14px;
+        padding: 11px 14px;
+    }
+
+    .md-modal-detail-item.is-full { grid-column: 1 / -1; }
+
+    .md-modal-detail-label {
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #94a3b8;
+        margin-bottom: 4px;
+    }
+
+    .md-modal-detail-value {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #14233b;
+        word-break: break-word;
+    }
+
+    .md-modal-description {
+        font-size: 0.9rem;
+        color: #475569;
+        line-height: 1.6;
+        margin: 0 0 18px;
+    }
+
+    .md-modal-sighting-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        margin-bottom: 16px;
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: #c53030;
+    }
+
+    .md-modal-sighting-bar i { font-size: 0.9rem; }
+
+    .md-modal-sighting-bar.is-zero {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+        color: #64748b;
+    }
+
+    .md-modal-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 6px;
+    }
+
+    .md-modal-btn {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1.5px solid #e2e8f0;
+        background: #f8fafc;
+        color: #475569;
+        font-size: 0.86rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, transform 0.14s ease;
+    }
+
+    .md-modal-btn:hover { transform: translateY(-1px); }
+
+    .md-modal-btn--sighting:hover { background: #fff1f2; border-color: #fecaca; color: #c53030; }
+    .md-modal-btn--alert:hover    { background: #fffbeb; border-color: #fde68a; color: #d97706; }
+    .md-modal-btn--alert.is-watching { background: #fffbeb; border-color: #fcd34d; color: #b45309; }
+    .md-modal-btn--share:hover    { background: #eff6ff; border-color: #bfdbfe; color: #2563eb; }
+
+    .md-modal-btn--alert.is-watching .md-modal-alert-label::before { content: "Watching"; }
+    .md-modal-btn--alert:not(.is-watching) .md-modal-alert-label::before { content: "Alert Me"; }
 
     /* ── Responsive ── */
     @media (max-width: 767.98px) {
-        .md-hero {
-            padding: 18px 18px;
-        }
+        .md-hero { padding: 18px; }
 
-        .md-controls {
-            flex-direction: column;
-            align-items: stretch;
-        }
+        .md-controls { flex-direction: column; align-items: stretch; }
+        .md-search-wrap { max-width: 100%; }
+        .md-sort-wrap { justify-content: space-between; }
+        .md-controls-form-btn { width: 100%; justify-content: center; }
 
-        .md-search-wrap {
-            max-width: 100%;
-        }
+        .md-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
 
-        .md-sort-wrap {
-            justify-content: space-between;
-        }
-
-        .md-controls-form-btn {
-            width: 100%;
-            justify-content: center;
-        }
-
-        .md-grid {
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 14px;
-        }
+        .md-modal { border-radius: 20px; }
+        .md-modal-detail-grid { grid-template-columns: 1fr; }
+        .md-modal-detail-item.is-full { grid-column: 1; }
     }
 
     @media (max-width: 479.98px) {
-        .md-grid {
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-
-        .md-card-body {
-            padding: 10px 12px 0;
-        }
-
-        .md-card-footer {
-            padding: 10px 12px 12px;
-        }
+        .md-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+        .md-card-body { padding: 10px 12px 0; }
+        .md-card-footer { padding: 8px 10px 11px; gap: 5px; }
+        .md-card-btn { font-size: 0.72rem; padding: 8px 0; }
+        .md-modal-actions { flex-direction: column; }
     }
 </style>
 
@@ -546,9 +791,26 @@
     </form>
 
     <!-- Grid -->
-    <div class="md-grid">
+    <div class="md-grid" id="mdGrid">
         {% for post in posts %}
-        <article class="md-card">
+        <article
+            class="md-card"
+            data-card
+            data-id="{{ post.pk }}"
+            data-name="{{ post.dog_name }}"
+            data-status="{{ post.status }}"
+            data-status-label="{{ post.get_status_display }}"
+            data-location="{{ post.location }}"
+            data-date-lost="{{ post.date_lost|date:'M d, Y' }}"
+            data-time-lost="{{ post.time_lost|time:'g:i A' }}"
+            data-description="{{ post.description|default:'' }}"
+            data-age="{{ post.age|default:'' }}"
+            data-phone="{{ post.contact_phone_number|default:'' }}"
+            data-facebook="{{ post.contact_facebook_url|default:'' }}"
+            data-image="{% if post.image %}{{ post.image.url }}{% endif %}"
+            data-owner="{{ post.owner.get_full_name|default:post.owner.username }}"
+            data-created="{{ post.created_at|date:'M d, Y' }}"
+        >
             <div class="md-card-img-wrap">
                 {% if post.image %}
                 <img
@@ -568,11 +830,16 @@
                     <span class="md-badge__dot" aria-hidden="true"></span>
                     {{ post.get_status_display }}
                 </span>
+
+                <!-- Sighting counter pill -->
+                <span class="md-sighting-pill" data-sighting-pill data-id="{{ post.pk }}" aria-label="Sightings reported">
+                    <i class="bi bi-eye-fill" aria-hidden="true"></i>
+                    <span data-sighting-count>0</span>
+                </span>
             </div>
 
             <div class="md-card-body">
                 <h2 class="md-card-name" title="{{ post.dog_name }}">{{ post.dog_name }}</h2>
-
                 <div class="md-card-meta">
                     {% if post.description %}
                     <div class="md-card-meta-row">
@@ -585,7 +852,6 @@
                         <span title="{{ post.location }}">{{ post.location }}</span>
                     </div>
                 </div>
-
                 <div class="md-card-date-lost">
                     <i class="bi bi-calendar-x" aria-hidden="true"></i>
                     Missing since {{ post.date_lost|date:"M d, Y" }}
@@ -593,16 +859,34 @@
             </div>
 
             <div class="md-card-footer">
-                <button
-                    type="button"
-                    class="md-sighting-btn"
-                    data-report-sighting
-                    data-dog-id="{{ post.pk }}"
-                    data-dog-name="{{ post.dog_name }}"
-                    aria-label="Report a sighting for {{ post.dog_name }}"
-                >
+                <!-- Report Sighting -->
+                <button type="button" class="md-card-btn md-sighting-btn"
+                    data-action="sighting"
+                    data-id="{{ post.pk }}"
+                    data-name="{{ post.dog_name }}"
+                    aria-label="Report a sighting for {{ post.dog_name }}">
                     <i class="bi bi-eye" aria-hidden="true"></i>
-                    Report Sighting
+                    Sighting
+                </button>
+
+                <!-- Alert Me -->
+                <button type="button" class="md-card-btn md-alert-btn"
+                    data-action="alert"
+                    data-id="{{ post.pk }}"
+                    data-name="{{ post.dog_name }}"
+                    aria-label="Alert Me for {{ post.dog_name }}">
+                    <i class="bi bi-bell" aria-hidden="true"></i>
+                    <span class="md-alert-label"></span>
+                </button>
+
+                <!-- Share -->
+                <button type="button" class="md-card-btn md-share-btn"
+                    data-action="share"
+                    data-id="{{ post.pk }}"
+                    data-name="{{ post.dog_name }}"
+                    aria-label="Share {{ post.dog_name }}">
+                    <i class="bi bi-share" aria-hidden="true"></i>
+                    Share
                 </button>
             </div>
         </article>
@@ -649,9 +933,379 @@
 
 </section>
 
+<!-- Detail Modal -->
+<div class="md-modal-overlay" id="mdModalOverlay" role="dialog" aria-modal="true" aria-labelledby="mdModalName">
+    <div class="md-modal" id="mdModal">
+        <div class="md-modal-img-wrap">
+            <img src="" alt="" class="md-modal-img" id="mdModalImg" style="display:none">
+            <div class="md-modal-img-placeholder" id="mdModalImgPlaceholder" aria-hidden="true">
+                <i class="bi bi-image"></i>
+            </div>
+            <span class="md-badge md-modal-badge" id="mdModalBadge" aria-hidden="true">
+                <span class="md-badge__dot" aria-hidden="true"></span>
+                <span id="mdModalStatusLabel"></span>
+            </span>
+        </div>
+
+        <div class="md-modal-body">
+            <div class="md-modal-header">
+                <h2 class="md-modal-name" id="mdModalName"></h2>
+                <button type="button" class="md-modal-close" id="mdModalClose" aria-label="Close details">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <!-- Sighting counter bar -->
+            <div class="md-modal-sighting-bar is-zero" id="mdModalSightingBar">
+                <i class="bi bi-eye-fill" aria-hidden="true"></i>
+                <span id="mdModalSightingText">No sightings reported yet.</span>
+            </div>
+
+            <!-- Description -->
+            <p class="md-modal-description" id="mdModalDescription" style="display:none"></p>
+
+            <!-- Detail grid -->
+            <div class="md-modal-detail-grid" id="mdModalDetailGrid">
+                <div class="md-modal-detail-item">
+                    <span class="md-modal-detail-label">Location Last Seen</span>
+                    <span class="md-modal-detail-value" id="mdModalLocation">—</span>
+                </div>
+                <div class="md-modal-detail-item">
+                    <span class="md-modal-detail-label">Date Missing</span>
+                    <span class="md-modal-detail-value" id="mdModalDateLost">—</span>
+                </div>
+                <div class="md-modal-detail-item">
+                    <span class="md-modal-detail-label">Time Missing</span>
+                    <span class="md-modal-detail-value" id="mdModalTimeLost">—</span>
+                </div>
+                <div class="md-modal-detail-item">
+                    <span class="md-modal-detail-label">Age</span>
+                    <span class="md-modal-detail-value" id="mdModalAge">—</span>
+                </div>
+                <div class="md-modal-detail-item">
+                    <span class="md-modal-detail-label">Reported By</span>
+                    <span class="md-modal-detail-value" id="mdModalOwner">—</span>
+                </div>
+                <div class="md-modal-detail-item">
+                    <span class="md-modal-detail-label">Posted On</span>
+                    <span class="md-modal-detail-value" id="mdModalCreated">—</span>
+                </div>
+                <div class="md-modal-detail-item is-full" id="mdModalPhoneWrap" style="display:none">
+                    <span class="md-modal-detail-label">Contact Phone</span>
+                    <span class="md-modal-detail-value" id="mdModalPhone">—</span>
+                </div>
+                <div class="md-modal-detail-item is-full" id="mdModalFbWrap" style="display:none">
+                    <span class="md-modal-detail-label">Facebook</span>
+                    <span class="md-modal-detail-value" id="mdModalFacebook">—</span>
+                </div>
+            </div>
+
+            <!-- Modal actions -->
+            <div class="md-modal-actions">
+                <button type="button" class="md-modal-btn md-modal-btn--sighting"
+                    id="mdModalSightingBtn" data-action="sighting">
+                    <i class="bi bi-eye" aria-hidden="true"></i>
+                    Report Sighting
+                </button>
+                <button type="button" class="md-modal-btn md-modal-btn--alert"
+                    id="mdModalAlertBtn" data-action="alert">
+                    <i class="bi bi-bell" aria-hidden="true"></i>
+                    <span class="md-modal-alert-label"></span>
+                </button>
+                <button type="button" class="md-modal-btn md-modal-btn--share"
+                    id="mdModalShareBtn" data-action="share">
+                    <i class="bi bi-share" aria-hidden="true"></i>
+                    Share
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="md-toast" id="mdToast" role="status" aria-live="polite">
+    <i class="bi bi-check-circle-fill" id="mdToastIcon" aria-hidden="true"></i>
+    <span id="mdToastMsg"></span>
+</div>
+
 <script>
 (function () {
-    /* Auto-submit sort when changed */
+    'use strict';
+
+    /* ── Storage keys ── */
+    var SIGHTINGS_KEY = 'md_sightings';
+    var WATCHLIST_KEY = 'md_watchlist';
+
+    /* ── Storage helpers ── */
+    function getSightings() {
+        try { return JSON.parse(localStorage.getItem(SIGHTINGS_KEY)) || {}; }
+        catch (e) { return {}; }
+    }
+
+    function saveSightings(obj) {
+        try { localStorage.setItem(SIGHTINGS_KEY, JSON.stringify(obj)); } catch (e) {}
+    }
+
+    function getWatchlist() {
+        try { return JSON.parse(localStorage.getItem(WATCHLIST_KEY)) || []; }
+        catch (e) { return []; }
+    }
+
+    function saveWatchlist(arr) {
+        try { localStorage.setItem(WATCHLIST_KEY, JSON.stringify(arr)); } catch (e) {}
+    }
+
+    function isWatching(id) {
+        return getWatchlist().indexOf(String(id)) !== -1;
+    }
+
+    function toggleWatch(id) {
+        var list = getWatchlist();
+        var sid = String(id);
+        var idx = list.indexOf(sid);
+        if (idx === -1) { list.push(sid); }
+        else            { list.splice(idx, 1); }
+        saveWatchlist(list);
+        return idx === -1;
+    }
+
+    /* ── Toast ── */
+    var toastTimer = null;
+
+    function showToast(msg, type) {
+        var el   = document.getElementById('mdToast');
+        var icon = document.getElementById('mdToastIcon');
+        var txt  = document.getElementById('mdToastMsg');
+        if (!el) return;
+
+        el.classList.remove('is-warn', 'is-info');
+        if (type === 'warn') { el.classList.add('is-warn'); icon.className = 'bi bi-bell-fill'; }
+        else if (type === 'info') { el.classList.add('is-info'); icon.className = 'bi bi-share-fill'; }
+        else { icon.className = 'bi bi-check-circle-fill'; }
+
+        txt.textContent = msg;
+        el.classList.add('is-visible');
+
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { el.classList.remove('is-visible'); }, 2800);
+    }
+
+    /* ── Sync sighting pills ── */
+    function syncPills() {
+        var sightings = getSightings();
+        document.querySelectorAll('[data-sighting-pill]').forEach(function (pill) {
+            var id    = String(pill.dataset.id);
+            var count = sightings[id] || 0;
+            pill.querySelector('[data-sighting-count]').textContent = count;
+            pill.classList.toggle('has-sightings', count > 0);
+        });
+    }
+
+    /* ── Sync alert button states ── */
+    function syncAlertBtns() {
+        document.querySelectorAll('[data-action="alert"]').forEach(function (btn) {
+            var id = btn.dataset.id || activePost.id;
+            if (!id) return;
+            btn.classList.toggle('is-watching', isWatching(id));
+        });
+        var modalBtn = document.getElementById('mdModalAlertBtn');
+        if (modalBtn && activePost.id) {
+            modalBtn.classList.toggle('is-watching', isWatching(activePost.id));
+        }
+    }
+
+    /* ── Sync alerted card borders ── */
+    function syncCardAlerts() {
+        document.querySelectorAll('[data-card]').forEach(function (card) {
+            card.classList.toggle('is-alerted', isWatching(card.dataset.id));
+        });
+    }
+
+    /* ── Active post for modal ── */
+    var activePost = {};
+
+    /* ── Actions ── */
+    function doSighting(id, name) {
+        var sightings = getSightings();
+        sightings[String(id)] = (sightings[String(id)] || 0) + 1;
+        saveSightings(sightings);
+        syncPills();
+        updateModalSightingBar(sightings[String(id)]);
+        console.log('[Missing Dogs] Sighting reported', { id: id, name: name, total: sightings[String(id)] });
+        showToast('Sighting recorded for ' + name + '!');
+    }
+
+    function doAlert(id, name) {
+        var added = toggleWatch(id);
+        syncAlertBtns();
+        syncCardAlerts();
+        if (added) {
+            showToast('Watching ' + name + '. You\'ll be alerted.', 'warn');
+        } else {
+            showToast('Removed ' + name + ' from your watchlist.');
+        }
+    }
+
+    function doShare(id, name) {
+        var url = window.location.origin + window.location.pathname + '?highlight=' + id;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(function () {
+                showToast('Link copied to clipboard!', 'info');
+            }).catch(function () {
+                fallbackCopy(url, name);
+            });
+        } else {
+            fallbackCopy(url, name);
+        }
+    }
+
+    function fallbackCopy(url, name) {
+        var ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try {
+            document.execCommand('copy');
+            showToast('Link copied to clipboard!', 'info');
+        } catch (e) {
+            showToast('Copy this link: ' + url, 'info');
+        }
+        document.body.removeChild(ta);
+    }
+
+    /* ── Modal ── */
+    var overlay = document.getElementById('mdModalOverlay');
+
+    function updateModalSightingBar(count) {
+        var bar  = document.getElementById('mdModalSightingBar');
+        var text = document.getElementById('mdModalSightingText');
+        if (!bar || !text) return;
+        if (count > 0) {
+            bar.classList.remove('is-zero');
+            text.textContent = count + ' sighting' + (count === 1 ? '' : 's') + ' reported.';
+        } else {
+            bar.classList.add('is-zero');
+            text.textContent = 'No sightings reported yet.';
+        }
+    }
+
+    function openModal(card) {
+        var d = card.dataset;
+        activePost = { id: d.id, name: d.name };
+
+        /* image */
+        var img = document.getElementById('mdModalImg');
+        var placeholder = document.getElementById('mdModalImgPlaceholder');
+        if (d.image) {
+            img.src = d.image;
+            img.alt = d.name;
+            img.style.display = 'block';
+            placeholder.style.display = 'none';
+        } else {
+            img.style.display = 'none';
+            placeholder.style.display = 'flex';
+        }
+
+        /* badge */
+        var badge = document.getElementById('mdModalBadge');
+        badge.className = 'md-badge md-modal-badge ' + (d.status === 'found' ? 'md-badge--found' : 'md-badge--missing');
+        document.getElementById('mdModalStatusLabel').textContent = d.statusLabel;
+
+        /* name */
+        document.getElementById('mdModalName').textContent = d.name;
+
+        /* description */
+        var descEl = document.getElementById('mdModalDescription');
+        if (d.description) {
+            descEl.textContent = d.description;
+            descEl.style.display = 'block';
+        } else {
+            descEl.style.display = 'none';
+        }
+
+        /* detail fields */
+        document.getElementById('mdModalLocation').textContent  = d.location  || '—';
+        document.getElementById('mdModalDateLost').textContent  = d.dateLost  || '—';
+        document.getElementById('mdModalTimeLost').textContent  = d.timeLost  || '—';
+        document.getElementById('mdModalAge').textContent       = d.age ? d.age + ' yr' + (d.age == 1 ? '' : 's') : '—';
+        document.getElementById('mdModalOwner').textContent     = d.owner     || '—';
+        document.getElementById('mdModalCreated').textContent   = d.created   || '—';
+
+        var phoneWrap = document.getElementById('mdModalPhoneWrap');
+        if (d.phone) {
+            document.getElementById('mdModalPhone').textContent = d.phone;
+            phoneWrap.style.display = 'block';
+        } else {
+            phoneWrap.style.display = 'none';
+        }
+
+        var fbWrap = document.getElementById('mdModalFbWrap');
+        if (d.facebook) {
+            document.getElementById('mdModalFacebook').textContent = d.facebook;
+            fbWrap.style.display = 'block';
+        } else {
+            fbWrap.style.display = 'none';
+        }
+
+        /* sighting bar */
+        var sightings = getSightings();
+        updateModalSightingBar(sightings[String(d.id)] || 0);
+
+        /* modal action button IDs */
+        var sightingBtn = document.getElementById('mdModalSightingBtn');
+        var alertBtn    = document.getElementById('mdModalAlertBtn');
+        var shareBtn    = document.getElementById('mdModalShareBtn');
+        sightingBtn.dataset.id   = d.id;
+        sightingBtn.dataset.name = d.name;
+        alertBtn.dataset.id      = d.id;
+        alertBtn.dataset.name    = d.name;
+        shareBtn.dataset.id      = d.id;
+        shareBtn.dataset.name    = d.name;
+
+        syncAlertBtns();
+
+        overlay.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+        overlay.classList.remove('is-open');
+        document.body.style.overflow = '';
+        activePost = {};
+    }
+
+    document.getElementById('mdModalClose').addEventListener('click', closeModal);
+
+    overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) closeModal();
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeModal();
+    });
+
+    /* ── Unified click handler ── */
+    document.addEventListener('click', function (e) {
+        /* action buttons – must check before card open */
+        var actionBtn = e.target.closest('[data-action]');
+        if (actionBtn) {
+            e.stopPropagation();
+            var action = actionBtn.dataset.action;
+            var id     = actionBtn.dataset.id;
+            var name   = actionBtn.dataset.name;
+            if (action === 'sighting') { doSighting(id, name); return; }
+            if (action === 'alert')    { doAlert(id, name);    return; }
+            if (action === 'share')    { doShare(id, name);    return; }
+        }
+
+        /* open modal on card click */
+        var card = e.target.closest('[data-card]');
+        if (card) { openModal(card); }
+    });
+
+    /* ── Auto-submit sort when changed ── */
     var sortSel = document.getElementById('mdSortSelect');
     if (sortSel) {
         sortSel.addEventListener('change', function () {
@@ -659,14 +1313,11 @@
         });
     }
 
-    /* Report Sighting – console.log stub */
-    document.addEventListener('click', function (e) {
-        var btn = e.target.closest('[data-report-sighting]');
-        if (!btn) return;
-        var id   = btn.dataset.dogId;
-        var name = btn.dataset.dogName;
-        console.log('[Missing Dogs] Report Sighting clicked', { id: id, name: name });
-    });
+    /* ── Init ── */
+    syncPills();
+    syncAlertBtns();
+    syncCardAlerts();
+
 })();
 </script>
 

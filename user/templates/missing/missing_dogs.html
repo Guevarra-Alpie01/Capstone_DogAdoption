@@ -1360,6 +1360,7 @@
                     data-share-url="{{ request.build_absolute_uri }}?highlight={{ post.pk }}"
                     data-share-title="{{ post.dog_name }} — Missing Dog"
                     data-share-text="Help find {{ post.dog_name }}! Last seen at {{ post.location }}."
+                    {% if post.image %}data-share-image="{{ post.image.url }}"{% endif %}
                     aria-label="Share {{ post.dog_name }}">
                     <i class="bi bi-share" aria-hidden="true"></i>
                     Share
@@ -1774,6 +1775,11 @@
         shareBtn.setAttribute('data-share-url',   window.location.origin + window.location.pathname + '?highlight=' + d.id);
         shareBtn.setAttribute('data-share-title', d.name + ' — Missing Dog');
         shareBtn.setAttribute('data-share-text',  'Help find ' + d.name + '! Last seen at ' + (d.location || 'Bayawan City') + '.');
+        if (d.image) {
+            shareBtn.setAttribute('data-share-image', d.image);
+        } else {
+            shareBtn.removeAttribute('data-share-image');
+        }
         overlay.classList.add('is-open');
         document.body.style.overflow = 'hidden';
     }

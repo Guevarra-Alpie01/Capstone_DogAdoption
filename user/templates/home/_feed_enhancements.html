@@ -28,6 +28,9 @@
             <i class="bi bi-x-lg" aria-hidden="true"></i>
         </button>
     </div>
+    <div id="sharePanelPreview" class="share-panel-preview" hidden>
+        <img id="sharePanelPreviewImg" src="" alt="" loading="lazy" decoding="async">
+    </div>
     <div class="share-options">
         <button type="button" class="share-option" data-network="facebook">
             <span class="share-logo share-facebook"><i class="bi bi-facebook" aria-hidden="true"></i></span>
@@ -117,6 +120,25 @@
         statusEl.textContent = message || "";
     }
 
+    function setSharePanelPreview(triggerEl) {
+        const wrap = document.getElementById("sharePanelPreview");
+        const img = document.getElementById("sharePanelPreviewImg");
+        if (!wrap || !img) return;
+        const raw = triggerEl && triggerEl.getAttribute("data-share-image");
+        const url = raw && String(raw).trim();
+        if (url) {
+            img.src = url;
+            const t = (triggerEl.getAttribute("data-share-title") || "").trim();
+            const shortTitle = t.split("—")[0].trim() || t || "Post image";
+            img.alt = "Preview: " + shortTitle;
+            wrap.hidden = false;
+        } else {
+            img.removeAttribute("src");
+            img.alt = "";
+            wrap.hidden = true;
+        }
+    }
+
     function openSharePanel(triggerEl, shareUrl) {
         const panel = document.getElementById("sharePanel");
         const input = document.getElementById("shareLinkInput");
@@ -126,6 +148,7 @@
         activeShareUrl = shareUrl;
         activeShareTrigger = triggerEl;
         input.value = shareUrl;
+        setSharePanelPreview(triggerEl);
         panel.hidden = false;
         const isNarrow = window.matchMedia("(max-width: 768px)").matches;
 
@@ -160,6 +183,13 @@
         }
         document.body.style.overflow = "";
         if (!panel) return;
+        const preview = document.getElementById("sharePanelPreview");
+        const previewImg = document.getElementById("sharePanelPreviewImg");
+        if (preview && previewImg) {
+            preview.hidden = true;
+            previewImg.removeAttribute("src");
+            previewImg.alt = "";
+        }
         panel.hidden = true;
         panel.classList.remove("is-mobile-sheet", "is-inline-mobile");
         restoreSharePanelParent();

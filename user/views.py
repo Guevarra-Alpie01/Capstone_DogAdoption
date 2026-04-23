@@ -5547,19 +5547,20 @@ def user_adoption_history(request):
 
 
 def missing_dogs_list(request):
-    """Browse approved missing-dog posts with name/location/breed/urgency filters."""
+    """Browse approved missing-dog posts with name/barangay/breed/urgency filters."""
     qs = MissingDogPost.objects.filter(status__in=['missing', 'found']).select_related('owner')
 
     dog_name_q = request.GET.get('dog_name', '').strip()
     if dog_name_q:
         qs = qs.filter(dog_name__icontains=dog_name_q)
 
-    location_q = request.GET.get('location', '').strip()
-    if location_q:
-        qs = qs.filter(location__icontains=location_q)
+    barangay_q = request.GET.get('barangay', '').strip() or request.GET.get('location', '').strip()
+    if barangay_q:
+        qs = qs.filter(location__icontains=barangay_q)
 
     breed = request.GET.get('breed', 'all').strip().lower()
-    allowed_breeds = {'all', 'labrador', 'beagle', 'golden'}
+    breed_choices = list(Post.BREED_CHOICES)
+    allowed_breeds = {'all', *[value for value, _label in breed_choices]}
     if breed not in allowed_breeds:
         breed = 'all'
     if breed != 'all':
@@ -5602,8 +5603,10 @@ def missing_dogs_list(request):
         'page_obj': page_obj,
         'posts': page_obj.object_list,
         'dog_name_q': dog_name_q,
-        'location_q': location_q,
+        'barangay_q': barangay_q,
+        'barangay_choices': BAYAWAN_BARANGAYS,
         'breed': breed,
+        'breed_choices': breed_choices,
         'urgency': urgency,
         'sort': sort,
         'total': paginator.count,

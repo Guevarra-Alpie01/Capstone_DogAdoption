@@ -833,27 +833,23 @@
             >
         </div>
 
-        <div class="md-search-wrap">
-            <i class="bi bi-geo-alt md-search-icon" aria-hidden="true"></i>
-            <input
-                type="text"
-                name="location"
-                value="{{ location_q }}"
-                placeholder="Filter by location…"
-                class="md-search-input"
-                aria-label="Filter by location"
-                autocomplete="off"
-                id="mdLocationInput"
-            >
+        <div class="md-sort-wrap">
+            <label class="md-sort-label" for="mdBarangaySelect">Barangay</label>
+            <select name="barangay" id="mdBarangaySelect" class="md-sort-select" aria-label="Filter by barangay">
+                <option value="">All barangays</option>
+                {% for barangay_name in barangay_choices %}
+                <option value="{{ barangay_name }}" {% if barangay_q == barangay_name %}selected{% endif %}>{{ barangay_name }}</option>
+                {% endfor %}
+            </select>
         </div>
 
         <div class="md-sort-wrap">
             <label class="md-sort-label" for="mdBreedSelect">Breed</label>
             <select name="breed" id="mdBreedSelect" class="md-sort-select" aria-label="Filter by breed">
                 <option value="all" {% if breed == 'all' %}selected{% endif %}>All breeds</option>
-                <option value="labrador" {% if breed == 'labrador' %}selected{% endif %}>Labrador</option>
-                <option value="beagle" {% if breed == 'beagle' %}selected{% endif %}>Beagle</option>
-                <option value="golden" {% if breed == 'golden' %}selected{% endif %}>Golden</option>
+                {% for breed_value, breed_label in breed_choices %}
+                <option value="{{ breed_value }}" {% if breed == breed_value %}selected{% endif %}>{{ breed_label }}</option>
+                {% endfor %}
             </select>
         </div>
 
@@ -878,9 +874,7 @@
             Filter
         </button>
 
-        {% if dog_name_q or location_q or breed != 'all' or urgency != 'all' or sort != 'newest' %}
-        <a href="{% url 'user:missing_dogs_list' %}" class="md-clear-link">Clear</a>
-        {% endif %}
+        <a href="{% url 'user:missing_dogs_list' %}" class="md-clear-link">Clear all</a>
     </form>
 
     <!-- Grid -->
@@ -1002,8 +996,8 @@
             <i class="bi bi-search md-empty-icon" aria-hidden="true"></i>
             <h3 class="md-empty-title">No missing dogs found</h3>
             <p class="md-empty-sub">
-                {% if location_q %}
-                    No results for "{{ location_q }}". Try a different location.
+                {% if barangay_q %}
+                    No results for "{{ barangay_q }}". Try a different barangay.
                 {% else %}
                     There are no missing dog reports right now.
                 {% endif %}
@@ -1015,7 +1009,7 @@
     <!-- Pagination -->
     {% if page_obj.has_other_pages %}
     <nav class="md-pager" aria-label="Page navigation">
-        <a href="?dog_name={{ dog_name_q|urlencode }}&location={{ location_q|urlencode }}&breed={{ breed|urlencode }}&urgency={{ urgency|urlencode }}&sort={{ sort }}&page={{ page_obj.previous_page_number }}"
+        <a href="?dog_name={{ dog_name_q|urlencode }}&barangay={{ barangay_q|urlencode }}&breed={{ breed|urlencode }}&urgency={{ urgency|urlencode }}&sort={{ sort }}&page={{ page_obj.previous_page_number }}"
            class="md-page-link {% if not page_obj.has_previous %}is-disabled{% endif %}"
            aria-label="Previous page">
             <i class="bi bi-chevron-left" aria-hidden="true"></i>
@@ -1025,12 +1019,12 @@
             {% if num == page_obj.number %}
             <span class="md-page-link is-active" aria-current="page">{{ num }}</span>
             {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
-            <a href="?dog_name={{ dog_name_q|urlencode }}&location={{ location_q|urlencode }}&breed={{ breed|urlencode }}&urgency={{ urgency|urlencode }}&sort={{ sort }}&page={{ num }}"
+            <a href="?dog_name={{ dog_name_q|urlencode }}&barangay={{ barangay_q|urlencode }}&breed={{ breed|urlencode }}&urgency={{ urgency|urlencode }}&sort={{ sort }}&page={{ num }}"
                class="md-page-link">{{ num }}</a>
             {% endif %}
         {% endfor %}
 
-        <a href="?dog_name={{ dog_name_q|urlencode }}&location={{ location_q|urlencode }}&breed={{ breed|urlencode }}&urgency={{ urgency|urlencode }}&sort={{ sort }}&page={{ page_obj.next_page_number }}"
+        <a href="?dog_name={{ dog_name_q|urlencode }}&barangay={{ barangay_q|urlencode }}&breed={{ breed|urlencode }}&urgency={{ urgency|urlencode }}&sort={{ sort }}&page={{ page_obj.next_page_number }}"
            class="md-page-link {% if not page_obj.has_next %}is-disabled{% endif %}"
            aria-label="Next page">
             <i class="bi bi-chevron-right" aria-hidden="true"></i>
@@ -1459,7 +1453,7 @@
     });
 
     /* ── Auto-submit dropdown filters when changed ── */
-    ['mdSortSelect', 'mdBreedSelect', 'mdUrgencySelect'].forEach(function (id) {
+    ['mdSortSelect', 'mdBreedSelect', 'mdUrgencySelect', 'mdBarangaySelect'].forEach(function (id) {
         var sel = document.getElementById(id);
         if (!sel) return;
         sel.addEventListener('change', function () {

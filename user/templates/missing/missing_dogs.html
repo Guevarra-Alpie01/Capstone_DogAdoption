@@ -71,12 +71,13 @@
 
     /* ── Controls bar ── */
     .md-controls {
+        position: relative;
         display: flex;
         flex-direction: column;
         gap: 10px;
     }
 
-    /* Top row: search input centred + filter toggle */
+    /* Top row: search input + filter toggle */
     .md-controls-top {
         display: flex;
         align-items: center;
@@ -84,45 +85,267 @@
         gap: 10px;
     }
 
-    /* Filter panel row — hidden by default, shown when toggled */
-    .md-filter-panel {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-        justify-content: center;
-    }
-
-    .md-filter-panel[hidden] { display: none; }
-
-    /* Filter toggle button */
+    /* ── Filter toggle button (matches finder-filter-toggle style) ── */
     .md-filter-toggle-btn {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        padding: 10px 16px;
+        gap: 8px;
+        min-height: 44px;
+        padding: 9px 16px;
+        border: 1px solid #1f6b4a;
         border-radius: 999px;
-        border: 1px solid #e2e8f0;
-        background: #ffffff;
-        color: #14233b;
+        background: linear-gradient(180deg, #2f855a 0%, #1f6b4a 100%);
+        color: #ffffff;
         font-size: 0.88rem;
-        font-weight: 700;
+        font-weight: 800;
         cursor: pointer;
         white-space: nowrap;
-        box-shadow: 0 4px 12px rgba(20, 35, 59, 0.05);
-        transition: border-color 0.15s ease, background 0.15s ease;
+        box-shadow: 0 10px 22px rgba(31, 107, 74, 0.22), inset 0 1px 0 rgba(255,255,255,0.14);
+        transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
         flex-shrink: 0;
     }
 
     .md-filter-toggle-btn:hover,
-    .md-filter-toggle-btn[aria-expanded="true"] {
-        border-color: #c53030;
-        background: #fef2f2;
-        color: #c53030;
+    .md-filter-toggle-btn:focus-visible {
+        transform: translateY(-1px);
+        border-color: #1a5c3f;
+        background: linear-gradient(180deg, #276f4a 0%, #194f37 100%);
+        box-shadow: 0 14px 28px rgba(31, 107, 74, 0.28);
     }
 
-    .md-filter-toggle-btn i { font-size: 0.9rem; }
+    .md-filter-toggle-btn.is-active {
+        border-color: #1a5c3f;
+        background: linear-gradient(180deg, #276f4a 0%, #194f37 100%);
+    }
 
+    .md-filter-toggle-btn__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        background: rgba(255,255,255,0.18);
+        font-size: 0.76rem;
+    }
+
+    .md-filter-toggle-btn__caret {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.12);
+        font-size: 0.72rem;
+        transition: transform 0.18s ease;
+    }
+
+    .md-filter-toggle-btn[aria-expanded="true"] .md-filter-toggle-btn__caret {
+        transform: rotate(180deg);
+    }
+
+    /* ── Filter backdrop ── */
+    .md-filter-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1014;
+        background: rgba(15, 23, 42, 0.35);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+    }
+
+    body.md-filter-open .md-filter-backdrop {
+        display: block;
+    }
+
+    /* ── Floating filter panel (matches finder-toolbar + finder-filter-shell__panel) ── */
+    .md-filter-panel-wrap {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1025;
+        width: min(500px, calc(100vw - 32px));
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateX(-50%) translate3d(0, -8px, 0) scale(0.98);
+        transform-origin: top center;
+        transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
+    }
+
+    .md-controls.is-filter-open .md-filter-panel-wrap {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateX(-50%) translate3d(0, 0, 0) scale(1);
+    }
+
+    .md-filter-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px;
+        border: 1px solid #e7ded4;
+        border-radius: 20px;
+        background: rgba(247, 244, 239, 0.98);
+        box-shadow: 0 22px 48px rgba(15, 23, 42, 0.14);
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        max-height: calc(100dvh - 140px);
+    }
+
+    /* Panel header: title + Clear All + X */
+    .md-filter-panel-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px;
+        padding: 2px 2px 0;
+    }
+
+    .md-filter-panel-title {
+        margin: 0;
+        color: #24324b;
+        font-size: 1.6rem;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+    }
+
+    .md-filter-panel-header-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+    }
+
+    .md-filter-clear-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+        padding: 0 14px;
+        border: 1px solid #e9e2d9;
+        border-radius: 12px;
+        background: #ffffff;
+        color: #475569;
+        font-size: 0.84rem;
+        font-weight: 800;
+        text-decoration: none;
+        white-space: nowrap;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+        transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+    }
+
+    .md-filter-clear-btn:hover,
+    .md-filter-clear-btn:focus-visible {
+        border-color: #b9d6c0;
+        background: #f8fafc;
+        color: #1e293b;
+    }
+
+    .md-filter-close-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
+        border: 1px solid rgba(59, 130, 246, 0.45);
+        border-radius: 12px;
+        background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
+        color: #2563eb;
+        font-size: 1.1rem;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12), inset 0 1px 0 rgba(255,255,255,0.95);
+        transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+    }
+
+    .md-filter-close-btn:hover,
+    .md-filter-close-btn:focus-visible {
+        border-color: #3b82f6;
+        background: linear-gradient(180deg, #dbeafe 0%, #eff6ff 100%);
+        color: #1d4ed8;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.22);
+    }
+
+    /* Filter rows inside the panel */
+    .md-filter-panel-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .md-sort-wrap {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .md-sort-label {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #64748b;
+        white-space: nowrap;
+        min-width: 68px;
+    }
+
+    .md-sort-select {
+        flex: 1;
+        padding: 9px 32px 9px 14px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 12px center;
+        -webkit-appearance: none;
+        appearance: none;
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #14233b;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(20, 35, 59, 0.04);
+        transition: border-color 0.15s ease;
+        outline: none;
+    }
+
+    .md-sort-select:focus {
+        border-color: #c53030;
+        box-shadow: 0 0 0 3px rgba(197, 48, 48, 0.1);
+    }
+
+    /* Apply button inside panel */
+    .md-controls-form-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 48px;
+        padding: 0 20px;
+        border: 1px solid #9b2c2c;
+        border-radius: 10px;
+        background: linear-gradient(180deg, #c53030 0%, #9b2c2c 100%);
+        color: #fff;
+        font-size: 0.88rem;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 10px 20px rgba(197, 48, 48, 0.22);
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        white-space: nowrap;
+        width: 100%;
+    }
+
+    .md-controls-form-btn:hover,
+    .md-controls-form-btn:focus-visible {
+        transform: translateY(-1px);
+        border-color: #7b1d1d;
+        background: linear-gradient(180deg, #b91c1c 0%, #881616 100%);
+        box-shadow: 0 14px 24px rgba(197, 48, 48, 0.28);
+    }
+
+    /* Search bar */
     .md-search-wrap {
         position: relative;
         flex: 1;
@@ -130,9 +353,7 @@
         max-width: 380px;
     }
 
-    .md-search-wrap--name {
-        max-width: 340px;
-    }
+    .md-search-wrap--name { max-width: 340px; }
 
     .md-search-icon {
         position: absolute;
@@ -164,73 +385,44 @@
 
     .md-search-input::placeholder { color: #94a3b8; }
 
-    .md-sort-wrap {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-shrink: 0;
-    }
+    /* ── Mobile: full-screen filter sheet ── */
+    @media (max-width: 767.98px) {
+        .md-filter-panel-wrap {
+            position: fixed;
+            inset: 66px 0 0 0;
+            width: 100%;
+            max-width: none;
+            left: 0;
+            transform: none !important;
+            transform-origin: top center;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.22s ease, visibility 0.22s ease;
+            background: #f2eee7;
+            z-index: 2210;
+            overflow: hidden;
+            border-radius: 0;
+        }
 
-    .md-sort-label {
-        font-size: 0.82rem;
-        font-weight: 700;
-        color: #64748b;
-        white-space: nowrap;
-    }
+        .md-controls.is-filter-open .md-filter-panel-wrap {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
 
-    .md-sort-select {
-        padding: 9px 32px 9px 14px;
-        border-radius: 999px;
-        border: 1px solid #e2e8f0;
-        background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 12px center;
-        -webkit-appearance: none;
-        appearance: none;
-        font-size: 0.88rem;
-        font-weight: 700;
-        color: #14233b;
-        cursor: pointer;
-        box-shadow: 0 4px 12px rgba(20, 35, 59, 0.05);
-        transition: border-color 0.15s ease;
-        outline: none;
-    }
+        .md-filter-panel {
+            height: 100%;
+            max-height: 100%;
+            border-radius: 0;
+            border: none;
+            box-shadow: none;
+            background: transparent;
+            overflow-y: auto;
+        }
 
-    .md-sort-select:focus {
-        border-color: #c53030;
-        box-shadow: 0 0 0 3px rgba(197, 48, 48, 0.1);
+        .md-filter-panel-title { font-size: 1.85rem; }
     }
-
-    .md-controls-form-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 10px 20px;
-        border-radius: 999px;
-        border: none;
-        background: linear-gradient(180deg, #c53030 0%, #9b2c2c 100%);
-        color: #fff;
-        font-size: 0.88rem;
-        font-weight: 800;
-        cursor: pointer;
-        box-shadow: 0 10px 20px rgba(197, 48, 48, 0.22);
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-        white-space: nowrap;
-    }
-
-    .md-controls-form-btn:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 14px 24px rgba(197, 48, 48, 0.28);
-    }
-
-    .md-clear-link {
-        font-size: 0.82rem;
-        font-weight: 700;
-        color: #64748b;
-        text-decoration: none;
-        white-space: nowrap;
-        padding: 4px 0;
-    }
-
-    .md-clear-link:hover { color: #c53030; }
 
     /* ── Grid ── */
     .md-grid {
@@ -819,9 +1011,6 @@
 
         .md-controls-top { flex-direction: row; }
         .md-search-wrap { max-width: 100%; }
-        .md-filter-panel { flex-direction: column; align-items: stretch; }
-        .md-sort-wrap { justify-content: space-between; }
-        .md-controls-form-btn { width: 100%; justify-content: center; }
 
         .md-grid { grid-template-columns: 1fr; gap: 14px; }
 
@@ -866,10 +1055,13 @@
         {% endif %}
     </div>
 
+    <!-- Filter backdrop -->
+    <div class="md-filter-backdrop" id="mdFilterBackdrop" aria-hidden="true"></div>
+
     <!-- Controls -->
     <form method="get" class="md-controls" id="mdControlsForm">
 
-        <!-- Top row: search centered + filter toggle -->
+        <!-- Top row: search + filter toggle -->
         <div class="md-controls-top">
             <div class="md-search-wrap md-search-wrap--name">
                 <i class="bi bi-search md-search-icon" aria-hidden="true"></i>
@@ -885,60 +1077,82 @@
                 >
             </div>
 
-            <button type="button" class="md-filter-toggle-btn" id="mdFilterToggle"
+            <button type="button"
+                class="md-filter-toggle-btn{% if barangay_q or breed != 'all' or urgency != 'all' or sort != 'newest' %} is-active{% endif %}"
+                id="mdFilterToggle"
                 aria-expanded="{% if barangay_q or breed != 'all' or urgency != 'all' or sort != 'newest' %}true{% else %}false{% endif %}"
                 aria-controls="mdFilterPanel">
-                <i class="bi bi-sliders" aria-hidden="true"></i>
-                Filters
+                <span class="md-filter-toggle-btn__icon" aria-hidden="true">
+                    <i class="bi bi-sliders"></i>
+                </span>
+                <span>Filters{% if barangay_q or breed != 'all' or urgency != 'all' or sort != 'newest' %} <small style="opacity:.75;font-weight:600;">&middot; active</small>{% endif %}</span>
+                <span class="md-filter-toggle-btn__caret" aria-hidden="true">
+                    <i class="bi bi-chevron-down"></i>
+                </span>
             </button>
         </div>
 
-        <!-- Filter panel — toggleable -->
-        <div class="md-filter-panel" id="mdFilterPanel"
-            {% if not barangay_q and breed == 'all' and urgency == 'all' and sort == 'newest' %}hidden{% endif %}>
+        <!-- Floating filter panel -->
+        <div class="md-filter-panel-wrap" id="mdFilterPanelWrap">
+            <div class="md-filter-panel" id="mdFilterPanel" role="region" aria-label="Dog search filters">
 
-            <div class="md-sort-wrap">
-                <label class="md-sort-label" for="mdBarangaySelect">Barangay</label>
-                <select name="barangay" id="mdBarangaySelect" class="md-sort-select" aria-label="Filter by barangay">
-                    <option value="">All barangays</option>
-                    {% for barangay_name in barangay_choices %}
-                    <option value="{{ barangay_name }}" {% if barangay_q == barangay_name %}selected{% endif %}>{{ barangay_name }}</option>
-                    {% endfor %}
-                </select>
+                <!-- Header: title + Clear All + X -->
+                <div class="md-filter-panel-header">
+                    <h3 class="md-filter-panel-title">Filters</h3>
+                    <div class="md-filter-panel-header-actions">
+                        <a href="{% url 'user:missing_dogs_list' %}" class="md-filter-clear-btn">Clear All</a>
+                        <button type="button" class="md-filter-close-btn" id="mdFilterClose" aria-label="Close filters">
+                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter controls -->
+                <div class="md-filter-panel-controls">
+                    <div class="md-sort-wrap">
+                        <label class="md-sort-label" for="mdBarangaySelect">Barangay</label>
+                        <select name="barangay" id="mdBarangaySelect" class="md-sort-select" aria-label="Filter by barangay">
+                            <option value="">All barangays</option>
+                            {% for barangay_name in barangay_choices %}
+                            <option value="{{ barangay_name }}" {% if barangay_q == barangay_name %}selected{% endif %}>{{ barangay_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="md-sort-wrap">
+                        <label class="md-sort-label" for="mdBreedSelect">Breed</label>
+                        <select name="breed" id="mdBreedSelect" class="md-sort-select" aria-label="Filter by breed">
+                            <option value="all" {% if breed == 'all' %}selected{% endif %}>All breeds</option>
+                            {% for breed_value, breed_label in breed_choices %}
+                            <option value="{{ breed_value }}" {% if breed == breed_value %}selected{% endif %}>{{ breed_label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="md-sort-wrap">
+                        <label class="md-sort-label" for="mdUrgencySelect">Urgency</label>
+                        <select name="urgency" id="mdUrgencySelect" class="md-sort-select" aria-label="Filter by urgency">
+                            <option value="all" {% if urgency == 'all' %}selected{% endif %}>All</option>
+                            <option value="urgent" {% if urgency == 'urgent' %}selected{% endif %}>Urgent (&lt;48hrs)</option>
+                        </select>
+                    </div>
+
+                    <div class="md-sort-wrap">
+                        <label class="md-sort-label" for="mdSortSelect">Sort by</label>
+                        <select name="sort" id="mdSortSelect" class="md-sort-select" aria-label="Sort by date missing">
+                            <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest missing</option>
+                            <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>Oldest missing</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Apply -->
+                <button type="submit" class="md-controls-form-btn">
+                    <i class="bi bi-funnel-fill" aria-hidden="true"></i>
+                    Apply Filters
+                </button>
+
             </div>
-
-            <div class="md-sort-wrap">
-                <label class="md-sort-label" for="mdBreedSelect">Breed</label>
-                <select name="breed" id="mdBreedSelect" class="md-sort-select" aria-label="Filter by breed">
-                    <option value="all" {% if breed == 'all' %}selected{% endif %}>All breeds</option>
-                    {% for breed_value, breed_label in breed_choices %}
-                    <option value="{{ breed_value }}" {% if breed == breed_value %}selected{% endif %}>{{ breed_label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="md-sort-wrap">
-                <label class="md-sort-label" for="mdUrgencySelect">Urgency</label>
-                <select name="urgency" id="mdUrgencySelect" class="md-sort-select" aria-label="Filter by urgency">
-                    <option value="all" {% if urgency == 'all' %}selected{% endif %}>All</option>
-                    <option value="urgent" {% if urgency == 'urgent' %}selected{% endif %}>Urgent (&lt;48hrs)</option>
-                </select>
-            </div>
-
-            <div class="md-sort-wrap">
-                <label class="md-sort-label" for="mdSortSelect">Sort by</label>
-                <select name="sort" id="mdSortSelect" class="md-sort-select" aria-label="Sort by date missing">
-                    <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest missing</option>
-                    <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>Oldest missing</option>
-                </select>
-            </div>
-
-            <button type="submit" class="md-controls-form-btn">
-                <i class="bi bi-funnel-fill" aria-hidden="true"></i>
-                Apply
-            </button>
-
-            <a href="{% url 'user:missing_dogs_list' %}" class="md-clear-link">Clear all</a>
         </div>
 
     </form>
@@ -1474,17 +1688,72 @@
         if (card) { openModal(card); }
     });
 
-    /* ── Filter panel toggle ── */
+    /* ── Filter panel open / close / Escape ── */
     (function () {
-        var toggleBtn = document.getElementById('mdFilterToggle');
-        var panel     = document.getElementById('mdFilterPanel');
-        if (!toggleBtn || !panel) return;
+        var toggleBtn  = document.getElementById('mdFilterToggle');
+        var closeBtn   = document.getElementById('mdFilterClose');
+        var backdrop   = document.getElementById('mdFilterBackdrop');
+        var controls   = document.getElementById('mdControlsForm');
+        var mobileQ    = window.matchMedia('(max-width: 767.98px)');
 
-        toggleBtn.addEventListener('click', function () {
-            var isOpen = panel.hidden === false;
-            panel.hidden = isOpen;
-            toggleBtn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+        function isOpen() {
+            return controls && controls.classList.contains('is-filter-open');
+        }
+
+        function openFilter() {
+            if (!controls) return;
+            controls.classList.add('is-filter-open');
+            document.body.classList.add('md-filter-open');
+            if (toggleBtn) {
+                toggleBtn.setAttribute('aria-expanded', 'true');
+                toggleBtn.classList.add('is-active');
+            }
+            if (mobileQ.matches && controls) controls.scrollTop = 0;
+        }
+
+        function closeFilter() {
+            if (!controls) return;
+            controls.classList.remove('is-filter-open');
+            document.body.classList.remove('md-filter-open');
+            if (toggleBtn) {
+                toggleBtn.setAttribute('aria-expanded', 'false');
+                toggleBtn.classList.remove('is-active');
+            }
+        }
+
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function () {
+                isOpen() ? closeFilter() : openFilter();
+            });
+        }
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeFilter);
+        }
+
+        if (backdrop) {
+            backdrop.addEventListener('click', closeFilter);
+        }
+
+        /* Close on outside click (desktop) */
+        document.addEventListener('click', function (e) {
+            if (!isOpen()) return;
+            if (mobileQ.matches) return;
+            if (e.target.closest('#mdControlsForm')) return;
+            closeFilter();
         });
+
+        /* Escape: close filter first; if already closed, falls through to modal */
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && isOpen()) {
+                closeFilter();
+                e.stopPropagation();
+            }
+        }, true);
+
+        /* Reset on viewport resize / bfcache */
+        mobileQ.addEventListener('change', closeFilter);
+        window.addEventListener('pageshow', closeFilter);
     })();
 
     /* ── Auto-submit dropdown filters when changed ── */

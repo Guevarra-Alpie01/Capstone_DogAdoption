@@ -1397,7 +1397,9 @@ def login_view(request):
             login_redirect = f"{login_redirect}?{urlencode({'next': next_url})}"
         return redirect(login_redirect)
 
-    return _render_login_page(request, login_form_data=login_form_prefill, next_url=next_url)
+    # GET: never show the broken standalone login page. Always redirect to
+    # the home page with the shared auth modal open (preserves ?next=).
+    return redirect(_build_home_auth_modal_url(request, "login", next_url))
 
 
 @csrf_exempt
@@ -5617,9 +5619,8 @@ def report_sighting(request, post_id):
     post = get_object_or_404(MissingDogPost, pk=post_id, status__in=['missing', 'found'])
 
     if not request.user.is_authenticated:
-        login_url = reverse('user:login')
-        return_url = request.get_full_path()
-        return redirect(f'{login_url}?next={return_url}')
+        # Open the shared auth modal on home page instead of the broken standalone login page
+        return redirect(_build_home_auth_modal_url(request, "login", request.get_full_path()))
 
     if request.method == 'POST':
         form = DogSightingForm(request.POST, request.FILES)

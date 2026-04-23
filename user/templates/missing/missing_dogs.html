@@ -1217,9 +1217,15 @@
     /* ── Actions ── */
     function doSighting(id, name) {
         if (!IS_AUTH) {
-            /* Non-logged-in: redirect to login with next pointing back here */
-            var next = encodeURIComponent(window.location.href);
-            window.location.href = LOGIN_URL + '?next=' + next;
+            /* Non-logged-in: open the shared auth modal in place.
+               After login, user is redirected to the real sighting form. */
+            var nextUrl = sightingUrl(id);
+            if (typeof window.openAuthModal === 'function') {
+                window.openAuthModal('login', { nextUrl: nextUrl });
+            } else {
+                /* Fallback only if modal JS hasn't loaded yet */
+                window.location.href = LOGIN_URL + '?next=' + encodeURIComponent(nextUrl);
+            }
             return;
         }
         /* Logged-in: navigate to the real sighting form */

@@ -1,10 +1,13 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static humanize %}
 
 {% block page_title %}Missing Dogs · Bayawan Vet{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/share_panel.css' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rye&display=swap" rel="stylesheet">
 {% endblock %}
 
 {% block content %}
@@ -528,6 +531,43 @@
         justify-content: center;
         color: rgba(255, 255, 255, 0.45);
         font-size: 2.4rem;
+    }
+
+    /* ── Card info strip — dog name + reward, below image ── */
+    .md-card-info {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        padding: 6px 14px 2px;
+        text-align: center;
+    }
+
+    .md-card-info-name {
+        margin: 0;
+        font-family: 'Rye', 'Georgia', serif;
+        font-size: 1.05rem;
+        font-weight: 400;
+        color: #1a0a00;
+        letter-spacing: 0.03em;
+        text-shadow: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        line-height: 1.15;
+    }
+
+    .md-card-info-reward {
+        font-family: 'Rye', 'Georgia', serif;
+        font-size: 0.72rem;
+        font-weight: 400;
+        color: #7b2c00;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        white-space: nowrap;
     }
 
     /* Status badge — top-left corner of card */
@@ -1228,6 +1268,14 @@
                     </div>
                     {% endif %}
                 </div>
+            </div>
+
+            <!-- Name + reward strip -->
+            <div class="md-card-info">
+                <p class="md-card-info-name">{{ post.dog_name }}</p>
+                {% if post.reward %}
+                <span class="md-card-info-reward">Reward: ₱{{ post.reward|intcomma }}</span>
+                {% endif %}
             </div>
 
             <div class="md-card-footer">

@@ -125,6 +125,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'dogadoption_admin',
     'user',
+    'django.contrib.humanize',
 ]
 
 MIDDLEWARE = [

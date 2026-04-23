@@ -487,6 +487,8 @@ class Post(models.Model):
 
         now = now or timezone.now()
         manual_phase_days = self.MANUAL_PHASE_RESET_DAYS
+        # Manual phase overrides should always run on exact elapsed-time windows
+        # (e.g., 3 x 24h), independent of appointment-date calendars.
         use_calendar_schedule = False
         claim_dates = []
         adoption_dates = []
@@ -494,38 +496,16 @@ class Post(models.Model):
         adoption_deadline = None
         current_phase = "closed"
 
-        started_date = (
-            timezone.localtime(started_at).date()
-            if timezone.is_aware(started_at)
-            else started_at.date()
-        )
-
-        eligible_dates = self._manual_appointment_dates(started_at)
-        if eligible_dates:
-            use_calendar_schedule = True
-            if phase == "claim":
-                claim_dates = eligible_dates[:manual_phase_days]
-                adoption_dates = eligible_dates[
-                    manual_phase_days:manual_phase_days + manual_phase_days
-                ]
-            else:
-                adoption_dates = eligible_dates[:manual_phase_days]
-
         if phase == "claim":
-            claim_deadline = self._schedule_deadline_for_date(
-                started_date + timedelta(days=manual_phase_days)
-            )
-            adoption_deadline = self._schedule_deadline_for_date(
-                started_date + timedelta(days=manual_phase_days * 2)
-            )
+            claim_deadline = started_at + timedelta(days=manual_phase_days)
+            adoption_deadline = claim_deadline + timedelta(days=manual_phase_days)
+
             if now <= claim_deadline:
                 current_phase = "claim"
             elif now <= adoption_deadline:
                 current_phase = "adopt"
         else:
-            adoption_deadline = self._schedule_deadline_for_date(
-                started_date + timedelta(days=manual_phase_days)
-            )
+            adoption_deadline = started_at + timedelta(days=manual_phase_days)
             if now <= adoption_deadline:
                 current_phase = "adopt"
 

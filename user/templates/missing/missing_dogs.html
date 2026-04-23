@@ -80,6 +80,10 @@
         max-width: 360px;
     }
 
+    .md-search-wrap--name {
+        max-width: 300px;
+    }
+
     .md-search-icon {
         position: absolute;
         left: 14px;
@@ -758,6 +762,20 @@
 
     <!-- Controls -->
     <form method="get" class="md-controls" id="mdControlsForm">
+        <div class="md-search-wrap md-search-wrap--name">
+            <i class="bi bi-search md-search-icon" aria-hidden="true"></i>
+            <input
+                type="text"
+                name="dog_name"
+                value="{{ dog_name_q }}"
+                placeholder="Search dog name..."
+                class="md-search-input"
+                aria-label="Search by dog name"
+                autocomplete="off"
+                id="mdDogNameInput"
+            >
+        </div>
+
         <div class="md-search-wrap">
             <i class="bi bi-geo-alt md-search-icon" aria-hidden="true"></i>
             <input
@@ -773,6 +791,24 @@
         </div>
 
         <div class="md-sort-wrap">
+            <label class="md-sort-label" for="mdBreedSelect">Breed</label>
+            <select name="breed" id="mdBreedSelect" class="md-sort-select" aria-label="Filter by breed">
+                <option value="all" {% if breed == 'all' %}selected{% endif %}>All breeds</option>
+                <option value="labrador" {% if breed == 'labrador' %}selected{% endif %}>Labrador</option>
+                <option value="beagle" {% if breed == 'beagle' %}selected{% endif %}>Beagle</option>
+                <option value="golden" {% if breed == 'golden' %}selected{% endif %}>Golden</option>
+            </select>
+        </div>
+
+        <div class="md-sort-wrap">
+            <label class="md-sort-label" for="mdUrgencySelect">Urgency</label>
+            <select name="urgency" id="mdUrgencySelect" class="md-sort-select" aria-label="Filter by urgency">
+                <option value="all" {% if urgency == 'all' %}selected{% endif %}>All</option>
+                <option value="urgent" {% if urgency == 'urgent' %}selected{% endif %}>Urgent (&lt;48hrs)</option>
+            </select>
+        </div>
+
+        <div class="md-sort-wrap">
             <label class="md-sort-label" for="mdSortSelect">Sort by</label>
             <select name="sort" id="mdSortSelect" class="md-sort-select" aria-label="Sort by date missing">
                 <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest missing</option>
@@ -785,7 +821,7 @@
             Filter
         </button>
 
-        {% if location_q or sort != 'newest' %}
+        {% if dog_name_q or location_q or breed != 'all' or urgency != 'all' or sort != 'newest' %}
         <a href="{% url 'user:missing_dogs_list' %}" class="md-clear-link">Clear</a>
         {% endif %}
     </form>
@@ -800,6 +836,11 @@
             data-name="{{ post.dog_name }}"
             data-status="{{ post.status }}"
             data-status-label="{{ post.get_status_display }}"
+            data-breed="{{ post.display_breed }}"
+            data-gender="{{ post.get_gender_display|default:'' }}"
+            data-age-group="{{ post.display_age_group }}"
+            data-size-group="{{ post.display_size_group }}"
+            data-colors="{{ post.display_colors }}"
             data-location="{{ post.location }}"
             data-date-lost="{{ post.date_lost|date:'M d, Y' }}"
             data-time-lost="{{ post.time_lost|time:'g:i A' }}"
@@ -841,7 +882,12 @@
             <div class="md-card-body">
                 <h2 class="md-card-name" title="{{ post.dog_name }}">{{ post.dog_name }}</h2>
                 <div class="md-card-meta">
-                    {% if post.description %}
+                    {% if post.display_breed %}
+                    <div class="md-card-meta-row">
+                        <i class="bi bi-tag" aria-hidden="true"></i>
+                        <span title="{{ post.display_breed }}">{{ post.display_breed }}</span>
+                    </div>
+                    {% elif post.description %}
                     <div class="md-card-meta-row">
                         <i class="bi bi-tag" aria-hidden="true"></i>
                         <span title="{{ post.description }}">{{ post.description|truncatechars:40 }}</span>
@@ -908,7 +954,7 @@
     <!-- Pagination -->
     {% if page_obj.has_other_pages %}
     <nav class="md-pager" aria-label="Page navigation">
-        <a href="?location={{ location_q|urlencode }}&sort={{ sort }}&page={{ page_obj.previous_page_number }}"
+        <a href="?dog_name={{ dog_name_q|urlencode }}&location={{ location_q|urlencode }}&breed={{ breed|urlencode }}&urgency={{ urgency|urlencode }}&sort={{ sort }}&page={{ page_obj.previous_page_number }}"
            class="md-page-link {% if not page_obj.has_previous %}is-disabled{% endif %}"
            aria-label="Previous page">
             <i class="bi bi-chevron-left" aria-hidden="true"></i>
@@ -918,12 +964,12 @@
             {% if num == page_obj.number %}
             <span class="md-page-link is-active" aria-current="page">{{ num }}</span>
             {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
-            <a href="?location={{ location_q|urlencode }}&sort={{ sort }}&page={{ num }}"
+            <a href="?dog_name={{ dog_name_q|urlencode }}&location={{ location_q|urlencode }}&breed={{ breed|urlencode }}&urgency={{ urgency|urlencode }}&sort={{ sort }}&page={{ num }}"
                class="md-page-link">{{ num }}</a>
             {% endif %}
         {% endfor %}
 
-        <a href="?location={{ location_q|urlencode }}&sort={{ sort }}&page={{ page_obj.next_page_number }}"
+        <a href="?dog_name={{ dog_name_q|urlencode }}&location={{ location_q|urlencode }}&breed={{ breed|urlencode }}&urgency={{ urgency|urlencode }}&sort={{ sort }}&page={{ page_obj.next_page_number }}"
            class="md-page-link {% if not page_obj.has_next %}is-disabled{% endif %}"
            aria-label="Next page">
             <i class="bi bi-chevron-right" aria-hidden="true"></i>
@@ -966,6 +1012,26 @@
 
             <!-- Detail grid -->
             <div class="md-modal-detail-grid" id="mdModalDetailGrid">
+                <div class="md-modal-detail-item" id="mdModalBreedWrap" style="display:none">
+                    <span class="md-modal-detail-label">Breed</span>
+                    <span class="md-modal-detail-value" id="mdModalBreed">—</span>
+                </div>
+                <div class="md-modal-detail-item" id="mdModalGenderWrap" style="display:none">
+                    <span class="md-modal-detail-label">Gender</span>
+                    <span class="md-modal-detail-value" id="mdModalGender">—</span>
+                </div>
+                <div class="md-modal-detail-item" id="mdModalAgeGroupWrap" style="display:none">
+                    <span class="md-modal-detail-label">Age Group</span>
+                    <span class="md-modal-detail-value" id="mdModalAgeGroup">—</span>
+                </div>
+                <div class="md-modal-detail-item" id="mdModalSizeWrap" style="display:none">
+                    <span class="md-modal-detail-label">Size</span>
+                    <span class="md-modal-detail-value" id="mdModalSize">—</span>
+                </div>
+                <div class="md-modal-detail-item" id="mdModalColorsWrap" style="display:none">
+                    <span class="md-modal-detail-label">Colors</span>
+                    <span class="md-modal-detail-value" id="mdModalColors">—</span>
+                </div>
                 <div class="md-modal-detail-item">
                     <span class="md-modal-detail-label">Location Last Seen</span>
                     <span class="md-modal-detail-value" id="mdModalLocation">—</span>
@@ -1225,7 +1291,26 @@
             descEl.style.display = 'none';
         }
 
-        /* detail fields */
+        /* optional detail fields helper */
+        function setOptional(wrapId, valId, value) {
+            var wrap = document.getElementById(wrapId);
+            if (!wrap) return;
+            if (value) {
+                document.getElementById(valId).textContent = value;
+                wrap.style.display = 'block';
+            } else {
+                wrap.style.display = 'none';
+            }
+        }
+
+        /* breed / physical fields */
+        setOptional('mdModalBreedWrap',    'mdModalBreed',    d.breed);
+        setOptional('mdModalGenderWrap',   'mdModalGender',   d.gender);
+        setOptional('mdModalAgeGroupWrap', 'mdModalAgeGroup', d.ageGroup);
+        setOptional('mdModalSizeWrap',     'mdModalSize',     d.sizeGroup);
+        setOptional('mdModalColorsWrap',   'mdModalColors',   d.colors);
+
+        /* core fields */
         document.getElementById('mdModalLocation').textContent  = d.location  || '—';
         document.getElementById('mdModalDateLost').textContent  = d.dateLost  || '—';
         document.getElementById('mdModalTimeLost').textContent  = d.timeLost  || '—';
@@ -1233,21 +1318,9 @@
         document.getElementById('mdModalOwner').textContent     = d.owner     || '—';
         document.getElementById('mdModalCreated').textContent   = d.created   || '—';
 
-        var phoneWrap = document.getElementById('mdModalPhoneWrap');
-        if (d.phone) {
-            document.getElementById('mdModalPhone').textContent = d.phone;
-            phoneWrap.style.display = 'block';
-        } else {
-            phoneWrap.style.display = 'none';
-        }
-
-        var fbWrap = document.getElementById('mdModalFbWrap');
-        if (d.facebook) {
-            document.getElementById('mdModalFacebook').textContent = d.facebook;
-            fbWrap.style.display = 'block';
-        } else {
-            fbWrap.style.display = 'none';
-        }
+        /* contact fields */
+        setOptional('mdModalPhoneWrap', 'mdModalPhone',    d.phone);
+        setOptional('mdModalFbWrap',    'mdModalFacebook', d.facebook);
 
         /* sighting bar */
         var sightings = getSightings();
@@ -1305,13 +1378,14 @@
         if (card) { openModal(card); }
     });
 
-    /* ── Auto-submit sort when changed ── */
-    var sortSel = document.getElementById('mdSortSelect');
-    if (sortSel) {
-        sortSel.addEventListener('change', function () {
+    /* ── Auto-submit dropdown filters when changed ── */
+    ['mdSortSelect', 'mdBreedSelect', 'mdUrgencySelect'].forEach(function (id) {
+        var sel = document.getElementById(id);
+        if (!sel) return;
+        sel.addEventListener('change', function () {
             document.getElementById('mdControlsForm').submit();
         });
-    }
+    });
 
     /* ── Init ── */
     syncPills();

@@ -27,7 +27,7 @@ from django.http import JsonResponse
 from django.core.files.base import ContentFile
 from django.conf import settings
 from django.core.cache import cache
-from datetime import timedelta
+from datetime import datetime, timedelta
 from functools import wraps
 from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
@@ -5541,17 +5541,52 @@ def user_adoption_history(request):
 
 
 def missing_dogs_list(request):
-    """Browse approved missing-dog posts with location filter and date-lost sort."""
+    """Browse approved missing-dog posts with name/location/breed/urgency filters."""
     qs = MissingDogPost.objects.filter(status__in=['missing', 'found']).select_related('owner')
+
+    dog_name_q = request.GET.get('dog_name', '').strip()
+    if dog_name_q:
+        qs = qs.filter(dog_name__icontains=dog_name_q)
 
     location_q = request.GET.get('location', '').strip()
     if location_q:
         qs = qs.filter(location__icontains=location_q)
 
+    breed = request.GET.get('breed', 'all').strip().lower()
+    allowed_breeds = {'all', 'labrador', 'beagle', 'golden'}
+    if breed not in allowed_breeds:
+        breed = 'all'
+    if breed != 'all':
+        # Match exact breed choice value OR fall back to text search for breed_other / description
+        qs = qs.filter(
+            Q(breed__iexact=breed) |
+            Q(breed_other__icontains=breed) |
+            Q(description__icontains=breed)
+        )
+
+    urgency = request.GET.get('urgency', 'all').strip().lower()
+    if urgency not in {'all', 'urgent'}:
+        urgency = 'all'
+    if urgency == 'urgent':
+        cutoff = timezone.now() - timedelta(hours=48)
+        tz = timezone.get_current_timezone()
+        urgent_ids = []
+        # Use a separate, plain queryset (no select_related) so .only() works cleanly
+        for post in MissingDogPost.objects.filter(
+            id__in=qs.values_list('id', flat=True)
+        ).only('id', 'date_lost', 'time_lost'):
+            lost_at = datetime.combine(post.date_lost, post.time_lost)
+            if timezone.is_aware(cutoff):
+                lost_at = timezone.make_aware(lost_at, tz)
+            if lost_at >= cutoff:
+                urgent_ids.append(post.id)
+        qs = qs.filter(id__in=urgent_ids)
+
     sort = request.GET.get('sort', 'newest')
     if sort == 'oldest':
         qs = qs.order_by('date_lost', 'time_lost')
     else:
+        sort = 'newest'
         qs = qs.order_by('-date_lost', '-time_lost')
 
     paginator = Paginator(qs, 12)
@@ -5560,7 +5595,10 @@ def missing_dogs_list(request):
     context = {
         'page_obj': page_obj,
         'posts': page_obj.object_list,
+        'dog_name_q': dog_name_q,
         'location_q': location_q,
+        'breed': breed,
+        'urgency': urgency,
         'sort': sort,
         'total': paginator.count,
     }

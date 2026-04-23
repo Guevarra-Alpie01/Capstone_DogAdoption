@@ -520,78 +520,23 @@ class Post(models.Model):
         }
 
     def _timeline_schedule(self):
-        active_dates = getattr(self, "_prefetched_global_appointment_dates", None)
-        if active_dates is None:
-            active_dates = self.active_appointment_dates()
-        else:
-            active_dates = list(active_dates)
-
-        start_date = None
-        if self.created_at:
-            start_date = (
-                timezone.localtime(self.created_at).date()
-                if timezone.is_aware(self.created_at)
-                else self.created_at.date()
-            )
-
         claim_days = max(int(self.claim_days or 0), 0)
-        eligible_dates = (
-            [day for day in active_dates if day >= start_date]
-            if start_date
-            else []
-        )
-        cache_key = (
-            self.created_at,
-            claim_days,
-            tuple(active_dates),
-            tuple(eligible_dates),
-        )
+        cache_key = (self.created_at, claim_days, self.ADOPTION_DAYS)
         cached = getattr(self, "_timeline_schedule_cache", None)
         if cached and cached.get("key") == cache_key:
             return cached["value"]
 
-        use_calendar_schedule = bool(active_dates)
-        claim_dates = []
-        adoption_dates = []
-
-        if use_calendar_schedule:
-            if claim_days:
-                claim_dates = eligible_dates[:claim_days]
-            adoption_start = claim_days
-            adoption_dates = eligible_dates[
-                adoption_start: adoption_start + self.ADOPTION_DAYS
-            ]
-
-        if use_calendar_schedule:
-            if claim_dates:
-                claim_deadline = self._schedule_deadline_for_date(claim_dates[-1])
-            elif start_date:
-                claim_deadline = self._schedule_deadline_for_date(start_date)
-            else:
-                claim_deadline = None
-        elif not use_calendar_schedule:
-            claim_deadline = self._legacy_claim_deadline()
-        else:
-            claim_deadline = None
-
-        if use_calendar_schedule:
-            if adoption_dates:
-                adoption_deadline = self._schedule_deadline_for_date(adoption_dates[-1])
-            elif claim_deadline:
-                adoption_deadline = claim_deadline
-            elif start_date:
-                adoption_deadline = self._schedule_deadline_for_date(start_date)
-            else:
-                adoption_deadline = None
-        elif not use_calendar_schedule and claim_deadline:
-            adoption_deadline = claim_deadline + timedelta(days=self.ADOPTION_DAYS)
-        else:
-            adoption_deadline = None
+        claim_deadline = self._legacy_claim_deadline()
+        adoption_deadline = (
+            claim_deadline + timedelta(days=self.ADOPTION_DAYS)
+            if claim_deadline
+            else None
+        )
 
         schedule = {
-            "use_calendar_schedule": use_calendar_schedule,
-            "claim_dates": claim_dates,
-            "adoption_dates": adoption_dates,
+            "use_calendar_schedule": False,
+            "claim_dates": [],
+            "adoption_dates": [],
             "claim_deadline": claim_deadline,
             "adoption_deadline": adoption_deadline,
         }

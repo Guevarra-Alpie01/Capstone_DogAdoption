@@ -5668,7 +5668,7 @@ def my_sighting_inbox(request):
     sightings = (
         DogSighting.objects
         .filter(post__owner=request.user)
-        .select_related('post', 'reporter')
+        .select_related('post', 'reporter', 'reporter__profile')
         .order_by('-created_at')
     )
 

@@ -68,6 +68,9 @@ urlpatterns = [
     path('announcements/<announcementid:post_id>/comment/', views.announcement_comment, name='announcement_comment'),
     path('announcements/share/<announcementid:post_id>/', views.announcement_share_preview, name='announcement_share_preview'),
 
+    # Missing Dogs
+    path('missing-dogs/', views.missing_dogs_list, name='missing_dogs_list'),
+
     # Navigation 5/5: Adopt
     path("adopt-list/", views.adopt_list, name="adopt_list"),
     path("adopt/my-post-approvals/", views.my_post_approvals, name="my_post_approvals"),

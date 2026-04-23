@@ -5538,3 +5538,30 @@ def user_adoption_history(request):
         'active_nav': 'adopt',
     }
     return render(request, 'adopt/adoption_history.html', context)
+
+
+def missing_dogs_list(request):
+    """Browse approved missing-dog posts with location filter and date-lost sort."""
+    qs = MissingDogPost.objects.filter(status__in=['missing', 'found']).select_related('owner')
+
+    location_q = request.GET.get('location', '').strip()
+    if location_q:
+        qs = qs.filter(location__icontains=location_q)
+
+    sort = request.GET.get('sort', 'newest')
+    if sort == 'oldest':
+        qs = qs.order_by('date_lost', 'time_lost')
+    else:
+        qs = qs.order_by('-date_lost', '-time_lost')
+
+    paginator = Paginator(qs, 12)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    context = {
+        'page_obj': page_obj,
+        'posts': page_obj.object_list,
+        'location_q': location_q,
+        'sort': sort,
+        'total': paginator.count,
+    }
+    return render(request, 'missing/missing_dogs.html', context)

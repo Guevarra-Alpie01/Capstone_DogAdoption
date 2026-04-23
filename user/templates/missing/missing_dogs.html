@@ -1378,7 +1378,7 @@
 
                 <!-- Share -->
                 <button type="button" class="md-card-btn md-share-btn js-open-share"
-                    data-share-url="{{ request.build_absolute_uri }}?highlight={{ post.pk }}"
+                    data-share-url="{% url 'user:missing_dog_public_detail' post.pk %}"
                     data-share-title="{{ post.dog_name }} — Missing Dog"
                     data-share-text="Help find {{ post.dog_name }}! Last seen at {{ post.location }}."
                     {% if post.image %}data-share-image="{{ post.image.url }}"{% endif %}
@@ -1793,7 +1793,10 @@
         var shareBtn    = document.getElementById('mdModalShareBtn');
         sightingBtn.dataset.id   = d.id;
         sightingBtn.dataset.name = d.name;
-        shareBtn.setAttribute('data-share-url',   window.location.origin + window.location.pathname + '?highlight=' + d.id);
+        shareBtn.setAttribute('data-share-url',   (function () {
+            var p = '{% url "user:missing_dog_public_detail" 88888888 %}';
+            return window.location.origin + p.replace('88888888', String(d.id));
+        })());
         shareBtn.setAttribute('data-share-title', d.name + ' — Missing Dog');
         shareBtn.setAttribute('data-share-text',  'Help find ' + d.name + '! Last seen at ' + (d.location || 'Bayawan City') + '.');
         if (d.image) {

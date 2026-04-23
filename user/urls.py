@@ -74,6 +74,7 @@ urlpatterns = [
     path('missing-dogs/sightings/', views.my_sighting_inbox, name='sighting_inbox'),
     path('missing-dogs/sightings/<int:sighting_id>/action/', views.sighting_action, name='sighting_action'),
     path('missing-dogs/<int:post_id>/sighting-count/', views.sighting_count_api, name='sighting_count_api'),
+    path('missing-dogs/<int:post_id>/', views.missing_dog_public_detail, name='missing_dog_public_detail'),
 
     # Navigation 5/5: Adopt
     path("adopt-list/", views.adopt_list, name="adopt_list"),

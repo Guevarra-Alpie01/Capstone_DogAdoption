@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% load static humanize %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block og_meta %}
+{% if missing_og_title %}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Bayawan Vet">
+<meta property="og:title" content="{{ missing_og_title }}">
+<meta property="og:description" content="{{ missing_og_description }}">
+<meta property="og:url" content="{{ missing_og_url }}">
+{% if missing_og_image %}
+<meta property="og:image" content="{{ missing_og_image }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ missing_og_title }}">
+<meta name="twitter:description" content="{{ missing_og_description }}">
+{% if missing_og_image %}
+<meta name="twitter:image" content="{{ missing_og_image }}">
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/share_panel.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="md-public-shell">
+    <nav class="md-public-nav" aria-label="Breadcrumb">
+        <a href="{% url 'user:missing_dogs_list' %}" class="md-public-back">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>
+            <span>All missing dogs</span>
+        </a>
+    </nav>
+
+    <article class="md-public-card" id="md-public-focus">
+        <header class="md-public-header">
+            <span class="md-public-badge md-public-badge--{{ post.status }}">
+                {{ post.get_status_display }}
+            </span>
+            <h1 class="md-public-title">{{ post.dog_name|default:"Unknown dog" }}</h1>
+            {% if post.display_breed %}
+            <p class="md-public-sub">{{ post.display_breed }}{% if post.display_age_group %} · {{ post.display_age_group }}{% endif %}</p>
+            {% endif %}
+        </header>
+
+        <div class="md-public-media">
+            {% if post.image %}
+            <img src="{{ post.image.url }}"
+                 class="md-public-hero"
+                 width="800"
+                 height="600"
+                 alt="{{ post.dog_name|default:'Missing dog' }}"
+                 fetchpriority="high"
+                 loading="eager"
+                 decoding="async">
+            {% else %}
+            <div class="md-public-hero md-public-hero--placeholder" role="img" aria-label="No photo available">
+                <i class="bi bi-image" aria-hidden="true"></i>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if post.photos.all %}
+        <div class="md-public-extras" role="list">
+            {% for ph in post.photos.all %}
+            <div class="md-public-extras-item" role="listitem">
+                <img src="{{ ph.image.url }}" alt="Additional photo {{ forloop.counter }}" width="200" height="200" loading="lazy" decoding="async">
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <dl class="md-public-facts">
+            <div>
+                <dt>Last seen</dt>
+                <dd>{{ post.date_lost|date:"M d, Y" }}{% if post.time_lost %}, {{ post.time_lost|time:"g:i A" }}{% endif %}</dd>
+            </div>
+            <div>
+                <dt>Location</dt>
+                <dd>{{ post.location|default:"—" }}</dd>
+            </div>
+            {% if post.reward %}
+            <div>
+                <dt>Reward</dt>
+                <dd>₱{{ post.reward|intcomma }}</dd>
+            </div>
+            {% endif %}
+        </dl>
+
+        {% if post.description %}
+        <div class="md-public-desc">
+            <h2 class="visually-hidden">Description</h2>
+            <p class="md-public-desc-text">{{ post.description|linebreaksbr }}</p>
+        </div>
+        {% endif %}
+
+        <p class="md-public-cta-hint">Seen this dog? Report a sighting so the owner is notified.</p>
+        <div class="d-flex flex-wrap justify-content-center gap-2">
+            <a href="{% url 'user:report_sighting' post.id %}"
+               class="btn btn-primary btn-sm action-btn"
+               {% if not request.user.is_authenticated %}
+               data-auth-modal-trigger="login"
+               data-auth-next-url="{% url 'user:report_sighting' post.id %}"
+               {% endif %}>
+                <i class="bi bi-flag-fill" aria-hidden="true"></i>
+                <span>Report a sighting</span>
+            </a>
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm action-btn js-open-share"
+                    data-share-url="{% url 'user:missing_dog_public_detail' post.id %}"
+                    data-share-title="{{ post.dog_name|default:'Missing dog' }} — Missing Dog"
+                    data-share-text="Help find {{ post.dog_name|default:'this dog' }}! Last seen at {{ post.location|default:'Bayawan City' }}."
+                    {% if post.image %}data-share-image="{{ post.image.url }}"{% endif %}>
+                <i class="bi bi-share" aria-hidden="true"></i>
+                <span>Share</span>
+            </button>
+        </div>
+    </article>
+</div>
+
+<style>
+    .md-public-shell { max-width: 720px; margin: 0 auto; padding: 24px 16px 56px; }
+    .md-public-nav { margin-bottom: 16px; }
+    .md-public-back {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-size: 0.95rem; font-weight: 600; color: #0f172a; text-decoration: none;
+    }
+    .md-public-back:hover { color: #c53030; }
+    .md-public-card {
+        border-radius: 20px; border: 1px solid rgba(216, 207, 182, 0.88);
+        background: linear-gradient(180deg, #fff9f9 0%, #fff4f4 100%);
+        box-shadow: 0 18px 36px rgba(20, 35, 59, 0.07);
+        padding: 24px 22px 28px;
+    }
+    .md-public-header { text-align: center; margin-bottom: 18px; }
+    .md-public-badge {
+        display: inline-block; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em;
+        text-transform: uppercase; border-radius: 999px; padding: 4px 12px; margin-bottom: 10px;
+    }
+    .md-public-badge--missing { background: #fee2e2; color: #991b1b; }
+    .md-public-badge--found   { background: #dcfce7; color: #166534; }
+    .md-public-title { margin: 0; font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 800; color: #14233b; }
+    .md-public-sub { margin: 8px 0 0; color: #64748b; font-size: 0.95rem; }
+    .md-public-media { border-radius: 16px; overflow: hidden; background: #f1f5f9; }
+    .md-public-hero { width: 100%; height: auto; display: block; object-fit: cover; max-height: 420px; }
+    .md-public-hero--placeholder {
+        display: flex; align-items: center; justify-content: center; min-height: 220px; color: #94a3b8; font-size: 2.5rem;
+    }
+    .md-public-extras { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .md-public-extras-item img { width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(0,0,0,0.06); }
+    .md-public-facts { margin: 20px 0; display: grid; gap: 12px; }
+    .md-public-facts > div { display: grid; grid-template-columns: 120px 1fr; gap: 8px; align-items: start; }
+    @media (max-width: 520px) { .md-public-facts > div { grid-template-columns: 1fr; } }
+    .md-public-facts dt { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; }
+    .md-public-facts dd { margin: 0; color: #0f172a; font-size: 0.98rem; }
+    .md-public-desc { margin: 8px 0 16px; }
+    .md-public-desc-text { margin: 0; color: #334155; line-height: 1.6; }
+    .md-public-cta-hint { text-align: center; color: #64748b; font-size: 0.9rem; margin: 0 0 12px; }
+</style>
+
+<div id="finderShareStatus" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+{% include 'home/_feed_enhancements.html' %}
+{% endblock %}

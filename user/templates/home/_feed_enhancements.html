@@ -145,9 +145,17 @@
         const backdrop = document.getElementById("sharePanelBackdrop");
         if (!panel || !input) return;
 
-        activeShareUrl = shareUrl;
+        let resolved = (shareUrl || "").trim();
+        if (resolved) {
+            try {
+                resolved = new URL(resolved, window.location.origin).href;
+            } catch (e) {
+                /* use trimmed string */
+            }
+        }
+        activeShareUrl = resolved;
         activeShareTrigger = triggerEl;
-        input.value = shareUrl;
+        input.value = resolved;
         setSharePanelPreview(triggerEl);
         panel.hidden = false;
         const isNarrow = window.matchMedia("(max-width: 768px)").matches;

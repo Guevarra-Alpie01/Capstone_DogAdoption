@@ -475,7 +475,9 @@
 </section>
 
 {% if home_missing_posts %}
-<section class="home-missing-marquee-shell" aria-label="Missing dogs reported by users">
+<section class="home-missing-marquee-shell"
+         aria-label="Missing dogs reported by users"
+         style="--home-missing-poster-bg: url('{% static 'images/onepiecebackground.png' %}');">
     <div class="home-missing-marquee container">
         <div class="content_display">
             <div class="home-missing-marquee__head">
@@ -1914,20 +1916,23 @@
 
         var count = inner.children.length;
 
-        /* Only a single card: center it; empty space is fine. Two or more: seamless loop. */
+        /* Only a single card: center it; empty space is fine. */
         if (count <= 1) {
             track.classList.add('home-missing-marquee__track--sparse');
             inner.classList.add('home-missing-marquee__inner--sparse');
             return;
         }
 
-        inner.classList.add('home-missing-marquee__inner--loop');
-        track.classList.add('home-missing-marquee__track--loop');
-
-        if (prefersReducedMotion) {
+        /* 2–3 cards (or reduced-motion preference): no auto-rotate, no cloning.
+           Users can still scroll/swipe horizontally (manual navigation). */
+        if (count <= 3 || prefersReducedMotion) {
             track.classList.add('home-missing-marquee__track--reduced-motion');
             return;
         }
+
+        /* 4+ cards: seamless auto-rotating marquee loop. */
+        inner.classList.add('home-missing-marquee__inner--loop');
+        track.classList.add('home-missing-marquee__track--loop');
 
         var clone = inner.cloneNode(true);
         clone.setAttribute('aria-hidden', 'true');

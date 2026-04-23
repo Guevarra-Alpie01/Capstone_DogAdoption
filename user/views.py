@@ -4307,7 +4307,7 @@ def _build_user_home_context(
         MissingDogPost.objects
         .filter(status="missing")
         .select_related("owner")
-        .order_by("-created_at")[:30]
+        .order_by("-created_at")[:10]
     )
 
     return {

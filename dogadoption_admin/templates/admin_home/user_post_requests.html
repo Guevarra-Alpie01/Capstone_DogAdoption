@@ -172,6 +172,7 @@
 .upr-post-cell {
     display: grid;
     gap: 8px;
+    max-width: 420px;
 }
 .upr-post-title {
     margin: 0;
@@ -249,11 +250,27 @@
 }
 .upr-actions {
     display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+    min-width: 200px;
+}
+.upr-actions-row {
+    display: flex;
     flex-wrap: wrap;
     gap: 8px;
 }
-.upr-actions form {
+.upr-actions-row .upr-btn,
+.upr-actions-row form {
+    flex: 1 1 0;
+    min-width: 108px;
+}
+.upr-actions-row form {
     margin: 0;
+    display: flex;
+}
+.upr-actions-row form .upr-btn {
+    width: 100%;
 }
 .upr-btn {
     display: inline-flex;
@@ -441,12 +458,20 @@
                         </td>
                         <td>
                             <div class="upr-actions">
-                                <a href="{{ item.owner_profile_url }}" class="upr-btn is-profile">
-                                    <i class="bi bi-person-badge" aria-hidden="true"></i>
-                                    View Profile
-                                </a>
-
+                                <div class="upr-actions-row">
+                                    <a href="{{ item.owner_profile_url }}" class="upr-btn is-profile" title="View owner profile">
+                                        <i class="bi bi-person-badge" aria-hidden="true"></i>
+                                        View Profile
+                                    </a>
+                                    <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'delete' %}"
+                                        data-confirm-modal data-confirm-title="Delete Post" data-confirm-message="Permanently delete this post by {{ item.owner_username }}? This cannot be undone." data-confirm-submit-label="Delete">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <button type="submit" class="upr-btn is-delete"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</button>
+                                    </form>
+                                </div>
                                 {% if tab == 'pending' %}
+                                <div class="upr-actions-row">
                                     <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'accept' %}"
                                         data-confirm-modal data-confirm-title="Accept Post" data-confirm-message="Accept this post by {{ item.owner_username }}? It will become publicly visible." data-confirm-submit-label="Accept">
                                         {% csrf_token %}
@@ -459,23 +484,17 @@
                                         <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                         <button type="submit" class="upr-btn is-decline"><i class="bi bi-x-lg" aria-hidden="true"></i> Decline</button>
                                     </form>
-                                {% endif %}
-
-                                {% if tab == 'declined' %}
+                                </div>
+                                {% elif tab == 'declined' %}
+                                <div class="upr-actions-row">
                                     <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'accept' %}"
                                         data-confirm-modal data-confirm-title="Accept Post" data-confirm-message="Accept this previously declined post by {{ item.owner_username }}?" data-confirm-submit-label="Accept">
                                         {% csrf_token %}
                                         <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                         <button type="submit" class="upr-btn is-accept"><i class="bi bi-check-lg" aria-hidden="true"></i> Accept</button>
                                     </form>
+                                </div>
                                 {% endif %}
-
-                                <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'delete' %}"
-                                    data-confirm-modal data-confirm-title="Delete Post" data-confirm-message="Permanently delete this post by {{ item.owner_username }}? This cannot be undone." data-confirm-submit-label="Delete">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                    <button type="submit" class="upr-btn is-delete"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</button>
-                                </form>
                             </div>
                         </td>
                     </tr>

@@ -1058,6 +1058,31 @@ def _build_profile_adopted_post_rows(profile_user, recent_post_limit):
     return adopted_posts[:recent_post_limit]
 
 
+def _profile_public_adoption_stats(profile_user):
+    """
+    Counts for the profile header: user-submitted adoption listings (excl. declined)
+    and completed adoptions where this user was the adopter (staff + user posts).
+    """
+    dogs_posted = (
+        UserAdoptionPost.objects.filter(owner=profile_user)
+        .exclude(status="declined")
+        .count()
+    )
+    staff_adoptions = PostRequest.objects.filter(
+        user=profile_user,
+        request_type="adopt",
+        status="accepted",
+    ).count()
+    user_adoptions = UserAdoptionRequest.objects.filter(
+        requester=profile_user,
+        status="approved",
+    ).count()
+    return {
+        "profile_stat_dogs_posted": dogs_posted,
+        "profile_stat_adoptions": staff_adoptions + user_adoptions,
+    }
+
+
 def _build_incoming_profile_requests(profile_user, default_profile_avatar_url):
     incoming_requests_limit = 6
     incoming_requests_qs = list(
@@ -1204,6 +1229,7 @@ def _build_profile_dashboard_context(profile_user):
         "verified_sightings": profile.verified_sightings,
         "sighting_badge": profile.sighting_badge,
         "next_sighting_badge": profile.next_sighting_badge,
+        **_profile_public_adoption_stats(profile_user),
         **_build_incoming_profile_requests(profile_user, default_profile_avatar_url),
         **_build_profile_registered_dogs(profile_user),
         **_build_profile_violation_summary(profile_user),

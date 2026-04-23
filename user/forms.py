@@ -7,6 +7,22 @@ from dogadoption_admin.models import Post
 from .models import DogSighting, MissingDogPost, UserAdoptionPost
 
 
+class MultipleClearableFileInput(forms.ClearableFileInput):
+    """ClearableFileInput that accepts multiple files.
+
+    The model form's ImageField expects a single file for validation, so we only
+    surface the first upload here. The view separately reads the full list via
+    ``request.FILES.getlist()`` to persist extra photos.
+    """
+    allow_multiple_selected = True
+
+    def value_from_datadict(self, data, files, name):
+        upload = files.getlist(name) if hasattr(files, "getlist") else files.get(name)
+        if isinstance(upload, list):
+            return upload[0] if upload else None
+        return upload
+
+
 class RescueFinderForm(forms.Form):
     PURPOSE_CHOICES = [
         ("all", "All"),
@@ -262,12 +278,14 @@ class MissingDogPostForm(forms.ModelForm):
         model = MissingDogPost
         fields = [
             'dog_name',
+            'breed',
             'age',
             'description',
             'image',
             'date_lost',
             'time_lost',
             'location',
+            'reward',
             'contact_phone_number',
             'contact_facebook_url',
         ]
@@ -286,9 +304,10 @@ class MissingDogPostForm(forms.ModelForm):
                 "rows": 4,
                 "placeholder": "Include markings, collar color, and where last seen.",
             }),
-            "image": forms.ClearableFileInput(attrs={
+            "image": MultipleClearableFileInput(attrs={
                 "class": "form-control",
                 "accept": "image/*",
+                "multiple": True,
             }),
             "date_lost": forms.DateInput(attrs={
                 "class": "form-control",
@@ -298,9 +317,14 @@ class MissingDogPostForm(forms.ModelForm):
                 "class": "form-control",
                 "type": "time",
             }),
-            "location": forms.TextInput(attrs={
+            "location": forms.Select(attrs={
+                "class": "form-select",
+            }),
+            "reward": forms.NumberInput(attrs={
                 "class": "form-control",
-                "placeholder": "Exact location where the dog was last seen",
+                "placeholder": "0",
+                "min": 0,
+                "step": 1,
             }),
             "contact_phone_number": forms.TextInput(attrs={
                 "class": "form-control",
@@ -316,6 +340,19 @@ class MissingDogPostForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["age"].required = False
         self.fields["description"].required = False
+        self.fields["reward"].required = False
+
+        self.fields["breed"] = forms.ChoiceField(
+            choices=[("", "Select breed"), *Post.BREED_CHOICES],
+            required=True,
+            widget=forms.Select(attrs={"class": "form-select"}),
+        )
+
+        self.fields["location"] = forms.ChoiceField(
+            choices=[("", "Select barangay"), *BAYAWAN_BARANGAY_CHOICES],
+            required=True,
+            widget=forms.Select(attrs={"class": "form-select"}),
+        )
 
 
 class DogSightingForm(forms.ModelForm):

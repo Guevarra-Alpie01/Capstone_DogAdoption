@@ -447,6 +447,7 @@ class MissingDogPost(models.Model):
     image                = models.ImageField(upload_to='missing_dogs/')
     date_lost            = models.DateField()
     time_lost            = models.TimeField()
+    reward               = models.PositiveIntegerField(null=True, blank=True, default=0)
     contact_phone_number = models.CharField(max_length=20, blank=True)
     contact_facebook_url = models.URLField(blank=True)
 
@@ -512,6 +513,21 @@ class MissingDogPost(models.Model):
 
     def __str__(self):
         return f"{self.dog_name} ({self.display_breed or 'Unknown breed'}) - {self.status}"
+
+
+class MissingDogPhoto(models.Model):
+    """Extra photos for a missing-dog post. The main photo lives on MissingDogPost.image."""
+    post = models.ForeignKey(
+        MissingDogPost,
+        related_name='photos',
+        on_delete=models.CASCADE,
+    )
+    image = models.ImageField(upload_to='missing_dogs/')
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["post"], name="missingdog_photo_post_idx"),
+        ]
 
 
 class DogSighting(models.Model):

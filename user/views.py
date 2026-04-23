@@ -65,7 +65,7 @@ from dogadoption_admin.context_processors import ADMIN_NOTIFICATIONS_CACHE_KEY
 
 # Models from the user app
 from .models import Profile, DogCaptureRequest, DogCaptureRequestImage, DogCaptureRequestLandmarkImage, ClaimImage
-from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, MissingDogPost, DogSighting
+from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, MissingDogPost, MissingDogPhoto, DogSighting
 
 # Forms and notification helpers
 from .forms import DogSightingForm, MissingDogPostForm, RescueFinderForm, UserAdoptionPostForm
@@ -2934,6 +2934,18 @@ def _create_user_adoption_images(request, post):
         UserAdoptionImage.objects.create(post=post, image=img)
 
 
+def _save_missing_dog_photos(request, post):
+    """Store uploaded photos: first is the post's main image; the rest go to MissingDogPhoto."""
+    photos = request.FILES.getlist("missing-image")
+    if not photos:
+        return
+    if post.image != photos[0]:
+        post.image = photos[0]
+        post.save(update_fields=["image"])
+    for extra in photos[1:]:
+        MissingDogPhoto.objects.create(post=post, image=extra)
+
+
 def _build_user_adoption_post_form(*args, **kwargs):
     """Return the adoption-post form with a stable prefix for shared pages."""
     return UserAdoptionPostForm(*args, prefix="adoption", **kwargs)
@@ -2955,6 +2967,7 @@ def _handle_user_post_creation_submission(request, selected_type):
             post = missing_form.save(commit=False)
             post.owner = request.user
             post.save()
+            _save_missing_dog_photos(request, post)
             bump_user_home_feed_namespace()
             invalidate_user_notification_content()
             messages.success(request, "Missing dog post created successfully.")

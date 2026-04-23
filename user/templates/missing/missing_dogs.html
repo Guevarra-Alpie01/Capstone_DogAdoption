@@ -483,13 +483,6 @@
         box-shadow: 0 18px 40px rgba(10, 18, 30, 0.38);
     }
 
-    /* alerted state — gold glow ring */
-    .md-card.is-alerted {
-        box-shadow:
-            0 8px 28px rgba(10, 18, 30, 0.28),
-            0 0 0 3px rgba(251, 191, 36, 0.72);
-    }
-
     /* ── Dog photo — sits inside the white rectangle on the poster ── */
     .md-card-img-wrap {
         position: relative;
@@ -743,20 +736,6 @@
         background: rgba(220, 38, 38, 0.52);
         border-color: rgba(252, 165, 165, 0.55);
     }
-
-    /* alert btn */
-    .md-alert-btn.is-watching {
-        background: rgba(245, 158, 11, 0.45);
-        border-color: rgba(253, 230, 138, 0.6);
-    }
-
-    .md-alert-btn:hover {
-        background: rgba(245, 158, 11, 0.45);
-        border-color: rgba(253, 230, 138, 0.6);
-    }
-
-    .md-alert-btn.is-watching .md-alert-label::before { content: "Watching"; }
-    .md-alert-btn:not(.is-watching) .md-alert-label::before { content: "Alert Me"; }
 
     /* share btn */
     .md-share-btn:hover {
@@ -1110,12 +1089,7 @@
     .md-modal-btn:hover { transform: translateY(-1px); }
 
     .md-modal-btn--sighting:hover { background: #fff1f2; border-color: #fecaca; color: #c53030; }
-    .md-modal-btn--alert:hover    { background: #fffbeb; border-color: #fde68a; color: #d97706; }
-    .md-modal-btn--alert.is-watching { background: #fffbeb; border-color: #fcd34d; color: #b45309; }
     .md-modal-btn--share:hover    { background: #eff6ff; border-color: #bfdbfe; color: #2563eb; }
-
-    .md-modal-btn--alert.is-watching .md-modal-alert-label::before { content: "Watching"; }
-    .md-modal-btn--alert:not(.is-watching) .md-modal-alert-label::before { content: "Alert Me"; }
 
     .md-modal-thumb-strip {
         display: flex;
@@ -1381,16 +1355,6 @@
                     Report
                 </button>
 
-                <!-- Alert Me -->
-                <button type="button" class="md-card-btn md-alert-btn"
-                    data-action="alert"
-                    data-id="{{ post.pk }}"
-                    data-name="{{ post.dog_name }}"
-                    aria-label="Alert Me for {{ post.dog_name }}">
-                    <i class="bi bi-bell" aria-hidden="true"></i>
-                    <span class="md-alert-label"></span>
-                </button>
-
                 <!-- Share -->
                 <button type="button" class="md-card-btn md-share-btn js-open-share"
                     data-share-url="{{ request.build_absolute_uri }}?highlight={{ post.pk }}"
@@ -1578,11 +1542,6 @@
                     <i class="bi bi-flag-fill" aria-hidden="true"></i>
                     Report
                 </button>
-                <button type="button" class="md-modal-btn md-modal-btn--alert"
-                    id="mdModalAlertBtn" data-action="alert">
-                    <i class="bi bi-bell" aria-hidden="true"></i>
-                    <span class="md-modal-alert-label"></span>
-                </button>
                 <button type="button" class="md-modal-btn md-modal-btn--share js-open-share"
                     id="mdModalShareBtn"
                     data-share-url=""
@@ -1619,11 +1578,8 @@
         return SIGHTING_BASE.replace(/\/0\//, '/' + id + '/');
     }
 
-    /* ── Storage keys ── */
     var SIGHTINGS_KEY = 'md_sightings';
-    var WATCHLIST_KEY = 'md_watchlist';
 
-    /* ── Storage helpers ── */
     function getSightings() {
         try { return JSON.parse(localStorage.getItem(SIGHTINGS_KEY)) || {}; }
         catch (e) { return {}; }
@@ -1631,29 +1587,6 @@
 
     function saveSightings(obj) {
         try { localStorage.setItem(SIGHTINGS_KEY, JSON.stringify(obj)); } catch (e) {}
-    }
-
-    function getWatchlist() {
-        try { return JSON.parse(localStorage.getItem(WATCHLIST_KEY)) || []; }
-        catch (e) { return []; }
-    }
-
-    function saveWatchlist(arr) {
-        try { localStorage.setItem(WATCHLIST_KEY, JSON.stringify(arr)); } catch (e) {}
-    }
-
-    function isWatching(id) {
-        return getWatchlist().indexOf(String(id)) !== -1;
-    }
-
-    function toggleWatch(id) {
-        var list = getWatchlist();
-        var sid = String(id);
-        var idx = list.indexOf(sid);
-        if (idx === -1) { list.push(sid); }
-        else            { list.splice(idx, 1); }
-        saveWatchlist(list);
-        return idx === -1;
     }
 
     /* ── Toast ── */
@@ -1688,26 +1621,6 @@
         });
     }
 
-    /* ── Sync alert button states ── */
-    function syncAlertBtns() {
-        document.querySelectorAll('[data-action="alert"]').forEach(function (btn) {
-            var id = btn.dataset.id || activePost.id;
-            if (!id) return;
-            btn.classList.toggle('is-watching', isWatching(id));
-        });
-        var modalBtn = document.getElementById('mdModalAlertBtn');
-        if (modalBtn && activePost.id) {
-            modalBtn.classList.toggle('is-watching', isWatching(activePost.id));
-        }
-    }
-
-    /* ── Sync alerted card borders ── */
-    function syncCardAlerts() {
-        document.querySelectorAll('[data-card]').forEach(function (card) {
-            card.classList.toggle('is-alerted', isWatching(card.dataset.id));
-        });
-    }
-
     /* ── Active post for modal ── */
     var activePost = {};
 
@@ -1728,18 +1641,6 @@
         /* Logged-in: navigate to the real sighting form */
         window.location.href = sightingUrl(id);
     }
-
-    function doAlert(id, name) {
-        var added = toggleWatch(id);
-        syncAlertBtns();
-        syncCardAlerts();
-        if (added) {
-            showToast('Watching ' + name + '. You\'ll be alerted.', 'warn');
-        } else {
-            showToast('Removed ' + name + ' from your watchlist.');
-        }
-    }
-
 
     /* ── Modal ── */
     var overlay = document.getElementById('mdModalOverlay');
@@ -1867,17 +1768,12 @@
         }
 
         var sightingBtn = document.getElementById('mdModalSightingBtn');
-        var alertBtn    = document.getElementById('mdModalAlertBtn');
         var shareBtn    = document.getElementById('mdModalShareBtn');
         sightingBtn.dataset.id   = d.id;
         sightingBtn.dataset.name = d.name;
-        alertBtn.dataset.id      = d.id;
-        alertBtn.dataset.name    = d.name;
         shareBtn.setAttribute('data-share-url',   window.location.origin + window.location.pathname + '?highlight=' + d.id);
         shareBtn.setAttribute('data-share-title', d.name + ' — Missing Dog');
         shareBtn.setAttribute('data-share-text',  'Help find ' + d.name + '! Last seen at ' + (d.location || 'Bayawan City') + '.');
-
-        syncAlertBtns();
         overlay.classList.add('is-open');
         document.body.style.overflow = 'hidden';
     }
@@ -1908,7 +1804,6 @@
             var id     = actionBtn.dataset.id;
             var name   = actionBtn.dataset.name;
             if (action === 'sighting') { doSighting(id, name); return; }
-            if (action === 'alert')    { doAlert(id, name);    return; }
         }
 
         /* share buttons use the shared panel; do not also open post modal */
@@ -2002,8 +1897,6 @@
 
     /* ── Init ── */
     syncPills();
-    syncAlertBtns();
-    syncCardAlerts();
 
     /* Update sighting button labels for unauthenticated users */
     if (!IS_AUTH) {

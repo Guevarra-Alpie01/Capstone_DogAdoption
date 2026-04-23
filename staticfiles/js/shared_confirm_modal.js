@@ -13,7 +13,7 @@
         const defaultSubmitClass = confirmSubmitBtn.className || "btn btn-primary";
         const defaultTitle = confirmTitleEl ? confirmTitleEl.textContent : "Confirm Action";
         const defaultMessage = confirmMessageEl ? confirmMessageEl.textContent : "Please confirm to continue.";
-        const defaultSubmitLabel = confirmSubmitBtn.textContent || "OK";
+        const defaultSubmitLabel = confirmSubmitBtn.textContent || "Confirm";
         let pendingForm = null;
         let pendingButton = null;
         let pendingCallback = null;

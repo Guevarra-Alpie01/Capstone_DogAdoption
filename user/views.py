@@ -1970,22 +1970,11 @@ def _finder_highlight_open_graph(request):
     return {}
 
 
-def _missing_dog_highlight_open_graph(request):
+def _missing_dog_og_context_for_post(request, post):
     """
-    When ?highlight=<id> points at a missing-dog post, expose og:image and text for link
-    previews (Facebook, Messenger, etc.) — same idea as _finder_highlight_open_graph.
+    Open Graph (and Twitter) fields for a single missing-dog post.
+    og:url is the canonical per-post public page (shared links use this URL).
     """
-    raw = (request.GET.get("highlight") or "").strip()
-    if not raw.isdigit():
-        return {}
-    pk = int(raw)
-    post = MissingDogPost.objects.filter(
-        pk=pk, status__in=["missing", "found"]
-    ).first()
-    if not post:
-        return {}
-
-    og_url = request.build_absolute_uri(request.get_full_path())
     site = "Bayawan Vet"
     dog = (post.dog_name or "Dog").strip() or "Dog"
     loc = " ".join((post.location or "").split()) or "Bayawan City"
@@ -2003,12 +1992,39 @@ def _missing_dog_highlight_open_graph(request):
     else:
         og_image = request.build_absolute_uri(static("images/bayawan_logo.webp"))
 
+    og_url = request.build_absolute_uri(
+        reverse("user:missing_dog_public_detail", args=[post.pk])
+    )
     return {
         "missing_og_title": title,
         "missing_og_description": desc,
         "missing_og_image": og_image,
         "missing_og_url": og_url,
     }
+
+
+def _missing_dog_public_share_url(request, post_id):
+    """Absolute URL to the public one-post page (all share buttons use this)."""
+    return request.build_absolute_uri(
+        reverse("user:missing_dog_public_detail", args=[post_id])
+    )
+
+
+def _missing_dog_highlight_open_graph(request):
+    """
+    When ?highlight=<id> points at a missing-dog post, expose og:image and text for link
+    previews. Canonical og:url is the per-post public URL (not the list+querystring).
+    """
+    raw = (request.GET.get("highlight") or "").strip()
+    if not raw.isdigit():
+        return {}
+    pk = int(raw)
+    post = MissingDogPost.objects.filter(
+        pk=pk, status__in=["missing", "found"]
+    ).first()
+    if not post:
+        return {}
+    return _missing_dog_og_context_for_post(request, post)
 
 
 def _announcement_highlight_open_graph(request):
@@ -4030,6 +4046,7 @@ def _hydrate_home_feed_items(request, feed_rows):
                 default_profile_avatar_url,
             ),
             "author_profile_url": profile_url,
+            "share_url": _missing_dog_public_share_url(request, p.id),
         })
 
     return combined_posts
@@ -5670,6 +5687,29 @@ def missing_dogs_list(request):
     }
     context.update(_missing_dog_highlight_open_graph(request))
     return render(request, 'missing/missing_dogs.html', context)
+
+
+def missing_dog_public_detail(request, post_id):
+    """Single missing-dog post for sharing: canonical URL and Open Graph for social previews."""
+    post = get_object_or_404(
+        MissingDogPost.objects.select_related("owner")
+        .prefetch_related(
+            Prefetch(
+                "photos",
+                queryset=MissingDogPhoto.objects.only("id", "post_id", "image").order_by(
+                    "id"
+                ),
+            )
+        ),
+        pk=post_id,
+        status__in=["missing", "found"],
+    )
+    context = {
+        "post": post,
+        "page_title": f"{(post.dog_name or 'Dog').strip() or 'Dog'} — Missing · Bayawan Vet",
+    }
+    context.update(_missing_dog_og_context_for_post(request, post))
+    return render(request, "missing/missing_dog_public.html", context)
 
 
 # ── Sighting: submit form (login required) ────────────────────────────────────

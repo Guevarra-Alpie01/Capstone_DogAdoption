@@ -7,6 +7,9 @@
     --ann-primary: #0f172a;
     --ann-primary-soft: #e2e8f0;
     --ann-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+    /* Uniform image slots: thumbs (grids/previews) and main card media height */
+    --ann-image-thumb: 120px;
+    --ann-image-media-height: 240px;
 }
 
 .announcement-header.announcement-header-education {
@@ -1191,8 +1194,9 @@
 .simple-ann-preview {
     margin-top: 10px;
     display: none;
-    gap: 8px;
-    grid-template-columns: repeat(auto-fill, minmax(98px, 1fr));
+    gap: 10px;
+    grid-template-columns: repeat(auto-fill, var(--ann-image-thumb));
+    justify-content: start;
 }
 
 .simple-ann-preview.has-items {
@@ -1201,6 +1205,8 @@
 
 .simple-ann-preview-item {
     position: relative;
+    width: var(--ann-image-thumb);
+    height: var(--ann-image-thumb);
     border: 1px solid #dbe3ed;
     border-radius: 8px;
     overflow: hidden;
@@ -1209,8 +1215,9 @@
 
 .simple-ann-preview-item img {
     width: 100%;
-    height: 92px;
+    height: 100%;
     object-fit: cover;
+    object-position: center;
     display: block;
 }
 
@@ -1477,8 +1484,8 @@
 
 .wiki-image-preview-item {
     position: relative;
-    width: 88px;
-    height: 88px;
+    width: var(--ann-image-thumb);
+    height: var(--ann-image-thumb);
     border: 1px solid #c8ccd1;
     border-radius: 4px;
     overflow: hidden;
@@ -1948,18 +1955,19 @@
     background: #cfd7e1;
     border: 1px solid #c8d3e0;
     border-radius: 8px;
-    height: 240px;
+    height: var(--ann-image-media-height);
     overflow: hidden;
 }
 
 .post-image {
-    width: auto;
-    max-width: 100%;
+    width: 100%;
     height: 100%;
+    max-width: none;
     border-radius: 0;
     border: 0;
     background: transparent;
     object-fit: cover;
+    object-position: center;
     cursor: zoom-in;
 }
 
@@ -2002,14 +2010,16 @@
 .post-image-grid {
     margin-top: 8px;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(auto-fill, var(--ann-image-thumb));
+    gap: 10px;
+    justify-content: start;
 }
 
 .post-image-grid .post-image-thumb {
-    width: 100%;
-    height: 96px;
+    width: var(--ann-image-thumb);
+    height: var(--ann-image-thumb);
     object-fit: cover;
+    object-position: center;
     border: 1px solid #cedcf3;
     border-radius: 10px;
     background: #e2e8f0;

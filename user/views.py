@@ -5561,6 +5561,7 @@ def user_adoption_history(request):
 
 def missing_dogs_list(request):
     """Browse approved missing-dog posts with name/barangay/breed/urgency filters."""
+    # select_related('owner') avoids N+1 on {{ post.owner.get_full_name }} in the card template.
     qs = MissingDogPost.objects.filter(status__in=['missing', 'found']).select_related('owner')
 
     dog_name_q = request.GET.get('dog_name', '').strip()
@@ -5588,19 +5589,17 @@ def missing_dogs_list(request):
     if urgency not in {'all', 'urgent'}:
         urgency = 'all'
     if urgency == 'urgent':
-        cutoff = timezone.now() - timedelta(hours=48)
-        tz = timezone.get_current_timezone()
-        urgent_ids = []
-        # Use a separate, plain queryset (no select_related) so .only() works cleanly
-        for post in MissingDogPost.objects.filter(
-            id__in=qs.values_list('id', flat=True)
-        ).only('id', 'date_lost', 'time_lost'):
-            lost_at = datetime.combine(post.date_lost, post.time_lost)
-            if timezone.is_aware(cutoff):
-                lost_at = timezone.make_aware(lost_at, tz)
-            if lost_at >= cutoff:
-                urgent_ids.append(post.id)
-        qs = qs.filter(id__in=urgent_ids)
+        # Pure-SQL equivalent of the prior Python loop: a post is urgent when its
+        # (date_lost, time_lost) combined timestamp is within the last 48h. Pushing
+        # this into the DB avoids materialising every candidate row in Python
+        # (previously an O(N) loop + extra id__in round-trip).
+        cutoff_local = timezone.localtime(timezone.now() - timedelta(hours=48))
+        cutoff_date = cutoff_local.date()
+        cutoff_time = cutoff_local.time()
+        qs = qs.filter(
+            Q(date_lost__gt=cutoff_date) |
+            Q(date_lost=cutoff_date, time_lost__gte=cutoff_time)
+        )
 
     sort = request.GET.get('sort', 'newest')
     if sort == 'oldest':

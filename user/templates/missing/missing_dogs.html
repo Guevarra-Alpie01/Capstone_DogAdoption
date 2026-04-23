@@ -1,7 +1,28 @@
 {% extends 'base.html' %}
 {% load static humanize %}
 
-{% block page_title %}Missing Dogs · Bayawan Vet{% endblock %}
+{% block page_title %}{% if missing_og_title %}{{ missing_og_title }}{% else %}Missing Dogs · Bayawan Vet{% endif %}{% endblock %}
+
+{% block og_meta %}
+{% if missing_og_title %}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Bayawan Vet">
+<meta property="og:title" content="{{ missing_og_title }}">
+<meta property="og:description" content="{{ missing_og_description }}">
+<meta property="og:url" content="{{ missing_og_url }}">
+{% if missing_og_image %}
+<meta property="og:image" content="{{ missing_og_image }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ missing_og_title }}">
+<meta name="twitter:description" content="{{ missing_og_description }}">
+{% if missing_og_image %}
+<meta name="twitter:image" content="{{ missing_og_image }}">
+{% endif %}
+{% endif %}
+{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/share_panel.css' %}">

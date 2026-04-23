@@ -1970,6 +1970,47 @@ def _finder_highlight_open_graph(request):
     return {}
 
 
+def _missing_dog_highlight_open_graph(request):
+    """
+    When ?highlight=<id> points at a missing-dog post, expose og:image and text for link
+    previews (Facebook, Messenger, etc.) — same idea as _finder_highlight_open_graph.
+    """
+    raw = (request.GET.get("highlight") or "").strip()
+    if not raw.isdigit():
+        return {}
+    pk = int(raw)
+    post = MissingDogPost.objects.filter(
+        pk=pk, status__in=["missing", "found"]
+    ).first()
+    if not post:
+        return {}
+
+    og_url = request.build_absolute_uri(request.get_full_path())
+    site = "Bayawan Vet"
+    dog = (post.dog_name or "Dog").strip() or "Dog"
+    loc = " ".join((post.location or "").split()) or "Bayawan City"
+    breed = (post.display_breed or "").strip()
+    if breed:
+        title = f"{dog} — Missing ({breed}) | {site}"
+    else:
+        title = f"{dog} — Missing Dog | {site}"
+    desc = f"Help find {dog}. Last seen near {loc}. Report a sighting on Bayawan Vet."
+    if len(desc) > 300:
+        desc = f"{desc[:297].rstrip()}..."
+
+    if post.image:
+        og_image = _absolute_uri_for_og(request, post.image.url)
+    else:
+        og_image = request.build_absolute_uri(static("images/bayawan_logo.webp"))
+
+    return {
+        "missing_og_title": title,
+        "missing_og_description": desc,
+        "missing_og_image": og_image,
+        "missing_og_url": og_url,
+    }
+
+
 def _announcement_highlight_open_graph(request):
     """Open Graph tags when ?highlight=<id> targets a specific announcement card."""
     raw = (request.GET.get("highlight") or "").strip()
@@ -5627,6 +5668,7 @@ def missing_dogs_list(request):
         'sort': sort,
         'total': paginator.count,
     }
+    context.update(_missing_dog_highlight_open_graph(request))
     return render(request, 'missing/missing_dogs.html', context)
 
 

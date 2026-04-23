@@ -446,8 +446,6 @@
     const lightboxClose = lightbox?.querySelector('.finder-lightbox__close');
     const zoomTriggers = document.querySelectorAll('.js-finder-zoom');
     const infoToggleButtons = document.querySelectorAll('[data-finder-info-toggle]');
-    const shareButtons = document.querySelectorAll('[data-finder-share]');
-    const shareStatus = document.getElementById('finderShareStatus');
     const paginationShell = document.querySelector('[data-finder-pagination]');
     const paginationToggle = paginationShell?.querySelector('[data-finder-pagination-toggle]');
     const paginationPanel = paginationShell?.querySelector('[data-finder-pagination-panel]');
@@ -872,14 +870,6 @@
         applyPaginationPreference();
     });
 
-    function announceShareStatus(message) {
-        if (!shareStatus) return;
-        shareStatus.textContent = '';
-        window.setTimeout(() => {
-            shareStatus.textContent = message;
-        }, 20);
-    }
-
     function setInfoExpanded(toggleButton, shouldExpand) {
         if (!toggleButton) return;
         const panelId = toggleButton.getAttribute('aria-controls') || '';
@@ -921,91 +911,11 @@
         }
     }
 
-    function setShareFeedback(button, message) {
-        if (!button) return;
-        const label = button.querySelector('[data-finder-share-label]');
-        const originalLabel = button.getAttribute('data-original-label') || (label ? label.textContent : 'Share');
-
-        if (!button.hasAttribute('data-original-label')) {
-            button.setAttribute('data-original-label', originalLabel);
-        }
-
-        if (label) {
-            label.textContent = message;
-        }
-
-        button.classList.add('is-shared');
-
-        if (button.dataset.shareTimerId) {
-            window.clearTimeout(Number(button.dataset.shareTimerId));
-        }
-
-        button.dataset.shareTimerId = String(window.setTimeout(() => {
-            if (label) {
-                label.textContent = originalLabel;
-            }
-            button.classList.remove('is-shared');
-            delete button.dataset.shareTimerId;
-        }, 1800));
-    }
-
-    async function shareFinderCard(button) {
-        const rawUrl = button.getAttribute('data-share-url') || window.location.pathname;
-        const shareUrl = new URL(rawUrl, window.location.origin).href;
-        const shareTitle = button.getAttribute('data-share-title') || 'Bayawan Vet dog listing';
-        const shareText = button.getAttribute('data-share-text') || `See ${shareTitle} on Bayawan Vet.`;
-
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: shareTitle,
-                    text: shareText,
-                    url: shareUrl,
-                });
-                setShareFeedback(button, 'Shared');
-                announceShareStatus('Share sheet opened.');
-                return;
-            } catch (error) {
-                if (error && error.name === 'AbortError') {
-                    return;
-                }
-            }
-        }
-
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            try {
-                await navigator.clipboard.writeText(shareUrl);
-                setShareFeedback(button, 'Link Copied');
-                announceShareStatus('Dog link copied to clipboard.');
-                return;
-            } catch (error) {
-                // Fall back to a share window if clipboard is unavailable.
-            }
-        }
-
-        const shareWindow = window.open(
-            `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
-            '_blank',
-            'noopener,noreferrer'
-        );
-
-        if (shareWindow) {
-            setShareFeedback(button, 'Sharing');
-            announceShareStatus('Social share opened in a new tab.');
-        }
-    }
-
     infoToggleButtons.forEach((button) => {
         setInfoExpanded(button, false);
         button.addEventListener('click', () => {
             const isExpanded = button.getAttribute('aria-expanded') === 'true';
             setInfoExpanded(button, !isExpanded);
-        });
-    });
-
-    shareButtons.forEach((button) => {
-        button.addEventListener('click', () => {
-            shareFinderCard(button);
         });
     });
 

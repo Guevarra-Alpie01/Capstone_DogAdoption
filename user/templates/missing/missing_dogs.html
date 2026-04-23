@@ -3,6 +3,10 @@
 
 {% block page_title %}Missing Dogs · Bayawan Vet{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/share_panel.css' %}">
+{% endblock %}
+
 {% block content %}
 <style>
     /* ── Shell ── */
@@ -68,20 +72,66 @@
     /* ── Controls bar ── */
     .md-controls {
         display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    /* Top row: search input centred + filter toggle */
+    .md-controls-top {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    /* Filter panel row — hidden by default, shown when toggled */
+    .md-filter-panel {
+        display: flex;
         align-items: center;
         gap: 12px;
         flex-wrap: wrap;
+        justify-content: center;
     }
+
+    .md-filter-panel[hidden] { display: none; }
+
+    /* Filter toggle button */
+    .md-filter-toggle-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        color: #14233b;
+        font-size: 0.88rem;
+        font-weight: 700;
+        cursor: pointer;
+        white-space: nowrap;
+        box-shadow: 0 4px 12px rgba(20, 35, 59, 0.05);
+        transition: border-color 0.15s ease, background 0.15s ease;
+        flex-shrink: 0;
+    }
+
+    .md-filter-toggle-btn:hover,
+    .md-filter-toggle-btn[aria-expanded="true"] {
+        border-color: #c53030;
+        background: #fef2f2;
+        color: #c53030;
+    }
+
+    .md-filter-toggle-btn i { font-size: 0.9rem; }
 
     .md-search-wrap {
         position: relative;
         flex: 1;
         min-width: 200px;
-        max-width: 360px;
+        max-width: 380px;
     }
 
     .md-search-wrap--name {
-        max-width: 300px;
+        max-width: 340px;
     }
 
     .md-search-icon {
@@ -767,12 +817,13 @@
     @media (max-width: 767.98px) {
         .md-hero { padding: 18px; }
 
-        .md-controls { flex-direction: column; align-items: stretch; }
+        .md-controls-top { flex-direction: row; }
         .md-search-wrap { max-width: 100%; }
+        .md-filter-panel { flex-direction: column; align-items: stretch; }
         .md-sort-wrap { justify-content: space-between; }
         .md-controls-form-btn { width: 100%; justify-content: center; }
 
-        .md-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+        .md-grid { grid-template-columns: 1fr; gap: 14px; }
 
         .md-modal { border-radius: 20px; }
         .md-modal-detail-grid { grid-template-columns: 1fr; }
@@ -780,8 +831,9 @@
     }
 
     @media (max-width: 479.98px) {
-        .md-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
-        .md-card-body { padding: 10px 12px 0; }
+        .md-grid { grid-template-columns: 1fr; gap: 12px; }
+        .md-card-img-frame { height: 200px; width: 100%; }
+        .md-card-img-wrap { padding: 28% 10% 6%; }
         .md-card-footer { padding: 8px 10px 11px; gap: 5px; }
         .md-card-btn { font-size: 0.72rem; padding: 8px 0; }
         .md-modal-actions { flex-direction: column; }
@@ -816,62 +868,79 @@
 
     <!-- Controls -->
     <form method="get" class="md-controls" id="mdControlsForm">
-        <div class="md-search-wrap md-search-wrap--name">
-            <i class="bi bi-search md-search-icon" aria-hidden="true"></i>
-            <input
-                type="text"
-                name="dog_name"
-                value="{{ dog_name_q }}"
-                placeholder="Search dog name..."
-                class="md-search-input"
-                aria-label="Search by dog name"
-                autocomplete="off"
-                id="mdDogNameInput"
-            >
+
+        <!-- Top row: search centered + filter toggle -->
+        <div class="md-controls-top">
+            <div class="md-search-wrap md-search-wrap--name">
+                <i class="bi bi-search md-search-icon" aria-hidden="true"></i>
+                <input
+                    type="text"
+                    name="dog_name"
+                    value="{{ dog_name_q }}"
+                    placeholder="Search dog name..."
+                    class="md-search-input"
+                    aria-label="Search by dog name"
+                    autocomplete="off"
+                    id="mdDogNameInput"
+                >
+            </div>
+
+            <button type="button" class="md-filter-toggle-btn" id="mdFilterToggle"
+                aria-expanded="{% if barangay_q or breed != 'all' or urgency != 'all' or sort != 'newest' %}true{% else %}false{% endif %}"
+                aria-controls="mdFilterPanel">
+                <i class="bi bi-sliders" aria-hidden="true"></i>
+                Filters
+            </button>
         </div>
 
-        <div class="md-sort-wrap">
-            <label class="md-sort-label" for="mdBarangaySelect">Barangay</label>
-            <select name="barangay" id="mdBarangaySelect" class="md-sort-select" aria-label="Filter by barangay">
-                <option value="">All barangays</option>
-                {% for barangay_name in barangay_choices %}
-                <option value="{{ barangay_name }}" {% if barangay_q == barangay_name %}selected{% endif %}>{{ barangay_name }}</option>
-                {% endfor %}
-            </select>
+        <!-- Filter panel — toggleable -->
+        <div class="md-filter-panel" id="mdFilterPanel"
+            {% if not barangay_q and breed == 'all' and urgency == 'all' and sort == 'newest' %}hidden{% endif %}>
+
+            <div class="md-sort-wrap">
+                <label class="md-sort-label" for="mdBarangaySelect">Barangay</label>
+                <select name="barangay" id="mdBarangaySelect" class="md-sort-select" aria-label="Filter by barangay">
+                    <option value="">All barangays</option>
+                    {% for barangay_name in barangay_choices %}
+                    <option value="{{ barangay_name }}" {% if barangay_q == barangay_name %}selected{% endif %}>{{ barangay_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="md-sort-wrap">
+                <label class="md-sort-label" for="mdBreedSelect">Breed</label>
+                <select name="breed" id="mdBreedSelect" class="md-sort-select" aria-label="Filter by breed">
+                    <option value="all" {% if breed == 'all' %}selected{% endif %}>All breeds</option>
+                    {% for breed_value, breed_label in breed_choices %}
+                    <option value="{{ breed_value }}" {% if breed == breed_value %}selected{% endif %}>{{ breed_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="md-sort-wrap">
+                <label class="md-sort-label" for="mdUrgencySelect">Urgency</label>
+                <select name="urgency" id="mdUrgencySelect" class="md-sort-select" aria-label="Filter by urgency">
+                    <option value="all" {% if urgency == 'all' %}selected{% endif %}>All</option>
+                    <option value="urgent" {% if urgency == 'urgent' %}selected{% endif %}>Urgent (&lt;48hrs)</option>
+                </select>
+            </div>
+
+            <div class="md-sort-wrap">
+                <label class="md-sort-label" for="mdSortSelect">Sort by</label>
+                <select name="sort" id="mdSortSelect" class="md-sort-select" aria-label="Sort by date missing">
+                    <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest missing</option>
+                    <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>Oldest missing</option>
+                </select>
+            </div>
+
+            <button type="submit" class="md-controls-form-btn">
+                <i class="bi bi-funnel-fill" aria-hidden="true"></i>
+                Apply
+            </button>
+
+            <a href="{% url 'user:missing_dogs_list' %}" class="md-clear-link">Clear all</a>
         </div>
 
-        <div class="md-sort-wrap">
-            <label class="md-sort-label" for="mdBreedSelect">Breed</label>
-            <select name="breed" id="mdBreedSelect" class="md-sort-select" aria-label="Filter by breed">
-                <option value="all" {% if breed == 'all' %}selected{% endif %}>All breeds</option>
-                {% for breed_value, breed_label in breed_choices %}
-                <option value="{{ breed_value }}" {% if breed == breed_value %}selected{% endif %}>{{ breed_label }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div class="md-sort-wrap">
-            <label class="md-sort-label" for="mdUrgencySelect">Urgency</label>
-            <select name="urgency" id="mdUrgencySelect" class="md-sort-select" aria-label="Filter by urgency">
-                <option value="all" {% if urgency == 'all' %}selected{% endif %}>All</option>
-                <option value="urgent" {% if urgency == 'urgent' %}selected{% endif %}>Urgent (&lt;48hrs)</option>
-            </select>
-        </div>
-
-        <div class="md-sort-wrap">
-            <label class="md-sort-label" for="mdSortSelect">Sort by</label>
-            <select name="sort" id="mdSortSelect" class="md-sort-select" aria-label="Sort by date missing">
-                <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest missing</option>
-                <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>Oldest missing</option>
-            </select>
-        </div>
-
-        <button type="submit" class="md-controls-form-btn">
-            <i class="bi bi-funnel-fill" aria-hidden="true"></i>
-            Filter
-        </button>
-
-        <a href="{% url 'user:missing_dogs_list' %}" class="md-clear-link">Clear all</a>
     </form>
 
     <!-- Grid -->
@@ -953,10 +1022,10 @@
                 </button>
 
                 <!-- Share -->
-                <button type="button" class="md-card-btn md-share-btn"
-                    data-action="share"
-                    data-id="{{ post.pk }}"
-                    data-name="{{ post.dog_name }}"
+                <button type="button" class="md-card-btn md-share-btn js-open-share"
+                    data-share-url="{{ request.build_absolute_uri }}?highlight={{ post.pk }}"
+                    data-share-title="{{ post.dog_name }} — Missing Dog"
+                    data-share-text="Help find {{ post.dog_name }}! Last seen at {{ post.location }}."
                     aria-label="Share {{ post.dog_name }}">
                     <i class="bi bi-share" aria-hidden="true"></i>
                     Share
@@ -1105,8 +1174,12 @@
                     <i class="bi bi-bell" aria-hidden="true"></i>
                     <span class="md-modal-alert-label"></span>
                 </button>
-                <button type="button" class="md-modal-btn md-modal-btn--share"
-                    id="mdModalShareBtn" data-action="share">
+                <button type="button" class="md-modal-btn md-modal-btn--share js-open-share"
+                    id="mdModalShareBtn"
+                    data-share-url=""
+                    data-share-title=""
+                    data-share-text=""
+                    aria-label="Share this dog">
                     <i class="bi bi-share" aria-hidden="true"></i>
                     Share
                 </button>
@@ -1258,34 +1331,6 @@
         }
     }
 
-    function doShare(id, name) {
-        var url = window.location.origin + window.location.pathname + '?highlight=' + id;
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(url).then(function () {
-                showToast('Link copied to clipboard!', 'info');
-            }).catch(function () {
-                fallbackCopy(url, name);
-            });
-        } else {
-            fallbackCopy(url, name);
-        }
-    }
-
-    function fallbackCopy(url, name) {
-        var ta = document.createElement('textarea');
-        ta.value = url;
-        ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
-        document.body.appendChild(ta);
-        ta.focus();
-        ta.select();
-        try {
-            document.execCommand('copy');
-            showToast('Link copied to clipboard!', 'info');
-        } catch (e) {
-            showToast('Copy this link: ' + url, 'info');
-        }
-        document.body.removeChild(ta);
-    }
 
     /* ── Modal ── */
     var overlay = document.getElementById('mdModalOverlay');
@@ -1380,8 +1425,10 @@
         sightingBtn.dataset.name = d.name;
         alertBtn.dataset.id      = d.id;
         alertBtn.dataset.name    = d.name;
-        shareBtn.dataset.id      = d.id;
-        shareBtn.dataset.name    = d.name;
+        /* set share metadata so shared finder/adopt/redeem share handlers can reuse it */
+        shareBtn.setAttribute('data-share-url', window.location.origin + window.location.pathname + '?highlight=' + d.id);
+        shareBtn.setAttribute('data-share-title', d.name + ' — Missing Dog');
+        shareBtn.setAttribute('data-share-text', 'Help find ' + d.name + '! Last seen at ' + (d.location || 'Bayawan City') + '.');
 
         syncAlertBtns();
 
@@ -1416,13 +1463,29 @@
             var name   = actionBtn.dataset.name;
             if (action === 'sighting') { doSighting(id, name); return; }
             if (action === 'alert')    { doAlert(id, name);    return; }
-            if (action === 'share')    { doShare(id, name);    return; }
         }
+
+        /* share buttons use the shared panel; do not also open post modal */
+        var shareBtn = e.target.closest('.js-open-share');
+        if (shareBtn) { return; }
 
         /* open modal on card click */
         var card = e.target.closest('[data-card]');
         if (card) { openModal(card); }
     });
+
+    /* ── Filter panel toggle ── */
+    (function () {
+        var toggleBtn = document.getElementById('mdFilterToggle');
+        var panel     = document.getElementById('mdFilterPanel');
+        if (!toggleBtn || !panel) return;
+
+        toggleBtn.addEventListener('click', function () {
+            var isOpen = panel.hidden === false;
+            panel.hidden = isOpen;
+            toggleBtn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+        });
+    })();
 
     /* ── Auto-submit dropdown filters when changed ── */
     ['mdSortSelect', 'mdBreedSelect', 'mdUrgencySelect', 'mdBarangaySelect'].forEach(function (id) {
@@ -1456,5 +1519,7 @@
 
 })();
 </script>
+
+{% include 'home/_feed_enhancements.html' %}
 
 {% endblock %}

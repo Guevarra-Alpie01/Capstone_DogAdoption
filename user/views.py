@@ -5699,21 +5699,23 @@ def sighting_action(request, sighting_id):
     elif action == 'reject':
         sighting.status = 'rejected'
         sighting.save(update_fields=['status'])
-        # Roll back counter if we're un-verifying
+        # Roll back counter if we're un-verifying; guard against going below 0
         if old_status == 'verified':
-            UserProfile.objects.filter(user=sighting.reporter).update(
-                verified_sightings=F('verified_sightings') - 1
-            )
+            UserProfile.objects.filter(
+                user=sighting.reporter,
+                verified_sightings__gt=0,
+            ).update(verified_sightings=F('verified_sightings') - 1)
         messages.success(request, 'Sighting rejected.')
 
     elif action == 'ignore':
         sighting.status = 'pending'
         sighting.save(update_fields=['status'])
-        # Roll back counter if we're un-verifying
+        # Roll back counter if we're un-verifying; guard against going below 0
         if old_status == 'verified':
-            UserProfile.objects.filter(user=sighting.reporter).update(
-                verified_sightings=F('verified_sightings') - 1
-            )
+            UserProfile.objects.filter(
+                user=sighting.reporter,
+                verified_sightings__gt=0,
+            ).update(verified_sightings=F('verified_sightings') - 1)
         messages.success(request, 'Sighting reset to pending.')
 
     else:

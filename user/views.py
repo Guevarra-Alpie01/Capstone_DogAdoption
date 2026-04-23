@@ -5561,8 +5561,12 @@ def user_adoption_history(request):
 
 def missing_dogs_list(request):
     """Browse approved missing-dog posts with name/barangay/breed/urgency filters."""
-    # select_related('owner') avoids N+1 on {{ post.owner.get_full_name }} in the card template.
-    qs = MissingDogPost.objects.filter(status__in=['missing', 'found']).select_related('owner')
+    # select_related('owner') + prefetch extra photos (modal gallery) without N+1.
+    qs = (
+        MissingDogPost.objects.filter(status__in=['missing', 'found'])
+        .select_related('owner')
+        .prefetch_related('photos')
+    )
 
     dog_name_q = request.GET.get('dog_name', '').strip()
     if dog_name_q:

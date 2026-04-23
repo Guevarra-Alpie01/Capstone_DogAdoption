@@ -191,40 +191,68 @@
 
     /* ── Card ── */
     .md-card {
+        position: relative;
         display: flex;
         flex-direction: column;
         border-radius: 22px;
-        border: 1px solid #e8ecf2;
-        background: #ffffff;
-        box-shadow:
-            0 4px 18px rgba(20, 35, 59, 0.05),
-            inset 0 1px 0 rgba(255, 255, 255, 0.9);
         overflow: hidden;
-        transition: transform 0.18s ease, box-shadow 0.18s ease;
         cursor: pointer;
+        /* background image fills the whole card */
+        background-image: url("{% static 'images/onepiecebackground.png' %}");
+        background-size: cover;
+        background-position: center top;
+        box-shadow: 0 8px 28px rgba(10, 18, 30, 0.28);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+        min-height: 340px;
+        border: none;
+    }
+
+    /* Dark gradient overlay so text is always readable */
+    .md-card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+            160deg,
+            rgba(8, 14, 26, 0.30) 0%,
+            rgba(8, 14, 26, 0.55) 42%,
+            rgba(8, 14, 26, 0.82) 100%
+        );
+        z-index: 0;
+        border-radius: inherit;
     }
 
     .md-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 14px 32px rgba(20, 35, 59, 0.1);
+        transform: translateY(-3px);
+        box-shadow: 0 18px 40px rgba(10, 18, 30, 0.38);
     }
 
-    /* alerted state */
+    /* alerted state — gold glow ring */
     .md-card.is-alerted {
-        border-color: #fde68a;
         box-shadow:
-            0 4px 18px rgba(20, 35, 59, 0.05),
-            0 0 0 2px rgba(245, 158, 11, 0.28),
-            inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            0 8px 28px rgba(10, 18, 30, 0.28),
+            0 0 0 3px rgba(251, 191, 36, 0.72);
     }
 
+    /* ── Dog photo in circular frame (replaces the old img-wrap) ── */
     .md-card-img-wrap {
         position: relative;
-        width: 100%;
-        aspect-ratio: 4/3;
-        overflow: hidden;
-        background: #f1f5f9;
+        z-index: 1;
+        display: flex;
+        justify-content: center;
+        padding-top: 22px;
         flex-shrink: 0;
+    }
+
+    .md-card-img-frame {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        border: 3px solid rgba(255, 255, 255, 0.85);
+        overflow: hidden;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.38);
+        flex-shrink: 0;
+        background: rgba(255, 255, 255, 0.12);
     }
 
     .md-card-img {
@@ -236,7 +264,7 @@
         transition: transform 0.3s ease;
     }
 
-    .md-card:hover .md-card-img { transform: scale(1.03); }
+    .md-card:hover .md-card-img { transform: scale(1.06); }
 
     .md-card-img-placeholder {
         width: 100%;
@@ -244,21 +272,22 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #cbd5e1;
-        font-size: 2.4rem;
+        color: rgba(255, 255, 255, 0.55);
+        font-size: 2rem;
     }
 
-    /* Status badge */
+    /* Status badge — top-left corner of card */
     .md-badge {
         position: absolute;
-        top: 10px;
-        left: 10px;
+        top: 12px;
+        left: 12px;
+        z-index: 2;
         display: inline-flex;
         align-items: center;
         gap: 5px;
         padding: 4px 10px;
         border-radius: 999px;
-        font-size: 0.72rem;
+        font-size: 0.7rem;
         font-weight: 800;
         letter-spacing: 0.04em;
         text-transform: uppercase;
@@ -277,11 +306,12 @@
         opacity: 0.85;
     }
 
-    /* Sighting counter pill on image */
+    /* Sighting counter pill — top-right of card */
     .md-sighting-pill {
         position: absolute;
-        top: 10px;
-        right: 10px;
+        top: 12px;
+        right: 12px;
+        z-index: 2;
         display: inline-flex;
         align-items: center;
         gap: 4px;
@@ -304,45 +334,54 @@
         background: rgba(197, 48, 48, 0.82);
     }
 
-    /* Card body */
+    /* Card body — text overlaid on the image */
     .md-card-body {
-        padding: 14px 16px 0;
+        position: relative;
+        z-index: 1;
         flex: 1;
         display: flex;
         flex-direction: column;
+        align-items: center;
         gap: 4px;
+        padding: 12px 16px 4px;
+        text-align: center;
     }
 
     .md-card-name {
         margin: 0;
-        font-size: 1.06rem;
+        font-size: 1.12rem;
         font-weight: 900;
-        color: #14233b;
-        letter-spacing: -0.02em;
+        color: #ffffff;
+        letter-spacing: -0.01em;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        width: 100%;
     }
 
     .md-card-meta {
         display: flex;
         flex-direction: column;
         gap: 3px;
+        width: 100%;
     }
 
     .md-card-meta-row {
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 5px;
-        font-size: 0.8rem;
-        color: #64748b;
+        font-size: 0.78rem;
+        color: rgba(255, 255, 255, 0.88);
         min-width: 0;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
     }
 
     .md-card-meta-row i {
         flex-shrink: 0;
-        font-size: 0.78rem;
-        color: #94a3b8;
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.65);
     }
 
     .md-card-meta-row span {
@@ -355,62 +394,70 @@
         margin-top: 6px;
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 5px;
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         font-weight: 700;
-        color: #94a3b8;
+        color: rgba(253, 224, 144, 0.95);
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
     }
 
-    .md-card-date-lost i { font-size: 0.72rem; }
+    .md-card-date-lost i { font-size: 0.7rem; }
 
-    /* Card footer – 3-button row */
+    /* Card footer – 3-button row over the background */
     .md-card-footer {
-        padding: 10px 14px 13px;
+        position: relative;
+        z-index: 1;
+        padding: 10px 12px 14px;
         display: flex;
-        gap: 7px;
+        gap: 6px;
     }
 
-    /* shared card button base */
+    /* shared card button base — glass style over the bg image */
     .md-card-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 5px;
-        padding: 9px 0;
+        padding: 8px 0;
         border-radius: 12px;
-        border: 1.5px solid #e2e8f0;
-        background: #f8fafc;
-        color: #475569;
-        font-size: 0.8rem;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        color: #ffffff;
+        font-size: 0.76rem;
         font-weight: 800;
         cursor: pointer;
-        transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, transform 0.14s ease;
+        transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
         white-space: nowrap;
         flex: 1;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.35);
     }
 
-    .md-card-btn i { font-size: 0.84rem; }
+    .md-card-btn i { font-size: 0.82rem; }
+
+    .md-card-btn:hover {
+        background: rgba(255, 255, 255, 0.28);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-1px);
+    }
 
     /* sighting btn */
     .md-sighting-btn:hover {
-        background: #fff1f2;
-        border-color: #fecaca;
-        color: #c53030;
-        transform: translateY(-1px);
+        background: rgba(220, 38, 38, 0.52);
+        border-color: rgba(252, 165, 165, 0.55);
     }
 
     /* alert btn */
-    .md-alert-btn:hover {
-        background: #fffbeb;
-        border-color: #fde68a;
-        color: #d97706;
-        transform: translateY(-1px);
+    .md-alert-btn.is-watching {
+        background: rgba(245, 158, 11, 0.45);
+        border-color: rgba(253, 230, 138, 0.6);
     }
 
-    .md-alert-btn.is-watching {
-        background: #fffbeb;
-        border-color: #fcd34d;
-        color: #b45309;
+    .md-alert-btn:hover {
+        background: rgba(245, 158, 11, 0.45);
+        border-color: rgba(253, 230, 138, 0.6);
     }
 
     .md-alert-btn.is-watching .md-alert-label::before { content: "Watching"; }
@@ -418,10 +465,8 @@
 
     /* share btn */
     .md-share-btn:hover {
-        background: #eff6ff;
-        border-color: #bfdbfe;
-        color: #2563eb;
-        transform: translateY(-1px);
+        background: rgba(37, 99, 235, 0.42);
+        border-color: rgba(147, 197, 253, 0.55);
     }
 
     /* ── Toast ── */
@@ -864,31 +909,35 @@
             data-owner="{{ post.owner.get_full_name|default:post.owner.username }}"
             data-created="{{ post.created_at|date:'M d, Y' }}"
         >
+            <!-- Status badge — absolute top-left of card -->
+            <span class="md-badge {% if post.status == 'found' %}md-badge--found{% else %}md-badge--missing{% endif %}" aria-label="Status: {{ post.get_status_display }}">
+                <span class="md-badge__dot" aria-hidden="true"></span>
+                {{ post.get_status_display }}
+            </span>
+
+            <!-- Sighting counter pill — absolute top-right of card -->
+            <span class="md-sighting-pill" data-sighting-pill data-id="{{ post.pk }}" aria-label="Sightings reported">
+                <i class="bi bi-eye-fill" aria-hidden="true"></i>
+                <span data-sighting-count>0</span>
+            </span>
+
+            <!-- Dog photo in circular frame -->
             <div class="md-card-img-wrap">
-                {% if post.image %}
-                <img
-                    src="{{ post.image.url }}"
-                    alt="{{ post.dog_name }}"
-                    class="md-card-img"
-                    loading="lazy"
-                    decoding="async"
-                >
-                {% else %}
-                <div class="md-card-img-placeholder" aria-hidden="true">
-                    <i class="bi bi-image"></i>
+                <div class="md-card-img-frame">
+                    {% if post.image %}
+                    <img
+                        src="{{ post.image.url }}"
+                        alt="{{ post.dog_name }}"
+                        class="md-card-img"
+                        loading="lazy"
+                        decoding="async"
+                    >
+                    {% else %}
+                    <div class="md-card-img-placeholder" aria-hidden="true">
+                        <i class="bi bi-image"></i>
+                    </div>
+                    {% endif %}
                 </div>
-                {% endif %}
-
-                <span class="md-badge {% if post.status == 'found' %}md-badge--found{% else %}md-badge--missing{% endif %}" aria-label="Status: {{ post.get_status_display }}">
-                    <span class="md-badge__dot" aria-hidden="true"></span>
-                    {{ post.get_status_display }}
-                </span>
-
-                <!-- Sighting counter pill -->
-                <span class="md-sighting-pill" data-sighting-pill data-id="{{ post.pk }}" aria-label="Sightings reported">
-                    <i class="bi bi-eye-fill" aria-hidden="true"></i>
-                    <span data-sighting-count>0</span>
-                </span>
             </div>
 
             <div class="md-card-body">

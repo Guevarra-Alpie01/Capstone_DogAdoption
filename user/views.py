@@ -65,10 +65,10 @@ from dogadoption_admin.context_processors import ADMIN_NOTIFICATIONS_CACHE_KEY
 
 # Models from the user app
 from .models import Profile, DogCaptureRequest, DogCaptureRequestImage, DogCaptureRequestLandmarkImage, ClaimImage
-from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, MissingDogPost
+from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, MissingDogPost, DogSighting
 
 # Forms and notification helpers
-from .forms import MissingDogPostForm, RescueFinderForm, UserAdoptionPostForm
+from .forms import DogSightingForm, MissingDogPostForm, RescueFinderForm, UserAdoptionPostForm
 from .avatar_cache import invalidate_cached_profile_avatar
 from .notification_utils import (
     build_user_notification_payload,
@@ -1200,6 +1200,10 @@ def _build_profile_dashboard_context(profile_user):
         "profile_posts_limit": recent_post_limit,
         "adopted_posts": _build_profile_adopted_post_rows(profile_user, recent_post_limit),
         "adopted_posts_limit": recent_post_limit,
+        # Sighting reputation
+        "verified_sightings": profile.verified_sightings,
+        "sighting_badge": profile.sighting_badge,
+        "next_sighting_badge": profile.next_sighting_badge,
         **_build_incoming_profile_requests(profile_user, default_profile_avatar_url),
         **_build_profile_registered_dogs(profile_user),
         **_build_profile_violation_summary(profile_user),
@@ -5603,3 +5607,125 @@ def missing_dogs_list(request):
         'total': paginator.count,
     }
     return render(request, 'missing/missing_dogs.html', context)
+
+
+# ── Sighting: submit form (login required) ────────────────────────────────────
+
+@require_http_methods(['GET', 'POST'])
+def report_sighting(request, post_id):
+    """Show and handle the Report Sighting form for a missing dog post."""
+    post = get_object_or_404(MissingDogPost, pk=post_id, status__in=['missing', 'found'])
+
+    if not request.user.is_authenticated:
+        login_url = reverse('user:login')
+        return_url = request.get_full_path()
+        return redirect(f'{login_url}?next={return_url}')
+
+    if request.method == 'POST':
+        form = DogSightingForm(request.POST, request.FILES)
+        if form.is_valid():
+            sighting = form.save(commit=False)
+            sighting.post = post
+            sighting.reporter = request.user
+            sighting.save()
+            messages.success(request, f'Your sighting for {post.dog_name} has been submitted. The owner will review it.')
+            return redirect(reverse('user:missing_dogs_list'))
+    else:
+        from django.utils.timezone import localdate, localtime
+        now = timezone.now()
+        form = DogSightingForm(initial={
+            'sighted_on': localdate(now),
+            'sighted_at': localtime(now).strftime('%H:%M'),
+        })
+
+    return render(request, 'missing/report_sighting.html', {
+        'form': form,
+        'post': post,
+    })
+
+
+# ── Sighting: owner dashboard ─────────────────────────────────────────────────
+
+@login_required
+def my_sighting_inbox(request):
+    """Paginated list of all sightings for posts owned by the current user."""
+    sightings = (
+        DogSighting.objects
+        .filter(post__owner=request.user)
+        .select_related('post', 'reporter')
+        .order_by('-created_at')
+    )
+
+    status_filter = request.GET.get('status', 'all')
+    if status_filter in ('pending', 'verified', 'rejected'):
+        sightings = sightings.filter(status=status_filter)
+
+    page_obj = Paginator(sightings, 15).get_page(request.GET.get('page'))
+    return render(request, 'missing/sighting_inbox.html', {
+        'page_obj': page_obj,
+        'sightings': page_obj.object_list,
+        'status_filter': status_filter,
+    })
+
+
+# ── Sighting: owner action (verify / reject / ignore) ────────────────────────
+
+@login_required
+@require_POST
+def sighting_action(request, sighting_id):
+    """Owner verifies, rejects, or resets a sighting; keeps reporter counter in sync."""
+    from .models import Profile as UserProfile
+    from django.db.models import F
+
+    sighting = get_object_or_404(
+        DogSighting,
+        pk=sighting_id,
+        post__owner=request.user,
+    )
+    action     = request.POST.get('action', '')
+    old_status = sighting.status
+
+    if action == 'verify':
+        sighting.status = 'verified'
+        sighting.save(update_fields=['status'])
+        # Increment reporter's counter only when transitioning into verified
+        if old_status != 'verified':
+            UserProfile.objects.filter(user=sighting.reporter).update(
+                verified_sightings=F('verified_sightings') + 1
+            )
+        messages.success(request, 'Sighting marked as verified.')
+
+    elif action == 'reject':
+        sighting.status = 'rejected'
+        sighting.save(update_fields=['status'])
+        # Roll back counter if we're un-verifying
+        if old_status == 'verified':
+            UserProfile.objects.filter(user=sighting.reporter).update(
+                verified_sightings=F('verified_sightings') - 1
+            )
+        messages.success(request, 'Sighting rejected.')
+
+    elif action == 'ignore':
+        sighting.status = 'pending'
+        sighting.save(update_fields=['status'])
+        # Roll back counter if we're un-verifying
+        if old_status == 'verified':
+            UserProfile.objects.filter(user=sighting.reporter).update(
+                verified_sightings=F('verified_sightings') - 1
+            )
+        messages.success(request, 'Sighting reset to pending.')
+
+    else:
+        messages.error(request, 'Unknown action.')
+
+    next_url = request.POST.get('next') or reverse('user:sighting_inbox')
+    return redirect(next_url)
+
+
+# ── Sighting: AJAX count for a post ──────────────────────────────────────────
+
+def sighting_count_api(request, post_id):
+    """Return JSON with verified sighting count for a missing dog post."""
+    post = get_object_or_404(MissingDogPost, pk=post_id)
+    count = DogSighting.objects.filter(post=post, status='verified').count()
+    return JsonResponse({'post_id': post_id, 'verified_count': count})

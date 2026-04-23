@@ -24,6 +24,37 @@ class Profile(models.Model):
     upload_to ="profile_images/",
     default="profile_images/default-user-image.jpg")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Sighting reputation counter — incremented when a sighting is verified,
+    # decremented when a verification is rolled back.
+    verified_sightings = models.PositiveIntegerField(default=0)
+
+    # ── Sighting badge tiers ─────────────────────────────────────────────────
+    SIGHTING_BADGES = [
+        (20, 'sighting_master',  'Sighting Master',  '🐾'),
+        (10, 'elite_sighter',    'Elite Sighter',    '⭐'),
+        (3,  'trusted_sighter',  'Trusted Sighter',  '👁'),
+    ]
+
+    @property
+    def sighting_badge(self):
+        """Return the highest earned badge dict or None."""
+        for threshold, key, label, icon in self.SIGHTING_BADGES:
+            if self.verified_sightings >= threshold:
+                return {'key': key, 'label': label, 'icon': icon, 'threshold': threshold}
+        return None
+
+    @property
+    def next_sighting_badge(self):
+        """Return the next badge the user hasn't earned yet, or None."""
+        earned = self.verified_sightings
+        for threshold, key, label, icon in reversed(self.SIGHTING_BADGES):
+            if earned < threshold:
+                return {
+                    'key': key, 'label': label, 'icon': icon,
+                    'threshold': threshold, 'remaining': threshold - earned,
+                }
+        return None  # all badges earned
     
 #request dog capture
 class DogCaptureRequest(models.Model):
@@ -481,3 +512,42 @@ class MissingDogPost(models.Model):
 
     def __str__(self):
         return f"{self.dog_name} ({self.display_breed or 'Unknown breed'}) - {self.status}"
+
+
+class DogSighting(models.Model):
+    STATUS_CHOICES = [
+        ('pending',  'Pending'),
+        ('verified', 'Verified'),
+        ('rejected', 'Rejected'),
+    ]
+
+    post = models.ForeignKey(
+        MissingDogPost,
+        on_delete=models.CASCADE,
+        related_name='sightings',
+    )
+    reporter = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='dog_sightings',
+    )
+
+    location    = models.CharField(max_length=255)
+    sighted_on  = models.DateField()
+    sighted_at  = models.TimeField()
+    description = models.TextField(blank=True)
+    photo       = models.ImageField(upload_to='sightings/', null=True, blank=True)
+
+    status     = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['post', 'status'],    name='sighting_post_status_idx'),
+            models.Index(fields=['reporter', 'post'],  name='sighting_reporter_post_idx'),
+            models.Index(fields=['post', 'created_at'],name='sighting_post_created_idx'),
+        ]
+
+    def __str__(self):
+        return f"Sighting of {self.post.dog_name} by {self.reporter.username} ({self.status})"

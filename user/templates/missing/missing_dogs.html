@@ -746,7 +746,13 @@
     }
 </style>
 
-<section class="md-shell mt-3">
+<section
+    class="md-shell mt-3"
+    data-is-authenticated="{% if request.user.is_authenticated %}1{% else %}0{% endif %}"
+    data-login-url="{% url 'user:login' %}"
+    data-sighting-base="{% url 'user:report_sighting' post_id=0 %}"
+    data-sighting-inbox-url="{% url 'user:sighting_inbox' %}"
+>
 
     <!-- Hero -->
     <div class="md-hero">
@@ -758,6 +764,12 @@
                 {{ total }} post{{ total|pluralize }} listed
             </span>
         </div>
+        {% if request.user.is_authenticated %}
+        <a href="{% url 'user:sighting_inbox' %}" class="md-controls-form-btn" style="text-decoration:none;">
+            <i class="bi bi-inbox" aria-hidden="true"></i>
+            My Sighting Inbox
+        </a>
+        {% endif %}
     </div>
 
     <!-- Controls -->
@@ -1098,6 +1110,18 @@
 (function () {
     'use strict';
 
+    /* ── Page-level config from Django ── */
+    var shell = document.querySelector('[data-is-authenticated]');
+    var IS_AUTH       = shell && shell.dataset.isAuthenticated === '1';
+    var LOGIN_URL     = shell ? shell.dataset.loginUrl     : '/user/user-login/';
+    /* Base URL uses post_id=0 as a placeholder; replace '0' segment to build real URL */
+    var SIGHTING_BASE = shell ? shell.dataset.sightingBase : '';
+
+    function sightingUrl(id) {
+        /* e.g. /user/missing-dogs/0/report-sighting/ → /user/missing-dogs/42/report-sighting/ */
+        return SIGHTING_BASE.replace(/\/0\//, '/' + id + '/');
+    }
+
     /* ── Storage keys ── */
     var SIGHTINGS_KEY = 'md_sightings';
     var WATCHLIST_KEY = 'md_watchlist';
@@ -1192,13 +1216,14 @@
 
     /* ── Actions ── */
     function doSighting(id, name) {
-        var sightings = getSightings();
-        sightings[String(id)] = (sightings[String(id)] || 0) + 1;
-        saveSightings(sightings);
-        syncPills();
-        updateModalSightingBar(sightings[String(id)]);
-        console.log('[Missing Dogs] Sighting reported', { id: id, name: name, total: sightings[String(id)] });
-        showToast('Sighting recorded for ' + name + '!');
+        if (!IS_AUTH) {
+            /* Non-logged-in: redirect to login with next pointing back here */
+            var next = encodeURIComponent(window.location.href);
+            window.location.href = LOGIN_URL + '?next=' + next;
+            return;
+        }
+        /* Logged-in: navigate to the real sighting form */
+        window.location.href = sightingUrl(id);
     }
 
     function doAlert(id, name) {
@@ -1391,6 +1416,22 @@
     syncPills();
     syncAlertBtns();
     syncCardAlerts();
+
+    /* Update sighting button labels for unauthenticated users */
+    if (!IS_AUTH) {
+        document.querySelectorAll('[data-action="sighting"]').forEach(function (btn) {
+            var icon = btn.querySelector('i');
+            if (icon) { icon.className = 'bi bi-lock'; }
+            var textNodes = Array.from(btn.childNodes).filter(function(n){ return n.nodeType === 3; });
+            textNodes.forEach(function(n){ n.textContent = n.textContent.replace('Sighting', 'Login to Report'); });
+            /* For modal btn which has text directly: */
+            btn.childNodes.forEach(function(n){
+                if (n.nodeType === 3 && n.textContent.trim()) {
+                    n.textContent = ' Login to Report';
+                }
+            });
+        });
+    }
 
 })();
 </script>

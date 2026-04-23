@@ -1,0 +1,456 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block page_title %}Sighting Inbox · Bayawan Vet{% endblock %}
+
+{% block content %}
+<style>
+    .si-shell {
+        max-width: 860px;
+        margin: 0 auto;
+        display: grid;
+        gap: 20px;
+        padding-bottom: 56px;
+    }
+
+    /* ── Hero ── */
+    .si-hero {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 20px 24px;
+        border-radius: 22px;
+        border: 1px solid #e8ecf2;
+        background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
+        box-shadow: 0 6px 22px rgba(20, 35, 59, 0.05);
+    }
+
+    .si-hero-title {
+        margin: 0;
+        font-size: 1.55rem;
+        font-weight: 900;
+        color: #14233b;
+        letter-spacing: -0.03em;
+    }
+
+    .si-hero-sub {
+        margin: 4px 0 0;
+        font-size: 0.88rem;
+        color: #64748b;
+    }
+
+    /* ── Filter tabs ── */
+    .si-tabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .si-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 999px;
+        border: 1.5px solid #e2e8f0;
+        background: #ffffff;
+        color: #475569;
+        font-size: 0.84rem;
+        font-weight: 800;
+        text-decoration: none;
+        transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+        white-space: nowrap;
+    }
+
+    .si-tab:hover { background: #f8fafc; color: #14233b; }
+
+    .si-tab.is-active {
+        border-color: #c53030;
+        background: #fef2f2;
+        color: #c53030;
+    }
+
+    .si-tab .si-tab-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 5px;
+        border-radius: 999px;
+        font-size: 0.68rem;
+        font-weight: 900;
+        background: #e2e8f0;
+        color: #64748b;
+    }
+
+    .si-tab.is-active .si-tab-count {
+        background: #fecaca;
+        color: #9b2c2c;
+    }
+
+    /* ── Sighting card ── */
+    .si-card {
+        background: #ffffff;
+        border: 1px solid #e8ecf2;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 4px 14px rgba(20, 35, 59, 0.04);
+        transition: box-shadow 0.18s ease;
+    }
+
+    .si-card:hover { box-shadow: 0 8px 24px rgba(20, 35, 59, 0.08); }
+
+    .si-card--verified { border-color: #bbf7d0; }
+    .si-card--rejected { border-color: #fecaca; opacity: 0.75; }
+
+    .si-card-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 16px 18px 14px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .si-photo {
+        width: 68px;
+        height: 68px;
+        border-radius: 12px;
+        object-fit: cover;
+        flex-shrink: 0;
+        background: #f1f5f9;
+    }
+
+    .si-photo-placeholder {
+        width: 68px;
+        height: 68px;
+        border-radius: 12px;
+        background: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #cbd5e1;
+        font-size: 1.4rem;
+        flex-shrink: 0;
+    }
+
+    .si-card-meta { flex: 1; min-width: 0; }
+
+    .si-dog-name {
+        margin: 0 0 4px;
+        font-size: 0.98rem;
+        font-weight: 900;
+        color: #14233b;
+        letter-spacing: -0.02em;
+    }
+
+    .si-meta-row {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.78rem;
+        color: #64748b;
+        margin-bottom: 3px;
+    }
+
+    .si-meta-row i { font-size: 0.74rem; color: #94a3b8; }
+
+    .si-status-badge {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 11px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .si-status-badge--pending  { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+    .si-status-badge--verified { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .si-status-badge--rejected { background: #fef2f2; color: #c53030; border: 1px solid #fecaca; }
+
+    .si-card-body {
+        padding: 12px 18px 14px;
+    }
+
+    .si-description {
+        margin: 0 0 12px;
+        font-size: 0.86rem;
+        color: #475569;
+        line-height: 1.55;
+    }
+
+    .si-sighting-photo {
+        width: 100%;
+        max-height: 180px;
+        object-fit: cover;
+        border-radius: 12px;
+        display: block;
+        margin-bottom: 14px;
+    }
+
+    /* Reporter row */
+    .si-reporter {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 0 0;
+        border-top: 1px solid #f1f5f9;
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 600;
+    }
+
+    .si-reporter i { font-size: 0.78rem; color: #94a3b8; }
+
+    /* Action buttons */
+    .si-actions {
+        display: flex;
+        gap: 8px;
+        padding: 10px 18px 14px;
+        flex-wrap: wrap;
+    }
+
+    .si-act-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 8px 14px;
+        border-radius: 10px;
+        font-size: 0.8rem;
+        font-weight: 800;
+        border: 1.5px solid #e2e8f0;
+        background: #f8fafc;
+        color: #475569;
+        cursor: pointer;
+        transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+    }
+
+    .si-act-btn i { font-size: 0.82rem; }
+
+    .si-act-btn--verify:hover  { background: #f0fdf4; border-color: #bbf7d0; color: #16a34a; }
+    .si-act-btn--reject:hover  { background: #fef2f2; border-color: #fecaca; color: #c53030; }
+    .si-act-btn--ignore:hover  { background: #fffbeb; border-color: #fde68a; color: #d97706; }
+
+    /* ── Empty state ── */
+    .si-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 56px 24px;
+        border-radius: 20px;
+        border: 1.5px dashed #e2e8f0;
+        background: #fafbfc;
+        text-align: center;
+    }
+
+    .si-empty i    { font-size: 2.2rem; color: #cbd5e1; }
+    .si-empty h3   { margin: 0; font-size: 1.05rem; font-weight: 800; color: #475569; }
+    .si-empty p    { margin: 0; font-size: 0.88rem; color: #94a3b8; }
+
+    /* ── Pagination ── */
+    .si-pager {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .si-page-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+        height: 36px;
+        padding: 0 10px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #14233b;
+        font-size: 0.84rem;
+        font-weight: 700;
+        text-decoration: none;
+        transition: background 0.13s ease;
+    }
+
+    .si-page-link:hover { background: #fef2f2; border-color: #fecaca; color: #c53030; }
+    .si-page-link.is-active { background: linear-gradient(180deg, #c53030 0%, #9b2c2c 100%); border-color: #9b2c2c; color: #fff; }
+    .si-page-link.is-disabled { opacity: 0.35; pointer-events: none; }
+
+    @media (max-width: 575.98px) {
+        .si-hero { padding: 16px 16px; }
+        .si-actions { padding: 8px 14px 12px; }
+        .si-act-btn { flex: 1; justify-content: center; }
+    }
+</style>
+
+<div class="si-shell mt-3">
+
+    <!-- Hero -->
+    <div class="si-hero">
+        <div>
+            <h1 class="si-hero-title">Sighting Inbox</h1>
+            <p class="si-hero-sub">Review sightings reported for your missing dogs.</p>
+        </div>
+        <a href="{% url 'user:missing_dogs_list' %}" class="si-tab">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>
+            Missing Dogs
+        </a>
+    </div>
+
+    <!-- Filter tabs -->
+    <div class="si-tabs">
+        <a href="?status=all"      class="si-tab {% if status_filter == 'all' %}is-active{% endif %}">All</a>
+        <a href="?status=pending"  class="si-tab {% if status_filter == 'pending' %}is-active{% endif %}">
+            <i class="bi bi-hourglass-split" aria-hidden="true"></i>Pending
+        </a>
+        <a href="?status=verified" class="si-tab {% if status_filter == 'verified' %}is-active{% endif %}">
+            <i class="bi bi-check-circle" aria-hidden="true"></i>Verified
+        </a>
+        <a href="?status=rejected" class="si-tab {% if status_filter == 'rejected' %}is-active{% endif %}">
+            <i class="bi bi-x-circle" aria-hidden="true"></i>Rejected
+        </a>
+    </div>
+
+    <!-- Sighting cards -->
+    {% for sighting in sightings %}
+    <div class="si-card si-card--{{ sighting.status }}">
+        <div class="si-card-head">
+            {% if sighting.photo %}
+            <img src="{{ sighting.photo.url }}" alt="Sighting photo" class="si-photo">
+            {% else %}
+            <div class="si-photo-placeholder" aria-hidden="true"><i class="bi bi-image"></i></div>
+            {% endif %}
+
+            <div class="si-card-meta">
+                <h2 class="si-dog-name">{{ sighting.post.dog_name }}</h2>
+                <div class="si-meta-row">
+                    <i class="bi bi-geo-alt" aria-hidden="true"></i>
+                    Seen at: <strong>{{ sighting.location }}</strong>
+                </div>
+                <div class="si-meta-row">
+                    <i class="bi bi-calendar" aria-hidden="true"></i>
+                    {{ sighting.sighted_on|date:"M d, Y" }} at {{ sighting.sighted_at|time:"g:i A" }}
+                </div>
+                <div class="si-meta-row">
+                    <i class="bi bi-clock" aria-hidden="true"></i>
+                    Submitted {{ sighting.created_at|date:"M d, Y" }}
+                </div>
+            </div>
+
+            <span class="si-status-badge si-status-badge--{{ sighting.status }}">
+                {{ sighting.get_status_display }}
+            </span>
+        </div>
+
+        {% if sighting.description or sighting.photo %}
+        <div class="si-card-body">
+            {% if sighting.photo %}
+            <img src="{{ sighting.photo.url }}" alt="Sighting photo" class="si-sighting-photo">
+            {% endif %}
+            {% if sighting.description %}
+            <p class="si-description">{{ sighting.description }}</p>
+            {% endif %}
+            <div class="si-reporter">
+                <i class="bi bi-person-circle" aria-hidden="true"></i>
+                Reported by <strong>{{ sighting.reporter.get_full_name|default:sighting.reporter.username }}</strong>
+            </div>
+        </div>
+        {% else %}
+        <div style="padding: 10px 18px;">
+            <div class="si-reporter">
+                <i class="bi bi-person-circle" aria-hidden="true"></i>
+                Reported by <strong>{{ sighting.reporter.get_full_name|default:sighting.reporter.username }}</strong>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Action buttons — always visible so owner can change their mind -->
+        <div class="si-actions">
+            {% if sighting.status != 'verified' %}
+            <form method="post" action="{% url 'user:sighting_action' sighting.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="verify">
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="si-act-btn si-act-btn--verify">
+                    <i class="bi bi-check-circle" aria-hidden="true"></i>
+                    Verify
+                </button>
+            </form>
+            {% endif %}
+
+            {% if sighting.status != 'rejected' %}
+            <form method="post" action="{% url 'user:sighting_action' sighting.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="reject">
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="si-act-btn si-act-btn--reject">
+                    <i class="bi bi-x-circle" aria-hidden="true"></i>
+                    Reject
+                </button>
+            </form>
+            {% endif %}
+
+            {% if sighting.status != 'pending' %}
+            <form method="post" action="{% url 'user:sighting_action' sighting.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="ignore">
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="si-act-btn si-act-btn--ignore">
+                    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+                    Reset to Pending
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="si-empty">
+        <i class="bi bi-eye-slash" aria-hidden="true"></i>
+        <h3>No sightings yet</h3>
+        <p>
+            {% if status_filter != 'all' %}
+                No {{ status_filter }} sightings.
+                <a href="?status=all">View all</a>
+            {% else %}
+                Sightings submitted for your missing dogs will appear here.
+            {% endif %}
+        </p>
+    </div>
+    {% endfor %}
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav class="si-pager" aria-label="Page navigation">
+        <a href="?status={{ status_filter }}&page={{ page_obj.previous_page_number }}"
+           class="si-page-link {% if not page_obj.has_previous %}is-disabled{% endif %}"
+           aria-label="Previous">
+            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+        </a>
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if num == page_obj.number %}
+            <span class="si-page-link is-active" aria-current="page">{{ num }}</span>
+            {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+            <a href="?status={{ status_filter }}&page={{ num }}" class="si-page-link">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        <a href="?status={{ status_filter }}&page={{ page_obj.next_page_number }}"
+           class="si-page-link {% if not page_obj.has_next %}is-disabled{% endif %}"
+           aria-label="Next">
+            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        </a>
+    </nav>
+    {% endif %}
+
+</div>
+{% endblock %}

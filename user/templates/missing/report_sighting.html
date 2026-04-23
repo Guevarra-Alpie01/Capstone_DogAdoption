@@ -1,0 +1,406 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block page_title %}Report Sighting · {{ post.dog_name }} · Bayawan Vet{% endblock %}
+
+{% block content %}
+<style>
+    .sg-shell {
+        max-width: 640px;
+        margin: 0 auto;
+        padding-bottom: 56px;
+        display: grid;
+        gap: 20px;
+    }
+
+    /* ── Back link ── */
+    .sg-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #64748b;
+        text-decoration: none;
+        padding: 4px 0;
+        transition: color 0.14s ease;
+    }
+    .sg-back:hover { color: #c53030; }
+
+    /* ── Hero card ── */
+    .sg-dog-card {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 18px 20px;
+        border-radius: 20px;
+        border: 1px solid #e8ecf2;
+        background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
+        box-shadow: 0 6px 22px rgba(20, 35, 59, 0.05);
+    }
+
+    .sg-dog-thumb {
+        width: 72px;
+        height: 72px;
+        border-radius: 14px;
+        object-fit: cover;
+        flex-shrink: 0;
+        background: #f1f5f9;
+    }
+
+    .sg-dog-thumb-placeholder {
+        width: 72px;
+        height: 72px;
+        border-radius: 14px;
+        background: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #cbd5e1;
+        font-size: 1.6rem;
+        flex-shrink: 0;
+    }
+
+    .sg-dog-info { min-width: 0; }
+
+    .sg-dog-name {
+        margin: 0 0 4px;
+        font-size: 1.15rem;
+        font-weight: 900;
+        color: #14233b;
+        letter-spacing: -0.02em;
+    }
+
+    .sg-dog-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 12px;
+        margin: 0;
+    }
+
+    .sg-dog-meta-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.78rem;
+        color: #64748b;
+        font-weight: 600;
+    }
+
+    .sg-dog-meta-item i { font-size: 0.75rem; color: #94a3b8; }
+
+    .sg-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 9px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .sg-badge--missing { background: #fef2f2; color: #c53030; border: 1px solid #fecaca; }
+    .sg-badge--found   { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+
+    /* ── Form card ── */
+    .sg-form-card {
+        background: #ffffff;
+        border: 1px solid #e8ecf2;
+        border-radius: 22px;
+        padding: 28px 28px 24px;
+        box-shadow: 0 6px 22px rgba(20, 35, 59, 0.05);
+    }
+
+    .sg-form-title {
+        margin: 0 0 6px;
+        font-size: 1.25rem;
+        font-weight: 900;
+        color: #14233b;
+        letter-spacing: -0.025em;
+    }
+
+    .sg-form-sub {
+        margin: 0 0 22px;
+        font-size: 0.88rem;
+        color: #64748b;
+        line-height: 1.55;
+    }
+
+    /* ── Field groups ── */
+    .sg-field { margin-bottom: 18px; }
+
+    .sg-label {
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #475569;
+        margin-bottom: 6px;
+    }
+
+    .sg-label .sg-required {
+        color: #c53030;
+        margin-left: 2px;
+    }
+
+    .sg-row-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+    }
+
+    /* Override Bootstrap form-control to match the site's g-field style */
+    .sg-form-card .form-control {
+        border-radius: 12px;
+        border-color: #e2e8f0;
+        font-size: 0.92rem;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .sg-form-card .form-control:focus {
+        border-color: #c53030;
+        box-shadow: 0 0 0 3px rgba(197, 48, 48, 0.1);
+    }
+
+    /* Photo preview */
+    .sg-photo-preview {
+        margin-top: 10px;
+        border-radius: 12px;
+        overflow: hidden;
+        display: none;
+    }
+    .sg-photo-preview img {
+        width: 100%;
+        max-height: 220px;
+        object-fit: cover;
+        display: block;
+    }
+
+    /* ── Error list ── */
+    .sg-field-errors {
+        margin: 6px 0 0;
+        padding: 0;
+        list-style: none;
+    }
+    .sg-field-errors li {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #c53030;
+    }
+
+    /* ── Non-field errors ── */
+    .sg-alert {
+        padding: 12px 16px;
+        border-radius: 14px;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #b91c1c;
+        font-size: 0.88rem;
+        font-weight: 700;
+        margin-bottom: 18px;
+    }
+
+    /* ── Submit row ── */
+    .sg-submit-row {
+        display: flex;
+        gap: 10px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+    }
+
+    .sg-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 12px 24px;
+        border-radius: 14px;
+        font-size: 0.92rem;
+        font-weight: 800;
+        text-decoration: none;
+        cursor: pointer;
+        border: none;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        white-space: nowrap;
+    }
+
+    .sg-btn--primary {
+        background: linear-gradient(180deg, #c53030 0%, #9b2c2c 100%);
+        color: #fff;
+        box-shadow: 0 10px 22px rgba(197, 48, 48, 0.22);
+    }
+
+    .sg-btn--primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 28px rgba(197, 48, 48, 0.28);
+        color: #fff;
+    }
+
+    .sg-btn--ghost {
+        background: #f8fafc;
+        color: #475569;
+        border: 1.5px solid #e2e8f0;
+    }
+
+    .sg-btn--ghost:hover {
+        background: #f1f5f9;
+        color: #14233b;
+    }
+
+    @media (max-width: 575.98px) {
+        .sg-form-card { padding: 20px 18px 18px; }
+        .sg-row-2 { grid-template-columns: 1fr; }
+        .sg-submit-row { flex-direction: column; }
+        .sg-btn { width: 100%; justify-content: center; }
+    }
+</style>
+
+<div class="sg-shell mt-3">
+
+    <a href="{% url 'user:missing_dogs_list' %}" class="sg-back">
+        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        Back to Missing Dogs
+    </a>
+
+    <!-- Dog summary card -->
+    <div class="sg-dog-card">
+        {% if post.image %}
+        <img src="{{ post.image.url }}" alt="{{ post.dog_name }}" class="sg-dog-thumb">
+        {% else %}
+        <div class="sg-dog-thumb-placeholder" aria-hidden="true"><i class="bi bi-image"></i></div>
+        {% endif %}
+
+        <div class="sg-dog-info">
+            <h1 class="sg-dog-name">{{ post.dog_name }}</h1>
+            <ul class="sg-dog-meta">
+                {% if post.display_breed %}
+                <li class="sg-dog-meta-item">
+                    <i class="bi bi-tag" aria-hidden="true"></i>
+                    {{ post.display_breed }}
+                </li>
+                {% endif %}
+                <li class="sg-dog-meta-item">
+                    <i class="bi bi-geo-alt" aria-hidden="true"></i>
+                    {{ post.location }}
+                </li>
+                <li class="sg-dog-meta-item">
+                    <i class="bi bi-calendar-x" aria-hidden="true"></i>
+                    Missing since {{ post.date_lost|date:"M d, Y" }}
+                </li>
+                <li>
+                    <span class="sg-badge {% if post.status == 'found' %}sg-badge--found{% else %}sg-badge--missing{% endif %}">
+                        {{ post.get_status_display }}
+                    </span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Sighting form -->
+    <div class="sg-form-card">
+        <h2 class="sg-form-title">Report a Sighting</h2>
+        <p class="sg-form-sub">Seen {{ post.dog_name }}? Fill in what you saw and we'll notify the owner right away.</p>
+
+        {% if form.non_field_errors %}
+        <div class="sg-alert" role="alert">
+            {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+
+            <div class="sg-field">
+                <label class="sg-label" for="{{ form.location.id_for_label }}">
+                    Location <span class="sg-required">*</span>
+                </label>
+                {{ form.location }}
+                {% if form.location.errors %}
+                <ul class="sg-field-errors">{% for e in form.location.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                {% endif %}
+            </div>
+
+            <div class="sg-row-2">
+                <div class="sg-field">
+                    <label class="sg-label" for="{{ form.sighted_on.id_for_label }}">
+                        Date Seen <span class="sg-required">*</span>
+                    </label>
+                    {{ form.sighted_on }}
+                    {% if form.sighted_on.errors %}
+                    <ul class="sg-field-errors">{% for e in form.sighted_on.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </div>
+
+                <div class="sg-field">
+                    <label class="sg-label" for="{{ form.sighted_at.id_for_label }}">
+                        Time Seen <span class="sg-required">*</span>
+                    </label>
+                    {{ form.sighted_at }}
+                    {% if form.sighted_at.errors %}
+                    <ul class="sg-field-errors">{% for e in form.sighted_at.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="sg-field">
+                <label class="sg-label" for="{{ form.description.id_for_label }}">
+                    Description
+                </label>
+                {{ form.description }}
+                {% if form.description.errors %}
+                <ul class="sg-field-errors">{% for e in form.description.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                {% endif %}
+            </div>
+
+            <div class="sg-field">
+                <label class="sg-label" for="{{ form.photo.id_for_label }}">
+                    Photo <span style="font-weight:600;text-transform:none;letter-spacing:0;color:#94a3b8;">(optional)</span>
+                </label>
+                {{ form.photo }}
+                <div class="sg-photo-preview" id="sgPhotoPreview">
+                    <img src="" alt="Preview" id="sgPhotoImg">
+                </div>
+                {% if form.photo.errors %}
+                <ul class="sg-field-errors">{% for e in form.photo.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                {% endif %}
+            </div>
+
+            <div class="sg-submit-row">
+                <button type="submit" class="sg-btn sg-btn--primary">
+                    <i class="bi bi-send-check" aria-hidden="true"></i>
+                    Submit Sighting
+                </button>
+                <a href="{% url 'user:missing_dogs_list' %}" class="sg-btn sg-btn--ghost">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+<script>
+(function () {
+    var input   = document.querySelector('input[type="file"][name="photo"]');
+    var preview = document.getElementById('sgPhotoPreview');
+    var img     = document.getElementById('sgPhotoImg');
+    if (!input || !preview || !img) return;
+    input.addEventListener('change', function () {
+        var file = this.files && this.files[0];
+        if (!file || !file.type.startsWith('image/')) {
+            preview.style.display = 'none';
+            return;
+        }
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            img.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    });
+})();
+</script>
+
+{% endblock %}

@@ -4,7 +4,7 @@ from django import forms
 from dogadoption_admin.barangays import BAYAWAN_BARANGAY_CHOICES
 from dogadoption_admin.models import Post
 
-from .models import MissingDogPost, UserAdoptionPost
+from .models import DogSighting, MissingDogPost, UserAdoptionPost
 
 
 class RescueFinderForm(forms.Form):
@@ -316,3 +316,37 @@ class MissingDogPostForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["age"].required = False
         self.fields["description"].required = False
+
+
+class DogSightingForm(forms.ModelForm):
+    class Meta:
+        model = DogSighting
+        fields = ['location', 'sighted_on', 'sighted_at', 'description', 'photo']
+        widgets = {
+            'location': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Where did you see the dog?',
+            }),
+            'sighted_on': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+            }),
+            'sighted_at': forms.TimeInput(attrs={
+                'class': 'form-control',
+                'type': 'time',
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Any details — collar, condition, direction it was heading…',
+            }),
+            'photo': forms.ClearableFileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['description'].required = False
+        self.fields['photo'].required = False

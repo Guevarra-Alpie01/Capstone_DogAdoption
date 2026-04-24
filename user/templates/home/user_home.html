@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..800&family=Rye&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260424e-hero-text-static">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260424j-fee-fullwidth">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -597,7 +597,18 @@
             <p class="home-ordinance__ticket-preamble home-ordinance__ticket-preamble--penalty">City Ordinance No. 8 entitled, <cite>Bayawan City Dog Domestication Ordinance of 2022</cite> hereby charges you the following Fines and Penalties:</p>
         </header>
 
-        <div class="home-ordinance__grid">
+        <div
+            class="home-ordinance__fee-carousel"
+            data-home-fee-carousel
+            role="region"
+            aria-label="Citation fee cards"
+            tabindex="0"
+        >
+            <div class="home-ordinance__fee-carousel-viewport">
+            <button type="button" class="home-ordinance__fee-carousel-btn home-ordinance__fee-carousel-btn--prev" data-fee-slides="prev" aria-label="Previous fee information" disabled>
+                <i class="bi bi-chevron-left" aria-hidden="true"></i>
+            </button>
+        <div class="home-ordinance__grid" data-fee-track>
             <article class="home-ordinance__card home-ordinance__card--section-28 home-reveal" style="--home-stagger: 0;">
                 <div class="home-ordinance__card-head">
                     <span class="home-ordinance__card-icon" aria-hidden="true">
@@ -922,6 +933,16 @@
                 </div>
             </article>
         </div>
+            <button type="button" class="home-ordinance__fee-carousel-btn home-ordinance__fee-carousel-btn--next" data-fee-slides="next" aria-label="Next fee information">
+                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+            </button>
+            </div>
+        <nav class="home-ordinance__fee-carousel-markers" data-fee-slides-markers aria-label="Fee card position">
+            <button type="button" class="home-ordinance__fee-carousel-marker is-active" data-fee-go="0" aria-label="Section 28, service fees" aria-current="true"></button>
+            <button type="button" class="home-ordinance__fee-carousel-marker" data-fee-go="1" aria-label="Section 29, penalties 1 to 14"></button>
+            <button type="button" class="home-ordinance__fee-carousel-marker" data-fee-go="2" aria-label="Section 29, penalties 15 to 28"></button>
+        </nav>
+        </div>
     </div>
 </section>
 <section class="home-city-vet-shell" aria-label="City Vet Street View">
@@ -1101,9 +1122,23 @@
                     stepper.removeAttribute('data-penalty-page');
                     if (status) {
                         status.textContent = '';
+                        status.style.display = '';
                     }
                     prevButton.disabled = true;
                     nextButton.disabled = true;
+                    return;
+                }
+
+                if (stepper.closest('[data-home-fee-carousel]')) {
+                    stepper.removeAttribute('data-penalty-page');
+                    if (status) {
+                        status.textContent = '';
+                        status.style.display = 'none';
+                    }
+                    prevButton.disabled = true;
+                    nextButton.disabled = true;
+                    prevButton.setAttribute('aria-hidden', 'true');
+                    nextButton.setAttribute('aria-hidden', 'true');
                     return;
                 }
 
@@ -1234,6 +1269,115 @@
         desktopPenaltyListMq.addEventListener('change', syncStepper);
         syncStepper();
     });
+
+    (function initFeeTicketCarousel() {
+        const track = document.querySelector('[data-fee-track]');
+        const prev = document.querySelector('[data-fee-slides="prev"]');
+        const next = document.querySelector('[data-fee-slides="next"]');
+        const markerRoot = document.querySelector('[data-fee-slides-markers]');
+        const markers = markerRoot ? Array.from(markerRoot.querySelectorAll('[data-fee-go]')) : [];
+        if (!track || !prev || !next) {
+            return;
+        }
+
+        const mq = window.matchMedia('(min-width: 1024px)');
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+        let idx = 0;
+
+        const syncMarkers = () => {
+            markers.forEach((btn, i) => {
+                const isOn = i === idx;
+                btn.classList.toggle('is-active', isOn);
+                if (isOn) {
+                    btn.setAttribute('aria-current', 'true');
+                } else {
+                    btn.removeAttribute('aria-current');
+                }
+            });
+        };
+
+        const apply = () => {
+            if (mq.matches) {
+                track.style.transform = '';
+                if (!reduce.matches) {
+                    track.style.transition = '';
+                }
+                prev.disabled = true;
+                next.disabled = true;
+                prev.setAttribute('aria-hidden', 'true');
+                next.setAttribute('aria-hidden', 'true');
+                if (markerRoot) {
+                    markerRoot.setAttribute('hidden', '');
+                }
+                return;
+            }
+
+            if (markerRoot) {
+                markerRoot.removeAttribute('hidden');
+            }
+            prev.removeAttribute('aria-hidden');
+            next.removeAttribute('aria-hidden');
+            if (reduce.matches) {
+                track.style.transition = 'none';
+            } else {
+                track.style.transition = '';
+            }
+            const stepPct = 100 / 3;
+            track.style.transform = 'translate3d(' + (-idx * stepPct) + '%,0,0)';
+            prev.disabled = idx <= 0;
+            next.disabled = idx >= 2;
+            syncMarkers();
+        };
+
+        prev.addEventListener('click', () => {
+            if (idx > 0) {
+                idx -= 1;
+                apply();
+            }
+        });
+        next.addEventListener('click', () => {
+            if (idx < 2) {
+                idx += 1;
+                apply();
+            }
+        });
+
+        markers.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const n = parseInt(btn.getAttribute('data-fee-go') || '0', 10);
+                if (n >= 0 && n <= 2 && n !== idx) {
+                    idx = n;
+                    apply();
+                }
+            });
+        });
+
+        mq.addEventListener('change', () => {
+            idx = 0;
+            apply();
+        });
+        window.addEventListener('resize', apply);
+
+        const root = track.closest('[data-home-fee-carousel]');
+        if (root) {
+            root.addEventListener('keydown', (event) => {
+                if (mq.matches) {
+                    return;
+                }
+                if (event.key === 'ArrowLeft') {
+                    event.preventDefault();
+                    prev.click();
+                    return;
+                }
+                if (event.key === 'ArrowRight') {
+                    event.preventDefault();
+                    next.click();
+                }
+            });
+        }
+
+        apply();
+    })();
 
     if (revealTargets.length) {
         if (prefersReducedMotion || !('IntersectionObserver' in window)) {

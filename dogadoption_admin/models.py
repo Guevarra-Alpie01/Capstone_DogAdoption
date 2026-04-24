@@ -703,6 +703,7 @@ class Post(models.Model):
             models.Index(fields=["is_history", "status", "created_at"], name="post_hist_status_created_idx"),
             models.Index(fields=["is_pinned", "is_history", "created_at"], name="post_pin_hist_created_idx"),
         ]
+        db_table = 'dogadoption_admin_dogpost'
 
 
 
@@ -713,6 +714,10 @@ class PostImage(models.Model):
         on_delete=models.CASCADE
     )
     image = models.ImageField(upload_to='post_images/')
+
+    class Meta:
+        verbose_name = "POST IMAGES"
+        db_table = 'dogadoption_admin_postimages'
 
     def __str__(self):
         return f"Image for post {self.post.id}"
@@ -823,17 +828,29 @@ class GlobalAppointmentDate(models.Model):
         indexes = [
             models.Index(fields=["is_active", "appointment_date"], name="gappt_active_date_idx"),
         ]
+        db_table = 'dogadoption_admin_globalappointmentdate'
 
     def __str__(self):
         return f"Global appointment - {self.appointment_date}"
 
 
 # ✅ CLEAN ANNOUNCEMENT MODEL (NO REACTIONS)
-class StaffAccess(models.Model):
+class VetAdminProfile(models.Model):
+    """Per-staff permissions and denormalized login fields (mirrors auth_user for this table)."""
+
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
         related_name="staff_access",
+    )
+    username = models.CharField(
+        max_length=150,
+        unique=True,
+        help_text="Login name (kept in sync with auth user).",
+    )
+    password = models.CharField(
+        max_length=128,
+        help_text="Hashed password (kept in sync with auth user).",
     )
     can_create_posts = models.BooleanField(default=False)
     can_view_post_history = models.BooleanField(default=False)
@@ -848,11 +865,16 @@ class StaffAccess(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Staff access"
-        verbose_name_plural = "Staff access"
+        verbose_name = "Vet admin profile"
+        verbose_name_plural = "Vet admin profiles"
+        db_table = "dogadoption_admin_staffaccess"
 
     def __str__(self):
-        return f"Staff access for {self.user.username}"
+        return f"Vet admin profile for {self.username or self.user.username}"
+
+
+# Backward-compatible name for staff-permissions model (same table).
+StaffAccess = VetAdminProfile
 
 
 class DogAnnouncement(models.Model):
@@ -922,6 +944,7 @@ class DogAnnouncement(models.Model):
             models.Index(fields=["category", "created_at"], name="dogann_category_created_idx"),
             models.Index(fields=["display_bucket", "created_at"], name="dogann_bucket_created_idx"),
         ]
+        db_table = 'dogadoption_admin_postannouncement'
 
     def __str__(self):
         return self.title
@@ -938,6 +961,7 @@ class DogAnnouncementImage(models.Model):
 
     class Meta:
         ordering = ["created_at", "id"]
+        db_table = 'dogadoption_admin_dogannouncementimage'
 
     def __str__(self):
         return f"Announcement {self.announcement_id} image {self.id}"
@@ -1009,6 +1033,7 @@ class AdminNotification(models.Model):
         indexes = [
             models.Index(fields=["is_read", "created_at"], name="adminnotif_read_created_idx"),
         ]
+        db_table = 'dogadoption_admin_notification'
 
     def __str__(self):
         return self.title
@@ -1054,6 +1079,7 @@ class Dog(models.Model):
             models.Index(fields=["owner_user", "date_registered"], name="dog_owneruser_date_idx"),
             models.Index(fields=["owner_name_key", "date_registered"], name="dog_ownerkey_date_idx"),
         ]
+        db_table = 'dogadoption_admin_registerdog'
 
     def __str__(self):
         return f"{self.name} ({self.species})"
@@ -1096,6 +1122,9 @@ class CertificateSettings(models.Model):
     default_vaccine_name = models.CharField(max_length=255, blank=True, default="")
     default_manufacturer_lot_no = models.CharField(max_length=255, blank=True, default="")
     default_vaccine_expiry_date = models.DateField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'dogadoption_admin_certificate'
 
     def __str__(self):
         return f"Certificate Settings ({self.reg_no})"
@@ -1134,7 +1163,7 @@ class DogRegistration(models.Model):
             models.Index(fields=["date_registered"], name="dogreg_date_registered_idx"),
             models.Index(fields=["reg_no"], name="dogreg_reg_no_idx"),
         ]
-
+        db_table= 'dogadoption_admin_vaccinationcertificate'
     def __str__(self):
         return f"{self.name_of_pet} - {self.reg_no}"
 
@@ -1148,6 +1177,9 @@ class Pet(models.Model):
 
     name = models.CharField(max_length=100)
     pet_type = models.CharField(max_length=10, choices=PET_TYPE_CHOICES)
+
+    class Meta:
+        db_table = 'dogadoption_admin_petchoice'
 
     def __str__(self):
         return f"{self.name} ({self.pet_type})"
@@ -1168,6 +1200,8 @@ class VaccinationRecord(models.Model):
     vaccination_expiry_date = models.DateField()
     veterinarian = models.CharField(max_length=255)
 
+    class Meta:
+        db_table = 'dogadoption_admin_vaccinationrecord'
     def __str__(self):
         return f"{self.registration.name_of_pet} - {self.vaccine_name}"
 
@@ -1186,6 +1220,8 @@ class DewormingTreatmentRecord(models.Model):
     frequency = models.CharField(max_length=255)
     veterinarian = models.CharField(max_length=255)
 
+    class Meta:
+        db_table = 'dogadoption_admin_dewormingtreatmentrecord'
     def __str__(self):
         return f"{self.registration.name_of_pet} - {self.medicine_given}"
     
@@ -1213,6 +1249,7 @@ class Penalty(models.Model):
     class Meta:
         ordering = ['section', 'number']
         unique_together = ('section', 'number')
+        db_table = 'dogadoption_admin_penalty'
 
     def __str__(self):
         return f"{self.section} - {self.number}"
@@ -1233,6 +1270,8 @@ class Citation(models.Model):
     date_issued = models.DateTimeField(auto_now_add=True)
     remarks = models.TextField(blank=True)
 
+    class Meta:
+        db_table = 'dogadoption_admin_citation'
     def __str__(self):
         return f"Citation #{self.id} - {self.owner}"
 
@@ -1258,6 +1297,7 @@ class UserViolationSummary(models.Model):
         indexes = [
             models.Index(fields=["violation_count", "updated_at"], name="usrviolsum_count_upd_idx"),
         ]
+        db_table = 'dogadoption_admin_userviolationsummary'
 
     def __str__(self):
         return f"Violation summary for {self.user.username}"

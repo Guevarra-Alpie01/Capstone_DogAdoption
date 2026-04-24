@@ -56,6 +56,9 @@ class Profile(models.Model):
                 }
         return None  # all badges earned
     
+    class Meta:
+        db_table= 'User_Profile'
+    
 #request dog capture
 class DogCaptureRequest(models.Model):
     REQUEST_TYPE_CHOICES = (
@@ -145,6 +148,7 @@ class DogCaptureRequest(models.Model):
                 name="dogcap_stat_coords_cr_idx",
             ),
         ]
+       
 
     def get_reason_display(self):
         return self.REASON_LABELS.get(self.reason, self.reason.replace('_', ' ').title() if self.reason else 'Unknown')
@@ -291,6 +295,7 @@ class UserAdoptionPost(models.Model):
             models.Index(fields=["status", "created_at"], name="uadoptpost_status_created_idx"),
             models.Index(fields=["owner", "status"], name="uadoptpost_owner_status_idx"),
         ]
+        db_table = 'user_adoptionpost'
 
     @staticmethod
     def _clean_text(value):
@@ -460,6 +465,7 @@ class MissingDogPost(models.Model):
             models.Index(fields=["owner", "status"],      name="missingdog_owner_status_idx"),
             models.Index(fields=["breed", "status"],      name="missingdog_breed_status_idx"),
         ]
+        db_table = 'user_missingdogpost'
 
     # ── Helpers (mirrors UserAdoptionPost) ──────────────────────────────────
 

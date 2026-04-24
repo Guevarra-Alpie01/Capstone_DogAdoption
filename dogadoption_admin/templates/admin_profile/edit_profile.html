@@ -7,7 +7,11 @@
 
 {% block content %}
 <div class="admin-profile-page-shell">
-    <section class="admin-profile-card" data-admin-profile-tabs>
+    <section
+        class="admin-profile-card"
+        data-admin-profile-tabs
+        data-initial-admin-profile-panel="{% if can_manage_staff_accounts and active_staff_panel %}staff{% else %}security{% endif %}"
+    >
         <div
             class="admin-profile-cover"
             {% if profile.profile_image %}
@@ -36,12 +40,12 @@
 
         {% if can_manage_staff_accounts %}
         <nav class="admin-profile-section-bar" aria-label="Admin profile sections">
-            <button type="button" class="admin-profile-section-pill is-active" data-admin-profile-tab="security" aria-selected="true">Security</button>
-            <button type="button" class="admin-profile-section-pill" data-admin-profile-tab="staff" aria-selected="false">Staff Access</button>
+            <button type="button" class="admin-profile-section-pill{% if not active_staff_panel %} is-active{% endif %}" data-admin-profile-tab="security" aria-selected="{% if not active_staff_panel %}true{% else %}false{% endif %}">Security</button>
+            <button type="button" class="admin-profile-section-pill{% if active_staff_panel %} is-active{% endif %}" data-admin-profile-tab="staff" aria-selected="{% if active_staff_panel %}true{% else %}false{% endif %}">Staff Access</button>
         </nav>
         {% endif %}
 
-        <div class="admin-profile-content-grid admin-profile-content-grid--single admin-profile-tab-panel is-active" data-admin-profile-panel="security">
+        <div class="admin-profile-content-grid admin-profile-content-grid--single admin-profile-tab-panel{% if not active_staff_panel %} is-active{% endif %}" data-admin-profile-panel="security" {% if active_staff_panel %}hidden{% endif %}>
             <div class="admin-profile-team-grid{% if not can_manage_staff_accounts %} admin-profile-team-grid--single{% endif %}">
             <section class="admin-profile-panel" id="admin-security-panel">
                 <div class="admin-profile-panel-header is-split">
@@ -150,7 +154,7 @@
         </div>
 
         {% if can_manage_staff_accounts %}
-        <div class="admin-profile-content-grid admin-profile-content-grid--single admin-profile-tab-panel" id="admin-staff-panel" data-admin-profile-panel="staff" hidden>
+        <div class="admin-profile-content-grid admin-profile-content-grid--single admin-profile-tab-panel{% if active_staff_panel %} is-active{% endif %}" id="admin-staff-panel" data-admin-profile-panel="staff" {% if not active_staff_panel %}hidden{% endif %}>
             <div class="admin-profile-team-grid">
             <section class="admin-profile-panel">
                 <div class="admin-profile-panel-header is-split">
@@ -383,6 +387,12 @@
                 setActivePanel(tab.dataset.adminProfileTab);
             });
         });
+
+        // Keep tab state in sync with server (e.g. after create-staff validation errors).
+        const initial = root.dataset.initialAdminProfilePanel;
+        if (initial === 'staff' || initial === 'security') {
+            setActivePanel(initial);
+        }
     });
 </script>
 {% endblock %}

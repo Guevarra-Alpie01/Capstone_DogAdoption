@@ -59,6 +59,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from .access import (
     STAFF_PERMISSION_FIELDS,
     STAFF_PERMISSION_GROUPS,
+    clear_admin_access_cache,
     get_admin_access,
     get_staff_landing_url,
     get_staff_permission_summary,
@@ -95,7 +96,7 @@ from .models import (
     Post,
     PostImage,
     PostRequest,
-    StaffAccess,
+    VetAdminProfile,
     UserViolationNotification,
     UserViolationSummary,
     VaccinationRecord,
@@ -1927,6 +1928,22 @@ def admin_required(view_func):
                     "redirect_url": redirect_url,
                 }, status=403)
             return redirect(redirect_url)
+        if not request.user.is_active:
+            if _is_ajax_request(request):
+                return JsonResponse(
+                    {
+                        "ok": False,
+                        "message": "This account is inactive.",
+                        "redirect_url": reverse("user:login"),
+                    },
+                    status=403,
+                )
+            logout(request)
+            messages.error(
+                request,
+                "This staff account is inactive. Sign in with an active account.",
+            )
+            return redirect("user:login")
         access = get_admin_access(request.user)
         route_name = getattr(getattr(request, "resolver_match", None), "url_name", "") or view_func.__name__
         if not is_route_allowed(access, route_name):
@@ -3785,7 +3802,7 @@ def _build_staff_permission_groups(form):
 
 def _build_staff_management_rows(bound_update_form=None, active_staff_panel=""):
     rows = []
-    access_rows = StaffAccess.objects.select_related("user").order_by("user__username")
+    access_rows = VetAdminProfile.objects.select_related("user").order_by("user__username")
     for access_row in access_rows:
         staff_user = access_row.user
         if bound_update_form is not None and getattr(bound_update_form.instance, "pk", None) == staff_user.pk:
@@ -3873,6 +3890,7 @@ def admin_edit_profile(request):
                 messages.error(request, "Only the admin can manage staff accounts.")
                 return redirect(access.get("landing_url") or reverse("dogadoption_admin:admin_edit_profile"))
 
+            # Password hashing: ManagedStaffAccountForm.save() uses make_password() for User and VetAdminProfile.
             staff_create_form = ManagedStaffAccountForm(
                 request.POST,
                 prefix="create-staff",
@@ -3933,6 +3951,7 @@ def admin_edit_profile(request):
             )
             staff_user.is_active = not staff_user.is_active
             staff_user.save(update_fields=["is_active"])
+            clear_admin_access_cache(staff_user)
             state_label = "activated" if staff_user.is_active else "deactivated"
             messages.success(request, f"Staff account @{staff_user.username} {state_label}.")
             return redirect("dogadoption_admin:admin_edit_profile")

@@ -1,13 +1,14 @@
 from django import forms
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.validators import ASCIIUsernameValidator
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.urls import reverse_lazy
 
-from .access import STAFF_PERMISSION_FIELDS
+from .access import STAFF_PERMISSION_FIELDS, clear_admin_access_cache
 from .barangays import BAYAWAN_BARANGAYS, BAYAWAN_BARANGAY_CHOICES
-from .models import Barangay, Citation, Penalty, PenaltySection, Post, StaffAccess
+from .models import Barangay, Citation, Penalty, PenaltySection, Post, VetAdminProfile
 
 
 class PostForm(forms.ModelForm):
@@ -287,7 +288,7 @@ class ManagedStaffAccountForm(forms.Form):
             self.fields["is_active"].initial = instance.is_active
             try:
                 access = instance.staff_access
-            except StaffAccess.DoesNotExist:
+            except VetAdminProfile.DoesNotExist:
                 access = None
             if access is not None:
                 for field_name in STAFF_PERMISSION_FIELDS:
@@ -308,8 +309,26 @@ class ManagedStaffAccountForm(forms.Form):
             raise forms.ValidationError("That username is already in use.")
         return username
 
+    def _at_least_one_permission_selected(self, cleaned_data):
+        """True if any access checkbox is on (use POST data so we match browser checkbox behavior)."""
+        for name in STAFF_PERMISSION_FIELDS:
+            if cleaned_data.get(name):
+                return True
+        if self.data is not None:
+            for name in STAFF_PERMISSION_FIELDS:
+                key = self.add_prefix(name)
+                if self.data.get(key) not in (None, ""):
+                    return True
+        return False
+
     def clean(self):
         cleaned_data = super().clean()
+        is_create = self.instance is None or not getattr(self.instance, "pk", None)
+        # Unchecked checkboxes are omitted from POST; default new staff to active
+        # so they can authenticate (ModelBackend refuses inactive users).
+        active_key = self.add_prefix("is_active")
+        if is_create and self.is_bound and self.data is not None and active_key not in self.data:
+            cleaned_data["is_active"] = True
         password = cleaned_data.get("password") or ""
         confirm_password = cleaned_data.get("confirm_password") or ""
         username = cleaned_data.get("username") or ""
@@ -327,8 +346,11 @@ class ManagedStaffAccountForm(forms.Form):
                 except ValidationError as exc:
                     self.add_error("password", exc)
 
-        if not any(bool(cleaned_data.get(name)) for name in STAFF_PERMISSION_FIELDS):
-            raise forms.ValidationError("Select at least one access permission for this staff account.")
+        if not self._at_least_one_permission_selected(cleaned_data):
+            self.add_error(
+                None,
+                "Select at least one access permission for this staff account.",
+            )
 
         return cleaned_data
 
@@ -341,13 +363,24 @@ class ManagedStaffAccountForm(forms.Form):
         user.username = self.cleaned_data["username"]
         user.is_staff = True
         user.is_active = bool(self.cleaned_data.get("is_active"))
-        password = self.cleaned_data.get("password") or ""
-        if password:
-            user.set_password(password)
-        user.save()
+        raw_password = (self.cleaned_data.get("password") or "").strip()
 
-        access, _ = StaffAccess.objects.get_or_create(user=user)
-        for field_name in STAFF_PERMISSION_FIELDS:
-            setattr(access, field_name, bool(self.cleaned_data.get(field_name)))
-        access.save()
+        # One hash for auth_user and VetAdminProfile (do not call make_password twice: salts differ).
+        if raw_password:
+            password_hash = make_password(raw_password)
+            user.password = password_hash
+        # Update without new password: keep existing user hash for profile row too.
+        user.save()
+        if raw_password:
+            profile_password = password_hash
+        else:
+            profile_password = user.password
+
+        profile_defaults = {
+            name: bool(self.cleaned_data.get(name)) for name in STAFF_PERMISSION_FIELDS
+        }
+        profile_defaults["username"] = user.username
+        profile_defaults["password"] = profile_password
+        VetAdminProfile.objects.update_or_create(user=user, defaults=profile_defaults)
+        clear_admin_access_cache(user)
         return user

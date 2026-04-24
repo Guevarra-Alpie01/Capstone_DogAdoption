@@ -2,6 +2,8 @@ from types import SimpleNamespace
 
 from django.urls import reverse
 
+from .models import VetAdminProfile
+
 
 STAFF_PERMISSION_FIELDS = (
     "can_create_posts",
@@ -169,8 +171,18 @@ def get_staff_access_record(user):
         return None
     try:
         return user.staff_access
-    except Exception:
+    except VetAdminProfile.DoesNotExist:
         return None
+
+
+def clear_admin_access_cache(user):
+    """Drop cached get_admin_access() data when VetAdminProfile or staff flags change."""
+    if not user:
+        return
+    try:
+        del user._dogadoption_admin_access_cache
+    except (AttributeError, TypeError):
+        pass
 
 
 def build_admin_access(user):

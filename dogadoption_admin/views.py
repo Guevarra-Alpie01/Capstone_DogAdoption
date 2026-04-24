@@ -933,6 +933,7 @@ def _build_registration_owner_search_results(query, limit):
         users = users.filter(
             (Q(first_name__istartswith=tokens[0]) & Q(last_name__istartswith=tokens[-1]))
             | Q(username__istartswith=query)
+            | Q(profile__address__icontains=query)
         )
     else:
         term = tokens[0]
@@ -940,6 +941,7 @@ def _build_registration_owner_search_results(query, limit):
             Q(first_name__istartswith=term)
             | Q(last_name__istartswith=term)
             | Q(username__istartswith=term)
+            | Q(profile__address__icontains=term)
         )
 
     user_rows = list(
@@ -3666,7 +3668,8 @@ def admin_users(request):
         users = users.filter(
             Q(first_name__icontains=query) |
             Q(last_name__icontains=query) |
-            Q(username__icontains=query)
+            Q(username__icontains=query) |
+            Q(profile__address__icontains=query)
         )
 
     users = users.order_by('-effective_violation_count', 'first_name', 'last_name', 'username')
@@ -3694,7 +3697,8 @@ def admin_user_search_results(request):
     results = _admin_user_management_queryset().filter(
         Q(first_name__icontains=query) |
         Q(last_name__icontains=query) |
-        Q(username__icontains=query)
+        Q(username__icontains=query) |
+        Q(profile__address__icontains=query)
     ).order_by('-effective_violation_count', 'first_name', 'last_name', 'username')
 
     context = _paginated_admin_user_directory_context(request, results)

@@ -2,8 +2,9 @@
 {% load static %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/register/registration.css' %}?v=20260424a">
 <link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260330c">
-<link rel="stylesheet" href="{% static 'css/admin_user/admin_users.css' %}?v=20260417grid">
+<link rel="stylesheet" href="{% static 'css/admin_user/admin_users.css' %}?v=20260424a-usersearch">
 {% endblock extra_css %}
 
 {% block content %}
@@ -12,22 +13,26 @@
 <div class="registration-wrapper user-management-page">
     <section class="form-card user-search-card">
         <div class="user-search-shell">
-            <form method="GET" action="{% url 'dogadoption_admin:admin_user_search' %}" class="search-bar" data-responsive-search>
-                <div class="user-search-row" data-responsive-search-row>
-                    <div class="search-input-wrap" data-responsive-search-field>
+            <form method="GET" action="{% url 'dogadoption_admin:admin_user_search' %}" class="search-bar" data-responsive-search data-admin-user-directory-form>
+                <div class="user-search-row owner-search-anchor" data-responsive-search-row>
+                    <div class="search-input-wrap user-directory-search-input-wrap" data-responsive-search-field>
                         <i class="bi bi-search search-input-icon" aria-hidden="true"></i>
                         <input
                             type="text"
                             id="user-directory-search"
                             name="q"
                             aria-label="Search users"
-                            placeholder="Search by first name, last name, or username"
+                            placeholder="Search by first name, last name, username, or barangay"
                             value="{{ query }}"
                             data-responsive-search-input
+                            data-user-search-url="{% url 'dogadoption_admin:registration_user_search_api' %}"
+                            data-user-directory-suggestions-id="user-directory-suggestions"
+                            autocomplete="off"
                         >
                         {% if query %}
                             <a href="{% url 'dogadoption_admin:admin_users' %}" class="search-clear-link" aria-label="Clear search" data-responsive-search-clear>&times;</a>
                         {% endif %}
+                        <div id="user-directory-suggestions" class="owner-search-suggestions" style="display:none;" role="listbox" aria-label="Matching users"></div>
                     </div>
                     <button type="submit" class="owner-search-btn user-search-btn" data-responsive-search-toggle>
                         <i class="bi bi-search" aria-hidden="true"></i>
@@ -148,4 +153,104 @@
         {% endif %}
     </section>
 </div>
+<script>
+(function () {
+    const searchInput = document.getElementById("user-directory-search");
+    const form = searchInput && searchInput.form;
+    const suggestionsId = searchInput && searchInput.dataset.userDirectorySuggestionsId;
+    const suggestionsBox = suggestionsId ? document.getElementById(suggestionsId) : null;
+    const endpoint = (searchInput && searchInput.dataset.userSearchUrl) || "";
+    if (!searchInput || !form || !suggestionsBox || !endpoint) {
+        return;
+    }
+
+    let debounceTimer = null;
+
+    function clearSuggestions() {
+        suggestionsBox.innerHTML = "";
+        suggestionsBox.style.display = "none";
+    }
+
+    function renderSuggestions(results) {
+        suggestionsBox.innerHTML = "";
+        const userRows = results.filter(function (row) {
+            return row.source === "user";
+        });
+        if (!userRows.length) {
+            const empty = document.createElement("div");
+            empty.className = "owner-search-item owner-search-empty";
+            empty.textContent = "No registered user found.";
+            suggestionsBox.appendChild(empty);
+            suggestionsBox.style.display = "block";
+            return;
+        }
+
+        userRows.forEach(function (row) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "owner-search-item user-directory-suggestion";
+            button.setAttribute("role", "option");
+
+            const body = document.createElement("div");
+            body.className = "user-directory-suggestion__body";
+            const nameLine = document.createElement("div");
+            nameLine.className = "user-directory-suggestion__name";
+            const fullName = document.createElement("strong");
+            fullName.textContent = row.full_name || "";
+            const username = document.createElement("span");
+            username.textContent = "@" + (row.username || "");
+            nameLine.appendChild(fullName);
+            nameLine.appendChild(username);
+            body.appendChild(nameLine);
+            if (row.barangay) {
+                const brgy = document.createElement("div");
+                brgy.className = "user-directory-suggestion__barangay";
+                brgy.textContent = row.barangay;
+                body.appendChild(brgy);
+            }
+            button.appendChild(body);
+            button.addEventListener("click", function () {
+                searchInput.value = row.username || row.full_name || "";
+                clearSuggestions();
+                form.submit();
+            });
+            suggestionsBox.appendChild(button);
+        });
+        suggestionsBox.style.display = "block";
+    }
+
+    function fetchMatches() {
+        const q = (searchInput.value || "").trim();
+        if (q.length < 2) {
+            clearSuggestions();
+            return;
+        }
+        const url = endpoint + (endpoint.indexOf("?") === -1 ? "?" : "&") + "q=" + encodeURIComponent(q);
+        fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+            .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+            .then(function (payload) {
+                renderSuggestions(Array.isArray(payload.results) ? payload.results : []);
+            })
+            .catch(function () { clearSuggestions(); });
+    }
+
+    searchInput.addEventListener("input", function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(fetchMatches, 200);
+    });
+    searchInput.addEventListener("focus", function () {
+        if ((searchInput.value || "").trim().length >= 2) {
+            fetchMatches();
+        }
+    });
+    document.addEventListener("click", function (e) {
+        if (!suggestionsBox.contains(e.target) && e.target !== searchInput) {
+            clearSuggestions();
+        }
+    });
+    form.addEventListener("submit", function () {
+        clearSuggestions();
+    });
+})();
+</script>
 {% endblock %}

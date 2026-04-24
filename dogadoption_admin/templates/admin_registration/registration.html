@@ -22,7 +22,7 @@
                         <input
                             type="text"
                             id="registration-owner-search"
-                            placeholder="Search by first name, last name, or username"
+                            placeholder="Search by first name, last name, username, or barangay"
                             autocomplete="off"
                             data-user-search-url="{% url 'dogadoption_admin:registration_user_search_api' %}"
                             data-responsive-search-input
@@ -333,12 +333,22 @@
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'owner-search-item';
+                const topRow = document.createElement('div');
+                topRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-width:0;';
                 const fullName = document.createElement('strong');
                 fullName.textContent = row.full_name || '';
                 const username = document.createElement('span');
                 username.textContent = '@' + (row.username || '');
-                button.appendChild(fullName);
-                button.appendChild(username);
+                topRow.appendChild(fullName);
+                topRow.appendChild(username);
+                button.appendChild(topRow);
+                if (row.barangay) {
+                    const brgy = document.createElement('div');
+                    brgy.className = 'owner-search-barangay-hint';
+                    brgy.textContent = row.barangay;
+                    brgy.style.cssText = 'width:100%;font-size:0.78rem;color:#64748b;text-align:left;';
+                    button.appendChild(brgy);
+                }
                 button.addEventListener('click', function () {
                     ownerFirstName.value = row.first_name || '';
                     ownerLastName.value = row.last_name || '';
@@ -349,6 +359,8 @@
                     searchInput.value = row.full_name || row.username || '';
                     clearSuggestions();
                 });
+                button.style.flexDirection = 'column';
+                button.style.alignItems = 'stretch';
                 suggestionsBox.appendChild(button);
             });
 

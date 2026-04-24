@@ -182,7 +182,7 @@
         <h1>Complete your profile</h1>
         <p class="complete-profile-lead">
             Welcome, <strong>{{ user.get_full_name|default:user.username }}</strong>.
-            Add your barangay so we can tailor local information for you. You can change this anytime in profile settings.
+            Add your barangay (same official list the vet office uses in admin registration) so we can tailor local information for you. You can change this anytime in profile settings.
         </p>
 
         {% if error %}
@@ -198,11 +198,11 @@
                     type="text"
                     name="address"
                     id="completeProfileBarangay"
-                    placeholder="Start typing to search"
+                    placeholder="Start typing to search (matches admin / vet barangay list)"
                     value="{{ form_barangay|default:'' }}"
                     autocomplete="off"
                     data-barangay-autocomplete="true"
-                    data-barangay-source-url="{% url 'user:barangay_list_api' %}"
+                    data-barangay-source-url="{% url 'user:barangay_list_api' %}?limit=200"
                     data-barangay-suggestions-id="complete-profile-barangay-suggestions"
                     data-barangay-strict="true"
                 >

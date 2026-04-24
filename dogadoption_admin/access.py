@@ -146,10 +146,27 @@ def _blank_access():
             "can_access_register_area": False,
             "landing_url": reverse("user:login"),
             "home_url": "",
+            "register_area_entry_url": "",
             "display_role": "Visitor",
         }
     )
     return access
+
+
+def _register_area_entry_url(access, landing_url):
+    """Default Register menu target: first registration-related section this user may open."""
+    if not access.get("can_access_register_area"):
+        return landing_url
+    for perm, viewname in (
+        ("can_access_registration", "register_dogs"),
+        ("can_access_registration_list", "registration_record"),
+        ("can_access_vaccination", "dog_certificate"),
+        ("can_access_vaccination_list", "certificate_list"),
+        ("can_access_citations", "citation_create"),
+    ):
+        if access.get(perm):
+            return reverse(f"dogadoption_admin:{viewname}")
+    return reverse("dogadoption_admin:register_dogs")
 
 
 def _route_candidates(access):
@@ -191,7 +208,6 @@ def build_admin_access(user):
         return access
 
     access["is_staff_account"] = True
-    access["home_url"] = reverse("dogadoption_admin:post_list")
     staff_access = get_staff_access_record(user)
     access["is_managed_staff"] = staff_access is not None
     access["is_full_admin"] = staff_access is None
@@ -231,6 +247,9 @@ def build_admin_access(user):
             landing_url = url
             break
     access["landing_url"] = landing_url
+    # Staff "home" and brand target: first section they are allowed to use (same as post-login redirect).
+    access["home_url"] = landing_url
+    access["register_area_entry_url"] = _register_area_entry_url(access, landing_url)
     return access
 
 

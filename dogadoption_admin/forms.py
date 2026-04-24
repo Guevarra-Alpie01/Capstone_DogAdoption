@@ -297,6 +297,9 @@ class ManagedStaffAccountForm(forms.Form):
         password_help = "Required for new staff accounts." if require_password else "Leave blank to keep the current password."
         self.fields["password"].help_text = password_help
 
+        for name in (*STAFF_PERMISSION_FIELDS, "is_active"):
+            self.fields[name].widget.attrs["class"] = "form-check-input"
+
     def clean_username(self):
         username = " ".join((self.cleaned_data.get("username") or "").split()).strip()
         if not username:

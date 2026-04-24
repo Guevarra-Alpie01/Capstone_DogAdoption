@@ -10,7 +10,7 @@
     <section
         class="admin-profile-card"
         data-admin-profile-tabs
-        data-initial-admin-profile-panel="{% if can_manage_staff_accounts and active_staff_panel %}staff{% else %}security{% endif %}"
+        data-initial-admin-profile-panel="{% if is_full_admin and active_staff_panel %}staff{% else %}security{% endif %}"
     >
         <div
             class="admin-profile-cover"
@@ -38,7 +38,7 @@
             </div>
         </div>
 
-        {% if can_manage_staff_accounts %}
+        {% if is_full_admin %}
         <nav class="admin-profile-section-bar" aria-label="Admin profile sections">
             <button type="button" class="admin-profile-section-pill{% if not active_staff_panel %} is-active{% endif %}" data-admin-profile-tab="security" aria-selected="{% if not active_staff_panel %}true{% else %}false{% endif %}">Security</button>
             <button type="button" class="admin-profile-section-pill{% if active_staff_panel %} is-active{% endif %}" data-admin-profile-tab="staff" aria-selected="{% if active_staff_panel %}true{% else %}false{% endif %}">Staff Access</button>
@@ -46,7 +46,7 @@
         {% endif %}
 
         <div class="admin-profile-content-grid admin-profile-content-grid--single admin-profile-tab-panel{% if not active_staff_panel %} is-active{% endif %}" data-admin-profile-panel="security" {% if active_staff_panel %}hidden{% endif %}>
-            <div class="admin-profile-team-grid{% if not can_manage_staff_accounts %} admin-profile-team-grid--single{% endif %}">
+            <div class="admin-profile-team-grid{% if not is_full_admin %} admin-profile-team-grid--single{% endif %}">
             <section class="admin-profile-panel" id="admin-security-panel">
                 <div class="admin-profile-panel-header is-split">
                     <span><i class="bi bi-lock" aria-hidden="true"></i> Edit Login Details</span>
@@ -119,7 +119,7 @@
                     </div>
                 </form>
             </section>
-            {% if can_manage_staff_accounts %}
+            {% if is_full_admin %}
             <section class="admin-profile-panel" id="admin-security-aside" aria-label="Account security information">
                 <div class="admin-profile-panel-header is-split">
                     <span><i class="bi bi-shield-check" aria-hidden="true"></i> Sign-in &amp; password</span>
@@ -153,13 +153,17 @@
             </div>
         </div>
 
-        {% if can_manage_staff_accounts %}
+        {% if is_full_admin %}
         <div class="admin-profile-content-grid admin-profile-content-grid--single admin-profile-tab-panel{% if active_staff_panel %} is-active{% endif %}" id="admin-staff-panel" data-admin-profile-panel="staff" {% if not active_staff_panel %}hidden{% endif %}>
             <div class="admin-profile-team-grid">
             <section class="admin-profile-panel">
                 <div class="admin-profile-panel-header is-split">
                     <span><i class="bi bi-person-plus" aria-hidden="true"></i> Create Staff Account</span>
                 </div>
+                <p class="admin-profile-panel-intro admin-profile-panel-intro--staff">
+                    Create a username and password for each staff member. Turn on <strong>Active</strong> so they can sign in on the main login page.
+                    Use the checkboxes below to choose which vet admin areas they can open (Home, Requests, Register tools, etc.). They will only see menu items and pages that match what you allow.
+                </p>
 
                 <form method="POST" class="staff-management-form" id="create-staff-form">
                     {% csrf_token %}
@@ -227,6 +231,9 @@
                     <span><i class="bi bi-people" aria-hidden="true"></i> Staff Accounts</span>
                     <span class="admin-profile-panel-caption">{% if staff_rows %}{{ staff_rows|length }} managed{% else %}No accounts yet{% endif %}</span>
                 </div>
+                <p class="admin-profile-panel-intro admin-profile-panel-intro--staff">
+                    Edit a staff account to change login, password, active status, or permissions. Staff use the same site login and only see navigation for access you grant.
+                </p>
 
                 {% if staff_rows %}
                     <div class="staff-account-list">

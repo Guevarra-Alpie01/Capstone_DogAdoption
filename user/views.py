@@ -1396,6 +1396,7 @@ def login_view(request):
         if _user_requires_email_verification(existing_user):
             return render_login_error("Please verify your email address before logging in.", username)
 
+        # Backends: VetAdminProfileAuthBackend (managed staff + profile hash) then ModelBackend.
         auth_username = existing_user.username if existing_user is not None else username
         user = authenticate(request, username=auth_username, password=password)
 

@@ -3839,6 +3839,7 @@ def admin_edit_profile(request):
         }
     )
     access = getattr(request, "admin_access", get_admin_access(user))
+    is_full_admin = bool(access.get("is_full_admin"))
     staff_create_form = ManagedStaffAccountForm(prefix="create-staff")
     bound_update_form = None
     active_staff_panel = ""
@@ -3886,8 +3887,8 @@ def admin_edit_profile(request):
                 return redirect("dogadoption_admin:admin_edit_profile")
 
         elif action == "create_staff":
-            if not access.get("can_manage_staff_accounts"):
-                messages.error(request, "Only the admin can manage staff accounts.")
+            if not is_full_admin:
+                messages.error(request, "Only the primary administrator can create staff accounts.")
                 return redirect(access.get("landing_url") or reverse("dogadoption_admin:admin_edit_profile"))
 
             # Password hashing: ManagedStaffAccountForm.save() uses make_password() for User and VetAdminProfile.
@@ -3911,8 +3912,8 @@ def admin_edit_profile(request):
                 return redirect("dogadoption_admin:admin_edit_profile")
 
         elif action == "update_staff":
-            if not access.get("can_manage_staff_accounts"):
-                messages.error(request, "Only the admin can manage staff accounts.")
+            if not is_full_admin:
+                messages.error(request, "Only the primary administrator can update staff accounts.")
                 return redirect(access.get("landing_url") or reverse("dogadoption_admin:admin_edit_profile"))
 
             staff_user = get_object_or_404(
@@ -3941,8 +3942,8 @@ def admin_edit_profile(request):
                 return redirect("dogadoption_admin:admin_edit_profile")
 
         elif action == "toggle_staff":
-            if not access.get("can_manage_staff_accounts"):
-                messages.error(request, "Only the admin can manage staff accounts.")
+            if not is_full_admin:
+                messages.error(request, "Only the primary administrator can change staff account status.")
                 return redirect(access.get("landing_url") or reverse("dogadoption_admin:admin_edit_profile"))
 
             staff_user = get_object_or_404(
@@ -3957,8 +3958,8 @@ def admin_edit_profile(request):
             return redirect("dogadoption_admin:admin_edit_profile")
 
         elif action == "delete_staff":
-            if not access.get("can_manage_staff_accounts"):
-                messages.error(request, "Only the admin can manage staff accounts.")
+            if not is_full_admin:
+                messages.error(request, "Only the primary administrator can delete staff accounts.")
                 return redirect(access.get("landing_url") or reverse("dogadoption_admin:admin_edit_profile"))
 
             staff_user = get_object_or_404(
@@ -3979,6 +3980,7 @@ def admin_edit_profile(request):
             "staff_create_form": staff_create_form,
             "staff_create_permission_groups": _build_staff_permission_groups(staff_create_form),
             "staff_rows": _build_staff_management_rows(bound_update_form, active_staff_panel),
+            "is_full_admin": is_full_admin,
             "can_manage_staff_accounts": access.get("can_manage_staff_accounts"),
             "active_staff_panel": active_staff_panel,
         },

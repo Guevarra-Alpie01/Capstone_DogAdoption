@@ -243,6 +243,11 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Managed staff: try VetAdmin profile hash (and sync User) before default ModelBackend.
+AUTHENTICATION_BACKENDS = [
+    "dogadoption_admin.backends.VetAdminProfileAuthBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/

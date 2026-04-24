@@ -1791,7 +1791,12 @@ def _base_public_post_queryset():
     return Post.with_pending_request_state(
         Post.objects.select_related(
             "user", "user__profile"
-        ).filter(is_history=False).prefetch_related("images")
+        ).filter(is_history=False).prefetch_related(
+            Prefetch(
+                "images",
+                queryset=PostImage.objects.only("id", "post_id", "image").order_by("id"),
+            )
+        )
     ).order_by("-created_at")
 
 
@@ -2701,13 +2706,13 @@ def _build_public_post_listing(request, listing_mode):
     return context, highlight_redirect
 
 
-def _build_home_featured_rescue_sections(request):
+def _build_home_featured_rescue_sections(request, *, appointment_dates=None):
     raw_open_posts = list(
         _base_public_post_queryset()
         .filter(status__in=["rescued", "under_care"])
         [:HOME_FEATURED_CANDIDATE_LIMIT]
     )
-    Post.attach_active_appointment_dates(raw_open_posts)
+    Post.attach_active_appointment_dates(raw_open_posts, appointment_dates)
     section_items = {"claim": [], "adopt": []}
     featured_post_ids = [p.id for p in raw_open_posts]
     viewer_staff_request_map = _viewer_staff_post_request_map(request.user, featured_post_ids)
@@ -2929,15 +2934,19 @@ def _build_home_spotlight_card(
     }
 
 
-def _build_home_pinned_rescue_spotlights(request):
+def _build_home_pinned_rescue_spotlights(request, *, appointment_dates=None):
     pinned_posts = list(
         _base_public_post_queryset()
         .filter(is_pinned=True, status__in=["rescued", "under_care"])
         .order_by("-pinned_at", "-created_at")[:HOME_SPOTLIGHT_DISPLAY_LIMIT]
     )
+    pinned_viewer_map = _viewer_staff_post_request_map(
+        request.user,
+        [p.id for p in pinned_posts],
+    )
     spotlight_items = []
     if pinned_posts:
-        Post.attach_active_appointment_dates(pinned_posts)
+        Post.attach_active_appointment_dates(pinned_posts, appointment_dates)
         for post in pinned_posts:
             phase_payload = _post_phase_payload(post)
             phase = phase_payload["phase"]
@@ -2945,7 +2954,14 @@ def _build_home_pinned_rescue_spotlights(request):
                 continue
             if _is_post_time_expired(post, phase_payload):
                 continue
-            spotlight_items.append(_build_home_spotlight_card(request, post, phase_payload))
+            spotlight_items.append(
+                _build_home_spotlight_card(
+                    request,
+                    post,
+                    phase_payload,
+                    viewer_request_map=pinned_viewer_map,
+                )
+            )
     remaining_slots = HOME_SPOTLIGHT_DISPLAY_LIMIT - len(spotlight_items)
     if remaining_slots > 0:
         fallback_candidates = list(
@@ -2953,7 +2969,11 @@ def _build_home_pinned_rescue_spotlights(request):
             .filter(is_pinned=False, status__in=["rescued", "under_care"])
             [:HOME_SPOTLIGHT_FALLBACK_CANDIDATE_LIMIT]
         )
-        Post.attach_active_appointment_dates(fallback_candidates)
+        Post.attach_active_appointment_dates(fallback_candidates, appointment_dates)
+        fallback_viewer_map = _viewer_staff_post_request_map(
+            request.user,
+            [p.id for p in fallback_candidates],
+        )
         candidate_pairs = []
         for post in fallback_candidates:
             phase_payload = _post_phase_payload(post)
@@ -2971,6 +2991,7 @@ def _build_home_pinned_rescue_spotlights(request):
                         post,
                         phase_payload,
                         is_auto_highlighted=True,
+                        viewer_request_map=fallback_viewer_map,
                     )
                 )
 
@@ -3775,7 +3796,7 @@ def _build_search_home_rows(query, dogs_only=False, viewer_id=None):
     return rows
 
 
-def _hydrate_home_feed_items(request, feed_rows):
+def _hydrate_home_feed_items(request, feed_rows, *, appointment_dates=None):
     if not feed_rows:
         return []
 
@@ -3815,7 +3836,6 @@ def _hydrate_home_feed_items(request, feed_rows):
             )
         ).filter(id__in=ids_by_type["admin"])
     }
-    Post.attach_active_appointment_dates(admin_map.values())
     announcement_map = {
         post.id: post
         for post in DogAnnouncement.objects.select_related(
@@ -3891,6 +3911,8 @@ def _hydrate_home_feed_items(request, feed_rows):
         ).filter(id__in=ids_by_type["missing"])
     }
 
+    if admin_map:
+        Post.attach_active_appointment_dates(admin_map.values(), appointment_dates)
     viewer_staff_request_map = _viewer_staff_post_request_map(
         request.user, ids_by_type["admin"]
     )
@@ -4382,7 +4404,10 @@ def _build_user_home_context(
     paginator = Paginator(mixed_rows, FEED_POSTS_PER_PAGE)
     page_obj = paginator.get_page(page_number)
     feed_rows = list(page_obj.object_list)
-    combined_posts = _hydrate_home_feed_items(request, feed_rows)
+    appointment_dates = Post.active_appointment_dates()
+    combined_posts = _hydrate_home_feed_items(
+        request, feed_rows, appointment_dates=appointment_dates
+    )
     pagination_params = request.GET.copy()
     pagination_params["feed_token"] = feed_token
     pagination_params.pop("page", None)
@@ -4396,8 +4421,12 @@ def _build_user_home_context(
 
     return {
         "posts": combined_posts,
-        **_build_home_pinned_rescue_spotlights(request),
-        "featured_dog_sections": _build_home_featured_rescue_sections(request),
+        **_build_home_pinned_rescue_spotlights(
+            request, appointment_dates=appointment_dates
+        ),
+        "featured_dog_sections": _build_home_featured_rescue_sections(
+            request, appointment_dates=appointment_dates
+        ),
         "home_missing_posts": home_missing_posts,
         "vaccination_reminder_summary": (
             build_user_vaccination_reminder_summary(request.user)
@@ -4500,7 +4529,10 @@ def home_search(request):
 
     paginator = Paginator(search_rows, SEARCH_RESULTS_PER_PAGE)
     page_obj = paginator.get_page(request.GET.get("page", 1))
-    posts = _hydrate_home_feed_items(request, list(page_obj.object_list))
+    appointment_dates = Post.active_appointment_dates()
+    posts = _hydrate_home_feed_items(
+        request, list(page_obj.object_list), appointment_dates=appointment_dates
+    )
     result_count = len(search_rows)
 
     if search_performed:

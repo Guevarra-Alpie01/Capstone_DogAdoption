@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/admin_profile/edit_profile.css' %}?v=20260328a">
+<link rel="stylesheet" href="{% static 'css/admin_profile/edit_profile.css' %}?v=20260424c">
 {% endblock %}
 
 {% block content %}
@@ -30,81 +30,20 @@
                             </div>
                         </div>
                     </div>
-                    <div class="admin-profile-header-actions">
-                        <button type="button" class="admin-profile-save-btn admin-profile-header-btn" data-admin-profile-open="security">
-                            <i class="bi bi-pencil-square" aria-hidden="true"></i>
-                            Edit Profile
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
 
+        {% if can_manage_staff_accounts %}
         <nav class="admin-profile-section-bar" aria-label="Admin profile sections">
-            <button type="button" class="admin-profile-section-pill is-active" data-admin-profile-tab="overview" aria-selected="true">Overview</button>
-            <button type="button" class="admin-profile-section-pill" data-admin-profile-tab="security" aria-selected="false">Security</button>
-            {% if can_manage_staff_accounts %}
-                <button type="button" class="admin-profile-section-pill" data-admin-profile-tab="staff" aria-selected="false">Staff Access</button>
-            {% endif %}
+            <button type="button" class="admin-profile-section-pill is-active" data-admin-profile-tab="security" aria-selected="true">Security</button>
+            <button type="button" class="admin-profile-section-pill" data-admin-profile-tab="staff" aria-selected="false">Staff Access</button>
         </nav>
+        {% endif %}
 
-        <div class="admin-profile-content-grid admin-profile-content-grid--single admin-profile-tab-panel is-active" data-admin-profile-panel="overview">
-            <section class="admin-profile-panel" id="admin-overview-panel">
-                <div class="admin-profile-panel-header is-split">
-                    <span><i class="bi bi-person-vcard" aria-hidden="true"></i> Account Overview</span>
-                    <span class="admin-profile-panel-caption">Profile summary</span>
-                </div>
-                <ul class="admin-profile-detail-list">
-                    <li>
-                        <span class="admin-profile-info-icon"><i class="bi bi-person" aria-hidden="true"></i></span>
-                        <div>
-                            <span class="admin-profile-detail-label">Full Name</span>
-                            <strong>{{ request.user.get_full_name|default:"Not set" }}</strong>
-                        </div>
-                    </li>
-                    <li>
-                        <span class="admin-profile-info-icon"><i class="bi bi-at" aria-hidden="true"></i></span>
-                        <div>
-                            <span class="admin-profile-detail-label">Username</span>
-                            <strong>@{{ request.user.username }}</strong>
-                        </div>
-                    </li>
-                    <li>
-                        <span class="admin-profile-info-icon"><i class="bi bi-shield-lock" aria-hidden="true"></i></span>
-                        <div>
-                            <span class="admin-profile-detail-label">Role</span>
-                            <strong>{{ admin_access.display_role }}</strong>
-                        </div>
-                    </li>
-                    <li>
-                        <span class="admin-profile-info-icon"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
-                        <div>
-                            <span class="admin-profile-detail-label">Workspace</span>
-                            <strong>Admin workspace</strong>
-                        </div>
-                    </li>
-                    {% if can_manage_staff_accounts %}
-                    <li>
-                        <span class="admin-profile-info-icon"><i class="bi bi-people" aria-hidden="true"></i></span>
-                        <div>
-                            <span class="admin-profile-detail-label">Staff Access</span>
-                            <strong>Enabled</strong>
-                        </div>
-                    </li>
-                    {% endif %}
-                    <li>
-                        <span class="admin-profile-info-icon"><i class="bi bi-clock-history" aria-hidden="true"></i></span>
-                        <div>
-                            <span class="admin-profile-detail-label">Date Joined</span>
-                            <strong>{{ request.user.date_joined|date:"M d, Y" }}</strong>
-                        </div>
-                    </li>
-                </ul>
-            </section>
-        </div>
-
-        <div class="admin-profile-content-grid admin-profile-content-grid--single admin-profile-tab-panel" data-admin-profile-panel="security" hidden>
-            <section class="admin-profile-panel admin-profile-panel--featured" id="admin-security-panel">
+        <div class="admin-profile-content-grid admin-profile-content-grid--single admin-profile-tab-panel is-active" data-admin-profile-panel="security">
+            <div class="admin-profile-team-grid{% if not can_manage_staff_accounts %} admin-profile-team-grid--single{% endif %}">
+            <section class="admin-profile-panel" id="admin-security-panel">
                 <div class="admin-profile-panel-header is-split">
                     <span><i class="bi bi-lock" aria-hidden="true"></i> Edit Login Details</span>
                     <span class="admin-profile-panel-caption">Username and password</span>
@@ -113,7 +52,7 @@
 
                 <form
                     method="POST"
-                    class="admin-profile-form"
+                    class="admin-profile-form admin-profile-form--security-stack"
                     id="admin-profile-form"
                     data-confirm-modal
                     data-confirm-title="Confirm Profile Changes"
@@ -176,6 +115,38 @@
                     </div>
                 </form>
             </section>
+            {% if can_manage_staff_accounts %}
+            <section class="admin-profile-panel" id="admin-security-aside" aria-label="Account security information">
+                <div class="admin-profile-panel-header is-split">
+                    <span><i class="bi bi-shield-check" aria-hidden="true"></i> Sign-in &amp; password</span>
+                    <span class="admin-profile-panel-caption">Good habits</span>
+                </div>
+                <ul class="admin-profile-detail-list admin-profile-security-tips">
+                    <li>
+                        <span class="admin-profile-info-icon"><i class="bi bi-key" aria-hidden="true"></i></span>
+                        <div>
+                            <span class="admin-profile-detail-label">Current password</span>
+                            <strong>Required when changing your username or setting a new password.</strong>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="admin-profile-info-icon"><i class="bi bi-shield-lock" aria-hidden="true"></i></span>
+                        <div>
+                            <span class="admin-profile-detail-label">Strong password</span>
+                            <strong>Use a mix of letters, numbers, and symbols you do not reuse elsewhere.</strong>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="admin-profile-info-icon"><i class="bi bi-people" aria-hidden="true"></i></span>
+                        <div>
+                            <span class="admin-profile-detail-label">Shared access</span>
+                            <strong>Staff logins and permissions are managed on the Staff Access tab.</strong>
+                        </div>
+                    </li>
+                </ul>
+            </section>
+            {% endif %}
+            </div>
         </div>
 
         {% if can_manage_staff_accounts %}
@@ -392,7 +363,6 @@
 
         const tabs = Array.from(root.querySelectorAll('[data-admin-profile-tab]'));
         const panels = Array.from(document.querySelectorAll('[data-admin-profile-panel]'));
-        const openers = Array.from(document.querySelectorAll('[data-admin-profile-open]'));
 
         function setActivePanel(name) {
             tabs.forEach((tab) => {
@@ -411,17 +381,6 @@
         tabs.forEach((tab) => {
             tab.addEventListener('click', function () {
                 setActivePanel(tab.dataset.adminProfileTab);
-            });
-        });
-
-        openers.forEach((opener) => {
-            opener.addEventListener('click', function () {
-                const name = opener.dataset.adminProfileOpen;
-                setActivePanel(name);
-                const panel = document.querySelector('[data-admin-profile-panel="' + name + '"]');
-                if (panel) {
-                    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
             });
         });
     });

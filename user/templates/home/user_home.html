@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..800&family=Rye&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260419missing-rows-fullwidth">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260424e-hero-text-static">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -16,10 +16,44 @@
     <section class="home-hero" aria-labelledby="homeHeroTitle">
         <div class="home-hero__inner">
             <div class="home-hero__content">
-                <h1 class="home-hero__title" id="homeHeroTitle">
-                    <span>They're Waiting</span>
-                    <span>for Someone Like You.</span>
+                <h1 class="home-hero__title" id="homeHeroTitle" aria-label="They're Waiting for someone Like You.">
+                    <span
+                        class="home-hero__title-typewriter"
+                        data-home-typewriter="They're Waiting for someone Like You."
+                        aria-hidden="true"
+                    >
+                        <span class="home-hero__typewriter-txt"></span><span class="home-hero__typewriter-cursor"></span>
+                    </span>
+                    <noscript>
+                        <span>They're Waiting</span>
+                        <span>for someone Like You.</span>
+                    </noscript>
                 </h1>
+                <script>
+                (function () {
+                    var wrap = document.querySelector('[data-home-typewriter]');
+                    var txt = document.querySelector('.home-hero__typewriter-txt');
+                    if (!wrap || !txt) return;
+                    var full = wrap.getAttribute('data-home-typewriter') || '';
+                    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                        txt.textContent = full;
+                        return;
+                    }
+                    txt.textContent = '';
+                    var i = 0;
+                    var perChar = 48;
+                    var startDelay = 360;
+                    function step() {
+                        if (i > full.length) return;
+                        txt.textContent = full.slice(0, i);
+                        i += 1;
+                        if (i <= full.length) {
+                            setTimeout(step, perChar);
+                        }
+                    }
+                    setTimeout(step, startDelay);
+                })();
+                </script>
                 <p class="home-hero__text">
                     Give a homeless dog love, safety, and a place to belong.
                     Adopt today or help them find their way home.

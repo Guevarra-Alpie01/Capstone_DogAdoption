@@ -1506,6 +1506,7 @@ def _enrich_capture_request_display(req):
         req.location_label = "No location"
     req.has_location = req.location_label != "No location"
     req.display_barangay = barangay
+    req.display_city = city
 
 
 ANNOUNCEMENT_CATEGORY_OPTIONS = [
@@ -3152,10 +3153,6 @@ def admin_dog_capture_requests(request):
             'reason': req.get_reason_display(),
             'status': req.get_status_display(),
             'status_key': req.status,
-            'request_type_key': req.request_type,
-            'request_type_label': req.get_request_type_display(),
-            'submission_type_key': req.submission_type or '',
-            'submission_type_label': req.get_submission_type_display() if req.submission_type else '',
             'lat': float(req.latitude),
             'lng': float(req.longitude),
             'created_at': req.created_at.strftime('%b %d, %Y %I:%M %p'),
@@ -3201,7 +3198,7 @@ def update_dog_capture_request(request, pk):
         DogCaptureRequest.objects.select_related('requested_by', 'requested_by__profile').prefetch_related('images', 'landmark_images'),
         pk=pk
     )
-    _enrich_capture_request_user(req)
+    _enrich_capture_request_display(req)
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -3274,7 +3271,6 @@ def update_dog_capture_request(request, pk):
     return render(request, 'admin_request/update_request.html', {
         'req': req,
         'appointment_dates': [slot.appointment_date.strftime('%Y-%m-%d') for slot in available_dates],
-        'requested_appointment_date_iso': req.preferred_appointment_date.strftime('%Y-%m-%d') if req.preferred_appointment_date else '',
         'scheduled_appointment_date_iso': timezone.localtime(req.scheduled_date).date().isoformat() if req.scheduled_date else '',
     })
 

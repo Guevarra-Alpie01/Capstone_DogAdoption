@@ -80,7 +80,6 @@
             : '';
         const requesterName = escapeHtml(point.requester_name || point.user);
         const username = escapeHtml(point.user);
-        const submission = escapeHtml(point.submission_type_label || 'Not specified');
         const location = escapeHtml(point.location_label || 'Pinned location');
         const phone = escapeHtml(point.requester_phone || 'No phone number');
         const address = escapeHtml(point.requester_address || 'No address provided');
@@ -99,7 +98,6 @@
                     </div>
                 </div>
                 <div class="request-popup-row"><strong>Status:</strong> ${escapeHtml(point.status || 'Pending')}</div>
-                <div class="request-popup-row"><strong>Submission:</strong> ${submission}</div>
                 <div class="request-popup-row"><strong>Location:</strong> ${location}</div>
                 <div class="request-popup-row"><strong>Phone:</strong> ${phone}</div>
                 <div class="request-popup-row"><strong>Address:</strong> ${address}</div>

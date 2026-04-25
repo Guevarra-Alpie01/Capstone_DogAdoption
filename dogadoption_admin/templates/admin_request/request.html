@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/admin_req/admin_request.css' %}?v=20260328a">
+<link rel="stylesheet" href="{% static 'css/admin_req/admin_request.css' %}?v=20260425declined-completed-labels">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <div class="container">
@@ -15,7 +15,7 @@
             <div class="tab-bar app-btn-row app-btn-row--mobile-stack" role="tablist" aria-label="Request Status Tabs">
                 <button class="tab-btn app-btn-fit app-btn-mobile-full {% if active_tab == 'pending' %}is-active{% endif %}" data-tab="pending" role="tab" aria-selected="{% if active_tab == 'pending' %}true{% else %}false{% endif %}">Pending Requests ({{ pending_total }})</button>
                 <button class="tab-btn app-btn-fit app-btn-mobile-full {% if active_tab == 'accepted' %}is-active{% endif %}" data-tab="accepted" role="tab" aria-selected="{% if active_tab == 'accepted' %}true{% else %}false{% endif %}">Scheduled Requests ({{ accepted_total }})</button>
-                <button class="tab-btn app-btn-fit app-btn-mobile-full {% if active_tab == 'declined' %}is-active{% endif %}" data-tab="declined" role="tab" aria-selected="{% if active_tab == 'declined' %}true{% else %}false{% endif %}">Rejected Requests ({{ declined_total }})</button>
+                <button class="tab-btn app-btn-fit app-btn-mobile-full {% if active_tab == 'declined' %}is-active{% endif %}" data-tab="declined" role="tab" aria-selected="{% if active_tab == 'declined' %}true{% else %}false{% endif %}">Declined Requests ({{ declined_total }})</button>
             </div>
 
             <div class="tab-panel {% if active_tab == 'pending' %}is-active{% endif %}" data-panel="pending" role="tabpanel">
@@ -277,14 +277,14 @@
                                          {% endif %}
                                      </td>
                                     <td data-label="Submitted">{{ req.created_at|date:"M d, Y h:i A" }}</td>
-                                    <td data-label="Status"><span class="status-pill declined">Rejected</span></td>
+                                    <td data-label="Status"><span class="status-pill declined">Declined</span></td>
                                     <td data-label="Action">
                                         <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-ghost btn-sm">View</a>
                                     </td>
                                 </tr>
                             {% empty %}
                                 <tr>
-                                    <td colspan="5" class="muted">No rejected requests.</td>
+                                    <td colspan="5" class="muted">No declined requests.</td>
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -371,7 +371,7 @@
                                     <span class="muted">Done</span>
                                 {% endif %}
                             </td>
-                            <td data-label="Status"><span class="status-pill captured">Done</span></td>
+                            <td data-label="Status"><span class="status-pill captured">{% if req.request_type == 'surrender' %}Completed{% else %}Captured{% endif %}</span></td>
                             <td data-label="Action">
                                 <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-ghost btn-sm">View Record</a>
                             </td>

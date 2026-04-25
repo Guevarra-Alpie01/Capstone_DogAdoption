@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/admin_req/update_request.css' %}?v=20260325a">
+<link rel="stylesheet" href="{% static 'css/admin_req/update_request.css' %}?v=20260425capture-review-detail-cards">
 
 <div class="container">
     <div class="page-tools">
@@ -11,224 +11,201 @@
         </a>
     </div>
 
-    <div class="review-grid">
-        <div class="card review-card">
-            <div class="meta-grid">
-                <div class="meta-item">
-                    <span class="label">Requested By</span>
+    <div class="review-grid capture-review-layout">
+        <div class="capture-review-main">
+            <div class="capture-review-top-row" role="group" aria-label="Request summary">
+                <div class="capture-review-field">
+                    <span class="label">Requested by</span>
                     <strong>{{ req.requester_full_name }}</strong>
                     <div class="meta-sub">@{{ req.requested_by.username }}</div>
                 </div>
-                <div class="meta-item">
-                    <span class="label">Request Type</span>
-                    <strong>{{ req.get_request_type_display }}</strong>
-                </div>
-                <div class="meta-item">
+                <div class="capture-review-field">
                     <span class="label">Phone</span>
                     <strong>{{ req.requester_phone }}</strong>
                 </div>
-                {% if req.submission_type %}
-                    <div class="meta-item">
-                        <span class="label">Submission Type</span>
-                        <strong>{{ req.get_submission_type_display }}</strong>
-                    </div>
-                {% endif %}
-                <div class="meta-item">
-                    <span class="label">Current Status</span>
-                    <strong>
-                        {% if req.status == 'accepted' %}
-                            Scheduled
-                        {% elif req.status == 'captured' %}
-                            {% if req.request_type == 'surrender' %}Completed{% else %}Captured (Done){% endif %}
-                        {% else %}
-                            {{ req.get_status_display }}
-                        {% endif %}
-                    </strong>
+                <div class="capture-review-field">
+                    <span class="label">Requester address</span>
+                    <p class="capture-review-value">{{ req.requester_address }}</p>
                 </div>
-            </div>
-
-            <div class="info-block">
-                <span class="label">Requester Address</span>
-                <p>{{ req.requester_address }}</p>
-            </div>
-
-            {% if req.requester_facebook %}
-                <div class="info-block">
-                    <span class="label">Facebook</span>
-                    <a href="{{ req.requester_facebook }}" target="_blank" rel="noopener noreferrer" class="meta-link">
-                        {{ req.requester_facebook }}
-                    </a>
-                </div>
-            {% endif %}
-
-            {% if req.description %}
-                <div class="info-block">
-                    <span class="label">Details</span>
-                    <p>{{ req.description }}</p>
-                </div>
-            {% endif %}
-
-            {% if req.gender %}
-                <div class="info-block">
-                    <span class="label">Dog Gender</span>
-                    <p>{{ req.get_gender_display }}</p>
-                </div>
-            {% endif %}
-            {% if req.display_dog_colors %}
-                <div class="info-block">
-                    <span class="label">Coat Color</span>
-                    <p>{{ req.display_dog_colors }}</p>
-                </div>
-            {% endif %}
-
-            {% with req_images=req.images.all %}
-                {% if req_images %}
-                    <div class="info-block">
-                        <span class="label">Attached Photos</span>
-                        <div class="request-image-viewer" data-image-viewer>
-                            {% for req_image in req_images %}
-                                <img src="{{ req_image.image.url }}"
-                                     alt="Request image {{ forloop.counter }}"
-                                     class="viewer-image {% if forloop.first %}is-active{% endif %}"
-                                     data-viewer-image>
-                            {% endfor %}
-
-                            {% if req_images|length > 1 %}
-                                <button type="button" class="viewer-nav prev" data-viewer-prev aria-label="Previous image">&lt;</button>
-                                <button type="button" class="viewer-nav next" data-viewer-next aria-label="Next image">&gt;</button>
-                                <div class="viewer-counter">
-                                    <span data-viewer-index>1</span> / {{ req_images|length }}
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% elif req.image %}
-                    <div class="info-block">
-                        <span class="label">Attached Photo</span>
-                        <div class="request-image">
-                            <img src="{{ req.image.url }}" alt="Request image">
-                        </div>
-                    </div>
-                {% endif %}
-            {% endwith %}
-
-            <div class="info-block">
-                <span class="label">Location</span>
-                {% if req.submission_type == 'online' %}
-                    {% if req.latitude and req.longitude %}
-                        <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank" class="map-link-btn">
-                            View in Google Maps
-                        </a>
-                        <small class="coords">{{ req.latitude }}, {{ req.longitude }}</small>
-                    {% elif req.manual_full_address or req.barangay or req.city %}
-                        {% if req.manual_full_address %}
-                            <p><strong>Full Address:</strong> {{ req.manual_full_address }}</p>
-                        {% endif %}
-                        {% if req.barangay or req.city %}
-                            <p><strong>Area:</strong> {{ req.barangay|default:"-" }}{% if req.city %}, {{ req.city }}{% endif %}</p>
-                        {% endif %}
+                <div class="capture-review-field">
+                    <span class="label">Dog gender</span>
+                    {% if req.gender %}
+                        <p class="capture-review-value">{{ req.get_gender_display }}</p>
                     {% else %}
-                        <p><em>No location provided.</em></p>
+                        <p class="capture-review-value capture-review-muted">—</p>
                     {% endif %}
-                {% elif req.submission_type == 'walk_in' %}
-                    <p><em>This is a walk-in office request.</em></p>
-                {% elif req.request_type == 'surrender' %}
-                    <p><em>This is a dog surrender request. No dispatch location is required.</em></p>
-                {% else %}
-                    <p><em>No location provided.</em></p>
+                </div>
+                <div class="capture-review-field">
+                    <span class="label">Coat color</span>
+                    {% if req.display_dog_colors %}
+                        <p class="capture-review-value">{{ req.display_dog_colors }}</p>
+                    {% else %}
+                        <p class="capture-review-value capture-review-muted">—</p>
+                    {% endif %}
+                </div>
+                <div class="capture-review-field capture-review-field--location">
+                    <span class="label">Location</span>
+                    <div class="capture-review-location-body">
+                        {% if req.submission_type == 'online' %}
+                            {% if req.latitude and req.longitude %}
+                                <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank" class="map-link-btn">
+                                    View In Google Maps
+                                </a>
+                                <small class="coords">{{ req.latitude }}, {{ req.longitude }}</small>
+                                {% if req.display_barangay or req.display_city %}
+                                    <p class="location-profile-barangay">
+                                        {% if req.barangay %}
+                                            <strong>Barangay:</strong>
+                                        {% else %}
+                                            <strong>Location from requester account (signup / profile):</strong>
+                                        {% endif %}
+                                        {% if req.display_barangay %}{{ req.display_barangay }}{% endif %}{% if req.display_city %}{% if req.display_barangay %}, {% endif %}{{ req.display_city }}{% endif %}
+                                    </p>
+                                {% endif %}
+                            {% elif req.manual_full_address or req.barangay or req.city %}
+                                {% if req.manual_full_address %}
+                                    <p><strong>Purok / Sitio / Notes:</strong> {{ req.manual_full_address }}</p>
+                                {% endif %}
+                                {% if req.barangay %}
+                                    <p><strong>Barangay:</strong> {{ req.barangay }}{% if req.city %}, {{ req.city }}{% endif %}</p>
+                                {% elif req.city %}
+                                    <p><strong>Area:</strong> {{ req.city }}</p>
+                                {% endif %}
+                            {% else %}
+                                <p><em>No location provided.</em></p>
+                            {% endif %}
+                        {% elif req.submission_type == 'walk_in' %}
+                            <p><em>This is a walk-in office request.</em></p>
+                        {% elif req.request_type == 'surrender' %}
+                            <p><em>This is a dog surrender request. No dispatch location is required.</em></p>
+                        {% else %}
+                            <p><em>No location provided.</em></p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="capture-review-text-stack">
+                {% if req.requester_facebook %}
+                    <div class="capture-review-text-block">
+                        <span class="label">Facebook</span>
+                        <a href="{{ req.requester_facebook }}" target="_blank" rel="noopener noreferrer" class="meta-link">
+                            {{ req.requester_facebook }}
+                        </a>
+                    </div>
                 {% endif %}
+                {% if req.description %}
+                    <div class="capture-review-text-block">
+                        <span class="label">Details</span>
+                        <p class="capture-review-value">{{ req.description }}</p>
+                    </div>
+                {% endif %}
+                {% if req.status == 'captured' %}
+                    <div class="capture-review-text-block">
+                        <span class="label">Capture record</span>
+                        <p class="capture-review-value">
+                            <strong>{% if req.request_type == 'surrender' %}Completed:{% else %}Captured:{% endif %}</strong>
+                            {% if req.captured_at %}
+                                {{ req.captured_at|date:"M d, Y h:i A" }}
+                            {% else %}
+                                Done
+                            {% endif %}
+                        </p>
+                        {% if req.assigned_admin %}
+                            <p class="capture-review-value"><strong>Marked by:</strong> {{ req.assigned_admin.get_full_name|default:req.assigned_admin.username }}</p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="capture-review-media">
+                {% with req_images=req.images.all %}
+                    {% if req_images %}
+                        <section class="capture-review-media-section" aria-label="Attached photos">
+                            <span class="label">Attached photos</span>
+                            <div class="request-image-viewer" data-image-viewer>
+                                {% for req_image in req_images %}
+                                    <img src="{{ req_image.image.url }}"
+                                         alt="Request image {{ forloop.counter }}"
+                                         class="viewer-image {% if forloop.first %}is-active{% endif %}"
+                                         data-viewer-image>
+                                {% endfor %}
+                                {% if req_images|length > 1 %}
+                                    <button type="button" class="viewer-nav prev" data-viewer-prev aria-label="Previous image">&lt;</button>
+                                    <button type="button" class="viewer-nav next" data-viewer-next aria-label="Next image">&gt;</button>
+                                    <div class="viewer-counter">
+                                        <span data-viewer-index>1</span> / {{ req_images|length }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </section>
+                    {% elif req.image %}
+                        <section class="capture-review-media-section" aria-label="Attached photo">
+                            <span class="label">Attached photo</span>
+                            <div class="request-image">
+                                <img src="{{ req.image.url }}" alt="Request image">
+                            </div>
+                        </section>
+                    {% endif %}
+                {% endwith %}
                 {% if req.submission_type == 'online' %}
                     {% with extra_landmarks=req.landmark_images.all %}
                         {% if req.location_landmark_image or extra_landmarks %}
-                            <div class="request-landmark-image">
+                            <section class="capture-review-media-section" aria-label="Landmark photos">
                                 {% with extras_count=extra_landmarks|length %}
-                                <span class="label">Landmark / Highway / Crossing Photo{% if req.location_landmark_image and extras_count or extras_count > 1 %}s{% endif %}</span>
-                                <div class="request-image-viewer request-landmark-viewer" data-image-viewer>
-                                    {% if req.location_landmark_image %}
-                                        <img
-                                            src="{{ req.location_landmark_image.url }}"
-                                            alt="Manual location landmark image 1"
-                                            class="viewer-image is-active"
-                                            data-viewer-image
-                                        >
-                                    {% endif %}
-                                    {% for landmark in extra_landmarks %}
-                                        <img
-                                            src="{{ landmark.image.url }}"
-                                            alt="Manual location landmark image {{ forloop.counter }}"
-                                            class="viewer-image {% if not req.location_landmark_image and forloop.first %}is-active{% endif %}"
-                                            data-viewer-image
-                                        >
-                                    {% endfor %}
-                                    {% if req.location_landmark_image and extras_count or extras_count > 1 %}
-                                        <button type="button" class="viewer-nav prev" data-viewer-prev aria-label="Previous image">&lt;</button>
-                                        <button type="button" class="viewer-nav next" data-viewer-next aria-label="Next image">&gt;</button>
-                                        <div class="viewer-counter">
-                                            <span data-viewer-index>1</span> /
-                                            {% if req.location_landmark_image %}
-                                                {{ extras_count|add:"1" }}
-                                            {% else %}
-                                                {{ extras_count }}
-                                            {% endif %}
-                                        </div>
-                                    {% endif %}
-                                </div>
+                                    <span class="label">Landmark photo{% if req.location_landmark_image and extras_count or extras_count > 1 %}s{% endif %}</span>
+                                    <div class="request-image-viewer request-landmark-viewer" data-image-viewer>
+                                        {% if req.location_landmark_image %}
+                                            <img
+                                                src="{{ req.location_landmark_image.url }}"
+                                                alt="Manual location landmark image 1"
+                                                class="viewer-image is-active"
+                                                data-viewer-image
+                                            >
+                                        {% endif %}
+                                        {% for landmark in extra_landmarks %}
+                                            <img
+                                                src="{{ landmark.image.url }}"
+                                                alt="Manual location landmark image {{ forloop.counter }}"
+                                                class="viewer-image {% if not req.location_landmark_image and forloop.first %}is-active{% endif %}"
+                                                data-viewer-image
+                                            >
+                                        {% endfor %}
+                                        {% if req.location_landmark_image and extras_count or extras_count > 1 %}
+                                            <button type="button" class="viewer-nav prev" data-viewer-prev aria-label="Previous image">&lt;</button>
+                                            <button type="button" class="viewer-nav next" data-viewer-next aria-label="Next image">&gt;</button>
+                                            <div class="viewer-counter">
+                                                <span data-viewer-index>1</span> /
+                                                {% if req.location_landmark_image %}
+                                                    {{ extras_count|add:"1" }}
+                                                {% else %}
+                                                    {{ extras_count }}
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
                                 {% endwith %}
-                            </div>
+                            </section>
                         {% endif %}
                     {% endwith %}
                 {% endif %}
             </div>
-
-            {% if req.status == 'captured' %}
-                <div class="info-block">
-                    <span class="label">Capture Record</span>
-                    <p>
-                        <strong>{% if req.request_type == 'surrender' %}Completed On:{% else %}Captured On:{% endif %}</strong>
-                        {% if req.captured_at %}
-                            {{ req.captured_at|date:"M d, Y h:i A" }}
-                        {% else %}
-                            Done
-                        {% endif %}
-                    </p>
-                    {% if req.assigned_admin %}
-                        <p><strong>Marked By:</strong> {{ req.assigned_admin.get_full_name|default:req.assigned_admin.username }}</p>
-                    {% endif %}
-                </div>
-            {% endif %}
         </div>
 
-        <div class="card action-card">
+        <div class="capture-review-actions">
             <h2>Action</h2>
             <form method="POST" class="admin-action-form">
                 {% csrf_token %}
 
-                <div class="schedule-summary">
-                    <div class="schedule-summary-card preferred">
-                        <span class="label">Preferred Date</span>
-                        <strong>
-                            {% if req.preferred_appointment_date %}
-                                {{ req.preferred_appointment_date|date:"M d, Y" }}
-                            {% else %}
-                                No preferred date
-                            {% endif %}
-                        </strong>
-                        <small>
-                            {% if req.preferred_appointment_date %}
-                                User choice.
-                            {% else %}
-                                No date chosen.
-                            {% endif %}
-                        </small>
-                    </div>
-                    {% if req.scheduled_date %}
+                {% if req.scheduled_date %}
+                    <div class="schedule-summary">
                         <div class="schedule-summary-card final">
                             <span class="label">Final Schedule</span>
                             <strong>{{ req.scheduled_date|date:"M d, Y h:i A" }}</strong>
                             <small>Assigned date.</small>
                         </div>
-                    {% endif %}
-                </div>
+                    </div>
+                {% endif %}
 
                 <div class="input-group">
                     <label for="admin_message">Admin Note</label>
@@ -262,9 +239,6 @@
                         <div class="calendar-days" id="schedule_days"></div>
                         <div class="calendar-helper-text">
                             <span class="helper-chip helper-chip-available">Open</span>
-                            {% if req.preferred_appointment_date %}
-                                <span class="helper-chip helper-chip-preferred">Preferred</span>
-                            {% endif %}
                             <span class="helper-chip helper-chip-selected">Selected</span>
                         </div>
                     </section>
@@ -343,14 +317,13 @@
     }
 
     const availableSet = new Set(availableDates);
-    const preferredDate = '{{ requested_appointment_date_iso }}';
     const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     let selectedDate = hiddenInput.value || '';
     let currentMonth = (() => {
-        const anchor = selectedDate || preferredDate || availableDates[0] || '';
+        const anchor = selectedDate || availableDates[0] || '';
         if (anchor) {
             const [year, month] = anchor.split('-').map(Number);
             return new Date(year, (month || 1) - 1, 1);
@@ -401,12 +374,10 @@
             const iso = formatIso(dateObj);
             const isPast = dateObj < today;
             const isAvailable = availableSet.has(iso);
-            const isPreferred = preferredDate && iso === preferredDate;
             const isSelected = selectedDate && iso === selectedDate;
             const classes = [
                 'day-cell',
                 isAvailable ? 'available' : '',
-                isPreferred ? 'preferred' : '',
                 isSelected ? 'selected' : '',
                 !isAvailable || isPast ? 'disabled' : '',
             ].join(' ').trim();

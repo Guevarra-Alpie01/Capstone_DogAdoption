@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260425assist-loc-select-gender-req">
+<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260425surrender-single-col-v2">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
 
@@ -39,7 +39,7 @@
                 </button>
             </div>
         </div>
-        <form method="POST" enctype="multipart/form-data" class="capture-form request-single" id="captureForm" novalidate>
+        <form method="POST" enctype="multipart/form-data" class="capture-form request-single" id="captureForm" novalidate data-surrender-min-photos="{{ surrender_min_dog_photos }}">
             {% csrf_token %}
             <input type="hidden" name="request_type" value="surrender">
             <input type="hidden" name="submission_type" value="online">
@@ -47,15 +47,15 @@
             <div class="request-single-shell">
             <div class="request-single-grid">
             <div class="request-single-media">
-                <h2 class="request-single-h" id="assist-photos-heading">Dog photos</h2>
-                <p class="request-single-lead">Optional. Helps staff prepare.</p>
-                <div class="capture-choice" role="group" aria-labelledby="assist-photos-heading">
+                <h2 class="request-single-h" id="assist-photos-heading">Dog photos <span class="req-mark" aria-hidden="true">*</span></h2>
+                <p class="request-single-lead" id="assist-photos-hint">{{ surrender_dog_photos_hint }}</p>
+                <div class="capture-choice" role="group" aria-labelledby="assist-photos-heading" aria-describedby="assist-photos-hint">
                     <button type="button" class="btn-secondary capture-action-btn" id="openUploadPickerBtn">
-                        <i class="bi bi-upload" aria-hidden="true"></i>
+                        <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
                         <span>Upload Photo</span>
                     </button>
                     <button type="button" class="btn-primary capture-action-btn" id="openCameraExperienceBtn">
-                        <i class="bi bi-camera2" aria-hidden="true"></i>
+                        <i class="bi bi-camera" aria-hidden="true"></i>
                         <span>Take Photo</span>
                     </button>
                 </div>
@@ -78,14 +78,14 @@
                     <div class="camera-action-grid">
                         <button type="button" class="btn-primary camera-control-btn camera-control-btn--start" id="startCameraBtn">
                             <span class="camera-control-icon" aria-hidden="true">
-                                <i class="bi bi-camera-fill"></i>
+                                <i class="bi bi-camera"></i>
                             </span>
                             <span class="camera-control-label">Open Camera</span>
                         </button>
                         <button type="button" class="btn-primary camera-control-btn camera-control-btn--capture" id="captureBtn" disabled>
                             <span class="camera-capture-shutter" aria-hidden="true">
                                 <span class="camera-capture-shutter-ring"></span>
-                                <i class="bi bi-camera-fill"></i>
+                                <i class="bi bi-record-circle"></i>
                             </span>
                             <span class="camera-control-label">Capture Photo</span>
                         </button>
@@ -178,7 +178,7 @@
                         <label for="locationModeSelect">How do you want to share location?</label>
                         <div class="input-with-icon select-with-icon">
                             <span class="input-icon">
-                                <i class="bi bi-geo-alt" aria-hidden="true"></i>
+                                <i class="bi bi-pin-map" aria-hidden="true"></i>
                             </span>
                             <select id="locationModeSelect" name="location_mode" class="barangay-select">
                                 <option value="exact" selected>GPS on map</option>
@@ -197,7 +197,7 @@
                         <div id="requestMap"></div>
                         <div class="location-action-row">
                             <button type="button" class="btn-secondary" id="getLocationBtn">
-                                <i class="bi bi-crosshair2" aria-hidden="true"></i>
+                                <i class="bi bi-crosshair" aria-hidden="true"></i>
                                 <span>Locate My Location</span>
                             </button>
                         </div>
@@ -214,7 +214,7 @@
                                 <label for="manualFullAddressField">Purok / Sitio (optional)</label>
                                 <div class="input-with-icon textarea-with-icon">
                                     <span class="input-icon">
-                                        <i class="bi bi-signpost-2-fill" aria-hidden="true"></i>
+                                        <i class="bi bi-signpost" aria-hidden="true"></i>
                                     </span>
                                     <textarea
                                         name="manual_full_address"
@@ -229,7 +229,7 @@
                                 <label for="barangayField">Barangay</label>
                                 <div class="input-with-icon select-with-icon">
                                     <span class="input-icon">
-                                        <i class="bi bi-pin-map-fill" aria-hidden="true"></i>
+                                        <i class="bi bi-building" aria-hidden="true"></i>
                                     </span>
                                     <select
                                         id="barangayField"
@@ -251,7 +251,7 @@
                                 <label for="locationLandmarkImageField">Nearby landmark photo(s) (optional)</label>
                                 <div class="input-with-icon file-input-wrap">
                                     <span class="input-icon">
-                                        <i class="bi bi-image-fill" aria-hidden="true"></i>
+                                        <i class="bi bi-images" aria-hidden="true"></i>
                                     </span>
                                     <input
                                         type="file"
@@ -457,6 +457,7 @@ const surrenderGenderField = document.getElementById('surrenderGenderField');
 const locationModeSelect = document.getElementById('locationModeSelect');
 const defaultRequestCity = "{{ default_manual_city|escapejs }}";
 const captureForm = document.getElementById('captureForm');
+const surrenderMinDogPhotos = Math.max(1, Number(captureForm?.dataset?.surrenderMinPhotos || 2));
 const onlineDetailsSection = document.getElementById('onlineDetailsSection');
 const requestHistoryModalEl = document.getElementById('requestHistoryModal');
 const barangayField = document.getElementById('barangayField');
@@ -944,6 +945,10 @@ let activeFacingMode = '';
 let availableVideoInputCount = 0;
 let capturedImages = [];
 let mirrorCompensation = false;
+
+function getSurrenderDogPhotoCount() {
+    return selectedUploadFiles.length + capturedImages.length;
+}
 
 function showCameraSection(visible) {
     if (!cameraSection) return;
@@ -1587,6 +1592,18 @@ captureForm?.addEventListener('submit', async (e) => {
         } else {
             window.location.href = "{% url 'user:login' %}?next=" + encodeURIComponent(requestAuthNextUrl);
         }
+        return;
+    }
+
+    if (getSurrenderDogPhotoCount() < surrenderMinDogPhotos) {
+        const hint =
+            document.getElementById('assist-photos-hint')?.textContent?.trim() ||
+            'Upload at least 2 photos - one of dog alone, one with owner/dog together.';
+        showRequestNotice(hint, {
+            title: 'Photos required',
+            tone: 'warning',
+        });
+        document.getElementById('assist-photos-heading')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return;
     }
 

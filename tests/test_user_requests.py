@@ -2,12 +2,20 @@ from datetime import date
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
-from urllib.parse import urlencode
 
 from dogadoption_admin.models import Barangay
 from user.models import DogCaptureRequest
+
+
+def _two_surrender_dog_photos():
+    """Return a list suitable for the ``images`` field in multipart POST ``data``."""
+    return [
+        SimpleUploadedFile("dog-a.jpg", b"fake-image-bytes-a", content_type="image/jpeg"),
+        SimpleUploadedFile("dog-b.jpg", b"fake-image-bytes-b", content_type="image/jpeg"),
+    ]
 
 
 class UserDogSurrenderRequestTests(TestCase):
@@ -34,6 +42,8 @@ class UserDogSurrenderRequestTests(TestCase):
         self.assertContains(response, 'name="submission_type" value="online"', html=False)
         self.assertNotContains(response, "Request Dog Capture")
         self.assertNotContains(response, "Walk-in Request (Office)")
+        self.assertContains(response, "Upload at least 2 photos")
+        self.assertContains(response, "owner/dog together")
 
     def test_guest_can_view_request_page_but_submit_uses_login_modal_flow(self):
         response = self.client.get(self.request_url)
@@ -75,6 +85,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "description": "Needs safe turnover.",
                 "colors": "black",
                 "gender": "male",
+                "images": _two_surrender_dog_photos(),
             },
             follow=True,
         )
@@ -103,6 +114,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "reason": "stray",
                 "colors": "brown",
                 "gender": "male",
+                "images": _two_surrender_dog_photos(),
             },
             follow=True,
         )
@@ -116,7 +128,7 @@ class UserDogSurrenderRequestTests(TestCase):
 
         response = self.client.post(
             self.request_url,
-            {
+            data={
                 "phone_number": "09171234567",
                 "location_mode": "exact",
                 "latitude": "9.123456",
@@ -125,6 +137,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "reason": "stray",
                 "colors": "brown",
                 "gender": "male",
+                "images": _two_surrender_dog_photos(),
             },
             follow=True,
         )
@@ -140,7 +153,7 @@ class UserDogSurrenderRequestTests(TestCase):
 
         response = self.client.post(
             self.request_url,
-            {
+            data={
                 "phone_number": "09171234567",
                 "location_mode": "exact",
                 "latitude": "9.123456",
@@ -149,6 +162,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "reason": "stray",
                 "colors": "brown",
                 "gender": "male",
+                "images": _two_surrender_dog_photos(),
             },
             follow=True,
         )
@@ -202,23 +216,18 @@ class UserDogSurrenderRequestTests(TestCase):
     def test_submission_stores_gender_and_colors(self):
         self.client.force_login(self.user)
 
-        body = urlencode(
-            [
-                ("phone_number", "09171234567"),
-                ("location_mode", "manual"),
-                ("barangay", "Bugay"),
-                ("city", "Bayawan City"),
-                ("gender", "male"),
-                ("reason", "stray"),
-                ("colors", "black"),
-                ("colors", "white"),
-            ],
-            doseq=True,
-        )
         response = self.client.post(
             self.request_url,
-            data=body,
-            content_type="application/x-www-form-urlencoded",
+            data={
+                "phone_number": "09171234567",
+                "location_mode": "manual",
+                "barangay": "Bugay",
+                "city": "Bayawan City",
+                "gender": "male",
+                "reason": "stray",
+                "colors": ["black", "white"],
+                "images": _two_surrender_dog_photos(),
+            },
             follow=True,
         )
 
@@ -240,6 +249,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "city": "Bayawan City",
                 "reason": "stray",
                 "gender": "male",
+                "images": _two_surrender_dog_photos(),
             },
             follow=True,
         )
@@ -261,6 +271,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "reason": "stray",
                 "colors": "black",
                 "gender": "",
+                "images": _two_surrender_dog_photos(),
             },
             follow=True,
         )
@@ -269,27 +280,65 @@ class UserDogSurrenderRequestTests(TestCase):
         self.assertFalse(DogCaptureRequest.objects.filter(requested_by=self.user).exists())
         self.assertContains(response, "dog gender")
 
+    def test_submission_rejects_insufficient_dog_photos(self):
+        self.client.force_login(self.user)
+
+        response_none = self.client.post(
+            self.request_url,
+            {
+                "phone_number": "09171234567",
+                "location_mode": "manual",
+                "barangay": "Bugay",
+                "city": "Bayawan City",
+                "reason": "stray",
+                "colors": "black",
+                "gender": "male",
+            },
+            follow=True,
+        )
+        self.assertEqual(response_none.status_code, 200)
+        self.assertFalse(DogCaptureRequest.objects.filter(requested_by=self.user).exists())
+        self.assertContains(response_none, "at least 2 photos")
+
+        one_file = [
+            SimpleUploadedFile("only.jpg", b"fake-image-bytes", content_type="image/jpeg"),
+        ]
+        response_one = self.client.post(
+            self.request_url,
+            {
+                "phone_number": "09171234567",
+                "location_mode": "manual",
+                "barangay": "Bugay",
+                "city": "Bayawan City",
+                "reason": "stray",
+                "colors": "black",
+                "gender": "male",
+                "images": one_file,
+            },
+            follow=True,
+        )
+        self.assertEqual(response_one.status_code, 200)
+        self.assertFalse(DogCaptureRequest.objects.filter(requested_by=self.user).exists())
+        self.assertContains(response_one, "at least 2 photos")
+
     def test_submission_rejects_other_color_without_description(self):
         self.client.force_login(self.user)
 
-        body = urlencode(
-            [
-                ("phone_number", "09171234567"),
-                ("location_mode", "manual"),
-                ("barangay", "Bugay"),
-                ("city", "Bayawan City"),
-                ("reason", "stray"),
-                ("gender", "male"),
-                ("colors", "other"),
-            ],
-            doseq=True,
-        )
         response = self.client.post(
             self.request_url,
-            data=body,
-            content_type="application/x-www-form-urlencoded",
+            data={
+                "phone_number": "09171234567",
+                "location_mode": "manual",
+                "barangay": "Bugay",
+                "city": "Bayawan City",
+                "reason": "stray",
+                "gender": "male",
+                "colors": "other",
+                "images": _two_surrender_dog_photos(),
+            },
             follow=True,
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(DogCaptureRequest.objects.filter(requested_by=self.user).exists())
+        self.assertContains(response, "other color")

@@ -1494,12 +1494,18 @@ class UserJourney(CapstoneUserBase):
             "city": SETTINGS.request_city,
             "latitude": SETTINGS.request_latitude,
             "longitude": SETTINGS.request_longitude,
+            "gps_accuracy": "50",
             "colors": "brown",
             "gender": "male",
         }
+        files = [
+            ("images", ("surrender-a.jpg", b"fake-jpeg-a", "image/jpeg")),
+            ("images", ("surrender-b.jpg", b"fake-jpeg-b", "image/jpeg")),
+        ]
         with self.client.post(
             "/user/request/",
             data=payload,
+            files=files,
             headers=headers,
             allow_redirects=True,
             name="POST /user/request/",

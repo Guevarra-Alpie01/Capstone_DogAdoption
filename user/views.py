@@ -100,9 +100,15 @@ DOG_CAPTURE_MAX_ACCEPTABLE_GPS_ACCURACY_METERS = 1000
 ADMIN_POST_HISTORY_CACHE_KEY = "dogadoption_admin_post_history_ids_v1"
 DOG_SURRENDER_REQUEST_TYPE = "surrender"
 DOG_ONLINE_SUBMISSION_TYPE = "online"
+DOG_SURRENDER_MIN_DOG_PHOTOS = 2
+SURRENDER_DOG_PHOTOS_REQUIREMENT_TEXT = (
+    "Upload at least 2 photos - one of dog alone, one with owner/dog together."
+)
 DOG_SURRENDER_FORM_CONTEXT = {
     "surrender_gender_choices": Post.GENDER_CHOICES,
     "surrender_color_choices": Post.COLOR_CHOICES,
+    "surrender_min_dog_photos": DOG_SURRENDER_MIN_DOG_PHOTOS,
+    "surrender_dog_photos_hint": SURRENDER_DOG_PHOTOS_REQUIREMENT_TEXT,
 }
 PHILIPPINES_COUNTRY_CODE = "+63"
 SIGNUP_USERNAME_MIN_LENGTH = 3
@@ -5018,6 +5024,15 @@ def _parse_surrender_dog_appearance(post_data):
 def _handle_dog_capture_request_submission(request):
     uploaded_images = _build_uploaded_capture_images(request)
     if uploaded_images is None:
+        return _dog_capture_request_redirect()
+
+    uploaded_images = [
+        f
+        for f in uploaded_images
+        if f and getattr(f, "size", 0) > 0
+    ]
+    if len(uploaded_images) < DOG_SURRENDER_MIN_DOG_PHOTOS:
+        messages.error(request, SURRENDER_DOG_PHOTOS_REQUIREMENT_TEXT)
         return _dog_capture_request_redirect()
 
     phone_number = _normalize_ph_phone_number(request.POST.get('phone_number'))

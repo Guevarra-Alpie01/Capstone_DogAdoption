@@ -123,6 +123,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'social_django',
     'dogadoption_admin',
     'user',
     'django.contrib.humanize',
@@ -244,9 +245,12 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Managed staff: try VetAdmin profile hash (and sync User) before default ModelBackend.
+# Google OAuth completion (user.views._complete_google_login) sets user.backend to this path.
+GOOGLE_LOGIN_AUTH_BACKEND = "social_core.backends.google.GoogleOAuth2"
 AUTHENTICATION_BACKENDS = [
     "dogadoption_admin.backends.VetAdminProfileAuthBackend",
     "django.contrib.auth.backends.ModelBackend",
+    GOOGLE_LOGIN_AUTH_BACKEND,
 ]
 
 # Internationalization

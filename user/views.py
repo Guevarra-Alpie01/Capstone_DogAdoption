@@ -704,6 +704,7 @@ def _complete_google_login(request, google_account, *, next_url=""):
         if user_updates:
             existing_user.save(update_fields=user_updates)
 
+        existing_user.backend = settings.GOOGLE_LOGIN_AUTH_BACKEND
         login(request, existing_user)
         _clear_social_signup_session(request)
         messages.success(request, "Signed in with Google.")
@@ -730,6 +731,7 @@ def _complete_google_login(request, google_account, *, next_url=""):
             login_url = f"{login_url}?{urlencode({'next': next_url})}"
         return redirect(login_url)
 
+    created_user.backend = settings.GOOGLE_LOGIN_AUTH_BACKEND
     login(request, created_user)
     _clear_social_signup_session(request)
     _clear_signup_session_state(request, delete_temp_faces=True)

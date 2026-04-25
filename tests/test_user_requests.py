@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
+from urllib.parse import urlencode
 
 from dogadoption_admin.models import Barangay
 from user.models import DogCaptureRequest
@@ -28,7 +29,7 @@ class UserDogSurrenderRequestTests(TestCase):
         response = self.client.get(self.request_url)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Dog Surrender Form")
+        self.assertContains(response, "Request dog surrender assistance")
         self.assertContains(response, 'name="request_type" value="surrender"', html=False)
         self.assertContains(response, 'name="submission_type" value="online"', html=False)
         self.assertNotContains(response, "Request Dog Capture")
@@ -38,7 +39,7 @@ class UserDogSurrenderRequestTests(TestCase):
         response = self.client.get(self.request_url)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Dog Surrender Form")
+        self.assertContains(response, "Request dog surrender assistance")
         self.assertContains(response, 'data-auth-modal-trigger="login"', html=False)
 
     def test_guest_request_submission_redirects_to_home_login_modal(self):
@@ -96,7 +97,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "location_mode": "exact",
                 "latitude": "9.123456",
                 "longitude": "122.654321",
-                "gps_accuracy": "130",
+                "gps_accuracy": "1300",
                 "reason": "stray",
             },
             follow=True,
@@ -104,7 +105,7 @@ class UserDogSurrenderRequestTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(DogCaptureRequest.objects.filter(requested_by=self.user).exists())
-        self.assertContains(response, "100 meters or better")
+        self.assertContains(response, "too coarse")
 
     def test_exact_submission_accepts_usable_gps_accuracy(self):
         self.client.force_login(self.user)
@@ -185,3 +186,56 @@ class UserDogSurrenderRequestTests(TestCase):
         self.assertEqual(request_record.barangay, "Bugay")
         self.assertEqual(request_record.manual_full_address, "Near barangay hall")
         self.assertEqual(request_record.description, "Updated surrender details.")
+
+    def test_submission_stores_gender_and_colors(self):
+        self.client.force_login(self.user)
+
+        body = urlencode(
+            [
+                ("phone_number", "09171234567"),
+                ("location_mode", "manual"),
+                ("barangay", "Bugay"),
+                ("city", "Bayawan City"),
+                ("gender", "male"),
+                ("reason", "stray"),
+                ("colors", "black"),
+                ("colors", "white"),
+            ],
+            doseq=True,
+        )
+        response = self.client.post(
+            self.request_url,
+            data=body,
+            content_type="application/x-www-form-urlencoded",
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        request_record = DogCaptureRequest.objects.get(requested_by=self.user)
+        self.assertEqual(request_record.gender, "male")
+        self.assertEqual(request_record.colors, ["black", "white"])
+        self.assertEqual(request_record.color_other, "")
+
+    def test_submission_rejects_other_color_without_description(self):
+        self.client.force_login(self.user)
+
+        body = urlencode(
+            [
+                ("phone_number", "09171234567"),
+                ("location_mode", "manual"),
+                ("barangay", "Bugay"),
+                ("city", "Bayawan City"),
+                ("reason", "stray"),
+                ("colors", "other"),
+            ],
+            doseq=True,
+        )
+        response = self.client.post(
+            self.request_url,
+            data=body,
+            content_type="application/x-www-form-urlencoded",
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(DogCaptureRequest.objects.filter(requested_by=self.user).exists())

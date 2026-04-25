@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260417surrender-hero-mobile">
+<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260425surrender-dog-appearance">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
 
@@ -141,6 +141,52 @@
                                 inputmode="tel"
                                 autocomplete="off"
                                 required
+                            >
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="surrenderGenderField">Dog gender (optional)</label>
+                        <div class="input-with-icon select-with-icon">
+                            <span class="input-icon">
+                                <i class="bi bi-gender-ambiguous" aria-hidden="true"></i>
+                            </span>
+                            <select id="surrenderGenderField" name="gender" class="barangay-select">
+                                <option value="" selected>Select gender</option>
+                                {% for value, label in surrender_gender_choices %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <span class="select-chevron" aria-hidden="true">
+                                <i class="bi bi-chevron-down"></i>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="form-group surrender-color-field">
+                        <label>Coat color (optional, same options as shelter posts)</label>
+                        <div class="post-checkbox-options post-checkbox-grid" id="surrenderColorOptions">
+                            {% for value, label in surrender_color_choices %}
+                                <label class="post-checkbox-option">
+                                    <input type="checkbox" name="colors" value="{{ value }}" data-surrender-color-checkbox>
+                                    <span>{{ label }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="form-group surrender-color-other-group" id="surrenderColorOtherGroup" hidden>
+                        <label for="surrenderColorOtherField">Other color</label>
+                        <div class="input-with-icon">
+                            <span class="input-icon">
+                                <i class="bi bi-palette" aria-hidden="true"></i>
+                            </span>
+                            <input
+                                type="text"
+                                name="color_other"
+                                id="surrenderColorOtherField"
+                                autocomplete="off"
+                                placeholder="Describe the color"
                             >
                         </div>
                     </div>
@@ -1358,6 +1404,28 @@ primePhoneField();
 setResolvedCity(cityField?.value || defaultRequestCity);
 applyCreateLocationMode();
 
+const surrenderColorOtherGroup = document.getElementById('surrenderColorOtherGroup');
+const surrenderColorOptionInputs = document.querySelectorAll('#surrenderColorOptions input[type="checkbox"]');
+const surrenderColorOtherField = document.getElementById('surrenderColorOtherField');
+
+function syncSurrenderColorOther() {
+    if (!surrenderColorOptionInputs.length || !surrenderColorOtherGroup) {
+        return;
+    }
+    const showOther = Array.from(surrenderColorOptionInputs).some(
+        (input) => input.value === 'other' && input.checked,
+    );
+    surrenderColorOtherGroup.hidden = !showOther;
+    if (!showOther && surrenderColorOtherField) {
+        surrenderColorOtherField.value = '';
+    }
+}
+
+surrenderColorOptionInputs.forEach((input) => {
+    input.addEventListener('change', syncSurrenderColorOther);
+});
+syncSurrenderColorOther();
+
 async function resolveAddressFromCoords(lat, lng) {
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     const timeoutId = controller
@@ -1540,6 +1608,18 @@ captureForm?.addEventListener('submit', async (e) => {
     }
 
     if (!validatePhoneField()) {
+        return;
+    }
+
+    const surrenderOtherChecked = Array.from(
+        document.querySelectorAll('#surrenderColorOptions input[type="checkbox"]'),
+    ).some((input) => input.value === 'other' && input.checked);
+    if (surrenderOtherChecked && !(surrenderColorOtherField?.value || '').trim()) {
+        showRequestNotice('Please describe the other color when "Other" is selected.', {
+            title: 'Color Required',
+            tone: 'warning',
+        });
+        surrenderColorOtherField?.focus();
         return;
     }
 
@@ -1763,6 +1843,31 @@ function initRequestEditForms(root = document) {
             radio.addEventListener('change', () => applyRequestEditLocationMode(form));
         });
         applyRequestEditLocationMode(form);
+    });
+
+    root.querySelectorAll('[data-surrender-edit-colors]').forEach((box) => {
+        if (box.dataset.surrenderEditColorsBound === '1') {
+            return;
+        }
+        box.dataset.surrenderEditColorsBound = '1';
+        const form = box.closest('form');
+        const otherWrap = form?.querySelector('[data-surrender-edit-color-other]');
+        const otherInput = form?.querySelector('[data-surrender-edit-color-other-input]');
+        const sync = () => {
+            const showOther = Array.from(box.querySelectorAll('input[type="checkbox"]')).some(
+                (input) => input.value === 'other' && input.checked,
+            );
+            if (otherWrap) {
+                otherWrap.hidden = !showOther;
+            }
+            if (!showOther && otherInput) {
+                otherInput.value = '';
+            }
+        };
+        box.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+            input.addEventListener('change', sync);
+        });
+        sync();
     });
 
     root.querySelectorAll('.landmark-remove-check').forEach((checkbox) => {

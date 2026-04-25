@@ -111,6 +111,15 @@ class DogCaptureRequest(models.Model):
     reason = models.CharField(max_length=50)
     description = models.TextField(blank=True, null=True)
 
+    gender = models.CharField(
+        max_length=10,
+        choices=Post.GENDER_CHOICES,
+        blank=True,
+        default="",
+    )
+    colors = models.JSONField(blank=True, default=list)
+    color_other = models.CharField(max_length=100, blank=True, default="")
+
     # GPS location
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
@@ -135,6 +144,7 @@ class DogCaptureRequest(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = "user_dogsurrender_request"
         indexes = [
             models.Index(fields=["status", "created_at"], name="dogcap_status_created_idx"),
             models.Index(fields=["requested_by", "status", "created_at"], name="dogcap_user_status_created_idx"),
@@ -148,10 +158,44 @@ class DogCaptureRequest(models.Model):
                 name="dogcap_stat_coords_cr_idx",
             ),
         ]
-       
 
     def get_reason_display(self):
         return self.REASON_LABELS.get(self.reason, self.reason.replace('_', ' ').title() if self.reason else 'Unknown')
+
+    @staticmethod
+    def _clean_display_text(value):
+        return " ".join((value or "").split()).strip()
+
+    @property
+    def display_dog_color_list(self):
+        raw_colors = self.colors or []
+        if isinstance(raw_colors, str):
+            raw_colors = [raw_colors]
+        color_labels = []
+        choice_map = dict(Post.COLOR_CHOICES)
+        for value in raw_colors:
+            if value == Post.COLOR_OTHER:
+                other_label = self._clean_display_text(self.color_other)
+                if other_label:
+                    color_labels.append(other_label)
+                elif "Other" not in color_labels:
+                    color_labels.append("Other")
+                continue
+            label = choice_map.get(value)
+            if label and label not in color_labels:
+                color_labels.append(label)
+        return color_labels
+
+    @property
+    def display_dog_colors(self):
+        return ", ".join(self.display_dog_color_list)
+
+    def save(self, *args, **kwargs):
+        if self.colors is None:
+            self.colors = []
+        elif not isinstance(self.colors, list):
+            self.colors = [self.colors] if self.colors else []
+        super().save(*args, **kwargs)
 
     @property
     def needs_location_details(self):

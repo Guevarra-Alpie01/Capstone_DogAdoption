@@ -100,6 +100,10 @@ DOG_CAPTURE_MAX_ACCEPTABLE_GPS_ACCURACY_METERS = 1000
 ADMIN_POST_HISTORY_CACHE_KEY = "dogadoption_admin_post_history_ids_v1"
 DOG_SURRENDER_REQUEST_TYPE = "surrender"
 DOG_ONLINE_SUBMISSION_TYPE = "online"
+DOG_SURRENDER_FORM_CONTEXT = {
+    "surrender_gender_choices": Post.GENDER_CHOICES,
+    "surrender_color_choices": Post.COLOR_CHOICES,
+}
 PHILIPPINES_COUNTRY_CODE = "+63"
 SIGNUP_USERNAME_MIN_LENGTH = 3
 SIGNUP_USERNAME_MAX_LENGTH = User._meta.get_field("username").max_length
@@ -4907,6 +4911,7 @@ def _build_dog_capture_request_page_context(request):
     if not request.user.is_authenticated:
         empty_page_obj = Paginator([], rows_per_page).get_page(1)
         return {
+            **DOG_SURRENDER_FORM_CONTEXT,
             'requests': False,
             'accepted_requests': [],
             'pending_requests': [],
@@ -4961,6 +4966,7 @@ def _build_dog_capture_request_page_context(request):
     )
 
     return {
+        **DOG_SURRENDER_FORM_CONTEXT,
         'requests': bool(status_totals),
         'accepted_requests': accepted_requests,
         'pending_requests': pending_requests,
@@ -4980,6 +4986,25 @@ def _build_dog_capture_request_page_context(request):
     }
 
 
+def _parse_surrender_dog_appearance(post_data):
+    """Normalize gender and color fields (same vocabulary as admin dog posts)."""
+    valid_colors = {c[0] for c in Post.COLOR_CHOICES}
+    raw_colors = post_data.getlist("colors")
+    colors = list(dict.fromkeys(c for c in raw_colors if c in valid_colors))
+    color_other = " ".join((post_data.get("color_other") or "").split()).strip()
+    if Post.COLOR_OTHER in colors and not color_other:
+        return False, None
+    if Post.COLOR_OTHER not in colors:
+        color_other = ""
+
+    gender = (post_data.get("gender") or "").strip()
+    valid_genders = {c[0] for c in Post.GENDER_CHOICES}
+    if gender and gender not in valid_genders:
+        gender = ""
+
+    return True, (gender, colors, color_other)
+
+
 def _handle_dog_capture_request_submission(request):
     uploaded_images = _build_uploaded_capture_images(request)
     if uploaded_images is None:
@@ -4997,6 +5022,15 @@ def _handle_dog_capture_request_submission(request):
     profile = _get_or_create_request_profile(request.user)
     profile.phone_number = phone_number
     profile.save(update_fields=["phone_number"])
+
+    appearance_ok, appearance = _parse_surrender_dog_appearance(request.POST)
+    if not appearance_ok:
+        messages.error(
+            request,
+            'Please enter the other color description when "Other" is selected.',
+        )
+        return _dog_capture_request_redirect()
+    gender, colors, color_other = appearance
 
     reason = (request.POST.get('reason') or 'stray').strip()
     if not _is_valid_capture_reason(reason):
@@ -5078,6 +5112,9 @@ def _handle_dog_capture_request_submission(request):
         preferred_appointment_date=None,
         reason=reason,
         description=description or None,
+        gender=gender,
+        colors=colors,
+        color_other=color_other,
         latitude=latitude_value,
         longitude=longitude_value,
         barangay=(_resolve_barangay_name(barangay) or barangay) if barangay else None,
@@ -5180,6 +5217,14 @@ def edit_dog_capture_request(request, req_id):
     if not _is_valid_capture_reason(reason):
         reason = 'stray'
     description = (request.POST.get('description') or '').strip()
+    appearance_ok, appearance = _parse_surrender_dog_appearance(request.POST)
+    if not appearance_ok:
+        messages.error(
+            request,
+            'Please enter the other color description when "Other" is selected.',
+        )
+        return redirect('user:dog_capture_request')
+    gender, colors, color_other = appearance
     request_type = DOG_SURRENDER_REQUEST_TYPE
     barangay = _clean_barangay(request.POST.get('barangay'))
     city = _clean_barangay(request.POST.get('city')) or DEFAULT_REQUEST_CITY
@@ -5253,6 +5298,9 @@ def edit_dog_capture_request(request, req_id):
     req.preferred_appointment_date = None
     req.reason = reason
     req.description = description or None
+    req.gender = gender
+    req.colors = colors
+    req.color_other = color_other
     req.barangay = (_resolve_barangay_name(barangay) or barangay) if barangay else None
     req.city = city or None
     req.save(
@@ -5262,6 +5310,9 @@ def edit_dog_capture_request(request, req_id):
             'preferred_appointment_date',
             'reason',
             'description',
+            'gender',
+            'colors',
+            'color_other',
             'barangay',
             'city',
             'latitude',

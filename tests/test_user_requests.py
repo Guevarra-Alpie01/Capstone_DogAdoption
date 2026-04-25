@@ -74,6 +74,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "reason": "aggressive",
                 "description": "Needs safe turnover.",
                 "colors": "black",
+                "gender": "male",
             },
             follow=True,
         )
@@ -101,6 +102,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "gps_accuracy": "1300",
                 "reason": "stray",
                 "colors": "brown",
+                "gender": "male",
             },
             follow=True,
         )
@@ -122,6 +124,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "gps_accuracy": "80",
                 "reason": "stray",
                 "colors": "brown",
+                "gender": "male",
             },
             follow=True,
         )
@@ -145,6 +148,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "gps_accuracy": "12",
                 "reason": "stray",
                 "colors": "brown",
+                "gender": "male",
             },
             follow=True,
         )
@@ -178,6 +182,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "description": "Updated surrender details.",
                 "reason": "stray",
                 "colors": "white",
+                "gender": "male",
             },
             follow=True,
         )
@@ -192,6 +197,7 @@ class UserDogSurrenderRequestTests(TestCase):
         self.assertEqual(request_record.manual_full_address, "Near barangay hall")
         self.assertEqual(request_record.description, "Updated surrender details.")
         self.assertEqual(request_record.colors, ["white"])
+        self.assertEqual(request_record.gender, "male")
 
     def test_submission_stores_gender_and_colors(self):
         self.client.force_login(self.user)
@@ -233,6 +239,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "barangay": "Bugay",
                 "city": "Bayawan City",
                 "reason": "stray",
+                "gender": "male",
             },
             follow=True,
         )
@@ -240,6 +247,27 @@ class UserDogSurrenderRequestTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(DogCaptureRequest.objects.filter(requested_by=self.user).exists())
         self.assertContains(response, "at least one coat color")
+
+    def test_submission_rejects_missing_gender(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            self.request_url,
+            {
+                "phone_number": "09171234567",
+                "location_mode": "manual",
+                "barangay": "Bugay",
+                "city": "Bayawan City",
+                "reason": "stray",
+                "colors": "black",
+                "gender": "",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(DogCaptureRequest.objects.filter(requested_by=self.user).exists())
+        self.assertContains(response, "dog gender")
 
     def test_submission_rejects_other_color_without_description(self):
         self.client.force_login(self.user)
@@ -251,6 +279,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 ("barangay", "Bugay"),
                 ("city", "Bayawan City"),
                 ("reason", "stray"),
+                ("gender", "male"),
                 ("colors", "other"),
             ],
             doseq=True,

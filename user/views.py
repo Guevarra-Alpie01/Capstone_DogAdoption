@@ -4989,6 +4989,7 @@ def _build_dog_capture_request_page_context(request):
 _SURRENDER_APPEARANCE_ERRORS = {
     "colors_required": "Please select at least one coat color.",
     "color_other": 'Please enter the other color description when "Other" is selected.',
+    "gender_required": "Please select dog gender.",
 }
 
 
@@ -5008,8 +5009,8 @@ def _parse_surrender_dog_appearance(post_data):
 
     gender = (post_data.get("gender") or "").strip()
     valid_genders = {c[0] for c in Post.GENDER_CHOICES}
-    if gender and gender not in valid_genders:
-        gender = ""
+    if not gender or gender not in valid_genders:
+        return False, "gender_required"
 
     return True, (gender, colors, color_other)
 

@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260425assist-color-req-col">
+<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260425assist-loc-select-gender-req">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
 
@@ -127,13 +127,13 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="surrenderGenderField">Dog gender (optional)</label>
+                        <label for="surrenderGenderField">Dog gender <span class="req-mark" aria-hidden="true">*</span></label>
                         <div class="input-with-icon select-with-icon">
                             <span class="input-icon">
                                 <i class="bi bi-gender-ambiguous" aria-hidden="true"></i>
                             </span>
-                            <select id="surrenderGenderField" name="gender" class="barangay-select">
-                                <option value="" selected>Select gender</option>
+                            <select id="surrenderGenderField" name="gender" class="barangay-select" required>
+                                <option value="" selected disabled>Select gender</option>
                                 {% for value, label in surrender_gender_choices %}
                                     <option value="{{ value }}">{{ label }}</option>
                                 {% endfor %}
@@ -174,21 +174,20 @@
                     </div>
 
                 <div id="onlineDetailsSection" class="request-detail-branch" aria-labelledby="assist-details-heading">
-                    <div class="location-mode" role="radiogroup" aria-label="Location entry mode">
-                        <label class="location-mode-card">
-                            <input type="radio" name="location_mode" value="exact" checked>
-                            <span class="location-mode-icon"><i class="bi bi-crosshair" aria-hidden="true"></i></span>
-                            <span class="location-mode-copy">
-                                <strong>GPS on map</strong>
+                    <div class="form-group request-location-mode-group">
+                        <label for="locationModeSelect">How do you want to share location?</label>
+                        <div class="input-with-icon select-with-icon">
+                            <span class="input-icon">
+                                <i class="bi bi-geo-alt" aria-hidden="true"></i>
                             </span>
-                        </label>
-                        <label class="location-mode-card">
-                            <input type="radio" name="location_mode" value="manual">
-                            <span class="location-mode-icon"><i class="bi bi-house-door-fill" aria-hidden="true"></i></span>
-                            <span class="location-mode-copy">
-                                <strong>Barangay list</strong>
+                            <select id="locationModeSelect" name="location_mode" class="barangay-select">
+                                <option value="exact" selected>GPS on map</option>
+                                <option value="manual">Barangay list</option>
+                            </select>
+                            <span class="select-chevron" aria-hidden="true">
+                                <i class="bi bi-chevron-down"></i>
                             </span>
-                        </label>
+                        </div>
                     </div>
 
                     <div id="exactLocationBox" class="location-card">
@@ -454,6 +453,8 @@ function addRequestMapBaseLayer(mapInstance) {
 const requestSubmitRequiresAuth = {{ request.user.is_authenticated|yesno:'false,true' }};
 const requestAuthNextUrl = "{% url 'user:dog_capture_request' %}";
 const phoneNumberField = document.getElementById('phoneNumberField');
+const surrenderGenderField = document.getElementById('surrenderGenderField');
+const locationModeSelect = document.getElementById('locationModeSelect');
 const defaultRequestCity = "{{ default_manual_city|escapejs }}";
 const captureForm = document.getElementById('captureForm');
 const onlineDetailsSection = document.getElementById('onlineDetailsSection');
@@ -708,9 +709,12 @@ function hasSavedExactLocationFix() {
     return Boolean(latitudeValue && longitudeValue);
 }
 
+function getCreateLocationMode() {
+    return (locationModeSelect?.value || 'exact').trim();
+}
+
 function shouldAutoDetectDeviceLocation() {
-    const locationMode = document.querySelector('input[name="location_mode"]:checked')?.value || 'exact';
-    return getSelectedSubmissionType() === 'online' && locationMode === 'exact';
+    return getSelectedSubmissionType() === 'online' && getCreateLocationMode() === 'exact';
 }
 
 function setCapturedCoordinates(lat, lng) {
@@ -1353,12 +1357,11 @@ window.addEventListener('beforeunload', () => {
 refreshAvailableVideoInputs();
 updateCameraButtons();
 
-const locationModeInputs = document.querySelectorAll('input[name="location_mode"]');
 const exactLocationBox = document.getElementById('exactLocationBox');
 const manualLocationBox = document.getElementById('manualLocationBox');
 
 function applyCreateLocationMode() {
-    const mode = document.querySelector('input[name="location_mode"]:checked')?.value || 'exact';
+    const mode = getCreateLocationMode();
     const isOnline = getSelectedSubmissionType() === 'online';
     const isExact = mode === 'exact';
 
@@ -1378,9 +1381,7 @@ function applyCreateLocationMode() {
     }
 }
 
-locationModeInputs.forEach(input => {
-    input.addEventListener('change', applyCreateLocationMode);
-});
+locationModeSelect?.addEventListener('change', applyCreateLocationMode);
 
 primePhoneField();
 setResolvedCity(cityField?.value || defaultRequestCity);
@@ -1593,6 +1594,15 @@ captureForm?.addEventListener('submit', async (e) => {
         return;
     }
 
+    if (!(surrenderGenderField?.value || '').trim()) {
+        showRequestNotice('Please select dog gender.', {
+            title: 'Gender required',
+            tone: 'warning',
+        });
+        surrenderGenderField?.focus();
+        return;
+    }
+
     const colorInputs = Array.from(document.querySelectorAll('#surrenderColorOptions input[type="checkbox"]'));
     const hasCoatColor = colorInputs.some((input) => input.checked);
     if (!hasCoatColor) {
@@ -1617,7 +1627,7 @@ captureForm?.addEventListener('submit', async (e) => {
     const submissionType = getSelectedSubmissionType();
 
     if (submissionType === 'online') {
-        const mode = document.querySelector('input[name="location_mode"]:checked')?.value || 'exact';
+        const mode = getCreateLocationMode();
         if (mode === 'exact') {
             const lat = document.getElementById('latitude').value;
             const lng = document.getElementById('longitude').value;

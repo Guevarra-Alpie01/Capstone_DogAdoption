@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260425surrender-dog-appearance">
+<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260425assist-phone-gender-align">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
 
@@ -39,25 +39,17 @@
                 </button>
             </div>
         </div>
-        <form method="POST" enctype="multipart/form-data" class="capture-form" id="captureForm" novalidate>
+        <form method="POST" enctype="multipart/form-data" class="capture-form request-single" id="captureForm" novalidate>
             {% csrf_token %}
             <input type="hidden" name="request_type" value="surrender">
             <input type="hidden" name="submission_type" value="online">
 
-            <div class="request-section">
-                <div class="request-section-header">
-                    <div class="request-section-icon">
-                        <i class="bi bi-camera-fill" aria-hidden="true"></i>
-                    </div>
-                    <div>
-                        <h3>Add a photo of the dog</h3>
-                        <p class="request-section-description">
-                            Upload or take a photo of the dog being surrendered. This helps the dog catcher or Bayawan Vet prepare for the request.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="capture-choice" role="group" aria-label="Photo options">
+            <div class="request-single-shell">
+            <div class="request-single-grid">
+            <div class="request-single-media">
+                <h2 class="request-single-h" id="assist-photos-heading">Dog photos</h2>
+                <p class="request-single-lead">Optional. Helps staff prepare.</p>
+                <div class="capture-choice" role="group" aria-labelledby="assist-photos-heading">
                     <button type="button" class="btn-secondary capture-action-btn" id="openUploadPickerBtn">
                         <i class="bi bi-upload" aria-hidden="true"></i>
                         <span>Upload Photo</span>
@@ -67,9 +59,6 @@
                         <span>Take Photo</span>
                     </button>
                 </div>
-                <p class="helper-text capture-helper-note">
-                    Optional, but recommended.
-                </p>
 
                 <input type="file" name="images" id="imageInput" class="photo-input-hidden" accept="image/*" multiple>
 
@@ -116,17 +105,10 @@
                     <div id="photoSummaryList" class="photo-summary-list"></div>
                 </div>
             </div>
-            <div class="request-section">
-                <div class="request-section-header">
-                    <div class="request-section-icon">
-                        <i class="bi bi-ui-checks-grid" aria-hidden="true"></i>
-                    </div>
-                    <div>
-                        <h3>Contact information and request details</h3>
-                    </div>
-                </div>
 
-                <div class="request-detail-stack">
+            <div class="request-single-fields">
+                <h2 class="request-single-h" id="assist-details-heading">Contact &amp; location</h2>
+                <div class="request-field-split">
                     <div class="form-group">
                         <label for="phoneNumberField">Contact Number</label>
                         <div class="input-with-icon phone-input-wrap">
@@ -144,7 +126,6 @@
                             >
                         </div>
                     </div>
-
                     <div class="form-group">
                         <label for="surrenderGenderField">Dog gender (optional)</label>
                         <div class="input-with-icon select-with-icon">
@@ -162,9 +143,10 @@
                             </span>
                         </div>
                     </div>
+                </div>
 
                     <div class="form-group surrender-color-field">
-                        <label>Coat color (optional, same options as shelter posts)</label>
+                        <label>Coat color (optional)</label>
                         <div class="post-checkbox-options post-checkbox-grid" id="surrenderColorOptions">
                             {% for value, label in surrender_color_choices %}
                                 <label class="post-checkbox-option">
@@ -190,29 +172,28 @@
                             >
                         </div>
                     </div>
-                </div>
 
-                <div id="onlineDetailsSection" class="request-detail-branch">
-                    <div class="location-mode">
+                <div id="onlineDetailsSection" class="request-detail-branch" aria-labelledby="assist-details-heading">
+                    <div class="location-mode" role="radiogroup" aria-label="Location entry mode">
                         <label class="location-mode-card">
                             <input type="radio" name="location_mode" value="exact" checked>
                             <span class="location-mode-icon"><i class="bi bi-crosshair" aria-hidden="true"></i></span>
                             <span class="location-mode-copy">
-                                <strong>GPS Location Tracking</strong>
+                                <strong>GPS on map</strong>
                             </span>
                         </label>
                         <label class="location-mode-card">
                             <input type="radio" name="location_mode" value="manual">
                             <span class="location-mode-icon"><i class="bi bi-house-door-fill" aria-hidden="true"></i></span>
                             <span class="location-mode-copy">
-                                <strong>Manual Barangay Selection</strong>
+                                <strong>Barangay list</strong>
                             </span>
                         </label>
                     </div>
 
                     <div id="exactLocationBox" class="location-card">
                         <p class="location-card-instruction">
-                            Press the button below the map to use your browser location. It will try a saved browser fix first, then refresh if needed.
+                            Tap the button under the map to share your location (saved fix first, then a fresh reading).
                         </p>
                         <div id="requestMap"></div>
                         <div class="location-action-row">
@@ -287,7 +268,8 @@
                 </div>
 
                 <input type="hidden" name="reason" value="stray">
-
+            </div>
+            </div>
             </div>
 
             <div class="request-submit-row">

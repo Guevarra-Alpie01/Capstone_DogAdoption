@@ -112,6 +112,84 @@
     width: 100%;
 }
 
+.requests-page-shell .capture-form.request-single {
+    gap: clamp(12px, 2.8vw, 18px);
+}
+
+.request-single-shell {
+    background: #fff;
+    border: 1px solid var(--line-strong);
+    border-radius: clamp(18px, 3vw, 24px);
+    padding: clamp(14px, 3.5vw, 24px);
+    box-sizing: border-box;
+}
+
+.request-single-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: clamp(18px, 4vw, 28px);
+    align-items: stretch;
+}
+
+.request-single-media,
+.request-single-fields {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    min-width: 0;
+}
+
+.request-single-h {
+    margin: 0 0 4px;
+    font-size: clamp(1.02rem, 2.4vw, 1.22rem);
+    font-weight: 800;
+    color: #1a2f4a;
+    letter-spacing: -0.02em;
+}
+
+.request-single-lead {
+    margin: 0 0 12px;
+    font-size: 0.86rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    max-width: 42ch;
+}
+
+.request-single-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+
+.request-field-split {
+    display: grid;
+    gap: 12px;
+    align-items: stretch;
+}
+
+@media (min-width: 520px) {
+    .request-field-split {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: end;
+    }
+
+    .request-field-split > .form-group {
+        margin-bottom: 0;
+    }
+}
+
+.request-single-media {
+    min-width: 0;
+}
+
+@media (max-width: 379.98px) {
+    .capture-choice {
+        grid-template-columns: 1fr;
+    }
+}
+
 .request-section {
     position: relative;
     background: #ffffff;
@@ -174,6 +252,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
     margin-bottom: 14px;
+    align-items: stretch;
 }
 
 .request-choice-grid {
@@ -531,6 +610,10 @@
     max-width: 720px;
 }
 
+.request-single-fields .request-detail-branch {
+    margin-top: 4px;
+}
+
 .request-detail-stack .form-group {
     margin-bottom: 0;
 }
@@ -629,9 +712,15 @@
 
 .location-mode {
     display: grid;
-    grid-template-columns: repeat(2, minmax(240px, 1fr));
+    grid-template-columns: 1fr;
     gap: 12px;
     margin-bottom: 14px;
+}
+
+@media (min-width: 520px) {
+    .location-mode {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 .location-mode-card {
@@ -884,10 +973,20 @@
     display: flex;
     justify-content: center;
     margin-top: 6px;
+    width: 100%;
+    padding-inline: clamp(0px, 2vw, 8px);
+    box-sizing: border-box;
 }
 
 .request-submit-btn {
-    width: min(320px, 100%);
+    width: min(100%, 400px);
+}
+
+@media (max-width: 479.98px) {
+    .request-submit-btn {
+        width: 100%;
+        max-width: none;
+    }
 }
 
 .request-history-trigger {
@@ -2298,9 +2397,11 @@ body {
 }
 
 .requests-page-shell .request-hero.request-hero--tracking-only {
-    grid-template-columns: minmax(0, 1fr) minmax(240px, 340px);
-    justify-items: stretch;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
     gap: 12px 20px;
     margin-bottom: 16px;
     padding: 0 !important;
@@ -2308,6 +2409,11 @@ body {
     border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
+}
+
+.requests-page-shell .request-hero.request-hero--tracking-only .request-hero-heading {
+    flex: 1 1 220px;
+    min-width: 0;
 }
 
 .requests-page-shell .request-hero-heading {
@@ -2324,9 +2430,10 @@ body {
 }
 
 .requests-page-shell .request-hero.request-hero--tracking-only .request-hero-side {
-    justify-self: end;
+    flex: 0 1 340px;
     width: 100%;
     max-width: 340px;
+    margin-left: auto;
 }
 
 .requests-page-shell .request-hero-side {
@@ -2764,20 +2871,20 @@ body {
     }
 
     .requests-page-shell .request-hero.request-hero--tracking-only {
-        grid-template-columns: 1fr;
+        flex-direction: column;
         align-items: stretch;
         gap: 14px;
         padding: 0 !important;
     }
 
-    .requests-page-shell .request-hero.request-hero--tracking-only .request-hero-side {
-        justify-self: stretch;
-        max-width: none;
-        order: 2;
+    .requests-page-shell .request-hero.request-hero--tracking-only .request-hero-heading {
+        flex: 1 1 auto;
     }
 
-    .requests-page-shell .request-hero.request-hero--tracking-only .request-hero-heading {
-        order: 1;
+    .requests-page-shell .request-hero.request-hero--tracking-only .request-hero-side {
+        flex: 1 1 auto;
+        max-width: none;
+        margin-left: 0;
     }
 
     .requests-page-shell .request-hero-page-title {
@@ -2989,9 +3096,11 @@ body {
 }
 
 .requests-page-shell .request-hero.request-hero--tracking-only {
-    grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
-    justify-items: stretch;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
     gap: 12px 18px;
     margin-bottom: 16px;
     padding: 0 !important;
@@ -3001,10 +3110,16 @@ body {
     box-shadow: none !important;
 }
 
+.requests-page-shell .request-hero.request-hero--tracking-only .request-hero-heading {
+    flex: 1 1 220px;
+    min-width: 0;
+}
+
 .requests-page-shell .request-hero.request-hero--tracking-only .request-hero-side {
-    justify-self: end;
+    flex: 0 1 300px;
     width: 100%;
     max-width: 300px;
+    margin-left: auto;
 }
 
 .requests-page-shell .request-hero-copy {
@@ -3307,20 +3422,20 @@ body {
     }
 
     .requests-page-shell .request-hero.request-hero--tracking-only {
-        grid-template-columns: 1fr;
+        flex-direction: column;
         align-items: stretch;
         gap: 14px;
         padding: 0 !important;
     }
 
-    .requests-page-shell .request-hero.request-hero--tracking-only .request-hero-side {
-        justify-self: stretch;
-        max-width: none;
-        order: 2;
+    .requests-page-shell .request-hero.request-hero--tracking-only .request-hero-heading {
+        flex: 1 1 auto;
     }
 
-    .requests-page-shell .request-hero.request-hero--tracking-only .request-hero-heading {
-        order: 1;
+    .requests-page-shell .request-hero.request-hero--tracking-only .request-hero-side {
+        flex: 1 1 auto;
+        max-width: none;
+        margin-left: 0;
     }
 
     .requests-page-shell .request-hero-page-title {

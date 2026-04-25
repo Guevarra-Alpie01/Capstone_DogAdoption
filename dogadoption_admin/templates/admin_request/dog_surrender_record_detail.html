@@ -1,0 +1,175 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/admin_req/dog_surrender_record.css' %}?v=20260425b">
+
+<div class="container dog-surrender-record-detail">
+    <div class="page-actions">
+        <a href="{% url 'dogadoption_admin:requests' %}#completed-surrender-records" class="btn-ghost btn-sm">&larr; Back to requests</a>
+        <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-ghost btn-sm">Original review page</a>
+    </div>
+
+    <div class="page-head">
+        <h1>Surrender record #{{ record.id }}</h1>
+        <p class="text-muted mb-0">Request #{{ req.id }} · <code>surrenderdogs</code></p>
+    </div>
+
+    <div class="detail-grid">
+        <div class="detail-tile">
+            <span class="label">Requested by</span>
+            <strong>{{ req.requester_full_name }}</strong>
+            <div class="text-muted small">@{{ req.requested_by.username }}</div>
+        </div>
+        <div class="detail-tile">
+            <span class="label">Phone</span>
+            <strong>{{ req.requester_phone }}</strong>
+        </div>
+        <div class="detail-tile">
+            <span class="label">Requester address</span>
+            <p class="mb-0">{{ req.requester_address }}</p>
+        </div>
+        {% if req.requester_facebook %}
+            <div class="detail-tile">
+                <span class="label">Facebook</span>
+                <a href="{{ req.requester_facebook }}" target="_blank" rel="noopener noreferrer">{{ req.requester_facebook }}</a>
+            </div>
+        {% endif %}
+        <div class="detail-tile">
+            <span class="label">Dog sex</span>
+            <p class="mb-0">{% if req.gender %}{{ req.get_gender_display }}{% else %}<span class="text-muted">—</span>{% endif %}</p>
+        </div>
+        <div class="detail-tile">
+            <span class="label">Coat color</span>
+            <p class="mb-0">{% if req.display_dog_colors %}{{ req.display_dog_colors }}{% else %}<span class="text-muted">—</span>{% endif %}</p>
+        </div>
+        <div class="detail-tile">
+            <span class="label">Submitted</span>
+            <p class="mb-0">{{ req.created_at|date:"M d, Y h:i A" }}</p>
+        </div>
+        <div class="detail-tile">
+            <span class="label">Scheduled</span>
+            <p class="mb-0">{% if req.scheduled_date %}{{ req.scheduled_date|date:"M d, Y h:i A" }}{% else %}<span class="text-muted">Not set</span>{% endif %}</p>
+        </div>
+        <div class="detail-tile">
+            <span class="label">Completed</span>
+            <p class="mb-0">{% if req.captured_at %}{{ req.captured_at|date:"M d, Y h:i A" }}{% else %}<span class="text-muted">Done</span>{% endif %}</p>
+        </div>
+        {% if req.assigned_admin %}
+            <div class="detail-tile">
+                <span class="label">Marked by</span>
+                <p class="mb-0">{{ req.assigned_admin.get_full_name|default:req.assigned_admin.username }}</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="section-card">
+        <span class="label">Location</span>
+        <div class="mt-2">
+            {% if req.submission_type == 'online' %}
+                {% if req.latitude and req.longitude %}
+                    <a href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank" rel="noopener" class="btn-primary btn-sm">View In Google Maps</a>
+                    <div class="small text-muted mt-1">{{ req.latitude }}, {{ req.longitude }}</div>
+                    {% if req.display_barangay or req.display_city %}
+                        <p class="mt-2 mb-0 small">
+                            {% if req.barangay %}<strong>Barangay:</strong>{% else %}<strong>Location from requester account:</strong>{% endif %}
+                            {% if req.display_barangay %}{{ req.display_barangay }}{% endif %}{% if req.display_city %}{% if req.display_barangay %}, {% endif %}{{ req.display_city }}{% endif %}
+                        </p>
+                    {% endif %}
+                {% elif req.manual_full_address or req.barangay or req.city %}
+                    {% if req.manual_full_address %}
+                        <p class="mb-1"><strong>Purok / Sitio / Notes:</strong> {{ req.manual_full_address }}</p>
+                    {% endif %}
+                    {% if req.barangay %}
+                        <p class="mb-1"><strong>Barangay:</strong> {{ req.barangay }}{% if req.city %}, {{ req.city }}{% endif %}</p>
+                    {% elif req.city %}
+                        <p class="mb-1"><strong>Area:</strong> {{ req.city }}</p>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted mb-0"><em>No location provided.</em></p>
+                {% endif %}
+            {% elif req.submission_type == 'walk_in' %}
+                <p class="text-muted mb-0"><em>Walk-in office request.</em></p>
+            {% elif req.request_type == 'surrender' %}
+                <p class="text-muted mb-0"><em>Shelter surrender — no dispatch map point.</em></p>
+            {% else %}
+                <p class="text-muted mb-0"><em>No location provided.</em></p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if req.description %}
+        <div class="section-card">
+            <span class="label">Details</span>
+            <p class="mb-0 mt-2">{{ req.description }}</p>
+        </div>
+    {% endif %}
+
+    {% if req.admin_message %}
+        <div class="section-card">
+            <span class="label">Admin message (on request)</span>
+            <p class="mb-0 mt-2">{{ req.admin_message }}</p>
+        </div>
+    {% endif %}
+
+    <div class="section-card">
+        <span class="label">Notes (<code>surrenderdogs</code>)</span>
+        <form method="post" class="mt-2">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save_notes">
+            <textarea name="record_notes" rows="4" class="form-control" placeholder="Notes stored only on this surrender record row…">{{ record.record_notes }}</textarea>
+            <button type="submit" class="btn-primary btn-sm mt-2">Save notes</button>
+        </form>
+    </div>
+
+    {% if req_images %}
+        <div class="section-card">
+            <span class="label">User-uploaded dog photos ({{ req_images|length }})</span>
+            <div class="photo-grid">
+                {% for img in req_images %}
+                    <a href="{{ img.image.url }}" target="_blank" rel="noopener">
+                        <img src="{{ img.image.url }}" alt="Dog photo {{ forloop.counter }}">
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
+    {% elif req.image %}
+        <div class="section-card">
+            <span class="label">User-uploaded dog photo</span>
+            <div class="photo-grid">
+                <a href="{{ req.image.url }}" target="_blank" rel="noopener">
+                    <img src="{{ req.image.url }}" alt="Dog photo">
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if req.location_landmark_image or landmark_images %}
+        <div class="section-card">
+            <span class="label">Landmark photos</span>
+            <div class="photo-grid mt-2">
+                {% if req.location_landmark_image %}
+                    <a href="{{ req.location_landmark_image.url }}" target="_blank" rel="noopener">
+                        <img src="{{ req.location_landmark_image.url }}" alt="Landmark 1">
+                    </a>
+                {% endif %}
+                {% for lm in landmark_images %}
+                    <a href="{{ lm.image.url }}" target="_blank" rel="noopener">
+                        <img src="{{ lm.image.url }}" alt="Landmark {{ forloop.counter }}">
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="section-card border-danger">
+        <span class="label text-danger">Remove from list</span>
+        <p class="small text-muted mb-2">Sets <code>voided_at</code> on this row only. The underlying surrender request is not deleted.</p>
+        <form method="post" onsubmit="return confirm('Remove this row from the completed surrender list?');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="void">
+            <button type="submit" class="btn btn-outline-danger btn-sm">Remove from list</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

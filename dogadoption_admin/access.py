@@ -100,6 +100,8 @@ ADMIN_ROUTE_RULES = {
     "user_post_request_action": {"any_of": ("can_create_posts",)},
     "requests": {"any_of": ("can_manage_capture_requests",)},
     "update_dog_capture_request": {"any_of": ("can_manage_capture_requests",)},
+    "dog_surrender_records": {"any_of": ("can_manage_capture_requests",)},
+    "dog_surrender_record_detail": {"any_of": ("can_manage_capture_requests",)},
     "register_dogs": {"any_of": ("can_access_registration",)},
     "registration_record": {"any_of": ("can_access_registration_list",)},
     "registration_owner_profile": {"admin_only": True},

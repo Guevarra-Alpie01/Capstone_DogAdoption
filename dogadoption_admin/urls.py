@@ -31,6 +31,9 @@ urlpatterns = [
     # Navigation 2/5: Request
     path('dog-capture/requests/', views.admin_dog_capture_requests, name='requests'),
     path('dog-capture/request/<captureid:pk>/update/', views.update_dog_capture_request, name='update_dog_capture_request'),
+    # Surrender record list removed from UI; URL redirects to requests#completed-surrender-records (bookmarks).
+    path('dog-capture/surrender-records/', views.dog_surrender_records, name='dog_surrender_records'),
+    path('dog-capture/surrender-records/<int:pk>/', views.dog_surrender_record_detail, name='dog_surrender_record_detail'),
 
     # Navigation 3/5: Register
     # Register link 1/5: Registration

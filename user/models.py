@@ -120,6 +120,21 @@ class DogCaptureRequest(models.Model):
     colors = models.JSONField(blank=True, default=list)
     color_other = models.CharField(max_length=100, blank=True, default="")
 
+    dog_breed = models.CharField(
+        max_length=40,
+        choices=Post.BREED_CHOICES,
+        blank=True,
+        default="",
+    )
+    dog_breed_other = models.CharField(max_length=100, blank=True, default="")
+    dog_age_group = models.CharField(
+        max_length=20,
+        choices=Post.AGE_GROUP_CHOICES,
+        blank=True,
+        default="",
+    )
+    dog_age_years = models.PositiveSmallIntegerField(null=True, blank=True)
+
     # GPS location
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
@@ -189,6 +204,24 @@ class DogCaptureRequest(models.Model):
     @property
     def display_dog_colors(self):
         return ", ".join(self.display_dog_color_list)
+
+    @property
+    def display_dog_breed(self):
+        if self.dog_breed == Post.BREED_OTHER:
+            other = self._clean_display_text(self.dog_breed_other)
+            return other or "Other"
+        if self.dog_breed:
+            return self.get_dog_breed_display()
+        return ""
+
+    @property
+    def display_dog_age(self):
+        parts = []
+        if self.dog_age_years is not None:
+            parts.append(f"{self.dog_age_years} yr" if self.dog_age_years != 1 else "1 yr")
+        if self.dog_age_group:
+            parts.append(self.get_dog_age_group_display())
+        return ", ".join(parts) if parts else ""
 
     def save(self, *args, **kwargs):
         if self.colors is None:

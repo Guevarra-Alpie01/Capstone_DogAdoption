@@ -85,6 +85,7 @@ from .models import (
     CertificateSettings,
     Citation,
     DewormingTreatmentRecord,
+    DogSurrenderRecord,
     Dog,
     DogImage,
     DogAnnouncement,
@@ -1375,6 +1376,13 @@ def _dog_capture_request_board_queryset():
             "preferred_appointment_date",
             "reason",
             "description",
+            "gender",
+            "colors",
+            "color_other",
+            "dog_breed",
+            "dog_breed_other",
+            "dog_age_group",
+            "dog_age_years",
             "latitude",
             "longitude",
             "barangay",
@@ -1390,10 +1398,12 @@ def _dog_capture_request_board_queryset():
             "requested_by__username",
             "requested_by__first_name",
             "requested_by__last_name",
+            "requested_by__email",
             "requested_by__profile__address",
             "requested_by__profile__phone_number",
             "requested_by__profile__facebook_url",
             "requested_by__profile__profile_image",
+            "requested_by__profile__age",
             "assigned_admin__id",
             "assigned_admin__username",
             "assigned_admin__first_name",
@@ -1474,6 +1484,8 @@ def _enrich_capture_request_user(req):
         if profile and profile.facebook_url
         else ""
     )
+    req.requester_email = (getattr(user, "email", None) or "").strip()
+    req.owner_profile_age = profile.age if profile and profile.age is not None else None
 
 
 def _enrich_capture_request_display(req):
@@ -1507,6 +1519,14 @@ def _enrich_capture_request_display(req):
     req.has_location = req.location_label != "No location"
     req.display_barangay = barangay
     req.display_city = city
+
+    admin = getattr(req, "assigned_admin", None)
+    if admin:
+        admin_parts = [admin.first_name or "", admin.last_name or ""]
+        admin_name = " ".join(p for p in admin_parts if p).strip()
+        req.assigned_admin_display = admin_name or admin.username
+    else:
+        req.assigned_admin_display = ""
 
 
 ANNOUNCEMENT_CATEGORY_OPTIONS = [
@@ -3061,6 +3081,10 @@ def admin_dog_capture_requests(request):
     captured_page_obj, captured_requests, captured_total = _paginate_status(
         "captured", "captured_page"
     )
+    _cap_ids = [r.id for r in captured_requests]
+    cap_thumb_urls = _dog_capture_request_first_image_urls(_cap_ids) if _cap_ids else {}
+    for cap_req in captured_requests:
+        cap_req.captured_thumb_url = cap_thumb_urls.get(cap_req.id) or _safe_media_url(cap_req.image)
     declined_page_obj, declined_requests, declined_total = _paginate_status(
         "declined", "declined_page"
     )
@@ -3273,6 +3297,60 @@ def update_dog_capture_request(request, pk):
         'appointment_dates': [slot.appointment_date.strftime('%Y-%m-%d') for slot in available_dates],
         'scheduled_appointment_date_iso': timezone.localtime(req.scheduled_date).date().isoformat() if req.scheduled_date else '',
     })
+
+
+def _dog_surrender_record_queryset():
+    return DogSurrenderRecord.objects.filter(voided_at__isnull=True).select_related(
+        "capture_request__requested_by__profile",
+    ).prefetch_related("capture_request__images", "capture_request__landmark_images")
+
+
+def _dog_capture_requests_completed_anchor():
+    return reverse("dogadoption_admin:requests") + "#completed-surrender-records"
+
+
+@admin_required
+def dog_surrender_records(request):
+    """Former standalone list; completed rows live on the dog capture requests page below the map."""
+    return redirect(_dog_capture_requests_completed_anchor())
+
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def dog_surrender_record_detail(request, pk):
+    """Detail / update notes / void for one dog surrender record row."""
+    record = get_object_or_404(_dog_surrender_record_queryset(), pk=pk)
+    req = record.capture_request
+    _enrich_capture_request_display(req)
+
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+        if action == "void":
+            record.voided_at = timezone.now()
+            record.save(update_fields=["voided_at", "updated_at"])
+            messages.info(request, "Record removed from the completed surrender list.")
+            return redirect(_dog_capture_requests_completed_anchor())
+        if action == "save_notes":
+            record.record_notes = (request.POST.get("record_notes") or "").strip()
+            record.save(update_fields=["record_notes", "updated_at"])
+            messages.success(request, "Notes saved.")
+            return redirect("dogadoption_admin:dog_surrender_record_detail", pk=pk)
+        messages.error(request, "Unknown action.")
+        return redirect("dogadoption_admin:dog_surrender_record_detail", pk=pk)
+
+    req_images = list(req.images.all())
+    landmark_images = list(req.landmark_images.all())
+    return render(
+        request,
+        "admin_request/dog_surrender_record_detail.html",
+        {
+            "record": record,
+            "req": req,
+            "req_images": req_images,
+            "landmark_images": landmark_images,
+        },
+    )
+
 
 # =============================================================================
 # Navigation 4/5: Announcement

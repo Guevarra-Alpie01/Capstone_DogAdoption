@@ -5,6 +5,8 @@ from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 
 from .cache_utils import invalidate_analytics_dashboard_cache
+from .models import DogSurrenderRecord
+from user.models import DogCaptureRequest
 
 User = get_user_model()
 
@@ -42,6 +44,13 @@ def _connect_analytics_invalidation_signals():
 
 
 _connect_analytics_invalidation_signals()
+
+
+@receiver(post_save, sender=DogCaptureRequest)
+def ensure_dog_surrender_admin_record(sender, instance, **kwargs):
+    """Ensure a standalone surrender record row exists when a surrender is marked completed."""
+    if instance.status == "captured" and instance.request_type == "surrender":
+        DogSurrenderRecord.objects.get_or_create(capture_request_id=instance.pk, defaults={})
 
 
 @receiver(post_migrate)

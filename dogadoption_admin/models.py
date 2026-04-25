@@ -1348,3 +1348,30 @@ class UserViolationNotification(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.summary.user.username})"
+
+
+class DogSurrenderRecord(models.Model):
+    """Standalone admin table for completed dog surrender requests (links to user capture request)."""
+
+    capture_request = models.OneToOneField(
+        "user.DogCaptureRequest",
+        on_delete=models.CASCADE,
+        related_name="admin_dog_surrender_record",
+    )
+    record_notes = models.TextField(blank=True, default="")
+    voided_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When set, hidden from the admin dog surrender records list.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "surrenderdogs"
+        verbose_name = "Dog surrender record"
+        verbose_name_plural = "Dog surrender records"
+        ordering = ("-capture_request__captured_at", "-id")
+
+    def __str__(self):
+        return f"Dog surrender record #{self.pk} (request {self.capture_request_id})"

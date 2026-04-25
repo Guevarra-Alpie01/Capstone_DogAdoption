@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/admin_req/admin_request.css' %}?v=20260425declined-completed-labels">
+<link rel="stylesheet" href="{% static 'css/admin_req/admin_request.css' %}?v=20260425surrenderdogs-table-slim">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <div class="container">
@@ -321,64 +321,51 @@
         {{ map_points|json_script:"map-points-data" }}
     </div>
 
-    <div class="captured-records-section">
+    <div class="captured-records-section" id="completed-surrender-records">
         <div class="captured-records-header">
-            <h2>Completed Surrender Records ({{ captured_total }})</h2>
-            <p>All completed dog surrender requests are listed here.</p>
+            <div class="captured-records-header-main">
+                <h2>Surrender dogs ({{ captured_total }})</h2>
+                <p class="captured-records-lead">Completed surrender requests (view-only). Linked archive rows: <code>surrenderdogs</code>.</p>
+            </div>
         </div>
-        <div class="table-card">
-            <table class="request-table">
+        <div class="table-card surrenderdogs-table-wrap">
+            <table class="request-table surrenderdogs-table">
+                <caption class="visually-hidden">Surrender dogs completed list</caption>
                 <thead>
                     <tr>
-                        <th>User</th>
-                        <th>Location</th>
-                        <th>Scheduled</th>
-                        <th>Completed</th>
-                        <th>Status</th>
+                        <th class="csr-photo-col">Image</th>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Sex</th>
+                        <th>Color</th>
+                        <th>Address</th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for req in captured_requests %}
                         <tr>
-                             <td class="cell-user" data-label="User">
-                                 <div class="user-sub">{{ req.requester_full_name }}</div>       
-                             </td>
-                             <td data-label="Location">
-                                 {% if req.submission_type == 'online' and req.latitude and req.longitude %}
-                                     <a class="map-link" href="https://www.google.com/maps?q={{ req.latitude }},{{ req.longitude }}" target="_blank">{{ req.location_label }}</a>
-                                 {% elif req.submission_type == 'online' and req.has_location %}
-                                     {{ req.location_label }}
-                                 {% elif req.submission_type == 'walk_in' %}
-                                     <span class="muted">Walk-in office request</span>
-                                 {% elif req.request_type == 'surrender' %}
-                                     <span class="muted">Shelter surrender request</span>
-                                 {% else %}
-                                     <span class="muted">No location</span>
-                                 {% endif %}
-                             </td>
-                            <td data-label="Scheduled">
-                                {% if req.scheduled_date %}
-                                    {{ req.scheduled_date|date:"M d, Y h:i A" }}
+                            <td data-label="Image">
+                                {% if req.captured_thumb_url %}
+                                    <img src="{{ req.captured_thumb_url }}" alt="" class="captured-record-thumb" width="48" height="48">
                                 {% else %}
-                                    <span class="muted">Not set</span>
+                                    <span class="captured-record-thumb-ph" aria-hidden="true">No photo</span>
                                 {% endif %}
                             </td>
-                            <td data-label="Completed">
-                                {% if req.captured_at %}
-                                    {{ req.captured_at|date:"M d, Y h:i A" }}
-                                {% else %}
-                                    <span class="muted">Done</span>
-                                {% endif %}
+                            <td class="cell-user" data-label="Name">
+                                <div class="user-main">{{ req.requester_full_name }}</div>
                             </td>
-                            <td data-label="Status"><span class="status-pill captured">{% if req.request_type == 'surrender' %}Completed{% else %}Captured{% endif %}</span></td>
+                            <td data-label="Phone">{{ req.requester_phone }}</td>
+                            <td data-label="Sex">{% if req.gender %}{{ req.get_gender_display }}{% else %}<span class="muted">—</span>{% endif %}</td>
+                            <td data-label="Color">{% if req.display_dog_colors %}<span class="captured-notes-preview">{{ req.display_dog_colors }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+                            <td data-label="Address"><span class="captured-notes-preview">{{ req.requester_address }}</span></td>
                             <td data-label="Action">
-                                <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-ghost btn-sm">View Record</a>
+                                <a href="{% url 'dogadoption_admin:update_dog_capture_request' req.id %}" class="btn-primary btn-sm">View</a>
                             </td>
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="6" class="muted">No completed surrender records yet.</td>
+                            <td colspan="7" class="muted">No completed surrender records yet.</td>
                         </tr>
                     {% endfor %}
                 </tbody>

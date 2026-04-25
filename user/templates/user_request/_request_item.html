@@ -215,6 +215,18 @@
                                 <div class="request-modal-value">{{ req.display_dog_colors }}</div>
                             </div>
                         {% endif %}
+                        {% if req.display_dog_breed %}
+                            <div class="request-modal-field request-modal-field--wide">
+                                <span class="request-modal-label">Dog breed:</span>
+                                <div class="request-modal-value">{{ req.display_dog_breed }}</div>
+                            </div>
+                        {% endif %}
+                        {% if req.display_dog_age %}
+                            <div class="request-modal-field">
+                                <span class="request-modal-label">Dog age:</span>
+                                <div class="request-modal-value">{{ req.display_dog_age }}</div>
+                            </div>
+                        {% endif %}
                         {% if req.submission_type %}
                             <div class="request-modal-field">
                                 <span class="request-modal-label">Submission Type:</span>
@@ -390,6 +402,53 @@
                                     value="{{ req.color_other|default_if_none:'' }}"
                                     autocomplete="off"
                                     placeholder="Describe the color"
+                                >
+                            </div>
+                            <div class="form-group">
+                                <label for="editDogBreed{{ req.id }}">Dog breed</label>
+                                <select name="dog_breed" id="editDogBreed{{ req.id }}" class="barangay-select" data-edit-surrender-breed="1">
+                                    <option value="" {% if not req.dog_breed %}selected{% endif %}>Not specified</option>
+                                    {% for value, label in surrender_breed_choices %}
+                                        <option value="{{ value }}" {% if req.dog_breed == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div
+                                class="form-group surrender-breed-other-group"
+                                data-edit-surrender-breed-other="1"
+                                {% if req.dog_breed != 'other' %}hidden{% endif %}
+                            >
+                                <label for="editDogBreedOther{{ req.id }}">Other breed</label>
+                                <input
+                                    type="text"
+                                    name="dog_breed_other"
+                                    id="editDogBreedOther{{ req.id }}"
+                                    value="{{ req.dog_breed_other|default_if_none:'' }}"
+                                    autocomplete="off"
+                                    placeholder="Describe the breed"
+                                >
+                            </div>
+                            <div class="form-group">
+                                <label for="editDogAgeGroup{{ req.id }}">Dog age group</label>
+                                <select name="dog_age_group" id="editDogAgeGroup{{ req.id }}" class="barangay-select">
+                                    <option value="" {% if not req.dog_age_group %}selected{% endif %}>Not specified</option>
+                                    {% for value, label in surrender_age_group_choices %}
+                                        <option value="{{ value }}" {% if req.dog_age_group == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="editDogAgeYears{{ req.id }}">Dog age (years, optional)</label>
+                                <input
+                                    type="number"
+                                    name="dog_age_years"
+                                    id="editDogAgeYears{{ req.id }}"
+                                    min="0"
+                                    max="30"
+                                    step="1"
+                                    inputmode="numeric"
+                                    value="{% if req.dog_age_years is not None %}{{ req.dog_age_years }}{% endif %}"
+                                    placeholder="e.g. 2"
                                 >
                             </div>
                             <div class="form-group">

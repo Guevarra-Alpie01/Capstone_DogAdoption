@@ -107,6 +107,8 @@ SURRENDER_DOG_PHOTOS_REQUIREMENT_TEXT = (
 DOG_SURRENDER_FORM_CONTEXT = {
     "surrender_gender_choices": Post.GENDER_CHOICES,
     "surrender_color_choices": Post.COLOR_CHOICES,
+    "surrender_breed_choices": Post.BREED_CHOICES,
+    "surrender_age_group_choices": Post.AGE_GROUP_CHOICES,
     "surrender_min_dog_photos": DOG_SURRENDER_MIN_DOG_PHOTOS,
     "surrender_dog_photos_hint": SURRENDER_DOG_PHOTOS_REQUIREMENT_TEXT,
 }
@@ -4999,6 +5001,11 @@ _SURRENDER_APPEARANCE_ERRORS = {
     "color_other": 'Please enter the other color description when "Other" is selected.',
     "gender_required": "Please select dog gender.",
 }
+_SURRENDER_BREED_AGE_ERRORS = {
+    "dog_age_years_invalid": "Dog age (years) must be a whole number.",
+    "dog_age_years_range": "Dog age (years) must be between 0 and 30.",
+    "breed_other_required": 'Please describe the breed when "Other" is selected.',
+}
 
 
 def _parse_surrender_dog_appearance(post_data):
@@ -5021,6 +5028,37 @@ def _parse_surrender_dog_appearance(post_data):
         return False, "gender_required"
 
     return True, (gender, colors, color_other)
+
+
+def _parse_surrender_dog_breed_age(post_data):
+    """Optional breed / age fields (same breed vocabulary as admin dog posts)."""
+    valid_breeds = {c[0] for c in Post.BREED_CHOICES}
+    dog_breed = (post_data.get("dog_breed") or "").strip()
+    if dog_breed not in valid_breeds:
+        dog_breed = ""
+    dog_breed_other = " ".join((post_data.get("dog_breed_other") or "").split()).strip()
+    if dog_breed != Post.BREED_OTHER:
+        dog_breed_other = ""
+    elif not dog_breed_other:
+        return False, "breed_other_required"
+
+    dog_age_group = (post_data.get("dog_age_group") or "").strip()
+    valid_age_groups = {c[0] for c in Post.AGE_GROUP_CHOICES}
+    if dog_age_group not in valid_age_groups:
+        dog_age_group = ""
+
+    raw_years = (post_data.get("dog_age_years") or "").strip()
+    dog_age_years = None
+    if raw_years:
+        try:
+            y = int(raw_years)
+        except ValueError:
+            return False, "dog_age_years_invalid"
+        if y < 0 or y > 30:
+            return False, "dog_age_years_range"
+        dog_age_years = y
+
+    return True, (dog_breed, dog_breed_other, dog_age_group, dog_age_years)
 
 
 def _handle_dog_capture_request_submission(request):
@@ -5055,6 +5093,12 @@ def _handle_dog_capture_request_submission(request):
         messages.error(request, _SURRENDER_APPEARANCE_ERRORS[appearance])
         return _dog_capture_request_redirect()
     gender, colors, color_other = appearance
+
+    breed_age_ok, breed_age = _parse_surrender_dog_breed_age(request.POST)
+    if not breed_age_ok:
+        messages.error(request, _SURRENDER_BREED_AGE_ERRORS[breed_age])
+        return _dog_capture_request_redirect()
+    dog_breed, dog_breed_other, dog_age_group, dog_age_years = breed_age
 
     reason = (request.POST.get('reason') or 'stray').strip()
     if not _is_valid_capture_reason(reason):
@@ -5139,6 +5183,10 @@ def _handle_dog_capture_request_submission(request):
         gender=gender,
         colors=colors,
         color_other=color_other,
+        dog_breed=dog_breed,
+        dog_breed_other=dog_breed_other,
+        dog_age_group=dog_age_group,
+        dog_age_years=dog_age_years,
         latitude=latitude_value,
         longitude=longitude_value,
         barangay=(_resolve_barangay_name(barangay) or barangay) if barangay else None,
@@ -5246,6 +5294,11 @@ def edit_dog_capture_request(request, req_id):
         messages.error(request, _SURRENDER_APPEARANCE_ERRORS[appearance])
         return redirect('user:dog_capture_request')
     gender, colors, color_other = appearance
+    breed_age_ok, breed_age = _parse_surrender_dog_breed_age(request.POST)
+    if not breed_age_ok:
+        messages.error(request, _SURRENDER_BREED_AGE_ERRORS[breed_age])
+        return redirect('user:dog_capture_request')
+    dog_breed, dog_breed_other, dog_age_group, dog_age_years = breed_age
     request_type = DOG_SURRENDER_REQUEST_TYPE
     barangay = _clean_barangay(request.POST.get('barangay'))
     city = _clean_barangay(request.POST.get('city')) or DEFAULT_REQUEST_CITY
@@ -5322,6 +5375,10 @@ def edit_dog_capture_request(request, req_id):
     req.gender = gender
     req.colors = colors
     req.color_other = color_other
+    req.dog_breed = dog_breed
+    req.dog_breed_other = dog_breed_other
+    req.dog_age_group = dog_age_group
+    req.dog_age_years = dog_age_years
     req.barangay = (_resolve_barangay_name(barangay) or barangay) if barangay else None
     req.city = city or None
     req.save(
@@ -5334,6 +5391,10 @@ def edit_dog_capture_request(request, req_id):
             'gender',
             'colors',
             'color_other',
+            'dog_breed',
+            'dog_breed_other',
+            'dog_age_group',
+            'dog_age_years',
             'barangay',
             'city',
             'latitude',

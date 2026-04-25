@@ -173,6 +173,69 @@
                         </div>
                     </div>
 
+                    <div class="form-row request-single-row">
+                        <div class="form-group">
+                            <label for="surrenderBreedField">Dog breed</label>
+                            <div class="input-with-icon select-with-icon">
+                                <span class="input-icon">
+                                    <i class="bi bi-heart-pulse" aria-hidden="true"></i>
+                                </span>
+                                <select id="surrenderBreedField" name="dog_breed" class="barangay-select" data-surrender-breed-select>
+                                    <option value="" selected>Not specified</option>
+                                    {% for value, label in surrender_breed_choices %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <span class="select-chevron" aria-hidden="true">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="form-group surrender-breed-other-group" id="surrenderBreedOtherGroup" hidden>
+                            <label for="surrenderBreedOtherField">Other breed</label>
+                            <input
+                                type="text"
+                                name="dog_breed_other"
+                                id="surrenderBreedOtherField"
+                                autocomplete="off"
+                                placeholder="Describe the breed"
+                            >
+                        </div>
+                    </div>
+                    <div class="form-row request-single-row">
+                        <div class="form-group">
+                            <label for="surrenderAgeGroupField">Dog age group</label>
+                            <div class="input-with-icon select-with-icon">
+                                <span class="input-icon">
+                                    <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+                                </span>
+                                <select id="surrenderAgeGroupField" name="dog_age_group" class="barangay-select">
+                                    <option value="" selected>Not specified</option>
+                                    {% for value, label in surrender_age_group_choices %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <span class="select-chevron" aria-hidden="true">
+                                    <i class="bi bi-chevron-down"></i>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="surrenderAgeYearsField">Dog age (years, optional)</label>
+                            <input
+                                type="number"
+                                name="dog_age_years"
+                                id="surrenderAgeYearsField"
+                                class="form-control"
+                                min="0"
+                                max="30"
+                                step="1"
+                                inputmode="numeric"
+                                placeholder="e.g. 2"
+                            >
+                        </div>
+                    </div>
+
                 <div id="onlineDetailsSection" class="request-detail-branch" aria-labelledby="assist-details-heading">
                     <div class="form-group request-location-mode-group">
                         <label for="locationModeSelect">How do you want to share location?</label>
@@ -1414,6 +1477,22 @@ surrenderColorOptionInputs.forEach((input) => {
 });
 syncSurrenderColorOther();
 
+const surrenderBreedSelect = document.getElementById('surrenderBreedField');
+const surrenderBreedOtherGroup = document.getElementById('surrenderBreedOtherGroup');
+const surrenderBreedOtherField = document.getElementById('surrenderBreedOtherField');
+function syncSurrenderBreedOther() {
+    if (!surrenderBreedSelect || !surrenderBreedOtherGroup) {
+        return;
+    }
+    const showOther = surrenderBreedSelect.value === 'other';
+    surrenderBreedOtherGroup.hidden = !showOther;
+    if (!showOther && surrenderBreedOtherField) {
+        surrenderBreedOtherField.value = '';
+    }
+}
+surrenderBreedSelect?.addEventListener('change', syncSurrenderBreedOther);
+syncSurrenderBreedOther();
+
 async function resolveAddressFromCoords(lat, lng) {
     const controller = typeof AbortController === 'function' ? new AbortController() : null;
     const timeoutId = controller
@@ -1886,6 +1965,27 @@ function initRequestEditForms(root = document) {
             input.addEventListener('change', sync);
         });
         sync();
+    });
+
+    root.querySelectorAll('[data-edit-surrender-breed]').forEach((select) => {
+        if (select.dataset.editSurrenderBreedBound === '1') {
+            return;
+        }
+        select.dataset.editSurrenderBreedBound = '1';
+        const form = select.closest('form');
+        const otherWrap = form?.querySelector('[data-edit-surrender-breed-other]');
+        const otherInput = otherWrap?.querySelector('input[name="dog_breed_other"]');
+        const syncBreedOther = () => {
+            const showOther = select.value === 'other';
+            if (otherWrap) {
+                otherWrap.hidden = !showOther;
+            }
+            if (!showOther && otherInput) {
+                otherInput.value = '';
+            }
+        };
+        select.addEventListener('change', syncBreedOther);
+        syncBreedOther();
     });
 
     root.querySelectorAll('.landmark-remove-check').forEach((checkbox) => {

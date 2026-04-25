@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260425assist-phone-gender-align">
+<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260425assist-color-req-col">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
 
@@ -110,7 +110,7 @@
                 <h2 class="request-single-h" id="assist-details-heading">Contact &amp; location</h2>
                 <div class="request-field-split">
                     <div class="form-group">
-                        <label for="phoneNumberField">Contact Number</label>
+                        <label for="phoneNumberField">Contact number</label>
                         <div class="input-with-icon phone-input-wrap">
                             <span class="input-icon">
                                 <i class="bi bi-telephone" aria-hidden="true"></i>
@@ -145,9 +145,9 @@
                     </div>
                 </div>
 
-                    <div class="form-group surrender-color-field">
-                        <label>Coat color (optional)</label>
-                        <div class="post-checkbox-options post-checkbox-grid" id="surrenderColorOptions">
+                    <div class="form-group surrender-color-field" id="surrenderColorFieldWrap">
+                        <label id="surrenderColorLabel">Coat color <span class="req-mark" aria-hidden="true">*</span></label>
+                        <div class="post-checkbox-options post-checkbox-grid" id="surrenderColorOptions" role="group" aria-labelledby="surrenderColorLabel" aria-required="true">
                             {% for value, label in surrender_color_choices %}
                                 <label class="post-checkbox-option">
                                     <input type="checkbox" name="colors" value="{{ value }}" data-surrender-color-checkbox>
@@ -1593,9 +1593,18 @@ captureForm?.addEventListener('submit', async (e) => {
         return;
     }
 
-    const surrenderOtherChecked = Array.from(
-        document.querySelectorAll('#surrenderColorOptions input[type="checkbox"]'),
-    ).some((input) => input.value === 'other' && input.checked);
+    const colorInputs = Array.from(document.querySelectorAll('#surrenderColorOptions input[type="checkbox"]'));
+    const hasCoatColor = colorInputs.some((input) => input.checked);
+    if (!hasCoatColor) {
+        showRequestNotice('Please select at least one coat color.', {
+            title: 'Coat color required',
+            tone: 'warning',
+        });
+        document.getElementById('surrenderColorFieldWrap')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+    }
+
+    const surrenderOtherChecked = colorInputs.some((input) => input.value === 'other' && input.checked);
     if (surrenderOtherChecked && !(surrenderColorOtherField?.value || '').trim()) {
         showRequestNotice('Please describe the other color when "Other" is selected.', {
             title: 'Color Required',

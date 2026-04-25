@@ -4986,14 +4986,23 @@ def _build_dog_capture_request_page_context(request):
     }
 
 
+_SURRENDER_APPEARANCE_ERRORS = {
+    "colors_required": "Please select at least one coat color.",
+    "color_other": 'Please enter the other color description when "Other" is selected.',
+}
+
+
 def _parse_surrender_dog_appearance(post_data):
     """Normalize gender and color fields (same vocabulary as admin dog posts)."""
     valid_colors = {c[0] for c in Post.COLOR_CHOICES}
     raw_colors = post_data.getlist("colors")
     colors = list(dict.fromkeys(c for c in raw_colors if c in valid_colors))
+    if not colors:
+        return False, "colors_required"
+
     color_other = " ".join((post_data.get("color_other") or "").split()).strip()
     if Post.COLOR_OTHER in colors and not color_other:
-        return False, None
+        return False, "color_other"
     if Post.COLOR_OTHER not in colors:
         color_other = ""
 
@@ -5025,10 +5034,7 @@ def _handle_dog_capture_request_submission(request):
 
     appearance_ok, appearance = _parse_surrender_dog_appearance(request.POST)
     if not appearance_ok:
-        messages.error(
-            request,
-            'Please enter the other color description when "Other" is selected.',
-        )
+        messages.error(request, _SURRENDER_APPEARANCE_ERRORS[appearance])
         return _dog_capture_request_redirect()
     gender, colors, color_other = appearance
 
@@ -5219,10 +5225,7 @@ def edit_dog_capture_request(request, req_id):
     description = (request.POST.get('description') or '').strip()
     appearance_ok, appearance = _parse_surrender_dog_appearance(request.POST)
     if not appearance_ok:
-        messages.error(
-            request,
-            'Please enter the other color description when "Other" is selected.',
-        )
+        messages.error(request, _SURRENDER_APPEARANCE_ERRORS[appearance])
         return redirect('user:dog_capture_request')
     gender, colors, color_other = appearance
     request_type = DOG_SURRENDER_REQUEST_TYPE

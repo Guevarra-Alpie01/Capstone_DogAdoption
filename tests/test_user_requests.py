@@ -73,6 +73,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "manual_full_address": "Purok 1",
                 "reason": "aggressive",
                 "description": "Needs safe turnover.",
+                "colors": "black",
             },
             follow=True,
         )
@@ -99,6 +100,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "longitude": "122.654321",
                 "gps_accuracy": "1300",
                 "reason": "stray",
+                "colors": "brown",
             },
             follow=True,
         )
@@ -119,6 +121,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "longitude": "122.654321",
                 "gps_accuracy": "80",
                 "reason": "stray",
+                "colors": "brown",
             },
             follow=True,
         )
@@ -141,6 +144,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "longitude": "122.654321",
                 "gps_accuracy": "12",
                 "reason": "stray",
+                "colors": "brown",
             },
             follow=True,
         )
@@ -173,6 +177,7 @@ class UserDogSurrenderRequestTests(TestCase):
                 "manual_full_address": "Near barangay hall",
                 "description": "Updated surrender details.",
                 "reason": "stray",
+                "colors": "white",
             },
             follow=True,
         )
@@ -186,6 +191,7 @@ class UserDogSurrenderRequestTests(TestCase):
         self.assertEqual(request_record.barangay, "Bugay")
         self.assertEqual(request_record.manual_full_address, "Near barangay hall")
         self.assertEqual(request_record.description, "Updated surrender details.")
+        self.assertEqual(request_record.colors, ["white"])
 
     def test_submission_stores_gender_and_colors(self):
         self.client.force_login(self.user)
@@ -215,6 +221,25 @@ class UserDogSurrenderRequestTests(TestCase):
         self.assertEqual(request_record.gender, "male")
         self.assertEqual(request_record.colors, ["black", "white"])
         self.assertEqual(request_record.color_other, "")
+
+    def test_submission_rejects_missing_coat_color(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            self.request_url,
+            {
+                "phone_number": "09171234567",
+                "location_mode": "manual",
+                "barangay": "Bugay",
+                "city": "Bayawan City",
+                "reason": "stray",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(DogCaptureRequest.objects.filter(requested_by=self.user).exists())
+        self.assertContains(response, "at least one coat color")
 
     def test_submission_rejects_other_color_without_description(self):
         self.client.force_login(self.user)

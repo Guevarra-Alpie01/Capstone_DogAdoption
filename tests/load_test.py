@@ -1494,6 +1494,7 @@ class UserJourney(CapstoneUserBase):
             "city": SETTINGS.request_city,
             "latitude": SETTINGS.request_latitude,
             "longitude": SETTINGS.request_longitude,
+            "colors": "brown",
         }
         with self.client.post(
             "/user/request/",

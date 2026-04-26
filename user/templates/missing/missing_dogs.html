@@ -1009,6 +1009,107 @@
     }
     .md-modal-close:hover { background: rgba(197,48,48,0.82); }
 
+    /* ── Modal image carousel (multi-photo posts) ── */
+    .md-modal-img-nav {
+        --md-nav-size: 44px;
+        position: absolute;
+        top: 50%;
+        margin-top: calc(var(--md-nav-size) / -2);
+        z-index: 3;
+        width: var(--md-nav-size);
+        height: var(--md-nav-size);
+        border: none;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.94);
+        color: #14233b;
+        box-shadow: 0 2px 14px rgba(15, 23, 42, 0.18);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+        line-height: 1;
+        transition: background 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+    }
+
+    .md-modal-img-nav:hover,
+    .md-modal-img-nav:focus-visible {
+        background: #ffffff;
+        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.22);
+        outline: none;
+        opacity: 1;
+    }
+
+    .md-modal-img-nav:active {
+        opacity: 0.88;
+    }
+
+    /* Inset from edges; keep clear of close (top-right) and bottom counter */
+    .md-modal-img-nav--prev {
+        left: max(12px, 2.5%);
+    }
+
+    .md-modal-img-nav--next {
+        right: max(12px, 2.5%);
+    }
+
+    .md-modal-img-nav[hidden] {
+        display: none !important;
+    }
+
+    .md-modal-img-counter {
+        position: absolute;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 3;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        color: #fff;
+        background: rgba(15, 23, 42, 0.52);
+        padding: 5px 12px;
+        border-radius: 999px;
+        pointer-events: none;
+    }
+
+    .md-modal-img-counter[hidden] {
+        display: none !important;
+    }
+
+    .md-modal-thumb-btn {
+        display: block;
+        width: 72px;
+        height: 72px;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 2px solid transparent;
+        padding: 0;
+        margin: 0;
+        cursor: pointer;
+        flex-shrink: 0;
+        background: #e2e8f0;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .md-modal-thumb-btn img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .md-modal-thumb-btn:hover,
+    .md-modal-thumb-btn:focus-visible {
+        border-color: #94a3b8;
+        outline: none;
+    }
+
+    .md-modal-thumb-btn.is-active {
+        border-color: #c53030;
+        box-shadow: 0 0 0 2px rgba(197, 48, 48, 0.25);
+    }
+
     /* ── Body ── */
     .md-modal-body {
         padding: 20px 22px 22px;
@@ -1175,12 +1276,37 @@
     @media (max-width: 767.98px) {
         .md-hero { padding: 18px; }
 
-        .md-controls-top { flex-direction: row; }
-        .md-search-wrap { max-width: 100%; }
+        /* Search full width on top; Filters button below, left-aligned */
+        .md-controls-top {
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+            gap: 12px;
+        }
+
+        .md-search-wrap,
+        .md-search-wrap--name {
+            flex: none;
+            width: 100%;
+            max-width: none;
+            min-width: 0;
+        }
+
+        .md-filter-toggle-btn {
+            align-self: flex-start;
+        }
 
         .md-grid { grid-template-columns: 1fr; gap: 14px; }
 
         .md-modal { border-radius: 20px; max-width: 100%; }
+    }
+
+    @media (min-width: 768px) {
+        .md-controls-top {
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+        }
     }
 
     @media (max-width: 479.98px) {
@@ -1465,6 +1591,13 @@
             <div class="md-modal-img-placeholder" id="mdModalImgPlaceholder" aria-hidden="true">
                 <i class="bi bi-image"></i>
             </div>
+            <button type="button" class="md-modal-img-nav md-modal-img-nav--prev" id="mdModalImgPrev" aria-label="Previous photo" hidden>
+                <i class="bi bi-chevron-left" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="md-modal-img-nav md-modal-img-nav--next" id="mdModalImgNext" aria-label="Next photo" hidden>
+                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+            </button>
+            <span class="md-modal-img-counter" id="mdModalImgCounter" hidden></span>
             <button type="button" class="md-modal-close" id="mdModalClose" aria-label="Close details">
                 <i class="bi bi-x-lg" aria-hidden="true"></i>
             </button>
@@ -1690,6 +1823,87 @@
 
     /* ── Modal ── */
     var overlay = document.getElementById('mdModalOverlay');
+    var mdModalGalleryUrls = [];
+    var mdModalGalleryIndex = 0;
+    var mdModalGalleryDogName = '';
+
+    function mdModalApplySlide(index) {
+        var img = document.getElementById('mdModalImg');
+        var placeholder = document.getElementById('mdModalImgPlaceholder');
+        var prev = document.getElementById('mdModalImgPrev');
+        var next = document.getElementById('mdModalImgNext');
+        var ctr = document.getElementById('mdModalImgCounter');
+        var strip = document.getElementById('mdModalThumbStrip');
+        var shareBtn = document.getElementById('mdModalShareBtn');
+        var n = mdModalGalleryUrls.length;
+
+        if (!n) {
+            if (img) {
+                img.style.display = 'none';
+                img.removeAttribute('src');
+            }
+            if (placeholder) placeholder.style.display = 'flex';
+            if (prev) prev.setAttribute('hidden', '');
+            if (next) next.setAttribute('hidden', '');
+            if (ctr) ctr.setAttribute('hidden', '');
+            if (shareBtn) shareBtn.removeAttribute('data-share-image');
+            return;
+        }
+
+        mdModalGalleryIndex = ((index % n) + n) % n;
+        var url = mdModalGalleryUrls[mdModalGalleryIndex];
+
+        if (img) {
+            img.src = url;
+            img.alt = mdModalGalleryDogName || 'Missing dog';
+            img.style.display = 'block';
+        }
+        if (placeholder) placeholder.style.display = 'none';
+
+        if (n > 1) {
+            if (prev) prev.removeAttribute('hidden');
+            if (next) next.removeAttribute('hidden');
+            if (ctr) {
+                ctr.textContent = (mdModalGalleryIndex + 1) + ' / ' + n;
+                ctr.removeAttribute('hidden');
+            }
+        } else {
+            if (prev) prev.setAttribute('hidden', '');
+            if (next) next.setAttribute('hidden', '');
+            if (ctr) ctr.setAttribute('hidden', '');
+        }
+
+        if (strip) {
+            strip.querySelectorAll('.md-modal-thumb-btn').forEach(function (btn, i) {
+                btn.classList.toggle('is-active', i === mdModalGalleryIndex);
+            });
+        }
+
+        if (shareBtn && url) {
+            shareBtn.setAttribute('data-share-image', url);
+        }
+    }
+
+    function mdModalStepSlide(delta) {
+        mdModalApplySlide(mdModalGalleryIndex + delta);
+    }
+
+    (function () {
+        var prev = document.getElementById('mdModalImgPrev');
+        var next = document.getElementById('mdModalImgNext');
+        if (prev) {
+            prev.addEventListener('click', function (e) {
+                e.stopPropagation();
+                mdModalStepSlide(-1);
+            });
+        }
+        if (next) {
+            next.addEventListener('click', function (e) {
+                e.stopPropagation();
+                mdModalStepSlide(1);
+            });
+        }
+    })();
 
     function openModal(card) {
         var d = card.dataset;
@@ -1713,45 +1927,46 @@
             }
         }
 
-        /* main image */
-        var img = document.getElementById('mdModalImg');
-        var placeholder = document.getElementById('mdModalImgPlaceholder');
-        if (d.image) {
-            img.src = d.image;
-            img.alt = d.name;
-            img.style.display = 'block';
-            placeholder.style.display = 'none';
-        } else {
-            img.style.display = 'none';
-            img.removeAttribute('src');
-            placeholder.style.display = 'flex';
-        }
-
-        /* extra uploaded photos (MissingDogPhoto) */
-        var strip = document.getElementById('mdModalThumbStrip');
+        /* Gallery: main post image + MissingDogPhoto extras (deduped) */
         var extraRaw = d.photosExtra || card.getAttribute('data-photos-extra') || '';
         var extras = extraRaw.split('::').map(function (s) { return s.trim(); }).filter(Boolean);
+        mdModalGalleryDogName = d.name || '';
+        mdModalGalleryUrls = [];
+        var mainUrl = (d.image || '').trim();
+        if (mainUrl) {
+            mdModalGalleryUrls.push(mainUrl);
+        }
+        extras.forEach(function (url) {
+            if (url && mdModalGalleryUrls.indexOf(url) === -1) {
+                mdModalGalleryUrls.push(url);
+            }
+        });
+
+        var strip = document.getElementById('mdModalThumbStrip');
         if (strip) {
             strip.innerHTML = '';
-            if (extras.length) {
-                extras.forEach(function (url) {
-                    var a = document.createElement('a');
-                    a.className = 'md-modal-thumb-link';
-                    a.href = url;
-                    a.target = '_blank';
-                    a.rel = 'noopener';
-                    a.setAttribute('aria-label', 'View full photo');
+            if (mdModalGalleryUrls.length > 1) {
+                mdModalGalleryUrls.forEach(function (url, idx) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'md-modal-thumb-btn';
+                    btn.setAttribute('aria-label', 'Show photo ' + (idx + 1) + ' of ' + mdModalGalleryUrls.length);
                     var im = document.createElement('img');
                     im.src = url;
-                    im.alt = 'Additional photo for ' + d.name;
-                    a.appendChild(im);
-                    strip.appendChild(a);
+                    im.alt = '';
+                    btn.appendChild(im);
+                    btn.addEventListener('click', function () {
+                        mdModalApplySlide(idx);
+                    });
+                    strip.appendChild(btn);
                 });
                 strip.removeAttribute('hidden');
             } else {
                 strip.setAttribute('hidden', '');
             }
         }
+
+        mdModalApplySlide(0);
 
         document.getElementById('mdModalName').textContent = d.name;
 
@@ -1823,11 +2038,7 @@
         })());
         shareBtn.setAttribute('data-share-title', d.name + ' — Missing Dog');
         shareBtn.setAttribute('data-share-text',  'Help find ' + d.name + '! Last seen at ' + (d.location || 'Bayawan City') + '.');
-        if (d.image) {
-            shareBtn.setAttribute('data-share-image', d.image);
-        } else {
-            shareBtn.removeAttribute('data-share-image');
-        }
+        /* data-share-image is set by mdModalApplySlide from the active gallery photo */
         overlay.classList.add('is-open');
         document.body.style.overflow = 'hidden';
     }
@@ -1845,7 +2056,19 @@
     });
 
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closeModal();
+        if (!overlay || !overlay.classList.contains('is-open')) return;
+        if (e.key === 'Escape') {
+            closeModal();
+            return;
+        }
+        if (mdModalGalleryUrls.length < 2) return;
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            mdModalStepSlide(-1);
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            mdModalStepSlide(1);
+        }
     });
 
     /* ── Unified click handler ── */

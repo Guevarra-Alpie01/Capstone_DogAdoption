@@ -916,8 +916,8 @@
     width: 100%;
     min-width: 0;
     display: grid;
-    grid-template-columns: minmax(280px, 0.68fr) minmax(0, 1.32fr);
-    gap: 22px;
+    grid-template-columns: minmax(268px, 0.78fr) minmax(0, 1.11fr) minmax(0, 1.11fr);
+    gap: 18px 20px;
     align-items: start;
 }
 
@@ -1030,48 +1030,37 @@
     font-size: clamp(1.28rem, 1.62vw, 1.62rem);
 }
 
-.home-ordinance__card--section-29 .home-ordinance__card-copy p {
+.home-ordinance__card--section-29 .home-ordinance__card-copy p:not(.home-ordinance__card-range) {
     font-size: 0.92rem;
     line-height: 1.62;
 }
 
-/* Penalties: two independent columns (1–14 | 15–28) so row height in one column never follows the other (e.g. expanded "See requirements"). */
-.home-ordinance__penalties-columns {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    width: 100%;
-    min-width: 0;
+.home-ordinance__card--section-29 .home-ordinance__card-range {
+    margin: 0.4rem 0 0;
+    padding: 0.35rem 0.75rem;
+    width: fit-content;
+    max-width: 100%;
+    border-radius: 999px;
+    border: 1px solid rgba(181, 99, 38, 0.22);
+    background: rgba(181, 99, 38, 0.07);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #8c4d1e;
+    line-height: 1.2;
 }
 
-.home-ordinance__card--section-29 .home-ordinance__penalties-columns .home-ordinance__list--cluster {
-    flex: 1 1 minmax(0, 50%);
-    min-width: 0;
+/* Section 29: single-column penalty list per card (uniform with citation carousel slides) */
+.home-ordinance__card--section-29 .home-ordinance__list--cluster {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    width: 100%;
+    min-width: 0;
     grid-template-columns: unset;
-}
-
-@media (max-width: 1023.98px) {
-    html.home-has-js .home-ordinance__stepper[data-penalty-page="1"] .home-ordinance__list--penalties-b {
-        display: none !important;
-    }
-
-    html.home-has-js .home-ordinance__stepper[data-penalty-page="2"] .home-ordinance__list--penalties-a {
-        display: none !important;
-    }
-
-    .home-ordinance__penalties-columns {
-        flex-direction: column;
-        gap: 0;
-    }
-
-    html.home-has-js .home-ordinance__stepper[data-penalty-page="1"] .home-ordinance__list--penalties-a,
-    html.home-has-js .home-ordinance__stepper[data-penalty-page="2"] .home-ordinance__list--penalties-b {
-        flex: 1 1 auto;
-        width: 100%;
-    }
+    margin: 0;
+    padding: 0;
 }
 
 .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item {
@@ -1452,14 +1441,34 @@
 }
 
 html.home-has-js .home-ordinance__stepper-controls {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+    gap: 10px 12px;
 }
 
 .home-ordinance__stepper-controls {
     display: none;
     align-items: center;
-    justify-content: center;
-    gap: 14px;
+    gap: 10px 12px;
+}
+
+.home-ordinance__stepper-controls .home-ordinance__stepper-btn[data-home-ordinance-nav='prev'] {
+    justify-self: start;
+}
+
+.home-ordinance__stepper-controls .home-ordinance__stepper-status {
+    justify-self: center;
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.home-ordinance__stepper-controls .home-ordinance__stepper-btn[data-home-ordinance-nav='next'] {
+    justify-self: end;
+    grid-column: 3;
+    grid-row: 1;
 }
 
 .home-ordinance__stepper-btn {
@@ -1469,33 +1478,79 @@ html.home-has-js .home-ordinance__stepper-controls {
     width: 50px;
     height: 50px;
     padding: 0;
+    margin: 0;
     border-radius: 16px;
-    border: 1px solid rgba(232, 220, 198, 0.96);
-    background: #fffdfa;
+    border: 1px solid transparent;
+    background: transparent;
     color: #a65f2b;
     font-size: 1.08rem;
     font-weight: 900;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.88),
-        0 10px 18px rgba(74, 57, 29, 0.06);
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    line-height: 1;
+    box-shadow: none;
+    opacity: 0.4;
+    transform: none;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: opacity 0.22s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
-.home-ordinance__stepper-btn:hover,
-.home-ordinance__stepper-btn:focus-visible {
-    transform: translateY(-1px);
-    border-color: rgba(181, 99, 38, 0.4);
-    color: #8c4d1e;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.92),
-        0 12px 18px rgba(74, 57, 29, 0.08);
+.home-ordinance__stepper-btn > span {
+    line-height: 1;
+    display: block;
+    transform: none;
+}
+
+/* Mouse / touch: avoid focus ring layout jump; keyboard keeps :focus-visible */
+.home-ordinance__stepper-btn:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* Keyboard: full visibility + ring; no solid fill */
+.home-ordinance__stepper-btn:focus-visible:not(:disabled) {
+    opacity: 1;
+    transform: none;
+    border-color: rgba(166, 95, 43, 0.28);
+    outline: 2px solid rgba(166, 95, 43, 0.35);
+    outline-offset: 3px;
+    background: transparent;
+    box-shadow: none;
+}
+
+@media (hover: hover) {
+    /* Hovering the bar (pill or either arrow): both enabled arrows become visible */
+    .home-ordinance__stepper-controls:hover .home-ordinance__stepper-btn:enabled {
+        opacity: 1;
+        border-color: transparent;
+        background: transparent;
+        box-shadow: none;
+        color: #8c4d1e;
+    }
+
+    .home-ordinance__stepper-controls:hover .home-ordinance__stepper-btn:disabled {
+        opacity: 0.28;
+    }
+}
+
+@media (hover: none) {
+    .home-ordinance__stepper-btn:active:not(:disabled) {
+        opacity: 1;
+    }
+}
+
+.home-ordinance__stepper-btn:active:not(:disabled) {
+    transform: none;
+    background: transparent;
+    box-shadow: none;
 }
 
 .home-ordinance__stepper-btn:disabled {
-    opacity: 0.45;
+    opacity: 0.22;
     cursor: default;
     transform: none;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    background: transparent;
+    box-shadow: none;
+    border-color: transparent;
 }
 
 .home-ordinance__stepper-status {
@@ -1525,13 +1580,6 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
     display: grid;
 }
 
-/* Section 29: full penalty list on large screens; hide part pager */
-@media (min-width: 1024px) {
-    .home-ordinance__card--section-29 .home-ordinance__stepper-controls {
-        display: none !important;
-    }
-}
-
 /* Citation ticket: mobile / tablet — outer carousel; header stays above */
 .home-ordinance__fee-carousel {
     display: block;
@@ -1556,7 +1604,17 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
     line-height: 1;
     box-shadow: 0 10px 20px rgba(74, 57, 29, 0.07);
     cursor: pointer;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
     transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.home-ordinance__fee-carousel-btn:focus:not(:focus-visible) {
+    outline: none;
 }
 
 .home-ordinance__fee-carousel-btn:disabled {
@@ -1646,19 +1704,56 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev,
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next {
         position: absolute;
-        top: 50%;
+        /* Center without transform (avoids :active / subpixel jump) */
+        top: calc(50% - 24px);
+        bottom: auto;
         z-index: 2;
-        transform: translateY(-50%);
-        background: rgba(255, 253, 248, 0.95);
-        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+        margin: 0;
+        width: 44px;
+        height: 48px;
+        transform: none;
+        background: rgba(255, 253, 248, 0.52);
+        border-color: rgba(200, 188, 168, 0.45);
+        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+        -webkit-backdrop-filter: blur(8px) saturate(1.05);
+        backdrop-filter: blur(8px) saturate(1.05);
+    }
+
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev i,
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next i {
+        display: block;
+        line-height: 1;
+        pointer-events: none;
     }
 
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev {
-        left: 4px;
+        left: 6px;
+        right: auto;
     }
 
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next {
-        right: 4px;
+        right: 6px;
+        left: auto;
+    }
+
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev:hover:not(:disabled),
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next:hover:not(:disabled),
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev:focus-visible:not(:disabled),
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next:focus-visible:not(:disabled) {
+        top: calc(50% - 24px);
+        transform: none;
+        background: rgba(255, 244, 228, 0.62);
+        border-color: rgba(181, 99, 38, 0.35);
+        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+    }
+
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev:active:not(:disabled),
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next:active:not(:disabled) {
+        top: calc(50% - 24px);
+        transform: none;
+        background: rgba(255, 237, 214, 0.65);
+        border-color: rgba(181, 99, 38, 0.38);
+        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
     }
 
     [data-home-fee-carousel] .home-ordinance__fee-carousel-markers {
@@ -1673,43 +1768,26 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
         width: 300%;
         max-width: none;
         box-sizing: border-box;
-        align-items: center;
+        align-items: flex-start;
         margin: 0;
         padding: 0;
         transform: translate3d(0, 0, 0);
         transition: transform 0.38s cubic-bezier(0.25, 0.8, 0.25, 1);
     }
 
-    [data-home-fee-carousel] .home-ordinance__card--section-28 {
+    [data-home-fee-carousel] .home-ordinance__card--section-28,
+    [data-home-fee-carousel] .home-ordinance__card--section-29 {
         flex: 0 0 33.333333%;
         width: 33.333333%;
         min-width: 0;
         max-width: none;
     }
 
-    [data-home-fee-carousel] .home-ordinance__card--section-29 {
-        flex: 0 0 66.666666%;
-        width: 66.666666%;
-        min-width: 0;
-        max-width: none;
-    }
-
-    [data-home-fee-carousel] .home-ordinance__penalties-columns {
-        flex-direction: row !important;
-        align-items: flex-start;
-        gap: 8px 10px;
-    }
-
-    [data-home-fee-carousel] .home-ordinance__list--penalties-a,
-    [data-home-fee-carousel] .home-ordinance__list--penalties-b {
+    [data-home-fee-carousel] .home-ordinance__card--section-29 .home-ordinance__list--cluster {
         display: flex !important;
-        flex: 1 1 calc(50% - 5px) !important;
         flex-direction: column;
+        width: 100%;
         min-width: 0;
-    }
-
-    [data-home-fee-carousel] .home-ordinance__stepper-controls {
-        display: none !important;
     }
 
     [data-home-fee-carousel] .home-ordinance__card {
@@ -1776,16 +1854,20 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
 
     [data-home-fee-carousel] [data-fee-track] {
         display: grid;
+        grid-template-columns: minmax(268px, 0.78fr) minmax(0, 1.11fr) minmax(0, 1.11fr);
+        gap: 18px 20px;
         width: 100% !important;
         max-width: 100%;
         transform: none !important;
         transition: none !important;
+        align-items: start;
     }
 
     [data-home-fee-carousel] .home-ordinance__card--section-28,
     [data-home-fee-carousel] .home-ordinance__card--section-29 {
         width: auto !important;
         flex: initial !important;
+        min-width: 0;
     }
 }
 
@@ -1842,7 +1924,7 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
 
 @media (min-width: 820px) and (max-width: 1040.98px) {
     .home-ordinance__grid {
-        grid-template-columns: minmax(226px, 0.62fr) minmax(0, 1.38fr);
+        grid-template-columns: minmax(220px, 0.58fr) minmax(0, 1.21fr) minmax(0, 1.21fr);
     }
 
     .home-ordinance__list--split {

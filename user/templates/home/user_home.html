@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..800&family=Rye&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260425ann-card-admin-row">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260426fee-carousel-arrows-v2">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -680,12 +680,11 @@
                     </span>
                     <div class="home-ordinance__card-copy">
                         <span class="home-ordinance__card-label">Section 29</span>
-                        <h3>Penalties and Violations</h3>
+                        <h3>Penalties and violations</h3>
+                        <p class="home-ordinance__card-range">Items 1–14</p>
                     </div>
                 </div>
 
-                <div class="home-ordinance__stepper" data-home-ordinance-stepper data-penalty-page="1">
-                    <div class="home-ordinance__penalties-columns">
                     <ol class="home-ordinance__list home-ordinance__list--cluster home-ordinance__list--penalties-a" role="list" aria-label="Section 29 penalties, items 1 to 14">
                             <li class="home-ordinance__item">
                                 <span class="home-ordinance__index">1</span>
@@ -793,6 +792,20 @@
                                 <span class="home-ordinance__fee">PHP 5000.00</span>
                             </li>
                     </ol>
+            </article>
+
+            <article class="home-ordinance__card home-ordinance__card--section-29 home-reveal" style="--home-stagger: 2;">
+                <div class="home-ordinance__card-head">
+                    <span class="home-ordinance__card-icon" aria-hidden="true">
+                        <i class="bi bi-bank2"></i>
+                    </span>
+                    <div class="home-ordinance__card-copy">
+                        <span class="home-ordinance__card-label">Section 29</span>
+                        <h3>Penalties and violations</h3>
+                        <p class="home-ordinance__card-range">Items 15–28</p>
+                    </div>
+                </div>
+
                     <ol class="home-ordinance__list home-ordinance__list--cluster home-ordinance__list--penalties-b" role="list" aria-label="Section 29 penalties, items 15 to 28">
                             <li class="home-ordinance__item">
                                 <span class="home-ordinance__index">15</span>
@@ -919,18 +932,6 @@
                                 <span class="home-ordinance__fee">PHP 2500.00</span>
                             </li>
                     </ol>
-                    </div>
-
-                    <div class="home-ordinance__stepper-controls" role="group" aria-label="Section 29 part navigation">
-                        <button type="button" class="home-ordinance__stepper-btn" data-home-ordinance-nav="prev" aria-label="Show previous part">
-                            <span aria-hidden="true">&lt;</span>
-                        </button>
-                        <span class="home-ordinance__stepper-status" data-home-ordinance-status aria-live="polite">Part 1 of 2</span>
-                        <button type="button" class="home-ordinance__stepper-btn" data-home-ordinance-nav="next" aria-label="Show next part">
-                            <span aria-hidden="true">&gt;</span>
-                        </button>
-                    </div>
-                </div>
             </article>
         </div>
             <button type="button" class="home-ordinance__fee-carousel-btn home-ordinance__fee-carousel-btn--next" data-fee-slides="next" aria-label="Next fee information">
@@ -1098,177 +1099,6 @@
     const syncHomeDetailModalState = () => {
         document.body.classList.remove('home-details-modal-open');
     };
-
-    document.querySelectorAll('[data-home-ordinance-stepper]').forEach((stepper) => {
-        if (stepper.dataset.stepperReady === '1') {
-            return;
-        }
-        stepper.dataset.stepperReady = '1';
-
-        const prevButton = stepper.querySelector('[data-home-ordinance-nav="prev"]');
-        const nextButton = stepper.querySelector('[data-home-ordinance-nav="next"]');
-        const status = stepper.querySelector('[data-home-ordinance-status]');
-        const unifiedList = stepper.querySelector('.home-ordinance__penalties-columns');
-        const desktopPenaltyListMq = window.matchMedia('(min-width: 1024px)');
-
-        if (unifiedList && prevButton && nextButton) {
-            let penaltyPage = parseInt(stepper.getAttribute('data-penalty-page') || '1', 10);
-            if (penaltyPage < 1 || penaltyPage > 2) {
-                penaltyPage = 1;
-            }
-
-            const syncUnified = () => {
-                if (desktopPenaltyListMq.matches) {
-                    stepper.removeAttribute('data-penalty-page');
-                    if (status) {
-                        status.textContent = '';
-                        status.style.display = '';
-                    }
-                    prevButton.disabled = true;
-                    nextButton.disabled = true;
-                    return;
-                }
-
-                if (stepper.closest('[data-home-fee-carousel]')) {
-                    stepper.removeAttribute('data-penalty-page');
-                    if (status) {
-                        status.textContent = '';
-                        status.style.display = 'none';
-                    }
-                    prevButton.disabled = true;
-                    nextButton.disabled = true;
-                    prevButton.setAttribute('aria-hidden', 'true');
-                    nextButton.setAttribute('aria-hidden', 'true');
-                    return;
-                }
-
-                stepper.setAttribute('data-penalty-page', String(penaltyPage));
-                if (status) {
-                    status.textContent = `Part ${penaltyPage} of 2`;
-                }
-                prevButton.disabled = penaltyPage === 1;
-                nextButton.disabled = penaltyPage === 2;
-            };
-
-            prevButton.addEventListener('click', () => {
-                if (desktopPenaltyListMq.matches) {
-                    return;
-                }
-                if (penaltyPage > 1) {
-                    penaltyPage -= 1;
-                    syncUnified();
-                }
-            });
-
-            nextButton.addEventListener('click', () => {
-                if (desktopPenaltyListMq.matches) {
-                    return;
-                }
-                if (penaltyPage < 2) {
-                    penaltyPage += 1;
-                    syncUnified();
-                }
-            });
-
-            stepper.addEventListener('keydown', (event) => {
-                if (desktopPenaltyListMq.matches) {
-                    return;
-                }
-                if (event.key === 'ArrowLeft') {
-                    event.preventDefault();
-                    prevButton.click();
-                    return;
-                }
-                if (event.key === 'ArrowRight') {
-                    event.preventDefault();
-                    nextButton.click();
-                }
-            });
-
-            desktopPenaltyListMq.addEventListener('change', syncUnified);
-            syncUnified();
-            return;
-        }
-
-        const panels = Array.from(stepper.querySelectorAll('[data-home-ordinance-panel]'));
-        let activeIndex = panels.findIndex((panel) => panel.classList.contains('is-active'));
-
-        if (panels.length <= 1 || !prevButton || !nextButton) {
-            return;
-        }
-
-        if (activeIndex < 0) {
-            activeIndex = 0;
-        }
-
-        const syncStepper = () => {
-            if (desktopPenaltyListMq.matches) {
-                panels.forEach((panel) => {
-                    panel.classList.add('is-active');
-                    panel.setAttribute('aria-hidden', 'false');
-                });
-                if (status) {
-                    status.textContent = '';
-                }
-                prevButton.disabled = true;
-                nextButton.disabled = true;
-                return;
-            }
-
-            panels.forEach((panel, panelIndex) => {
-                const isActive = panelIndex === activeIndex;
-                panel.classList.toggle('is-active', isActive);
-                panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
-            });
-
-            const currentPartLabel = panels[activeIndex]?.querySelector('.home-ordinance__split-panel-label')?.textContent?.trim() || `Part ${activeIndex + 1}`;
-            if (status) {
-                status.textContent = `${currentPartLabel} of ${panels.length}`;
-            }
-
-            prevButton.disabled = activeIndex === 0;
-            nextButton.disabled = activeIndex === panels.length - 1;
-        };
-
-        prevButton.addEventListener('click', () => {
-            if (desktopPenaltyListMq.matches) {
-                return;
-            }
-            if (activeIndex > 0) {
-                activeIndex -= 1;
-                syncStepper();
-            }
-        });
-
-        nextButton.addEventListener('click', () => {
-            if (desktopPenaltyListMq.matches) {
-                return;
-            }
-            if (activeIndex < panels.length - 1) {
-                activeIndex += 1;
-                syncStepper();
-            }
-        });
-
-        stepper.addEventListener('keydown', (event) => {
-            if (desktopPenaltyListMq.matches) {
-                return;
-            }
-            if (event.key === 'ArrowLeft') {
-                event.preventDefault();
-                prevButton.click();
-                return;
-            }
-
-            if (event.key === 'ArrowRight') {
-                event.preventDefault();
-                nextButton.click();
-            }
-        });
-
-        desktopPenaltyListMq.addEventListener('change', syncStepper);
-        syncStepper();
-    });
 
     (function initFeeTicketCarousel() {
         const track = document.querySelector('[data-fee-track]');

@@ -886,11 +886,9 @@ class DogAnnouncement(models.Model):
     ]
     BUCKET_ORDINARY = "ordinary"
     BUCKET_PINNED = "pinned"
-    BUCKET_CAMPAIGN = "campaign"
     DISPLAY_BUCKET_CHOICES = [
         (BUCKET_ORDINARY, "Ordinary"),
         (BUCKET_PINNED, "Pinned"),
-        (BUCKET_CAMPAIGN, "Education"),
     ]
 
     POST_TYPES = [

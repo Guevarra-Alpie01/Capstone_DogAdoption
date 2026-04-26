@@ -2,12 +2,12 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/admin_announcement/announcement.css' %}?v=20260424ann-img">
+<link rel="stylesheet" href="{% static 'css/admin_announcement/announcement.css' %}?v=20260425ann-two-columns">
 <style>
 @media (max-width: 767.98px) {
     .announcement-mobile-tabs.announcement-mobile-tabs--compact-stack[data-mobile-announcement-tabs] {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         align-items: stretch;
         width: min(100%, 390px);
         margin-left: auto;
@@ -186,10 +186,6 @@
         <span>Main Feed</span>
         <span class="announcement-mobile-tab-count" data-mobile-regular-count>0</span>
     </button>
-    <button type="button" class="announcement-mobile-tab announcement-mobile-tab--compact" data-mobile-announcement-tab="campaign" aria-pressed="false">
-        <span>Campaign</span>
-        <span class="announcement-mobile-tab-count" data-mobile-campaign-count>0</span>
-    </button>
 </div>
 
 <div class="education-board-layout" data-layout="board" data-mobile-announcement-board data-mobile-default="ordinary">
@@ -208,24 +204,6 @@
             <div class="announcement-column-empty" data-pin-empty>
                 <i class="bi bi-pin-angle"></i>
                 <span>No pinned announcements yet.</span>
-            </div>
-        </div>
-    </section>
-
-    <section class="announcement-column announcement-column-campaign" data-mobile-announcement-section="campaign">
-        <div class="announcement-column-header">
-            <div class="announcement-column-title-row">
-                <span class="announcement-column-kicker announcement-column-kicker-campaign">
-                    <i class="bi bi-bookmark-star-fill"></i>
-                    <span>Campaign</span>
-                </span>
-                <span class="announcement-column-count announcement-column-count-campaign" data-campaign-count>0</span>
-            </div>
-        </div>
-        <div class="announcement-column-body announcement-campaign-column" data-campaign-column>
-            <div class="announcement-column-empty" data-campaign-empty>
-                <i class="bi bi-bookmark-star"></i>
-                <span>No campaign announcements selected yet.</span>
             </div>
         </div>
     </section>
@@ -256,14 +234,6 @@
                 aria-label="Pin announcement"
                 title="Pin announcement">
             <i class="bi bi-pin-angle"></i>
-        </button>
-        <button type="button"
-                class="post-campaign-btn"
-                data-campaign-toggle
-                aria-pressed="false"
-                aria-label="Move to Campaign column"
-                title="Move to Campaign column">
-            <i class="bi bi-bookmark-star"></i>
         </button>
         <button type="button"
                 class="post-more-btn"
@@ -642,44 +612,46 @@
     const legacyBucketStorageKey = 'adminEducationAnnouncementBuckets';
     const board = document.querySelector('.education-board-layout');
     const pinnedColumn = document.querySelector('[data-pin-column]');
-    const campaignColumn = document.querySelector('[data-campaign-column]');
     const regularColumn = document.querySelector('[data-regular-column]');
     const pinnedEmpty = document.querySelector('[data-pin-empty]');
-    const campaignEmpty = document.querySelector('[data-campaign-empty]');
     const regularEmpty = document.querySelector('[data-regular-empty]');
     const pinnedCount = document.querySelector('[data-pin-count]');
-    const campaignCount = document.querySelector('[data-campaign-count]');
     const regularCount = document.querySelector('[data-regular-count]');
     const mobilePinnedCount = document.querySelector('[data-mobile-pin-count]');
-    const mobileCampaignCount = document.querySelector('[data-mobile-campaign-count]');
     const mobileRegularCount = document.querySelector('[data-mobile-regular-count]');
     const cards = Array.from(document.querySelectorAll('.post-card[data-post-id]'));
 
-    if (!board || !pinnedColumn || !campaignColumn || !regularColumn || !cards.length) {
+    if (!board || !pinnedColumn || !regularColumn || !cards.length) {
         return;
     }
 
-    const allowedBuckets = new Set(['pinned', 'campaign', 'ordinary']);
+    const allowedBuckets = new Set(['pinned', 'ordinary']);
     const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
     const bucketState = {};
+
+    function normalizeBucket(raw) {
+        if (raw === 'campaign') {
+            return 'ordinary';
+        }
+        return allowedBuckets.has(raw) ? raw : 'ordinary';
+    }
 
     cards.forEach((card) => {
         const postId = card.getAttribute('data-post-id');
         const initialBucket = card.getAttribute('data-initial-bucket');
-        bucketState[postId] = allowedBuckets.has(initialBucket) ? initialBucket : 'ordinary';
+        bucketState[postId] = normalizeBucket(initialBucket);
     });
 
     function getBucket(postId) {
-        const bucket = bucketState[postId];
-        return allowedBuckets.has(bucket) ? bucket : 'ordinary';
+        return normalizeBucket(bucketState[postId]);
     }
 
     function setBucket(postId, bucket) {
-        bucketState[postId] = allowedBuckets.has(bucket) ? bucket : 'ordinary';
+        bucketState[postId] = normalizeBucket(bucket);
     }
 
     function setCardBusy(card, isBusy) {
-        card.querySelectorAll('[data-pin-toggle], [data-campaign-toggle]').forEach((button) => {
+        card.querySelectorAll('[data-pin-toggle]').forEach((button) => {
             button.disabled = isBusy;
         });
     }
@@ -722,16 +694,13 @@
     function updateCardBucketState(card, bucket) {
         const pinButton = card.querySelector('[data-pin-toggle]');
         const pinIcon = pinButton?.querySelector('i');
-        const campaignButton = card.querySelector('[data-campaign-toggle]');
-        const campaignIcon = campaignButton?.querySelector('i');
         const bucketLabel = card.querySelector('[data-bucket-label]');
         const isPinned = bucket === 'pinned';
-        const isCampaign = bucket === 'campaign';
         const isOrdinary = bucket === 'ordinary';
 
         card.classList.toggle('is-pinned', isPinned);
-        card.classList.toggle('is-campaign', isCampaign);
         card.classList.toggle('is-ordinary', isOrdinary);
+        card.classList.remove('is-campaign');
         card.setAttribute('data-bucket', bucket);
 
         if (pinButton) {
@@ -744,39 +713,14 @@
             pinIcon.className = isPinned ? 'bi bi-pin-angle-fill' : 'bi bi-pin-angle';
         }
 
-        if (campaignButton) {
-            campaignButton.setAttribute('aria-pressed', isCampaign ? 'true' : 'false');
-            campaignButton.setAttribute(
-                'aria-label',
-                isCampaign ? 'Remove from Campaign column' : 'Move to Campaign column'
-            );
-            campaignButton.setAttribute(
-                'title',
-                isCampaign ? 'Remove from Campaign column' : 'Move to Campaign column'
-            );
-        }
-
-        if (campaignIcon) {
-            campaignIcon.className = isCampaign ? 'bi bi-bookmark-star-fill' : 'bi bi-bookmark-star';
-        }
-
         if (bucketLabel) {
-            bucketLabel.textContent =
-                bucket === 'pinned'
-                    ? 'Pinned'
-                    : bucket === 'campaign'
-                        ? 'Education'
-                        : 'Ordinary';
+            bucketLabel.textContent = isPinned ? 'Pinned' : 'Ordinary';
         }
     }
 
     function toggleEmptyStates() {
         if (pinnedEmpty) {
             pinnedEmpty.hidden = !!pinnedColumn.querySelector('.post-card[data-post-id]');
-        }
-
-        if (campaignEmpty) {
-            campaignEmpty.hidden = !!campaignColumn.querySelector('.post-card[data-post-id]');
         }
 
         if (regularEmpty) {
@@ -786,15 +730,10 @@
 
     function updateCounts() {
         const pinnedItems = pinnedColumn.querySelectorAll('.post-card[data-post-id]').length;
-        const campaignItems = campaignColumn.querySelectorAll('.post-card[data-post-id]').length;
         const regularItems = regularColumn.querySelectorAll('.post-card[data-post-id]').length;
 
         if (pinnedCount) {
             pinnedCount.textContent = String(pinnedItems);
-        }
-
-        if (campaignCount) {
-            campaignCount.textContent = String(campaignItems);
         }
 
         if (regularCount) {
@@ -803,10 +742,6 @@
 
         if (mobilePinnedCount) {
             mobilePinnedCount.textContent = String(pinnedItems);
-        }
-
-        if (mobileCampaignCount) {
-            mobileCampaignCount.textContent = String(campaignItems);
         }
 
         if (mobileRegularCount) {
@@ -822,11 +757,6 @@
 
             if (bucket === 'pinned') {
                 pinnedColumn.appendChild(card);
-                return;
-            }
-
-            if (bucket === 'campaign') {
-                campaignColumn.appendChild(card);
                 return;
             }
 
@@ -871,14 +801,15 @@
             .map((card) => {
                 const postId = card.getAttribute('data-post-id');
                 const legacyBucket = storedBuckets?.[postId];
+                const normalizedLegacy = legacyBucket === 'campaign' ? 'ordinary' : legacyBucket;
                 const currentBucket = getBucket(postId);
                 if (
                     currentBucket === 'ordinary'
-                    && allowedBuckets.has(legacyBucket)
-                    && legacyBucket !== 'ordinary'
+                    && allowedBuckets.has(normalizedLegacy)
+                    && normalizedLegacy !== 'ordinary'
                 ) {
-                    setBucket(postId, legacyBucket);
-                    return { card, bucket: legacyBucket };
+                    setBucket(postId, normalizedLegacy);
+                    return { card, bucket: normalizedLegacy };
                 }
                 return null;
             })
@@ -904,17 +835,11 @@
 
     cards.forEach((card) => {
         const pinButton = card.querySelector('[data-pin-toggle]');
-        const campaignButton = card.querySelector('[data-campaign-toggle]');
         const postId = card.getAttribute('data-post-id');
 
         pinButton?.addEventListener('click', () => {
             const current = getBucket(postId);
             void updateBucket(card, current === 'pinned' ? 'ordinary' : 'pinned');
-        });
-
-        campaignButton?.addEventListener('click', () => {
-            const current = getBucket(postId);
-            void updateBucket(card, current === 'campaign' ? 'ordinary' : 'campaign');
         });
     });
 

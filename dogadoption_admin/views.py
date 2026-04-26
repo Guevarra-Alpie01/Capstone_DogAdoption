@@ -1535,12 +1535,10 @@ ANNOUNCEMENT_CATEGORY_OPTIONS = [
         "value": DogAnnouncement.CATEGORY_DOG_ANNOUNCEMENT,
         "label": "Dog Announcements",
         "description": (
-            "For vaccination programs, educational campaigns, dog-related events, "
-            "and general dog care information."
+            "For vaccination programs, dog-related events, and general dog care information."
         ),
         "topics": [
             "Vaccination programs",
-            "Educational campaigns",
             "Dog-related events",
             "General dog care information",
         ],

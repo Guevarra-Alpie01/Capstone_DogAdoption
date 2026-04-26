@@ -2201,20 +2201,12 @@ def _announcement_maybe_redirect_for_highlight(request):
     bucket_data = DogAnnouncement.objects.filter(pk=pk).values_list("display_bucket", flat=True).first()
     if bucket_data is None:
         return None
-    if bucket_data in (
-        DogAnnouncement.BUCKET_PINNED,
-        DogAnnouncement.BUCKET_CAMPAIGN,
-    ):
+    if bucket_data == DogAnnouncement.BUCKET_PINNED:
         return None
 
     regular_qs = (
         _announcement_feed_queryset()
-        .exclude(
-            display_bucket__in=[
-                DogAnnouncement.BUCKET_PINNED,
-                DogAnnouncement.BUCKET_CAMPAIGN,
-            ]
-        )
+        .exclude(display_bucket=DogAnnouncement.BUCKET_PINNED)
         .order_by("-created_at")
     )
     ids = list(regular_qs.values_list("id", flat=True))
@@ -5638,16 +5630,8 @@ def announcement_list(request):
             display_bucket=DogAnnouncement.BUCKET_PINNED
         )[:PUBLIC_ANNOUNCEMENT_SIDEBAR_LIMIT]
     )
-    campaign_announcements = list(
-        _announcement_feed_queryset().filter(
-            display_bucket=DogAnnouncement.BUCKET_CAMPAIGN
-        )[:PUBLIC_ANNOUNCEMENT_SIDEBAR_LIMIT]
-    )
     regular_qs = _announcement_feed_queryset().exclude(
-        display_bucket__in=[
-            DogAnnouncement.BUCKET_PINNED,
-            DogAnnouncement.BUCKET_CAMPAIGN,
-        ]
+        display_bucket=DogAnnouncement.BUCKET_PINNED
     )
     regular_page_obj = Paginator(
         regular_qs,
@@ -5656,21 +5640,17 @@ def announcement_list(request):
     regular_announcements = list(regular_page_obj.object_list)
 
     _decorate_announcement_posts(pinned_announcements, request)
-    _decorate_announcement_posts(campaign_announcements, request)
     _decorate_announcement_posts(regular_announcements, request)
 
     total_announcements = sum(bucket_counts.values())
     pinned_count = bucket_counts.get(DogAnnouncement.BUCKET_PINNED, 0)
-    campaign_count = bucket_counts.get(DogAnnouncement.BUCKET_CAMPAIGN, 0)
-    regular_total = max(total_announcements - pinned_count - campaign_count, 0)
+    regular_total = max(total_announcements - pinned_count, 0)
     pagination_query = _pagination_query_without_page(request.GET)
 
     board_context = {
         'pinned_announcements': pinned_announcements,
-        'campaign_announcements': campaign_announcements,
         'regular_announcements': regular_announcements,
         'pinned_count': pinned_count,
-        'campaign_count': campaign_count,
         'regular_total': regular_total,
         'regular_page_obj': regular_page_obj,
         'announcement_pagination_query': pagination_query,

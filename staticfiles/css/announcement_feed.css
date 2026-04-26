@@ -1,14 +1,3 @@
-/* Uniform announcement photo slots (square; no stretched images) */
-:root {
-    --user-ann-media-size: 300px;
-}
-
-@media (max-width: 767.98px) {
-    :root {
-        --user-ann-media-size: 150px;
-    }
-}
-
 .user-ann-board {
     max-width: 1460px;
     margin: 0 auto;
@@ -106,7 +95,7 @@
 
 .user-ann-columns {
     display: grid;
-    grid-template-columns: minmax(250px, 0.72fr) minmax(520px, 1.9fr) minmax(250px, 0.72fr);
+    grid-template-columns: minmax(250px, 0.72fr) minmax(0, 1.9fr);
     gap: 20px;
     align-items: start;
 }
@@ -160,11 +149,6 @@
     font-size: 12px;
     font-weight: 900;
     line-height: 1;
-}
-
-.user-ann-count-education {
-    background: #fff0be;
-    color: #9a6700;
 }
 
 .user-ann-count-regular {
@@ -663,8 +647,7 @@
     }
 
     .user-ann-column-pinned,
-    .user-ann-column-regular,
-    .user-ann-column-education {
+    .user-ann-column-regular {
         grid-column: 1 / -1;
     }
 }
@@ -676,7 +659,7 @@
 
     .user-ann-mobile-tabs {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         align-items: stretch;
     }
 
@@ -881,7 +864,7 @@
 
 .user-ann-summary-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--ann-space-2);
 }
 
@@ -935,16 +918,6 @@
 .user-ann-summary-card.is-feed strong,
 .user-ann-summary-card.is-feed .user-ann-summary-label {
     color: #274472;
-}
-
-.user-ann-summary-card.is-campaign {
-    background: linear-gradient(180deg, #fff8e7 0%, #ffffff 100%);
-    border-color: rgba(214, 158, 46, 0.22);
-}
-
-.user-ann-summary-card.is-campaign strong,
-.user-ann-summary-card.is-campaign .user-ann-summary-label {
-    color: #b7791f;
 }
 
 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
@@ -1019,8 +992,7 @@
     grid-column: 1;
 }
 
-.user-ann-column-regular,
-.user-ann-column-education {
+.user-ann-column-regular {
     grid-column: 2;
 }
 
@@ -1050,11 +1022,6 @@
 .user-ann-column-regular {
     --section-accent: #2f5da8;
     --section-surface: #f8fbff;
-}
-
-.user-ann-column-education {
-    --section-accent: #c68716;
-    --section-surface: #fff9ec;
 }
 
 .user-ann-column-header {
@@ -1692,9 +1659,8 @@ body.user-ann-popup-open {
 .user-ann-popup-viewer .fb-photo-main {
     width: 100%;
     height: 100%;
-    max-height: none;
-    object-fit: cover;
-    object-position: center;
+    max-height: 520px;
+    object-fit: contain;
     background: #e2ebf5;
 }
 
@@ -2050,7 +2016,7 @@ body.user-ann-popup-open {
     }
 
     .user-ann-summary-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -2060,8 +2026,7 @@ body.user-ann-popup-open {
     }
 
     .user-ann-column-pinned,
-    .user-ann-column-regular,
-    .user-ann-column-education {
+    .user-ann-column-regular {
         grid-column: 1 / -1;
     }
 }
@@ -2215,7 +2180,7 @@ body.user-ann-popup-open {
 
     .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         align-items: stretch;
         width: 100%;
         margin-left: 0;
@@ -2259,7 +2224,7 @@ body.user-ann-popup-open {
     }
 
     .user-ann-mobile-tabs {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 7px;
     }
 
@@ -2288,7 +2253,7 @@ body.user-ann-popup-open {
     .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
         width: 100%;
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 4px;
         padding: 0;
     }
@@ -2365,6 +2330,28 @@ body.user-ann-popup-open {
         padding: 2px 3px;
         font-size: 6.8px;
     }
+}
+
+/* Use one consistent image frame for announcement cards and remove empty bars. */
+.fb-photo-viewer,
+.user-ann-card .fb-photo-viewer,
+.user-ann-column-pinned .user-ann-card .fb-photo-viewer,
+.user-ann-column-education .user-ann-card .fb-photo-viewer {
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: #eef2f7;
+}
+
+.fb-photo-main,
+.user-ann-card .fb-photo-main,
+.user-ann-column-pinned .fb-photo-main,
+.user-ann-column-education .fb-photo-main {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    display: block;
+    object-fit: cover;
+    background: transparent;
 }
 
 /* Modern announcement visual refresh (content unchanged) */
@@ -2729,7 +2716,7 @@ body.user-ann-popup-open {
     .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
         width: 100%;
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 6px;
         border-radius: 14px;
     }
@@ -3011,53 +2998,4 @@ body.user-ann-popup-open {
     box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.4);
     border-radius: 16px;
     transition: box-shadow 0.35s ease;
-}
-
-/* === Final: uniform square frames for all user-facing announcement viewers === */
-.home-announcement-card .fb-photo-viewer,
-.user-ann-board .fb-photo-viewer,
-.user-ann-popup .fb-photo-viewer {
-    width: var(--user-ann-media-size);
-    max-width: 100%;
-    height: var(--user-ann-media-size);
-    aspect-ratio: 1 / 1;
-    margin-left: auto;
-    margin-right: auto;
-    box-sizing: border-box;
-    overflow: hidden;
-}
-
-.user-ann-v2 .user-ann-card-media-highlight .fb-photo-viewer {
-    width: min(100%, var(--user-ann-media-size));
-    max-width: 100%;
-    height: var(--user-ann-media-size);
-    aspect-ratio: 1 / 1;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.home-announcement-card .fb-photo-main,
-.user-ann-board .fb-photo-main,
-.user-ann-popup .fb-photo-main {
-    width: 100%;
-    height: 100%;
-    max-height: none;
-    min-height: 0;
-    display: block;
-    object-fit: cover;
-    object-position: center;
-}
-
-.user-ann-v2 .user-ann-card-media-highlight .fb-photo-main {
-    min-height: 0;
-    max-height: none;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-}
-
-.user-ann-column-pinned .fb-photo-main,
-.user-ann-column-education .fb-photo-main {
-    max-height: none;
 }

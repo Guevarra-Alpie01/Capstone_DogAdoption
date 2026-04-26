@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260425surrender-single-col-v2">
+<link rel="stylesheet" href="{% static 'css/user_request.css' %}?v=20260426surrender-color-collapse">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
 
@@ -147,13 +147,28 @@
 
                     <div class="form-group surrender-color-field" id="surrenderColorFieldWrap">
                         <label id="surrenderColorLabel">Coat color <span class="req-mark" aria-hidden="true">*</span></label>
-                        <div class="post-checkbox-options post-checkbox-grid" id="surrenderColorOptions" role="group" aria-labelledby="surrenderColorLabel" aria-required="true">
-                            {% for value, label in surrender_color_choices %}
-                                <label class="post-checkbox-option">
-                                    <input type="checkbox" name="colors" value="{{ value }}" data-surrender-color-checkbox>
-                                    <span>{{ label }}</span>
-                                </label>
-                            {% endfor %}
+                        <div class="surrender-color-expand-wrap" data-surrender-color-expand-wrap>
+                            <div class="post-checkbox-options post-checkbox-grid" id="surrenderColorOptions" role="group" aria-labelledby="surrenderColorLabel" aria-required="true">
+                                {% for value, label in surrender_color_choices %}
+                                    <label class="post-checkbox-option{% if forloop.counter > 8 %} surrender-color-option--extra{% endif %}">
+                                        <input type="checkbox" name="colors" value="{{ value }}" data-surrender-color-checkbox>
+                                        <span>{{ label }}</span>
+                                    </label>
+                                {% endfor %}
+                            </div>
+                            {% with n=surrender_color_choices|length %}
+                            {% if n > 8 %}
+                            <button
+                                type="button"
+                                class="surrender-color-expand-btn"
+                                data-surrender-color-expand
+                                aria-controls="surrenderColorOptions"
+                                aria-expanded="false"
+                            >
+                                Show all (+{{ n|add:"-8" }})
+                            </button>
+                            {% endif %}
+                            {% endwith %}
                         </div>
                     </div>
 
@@ -202,37 +217,21 @@
                             >
                         </div>
                     </div>
-                    <div class="form-row request-single-row">
-                        <div class="form-group">
-                            <label for="surrenderAgeGroupField">Dog age group</label>
-                            <div class="input-with-icon select-with-icon">
-                                <span class="input-icon">
-                                    <i class="bi bi-hourglass-split" aria-hidden="true"></i>
-                                </span>
-                                <select id="surrenderAgeGroupField" name="dog_age_group" class="barangay-select">
-                                    <option value="" selected>Not specified</option>
-                                    {% for value, label in surrender_age_group_choices %}
-                                        <option value="{{ value }}">{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                                <span class="select-chevron" aria-hidden="true">
-                                    <i class="bi bi-chevron-down"></i>
-                                </span>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="surrenderAgeYearsField">Dog age (years, optional)</label>
-                            <input
-                                type="number"
-                                name="dog_age_years"
-                                id="surrenderAgeYearsField"
-                                class="form-control"
-                                min="0"
-                                max="30"
-                                step="1"
-                                inputmode="numeric"
-                                placeholder="e.g. 2"
-                            >
+                    <div class="form-group">
+                        <label for="surrenderAgeGroupField">Dog age group</label>
+                        <div class="input-with-icon select-with-icon">
+                            <span class="input-icon">
+                                <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+                            </span>
+                            <select id="surrenderAgeGroupField" name="dog_age_group" class="barangay-select">
+                                <option value="" selected>Not specified</option>
+                                {% for value, label in surrender_age_group_choices %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <span class="select-chevron" aria-hidden="true">
+                                <i class="bi bi-chevron-down"></i>
+                            </span>
                         </div>
                     </div>
 
@@ -2124,6 +2123,43 @@ function initRequestHistoryPagination() {
     });
 }
 
+function initSurrenderColorExpandControls() {
+    document.querySelectorAll('[data-surrender-color-expand-wrap]').forEach((wrap) => {
+        if (wrap.dataset.surrenderColorExpandBound === '1') {
+            return;
+        }
+        const grid = wrap.querySelector('.post-checkbox-options.post-checkbox-grid');
+        const btn = wrap.querySelector('[data-surrender-color-expand]');
+        if (!grid || !btn) {
+            return;
+        }
+        const extras = grid.querySelectorAll('.surrender-color-option--extra');
+        if (!extras.length) {
+            btn.remove();
+            wrap.dataset.surrenderColorExpandBound = '1';
+            return;
+        }
+        wrap.dataset.surrenderColorExpandBound = '1';
+        const extraCount = extras.length;
+        const collapsedText = `Show all (+${extraCount})`;
+        const expandedText = 'Show less';
+        const hasCheckedExtra = Array.from(extras).some((row) => row.querySelector('input[type="checkbox"]:checked'));
+        if (hasCheckedExtra) {
+            grid.classList.add('is-expanded');
+            btn.textContent = expandedText;
+            btn.setAttribute('aria-expanded', 'true');
+        } else {
+            btn.textContent = collapsedText;
+            btn.setAttribute('aria-expanded', 'false');
+        }
+        btn.addEventListener('click', () => {
+            const on = grid.classList.toggle('is-expanded');
+            btn.textContent = on ? expandedText : collapsedText;
+            btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+        });
+    });
+}
+
 function initRequestTrackingUI(root = getRequestHistoryContentRoot() || document) {
     mountRequestViewModals(root);
     initRequestClickableCards(root);
@@ -2134,6 +2170,7 @@ function initRequestTrackingUI(root = getRequestHistoryContentRoot() || document
     initRequestEditForms(document);
     initLandmarkViewers(document);
     initRequestStatusFilter(root);
+    initSurrenderColorExpandControls(document);
 }
 
 initRequestTrackingUI();

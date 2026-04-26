@@ -4,9 +4,17 @@
 {% with post=item.post %}
 {% if item.post_type == 'announcement' %}
 <article class="fb-card home-announcement-card {% if item.has_media %}has-media{% else %}text-only{% endif %}">
-    <div class="home-announcement-meta-row">
-        <span class="home-announcement-posted">{{ item.posted_label }}</span>
+    <div class="home-announcement-author-row">
+        <img src="{{ item.author_avatar_url }}" alt="" class="home-announcement-avatar" width="40" height="40">
+        <div class="home-announcement-author-copy">
+            <span class="home-announcement-author-name">Admin</span>
+            <span class="home-announcement-time-ago">{{ post.created_at|timesince }} ago</span>
+        </div>
     </div>
+
+    {% if post.title %}
+    <h4 class="home-announcement-title">{{ post.title }}</h4>
+    {% endif %}
 
     {% if item.has_media %}
     <div class="fb-caption home-announcement-caption js-ann-caption">
@@ -38,7 +46,9 @@
     <div class="fb-action-row">
         <button type="button"
            class="fb-action-btn js-open-share"
-           data-share-url="{{ item.share_url }}">
+           data-share-url="{{ item.share_url }}"
+           aria-label="Share announcement">
+            <i class="bi bi-share" aria-hidden="true"></i>
             <span>Share</span>
         </button>
     </div>

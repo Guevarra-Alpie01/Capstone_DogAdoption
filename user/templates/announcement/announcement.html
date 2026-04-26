@@ -165,13 +165,6 @@
     </div>
 </div>
 
-<div class="user-ann-popup" data-pinned-announcement-modal hidden>
-    <div class="user-ann-popup-backdrop" data-close-pinned-announcement></div>
-    <div class="user-ann-popup-dialog" role="dialog" aria-modal="true" aria-label="Pinned announcement details">
-        <div class="user-ann-popup-content" data-pinned-announcement-content></div>
-    </div>
-</div>
-
 <div id="sharePanel" class="share-panel" hidden>
     <div class="share-panel-header">
         <div>
@@ -283,11 +276,8 @@
     const tabs = Array.from(document.querySelectorAll('[data-user-mobile-announcement-tab]'));
     const sections = Array.from(document.querySelectorAll('[data-user-mobile-announcement-section]'));
     const mobileLayout = window.matchMedia('(max-width: 767.98px)');
-    const modal = document.querySelector('[data-pinned-announcement-modal]');
-    const modalContent = modal?.querySelector('[data-pinned-announcement-content]') || null;
     const sharePanelRoot = document.getElementById('sharePanel');
     const sharePanelDefaultParent = sharePanelRoot ? sharePanelRoot.parentElement : null;
-    let lastFocusedTrigger = null;
     let activeShareUrl = '';
     let activeShareTrigger = null;
 
@@ -352,8 +342,7 @@
         const isMobile = window.matchMedia('(max-width: 768px)').matches;
         if (isMobile) {
             const mountAfterEl =
-                triggerEl.closest('.user-ann-popup-actions')
-                || triggerEl.closest('.user-ann-action-row')
+                triggerEl.closest('.user-ann-action-row')
                 || triggerEl.closest('.user-ann-card-footer')
                 || triggerEl.parentElement;
             if (mountAfterEl && mountAfterEl.parentElement) {
@@ -531,43 +520,6 @@
         mobileLayout.addListener(syncMobileSections);
     }
 
-    function closePinnedAnnouncementModal() {
-        if (!modal || !modalContent) return;
-        modal.hidden = true;
-        modalContent.innerHTML = '';
-        document.body.classList.remove('user-ann-popup-open');
-        if (lastFocusedTrigger) {
-            lastFocusedTrigger.focus();
-            lastFocusedTrigger = null;
-        }
-    }
-
-    document.querySelectorAll('[data-open-pinned-announcement]').forEach((trigger) => {
-        trigger.addEventListener('click', () => {
-            const postId = trigger.getAttribute('data-post-id');
-            const template = document.querySelector(`[data-pinned-announcement-template="${postId}"]`);
-            if (!modal || !modalContent || !template) return;
-
-            modalContent.innerHTML = template.innerHTML;
-            modal.hidden = false;
-            document.body.classList.add('user-ann-popup-open');
-            lastFocusedTrigger = trigger;
-            modalContent.querySelectorAll('[data-photo-viewer]').forEach(initPhotoViewer);
-            modalContent.querySelector('[data-close-pinned-announcement]')?.focus();
-        });
-    });
-
-    modal?.addEventListener('click', (event) => {
-        if (event.target.closest('[data-close-pinned-announcement]')) {
-            closePinnedAnnouncementModal();
-        }
-    });
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && modal && !modal.hidden) {
-            closePinnedAnnouncementModal();
-        }
-    });
 })();
 
 (function () {

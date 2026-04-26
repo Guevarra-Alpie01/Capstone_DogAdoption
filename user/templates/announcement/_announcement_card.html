@@ -2,30 +2,13 @@
          data-user-post
          data-post-id="{{ post.id }}"
          data-bucket="{{ post.display_bucket }}">
-    <div class="user-ann-card-top">
-        <div class="user-ann-card-badges">
-            <span class="user-ann-card-badge">{{ post.get_category_display }}</span>
-            <span class="user-ann-card-badge user-ann-card-bucket">{% if post.display_bucket == 'ordinary' %}Main Feed{% else %}{{ post.get_display_bucket_display }}{% endif %}</span>
-        </div>
-        {% if post.display_bucket == 'pinned' %}
-        <span class="user-ann-pin-btn is-static" title="Pinned announcement" aria-hidden="true">
-            <i class="bi bi-pin-angle-fill"></i>
-        </span>
-        {% elif post.display_bucket == 'campaign' %}
-        <span class="user-ann-pin-btn is-static is-education" title="Education campaign announcement" aria-hidden="true">
-            <i class="bi bi-bookmark-star-fill"></i>
-        </span>
-        {% endif %}
-    </div>
 
     <header class="fb-card-header">
-        <img src="{{ post.admin_profile_image_url }}" alt="Admin profile" class="fb-page-avatar">
+        <img src="{{ post.admin_profile_image_url }}" alt="" class="fb-page-avatar" width="48" height="48">
         <div class="fb-page-meta">
-            <h3 class="fb-page-name">{{ post.created_by.get_full_name|default:post.created_by.username }}</h3>
+            <h3 class="fb-page-name">Admin</h3>
             <div class="fb-post-meta">
                 <span>{{ post.created_at|timesince }} ago</span>
-                <span class="fb-meta-dot">.</span>
-                <span>{{ post.get_category_display }}</span>
             </div>
         </div>
     </header>
@@ -34,85 +17,42 @@
     <h4 class="user-ann-post-title">{{ post.title }}</h4>
     {% endif %}
 
-    {% if post.display_bucket == 'pinned' %}
-    <div class="fb-caption fb-caption-summary user-ann-desktop-summary">
-        {{ post.content_display|truncatechars:180|linebreaksbr }}
+    <div class="fb-caption user-ann-card-body">
+        {{ post.content_display|linebreaksbr }}
     </div>
 
-    <div class="user-ann-mobile-detail">
-        <div class="fb-caption fb-caption-full">
-            {{ post.content_display|linebreaksbr }}
-        </div>
-
-        {% if post.background_image or post.prefetched_images %}
-        <div class="fb-photo-viewer" data-photo-viewer>
-            <img src="" class="fb-photo-main" alt="Announcement photo">
-            <button type="button" class="fb-photo-nav fb-photo-prev" aria-label="Previous photo">&lt;</button>
-            <button type="button" class="fb-photo-nav fb-photo-next" aria-label="Next photo">&gt;</button>
-            <div class="fb-photo-sources" hidden>
-                {% if post.background_image %}
-                <span data-src="{{ post.background_image.url }}" data-alt="{{ post.title }}"></span>
-                {% endif %}
-                {% for photo in post.prefetched_images %}
-                <span data-src="{{ photo.image.url }}" data-alt="{{ post.title }} photo {{ forloop.counter }}"></span>
-                {% endfor %}
+    {% if post.schedule_data %}
+    <section class="user-ann-mobile-schedule">
+        <h5 class="user-ann-mobile-schedule-title">Planned activities</h5>
+        <div class="user-ann-mobile-schedule-list">
+            {% for item in post.schedule_data %}
+            <div class="user-ann-mobile-schedule-row">
+                <span class="time">{{ item.time }}</span>
+                <span class="task">{{ item.task }}</span>
             </div>
+            {% endfor %}
         </div>
-        {% endif %}
+    </section>
+    {% endif %}
 
-        {% if post.schedule_data %}
-        <section class="user-ann-mobile-schedule">
-            <h5 class="user-ann-mobile-schedule-title">Planned activities</h5>
-            <div class="user-ann-mobile-schedule-list">
-                {% for item in post.schedule_data %}
-                <div class="user-ann-mobile-schedule-row">
-                    <span class="time">{{ item.time }}</span>
-                    <span class="task">{{ item.task }}</span>
-                </div>
-                {% endfor %}
-            </div>
-        </section>
-        {% endif %}
-    </div>
-    {% else %}
-    <div class="user-ann-card-split">
-        <div class="fb-caption fb-caption-summary">
-            {{ post.content_display|truncatechars:180|linebreaksbr }}
+    {% if post.background_image or post.prefetched_images %}
+    <div class="fb-photo-viewer" data-photo-viewer>
+        <img src="" class="fb-photo-main" alt="Announcement photo">
+        <button type="button" class="fb-photo-nav fb-photo-prev" aria-label="Previous photo">&lt;</button>
+        <button type="button" class="fb-photo-nav fb-photo-next" aria-label="Next photo">&gt;</button>
+        <div class="fb-photo-sources" hidden>
+            {% if post.background_image %}
+            <span data-src="{{ post.background_image.url }}" data-alt="{{ post.title }}"></span>
+            {% endif %}
+            {% for photo in post.prefetched_images %}
+            <span data-src="{{ photo.image.url }}" data-alt="{{ post.title }} photo {{ forloop.counter }}"></span>
+            {% endfor %}
         </div>
-
-        {% if post.background_image or post.prefetched_images %}
-        <div class="user-ann-card-media-highlight">
-            <div class="fb-photo-viewer" data-photo-viewer>
-                <img src="" class="fb-photo-main" alt="Announcement photo">
-                <button type="button" class="fb-photo-nav fb-photo-prev" aria-label="Previous photo">&lt;</button>
-                <button type="button" class="fb-photo-nav fb-photo-next" aria-label="Next photo">&gt;</button>
-                <div class="fb-photo-sources" hidden>
-                    {% if post.background_image %}
-                    <span data-src="{{ post.background_image.url }}" data-alt="{{ post.title }}"></span>
-                    {% endif %}
-                    {% for photo in post.prefetched_images %}
-                    <span data-src="{{ photo.image.url }}" data-alt="{{ post.title }} photo {{ forloop.counter }}"></span>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-        {% endif %}
     </div>
     {% endif %}
 
     <div class="user-ann-card-footer">
-        <div class="fb-action-row user-ann-action-row app-btn-row app-btn-row--mobile-stack{% if post.display_bucket == 'pinned' %} has-view-action{% endif %}">
-            {% if post.display_bucket == 'pinned' %}
-            <button type="button"
-               class="fb-action-btn fb-action-btn-view user-ann-desktop-view app-btn-fit app-btn-mobile-full"
-               data-open-pinned-announcement
-               data-post-id="{{ post.id }}"
-               aria-label="View full announcement">
-                <i class="bi bi-eye"></i>
-                <span>View</span>
-            </button>
-            {% endif %}
-
+        <div class="fb-action-row user-ann-action-row app-btn-row app-btn-row--mobile-stack">
             <button type="button"
                class="fb-action-btn app-btn-fit app-btn-mobile-full js-open-share"
                data-share-url="{{ post.share_url }}"
@@ -122,73 +62,4 @@
             </button>
         </div>
     </div>
-
-    {% if post.display_bucket == 'pinned' %}
-    <template data-pinned-announcement-template="{{ post.id }}">
-        <article class="user-ann-popup-card">
-            <button type="button" class="user-ann-popup-close" data-close-pinned-announcement aria-label="Close announcement">
-                <i class="bi bi-x-lg" aria-hidden="true"></i>
-            </button>
-
-            <div class="user-ann-popup-badges">
-                <span class="user-ann-popup-pill">{{ post.get_category_display }}</span>
-                <span class="user-ann-popup-pill user-ann-popup-pill--bucket">{{ post.get_display_bucket_display }}</span>
-            </div>
-
-            <header class="user-ann-popup-author">
-                <img src="{{ post.admin_profile_image_url }}" alt="Admin profile" class="user-ann-popup-avatar">
-                <div class="user-ann-popup-author-copy">
-                    <strong>{{ post.created_by.get_full_name|default:post.created_by.username }}</strong>
-                    <span>{{ post.created_at|timesince }} ago <span class="user-ann-popup-meta-dot">.</span> {{ post.get_category_display }}</span>
-                </div>
-            </header>
-
-            {% if post.title %}
-            <h2 class="user-ann-popup-title">{{ post.title }}</h2>
-            {% endif %}
-
-            <div class="user-ann-popup-body">{{ post.content_display|linebreaksbr }}</div>
-
-            {% if post.background_image or post.prefetched_images %}
-            <div class="fb-photo-viewer user-ann-popup-viewer" data-photo-viewer>
-                <img src="" class="fb-photo-main" alt="Announcement photo">
-                <button type="button" class="fb-photo-nav fb-photo-prev" aria-label="Previous photo">&lt;</button>
-                <button type="button" class="fb-photo-nav fb-photo-next" aria-label="Next photo">&gt;</button>
-                <div class="fb-photo-sources" hidden>
-                    {% if post.background_image %}
-                    <span data-src="{{ post.background_image.url }}" data-alt="{{ post.title }}"></span>
-                    {% endif %}
-                    {% for photo in post.prefetched_images %}
-                    <span data-src="{{ photo.image.url }}" data-alt="{{ post.title }} photo {{ forloop.counter }}"></span>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-            {% if post.schedule_data %}
-            <section class="user-ann-popup-schedule">
-                <h3>Planned activities</h3>
-                <div class="user-ann-popup-schedule-list">
-                    {% for item in post.schedule_data %}
-                    <div class="user-ann-popup-schedule-row">
-                        <span class="time">{{ item.time }}</span>
-                        <span class="task">{{ item.task }}</span>
-                    </div>
-                    {% endfor %}
-                </div>
-            </section>
-            {% endif %}
-
-            <div class="user-ann-popup-actions">
-                <button type="button"
-                   class="user-ann-popup-share js-open-share"
-                   data-share-url="{{ post.share_url }}"
-                   aria-label="Share announcement">
-                    <i class="bi bi-share"></i>
-                    <span>Share</span>
-                </button>
-            </div>
-        </article>
-    </template>
-    {% endif %}
 </article>

@@ -45,10 +45,9 @@
     /* ── Hero ── */
     .md-hero {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 20px;
-        flex-wrap: wrap;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
         padding: 22px 26px;
         border-radius: 24px;
         border: 1px solid rgba(216, 207, 182, 0.88);
@@ -93,19 +92,43 @@
         margin-top: 10px;
     }
 
-    /* ── Hero inbox button — pinned right on desktop, stacks below on mobile ── */
+    /* ── Hero inbox — centered, capped width (no full-bleed bar) ── */
     .md-sighting-inbox-btn {
         text-decoration: none;
-        flex-shrink: 0;
-        width: auto;
-        margin-left: auto;
+        box-sizing: border-box;
+        align-self: center;
+        max-width: 300px;
+        width: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 48px;
+        padding: 0 20px;
+        border: 1px solid #9b2c2c;
+        border-radius: 10px;
+        background: linear-gradient(180deg, #c53030 0%, #9b2c2c 100%);
+        color: #fff;
+        font-size: 0.88rem;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 10px 20px rgba(197, 48, 48, 0.22);
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        white-space: nowrap;
     }
 
-    @media (max-width: 767.98px) {
+    .md-sighting-inbox-btn:hover,
+    .md-sighting-inbox-btn:focus-visible {
+        transform: translateY(-1px);
+        border-color: #7b1d1d;
+        background: linear-gradient(180deg, #b91c1c 0%, #881616 100%);
+        box-shadow: 0 14px 24px rgba(197, 48, 48, 0.28);
+        color: #fff;
+    }
+
+    @media (min-width: 768px) {
         .md-sighting-inbox-btn {
-            margin-left: 0;
-            width: 100%;
-            justify-content: center;
+            width: auto;
         }
     }
 
@@ -356,33 +379,34 @@
         box-shadow: 0 0 0 3px rgba(197, 48, 48, 0.1);
     }
 
-    /* Apply button inside panel */
-    .md-controls-form-btn {
+    /* Apply filters (panel submit) — green CTA */
+    .md-filter-apply-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
         min-height: 48px;
         padding: 0 20px;
-        border: 1px solid #9b2c2c;
+        border: 1px solid #1f6b4a;
         border-radius: 10px;
-        background: linear-gradient(180deg, #c53030 0%, #9b2c2c 100%);
+        background: linear-gradient(180deg, #2f855a 0%, #1f6b4a 100%);
         color: #fff;
         font-size: 0.88rem;
         font-weight: 800;
         cursor: pointer;
-        box-shadow: 0 10px 20px rgba(197, 48, 48, 0.22);
-        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        box-shadow: 0 10px 22px rgba(31, 107, 74, 0.22), inset 0 1px 0 rgba(255,255,255,0.14);
+        transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background 0.16s ease;
         white-space: nowrap;
         width: 100%;
     }
 
-    .md-controls-form-btn:hover,
-    .md-controls-form-btn:focus-visible {
+    .md-filter-apply-btn:hover,
+    .md-filter-apply-btn:focus-visible {
         transform: translateY(-1px);
-        border-color: #7b1d1d;
-        background: linear-gradient(180deg, #b91c1c 0%, #881616 100%);
-        box-shadow: 0 14px 24px rgba(197, 48, 48, 0.28);
+        border-color: #1a5c3f;
+        background: linear-gradient(180deg, #276f4a 0%, #194f37 100%);
+        box-shadow: 0 14px 28px rgba(31, 107, 74, 0.28);
+        color: #fff;
     }
 
     /* Search bar */
@@ -1188,7 +1212,7 @@
             </span>
         </div>
         {% if request.user.is_authenticated %}
-        <a href="{% url 'user:sighting_inbox' %}" class="md-controls-form-btn md-sighting-inbox-btn">
+        <a href="{% url 'user:sighting_inbox' %}" class="md-sighting-inbox-btn">
             <i class="bi bi-inbox" aria-hidden="true"></i>
             Seen Reports Inbox
         </a>
@@ -1287,7 +1311,7 @@
                 </div>
 
                 <!-- Apply -->
-                <button type="submit" class="md-controls-form-btn">
+                <button type="submit" class="md-filter-apply-btn">
                     <i class="bi bi-funnel-fill" aria-hidden="true"></i>
                     Apply Filters
                 </button>

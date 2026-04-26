@@ -5,555 +5,531 @@
 
 {% block content %}
 <style>
-/* ── Shell ──────────────────────────────────────────────────── */
-.si-shell {
-    max-width: 900px;
-    margin: 0 auto;
-    display: grid;
-    gap: 22px;
-    padding: 24px 0 72px;
-}
+    /* Mobile-first: compact inbox */
+    .si-shell {
+        max-width: 560px;
+        margin: 0 auto;
+        padding: 10px 12px 48px;
+        box-sizing: border-box;
+    }
 
-/* ── Top bar ─────────────────────────────────────────────────── */
-.si-topbar {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}
+    .si-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
 
-.si-back-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    border: 1.5px solid #e2e8f0;
-    background: #fff;
-    color: #475569;
-    font-size: 1rem;
-    text-decoration: none;
-    flex-shrink: 0;
-    transition: background 0.14s, border-color 0.14s, color 0.14s;
-    box-shadow: 0 2px 8px rgba(20,35,59,0.05);
-}
-.si-back-btn:hover { background: #f8fafc; border-color: #cbd5e1; color: #14233b; }
+    .si-back {
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #475569;
+        text-decoration: none;
+        font-size: 1rem;
+    }
 
-.si-topbar-copy { flex: 1; min-width: 0; }
+    .si-back:hover {
+        background: #f8fafc;
+        color: #14233b;
+    }
 
-.si-page-title {
-    margin: 0;
-    font-size: clamp(1.3rem, 3vw, 1.65rem);
-    font-weight: 900;
-    color: #14233b;
-    letter-spacing: -0.03em;
-    line-height: 1.1;
-}
+    .si-title {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #14233b;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+    }
 
-.si-page-sub {
-    margin: 4px 0 0;
-    font-size: 0.86rem;
-    color: #64748b;
-}
+    .si-sub {
+        margin: 2px 0 0;
+        font-size: 0.75rem;
+        color: #64748b;
+        line-height: 1.35;
+    }
 
-/* ── Filter tabs ─────────────────────────────────────────────── */
-.si-tabs {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
+    /* Horizontally scrollable filter chips */
+    .si-tabs-scroll {
+        margin: 0 -12px 12px;
+        padding: 0 12px 2px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
 
-.si-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 15px;
-    border-radius: 999px;
-    border: 1.5px solid #e2e8f0;
-    background: #fff;
-    color: #475569;
-    font-size: 0.82rem;
-    font-weight: 700;
-    text-decoration: none;
-    transition: background 0.13s, border-color 0.13s, color 0.13s;
-    white-space: nowrap;
-}
-.si-tab:hover { background: #f8fafc; color: #14233b; border-color: #cbd5e1; }
-.si-tab.is-active { border-color: #c53030; background: #fef2f2; color: #c53030; }
+    .si-tabs-scroll::-webkit-scrollbar {
+        height: 3px;
+    }
 
-.si-tab .si-tab-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 19px;
-    height: 19px;
-    padding: 0 5px;
-    border-radius: 999px;
-    font-size: 0.66rem;
-    font-weight: 900;
-    background: #e2e8f0;
-    color: #64748b;
-}
-.si-tab.is-active .si-tab-count { background: #fecaca; color: #9b2c2c; }
+    .si-tabs-scroll::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+    }
 
-/* ── Report card ─────────────────────────────────────────────── */
-.si-card {
-    background: #fff;
-    border: 1px solid #e8ecf2;
-    border-radius: 22px;
-    overflow: hidden;
-    box-shadow: 0 4px 18px rgba(20,35,59,0.05);
-    transition: box-shadow 0.18s;
-}
-.si-card:hover { box-shadow: 0 8px 28px rgba(20,35,59,0.09); }
-.si-card--verified { border-left: 4px solid #22c55e; }
-.si-card--rejected { border-left: 4px solid #ef4444; }
-.si-card--pending  { border-left: 4px solid #f59e0b; }
+    .si-tabs {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 6px;
+        width: max-content;
+        min-width: 100%;
+    }
 
-/* ── Card header: dog title + status ─────────────────────────── */
-.si-card-dog-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 14px 20px 12px;
-    border-bottom: 1px solid #f1f5f9;
-    flex-wrap: wrap;
-}
+    .si-tab {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 11px;
+        border-radius: 999px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #475569;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-decoration: none;
+        white-space: nowrap;
+    }
 
-.si-dog-name {
-    margin: 0;
-    font-size: 1.0rem;
-    font-weight: 900;
-    color: #14233b;
-    letter-spacing: -0.02em;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-}
-.si-dog-name i { font-size: 0.9rem; color: #94a3b8; }
+    .si-tab:hover {
+        background: #f8fafc;
+        color: #14233b;
+    }
 
-.si-status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 11px;
-    border-radius: 999px;
-    font-size: 0.7rem;
-    font-weight: 800;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    flex-shrink: 0;
-}
-.si-status-badge--pending  { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
-.si-status-badge--verified { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
-.si-status-badge--rejected { background: #fef2f2; color: #c53030; border: 1px solid #fecaca; }
+    .si-tab.is-active {
+        border-color: #c53030;
+        background: #fef2f2;
+        color: #b91c1c;
+    }
 
-/* ── Card body: two-column layout ───────────────────────────── */
-.si-card-body {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0;
-}
+    .si-tab i {
+        font-size: 0.7rem;
+        opacity: 0.9;
+    }
 
-@media (max-width: 639.98px) {
-    .si-card-body { grid-template-columns: 1fr; }
-}
+    /* Single flat report block — no nested cards */
+    .si-report {
+        background: #fff;
+        border: 1px solid #e8ecf2;
+        border-radius: 12px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        box-shadow: 0 1px 4px rgba(20, 35, 59, 0.04);
+    }
 
-/* ── Reporter panel ──────────────────────────────────────────── */
-.si-reporter-panel {
-    padding: 18px 20px;
-    border-right: 1px solid #f1f5f9;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-}
+    .si-report--pending {
+        border-left: 3px solid #f59e0b;
+    }
 
-@media (max-width: 639.98px) {
-    .si-reporter-panel { border-right: none; border-bottom: 1px solid #f1f5f9; }
-}
+    .si-report--verified {
+        border-left: 3px solid #22c55e;
+    }
 
-.si-reporter-label {
-    font-size: 0.68rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #94a3b8;
-    margin: 0 0 2px;
-}
+    .si-report--rejected {
+        border-left: 3px solid #ef4444;
+    }
 
-.si-reporter-profile {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
+    .si-report-dog {
+        margin: 0 0 6px;
+        font-size: 0.68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #94a3b8;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
 
-.si-reporter-avatar {
-    width: 52px;
-    height: 52px;
-    border-radius: 14px;
-    object-fit: cover;
-    flex-shrink: 0;
-    border: 2px solid #f1f5f9;
-    background: #f1f5f9;
-}
+    .si-report-dog i {
+        font-size: 0.65rem;
+    }
 
-.si-reporter-info { flex: 1; min-width: 0; }
+    /* Reporter + status one row */
+    .si-report-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+    }
 
-.si-reporter-name {
-    margin: 0 0 3px;
-    font-size: 0.92rem;
-    font-weight: 800;
-    color: #14233b;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+    .si-report-who {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        flex: 1;
+    }
 
-.si-reporter-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: #7c3aed;
-    background: #f5f3ff;
-    border: 1px solid #ddd6fe;
-    padding: 2px 8px;
-    border-radius: 999px;
-}
+    .si-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        object-fit: cover;
+        flex-shrink: 0;
+        background: #f1f5f9;
+    }
 
-.si-reporter-verified {
-    font-size: 0.72rem;
-    color: #64748b;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-.si-reporter-verified i { color: #22c55e; font-size: 0.7rem; }
+    .si-avatar--ph {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #cbd5e1;
+        font-size: 1rem;
+    }
 
-.si-view-profile-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 13px;
-    border-radius: 10px;
-    border: 1.5px solid #e2e8f0;
-    background: #f8fafc;
-    color: #475569;
-    font-size: 0.78rem;
-    font-weight: 700;
-    text-decoration: none;
-    align-self: flex-start;
-    transition: background 0.13s, border-color 0.13s, color 0.13s;
-}
-.si-view-profile-btn:hover { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
-.si-view-profile-btn i { font-size: 0.8rem; }
+    .si-report-name {
+        font-size: 0.84rem;
+        font-weight: 800;
+        color: #14233b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
-/* ── Report details panel ────────────────────────────────────── */
-.si-details-panel {
-    padding: 18px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
+    .si-pill {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 0.62rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
 
-.si-details-label {
-    font-size: 0.68rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #94a3b8;
-    margin: 0 0 2px;
-}
+    .si-pill--pending {
+        background: #fffbeb;
+        color: #b45309;
+        border: 1px solid #fde68a;
+    }
 
-.si-detail-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    font-size: 0.82rem;
-    color: #475569;
-    line-height: 1.45;
-}
-.si-detail-row i {
-    font-size: 0.8rem;
-    color: #94a3b8;
-    margin-top: 2px;
-    flex-shrink: 0;
-}
-.si-detail-row strong { color: #14233b; font-weight: 700; }
+    .si-pill--verified {
+        background: #f0fdf4;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+    }
 
-.si-description-text {
-    margin: 0;
-    font-size: 0.84rem;
-    color: #475569;
-    line-height: 1.6;
-    background: #f8fafc;
-    border: 1px solid #e8ecf2;
-    border-radius: 10px;
-    padding: 10px 13px;
-}
+    .si-pill--rejected {
+        background: #fef2f2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+    }
 
-/* ── Photo strip ─────────────────────────────────────────────── */
-.si-photo-strip {
-    padding: 0 20px 16px;
-    border-top: 1px solid #f1f5f9;
-}
+    /* Seen: location + time one line */
+    .si-report-seen {
+        margin: 0 0 4px;
+        font-size: 0.78rem;
+        color: #334155;
+        line-height: 1.35;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px;
+    }
 
-.si-photo-strip-label {
-    font-size: 0.68rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #94a3b8;
-    padding: 12px 0 8px;
-    display: block;
-}
+    .si-report-seen i {
+        color: #94a3b8;
+        font-size: 0.72rem;
+    }
 
-.si-photo-grid {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
+    .si-dot {
+        color: #cbd5e1;
+        user-select: none;
+    }
 
-.si-photo-thumb {
-    width: 90px;
-    height: 90px;
-    border-radius: 10px;
-    object-fit: cover;
-    border: 1.5px solid #e8ecf2;
-    transition: opacity 0.13s;
-    cursor: zoom-in;
-}
-.si-photo-thumb:hover { opacity: 0.85; }
+    .si-report-sub {
+        margin: 0 0 6px;
+        font-size: 0.7rem;
+        color: #94a3b8;
+    }
 
-/* ── Action footer ───────────────────────────────────────────── */
-.si-actions {
-    display: flex;
-    gap: 8px;
-    padding: 12px 20px 16px;
-    border-top: 1px solid #f1f5f9;
-    flex-wrap: wrap;
-    background: #fafbfc;
-}
+    .si-report-note {
+        margin: 0 0 6px;
+        font-size: 0.76rem;
+        color: #475569;
+        line-height: 1.4;
+    }
 
-.si-act-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    border-radius: 10px;
-    font-size: 0.8rem;
-    font-weight: 800;
-    border: 1.5px solid #e2e8f0;
-    background: #fff;
-    color: #475569;
-    cursor: pointer;
-    transition: background 0.13s, border-color 0.13s, color 0.13s;
-}
-.si-act-btn i { font-size: 0.82rem; }
-.si-act-btn--verify:hover { background: #f0fdf4; border-color: #86efac; color: #16a34a; }
-.si-act-btn--verify:hover i { color: #16a34a; }
-.si-act-btn--reject:hover { background: #fef2f2; border-color: #fca5a5; color: #c53030; }
-.si-act-btn--reject:hover i { color: #c53030; }
-.si-act-btn--ignore:hover { background: #fffbeb; border-color: #fcd34d; color: #d97706; }
-.si-act-btn--ignore:hover i { color: #d97706; }
+    .si-report-photo {
+        display: block;
+        margin: 0 0 8px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #e8ecf2;
+        max-height: 140px;
+    }
 
-/* ── Empty state ─────────────────────────────────────────────── */
-.si-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 64px 24px;
-    border-radius: 20px;
-    border: 1.5px dashed #e2e8f0;
-    background: #fafbfc;
-    text-align: center;
-}
-.si-empty .si-empty-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    background: #f1f5f9;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.6rem;
-    color: #cbd5e1;
-    margin-bottom: 4px;
-}
-.si-empty h3 { margin: 0; font-size: 1.05rem; font-weight: 800; color: #475569; }
-.si-empty p  { margin: 0; font-size: 0.88rem; color: #94a3b8; }
+    .si-report-photo img {
+        width: 100%;
+        height: 100%;
+        max-height: 140px;
+        object-fit: cover;
+        display: block;
+        vertical-align: middle;
+    }
 
-/* ── Pagination ──────────────────────────────────────────────── */
-.si-pager {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    flex-wrap: wrap;
-}
+    /* CTAs: compact icon + text */
+    .si-report-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        padding-top: 4px;
+        border-top: 1px solid #f1f5f9;
+        margin-top: 2px;
+    }
 
-.si-page-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 36px;
-    height: 36px;
-    padding: 0 10px;
-    border-radius: 10px;
-    border: 1px solid #e2e8f0;
-    background: #fff;
-    color: #14233b;
-    font-size: 0.84rem;
-    font-weight: 700;
-    text-decoration: none;
-    transition: background 0.13s;
-}
-.si-page-link:hover  { background: #fef2f2; border-color: #fecaca; color: #c53030; }
-.si-page-link.is-active   { background: linear-gradient(180deg,#c53030 0%,#9b2c2c 100%); border-color: #9b2c2c; color: #fff; }
-.si-page-link.is-disabled { opacity: 0.35; pointer-events: none; }
+    .si-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #475569;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-decoration: none;
+        cursor: pointer;
+        font-family: inherit;
+        line-height: 1.2;
+    }
 
-/* ── Responsive tweaks ───────────────────────────────────────── */
-@media (max-width: 575.98px) {
-    .si-shell { padding: 16px 0 56px; }
-    .si-actions { padding: 10px 14px 14px; }
-    .si-act-btn { flex: 1; justify-content: center; }
-    .si-reporter-panel, .si-details-panel { padding: 14px 16px; }
-    .si-photo-strip { padding: 0 16px 14px; }
-    .si-card-dog-bar { padding: 12px 16px 10px; }
-}
+    .si-btn i {
+        font-size: 0.78rem;
+    }
+
+    .si-btn--ghost:hover {
+        background: #f8fafc;
+        color: #14233b;
+    }
+
+    .si-btn--ok:hover {
+        background: #f0fdf4;
+        border-color: #86efac;
+        color: #15803d;
+    }
+
+    .si-btn--no:hover {
+        background: #fef2f2;
+        border-color: #fca5a5;
+        color: #b91c1c;
+    }
+
+    .si-btn--warn:hover {
+        background: #fffbeb;
+        border-color: #fcd34d;
+        color: #b45309;
+    }
+
+    .si-report-actions form {
+        display: inline;
+        margin: 0;
+    }
+
+    .si-empty {
+        text-align: center;
+        padding: 36px 16px;
+        border: 1px dashed #e2e8f0;
+        border-radius: 12px;
+        background: #fafbfc;
+    }
+
+    .si-empty i {
+        font-size: 1.75rem;
+        color: #cbd5e1;
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .si-empty h3 {
+        margin: 0 0 4px;
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: #475569;
+    }
+
+    .si-empty p {
+        margin: 0;
+        font-size: 0.78rem;
+        color: #94a3b8;
+        line-height: 1.45;
+    }
+
+    .si-pager {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+    }
+
+    .si-page-link {
+        min-width: 32px;
+        height: 32px;
+        padding: 0 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #14233b;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .si-page-link:hover {
+        background: #fef2f2;
+        border-color: #fecaca;
+        color: #c53030;
+    }
+
+    .si-page-link.is-active {
+        background: linear-gradient(180deg, #c53030 0%, #9b2c2c 100%);
+        border-color: #9b2c2c;
+        color: #fff;
+    }
+
+    .si-page-link.is-disabled {
+        opacity: 0.35;
+        pointer-events: none;
+    }
+
+    @media (min-width: 768px) {
+        .si-shell {
+            padding-top: 16px;
+            max-width: 640px;
+        }
+
+        .si-title {
+            font-size: 1.35rem;
+        }
+
+        .si-sub {
+            font-size: 0.8rem;
+        }
+
+        .si-tabs {
+            flex-wrap: wrap;
+            width: auto;
+            min-width: 0;
+        }
+
+        .si-tabs-scroll {
+            overflow: visible;
+            margin: 0 0 14px;
+            padding: 0;
+        }
+    }
 </style>
 
 <div class="si-shell mt-2">
-
-    <!-- Top bar -->
-    <div class="si-topbar">
-        <a href="{% url 'user:missing_dogs_list' %}" class="si-back-btn" aria-label="Back to Missing Dogs">
+    <header class="si-header">
+        <a href="{% url 'user:missing_dogs_list' %}" class="si-back" aria-label="Back to Missing Dogs">
             <i class="bi bi-arrow-left" aria-hidden="true"></i>
         </a>
-        <div class="si-topbar-copy">
-            <h1 class="si-page-title">Seen Reports Inbox</h1>
-            <p class="si-page-sub">Review sighting reports submitted for your missing dogs.</p>
+        <div>
+            <h1 class="si-title">Seen Reports Inbox</h1>
+            <p class="si-sub">Sighting reports on your missing dog posts.</p>
+        </div>
+    </header>
+
+    <div class="si-tabs-scroll">
+        <div class="si-tabs" role="tablist" aria-label="Filter by status">
+            <a href="?status=all" class="si-tab {% if status_filter == 'all' %}is-active{% endif %}" role="tab">
+                <i class="bi bi-inbox" aria-hidden="true"></i> All
+            </a>
+            <a href="?status=pending" class="si-tab {% if status_filter == 'pending' %}is-active{% endif %}" role="tab">
+                <i class="bi bi-hourglass-split" aria-hidden="true"></i> Pending
+            </a>
+            <a href="?status=verified" class="si-tab {% if status_filter == 'verified' %}is-active{% endif %}" role="tab">
+                <i class="bi bi-check-circle-fill" aria-hidden="true"></i> Verified
+            </a>
+            <a href="?status=rejected" class="si-tab {% if status_filter == 'rejected' %}is-active{% endif %}" role="tab">
+                <i class="bi bi-x-circle-fill" aria-hidden="true"></i> Rejected
+            </a>
         </div>
     </div>
 
-    <!-- Filter tabs -->
-    <div class="si-tabs" role="tablist">
-        <a href="?status=all"      class="si-tab {% if status_filter == 'all' %}is-active{% endif %}" role="tab">
-            <i class="bi bi-inbox" aria-hidden="true"></i> All
-        </a>
-        <a href="?status=pending"  class="si-tab {% if status_filter == 'pending' %}is-active{% endif %}" role="tab">
-            <i class="bi bi-hourglass-split" aria-hidden="true"></i> Pending
-        </a>
-        <a href="?status=verified" class="si-tab {% if status_filter == 'verified' %}is-active{% endif %}" role="tab">
-            <i class="bi bi-check-circle-fill" aria-hidden="true"></i> Verified
-        </a>
-        <a href="?status=rejected" class="si-tab {% if status_filter == 'rejected' %}is-active{% endif %}" role="tab">
-            <i class="bi bi-x-circle-fill" aria-hidden="true"></i> Rejected
-        </a>
-    </div>
-
-    <!-- Report cards -->
     {% for sighting in sightings %}
-    <article class="si-card si-card--{{ sighting.status }}">
+    <article class="si-report si-report--{{ sighting.status }}">
+        <p class="si-report-dog">
+            <i class="bi bi-paw-fill" aria-hidden="true"></i>
+            {{ sighting.post.dog_name }}
+        </p>
 
-        <!-- Dog + status bar -->
-        <div class="si-card-dog-bar">
-            <h2 class="si-dog-name">
-                <i class="bi bi-paw-fill" aria-hidden="true"></i>
-                {{ sighting.post.dog_name }}
-            </h2>
-            <span class="si-status-badge si-status-badge--{{ sighting.status }}">
-                {% if sighting.status == 'verified' %}<i class="bi bi-check-circle-fill" aria-hidden="true"></i>
-                {% elif sighting.status == 'rejected' %}<i class="bi bi-x-circle-fill" aria-hidden="true"></i>
-                {% else %}<i class="bi bi-hourglass-split" aria-hidden="true"></i>{% endif %}
+        <div class="si-report-top">
+            <div class="si-report-who">
+                {% with sighting.reporter.profile as rp %}
+                {% if rp and rp.profile_image %}
+                <img src="{{ rp.profile_image.url }}" alt="" class="si-avatar" width="32" height="32">
+                {% else %}
+                <span class="si-avatar si-avatar--ph" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
+                {% endif %}
+                <span class="si-report-name">{{ sighting.reporter.get_full_name|default:sighting.reporter.username }}</span>
+                {% endwith %}
+            </div>
+            <span class="si-pill si-pill--{{ sighting.status }}">
+                {% if sighting.status == 'verified' %}
+                <i class="bi bi-check-lg" aria-hidden="true"></i>
+                {% elif sighting.status == 'rejected' %}
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+                {% else %}
+                <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+                {% endif %}
                 {{ sighting.get_status_display }}
             </span>
         </div>
 
-        <!-- Two-column body -->
-        <div class="si-card-body">
+        <p class="si-report-seen">
+            <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+            <span>{{ sighting.location }}</span>
+            <span class="si-dot" aria-hidden="true">·</span>
+            <i class="bi bi-clock" aria-hidden="true"></i>
+            <span>{{ sighting.sighted_on|date:"M j, Y" }}, {{ sighting.sighted_at|time:"g:i A" }}</span>
+        </p>
+        <p class="si-report-sub">Submitted {{ sighting.created_at|date:"M j, Y" }} · {{ sighting.created_at|time:"g:i A" }}</p>
 
-            <!-- Left: reporter profile -->
-            <div class="si-reporter-panel">
-                <p class="si-reporter-label"><i class="bi bi-person-badge" aria-hidden="true"></i> &nbsp;Reporter</p>
-                <div class="si-reporter-profile">
-                    {% with sighting.reporter.profile as rp %}
-                    {% if rp and rp.profile_image %}
-                    <img src="{{ rp.profile_image.url }}"
-                         alt="{{ sighting.reporter.get_full_name|default:sighting.reporter.username }}"
-                         class="si-reporter-avatar">
-                    {% else %}
-                    <div class="si-reporter-avatar" style="display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:1.5rem;">
-                        <i class="bi bi-person-circle" aria-hidden="true"></i>
-                    </div>
-                    {% endif %}
-                    <div class="si-reporter-info">
-                        <p class="si-reporter-name">{{ sighting.reporter.get_full_name|default:sighting.reporter.username }}</p>
-                        {% if rp and rp.sighting_badge %}
-                        <span class="si-reporter-badge">
-                            {{ rp.sighting_badge.icon }} {{ rp.sighting_badge.label }}
-                        </span>
-                        {% else %}
-                        <span class="si-reporter-verified">
-                            <i class="bi bi-check-circle-fill"></i> Community member
-                        </span>
-                        {% endif %}
-                    </div>
-                    {% endwith %}
-                </div>
-                <a href="{% url 'user:view_user_profile' sighting.reporter.pk %}"
-                   class="si-view-profile-btn" target="_blank" rel="noopener">
-                    <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
-                    View Profile
-                </a>
-            </div>
-
-            <!-- Right: report details -->
-            <div class="si-details-panel">
-                <p class="si-details-label"><i class="bi bi-file-text" aria-hidden="true"></i> &nbsp;Report Details</p>
-                <div class="si-detail-row">
-                    <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
-                    <span>Seen at&nbsp;<strong>{{ sighting.location }}</strong></span>
-                </div>
-                <div class="si-detail-row">
-                    <i class="bi bi-calendar-event" aria-hidden="true"></i>
-                    <span><strong>{{ sighting.sighted_on|date:"M d, Y" }}</strong> &nbsp;at&nbsp; <strong>{{ sighting.sighted_at|time:"g:i A" }}</strong></span>
-                </div>
-                <div class="si-detail-row">
-                    <i class="bi bi-send" aria-hidden="true"></i>
-                    <span>Submitted <strong>{{ sighting.created_at|date:"M d, Y" }}</strong></span>
-                </div>
-                {% if sighting.description %}
-                <p class="si-description-text">{{ sighting.description }}</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Photo strip -->
-        {% if sighting.photo %}
-        <div class="si-photo-strip">
-            <span class="si-photo-strip-label"><i class="bi bi-images" aria-hidden="true"></i> &nbsp;Uploaded Photo</span>
-            <div class="si-photo-grid">
-                <a href="{{ sighting.photo.url }}" target="_blank" rel="noopener" title="View full size">
-                    <img src="{{ sighting.photo.url }}" alt="Report photo" class="si-photo-thumb">
-                </a>
-            </div>
-        </div>
+        {% if sighting.description %}
+        <p class="si-report-note">{{ sighting.description }}</p>
         {% endif %}
 
-        <!-- Action buttons -->
-        <div class="si-actions">
+        {% if sighting.photo %}
+        <a href="{{ sighting.photo.url }}" target="_blank" rel="noopener" class="si-report-photo" title="Open photo">
+            <img src="{{ sighting.photo.url }}" alt="Sighting photo" loading="lazy">
+        </a>
+        {% endif %}
+
+        <div class="si-report-actions">
+            <a href="{% url 'user:view_user_profile' sighting.reporter.pk %}" class="si-btn si-btn--ghost" target="_blank" rel="noopener">
+                <i class="bi bi-person" aria-hidden="true"></i>
+                <span>Profile</span>
+            </a>
+
             {% if sighting.status != 'verified' %}
             <form method="post" action="{% url 'user:sighting_action' sighting.pk %}">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="verify">
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                <button type="submit" class="si-act-btn si-act-btn--verify">
-                    <i class="bi bi-check-circle" aria-hidden="true"></i> Verify
+                <button type="submit" class="si-btn si-btn--ok">
+                    <i class="bi bi-check-lg" aria-hidden="true"></i>
+                    <span>Verify</span>
                 </button>
             </form>
             {% endif %}
@@ -563,8 +539,9 @@
                 {% csrf_token %}
                 <input type="hidden" name="action" value="reject">
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                <button type="submit" class="si-act-btn si-act-btn--reject">
-                    <i class="bi bi-x-circle" aria-hidden="true"></i> Reject
+                <button type="submit" class="si-btn si-btn--no">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                    <span>Reject</span>
                 </button>
             </form>
             {% endif %}
@@ -574,29 +551,28 @@
                 {% csrf_token %}
                 <input type="hidden" name="action" value="ignore">
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                <button type="submit" class="si-act-btn si-act-btn--ignore">
-                    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset to Pending
+                <button type="submit" class="si-btn si-btn--warn">
+                    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+                    <span>Pending</span>
                 </button>
             </form>
             {% endif %}
         </div>
-
     </article>
     {% empty %}
     <div class="si-empty">
-        <div class="si-empty-icon"><i class="bi bi-flag" aria-hidden="true"></i></div>
-        <h3>No reports yet</h3>
+        <i class="bi bi-inbox" aria-hidden="true"></i>
+        <h3>No reports</h3>
         <p>
             {% if status_filter != 'all' %}
-                No {{ status_filter }} reports found. <a href="?status=all">View all</a>
+                No {{ status_filter }} reports. <a href="?status=all">Show all</a>
             {% else %}
-                Sighting reports submitted for your missing dogs will appear here.
+                Reports from spotters will show up here.
             {% endif %}
         </p>
     </div>
     {% endfor %}
 
-    <!-- Pagination -->
     {% if page_obj.has_other_pages %}
     <nav class="si-pager" aria-label="Pagination">
         <a href="?status={{ status_filter }}&page={{ page_obj.previous_page_number }}"
@@ -604,7 +580,6 @@
            aria-label="Previous page">
             <i class="bi bi-chevron-left" aria-hidden="true"></i>
         </a>
-
         {% for num in page_obj.paginator.page_range %}
             {% if num == page_obj.number %}
             <span class="si-page-link is-active" aria-current="page">{{ num }}</span>
@@ -612,7 +587,6 @@
             <a href="?status={{ status_filter }}&page={{ num }}" class="si-page-link">{{ num }}</a>
             {% endif %}
         {% endfor %}
-
         <a href="?status={{ status_filter }}&page={{ page_obj.next_page_number }}"
            class="si-page-link {% if not page_obj.has_next %}is-disabled{% endif %}"
            aria-label="Next page">
@@ -620,6 +594,5 @@
         </a>
     </nav>
     {% endif %}
-
 </div>
 {% endblock %}

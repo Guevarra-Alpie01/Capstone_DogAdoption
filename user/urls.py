@@ -63,7 +63,13 @@ urlpatterns = [
     ),
 
     # Navigation 4/5: Announcement
+    path('announcements/dog-info/', views.announcement_dog_info, name='announcement_dog_info'),
     path('announcements/', views.announcement_list, name='announcement_list'),
+    path(
+        'announcements/<announcementid:post_id>/pin/',
+        views.announcement_public_toggle_pin,
+        name='announcement_toggle_pin',
+    ),
     path('announcements/<announcementid:post_id>/', views.announcement_detail, name='announcement_detail'),
     path('announcements/<announcementid:post_id>/comment/', views.announcement_comment, name='announcement_comment'),
     path('announcements/share/<announcementid:post_id>/', views.announcement_share_preview, name='announcement_share_preview'),

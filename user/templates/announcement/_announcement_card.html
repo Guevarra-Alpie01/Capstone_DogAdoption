@@ -2,6 +2,16 @@
          data-user-post
          data-post-id="{{ post.id }}"
          data-bucket="{{ post.display_bucket }}">
+    {% if announcement_show_staff_pin %}
+    <button type="button"
+            class="user-ann-staff-pin-btn js-announcement-staff-pin"
+            data-pin-url="{% url 'user:announcement_toggle_pin' post.id %}"
+            aria-pressed="{% if post.display_bucket == 'pinned' %}true{% else %}false{% endif %}"
+            aria-label="{% if post.display_bucket == 'pinned' %}Unpin announcement{% else %}Pin announcement{% endif %}"
+            title="{% if post.display_bucket == 'pinned' %}Unpin{% else %}Pin to top{% endif %}">
+        <i class="bi {% if post.display_bucket == 'pinned' %}bi-pin-angle-fill{% else %}bi-pin-angle{% endif %}" aria-hidden="true"></i>
+    </button>
+    {% endif %}
 
     <header class="fb-card-header">
         <img src="{{ post.admin_profile_image_url }}" alt="" class="fb-page-avatar" width="48" height="48">

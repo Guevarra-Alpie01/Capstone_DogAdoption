@@ -44,7 +44,7 @@ from urllib.parse import urlencode
 import math
 
 # Shared models from the admin app
-from dogadoption_admin.access import get_staff_landing_url
+from dogadoption_admin.access import get_admin_access, get_staff_landing_url, is_route_allowed
 from dogadoption_admin.barangays import BAYAWAN_BARANGAYS
 from dogadoption_admin.citation_subitems import citation_fee_total, normalize_subitems
 from dogadoption_admin.models import (
@@ -5647,6 +5647,16 @@ def announcement_list(request):
     regular_total = max(total_announcements - pinned_count, 0)
     pagination_query = _pagination_query_without_page(request.GET)
 
+    tab = (request.GET.get("tab") or "").strip().lower()
+    announcement_initial_tab = "pinned" if tab == "pinned" else "regular"
+
+    announcement_show_staff_pin = False
+    if request.user.is_authenticated and request.user.is_staff and request.user.is_active:
+        announcement_show_staff_pin = is_route_allowed(
+            get_admin_access(request.user),
+            "announcement_update_bucket",
+        )
+
     board_context = {
         'pinned_announcements': pinned_announcements,
         'regular_announcements': regular_announcements,
@@ -5654,9 +5664,58 @@ def announcement_list(request):
         'regular_total': regular_total,
         'regular_page_obj': regular_page_obj,
         'announcement_pagination_query': pagination_query,
+        'announcement_show_staff_pin': announcement_show_staff_pin,
+        'announcement_initial_tab': announcement_initial_tab,
+        'announcement_dog_info_page': False,
     }
     board_context.update(_announcement_highlight_open_graph(request))
     return render(request, 'announcement/announcement.html', board_context)
+
+
+def announcement_dog_info(request):
+    """Static dog safety / infographic content linked from the announcements board."""
+    bucket_counts = {
+        row["display_bucket"]: row["total"]
+        for row in DogAnnouncement.objects.values("display_bucket").annotate(
+            total=Count("id")
+        )
+    }
+    pinned_count = bucket_counts.get(DogAnnouncement.BUCKET_PINNED, 0)
+    total_announcements = sum(bucket_counts.values())
+    regular_total = max(total_announcements - pinned_count, 0)
+    return render(
+        request,
+        "announcement/announcement_dog_info.html",
+        {
+            "pinned_count": pinned_count,
+            "regular_total": regular_total,
+            "announcement_dog_info_page": True,
+        },
+    )
+
+
+@require_POST
+def announcement_public_toggle_pin(request, post_id):
+    """Let vet staff pin/unpin from the public announcements board (same access as admin bucket update)."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "auth_required": True}, status=401)
+    if not request.user.is_staff or not request.user.is_active:
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+    access = get_admin_access(request.user)
+    if not is_route_allowed(access, "announcement_update_bucket"):
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+
+    post = get_object_or_404(DogAnnouncement.objects.only("id", "display_bucket"), id=post_id)
+    if post.display_bucket == DogAnnouncement.BUCKET_PINNED:
+        post.display_bucket = DogAnnouncement.BUCKET_ORDINARY
+    else:
+        post.display_bucket = DogAnnouncement.BUCKET_PINNED
+    post.save(update_fields=["display_bucket"])
+    return JsonResponse({
+        "ok": True,
+        "bucket": post.display_bucket,
+        "is_pinned": post.display_bucket == DogAnnouncement.BUCKET_PINNED,
+    })
 
 
 def announcement_detail(request, post_id):

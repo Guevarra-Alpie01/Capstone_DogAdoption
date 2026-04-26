@@ -25,32 +25,14 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260425ann-two-columns">
+<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260426dog-info">
 {% endblock %}
 
 {% block content %}
 <div class="user-ann-board user-ann-v2">
-    <div class="user-ann-mobile-tabs announcement-mobile-tabs announcement-mobile-tabs--compact-stack"
-         data-user-mobile-announcement-tabs
-         data-mobile-announcement-tabs
-         aria-label="Announcement sections">
-        <button type="button"
-                class="user-ann-mobile-tab user-ann-mobile-tab--mobile-only announcement-mobile-tab announcement-mobile-tab--compact"
-                data-user-mobile-announcement-tab="pinned"
-                aria-pressed="false">
-            <span>Pinned</span>
-            <span class="user-ann-mobile-tab-count announcement-mobile-tab-count">{{ pinned_count }}</span>
-        </button>
-        <button type="button"
-                class="user-ann-mobile-tab announcement-mobile-tab announcement-mobile-tab--compact"
-                data-user-mobile-announcement-tab="regular"
-                aria-pressed="true">
-            <span>Main Feed</span>
-            <span class="user-ann-mobile-tab-count announcement-mobile-tab-count">{{ regular_total }}</span>
-        </button>
-    </div>
+    {% include 'announcement/_announcement_subnav.html' %}
 
-    <div class="user-ann-columns" data-user-mobile-announcement-board data-user-mobile-default="regular">
+    <div class="user-ann-columns" data-user-mobile-announcement-board data-user-mobile-default="{{ announcement_initial_tab }}">
         <section class="user-ann-column user-ann-column-pinned" data-user-mobile-announcement-section="pinned">
             <div class="user-ann-column-header">
                 <div class="user-ann-column-head">
@@ -442,7 +424,11 @@
         board.dataset.userMobileActive = sectionKey;
 
         tabs.forEach((tab) => {
-            const isActive = tab.getAttribute('data-user-mobile-announcement-tab') === sectionKey;
+            const tabKey = tab.getAttribute('data-user-mobile-announcement-tab');
+            if (!tabKey) {
+                return;
+            }
+            const isActive = tabKey === sectionKey;
             tab.classList.toggle('is-active', isActive);
             tab.setAttribute('aria-pressed', isActive ? 'true' : 'false');
         });
@@ -511,4 +497,39 @@
     });
 })();
 </script>
+{% if announcement_show_staff_pin %}
+<script>
+(function () {
+    document.querySelectorAll('.js-announcement-staff-pin').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const url = btn.getAttribute('data-pin-url');
+            if (!url) {
+                return;
+            }
+            btn.disabled = true;
+            try {
+                const token = window.getCsrfToken ? window.getCsrfToken() : '';
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': token,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.ok) {
+                    throw new Error('pin failed');
+                }
+                window.location.reload();
+            } catch (err) {
+                window.alert('Could not update the pin. Please try again.');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

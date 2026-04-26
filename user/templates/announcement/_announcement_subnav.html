@@ -1,0 +1,44 @@
+{% load static %}
+<div class="user-ann-mobile-tabs announcement-mobile-tabs announcement-mobile-tabs--compact-stack"
+     data-user-mobile-announcement-tabs
+     data-mobile-announcement-tabs
+     aria-label="Announcement sections">
+    {% if announcement_dog_info_page %}
+    <a href="{% url 'user:announcement_list' %}?tab=pinned"
+       class="user-ann-mobile-tab user-ann-mobile-tab--mobile-only announcement-mobile-tab announcement-mobile-tab--compact user-ann-subnav-as-link">
+        <span>Pinned</span>
+        <span class="user-ann-mobile-tab-count announcement-mobile-tab-count">{{ pinned_count }}</span>
+    </a>
+    <a href="{% url 'user:announcement_list' %}"
+       class="user-ann-mobile-tab announcement-mobile-tab announcement-mobile-tab--compact user-ann-subnav-as-link">
+        <span>Main Feed</span>
+        <span class="user-ann-mobile-tab-count announcement-mobile-tab-count">{{ regular_total }}</span>
+    </a>
+    <a href="{% url 'user:announcement_dog_info' %}"
+       class="user-ann-mobile-tab announcement-mobile-tab announcement-mobile-tab--compact user-ann-subnav-as-link is-active"
+       aria-current="page">
+        <span>Dog Info</span>
+        <span class="user-ann-mobile-tab-count announcement-mobile-tab-count user-ann-subnav-filler" aria-hidden="true"></span>
+    </a>
+    {% else %}
+    <button type="button"
+            class="user-ann-mobile-tab user-ann-mobile-tab--mobile-only announcement-mobile-tab announcement-mobile-tab--compact"
+            data-user-mobile-announcement-tab="pinned"
+            aria-pressed="false">
+        <span>Pinned</span>
+        <span class="user-ann-mobile-tab-count announcement-mobile-tab-count">{{ pinned_count }}</span>
+    </button>
+    <button type="button"
+            class="user-ann-mobile-tab announcement-mobile-tab announcement-mobile-tab--compact"
+            data-user-mobile-announcement-tab="regular"
+            aria-pressed="true">
+        <span>Main Feed</span>
+        <span class="user-ann-mobile-tab-count announcement-mobile-tab-count">{{ regular_total }}</span>
+    </button>
+    <a href="{% url 'user:announcement_dog_info' %}"
+       class="user-ann-mobile-tab announcement-mobile-tab announcement-mobile-tab--compact user-ann-subnav-as-link">
+        <span>Dog Info</span>
+        <span class="user-ann-mobile-tab-count announcement-mobile-tab-count user-ann-subnav-filler" aria-hidden="true"></span>
+    </a>
+    {% endif %}
+</div>

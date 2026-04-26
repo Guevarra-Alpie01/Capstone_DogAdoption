@@ -2782,6 +2782,24 @@ body.user-ann-popup-open {
         inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
+@media (min-width: 768px) {
+    .user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
+        width: 100%;
+        max-width: 720px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact {
+        width: 100%;
+        min-width: 0;
+    }
+}
+
 .user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact.is-active,
 .user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact[aria-pressed="true"] {
     border-color: #2b64f5 !important;
@@ -3070,6 +3088,7 @@ a.user-ann-subnav-as-link:focus-visible {
     display: grid;
     gap: var(--ann-space-3);
     width: min(100%, 1120px);
+    min-width: 0;
     margin: 0 auto;
     padding: 0 var(--ann-space-2) var(--ann-space-3);
     box-sizing: border-box;
@@ -3077,10 +3096,12 @@ a.user-ann-subnav-as-link:focus-visible {
 
 .user-ann-dog-bento {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ann-space-2);
     margin: 0;
     padding: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .user-ann-dog-bento__tile {
@@ -3092,12 +3113,17 @@ a.user-ann-subnav-as-link:focus-visible {
     background: #ffffff;
     box-shadow: var(--ann-shadow-panel);
     min-height: 0;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
     display: block;
+    box-sizing: border-box;
 }
 
 .user-ann-dog-bento__img {
     display: block;
     width: 100%;
+    max-width: 100%;
     height: auto;
     vertical-align: middle;
     object-fit: contain;
@@ -3119,10 +3145,11 @@ a.user-ann-subnav-as-link:focus-visible {
     }
 }
 
-@media (min-width: 480px) {
+/* Below 640px: single column only (avoids cramped / broken two-column rows). */
+@media (min-width: 640px) {
     .user-ann-dog-bento {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
+        gap: var(--ann-space-2);
     }
 
     .user-ann-dog-bento__tile--sick {

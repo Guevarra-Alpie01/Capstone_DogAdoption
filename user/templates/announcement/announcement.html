@@ -25,7 +25,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260426dog-bento">
+<link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260426pinned-subnav">
 {% endblock %}
 
 {% block content %}
@@ -418,8 +418,11 @@
         window.addEventListener('scroll', positionSharePanel, true);
     }
 
-    function setActiveSection(sectionKey) {
+    function setActiveSection(sectionKey, options) {
         if (!board) return;
+
+        const scrollOnDesktop = options && options.scrollOnDesktop === true;
+        const isMobile = mobileLayout.matches;
 
         board.dataset.userMobileActive = sectionKey;
 
@@ -435,11 +438,10 @@
 
         sections.forEach((section) => {
             const sectionKeyValue = section.getAttribute('data-user-mobile-announcement-section');
-            const isMobile = mobileLayout.matches;
 
-            if (!isMobile && sectionKeyValue === 'pinned') {
+            if (!isMobile) {
                 section.hidden = false;
-                section.classList.remove('is-mobile-active');
+                section.classList.toggle('is-mobile-active', sectionKeyValue === sectionKey);
                 return;
             }
 
@@ -447,6 +449,18 @@
             section.classList.toggle('is-mobile-active', isActive);
             section.hidden = !isActive;
         });
+
+        if (!isMobile && scrollOnDesktop) {
+            const target =
+                sectionKey === 'pinned'
+                    ? document.querySelector('.user-ann-column-pinned')
+                    : document.querySelector('.user-ann-column-regular');
+            if (target && typeof target.scrollIntoView === 'function') {
+                window.requestAnimationFrame(() => {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            }
+        }
     }
 
     function syncMobileSections() {
@@ -459,7 +473,9 @@
 
     tabs.forEach((tab) => {
         tab.addEventListener('click', () => {
-            setActiveSection(tab.getAttribute('data-user-mobile-announcement-tab') || 'regular');
+            setActiveSection(tab.getAttribute('data-user-mobile-announcement-tab') || 'regular', {
+                scrollOnDesktop: true,
+            });
         });
     });
 

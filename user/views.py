@@ -151,6 +151,16 @@ def _first_prefetched_image_url(images):
     return _safe_media_url(getattr(first_image, "image", None))
 
 
+def _prefetched_image_urls(images):
+    """Ordered list of public image URLs (for find-a-dog lightbox gallery)."""
+    urls = []
+    for img in images:
+        u = _safe_media_url(getattr(img, "image", None))
+        if u:
+            urls.append(u)
+    return urls
+
+
 def _build_user_profile_url(user_id, *, next_url="", back_label="Back"):
     """Build a read-only profile preview URL for a user account."""
     profile_url = reverse("user:view_user_profile", args=[user_id])
@@ -2271,6 +2281,7 @@ def _build_rescue_finder_card_item(
         "hours_left": hours,
         "minutes_left": minutes,
         "main_image_url": _first_prefetched_image_url(post.images.all()),
+        "lightbox_image_json": json.dumps(_prefetched_image_urls(post.images.all())),
         "title": _rescue_finder_title(post),
         "breed_label": post.display_breed or "Unknown Breed",
         "age_label": post.display_age_group or "Age not listed",
@@ -2576,6 +2587,7 @@ def _build_public_post_listing(request, listing_mode):
             "owner_username": upost.owner.username,
             "owner_full_name": upost.owner.get_full_name(),
             "main_image_url": _first_prefetched_image_url(upost.images.all()),
+            "lightbox_image_json": json.dumps(_prefetched_image_urls(upost.images.all())),
             "match_score": match_score,
             "created_at": upost.created_at,
             "detail_url": detail_url,

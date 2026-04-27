@@ -25,7 +25,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260427mobile-finder-tools-stack">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260427finder-lightbox-gallery">
 {% endblock %}
 
 {% block content %}
@@ -424,7 +424,13 @@
 <div id="finderImageLightbox" class="finder-lightbox" hidden>
     <div class="finder-lightbox__dialog">
         <button type="button" class="finder-lightbox__close" aria-label="Close image">&times;</button>
+        <button type="button" class="finder-lightbox__nav finder-lightbox__nav--prev" id="finderLightboxPrev" aria-label="Previous image" hidden>
+            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+        </button>
         <img id="finderImageLightboxImg" class="finder-lightbox__img" alt="Full image preview">
+        <button type="button" class="finder-lightbox__nav finder-lightbox__nav--next" id="finderLightboxNext" aria-label="Next image" hidden>
+            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        </button>
     </div>
 </div>
 <div id="finderShareStatus" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
@@ -447,6 +453,10 @@
     const lightbox = document.getElementById('finderImageLightbox');
     const lightboxImg = document.getElementById('finderImageLightboxImg');
     const lightboxClose = lightbox?.querySelector('.finder-lightbox__close');
+    const lightboxPrev = document.getElementById('finderLightboxPrev');
+    const lightboxNext = document.getElementById('finderLightboxNext');
+    let lightboxGalleryUrls = null;
+    let lightboxGalleryIndex = 0;
     const zoomTriggers = document.querySelectorAll('.js-finder-zoom');
     const infoToggleButtons = document.querySelectorAll('[data-finder-info-toggle]');
     const paginationShell = document.querySelector('[data-finder-pagination]');
@@ -996,17 +1006,44 @@
         }
     });
 
-    function openLightbox(src, altText) {
+    function syncLightboxNav() {
+        const show = Boolean(lightboxGalleryUrls && lightboxGalleryUrls.length > 1);
+        if (lightboxPrev) lightboxPrev.hidden = !show;
+        if (lightboxNext) lightboxNext.hidden = !show;
+    }
+
+    function stepLightbox(delta) {
+        if (!lightboxGalleryUrls || lightboxGalleryUrls.length < 2) return;
+        const n = lightboxGalleryUrls.length;
+        lightboxGalleryIndex = (lightboxGalleryIndex + delta + n) % n;
+        lightboxImg.src = lightboxGalleryUrls[lightboxGalleryIndex];
+    }
+
+    function openLightbox(src, altText, galleryUrls) {
         if (!src) return;
-        lightboxImg.src = src;
+        const list = Array.isArray(galleryUrls) ? galleryUrls.filter(Boolean) : [];
+        if (list.length > 1) {
+            lightboxGalleryUrls = list;
+            const start = list.indexOf(src);
+            lightboxGalleryIndex = start >= 0 ? start : 0;
+            lightboxImg.src = list[lightboxGalleryIndex];
+        } else {
+            lightboxGalleryUrls = null;
+            lightboxGalleryIndex = 0;
+            lightboxImg.src = src;
+        }
         lightboxImg.alt = altText || 'Full image preview';
         lightbox.hidden = false;
         document.body.classList.add('lightbox-open');
+        syncLightboxNav();
     }
 
     function closeLightbox() {
         lightbox.hidden = true;
         lightboxImg.removeAttribute('src');
+        lightboxGalleryUrls = null;
+        lightboxGalleryIndex = 0;
+        syncLightboxNav();
         document.body.classList.remove('lightbox-open');
     }
 
@@ -1017,18 +1054,49 @@
         }
         trigger.addEventListener('click', (event) => {
             event.preventDefault();
-            openLightbox(
-                trigger.getAttribute('data-full-src') || trigger.getAttribute('href') || '',
-                trigger.getAttribute('data-full-alt') || trigger.querySelector('img')?.getAttribute('alt') || ''
-            );
+            const fullSrc = trigger.getAttribute('data-full-src') || trigger.getAttribute('href') || '';
+            const fullAlt = trigger.getAttribute('data-full-alt') || trigger.querySelector('img')?.getAttribute('alt') || '';
+            let galleryUrls = null;
+            const rawGallery = trigger.getAttribute('data-lightbox-gallery');
+            if (rawGallery) {
+                try {
+                    const parsed = JSON.parse(rawGallery);
+                    if (Array.isArray(parsed)) {
+                        galleryUrls = parsed;
+                    }
+                } catch (e) {
+                    galleryUrls = null;
+                }
+            }
+            openLightbox(fullSrc, fullAlt, galleryUrls);
         });
     });
 
-    lightboxClose.addEventListener('click', closeLightbox);
+    lightboxClose?.addEventListener('click', closeLightbox);
+    lightboxPrev?.addEventListener('click', (event) => {
+        event.stopPropagation();
+        stepLightbox(-1);
+    });
+    lightboxNext?.addEventListener('click', (event) => {
+        event.stopPropagation();
+        stepLightbox(1);
+    });
     lightbox.addEventListener('click', (event) => {
         if (event.target === lightbox) closeLightbox();
     });
     document.addEventListener('keydown', (event) => {
+        if (lightbox && !lightbox.hidden) {
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                stepLightbox(-1);
+                return;
+            }
+            if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                stepLightbox(1);
+                return;
+            }
+        }
         if (event.key !== 'Escape') return;
         if (mobileQuery.matches && layout?.classList.contains('is-filter-open')) {
             setMobileFiltersOpen(false);

@@ -47,7 +47,13 @@
 
     {% if post.background_image or post.prefetched_images %}
     <div class="fb-photo-viewer" data-photo-viewer>
+        {% if post.display_bucket == 'pinned' %}
+        <a href="{% url 'user:announcement_detail' post.id %}" class="user-ann-pinned-photo-hit" aria-label="View full announcement">
+        {% endif %}
         <img src="" class="fb-photo-main" alt="Announcement photo">
+        {% if post.display_bucket == 'pinned' %}
+        </a>
+        {% endif %}
         <button type="button" class="fb-photo-nav fb-photo-prev" aria-label="Previous photo">&lt;</button>
         <button type="button" class="fb-photo-nav fb-photo-next" aria-label="Next photo">&gt;</button>
         <div class="fb-photo-sources" hidden>

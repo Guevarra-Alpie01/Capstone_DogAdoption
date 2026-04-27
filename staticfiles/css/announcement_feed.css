@@ -65,6 +65,13 @@
     display: none;
 }
 
+@media (min-width: 768px) {
+    /* Subnav "Pinned" is only for switching columns on phones; desktop shows both columns. */
+    .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.user-ann-mobile-tab--mobile-only {
+        display: none !important;
+    }
+}
+
 .user-ann-mobile-tab:hover {
     background: #e8eef7;
     color: #233b59;
@@ -473,6 +480,33 @@
     pointer-events: none;
 }
 
+.user-ann-card.is-pinned .fb-photo-nav {
+    z-index: 2;
+}
+
+.user-ann-pinned-photo-hit {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.user-ann-pinned-photo-hit .fb-photo-main {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.user-ann-pinned-photo-hit:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.5);
+    outline-offset: -4px;
+    border-radius: inherit;
+}
+
 .fb-photo-prev {
     left: 10px;
 }
@@ -657,6 +691,10 @@
         display: inline-flex;
     }
 
+    .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.user-ann-mobile-tab--mobile-only {
+        display: inline-flex !important;
+    }
+
     .user-ann-mobile-tabs {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -737,6 +775,18 @@
         width: 100%;
         max-width: none;
         justify-content: space-between;
+    }
+
+    /* v2 compact subnav: keep Pinned / Main Feed / Dog Info in one horizontal row */
+    .user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
+        flex-direction: row !important;
+    }
+
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact {
+        width: auto;
+        justify-content: center;
     }
 }
 
@@ -948,7 +998,14 @@
     text-shadow: none !important;
 }
 
-.user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact > span:first-child {
+.user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact .user-ann-subnav__inner {
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: center;
+    text-align: left;
+}
+
+.user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact .user-ann-subnav__label {
     flex: 1 1 auto;
     min-width: 0;
     text-align: left;
@@ -1900,10 +1957,6 @@ body.user-ann-popup-open {
 }
 
 @media (min-width: 1200px) {
-    .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
-        margin-left: 390px;
-    }
-
     .user-ann-columns {
         grid-template-columns: minmax(240px, 0.72fr) minmax(0, 1.78fr);
         gap: 20px;
@@ -2204,7 +2257,7 @@ body.user-ann-popup-open {
         letter-spacing: 0.12px;
     }
 
-    .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact > span:first-child {
+    .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact .user-ann-subnav__label {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -2238,7 +2291,7 @@ body.user-ann-popup-open {
         letter-spacing: 0.04em;
     }
 
-    .user-ann-mobile-tab > span:first-child {
+    .user-ann-mobile-tab .user-ann-subnav__label {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -2740,7 +2793,13 @@ body.user-ann-popup-open {
     }
 }
 
-/* —— Announcements v2 (cream + blue reference layout) —— */
+/* —— Announcements v2 (soft surface + uniform cards) —— */
+.user-ann-v2 .user-ann-bi {
+    flex-shrink: 0;
+    line-height: 1;
+    font-size: 1.05rem;
+}
+
 .user-ann-v2 {
     position: relative;
     padding: 12px 8px 40px;
@@ -2753,16 +2812,16 @@ body.user-ann-popup-open {
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    background-color: #fffbf3;
-    /* Soft cream + blue/yellow glows + light dot grid — no paw tile pattern */
+    background-color: #f7f4ec;
     background-image:
-        radial-gradient(circle at 10% 12%, rgba(43, 100, 245, 0.07) 0%, transparent 45%),
-        radial-gradient(circle at 92% 8%, rgba(250, 204, 21, 0.1) 0%, transparent 42%),
-        radial-gradient(circle at 78% 88%, rgba(234, 179, 8, 0.06) 0%, transparent 38%),
-        radial-gradient(rgba(43, 100, 245, 0.045) 1px, transparent 1px);
-    background-size: auto, auto, auto, 28px 28px;
-    background-position: center, center, center, 0 0;
-    background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+        linear-gradient(165deg, rgba(224, 242, 254, 0.55) 0%, rgba(247, 244, 236, 0.92) 38%, rgba(254, 249, 239, 0.98) 100%),
+        radial-gradient(ellipse 90% 60% at 100% 0%, rgba(147, 197, 253, 0.22) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 50% at 0% 100%, rgba(186, 230, 253, 0.18) 0%, transparent 50%),
+        radial-gradient(circle at 50% 120%, rgba(14, 116, 144, 0.04) 0%, transparent 45%),
+        radial-gradient(rgba(59, 130, 246, 0.035) 1px, transparent 1px);
+    background-size: auto, auto, auto, auto, 22px 22px;
+    background-position: center, center, center, center, 0 0;
+    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
 }
 
 .user-ann-v2 > * {
@@ -2770,123 +2829,285 @@ body.user-ann-popup-open {
     z-index: 1;
 }
 
+.user-ann-v2 .user-ann-subnav__inner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    width: 100%;
+    min-width: 0;
+}
+
+.user-ann-v2 .user-ann-subnav__label {
+    font-size: 0.6875rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: inherit;
+}
+
 .user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
-    padding: 6px 8px;
+    padding: 7px 9px;
     margin-left: 0;
-    margin-bottom: 16px;
+    margin-right: 0;
+    margin-bottom: 18px;
     border-radius: 999px;
-    background: #ffffff;
-    border: 1px solid #ffffff;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(15, 23, 42, 0.06);
     box-shadow:
-        0 10px 28px rgba(15, 23, 42, 0.07),
-        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+        0 10px 28px rgba(15, 23, 42, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98);
+}
+
+@media (min-width: 768px) {
+    /* Two visible tabs (Main Feed + Dog Info); Pinned is mobile-only — equal columns, centered pill */
+    .user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
+        gap: 8px;
+        width: min(100%, 420px);
+        max-width: calc(100% - 24px);
+        margin-inline: auto;
+        justify-self: center;
+        box-sizing: border-box;
+    }
+
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact
+        .user-ann-subnav__inner {
+        justify-content: center;
+        text-align: center;
+    }
+
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact
+        .user-ann-subnav__label {
+        text-align: center;
+    }
 }
 
 .user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact.is-active,
 .user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact[aria-pressed="true"] {
-    border-color: #2b64f5 !important;
-    background: linear-gradient(180deg, #4f7dff 0%, #2b64f5 100%) !important;
-    box-shadow: 0 12px 26px rgba(43, 100, 245, 0.35) !important;
+    border-color: rgba(13, 148, 136, 0.42) !important;
+    background: linear-gradient(180deg, #2dd4bf 0%, #0d9488 100%) !important;
+    box-shadow: 0 10px 24px rgba(13, 148, 136, 0.22) !important;
+    color: #ffffff !important;
+}
+
+.user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact.is-active .user-ann-bi,
+.user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] > .user-ann-mobile-tab.announcement-mobile-tab--compact[aria-pressed="true"] .user-ann-bi {
+    color: #ffffff !important;
+}
+
+/* Small screens: Pinned, Main Feed, Dog Info in one row; icon + label horizontal in each pill */
+@media (max-width: 767.98px) {
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact
+        .user-ann-subnav__inner {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        min-width: 0;
+        text-align: left;
+    }
+
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact
+        .user-ann-subnav__label {
+        text-align: left;
+        line-height: 1.2;
+    }
+}
+
+/* Narrow phones: flex row of three equal segments; scroll only if viewport is extremely tight */
+@media (max-width: 639.98px) {
+    .user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: stretch;
+        align-items: stretch;
+        gap: 6px;
+        width: 100%;
+        max-width: none;
+        margin-inline: 0;
+        justify-self: stretch;
+        padding: 5px 6px;
+        border-radius: 16px;
+        box-sizing: border-box;
+        overflow-x: auto;
+        overflow-y: hidden;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-gutter: stable;
+    }
+
+    .user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]::-webkit-scrollbar-thumb {
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.22);
+    }
+
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact {
+        flex: 1 1 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        min-height: 44px;
+        width: auto;
+        max-width: none;
+        padding: 6px 8px !important;
+        gap: 6px !important;
+        border-radius: 12px !important;
+        font-size: inherit !important;
+        letter-spacing: 0.02em !important;
+        box-sizing: border-box;
+        touch-action: manipulation;
+    }
+
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact
+        .user-ann-subnav__label {
+        font-size: 0.75rem !important;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact
+        .user-ann-bi {
+        font-size: 0.95rem;
+        flex-shrink: 0;
+    }
 }
 
 .user-ann-v2 .user-ann-column {
-    border-radius: 26px;
-    border: 1px solid #ffffff;
-    background: #ffffff;
+    border-radius: 20px;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    background: rgba(255, 255, 255, 0.88);
     box-shadow:
-        0 20px 44px rgba(15, 23, 42, 0.07),
-        0 2px 0 rgba(255, 255, 255, 0.9) inset;
+        0 8px 28px rgba(15, 23, 42, 0.045),
+        0 2px 8px rgba(15, 23, 42, 0.03),
+        0 1px 0 rgba(255, 255, 255, 0.95) inset;
 }
 
 .user-ann-v2 .user-ann-column-header {
-    padding: 18px 18px 12px;
-    border-bottom: 1px solid rgba(226, 232, 240, 0.95);
-    background: linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
+    padding: 18px 18px 16px;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+    background: #ffffff;
 }
 
 .user-ann-v2 .user-ann-column-title-row--main {
     justify-content: space-between;
     width: 100%;
     gap: 12px;
-}
-
-.user-ann-v2 .user-ann-column-title-tools {
-    display: inline-flex;
     align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
 }
 
 .user-ann-v2 .user-ann-column-search-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     border-radius: 12px;
-    background: rgba(43, 100, 245, 0.08);
-    color: #2b64f5;
-    font-size: 1rem;
+    background: rgba(13, 148, 136, 0.1);
+    color: #0f766e;
+    flex-shrink: 0;
+}
+
+.user-ann-v2 .user-ann-column-search-icon .user-ann-bi {
+    font-size: 1.08rem;
 }
 
 .user-ann-v2 .user-ann-kicker {
-    color: #1e3a5f;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-}
-
-.user-ann-v2 .user-ann-kicker i {
-    color: #2b64f5;
-}
-
-.user-ann-v2 .user-ann-count,
-.user-ann-v2 .user-ann-count-regular,
-.user-ann-v2 .user-ann-count-education {
-    min-width: 36px;
-    padding: 6px 12px;
-    border-radius: 999px;
-    background: rgba(43, 100, 245, 0.12);
-    color: #1e40af;
-    font-weight: 900;
-}
-
-.user-ann-v2 .user-ann-count-education {
-    background: rgba(250, 204, 21, 0.22);
-    color: #92400e;
-}
-
-.user-ann-v2 .user-ann-column-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 12px;
-}
-
-.user-ann-v2 .user-ann-chip {
     display: inline-flex;
     align-items: center;
-    padding: 5px 12px;
-    border-radius: 999px;
-    border: 1px solid rgba(43, 100, 245, 0.35);
-    background: #ffffff;
-    color: #1e3a5f;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.06em;
+    gap: 10px;
+    color: #0f172a;
+    font-size: 0.75rem;
+    font-weight: 650;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
 }
 
-.user-ann-v2 .user-ann-chip--accent {
-    border-color: rgba(43, 100, 245, 0.55);
-    background: rgba(43, 100, 245, 0.08);
-    color: #1d4ed8;
+.user-ann-v2 .user-ann-kicker .user-ann-bi {
+    font-size: 1.12rem;
+    color: #0e7490;
+}
+
+.user-ann-v2 .user-ann-column-desc {
+    margin: 10px 0 0;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    font-weight: 450;
+    letter-spacing: 0.01em;
+    color: #64748b;
+}
+
+.user-ann-v2 .user-ann-column-body {
+    padding: 16px 18px 18px;
+    gap: 14px;
+}
+
+.user-ann-v2 .user-ann-empty,
+.user-ann-v2 .fb-empty-card {
+    border-radius: 20px;
+    border: 1px dashed rgba(15, 23, 42, 0.12);
+    background: rgba(255, 255, 255, 0.82);
+    color: #64748b;
+    font-weight: 500;
+}
+
+.user-ann-v2 .user-ann-empty .user-ann-bi {
+    font-size: 1.35rem;
+    color: #0e7490;
+}
+
+.user-ann-v2 .user-ann-dog-bento__tile {
+    border-radius: 20px;
+    border-color: rgba(15, 23, 42, 0.06);
+    box-shadow:
+        0 6px 22px rgba(15, 23, 42, 0.04),
+        0 1px 3px rgba(15, 23, 42, 0.03);
 }
 
 .user-ann-v2 .user-ann-card {
     position: relative;
-    border-radius: 22px;
-    border: 1px solid #ffffff;
+    border-radius: 20px;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    background: #ffffff;
     overflow: hidden;
+    box-shadow:
+        0 6px 22px rgba(15, 23, 42, 0.04),
+        0 1px 3px rgba(15, 23, 42, 0.03);
 }
 
 .user-ann-staff-pin-btn {
@@ -2940,8 +3161,10 @@ body.user-ann-popup-open {
 }
 
 .user-ann-v2 .user-ann-card.is-pinned {
-    border: 1px solid #ffffff;
-    box-shadow: 0 18px 40px rgba(43, 100, 245, 0.12);
+    border-color: rgba(13, 148, 136, 0.2);
+    box-shadow:
+        0 10px 28px rgba(13, 148, 136, 0.07),
+        0 1px 0 rgba(255, 255, 255, 0.96) inset;
 }
 
 .user-ann-v2 .user-ann-card.is-pinned .user-ann-pin-btn.is-static {
@@ -3013,15 +3236,15 @@ body.user-ann-popup-open {
 .user-ann-v2 .user-ann-action-row .fb-action-btn.js-open-share {
     border: none;
     border-radius: 14px;
-    background: linear-gradient(180deg, #4f7dff 0%, #2b64f5 100%);
+    background: linear-gradient(180deg, #14b8a6 0%, #0d9488 100%);
     color: #ffffff;
     font-weight: 800;
-    box-shadow: 0 12px 22px rgba(43, 100, 245, 0.28);
+    box-shadow: 0 12px 22px rgba(13, 148, 136, 0.22);
 }
 
 .user-ann-v2 .user-ann-action-row .fb-action-btn.js-open-share:hover,
 .user-ann-v2 .user-ann-action-row .fb-action-btn.js-open-share:focus-visible {
-    background: linear-gradient(180deg, #3d6ef5 0%, #2554d8 100%);
+    background: linear-gradient(180deg, #0d9488 0%, #0f766e 100%);
     color: #ffffff;
 }
 
@@ -3033,14 +3256,21 @@ body.user-ann-popup-open {
 }
 
 @media (max-width: 767.98px) {
-    .user-ann-v2 .user-ann-column-chips {
-        margin-top: 10px;
+    .user-ann-v2 .user-ann-column-body {
+        padding: 14px 14px 16px !important;
+    }
+
+    .user-ann-v2 .user-ann-column-desc {
+        margin-top: 8px;
     }
 
     .user-ann-v2 .user-ann-column-search-icon {
-        width: 32px;
-        height: 32px;
-        font-size: 0.92rem;
+        width: 34px;
+        height: 34px;
+    }
+
+    .user-ann-v2 .user-ann-column-search-icon .user-ann-bi {
+        font-size: 1rem;
     }
 }
 
@@ -3066,59 +3296,123 @@ a.user-ann-subnav-as-link:focus-visible {
     pointer-events: none;
 }
 
+/* Dog Info: full-width column under subnav (no sidebar offset). */
+.user-ann-board.user-ann-board--dog-info {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: stretch;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.user-ann-board.user-ann-board--dog-info .user-ann-dog-info-page {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+}
+
 .user-ann-dog-info-page {
     display: grid;
     gap: var(--ann-space-3);
-    width: min(100%, 920px);
+    width: min(100%, 1120px);
+    min-width: 0;
     margin: 0 auto;
     padding: 0 var(--ann-space-2) var(--ann-space-3);
     box-sizing: border-box;
 }
 
-.user-ann-dog-info-figure {
+.user-ann-dog-bento {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-flow: row;
+    gap: var(--ann-space-2);
     margin: 0;
-    border-radius: var(--ann-radius-lg);
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+}
+
+.user-ann-dog-bento__tile {
+    margin: 0;
+    padding: 0;
+    border-radius: 18px;
     overflow: hidden;
     border: 1px solid var(--ann-border-soft);
     background: #ffffff;
     box-shadow: var(--ann-shadow-panel);
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    display: block;
+    box-sizing: border-box;
 }
 
-.user-ann-dog-info-hero-img {
+.user-ann-dog-bento__img {
     display: block;
     width: 100%;
+    max-width: 100%;
     height: auto;
     vertical-align: middle;
     object-fit: contain;
     background: #f1f5f9;
 }
 
-.user-ann-dog-info-embed-section {
-    margin: 0;
+@media (hover: hover) and (pointer: fine) {
+    .user-ann-dog-bento__tile {
+        transition:
+            transform 0.18s ease,
+            box-shadow 0.18s ease;
+    }
+
+    .user-ann-dog-bento__tile:hover {
+        transform: translateY(-2px);
+        box-shadow:
+            0 16px 36px rgba(15, 23, 42, 0.1),
+            0 2px 0 rgba(255, 255, 255, 0.9) inset;
+    }
 }
 
-.user-ann-dog-info-frame {
-    border-radius: var(--ann-radius-lg);
-    overflow: hidden;
-    border: 1px solid var(--ann-border-soft);
-    background: #ffffff;
-    box-shadow: var(--ann-shadow-panel);
-    min-height: 480px;
+/* Below 640px: single column only (avoids cramped / broken two-column rows). */
+@media (min-width: 640px) {
+    .user-ann-dog-bento {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--ann-space-2);
+    }
+
+    .user-ann-dog-bento__tile--sick {
+        grid-column: 1 / -1;
+    }
 }
 
-.user-ann-dog-info-iframe {
-    display: block;
-    width: 100%;
-    min-height: min(75vh, 900px);
-    height: 900px;
-    border: 0;
-    background: #ffffff;
+@media (min-width: 768px) {
+    .user-ann-dog-bento {
+        gap: 14px;
+    }
+
+    .user-ann-dog-info-page {
+        padding-left: var(--ann-space-3);
+        padding-right: var(--ann-space-3);
+    }
 }
 
-@media (max-width: 767.98px) {
-    .user-ann-dog-info-iframe {
-        height: 70vh;
-        min-height: 420px;
+@media (min-width: 1024px) {
+    /* Balanced two-column bento on large screens (avoids lopsided / off-canvas tracks). */
+    .user-ann-dog-bento {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        align-items: start;
+    }
+
+    .user-ann-dog-bento__tile--sick {
+        grid-column: 1 / -1;
+    }
+
+    .user-ann-dog-bento__tile--care,
+    .user-ann-dog-bento__tile--teeth,
+    .user-ann-dog-bento__tile--bite,
+    .user-ann-dog-bento__tile--help {
+        grid-column: auto;
     }
 }
 

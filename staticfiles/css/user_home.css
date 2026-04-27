@@ -916,8 +916,8 @@
     width: 100%;
     min-width: 0;
     display: grid;
-    grid-template-columns: minmax(280px, 0.68fr) minmax(0, 1.32fr);
-    gap: 22px;
+    grid-template-columns: minmax(268px, 0.78fr) minmax(0, 1.11fr) minmax(0, 1.11fr);
+    gap: 18px 20px;
     align-items: start;
 }
 
@@ -1030,48 +1030,37 @@
     font-size: clamp(1.28rem, 1.62vw, 1.62rem);
 }
 
-.home-ordinance__card--section-29 .home-ordinance__card-copy p {
+.home-ordinance__card--section-29 .home-ordinance__card-copy p:not(.home-ordinance__card-range) {
     font-size: 0.92rem;
     line-height: 1.62;
 }
 
-/* Penalties: two independent columns (1–14 | 15–28) so row height in one column never follows the other (e.g. expanded "See requirements"). */
-.home-ordinance__penalties-columns {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    width: 100%;
-    min-width: 0;
+.home-ordinance__card--section-29 .home-ordinance__card-range {
+    margin: 0.4rem 0 0;
+    padding: 0.35rem 0.75rem;
+    width: fit-content;
+    max-width: 100%;
+    border-radius: 999px;
+    border: 1px solid rgba(181, 99, 38, 0.22);
+    background: rgba(181, 99, 38, 0.07);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #8c4d1e;
+    line-height: 1.2;
 }
 
-.home-ordinance__card--section-29 .home-ordinance__penalties-columns .home-ordinance__list--cluster {
-    flex: 1 1 minmax(0, 50%);
-    min-width: 0;
+/* Section 29: single-column penalty list per card (uniform with citation carousel slides) */
+.home-ordinance__card--section-29 .home-ordinance__list--cluster {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    width: 100%;
+    min-width: 0;
     grid-template-columns: unset;
-}
-
-@media (max-width: 1023.98px) {
-    html.home-has-js .home-ordinance__stepper[data-penalty-page="1"] .home-ordinance__list--penalties-b {
-        display: none !important;
-    }
-
-    html.home-has-js .home-ordinance__stepper[data-penalty-page="2"] .home-ordinance__list--penalties-a {
-        display: none !important;
-    }
-
-    .home-ordinance__penalties-columns {
-        flex-direction: column;
-        gap: 0;
-    }
-
-    html.home-has-js .home-ordinance__stepper[data-penalty-page="1"] .home-ordinance__list--penalties-a,
-    html.home-has-js .home-ordinance__stepper[data-penalty-page="2"] .home-ordinance__list--penalties-b {
-        flex: 1 1 auto;
-        width: 100%;
-    }
+    margin: 0;
+    padding: 0;
 }
 
 .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item {
@@ -1452,14 +1441,34 @@
 }
 
 html.home-has-js .home-ordinance__stepper-controls {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+    gap: 10px 12px;
 }
 
 .home-ordinance__stepper-controls {
     display: none;
     align-items: center;
-    justify-content: center;
-    gap: 14px;
+    gap: 10px 12px;
+}
+
+.home-ordinance__stepper-controls .home-ordinance__stepper-btn[data-home-ordinance-nav='prev'] {
+    justify-self: start;
+}
+
+.home-ordinance__stepper-controls .home-ordinance__stepper-status {
+    justify-self: center;
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.home-ordinance__stepper-controls .home-ordinance__stepper-btn[data-home-ordinance-nav='next'] {
+    justify-self: end;
+    grid-column: 3;
+    grid-row: 1;
 }
 
 .home-ordinance__stepper-btn {
@@ -1469,33 +1478,79 @@ html.home-has-js .home-ordinance__stepper-controls {
     width: 50px;
     height: 50px;
     padding: 0;
+    margin: 0;
     border-radius: 16px;
-    border: 1px solid rgba(232, 220, 198, 0.96);
-    background: #fffdfa;
+    border: 1px solid transparent;
+    background: transparent;
     color: #a65f2b;
     font-size: 1.08rem;
     font-weight: 900;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.88),
-        0 10px 18px rgba(74, 57, 29, 0.06);
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    line-height: 1;
+    box-shadow: none;
+    opacity: 0.4;
+    transform: none;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: opacity 0.22s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
-.home-ordinance__stepper-btn:hover,
-.home-ordinance__stepper-btn:focus-visible {
-    transform: translateY(-1px);
-    border-color: rgba(181, 99, 38, 0.4);
-    color: #8c4d1e;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.92),
-        0 12px 18px rgba(74, 57, 29, 0.08);
+.home-ordinance__stepper-btn > span {
+    line-height: 1;
+    display: block;
+    transform: none;
+}
+
+/* Mouse / touch: avoid focus ring layout jump; keyboard keeps :focus-visible */
+.home-ordinance__stepper-btn:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* Keyboard: full visibility + ring; no solid fill */
+.home-ordinance__stepper-btn:focus-visible:not(:disabled) {
+    opacity: 1;
+    transform: none;
+    border-color: rgba(166, 95, 43, 0.28);
+    outline: 2px solid rgba(166, 95, 43, 0.35);
+    outline-offset: 3px;
+    background: transparent;
+    box-shadow: none;
+}
+
+@media (hover: hover) {
+    /* Hovering the bar (pill or either arrow): both enabled arrows become visible */
+    .home-ordinance__stepper-controls:hover .home-ordinance__stepper-btn:enabled {
+        opacity: 1;
+        border-color: transparent;
+        background: transparent;
+        box-shadow: none;
+        color: #8c4d1e;
+    }
+
+    .home-ordinance__stepper-controls:hover .home-ordinance__stepper-btn:disabled {
+        opacity: 0.28;
+    }
+}
+
+@media (hover: none) {
+    .home-ordinance__stepper-btn:active:not(:disabled) {
+        opacity: 1;
+    }
+}
+
+.home-ordinance__stepper-btn:active:not(:disabled) {
+    transform: none;
+    background: transparent;
+    box-shadow: none;
 }
 
 .home-ordinance__stepper-btn:disabled {
-    opacity: 0.45;
+    opacity: 0.22;
     cursor: default;
     transform: none;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    background: transparent;
+    box-shadow: none;
+    border-color: transparent;
 }
 
 .home-ordinance__stepper-status {
@@ -1525,13 +1580,6 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
     display: grid;
 }
 
-/* Section 29: full penalty list on large screens; hide part pager */
-@media (min-width: 1024px) {
-    .home-ordinance__card--section-29 .home-ordinance__stepper-controls {
-        display: none !important;
-    }
-}
-
 /* Citation ticket: mobile / tablet — outer carousel; header stays above */
 .home-ordinance__fee-carousel {
     display: block;
@@ -1556,7 +1604,17 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
     line-height: 1;
     box-shadow: 0 10px 20px rgba(74, 57, 29, 0.07);
     cursor: pointer;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
     transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.home-ordinance__fee-carousel-btn:focus:not(:focus-visible) {
+    outline: none;
 }
 
 .home-ordinance__fee-carousel-btn:disabled {
@@ -1646,19 +1704,60 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev,
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next {
         position: absolute;
+        /* Vertically centered in viewport (height synced to active slide in JS) */
         top: 50%;
+        bottom: auto;
+        margin-top: -24px;
         z-index: 2;
-        transform: translateY(-50%);
-        background: rgba(255, 253, 248, 0.95);
-        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+        margin-inline: 0;
+        margin-bottom: 0;
+        width: 44px;
+        height: 48px;
+        transform: none;
+        background: rgba(255, 253, 248, 0.52);
+        border-color: rgba(200, 188, 168, 0.45);
+        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+        -webkit-backdrop-filter: blur(8px) saturate(1.05);
+        backdrop-filter: blur(8px) saturate(1.05);
+    }
+
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev i,
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next i {
+        display: block;
+        line-height: 1;
+        pointer-events: none;
     }
 
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev {
-        left: 4px;
+        left: 6px;
+        right: auto;
     }
 
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next {
-        right: 4px;
+        right: 6px;
+        left: auto;
+    }
+
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev:hover:not(:disabled),
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next:hover:not(:disabled),
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev:focus-visible:not(:disabled),
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next:focus-visible:not(:disabled) {
+        top: 50%;
+        margin-top: -24px;
+        transform: none;
+        background: rgba(255, 244, 228, 0.62);
+        border-color: rgba(181, 99, 38, 0.35);
+        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+    }
+
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev:active:not(:disabled),
+    [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next:active:not(:disabled) {
+        top: 50%;
+        margin-top: -24px;
+        transform: none;
+        background: rgba(255, 237, 214, 0.65);
+        border-color: rgba(181, 99, 38, 0.38);
+        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
     }
 
     [data-home-fee-carousel] .home-ordinance__fee-carousel-markers {
@@ -1673,43 +1772,41 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
         width: 300%;
         max-width: none;
         box-sizing: border-box;
-        align-items: center;
+        align-items: flex-start;
         margin: 0;
         padding: 0;
         transform: translate3d(0, 0, 0);
         transition: transform 0.38s cubic-bezier(0.25, 0.8, 0.25, 1);
     }
 
-    [data-home-fee-carousel] .home-ordinance__card--section-28 {
+    [data-home-fee-carousel] .home-ordinance__card--section-28,
+    [data-home-fee-carousel] .home-ordinance__card--section-29 {
         flex: 0 0 33.333333%;
         width: 33.333333%;
         min-width: 0;
         max-width: none;
     }
 
+    /* Section 29: cap card height; scroll penalties inside so arrows stay centered on the card */
     [data-home-fee-carousel] .home-ordinance__card--section-29 {
-        flex: 0 0 66.666666%;
-        width: 66.666666%;
-        min-width: 0;
-        max-width: none;
-    }
-
-    [data-home-fee-carousel] .home-ordinance__penalties-columns {
-        flex-direction: row !important;
-        align-items: flex-start;
-        gap: 8px 10px;
-    }
-
-    [data-home-fee-carousel] .home-ordinance__list--penalties-a,
-    [data-home-fee-carousel] .home-ordinance__list--penalties-b {
-        display: flex !important;
-        flex: 1 1 calc(50% - 5px) !important;
+        display: flex;
         flex-direction: column;
-        min-width: 0;
+        max-height: min(72vh, 640px);
+        min-height: 0;
+        overflow: hidden;
     }
 
-    [data-home-fee-carousel] .home-ordinance__stepper-controls {
-        display: none !important;
+    [data-home-fee-carousel] .home-ordinance__card--section-29 .home-ordinance__list--cluster {
+        display: flex !important;
+        flex-direction: column;
+        flex: 1 1 auto;
+        width: 100%;
+        min-width: 0;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
     }
 
     [data-home-fee-carousel] .home-ordinance__card {
@@ -1776,16 +1873,20 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
 
     [data-home-fee-carousel] [data-fee-track] {
         display: grid;
+        grid-template-columns: minmax(268px, 0.78fr) minmax(0, 1.11fr) minmax(0, 1.11fr);
+        gap: 18px 20px;
         width: 100% !important;
         max-width: 100%;
         transform: none !important;
         transition: none !important;
+        align-items: start;
     }
 
     [data-home-fee-carousel] .home-ordinance__card--section-28,
     [data-home-fee-carousel] .home-ordinance__card--section-29 {
         width: auto !important;
         flex: initial !important;
+        min-width: 0;
     }
 }
 
@@ -1842,7 +1943,7 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
 
 @media (min-width: 820px) and (max-width: 1040.98px) {
     .home-ordinance__grid {
-        grid-template-columns: minmax(226px, 0.62fr) minmax(0, 1.38fr);
+        grid-template-columns: minmax(220px, 0.58fr) minmax(0, 1.21fr) minmax(0, 1.21fr);
     }
 
     .home-ordinance__list--split {
@@ -2120,6 +2221,16 @@ body.home-map-expanded .home-city-vet.home-reveal,
 body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     transform: none !important;
     opacity: 1 !important;
+}
+
+.home-city-vet__map-heading {
+    margin: 0;
+    padding: clamp(14px, 2.5vw, 20px) clamp(16px, 3vw, 24px) clamp(8px, 1.2vw, 12px);
+    font-size: clamp(1.02rem, 2.5vw, 1.2rem);
+    font-weight: 700;
+    line-height: 1.3;
+    color: rgba(245, 248, 246, 0.96);
+    letter-spacing: 0.01em;
 }
 
 .home-city-vet {
@@ -3331,6 +3442,17 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     box-shadow: var(--home-action-secondary-shadow);
     text-shadow: none;
     transition: transform 0.22s var(--home-ease-standard), box-shadow 0.22s ease, background-color 0.22s ease, border-color 0.22s ease;
+}
+
+.home-pinned-spotlights__btn i {
+    font-size: clamp(0.85rem, 2.2vw, 1rem);
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.home-pinned-spotlights__btn--share > i,
+.home-pinned-spotlights__btn--details > i {
+    font-size: clamp(1.05rem, 3vw, 1.2rem);
 }
 
 .home-pinned-spotlights__btn span {
@@ -4998,7 +5120,7 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     padding: 5px 0;
     border: 0;
     border-radius: 0;
-    border-bottom: 1px solid rgba(251, 182, 206, 0.65);
+    border-bottom: 1px solid var(--view-info-divider);
     background: transparent;
     box-shadow: none;
     backdrop-filter: none;
@@ -5014,7 +5136,7 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
 .dog-scale-carousel__facts--finder span {
     display: block;
     margin-bottom: 0;
-    color: #be185d;
+    color: var(--view-info-primary);
     font-size: 0.52rem;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -5023,7 +5145,7 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
 
 .dog-scale-carousel__facts--finder strong {
     display: block;
-    color: #831843;
+    color: var(--view-info-primary-dark);
     font-size: 0.7rem;
     font-weight: 800;
     line-height: 1.3;
@@ -5145,6 +5267,17 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     background: linear-gradient(180deg, #6aa5ff 0%, #4a80e3 100%);
 }
 
+.dog-scale-carousel__btn--share {
+    gap: 0.35rem;
+}
+
+.dog-scale-carousel__share-icon {
+    font-size: 1.05rem;
+    line-height: 1;
+    flex-shrink: 0;
+    opacity: 0.95;
+}
+
 .dog-scale-carousel__detail-toggle {
     gap: 0.35rem;
     border-color: #4b83e2;
@@ -5183,9 +5316,9 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     padding: 0;
     border-radius: 0;
     border: 0;
-    background-color: #fff5f8;
+    background-color: var(--view-info-bg);
     background-image:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 241, 246, 0.97) 48%, rgba(252, 231, 243, 0.98) 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(230, 240, 255, 0.94) 45%, rgba(230, 240, 255, 0.99) 100%),
         url("../images/paw-pattern-soft.svg");
     background-repeat: no-repeat, repeat;
     background-size: auto, 112px 112px;
@@ -5244,7 +5377,7 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
 .dog-scale-carousel__details-paw {
     display: block;
     opacity: 0.88;
-    filter: drop-shadow(0 2px 4px rgba(190, 24, 93, 0.12));
+    filter: drop-shadow(0 2px 4px var(--view-info-shadow));
 }
 
 .dog-scale-carousel__details-paw--mirror {
@@ -5256,7 +5389,7 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     max-width: 120px;
     height: 2px;
     border-radius: 999px;
-    background: linear-gradient(90deg, transparent, rgba(244, 114, 182, 0.55), transparent);
+    background: linear-gradient(90deg, transparent, var(--view-info-border-strong), transparent);
 }
 
 .dog-scale-carousel__details-card {
@@ -5299,7 +5432,7 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     overflow-y: auto;
     padding-right: 14px;
     scrollbar-width: thin;
-    scrollbar-color: rgba(160, 122, 144, 0.42) rgba(255, 245, 248, 0.18);
+    scrollbar-color: rgba(30, 136, 229, 0.45) rgba(230, 240, 255, 0.5);
     scrollbar-gutter: stable both-edges;
 }
 
@@ -5308,20 +5441,20 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
 }
 
 .spotlight-carousel__slide .dog-scale-carousel__details-card::-webkit-scrollbar-track {
-    background: rgba(255, 245, 248, 0.16);
+    background: rgba(230, 240, 255, 0.35);
     border-radius: 999px;
 }
 
 .spotlight-carousel__slide .dog-scale-carousel__details-card::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, rgba(214, 180, 196, 0.58) 0%, rgba(185, 137, 160, 0.48) 100%);
+    background: linear-gradient(180deg, rgba(100, 181, 246, 0.65) 0%, rgba(30, 136, 229, 0.55) 100%);
     border-radius: 999px;
-    border: 2px solid rgba(255, 245, 248, 0.88);
+    border: 2px solid rgba(255, 255, 255, 0.88);
     background-clip: padding-box;
 }
 
 .spotlight-carousel__slide .dog-scale-carousel__details-card::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, rgba(202, 159, 180, 0.72) 0%, rgba(165, 109, 138, 0.64) 100%);
-    border-color: rgba(255, 245, 248, 0.94);
+    background: linear-gradient(180deg, rgba(66, 165, 245, 0.85) 0%, rgba(21, 101, 192, 0.75) 100%);
+    border-color: rgba(255, 255, 255, 0.94);
 }
 
 .dog-scale-carousel__details-head {
@@ -5338,11 +5471,11 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
 }
 
 .dog-scale-carousel__details .dog-scale-carousel__copy h3 {
-    color: #831843;
+    color: var(--view-info-primary-dark);
 }
 
 .dog-scale-carousel__details .dog-scale-carousel__copy p {
-    color: #9d174d;
+    color: var(--view-info-primary-ink);
 }
 
 .dog-scale-carousel__chips--details {
@@ -5352,9 +5485,9 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
 }
 
 .dog-scale-carousel__chips--details .dog-scale-carousel__chip {
-    border-color: rgba(244, 114, 182, 0.45);
-    background: rgba(255, 255, 255, 0.82);
-    color: #831843;
+    border-color: var(--view-info-border-soft);
+    background: rgba(255, 255, 255, 0.88);
+    color: var(--view-info-primary-ink);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
@@ -5367,26 +5500,26 @@ body.home-map-expanded .home-city-vet.home-reveal.is-visible {
     width: 40px;
     height: 40px;
     flex: 0 0 auto;
-    border: 1px solid rgba(244, 114, 182, 0.55);
+    border: 1px solid var(--view-info-border-medium);
     border-radius: 14px;
-    background: linear-gradient(180deg, #fff5f8 0%, #fce7f3 100%);
-    color: #9d174d;
+    background: linear-gradient(180deg, #ffffff 0%, var(--view-info-bg) 100%);
+    color: var(--view-info-primary-dark);
     font-size: 1.4rem;
     line-height: 1;
     cursor: pointer;
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.85),
-        0 10px 20px rgba(190, 24, 93, 0.1);
+        0 10px 20px var(--view-info-shadow);
     transition: background-color 0.24s ease, border-color 0.24s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.24s ease;
 }
 
 .dog-scale-carousel__detail-close:hover,
 .dog-scale-carousel__detail-close:focus-visible {
-    background: linear-gradient(180deg, #ffffff 0%, #fce7f3 100%);
-    border-color: rgba(219, 39, 119, 0.65);
+    background: linear-gradient(180deg, #ffffff 0%, #dbeafe 100%);
+    border-color: var(--view-info-primary);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.92),
-        0 12px 22px rgba(190, 24, 93, 0.14);
+        0 12px 22px var(--view-info-shadow-deep);
     transform: translateY(-1px);
 }
 

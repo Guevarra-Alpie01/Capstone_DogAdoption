@@ -776,6 +776,18 @@
         max-width: none;
         justify-content: space-between;
     }
+
+    /* v2 compact subnav: keep Pinned / Main Feed / Dog Info in one horizontal row */
+    .user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
+        flex-direction: row !important;
+    }
+
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact {
+        width: auto;
+        justify-content: center;
+    }
 }
 
 @media (max-width: 420px) {
@@ -2897,12 +2909,38 @@ body.user-ann-popup-open {
     color: #ffffff !important;
 }
 
-/* Small phones: readable labels, no ellipsis, tappable targets; scroll if one row can’t fit. */
+/* Small screens: Pinned, Main Feed, Dog Info in one row; icon + label horizontal in each pill */
+@media (max-width: 767.98px) {
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact
+        .user-ann-subnav__inner {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        min-width: 0;
+        text-align: left;
+    }
+
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact
+        .user-ann-subnav__label {
+        text-align: left;
+        line-height: 1.2;
+    }
+}
+
+/* Narrow phones: flex row of three equal segments; scroll only if viewport is extremely tight */
 @media (max-width: 639.98px) {
     .user-ann-v2 .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs] {
         display: flex;
+        flex-direction: row;
         flex-wrap: nowrap;
-        justify-content: flex-start;
+        justify-content: stretch;
         align-items: stretch;
         gap: 6px;
         width: 100%;
@@ -2931,15 +2969,15 @@ body.user-ann-popup-open {
     .user-ann-v2
         .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
         > .user-ann-mobile-tab.announcement-mobile-tab--compact {
-        flex: 0 0 auto;
+        flex: 1 1 0;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-width: min(100%, 7.5rem);
+        min-width: 0;
         min-height: 44px;
         width: auto;
         max-width: none;
-        padding: 6px 10px !important;
+        padding: 6px 8px !important;
         gap: 6px !important;
         border-radius: 12px !important;
         font-size: inherit !important;
@@ -2948,33 +2986,25 @@ body.user-ann-popup-open {
         touch-action: manipulation;
     }
 
-    .user-ann-v2 .user-ann-subnav__inner {
-        flex-direction: column;
-        flex-wrap: nowrap;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-        width: 100%;
-        min-width: 0;
-        text-align: center;
-    }
-
-    .user-ann-v2 .user-ann-subnav__label {
-        font-size: 0.875rem !important;
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact
+        .user-ann-subnav__label {
+        font-size: 0.75rem !important;
         font-weight: 600;
-        letter-spacing: 0.01em;
+        letter-spacing: 0.02em;
         text-transform: none;
-        line-height: 1.25;
-        text-align: center;
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: unset !important;
-        word-break: break-word;
-        hyphens: auto;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    .user-ann-v2 .user-ann-bi {
-        font-size: 1rem;
+    .user-ann-v2
+        .user-ann-mobile-tabs.announcement-mobile-tabs--compact-stack[data-user-mobile-announcement-tabs]
+        > .user-ann-mobile-tab.announcement-mobile-tab--compact
+        .user-ann-bi {
+        font-size: 0.95rem;
+        flex-shrink: 0;
     }
 }
 

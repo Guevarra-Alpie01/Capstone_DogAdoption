@@ -25,7 +25,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260426finder-requests-ui">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260426finder-requests-panel-close">
 {% endblock %}
 
 {% block content %}
@@ -181,29 +181,35 @@
                                     </span>
                                 </summary>
                                 <div class="finder-request-menu__panel finder-request-menu__panel--vertical finder-request-menu__panel--list">
-                                    {% for link in request_links %}
-                                    <div class="finder-request-menu__row">
+                                    <div class="finder-request-menu__panel-head">
+                                        <button
+                                            type="button"
+                                            class="finder-request-menu__panel-close"
+                                            data-finder-request-menu-close
+                                            aria-label="Close requests menu"
+                                        >
+                                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                    <div class="finder-request-menu__panel-body" role="menu">
+                                        {% for link in request_links %}
                                         <a
                                             href="{{ link.url }}"
-                                            class="finder-request-menu__option"
+                                            class="finder-request-menu__option finder-request-menu__option--link"
+                                            role="menuitem"
                                             {% if not request.user.is_authenticated %}
                                             data-auth-modal-trigger="login"
                                             data-auth-next-url="{{ link.url }}"
                                             {% endif %}
                                         >
-                                            <i class="{{ link.icon_class }} finder-request-menu__option-icon" aria-hidden="true"></i>
+                                            <span class="finder-request-menu__option-leading" aria-hidden="true">
+                                                <i class="{{ link.icon_class }} finder-request-menu__option-icon"></i>
+                                            </span>
                                             <span class="finder-request-menu__option-label">{{ link.label }}</span>
+                                            <i class="bi bi-chevron-right finder-request-menu__option-chevron" aria-hidden="true"></i>
                                         </a>
-                                        <button
-                                            type="button"
-                                            class="finder-request-menu__row-dismiss"
-                                            data-finder-request-menu-close
-                                            aria-label="Close menu"
-                                        >
-                                            <span class="finder-request-menu__row-dismiss-x" aria-hidden="true">×</span>
-                                        </button>
+                                        {% endfor %}
                                     </div>
-                                    {% endfor %}
                                 </div>
                             </details>
                         </div>

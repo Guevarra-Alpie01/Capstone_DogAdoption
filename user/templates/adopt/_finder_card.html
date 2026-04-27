@@ -1,10 +1,16 @@
 {% load static %}
-<article id="finder-highlight-staff-{{ item.post.id }}" class="finder-card{% if featured %} is-featured{% endif %}" data-finder-highlight-root="staff">
+<article id="finder-highlight-staff-{{ item.post.id }}" class="finder-card{% if featured %} is-featured{% endif %}{% if item.is_share_highlight %} finder-card--shared-highlight{% endif %}" data-finder-highlight-root="staff">
     <div class="finder-card__media{% if request.user.is_authenticated %}{% if item.phase == 'claim' %}{% if not item.show_claim_cta or not item.show_reserve_adoption_cta %} finder-card__media--has-reminder{% endif %}{% elif item.phase == 'adopt' and not item.show_adopt_cta %} finder-card__media--has-reminder{% endif %}{% endif %}">
         {% if item.main_image_url %}
+        {% if item.is_share_highlight %}
+        <div class="finder-card__media-link finder-card__media-link--highlight-static">
+            <img src="{{ item.main_image_url }}" width="320" height="320" alt="{{ item.breed_label|default:item.title|default:'Dog image' }}">
+        </div>
+        {% else %}
         <a href="{{ item.main_image_url }}" class="finder-card__media-link js-finder-zoom" data-full-src="{{ item.main_image_url }}" data-full-alt="{{ item.breed_label|default:item.title|default:'Dog image' }}" aria-label="View full image">
             <img src="{{ item.main_image_url }}" width="320" height="320" alt="{{ item.breed_label|default:item.title|default:'Dog image' }}">
         </a>
+        {% endif %}
         {% else %}
         <div class="finder-card__placeholder" aria-hidden="true">
             <span>{{ item.breed_label|default:item.title|default:'Dog'|slice:':1'|upper }}</span>

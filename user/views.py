@@ -2611,6 +2611,16 @@ def _build_public_post_listing(request, listing_mode):
     unified_page_obj = unified_paginator.get_page(request.GET.get("page", 1))
     page_pairs = list(unified_page_obj.object_list)
     finder_unified_rows = [{"kind": k, "item": item} for k, item in page_pairs]
+    hl_kind, hl_id = _parse_finder_highlight(request.GET.get("highlight"))
+    for row in finder_unified_rows:
+        item = row["item"]
+        is_hl = False
+        if hl_kind and hl_id:
+            if row["kind"] == "staff" and hl_kind == "staff" and item["post"].id == hl_id:
+                is_hl = True
+            elif row["kind"] == "user" and hl_kind == "user" and item["post_id"] == hl_id:
+                is_hl = True
+        item["is_share_highlight"] = is_hl
     posts = [item for k, item in page_pairs if k == "staff"]
     claim_posts = [
         item for k, item in page_pairs if k == "staff" and item["phase"] == "claim"

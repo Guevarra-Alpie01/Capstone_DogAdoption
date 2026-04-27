@@ -1010,7 +1010,11 @@
         document.body.classList.remove('lightbox-open');
     }
 
+    /* Highlighted share-link cards (.finder-card--shared-highlight): no image zoom / lightbox listener */
     zoomTriggers.forEach((trigger) => {
+        if (trigger.closest('.finder-card--shared-highlight')) {
+            return;
+        }
         trigger.addEventListener('click', (event) => {
             event.preventDefault();
             openLightbox(
@@ -1244,7 +1248,6 @@
         if (!el) {
             return;
         }
-        el.classList.add("finder-card--shared-highlight");
         el.scrollIntoView({ behavior: "smooth", block: "center" });
     });
 })();

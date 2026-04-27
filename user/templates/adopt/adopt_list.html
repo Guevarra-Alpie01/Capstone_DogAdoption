@@ -25,7 +25,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260426view-info-blue">
+<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260426finder-requests-ui">
 {% endblock %}
 
 {% block content %}
@@ -43,12 +43,12 @@
             <div class="modal-content post-create-shell finder-post-modal__content">
                 <div class="modal-header finder-post-modal__header">
                     <div class="finder-post-modal__copy">
-                        <span class="post-create-intro-icon finder-post-modal__eyebrow" aria-hidden="true">
-                            <i class="bi bi-megaphone"></i>
+                        <span class="finder-post-modal__eyebrow" aria-hidden="true">
+                            <i class="bi bi-file-earmark-plus"></i>
                         </span>
                         <div class="finder-post-modal__title-block">
                             <h5 class="modal-title" id="finderPostModalLabel">Create Dog Post</h5>
-                            <p>The form below matches the post type you selected.</p>
+                            <p>Fields update based on the post type you chose.</p>
                         </div>
                     </div>
                 </div>
@@ -61,16 +61,16 @@
 
                         <div id="finderAdoptionFields" class="post-type-panel adoption-panel" {% if selected_type != "adoption" %}hidden{% endif %}>
                             <p class="post-section-title">
-                                <i class="bi bi-heart-fill"></i>
-                                <span>Adoption Details</span>
+                                <i class="bi bi-house-heart" aria-hidden="true"></i>
+                                <span>Adoption</span>
                             </p>
                             {% include "home/_adoption_post_fields.html" with adoption_submit_class="btn btn-success post-submit-btn app-btn-fit app-btn-mobile-full" adoption_submit_icon="bi bi-send-check" adoption_submit_label="Publish Adoption Post" %}
                         </div>
 
                         <div id="finderMissingFields" class="post-type-panel missing-panel" {% if selected_type != "missing" %}hidden{% endif %}>
                             <p class="post-section-title">
-                                <i class="bi bi-geo-alt-fill"></i>
-                                <span>Missing Dog Details</span>
+                                <i class="bi bi-pin-map" aria-hidden="true"></i>
+                                <span>Missing dog</span>
                             </p>
                             {% include "home/_missing_post_fields.html" with missing_submit_class="btn btn-danger post-submit-btn app-btn-fit app-btn-mobile-full" missing_submit_icon="bi bi-broadcast-pin" missing_submit_label="Submit Missing Report" %}
                         </div>
@@ -120,7 +120,7 @@
                                 aria-label="Post a dog"
                             >
                                 <span class="finder-post-trigger__icon" aria-hidden="true">
-                                    <i class="bi bi-pen"></i>
+                                    <i class="bi bi-plus-lg"></i>
                                 </span>
                                 <span class="finder-post-trigger__copy">
                                     <span class="finder-post-trigger__label">Create Post</span>
@@ -130,26 +130,24 @@
                                 </span>
                             </button>
 
-                            <div class="finder-post-menu finder-post-menu--vertical" id="finderPostTypeMenu" data-finder-post-menu-panel hidden>
+                            <div class="finder-post-menu finder-post-menu--vertical finder-post-menu--minimal" id="finderPostTypeMenu" data-finder-post-menu-panel hidden>
                                 <button type="button" class="finder-post-menu__option finder-post-menu__option--adoption" data-finder-post-choice="adoption">
                                     <span class="finder-post-menu__option-icon" aria-hidden="true">
-                                        <i class="bi bi-plus-circle-fill"></i>
+                                        <i class="bi bi-house-heart"></i>
                                     </span>
                                     <span class="finder-post-menu__option-copy">
-                                        <strong>For Adoption</strong>
-                                        <small>Post a dog for adoption</small>
+                                        <strong>Adoption</strong>
+                                        <small>List a dog for adoption</small>
                                     </span>
-                                    <i class="bi bi-chevron-right finder-post-menu__option-arrow" aria-hidden="true"></i>
                                 </button>
                                 <button type="button" class="finder-post-menu__option finder-post-menu__option--missing" data-finder-post-choice="missing">
                                     <span class="finder-post-menu__option-icon" aria-hidden="true">
-                                        <i class="bi bi-megaphone-fill"></i>
+                                        <i class="bi bi-pin-map"></i>
                                     </span>
                                     <span class="finder-post-menu__option-copy">
-                                        <strong>Missing Dog</strong>
-                                        <small>Report a lost dog</small>
+                                        <strong>Missing dog</strong>
+                                        <small>Report a lost pet</small>
                                     </span>
-                                    <i class="bi bi-chevron-right finder-post-menu__option-arrow" aria-hidden="true"></i>
                                 </button>
                             </div>
                         </div>
@@ -162,7 +160,7 @@
                             aria-label="Post a dog"
                         >
                             <span class="finder-post-trigger__icon" aria-hidden="true">
-                                <i class="bi bi-pen"></i>
+                                <i class="bi bi-plus-lg"></i>
                             </span>
                             <span class="finder-post-trigger__copy">
                                 <span class="finder-post-trigger__label">Create Post</span>
@@ -182,20 +180,29 @@
                                         <i class="bi bi-chevron-down"></i>
                                     </span>
                                 </summary>
-                                <div class="finder-request-menu__panel finder-request-menu__panel--vertical">
+                                <div class="finder-request-menu__panel finder-request-menu__panel--vertical finder-request-menu__panel--list">
                                     {% for link in request_links %}
-                                    <a
-                                        href="{{ link.url }}"
-                                        class="finder-request-menu__option"
-                                        {% if not request.user.is_authenticated %}
-                                        data-auth-modal-trigger="login"
-                                        data-auth-next-url="{{ link.url }}"
-                                        {% endif %}
-                                    >
-                                        <i class="{{ link.icon_class }} finder-request-menu__option-icon" aria-hidden="true"></i>
-                                        <span class="finder-request-menu__option-label">{{ link.label }}</span>
-                                        <i class="bi bi-chevron-right finder-request-menu__option-arrow" aria-hidden="true"></i>
-                                    </a>
+                                    <div class="finder-request-menu__row">
+                                        <a
+                                            href="{{ link.url }}"
+                                            class="finder-request-menu__option"
+                                            {% if not request.user.is_authenticated %}
+                                            data-auth-modal-trigger="login"
+                                            data-auth-next-url="{{ link.url }}"
+                                            {% endif %}
+                                        >
+                                            <i class="{{ link.icon_class }} finder-request-menu__option-icon" aria-hidden="true"></i>
+                                            <span class="finder-request-menu__option-label">{{ link.label }}</span>
+                                        </a>
+                                        <button
+                                            type="button"
+                                            class="finder-request-menu__row-dismiss"
+                                            data-finder-request-menu-close
+                                            aria-label="Close menu"
+                                        >
+                                            <span class="finder-request-menu__row-dismiss-x" aria-hidden="true">×</span>
+                                        </button>
+                                    </div>
                                     {% endfor %}
                                 </div>
                             </details>
@@ -789,6 +796,17 @@
             closePurposeMenu();
             closePostMenu();
         }
+    });
+
+    document.querySelectorAll('[data-finder-request-menu-close]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const menu = btn.closest('[data-finder-request-menu]');
+            if (menu) {
+                menu.open = false;
+            }
+        });
     });
 
     filterToggleButtons.forEach((button) => {

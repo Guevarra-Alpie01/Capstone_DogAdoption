@@ -2685,28 +2685,28 @@ def _build_public_post_listing(request, listing_mode):
         "request_links": [
             {
                 "url": reverse("user:my_redemptions"),
-                "label": "My Redemption Requests",
-                "icon_class": "bi bi-shield",
+                "label": "Redemptions",
+                "icon_class": "bi bi-shield-check",
             },
             {
                 "url": reverse("user:adopt_status"),
-                "label": "My Adoption Requests",
-                "icon_class": "bi bi-house-door",
+                "label": "Adoption requests",
+                "icon_class": "bi bi-house-heart",
             },
             {
                 "url": reverse("user:user_adoption_requests"),
-                "label": "Incoming Adoption Requests",
-                "icon_class": "bi bi-envelope-paper",
+                "label": "Incoming",
+                "icon_class": "bi bi-inbox",
             },
             {
                 "url": reverse("user:adoption_history"),
-                "label": "Adoption History",
-                "icon_class": "bi bi-journal-text",
+                "label": "History",
+                "icon_class": "bi bi-clock-history",
             },
             {
                 "url": reverse("user:my_post_approvals"),
-                "label": "My Post Approvals",
-                "icon_class": "bi bi-file-earmark-check",
+                "label": "Approvals",
+                "icon_class": "bi bi-patch-check",
             },
         ],
     }

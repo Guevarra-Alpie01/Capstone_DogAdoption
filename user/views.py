@@ -1044,7 +1044,7 @@ def _build_profile_adopted_post_rows(profile_user, recent_post_limit):
             requester=profile_user,
             status="approved",
         )
-        .select_related("post", "post__owner")
+        .select_related("post", "post__owner", "post__owner__profile")
         .prefetch_related(
             Prefetch(
                 "post__images",
@@ -2552,7 +2552,7 @@ def _build_public_post_listing(request, listing_mode):
     user_adoption_qs = (
         UserAdoptionPost.objects
         .filter(status="available")
-        .select_related("owner")
+        .select_related("owner", "owner__profile")
         .prefetch_related(
             Prefetch(
                 "images",
@@ -3358,7 +3358,19 @@ def _handle_confirm_request(
     success_message,
 ):
     """Handle request confirmation flows for claim and adoption actions."""
-    post = get_object_or_404(Post.objects.filter(is_history=False), id=post_id)
+    post = get_object_or_404(
+        Post.with_pending_request_state(
+            Post.objects.filter(is_history=False)
+            .select_related("user", "user__profile")
+            .prefetch_related(
+                Prefetch(
+                    "images",
+                    queryset=PostImage.objects.only("id", "post_id", "image").order_by("id"),
+                )
+            )
+        ),
+        id=post_id,
+    )
     not_open_message = _resolve_request_message(not_open_message, post)
     duplicate_message = _resolve_request_message(duplicate_message, post)
     success_message = _resolve_request_message(success_message, post)
@@ -3422,10 +3434,24 @@ def _handle_confirm_request(
 
 
 def _user_post_requests(user, request_type):
-    return PostRequest.objects.filter(
-        user=user,
-        request_type=request_type,
-    ).select_related("post").order_by("-created_at")
+    return (
+        PostRequest.objects.filter(
+            user=user,
+            request_type=request_type,
+        )
+        .select_related("post", "post__user", "post__user__profile")
+        .prefetch_related(
+            Prefetch(
+                "post__images",
+                queryset=PostImage.objects.only("id", "post_id", "image").order_by("id"),
+            ),
+            Prefetch(
+                "images",
+                queryset=ClaimImage.objects.only("id", "claim_id", "image").order_by("id"),
+            ),
+        )
+        .order_by("-created_at")
+    )
 
 
 FEED_CACHE_TTL_SECONDS = 90
@@ -3442,6 +3468,7 @@ FEED_USER_SAMPLE_LIMIT = FEED_USER_CANDIDATE_LIMIT
 FEED_MISSING_SAMPLE_LIMIT = FEED_MISSING_CANDIDATE_LIMIT
 SEARCH_RESULTS_PER_PAGE = 12
 SEARCH_CANDIDATE_LIMIT = 240
+ADOPTION_HISTORY_PER_PAGE = 12
 SEARCH_CACHE_TTL_SECONDS = 90
 SEARCH_MAX_QUERY_LENGTH = 80
 PUBLIC_ANNOUNCEMENT_PAGE_SIZE = 12
@@ -4435,7 +4462,7 @@ def _build_user_home_context(
     home_missing_posts = list(
         MissingDogPost.objects
         .filter(status="missing")
-        .select_related("owner")
+        .select_related("owner", "owner__profile")
         .order_by("-created_at")[:10]
     )
 
@@ -4630,7 +4657,10 @@ def user_adoption_post_detail(request, post_id):
 @user_only
 def adopt_user_post(request, post_id):
     """Submit an adoption request for a user-created adoption post."""
-    post = get_object_or_404(UserAdoptionPost, id=post_id)
+    post = get_object_or_404(
+        UserAdoptionPost.objects.select_related("owner", "owner__profile"),
+        id=post_id,
+    )
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
     if post.owner == request.user:
@@ -4694,7 +4724,7 @@ def user_adoption_requests(request):
 def user_adoption_request_action(request, req_id, action):
     """Accept or decline an incoming request on a user-created adoption post."""
     req = get_object_or_404(
-        UserAdoptionRequest,
+        UserAdoptionRequest.objects.select_related("post", "post__owner", "requester", "requester__profile"),
         id=req_id,
         post__owner=request.user
     )
@@ -4749,7 +4779,14 @@ def post_detail(request, post_id):
     """Render a post detail page used by shared or linked home posts."""
     post = get_object_or_404(
         Post.with_pending_request_state(
-            Post.objects.filter(is_history=False).prefetch_related("images")
+            Post.objects.filter(is_history=False)
+            .select_related("user", "user__profile")
+            .prefetch_related(
+                Prefetch(
+                    "images",
+                    queryset=PostImage.objects.only("id", "post_id", "image").order_by("id"),
+                )
+            )
         ),
         id=post_id,
     )
@@ -5454,7 +5491,7 @@ def adopt_status(request):
     staff_requests_base_qs = _user_post_requests(request.user, "adopt")
     user_requests_base_qs = UserAdoptionRequest.objects.filter(
         requester=request.user,
-    ).select_related("post", "post__owner").order_by("-created_at")
+    ).select_related("post", "post__owner", "post__owner__profile").order_by("-created_at")
 
     staff_summary = _request_status_summary_from_qs(
         staff_requests_base_qs,
@@ -5838,19 +5875,30 @@ def redeem_confirm(request, post_id):
 
 def user_adoption_history(request):
     """Render a community-wide history of successful user-to-user adoptions."""
-    history = (
+    history_qs = (
         UserAdoptionRequest.objects.filter(status="approved")
-        .select_related("post", "requester", "post__owner")
-        .prefetch_related("post__images")
+        .select_related(
+            "post",
+            "post__owner",
+            "post__owner__profile",
+            "requester",
+            "requester__profile",
+        )
+        .prefetch_related(
+            Prefetch(
+                "post__images",
+                queryset=UserAdoptionImage.objects.only("id", "post_id", "image").order_by("id"),
+            )
+        )
         .order_by("-created_at")
     )
-    
+    page_obj = Paginator(history_qs, ADOPTION_HISTORY_PER_PAGE).get_page(request.GET.get("page", 1))
     context = {
-        'history': history,
-        'page_title': 'Adoption History',
-        'active_nav': 'adopt',
+        "page_obj": page_obj,
+        "page_title": "Adoption History",
+        "active_nav": "adopt",
     }
-    return render(request, 'adopt/adoption_history.html', context)
+    return render(request, "adopt/adoption_history.html", context)
 
 
 def missing_dogs_list(request):
@@ -5858,7 +5906,7 @@ def missing_dogs_list(request):
     # select_related('owner') + prefetch extra photos (modal gallery) without N+1.
     qs = (
         MissingDogPost.objects.filter(status__in=['missing', 'found'])
-        .select_related('owner')
+        .select_related("owner", "owner__profile")
         .prefetch_related('photos')
     )
 

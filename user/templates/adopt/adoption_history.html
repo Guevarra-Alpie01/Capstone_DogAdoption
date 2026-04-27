@@ -4,7 +4,7 @@
 {% block page_title %}Adoption History | Bayawan Vet{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adoption_history.css' %}?v=20260426history-escape-offset">
+<link rel="stylesheet" href="{% static 'css/adoption_history.css' %}?v=20260427history-pagination">
 {% endblock %}
 
 {% block content %}
@@ -25,9 +25,9 @@
         <p class="history-subtitle">Successful adoptions in the community.</p>
     </header>
 
-    {% if history %}
+    {% if page_obj.paginator.count %}
     <div class="history-list">
-        {% for entry in history %}
+        {% for entry in page_obj %}
         <article class="history-card">
             <div class="history-card__media">
                 {% if entry.post.images.first %}
@@ -114,6 +114,23 @@
         </article>
         {% endfor %}
     </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="history-pagination" aria-label="Adoption history pages">
+        {% if page_obj.has_previous %}
+        <a
+            class="history-pagination__link"
+            href="?page={{ page_obj.previous_page_number }}"
+        >Previous</a>
+        {% endif %}
+        <span class="history-pagination__status">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a
+            class="history-pagination__link"
+            href="?page={{ page_obj.next_page_number }}"
+        >Next</a>
+        {% endif %}
+    </nav>
+    {% endif %}
     {% else %}
     <div class="history-empty">
         <i class="bi bi-journal-text history-empty-icon" aria-hidden="true"></i>

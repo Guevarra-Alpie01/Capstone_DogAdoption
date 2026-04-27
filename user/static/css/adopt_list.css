@@ -636,9 +636,9 @@
 
     }
 
-    /* Create Post row: clear left edge + notch on phones */
+    /* Horizontal inset comes from .finder-filter-shell__head on small screens */
     .finder-hero--toolstrip .finder-hero__copy {
-        padding-left: max(16px, env(safe-area-inset-left, 0px));
+        padding-left: 0;
     }
 
     .finder-post-menu,
@@ -1258,21 +1258,6 @@
     padding-inline: 0;
     width: 100%;
     max-width: 100%;
-}
-
-@media (max-width: 767.98px) {
-    .finder-filter-shell__head {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .finder-hero--toolstrip {
-        order: 1;
-    }
-
-    .finder-filter-shell__actions {
-        order: 2;
-    }
 }
 
 .finder-filter-shell__actions {
@@ -4161,6 +4146,33 @@ body.finder-filter-open .site-footer {
     .finder-filter-shell__head {
         width: 100%;
         margin-bottom: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+        gap: 12px;
+        padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+        box-sizing: border-box;
+    }
+
+    /* Create Post first, Show Filters second; same left edge as filter toggle */
+    .finder-hero--toolstrip {
+        order: 1;
+        align-self: stretch;
+        width: 100%;
+    }
+
+    .finder-hero--toolstrip .finder-hero__copy {
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .finder-filter-shell__actions {
+        order: 2;
+        width: 100%;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 10px;
     }
 
     .finder-post-launcher {
@@ -4208,13 +4220,6 @@ body.finder-filter-open .site-footer {
     .finder-card__footer {
         flex-direction: column;
         align-items: flex-start;
-    }
-
-    .finder-filter-shell__head {
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
     }
 
     .finder-card-grid,
@@ -4287,13 +4292,6 @@ body.finder-filter-open .site-footer {
     .post-submit-btn {
         width: 100%;
         max-width: none;
-    }
-
-    .finder-filter-shell__actions {
-        width: 100%;
-        justify-content: space-between;
-        align-items: center;
-        gap: 10px;
     }
 
     .finder-filter-toggle {

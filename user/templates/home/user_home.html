@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..800&family=Rye&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260426view-info-blue">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260427fee-carousel-viewport">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -616,7 +616,7 @@
             <article class="home-ordinance__card home-ordinance__card--section-28 home-reveal" style="--home-stagger: 0;">
                 <div class="home-ordinance__card-head">
                     <span class="home-ordinance__card-icon" aria-hidden="true">
-                        <i class="bi bi-receipt-cutoff"></i>
+                        <i class="bi bi-syringe"></i>
                     </span>
                     <div class="home-ordinance__card-copy">
                         <span class="home-ordinance__card-label">Section 28</span>
@@ -680,7 +680,7 @@
             <article class="home-ordinance__card home-ordinance__card--section-29 home-reveal" style="--home-stagger: 1;">
                 <div class="home-ordinance__card-head">
                     <span class="home-ordinance__card-icon" aria-hidden="true">
-                        <i class="bi bi-bank2"></i>
+                        <svg class="home-ordinance__card-icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 13-8.381 8.38a1 1 0 0 1-3.001-3l8.384-8.381M16 16l6-6m-.5.5-8-8M8 8l6-6M8.5 7.5l8 8"/></svg>
                     </span>
                     <div class="home-ordinance__card-copy">
                         <span class="home-ordinance__card-label">Section 29</span>
@@ -801,7 +801,7 @@
             <article class="home-ordinance__card home-ordinance__card--section-29 home-reveal" style="--home-stagger: 2;">
                 <div class="home-ordinance__card-head">
                     <span class="home-ordinance__card-icon" aria-hidden="true">
-                        <i class="bi bi-bank2"></i>
+                        <svg class="home-ordinance__card-icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 13-8.381 8.38a1 1 0 0 1-3.001-3l8.384-8.381M16 16l6-6m-.5.5-8-8M8 8l6-6M8.5 7.5l8 8"/></svg>
                     </span>
                     <div class="home-ordinance__card-copy">
                         <span class="home-ordinance__card-label">Section 29</span>
@@ -1118,6 +1118,44 @@
         const mq = window.matchMedia('(min-width: 1024px)');
         const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
         let idx = 0;
+        const viewport = track.closest('.home-ordinance__fee-carousel-viewport');
+        let slideResizeObserver = null;
+
+        const syncViewportToActiveSlide = () => {
+            if (!viewport) {
+                return;
+            }
+            if (mq.matches) {
+                viewport.style.height = '';
+                return;
+            }
+            const card = track.children[idx];
+            if (!card) {
+                return;
+            }
+            const h = Math.round(card.getBoundingClientRect().height);
+            if (h > 0) {
+                viewport.style.height = `${h}px`;
+            }
+        };
+
+        const attachSlideResizeObserver = () => {
+            if (typeof ResizeObserver === 'undefined' || mq.matches || !viewport) {
+                return;
+            }
+            if (slideResizeObserver) {
+                return;
+            }
+            slideResizeObserver = new ResizeObserver(() => {
+                if (mq.matches) {
+                    return;
+                }
+                window.requestAnimationFrame(syncViewportToActiveSlide);
+            });
+            Array.from(track.children).forEach((el) => {
+                slideResizeObserver.observe(el);
+            });
+        };
 
         const syncMarkers = () => {
             markers.forEach((btn, i) => {
@@ -1144,6 +1182,11 @@
                 if (markerRoot) {
                     markerRoot.setAttribute('hidden', '');
                 }
+                syncViewportToActiveSlide();
+                if (slideResizeObserver) {
+                    slideResizeObserver.disconnect();
+                    slideResizeObserver = null;
+                }
                 return;
             }
 
@@ -1162,6 +1205,10 @@
             prev.disabled = idx <= 0;
             next.disabled = idx >= 2;
             syncMarkers();
+            window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(syncViewportToActiveSlide);
+            });
+            attachSlideResizeObserver();
         };
 
         prev.addEventListener('click', () => {
@@ -1192,6 +1239,13 @@
             apply();
         });
         window.addEventListener('resize', apply);
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(() => {
+                if (!mq.matches) {
+                    syncViewportToActiveSlide();
+                }
+            });
+        }
 
         const root = track.closest('[data-home-fee-carousel]');
         if (root) {

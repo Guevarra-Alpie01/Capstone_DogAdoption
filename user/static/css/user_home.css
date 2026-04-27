@@ -1704,11 +1704,13 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev,
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next {
         position: absolute;
-        /* Center without transform (avoids :active / subpixel jump) */
-        top: calc(50% - 24px);
+        /* Vertically centered in viewport (height synced to active slide in JS) */
+        top: 50%;
         bottom: auto;
+        margin-top: -24px;
         z-index: 2;
-        margin: 0;
+        margin-inline: 0;
+        margin-bottom: 0;
         width: 44px;
         height: 48px;
         transform: none;
@@ -1740,7 +1742,8 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next:hover:not(:disabled),
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev:focus-visible:not(:disabled),
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next:focus-visible:not(:disabled) {
-        top: calc(50% - 24px);
+        top: 50%;
+        margin-top: -24px;
         transform: none;
         background: rgba(255, 244, 228, 0.62);
         border-color: rgba(181, 99, 38, 0.35);
@@ -1749,7 +1752,8 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
 
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--prev:active:not(:disabled),
     [data-home-fee-carousel] .home-ordinance__fee-carousel-btn--next:active:not(:disabled) {
-        top: calc(50% - 24px);
+        top: 50%;
+        margin-top: -24px;
         transform: none;
         background: rgba(255, 237, 214, 0.65);
         border-color: rgba(181, 99, 38, 0.38);
@@ -1783,11 +1787,26 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
         max-width: none;
     }
 
+    /* Section 29: cap card height; scroll penalties inside so arrows stay centered on the card */
+    [data-home-fee-carousel] .home-ordinance__card--section-29 {
+        display: flex;
+        flex-direction: column;
+        max-height: min(72vh, 640px);
+        min-height: 0;
+        overflow: hidden;
+    }
+
     [data-home-fee-carousel] .home-ordinance__card--section-29 .home-ordinance__list--cluster {
         display: flex !important;
         flex-direction: column;
+        flex: 1 1 auto;
         width: 100%;
         min-width: 0;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
     }
 
     [data-home-fee-carousel] .home-ordinance__card {

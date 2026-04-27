@@ -7,6 +7,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.views.decorators.http import require_POST, require_http_methods
+from django.views.decorators.cache import cache_page
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.models import User
@@ -442,16 +443,26 @@ def _render_signup_page(request, *, error="", signup_form_data=None, next_url=""
     )
 
 
+@cache_page(60 * 5)
 def privacy_policy(request):
-    """Render the public privacy policy page used by Meta review."""
+    """Render the public privacy policy page used by Meta review.
+
+    Response is cacheable: static legal HTML; ETag/Cache headers come from
+    :func:`cache_page` (per-process cache in dev; use shared cache in prod).
+    """
     return render(
         request,
         "legal/privacy_policy.html",
     )
 
 
+@cache_page(60 * 5)
 def data_deletion(request):
-    """Render the public data deletion instructions page used by Meta review."""
+    """Render the public data deletion instructions page used by Meta review.
+
+    Response is cacheable: placeholder legal content; bump template or reduce
+    ``timeout`` if you need edits to show sooner.
+    """
     return render(
         request,
         "legal/data_deletion.html",
@@ -3466,13 +3477,26 @@ FEED_ADMIN_SAMPLE_LIMIT = FEED_ADMIN_CANDIDATE_LIMIT
 FEED_ANNOUNCEMENT_SAMPLE_LIMIT = FEED_ANNOUNCEMENT_CANDIDATE_LIMIT
 FEED_USER_SAMPLE_LIMIT = FEED_USER_CANDIDATE_LIMIT
 FEED_MISSING_SAMPLE_LIMIT = FEED_MISSING_CANDIDATE_LIMIT
-SEARCH_RESULTS_PER_PAGE = 12
+# List pages: keep between 20–50 rows per page where possible.
+USER_APP_DEFAULT_LIST_PAGE_SIZE = 24
+USER_APP_SMALL_LIST_PAGE_SIZE = 20
+
+SEARCH_RESULTS_PER_PAGE = USER_APP_DEFAULT_LIST_PAGE_SIZE
 SEARCH_CANDIDATE_LIMIT = 240
-ADOPTION_HISTORY_PER_PAGE = 12
+ADOPTION_HISTORY_PER_PAGE = USER_APP_DEFAULT_LIST_PAGE_SIZE
 SEARCH_CACHE_TTL_SECONDS = 90
 SEARCH_MAX_QUERY_LENGTH = 80
-PUBLIC_ANNOUNCEMENT_PAGE_SIZE = 12
+PUBLIC_ANNOUNCEMENT_PAGE_SIZE = USER_APP_DEFAULT_LIST_PAGE_SIZE
 PUBLIC_ANNOUNCEMENT_SIDEBAR_LIMIT = 6
+ANNOUNCEMENT_BUCKET_COUNTS_CACHE_KEY = "user:announcement_bucket_counts:v1"
+ANNOUNCEMENT_BUCKET_COUNTS_CACHE_TTL_SECONDS = 30
+MISSING_DOG_LIST_PAGE_SIZE = USER_APP_DEFAULT_LIST_PAGE_SIZE
+SIGHTING_INBOX_PAGE_SIZE = USER_APP_SMALL_LIST_PAGE_SIZE
+MISSING_SIGHTING_VERIFIED_COUNT_CACHE_TTL = 20
+MISSING_SIGHTING_VERIFIED_COUNT_KEY = "user:missing_sighting_verified_count:{post_id}"
+MY_POST_APPROVALS_PAGE_SIZE = USER_APP_SMALL_LIST_PAGE_SIZE
+CLAIMS_PAGE_SIZE = USER_APP_SMALL_LIST_PAGE_SIZE
+ADOPT_STATUS_ITEMS_PER_PAGE = USER_APP_SMALL_LIST_PAGE_SIZE
 
 
 def _normalized_feed_query(raw_query):
@@ -4377,7 +4401,11 @@ def admin_view_user_profile(request, user_id):
     """Let staff preview a user profile using the same profile template."""
     if not request.user.is_staff:
         return redirect("user:login")
-    profile_user = get_object_or_404(User, pk=user_id, is_staff=False)
+    profile_user = get_object_or_404(
+        User.objects.select_related("profile"),
+        pk=user_id,
+        is_staff=False,
+    )
     return _render_profile_preview(request, profile_user)
 
 
@@ -4389,7 +4417,11 @@ def view_user_profile(request, user_id):
     if request.user.id == user_id:
         return redirect("user:edit_profile")
 
-    profile_user = get_object_or_404(User, pk=user_id, is_staff=False)
+    profile_user = get_object_or_404(
+        User.objects.select_related("profile"),
+        pk=user_id,
+        is_staff=False,
+    )
     back_url = _safe_preview_back_url(request, request.GET.get("next", ""))
     back_label = (request.GET.get("label") or "Back").strip()[:48] or "Back"
     return _render_profile_preview(
@@ -4407,7 +4439,9 @@ def view_requester_profile(request, user_id):
         User.objects.filter(
             is_staff=False,
             adoption_requests__post__owner=request.user,
-        ).distinct(),
+        )
+        .select_related("profile")
+        .distinct(),
         pk=user_id,
     )
     return _render_profile_preview(
@@ -5506,7 +5540,7 @@ def adopt_status(request):
 
     show_staff_requests = source_type in {"all", "staff"}
     show_user_requests = source_type in {"all", "user"}
-    items_per_page = 8 if source_type == "all" else 16
+    items_per_page = ADOPT_STATUS_ITEMS_PER_PAGE
 
     if source_type == "staff":
         summary = staff_summary
@@ -5574,7 +5608,9 @@ def my_post_approvals(request):
     else:
         filtered = [row for row in all_entries if row["bucket"] == status_filter]
 
-    page_obj = Paginator(filtered, 10).get_page(request.GET.get("page", 1))
+    page_obj = Paginator(filtered, MY_POST_APPROVALS_PAGE_SIZE).get_page(
+        request.GET.get("page", 1)
+    )
     return render(request, "adopt/my_post_approvals.html", {
         "submissions": list(page_obj.object_list),
         "summary": summary,
@@ -5620,6 +5656,25 @@ def adopt_confirm(request, post_id):
 # =============================================================================
 
 
+def _announcement_bucket_counts_map():
+    """Cached aggregate counts by display bucket (avoids two heavy aggregates per page)."""
+    cached = cache.get(ANNOUNCEMENT_BUCKET_COUNTS_CACHE_KEY)
+    if isinstance(cached, dict):
+        return cached
+    rows = DogAnnouncement.objects.values("display_bucket").annotate(total=Count("id"))
+    data = {row["display_bucket"]: row["total"] for row in rows}
+    cache.set(
+        ANNOUNCEMENT_BUCKET_COUNTS_CACHE_KEY,
+        data,
+        ANNOUNCEMENT_BUCKET_COUNTS_CACHE_TTL_SECONDS,
+    )
+    return data
+
+
+def _invalidate_announcement_bucket_counts_cache():
+    cache.delete(ANNOUNCEMENT_BUCKET_COUNTS_CACHE_KEY)
+
+
 def _announcement_card_prefetch():
     return Prefetch(
         "images",
@@ -5658,12 +5713,7 @@ def announcement_list(request):
     if board_redirect:
         return redirect(board_redirect)
 
-    bucket_counts = {
-        row["display_bucket"]: row["total"]
-        for row in DogAnnouncement.objects.values("display_bucket").annotate(
-            total=Count("id")
-        )
-    }
+    bucket_counts = _announcement_bucket_counts_map()
     pinned_announcements = list(
         _announcement_feed_queryset().filter(
             display_bucket=DogAnnouncement.BUCKET_PINNED
@@ -5713,12 +5763,7 @@ def announcement_list(request):
 
 def announcement_dog_info(request):
     """Static dog safety / infographic content linked from the announcements board."""
-    bucket_counts = {
-        row["display_bucket"]: row["total"]
-        for row in DogAnnouncement.objects.values("display_bucket").annotate(
-            total=Count("id")
-        )
-    }
+    bucket_counts = _announcement_bucket_counts_map()
     pinned_count = bucket_counts.get(DogAnnouncement.BUCKET_PINNED, 0)
     total_announcements = sum(bucket_counts.values())
     regular_total = max(total_announcements - pinned_count, 0)
@@ -5750,6 +5795,7 @@ def announcement_public_toggle_pin(request, post_id):
     else:
         post.display_bucket = DogAnnouncement.BUCKET_PINNED
     post.save(update_fields=["display_bucket"])
+    _invalidate_announcement_bucket_counts_cache()
     return JsonResponse({
         "ok": True,
         "bucket": post.display_bucket,
@@ -5836,7 +5882,7 @@ def my_redemptions(request):
     )
 
     claims_qs = claims_base_qs if status_filter == "total" else claims_base_qs.filter(status=status_filter)
-    page_obj = Paginator(claims_qs, 10).get_page(request.GET.get("page", 1))
+    page_obj = Paginator(claims_qs, CLAIMS_PAGE_SIZE).get_page(request.GET.get("page", 1))
     claims = list(page_obj.object_list)
 
     return render(request, 'claim/claim.html', {
@@ -5954,7 +6000,7 @@ def missing_dogs_list(request):
         sort = 'newest'
         qs = qs.order_by('-date_lost', '-time_lost')
 
-    paginator = Paginator(qs, 12)
+    paginator = Paginator(qs, MISSING_DOG_LIST_PAGE_SIZE)
     page_obj = paginator.get_page(request.GET.get('page'))
 
     context = {
@@ -5976,7 +6022,7 @@ def missing_dogs_list(request):
 def missing_dog_public_detail(request, post_id):
     """Public URL for one missing-dog post — used when share links are opened in Facebook, etc."""
     post = get_object_or_404(
-        MissingDogPost.objects.select_related("owner")
+        MissingDogPost.objects.select_related("owner", "owner__profile")
         .prefetch_related(
             Prefetch(
                 "photos",
@@ -5999,7 +6045,11 @@ def missing_dog_public_detail(request, post_id):
 @require_http_methods(['GET', 'POST'])
 def report_sighting(request, post_id):
     """Show and handle the Report Sighting form for a missing dog post."""
-    post = get_object_or_404(MissingDogPost, pk=post_id, status__in=['missing', 'found'])
+    post = get_object_or_404(
+        MissingDogPost.objects.select_related("owner", "owner__profile"),
+        pk=post_id,
+        status__in=["missing", "found"],
+    )
 
     if not request.user.is_authenticated:
         # Open the shared auth modal on home page instead of the broken standalone login page
@@ -6044,7 +6094,9 @@ def my_sighting_inbox(request):
     if status_filter in ('pending', 'verified', 'rejected'):
         sightings = sightings.filter(status=status_filter)
 
-    page_obj = Paginator(sightings, 15).get_page(request.GET.get('page'))
+    page_obj = Paginator(sightings, SIGHTING_INBOX_PAGE_SIZE).get_page(
+        request.GET.get("page")
+    )
     return render(request, 'missing/sighting_inbox.html', {
         'page_obj': page_obj,
         'sightings': page_obj.object_list,
@@ -6104,14 +6156,26 @@ def sighting_action(request, sighting_id):
     else:
         messages.error(request, 'Unknown action.')
 
+    _invalidate_missing_sighting_verified_count_cache(sighting.post_id)
     next_url = request.POST.get('next') or reverse('user:sighting_inbox')
     return redirect(next_url)
 
 
 # ── Sighting: AJAX count for a post ──────────────────────────────────────────
 
+def _invalidate_missing_sighting_verified_count_cache(post_id):
+    cache.delete(MISSING_SIGHTING_VERIFIED_COUNT_KEY.format(post_id=post_id))
+
+
 def sighting_count_api(request, post_id):
     """Return JSON with verified sighting count for a missing dog post."""
-    post = get_object_or_404(MissingDogPost, pk=post_id)
-    count = DogSighting.objects.filter(post=post, status='verified').count()
-    return JsonResponse({'post_id': post_id, 'verified_count': count})
+    post = get_object_or_404(
+        MissingDogPost.objects.only("id"),
+        pk=post_id,
+    )
+    cache_key = MISSING_SIGHTING_VERIFIED_COUNT_KEY.format(post_id=post_id)
+    count = cache.get(cache_key)
+    if count is None:
+        count = DogSighting.objects.filter(post_id=post_id, status="verified").count()
+        cache.set(cache_key, count, MISSING_SIGHTING_VERIFIED_COUNT_CACHE_TTL)
+    return JsonResponse({"post_id": post_id, "verified_count": count})

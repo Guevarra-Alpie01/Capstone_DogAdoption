@@ -89,18 +89,33 @@ def health_ready(request):
 
 
 def health_metrics(request):
+    """Return in-process request/latency stats (optionally protected by token or staff session)."""
     token = getattr(settings, "HEALTH_METRICS_TOKEN", "") or ""
     top_n = _parse_positive_int(request.GET.get("limit"), default=25, max_value=100)
-    if token:
-        query_token = (request.GET.get("token") or "").strip()
-        header_token = (request.headers.get("X-Health-Metrics-Token") or "").strip()
-        if constant_time_compare(query_token, token) or constant_time_compare(
-            header_token, token
-        ):
-            return JsonResponse(runtime_metrics.snapshot(top_n=top_n))
+    cache_ttl = int(getattr(settings, "HEALTH_METRICS_CACHE_SECONDS", 0) or 0)
+    cache_key = f"health:metrics:snapshot:v1:{top_n}"
 
+    query_token = (request.GET.get("token") or "").strip()
+    header_token = (request.headers.get("X-Health-Metrics-Token") or "").strip()
+    token_ok = bool(token) and (
+        constant_time_compare(query_token, token) or constant_time_compare(header_token, token)
+    )
     user = getattr(request, "user", None)
-    if not user or not user.is_authenticated or not user.is_staff:
+    staff_ok = bool(user and user.is_authenticated and user.is_staff)
+
+    if not token_ok and not staff_ok:
         return JsonResponse({"detail": "Forbidden"}, status=403)
 
-    return JsonResponse(runtime_metrics.snapshot(top_n=top_n))
+    if cache_ttl > 0:
+        cached = cache.get(cache_key)
+        if isinstance(cached, dict) and "body" in cached:
+            return JsonResponse(cached["body"], status=int(cached.get("status", 200)))
+
+    body = runtime_metrics.snapshot(top_n=top_n)
+    if cache_ttl > 0:
+        cache.set(
+            cache_key,
+            {"body": body, "status": 200},
+            min(cache_ttl, 30),
+        )
+    return JsonResponse(body)

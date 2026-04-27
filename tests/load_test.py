@@ -11,8 +11,12 @@ What this file covers:
 Default concurrency (overridable via env):
 - LOAD_TEST_PUBLIC_FIXED_COUNT default 8 (anonymous landing, auth pages, health)
 - LOAD_TEST_USER_FIXED_COUNT default 50 (requires LOAD_TEST_USER_* credentials)
-- LOAD_TEST_ADMIN_FIXED_COUNT default 7 (requires LOAD_TEST_ADMIN_* credentials)
+- LOAD_TEST_STAFF_FIXED_COUNT default 0 (VetAdmin staff; requires LOAD_TEST_STAFF_* credentials)
+- LOAD_TEST_ADMIN_FIXED_COUNT default 7 (VetAdmin admins; requires LOAD_TEST_ADMIN_* credentials)
 - Steady ramp targets are auto-sized to at least the sum of those fixed counts
+
+60-user all-sides profile (0 public + 50 members + 3 staff + 7 admin):
+- See tests/capstone60user.env.example and tests/run_locust_60user.ps1
 
 Safe defaults:
 - login/logout are exercised, but repeated session cycling is disabled by default
@@ -149,9 +153,11 @@ def _parse_credentials(prefix: str) -> list[tuple[str, str]]:
 class LoadSuiteSettings:
     profile: str
     user_credentials: list[tuple[str, str]]
+    staff_credentials: list[tuple[str, str]]
     admin_credentials: list[tuple[str, str]]
     public_fixed_count: int
     user_fixed_count: int
+    staff_fixed_count: int
     admin_fixed_count: int
     wait_min_seconds: float
     wait_max_seconds: float
@@ -203,9 +209,11 @@ class LoadSuiteSettings:
 
         public_fixed_count = max(0, env_int("LOAD_TEST_PUBLIC_FIXED_COUNT", 8))
         user_fixed_count = max(0, env_int("LOAD_TEST_USER_FIXED_COUNT", 50))
+        staff_fixed_count = max(0, env_int("LOAD_TEST_STAFF_FIXED_COUNT", 0))
         admin_fixed_count = max(0, env_int("LOAD_TEST_ADMIN_FIXED_COUNT", 7))
 
         user_credentials = _parse_credentials("LOAD_TEST_USER")
+        staff_credentials = _parse_credentials("LOAD_TEST_STAFF")
         admin_credentials = _parse_credentials("LOAD_TEST_ADMIN")
 
         ramp_users_env = (os.getenv("LOAD_TEST_RAMP_USERS") or "").strip()
@@ -224,8 +232,9 @@ class LoadSuiteSettings:
             )
         else:
             user_floor = max(0, user_fixed_count) if user_credentials else 0
+            staff_floor = max(0, staff_fixed_count) if staff_credentials else 0
             admin_floor = max(0, admin_fixed_count) if admin_credentials else 0
-            floor = max(1, public_fixed_count + user_floor + admin_floor)
+            floor = max(1, public_fixed_count + user_floor + staff_floor + admin_floor)
             ramp_users = [floor, min(floor * 2, 250), min(floor * 3, 500)]
             ramp_stage_seconds = [90, 120, 180]
             ramp_spawn_rates = [4.0, 10.0, 20.0]
@@ -245,15 +254,18 @@ class LoadSuiteSettings:
             1,
             public_fixed_count
             + (user_fixed_count if user_credentials else 0)
+            + (staff_fixed_count if staff_credentials else 0)
             + (admin_fixed_count if admin_credentials else 0),
         )
 
         return cls(
             profile=profile,
             user_credentials=user_credentials,
+            staff_credentials=staff_credentials,
             admin_credentials=admin_credentials,
             public_fixed_count=public_fixed_count,
             user_fixed_count=user_fixed_count,
+            staff_fixed_count=staff_fixed_count,
             admin_fixed_count=admin_fixed_count,
             wait_min_seconds=env_float("LOAD_TEST_WAIT_MIN_SECONDS", 1.0),
             wait_max_seconds=env_float("LOAD_TEST_WAIT_MAX_SECONDS", 4.0),
@@ -340,6 +352,7 @@ class CredentialPool:
 
 
 USER_CREDENTIAL_POOL = CredentialPool(SETTINGS.user_credentials)
+STAFF_CREDENTIAL_POOL = CredentialPool(SETTINGS.staff_credentials)
 ADMIN_CREDENTIAL_POOL = CredentialPool(SETTINGS.admin_credentials)
 
 
@@ -422,13 +435,17 @@ def on_test_start(environment, **kwargs):
         "Locust mix config: "
         f"public_fixed={SETTINGS.public_fixed_count}, "
         f"user_fixed={SETTINGS.user_fixed_count}, "
+        f"staff_fixed={SETTINGS.staff_fixed_count}, "
         f"admin_fixed={SETTINGS.admin_fixed_count}, "
         f"user_creds={len(SETTINGS.user_credentials)}, "
+        f"staff_creds={len(SETTINGS.staff_credentials)}, "
         f"admin_creds={len(SETTINGS.admin_credentials)}, "
         f"steady_ramp={SETTINGS.ramp_users}"
     )
     if SETTINGS.user_fixed_count and not SETTINGS.user_credentials:
         print("WARNING: LOAD_TEST_USER_FIXED_COUNT is set, but no user credentials were provided.")
+    if SETTINGS.staff_fixed_count and not SETTINGS.staff_credentials:
+        print("WARNING: LOAD_TEST_STAFF_FIXED_COUNT is set, but no staff credentials were provided.")
     if SETTINGS.admin_fixed_count and not SETTINGS.admin_credentials:
         print("WARNING: LOAD_TEST_ADMIN_FIXED_COUNT is set, but no admin credentials were provided.")
     if SETTINGS.user_fixed_count > len(SETTINGS.user_credentials) and SETTINGS.user_credentials:
@@ -436,10 +453,15 @@ def on_test_start(environment, **kwargs):
             "WARNING: Fewer user credentials than fixed authenticated users. "
             "Some accounts will be reused during login bursts."
         )
+    if SETTINGS.staff_fixed_count > len(SETTINGS.staff_credentials) and SETTINGS.staff_credentials:
+        print(
+            "WARNING: Fewer staff credentials than fixed staff users. "
+            "Some staff accounts will be reused during login bursts."
+        )
     if SETTINGS.admin_fixed_count > len(SETTINGS.admin_credentials) and SETTINGS.admin_credentials:
         print(
             "WARNING: Fewer admin credentials than fixed admin users. "
-            "Some staff accounts will be reused during login bursts."
+            "Some admin accounts will be reused during login bursts."
         )
 
 
@@ -2082,3 +2104,20 @@ class AdminJourney(CapstoneUserBase):
             f"/vetadmin/users/search/?q={quote_plus(SETTINGS.xss_payload)}",
             SETTINGS.xss_payload,
         )
+
+
+class StaffJourney(AdminJourney):
+    """
+    Staff-level VetAdmin accounts (shared /user/ login, then /vetadmin/ as in AdminJourney).
+
+    Use separate credentials from full admins so Locust can model different permission profiles.
+    Navigation tasks are identical to AdminJourney (all major vetadmin GET routes + link discovery).
+    """
+
+    weight = 3
+    fixed_count = SETTINGS.staff_fixed_count
+    user_label = "vet-staff"
+    abstract = not bool(SETTINGS.staff_credentials)
+
+    def choose_credentials(self) -> tuple[str, str] | None:
+        return STAFF_CREDENTIAL_POOL.next()

@@ -339,7 +339,7 @@ OBSERVABILITY_REQUEST_LOG_SAMPLE_RATE = max(
     ),
 )
 # Skip in-process metrics + structured logging for these GET probes (cuts lock + log overhead).
-OBSERVABILITY_LIGHT_PATHS = frozenset({"/health/live/", "/health/ready/"})
+OBSERVABILITY_LIGHT_PATHS = frozenset({"/health/live/", "/health/ready/", "/health/metrics/"})
 
 # Cache /health/ready/ JSON for a few seconds to reduce DB + Redis round-trips under concurrent probes.
 HEALTH_READY_CACHE_SECONDS = int(
@@ -348,6 +348,11 @@ HEALTH_READY_CACHE_SECONDS = int(
 
 # If set, GET /health/metrics/?token=... or header X-Health-Metrics-Token may access metrics without staff login.
 HEALTH_METRICS_TOKEN = os.getenv("HEALTH_METRICS_TOKEN", "").strip()
+
+# Short cache for the expensive metrics snapshot (reduces lock + sorting under concurrent polls).
+HEALTH_METRICS_CACHE_SECONDS = int(
+    os.getenv("HEALTH_METRICS_CACHE_SECONDS", "0" if DEBUG else "1")
+)
 
 # Optional automatic admin bootstrapping for non-production setup only.
 CREATE_DEFAULT_ADMIN = env_bool("CREATE_DEFAULT_ADMIN", False)

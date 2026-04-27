@@ -1373,3 +1373,40 @@ class DogSurrenderRecord(models.Model):
 
     def __str__(self):
         return f"Dog surrender record #{self.pk} (request {self.capture_request_id})"
+
+
+class DeceasedDog(models.Model):
+    """Admin registry of dogs recorded as deceased (optional link to a shelter post)."""
+
+    post = models.ForeignKey(
+        Post,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="deceased_dog_entries",
+    )
+    dog_name = models.CharField(max_length=200)
+    breed = models.CharField(max_length=200, blank=True, default="")
+    deceased_at = models.DateField()
+    notes = models.TextField(blank=True, default="")
+    recorded_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="deceased_dog_records",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "dogadoptionadmin_deceased_dogs"
+        ordering = ("-deceased_at", "-id")
+        verbose_name = "Deceased dog"
+        verbose_name_plural = "Deceased dogs"
+        indexes = [
+            models.Index(fields=["deceased_at"], name="deceaseddogs_deceased_at_idx"),
+        ]
+
+    def __str__(self):
+        return self.dog_name.strip() or f"Deceased dog #{self.pk}"

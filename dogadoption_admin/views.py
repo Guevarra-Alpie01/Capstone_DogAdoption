@@ -216,7 +216,9 @@ def _get_cached_post_history_ids():
 def _build_post_history_page(request, page_param="page", rows_per_page=10):
     history_candidate_ids = _get_cached_post_history_ids()
     filter_type = (request.GET.get("record_type") or "all").strip().lower()
-    if filter_type not in {"all", "adopted", "redeemed", "unresolved"}:
+    if filter_type == "unresolved":
+        filter_type = "deceased"
+    if filter_type not in {"all", "adopted", "redeemed", "deceased"}:
         filter_type = "all"
     history_return_to = request.get_full_path()
 
@@ -227,7 +229,7 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
 
     adopted_total = 0
     redeemed_total = 0
-    unresolved_total = 0
+    deceased_total = 0
     for post_id in history_candidate_ids:
         post = history_meta_map.get(post_id)
         if not post:
@@ -237,7 +239,7 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
         elif post.status == "reunited":
             redeemed_total += 1
         else:
-            unresolved_total += 1
+            deceased_total += 1
 
     history_total = len(history_candidate_ids)
 
@@ -246,7 +248,7 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
             return post.status == "adopted"
         if filter_type == "redeemed":
             return post.status == "reunited"
-        if filter_type == "unresolved":
+        if filter_type == "deceased":
             return post.status not in {"adopted", "reunited"}
         return True
 
@@ -439,7 +441,7 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
         "history_total": history_total,
         "history_adopted_total": adopted_total,
         "history_redeemed_total": redeemed_total,
-        "history_unresolved_total": unresolved_total,
+        "history_deceased_total": deceased_total,
         "history_active_filter": filter_type,
         "history_filtered_total": len(filtered_history_ids),
         "history_posts": history_posts,
@@ -2695,7 +2697,7 @@ def post_history(request):
         "history_all_qs": _build_filter_qs("all"),
         "history_adopted_qs": _build_filter_qs("adopted"),
         "history_redeemed_qs": _build_filter_qs("redeemed"),
-        "history_unresolved_qs": _build_filter_qs("unresolved"),
+        "history_deceased_qs": _build_filter_qs("deceased"),
     })
 
 

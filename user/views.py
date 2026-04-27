@@ -70,6 +70,10 @@ from .models import UserAdoptionPost, UserAdoptionImage, UserAdoptionRequest, Mi
 # Forms and notification helpers
 from .forms import DogSightingForm, MissingDogPostForm, RescueFinderForm, UserAdoptionPostForm
 from .avatar_cache import invalidate_cached_profile_avatar
+from .auth_modal_session import (
+    build_home_auth_modal_url as _build_home_auth_modal_url_impl,
+    redirect_modal_login_error,
+)
 from .notification_utils import (
     build_user_notification_payload,
     build_user_notification_summary,
@@ -126,6 +130,7 @@ HOME_FEATURED_CANDIDATE_LIMIT = 60
 HOME_SPOTLIGHT_URGENCY_THRESHOLD_SECONDS = 24 * 60 * 60
 GOOGLE_SIGNUP_SESSION_KEY = "google_signup_data"
 LOGIN_USERNAME_PREFILL_SESSION_KEY = "login_username_prefill"
+LOGIN_INVALID_CREDENTIALS_MESSAGE = "Invalid username or password."
 
 
 def _safe_media_url(file_field):
@@ -1301,12 +1306,7 @@ def _get_safe_next_url(request, raw_value=""):
 
 def _build_home_auth_modal_url(request, auth_modal="login", next_url=""):
     """Build a safe home-page URL that re-opens an auth modal."""
-    modal = auth_modal if auth_modal in {"login", "signup"} else "login"
-    query = {"auth_modal": modal}
-    safe_next_url = _get_safe_next_url(request, next_url)
-    if safe_next_url:
-        query["next"] = safe_next_url
-    return "{}?{}".format(reverse("user:user_home"), urlencode(query))
+    return _build_home_auth_modal_url_impl(request, auth_modal, next_url)
 
 
 def _build_login_redirect_url(request, next_url=""):
@@ -1377,12 +1377,11 @@ def login_view(request):
     def render_login_error(message, username=""):
         login_form_data = {"username": username or ""}
         if auth_source == "modal":
-            return _render_home_with_auth_modal(
+            return redirect_modal_login_error(
                 request,
-                "login",
-                auth_next=next_url,
-                login_error=message,
-                login_form_data=login_form_data,
+                message=message,
+                username=login_form_data["username"],
+                next_url=next_url,
             )
         return _render_login_page(
             request,
@@ -1426,7 +1425,7 @@ def login_view(request):
             response.delete_cookie("admin_sessionid")
             return response
 
-        invalid_msg = "The username or password you entered is incorrect. Please try again."
+        invalid_msg = LOGIN_INVALID_CREDENTIALS_MESSAGE
         if auth_source == "modal":
             return render_login_error(invalid_msg, username)
 

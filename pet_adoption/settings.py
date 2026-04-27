@@ -157,6 +157,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'user.context_processors.auth_ui',
+                'user.context_processors.auth_modal_gateway',
                 'user.context_processors.user_notifications',
                 'dogadoption_admin.context_processors.admin_notifications',
             ],

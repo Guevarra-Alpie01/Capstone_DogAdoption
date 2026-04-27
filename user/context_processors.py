@@ -1,6 +1,11 @@
 from django.conf import settings
 from django.urls import reverse
 
+from .auth_modal_session import (
+    AUTH_MODAL_LOGIN_ERROR_SESSION_KEY,
+    AUTH_MODAL_LOGIN_USERNAME_SESSION_KEY,
+    safe_next_url,
+)
 from .avatar_cache import DEFAULT_AVATAR_URL, get_cached_profile_avatar_url
 from .notification_utils import build_user_notification_summary
 
@@ -44,3 +49,30 @@ def auth_ui(request):
         "google_signup_enabled": bool(google_client_id),
         "google_client_id": google_client_id,
     }
+
+
+def auth_modal_gateway(request):
+    """
+    Open login/signup modal from ?auth_modal= on any page, and surface one-shot modal login errors.
+    """
+    user = getattr(request, "user", None)
+    if user and user.is_authenticated:
+        return {}
+
+    ctx = {}
+    modal = (request.GET.get("auth_modal") or "").strip().lower()
+    if modal not in {"login", "signup"}:
+        return ctx
+
+    ctx["auth_modal"] = modal
+    ctx["auth_next"] = safe_next_url(request, request.GET.get("next"))
+
+    if modal == "login":
+        err = request.session.pop(AUTH_MODAL_LOGIN_ERROR_SESSION_KEY, None)
+        if err:
+            ctx["login_error"] = err
+            uname = request.session.pop(AUTH_MODAL_LOGIN_USERNAME_SESSION_KEY, None)
+            if uname is not None:
+                ctx["login_form_data"] = {"username": uname}
+
+    return ctx

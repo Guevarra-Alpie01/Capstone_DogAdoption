@@ -33,7 +33,7 @@
 
                         {% if login_error %}
                         <div class="alert alert-danger text-center auth-inline-alert" role="alert">
-                            {{ login_error }}
+                            {{ login_error|default:"Invalid username or password." }}
                         </div>
                         {% endif %}
 
@@ -41,6 +41,7 @@
                             method="post"
                             action="{% url 'user:login' %}"
                             class="login-form"
+                            data-no-page-transition
                             data-google-auth-form
                             data-google-auth-mode="login"
                             data-google-login-uri="{% url 'user:google_auth_login' %}"
@@ -152,6 +153,7 @@
                             method="post"
                             action="{% url 'user:signup' %}"
                             class="signup-form"
+                            data-no-page-transition
                             data-google-auth-form
                             data-google-signup-form
                             data-google-auth-mode="signup"

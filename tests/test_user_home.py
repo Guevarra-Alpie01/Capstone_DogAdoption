@@ -873,10 +873,16 @@ class UserHomeFeedTests(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "home/user_home.html")
-        self.assertContains(response, "The username or password you entered is incorrect")
-        self.assertContains(response, f'value="{claim_url}"', html=False)
+        self.assertEqual(response.status_code, 302)
+        loc = response["Location"]
+        self.assertIn("auth_modal=login", loc)
+        self.assertIn(claim_url, loc)
+
+        bounce = self.client.get(loc, follow=True)
+        self.assertEqual(bounce.status_code, 200)
+        self.assertContains(bounce, "Invalid username or password.")
+        # Resume URL is preserved on the login modal (path may be echoed with or without query).
+        self.assertContains(bounce, claim_url.strip("/"), html=False)
 
     def test_modal_signup_error_re_renders_home_with_signup_popup(self):
         staff_user = User.objects.create_user(

@@ -5836,9 +5836,12 @@ def redeem_confirm(request, post_id):
 
 def user_adoption_history(request):
     """Render a community-wide history of successful user-to-user adoptions."""
-    history = UserAdoptionRequest.objects.filter(status='approved').select_related(
-        'post', 'requester', 'post__owner'
-    ).order_by('-created_at')
+    history = (
+        UserAdoptionRequest.objects.filter(status="approved")
+        .select_related("post", "requester", "post__owner")
+        .prefetch_related("post__images")
+        .order_by("-created_at")
+    )
     
     context = {
         'history': history,

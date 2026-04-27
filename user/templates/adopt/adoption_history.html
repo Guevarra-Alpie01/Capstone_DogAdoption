@@ -4,271 +4,110 @@
 {% block page_title %}Adoption History | Bayawan Vet{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/adopt_list.css' %}?v=20260420history">
-<style>
-    .history-page {
-        padding: 3rem 1.5rem;
-        max-width: 900px;
-        margin: 0 auto;
-        min-height: 70vh;
-    }
-    .history-header {
-        margin-bottom: 3rem;
-        text-align: center;
-    }
-    .history-header-icon {
-        width: 64px;
-        height: 64px;
-        background: var(--app-primary-subtle);
-        color: var(--app-primary);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 1.25rem;
-        font-size: 2rem;
-        margin: 0 auto 1.5rem;
-    }
-    .history-title {
-        font-size: 2.25rem;
-        font-weight: 800;
-        color: var(--app-text-primary);
-        letter-spacing: -0.02em;
-        margin-bottom: 0.75rem;
-    }
-    .history-subtitle {
-        font-size: 1.1rem;
-        color: var(--app-text-secondary);
-        max-width: 500px;
-        margin: 0 auto;
-        line-height: 1.6;
-    }
-    .history-list {
-        display: grid;
-        gap: 1.25rem;
-    }
-    .history-card {
-        background: var(--app-bg-surface);
-        border: 1px solid var(--app-border-subtle);
-        border-radius: 1.25rem;
-        padding: 1.25rem;
-        display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
-    }
-    .history-card::before {
-        content: '';
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 4px;
-        background: var(--app-success);
-        opacity: 0;
-        transition: opacity 0.3s;
-    }
-    .history-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 24px -8px rgba(0,0,0,0.1);
-        border-color: var(--app-success-subtle);
-    }
-    .history-card:hover::before {
-        opacity: 1;
-    }
-    .history-dog-media {
-        position: relative;
-        flex-shrink: 0;
-    }
-    .history-dog-img {
-        width: 90px;
-        height: 90px;
-        border-radius: 1.1rem;
-        object-fit: cover;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-    .history-dog-placeholder {
-        width: 90px;
-        height: 90px;
-        border-radius: 1.1rem;
-        background: var(--app-bg-muted);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--app-text-muted);
-        font-size: 2rem;
-    }
-    .history-content {
-        flex: 1;
-        min-width: 0;
-    }
-    .history-dog-name {
-        font-size: 1.35rem;
-        font-weight: 700;
-        color: var(--app-text-primary);
-        margin: 0 0 0.5rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    .history-flow {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-    }
-    .history-user-node {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        text-decoration: none;
-        color: var(--app-text-secondary);
-        font-size: 0.95rem;
-        transition: color 0.2s;
-    }
-    .history-user-node:hover {
-        color: var(--app-primary);
-    }
-    .history-user-avatar {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        object-fit: cover;
-        background: var(--app-bg-muted);
-    }
-    .history-user-name {
-        font-weight: 600;
-        max-width: 150px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .history-arrow {
-        color: var(--app-text-muted);
-        font-size: 0.8rem;
-        opacity: 0.6;
-    }
-    .history-footer {
-        margin-top: 0.75rem;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        font-size: 0.85rem;
-        color: var(--app-text-muted);
-    }
-    .history-date {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-    .history-badge-success {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        padding: 0.4rem 0.8rem;
-        background: #ecfdf5;
-        color: #059669;
-        border-radius: 2rem;
-        font-weight: 600;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .history-empty {
-        text-align: center;
-        padding: 5rem 2rem;
-        background: var(--app-bg-surface);
-        border-radius: 2rem;
-        border: 2px dashed var(--app-border-subtle);
-    }
-    .history-empty-icon {
-        font-size: 4rem;
-        color: var(--app-text-muted);
-        margin-bottom: 1.5rem;
-        opacity: 0.4;
-    }
-    
-    @media (max-width: 600px) {
-        .history-card {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 1rem;
-        }
-        .history-dog-img, .history-dog-placeholder {
-            width: 100%;
-            height: 160px;
-        }
-        .history-badge-success {
-            align-self: flex-start;
-        }
-    }
-</style>
+<link rel="stylesheet" href="{% static 'css/adoption_history.css' %}?v=20260426history-escape-offset">
 {% endblock %}
 
 {% block content %}
 <div class="history-page">
+    <a
+        href="{% url 'user:adopt_list' %}"
+        class="history-page__escape"
+        aria-label="Close and return to Find a Dog"
+    >
+        <i class="bi bi-x-lg" aria-hidden="true"></i>
+    </a>
+
     <header class="history-header">
-        <div class="history-header-icon">
+        <div class="history-header-icon" aria-hidden="true">
             <i class="bi bi-stars"></i>
         </div>
-        <h1 class="history-title">Adoption Stories</h1>
-        <p class="history-subtitle">Celebrating successful adoptions and new beginnings in our community.</p>
+        <h1 class="history-title">Adoption History</h1>
+        <p class="history-subtitle">Successful adoptions in the community.</p>
     </header>
 
     {% if history %}
     <div class="history-list">
         {% for entry in history %}
         <article class="history-card">
-            <div class="history-dog-media">
+            <div class="history-card__media">
                 {% if entry.post.images.first %}
-                <img src="{{ entry.post.images.first.image.url }}" alt="{{ entry.post.dog_name }}" class="history-dog-img">
+                <img
+                    src="{{ entry.post.images.first.image.url }}"
+                    alt="{{ entry.post.dog_name }} photo"
+                    class="history-dog-img"
+                    width="320"
+                    height="240"
+                    loading="lazy"
+                    decoding="async"
+                >
                 {% else %}
-                <div class="history-dog-placeholder">
+                <div class="history-dog-placeholder" aria-hidden="true">
                     <i class="bi bi-heart-pulse"></i>
                 </div>
                 {% endif %}
             </div>
-            
-            <div class="history-content">
-                <h2 class="history-dog-name">
-                    {{ entry.post.dog_name }}
+
+            <div class="history-card__body">
+                <div class="history-card__head">
+                    <h2 class="history-dog-name">{{ entry.post.dog_name }}</h2>
                     <span class="history-badge-success">
-                        <i class="bi bi-patch-check-fill"></i> Adopted
+                        <i class="bi bi-patch-check-fill" aria-hidden="true"></i>
+                        Adopted
                     </span>
-                </h2>
-                <div class="history-flow">
-                    <a href="{% url 'user:view_user_profile' entry.post.owner.id %}" class="history-user-node" title="Poster: {{ entry.post.owner.username }}">
+                </div>
+
+                <div class="history-flow" aria-label="Poster to adopter">
+                    <a
+                        href="{% url 'user:view_user_profile' entry.post.owner.id %}"
+                        class="history-user-node"
+                        title="Poster: {{ entry.post.owner.username }}"
+                    >
                         {% if entry.post.owner.profile.profile_image %}
-                        <img src="{{ entry.post.owner.profile.profile_image.url }}" alt="" class="history-user-avatar">
+                        <img
+                            src="{{ entry.post.owner.profile.profile_image.url }}"
+                            alt=""
+                            class="history-user-avatar"
+                            width="32"
+                            height="32"
+                        >
                         {% else %}
-                        <div class="history-user-avatar" style="display: flex; align-items: center; justify-content: center; background: var(--app-primary-subtle); color: var(--app-primary); font-size: 0.6rem;">
+                        <span class="history-user-avatar history-user-avatar--initial history-user-avatar--owner" aria-hidden="true">
                             {{ entry.post.owner.username|slice:":1"|upper }}
-                        </div>
+                        </span>
                         {% endif %}
                         <span class="history-user-name">{{ entry.post.owner.get_full_name|default:entry.post.owner.username }}</span>
                     </a>
-                    
-                    <span class="history-arrow">
+
+                    <span class="history-arrow" aria-hidden="true">
                         <i class="bi bi-chevron-double-right"></i>
                     </span>
-                    
-                    <a href="{% url 'user:view_user_profile' entry.requester.id %}" class="history-user-node" title="Adopter: {{ entry.requester.username }}">
+
+                    <a
+                        href="{% url 'user:view_user_profile' entry.requester.id %}"
+                        class="history-user-node"
+                        title="Adopter: {{ entry.requester.username }}"
+                    >
                         {% if entry.requester.profile.profile_image %}
-                        <img src="{{ entry.requester.profile.profile_image.url }}" alt="" class="history-user-avatar">
+                        <img
+                            src="{{ entry.requester.profile.profile_image.url }}"
+                            alt=""
+                            class="history-user-avatar"
+                            width="32"
+                            height="32"
+                        >
                         {% else %}
-                        <div class="history-user-avatar" style="display: flex; align-items: center; justify-content: center; background: var(--app-success-subtle); color: var(--app-success); font-size: 0.6rem;">
+                        <span class="history-user-avatar history-user-avatar--initial history-user-avatar--adopter" aria-hidden="true">
                             {{ entry.requester.username|slice:":1"|upper }}
-                        </div>
+                        </span>
                         {% endif %}
                         <span class="history-user-name">{{ entry.requester.get_full_name|default:entry.requester.username }}</span>
                     </a>
                 </div>
+
                 <div class="history-footer">
                     <span class="history-date">
-                        <i class="bi bi-calendar3"></i>
-                        Joined their family on {{ entry.created_at|date:"F d, Y" }}
+                        <i class="bi bi-calendar3" aria-hidden="true"></i>
+                        <span>{{ entry.created_at|date:"M j, Y" }}</span>
                     </span>
                 </div>
             </div>
@@ -277,11 +116,11 @@
     </div>
     {% else %}
     <div class="history-empty">
-        <i class="bi bi-journal-text history-empty-icon"></i>
-        <h3>No history found</h3>
-        <p>Successful community adoptions will appear here once they are approved.</p>
-        <a href="{% url 'user:adopt_list' %}" class="btn btn-primary btn-lg mt-4 px-5 rounded-pill">
-            Explore Dogs
+        <i class="bi bi-journal-text history-empty-icon" aria-hidden="true"></i>
+        <h3>No history yet</h3>
+        <p>Approved adoptions will show up here.</p>
+        <a href="{% url 'user:adopt_list' %}" class="history-empty__cta">
+            Find a Dog
         </a>
     </div>
     {% endif %}

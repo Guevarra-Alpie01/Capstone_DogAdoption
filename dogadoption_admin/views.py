@@ -407,7 +407,7 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
                         "confirm_message": "Record this expired post as adopted and keep it in history?",
                         "confirm_submit_label": "Record Adopted",
                         "button_class": "history-action-btn--adopted",
-                        "icon": "bi bi-heart",
+                        "icon": "bi bi-suit-heart-fill",
                     },
                     {
                         "status": "reunited",
@@ -416,7 +416,7 @@ def _build_post_history_page(request, page_param="page", rows_per_page=10):
                         "confirm_message": "Record this expired post as redeemed and keep it in history?",
                         "confirm_submit_label": "Record Redeemed",
                         "button_class": "history-action-btn--redeemed",
-                        "icon": "bi bi-house",
+                        "icon": "bi bi-house-heart-fill",
                     },
                 ]
 

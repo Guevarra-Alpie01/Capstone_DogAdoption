@@ -49,17 +49,41 @@
 
     .profile-header-grid {
         display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
         align-items: flex-end;
         justify-content: space-between;
         gap: 18px;
-        flex-wrap: wrap;
     }
 
-    .profile-identity {
+    .profile-identity-avatar-group {
+        position: relative;
+        display: block;
+        flex-shrink: 0;
+    }
+
+    .profile-header-body {
         display: flex;
-        align-items: flex-end;
-        gap: 18px;
-        flex-wrap: wrap;
+        flex-direction: column;
+        gap: 10px;
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    .profile-header-body .profile-title-block {
+        padding-bottom: 0;
+    }
+
+    .profile-header-body .profile-header-stats {
+        margin: 0;
+    }
+
+    .profile-header-body .profile-stats-row {
+        margin-top: 0;
+    }
+
+    .profile-header-grid--no-action {
+        justify-content: flex-start;
     }
 
     .profile-avatar-stack {
@@ -82,7 +106,7 @@
 
     .profile-photo-form {
         position: absolute;
-        right: 10px;
+        left: 10px;
         bottom: 10px;
     }
 
@@ -1317,11 +1341,44 @@
             padding: 0 18px 18px;
         }
 
-        .profile-identity {
-            align-items: flex-end;
-            gap: 10px;
-            flex: 1 1 auto;
+        .profile-header-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-areas:
+                "pavatar paction"
+                "pbody pbody";
+            align-items: start;
+            column-gap: 12px;
+            row-gap: 12px;
+        }
+
+        .profile-header-grid--no-action {
+            grid-template-columns: 1fr;
+            grid-template-areas:
+                "pavatar"
+                "pbody";
+        }
+
+        .profile-identity-avatar-group {
+            grid-area: pavatar;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
             min-width: 0;
+        }
+
+        .profile-header-body {
+            grid-area: pbody;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .profile-header-action {
+            grid-area: paction;
+            padding-bottom: 0;
+            margin-left: 0;
+            align-self: start;
+            justify-self: end;
         }
 
         .profile-avatar-stack {
@@ -1331,8 +1388,10 @@
         }
 
         .profile-photo-form {
-            right: 6px;
-            bottom: 6px;
+            position: static;
+            left: auto;
+            bottom: auto;
+            margin-top: 8px;
         }
 
         .profile-avatar-edit {
@@ -1344,9 +1403,24 @@
             font-size: 1.8rem;
         }
 
-        .profile-header-action {
-            padding-bottom: 4px;
-            margin-left: auto;
+        .profile-header-stats,
+        .profile-header-stats .profile-stats-row {
+            width: 100%;
+        }
+
+        .profile-stats-row {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: stretch;
+            justify-content: flex-start;
+            gap: 8px 10px;
+        }
+
+        .profile-stat {
+            flex: 1 1 auto;
+            min-width: 0;
+            justify-content: center;
         }
 
         .profile-tabs {
@@ -1441,13 +1515,6 @@
 
         .profile-header-bar {
             padding: 0 14px 14px;
-        }
-
-        .profile-header-grid {
-            align-items: flex-end;
-            justify-content: space-between;
-            flex-wrap: nowrap;
-            gap: 12px;
         }
 
         .profile-avatar-stack {
@@ -1726,25 +1793,34 @@
     <div class="profile-card">
         <div class="profile-cover">
             <div class="profile-header-bar">
-                <div class="profile-header-grid">
-                    <div class="profile-identity">
+                <div class="profile-header-grid{% if preview_mode and not preview_back_url %} profile-header-grid--no-action{% endif %}">
+                    <div class="profile-identity-avatar-group">
                         <div class="profile-avatar-stack">
                             <img src="{{ profile.profile_image.url }}" alt="{{ profile_user.username }}">
-                            {% if not preview_mode %}
-                            <form method="POST" enctype="multipart/form-data" class="profile-photo-form" id="profilePhotoForm">
-                                {% csrf_token %}
-                                <input type="hidden" name="edit_action" value="photo">
-                                <input id="profilePhotoInput" type="file" name="profile_image" accept="image/*" hidden>
-                                <label for="profilePhotoInput" class="profile-avatar-edit" title="Update profile photo">
-                                    <i class="bi bi-camera-fill"></i>
-                                </label>
-                            </form>
-                            {% endif %}
                         </div>
+                        {% if not preview_mode %}
+                        <form method="POST" enctype="multipart/form-data" class="profile-photo-form" id="profilePhotoForm">
+                            {% csrf_token %}
+                            <input type="hidden" name="edit_action" value="photo">
+                            <input id="profilePhotoInput" type="file" name="profile_image" accept="image/*" hidden>
+                            <label for="profilePhotoInput" class="profile-avatar-edit" title="Update profile photo">
+                                <i class="bi bi-camera-fill"></i>
+                            </label>
+                        </form>
+                        {% endif %}
+                    </div>
+                    <div class="profile-header-body">
                         <div class="profile-title-block">
                             <div class="profile-name-line">
                                 <h1>{{ profile_user.get_full_name|default:profile_user.username }}</h1>
                             </div>
+                            {% if preview_mode %}
+                            <div class="profile-meta-line">
+                                <span><i class="bi bi-eye-fill"></i> View-only profile</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="profile-header-stats">
                             <div class="profile-stats-row" aria-label="Adoption activity">
                                 <div class="profile-stat">
                                     <span class="profile-stat-value">{{ profile_stat_dogs_posted }}</span>
@@ -1755,11 +1831,6 @@
                                     <span class="profile-stat-label">Adopted</span>
                                 </div>
                             </div>
-                            {% if preview_mode %}
-                            <div class="profile-meta-line">
-                                <span><i class="bi bi-eye-fill"></i> View-only profile</span>
-                            </div>
-                            {% endif %}
                         </div>
                     </div>
                     {% if preview_mode and preview_back_url %}

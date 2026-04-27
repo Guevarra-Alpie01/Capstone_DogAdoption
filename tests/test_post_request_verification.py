@@ -2,6 +2,7 @@ from datetime import datetime, time, timedelta
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -85,9 +86,16 @@ class PostRequestVerificationWindowTests(TestCase):
 
     def _submit_request(self, flow, user, post):
         client = self._client_for(user)
+        payload = {"appointment_date": self.appointment_date.isoformat()}
+        if flow == "claim":
+            payload["images"] = SimpleUploadedFile(
+                "proof.jpg",
+                b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01",
+                content_type="image/jpeg",
+            )
         response = client.post(
             reverse(self.flow_config[flow]["confirm_route"], args=[post.id]),
-            {"appointment_date": self.appointment_date.isoformat()},
+            payload,
             follow=True,
         )
         self.assertEqual(response.status_code, 200)

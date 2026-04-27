@@ -3435,6 +3435,16 @@ def _handle_confirm_request(
             messages.error(request, "Selected appointment date is not available.")
             return _render_confirm_page(request, template_name, post, available_dates, request_type)
 
+        if request_type == "claim":
+            proof_files = [f for f in request.FILES.getlist("images") if getattr(f, "name", "")]
+            if not proof_files:
+                messages.error(
+                    request,
+                    "Please upload at least one proof of ownership image "
+                    "(owner with dog, rabies vaccination card, or valid ID).",
+                )
+                return _render_confirm_page(request, template_name, post, available_dates, request_type)
+
         _create_post_request_with_images(request, post, request_type, appointment_date)
         cache.delete(ADMIN_POST_HISTORY_CACHE_KEY)
         bump_user_home_feed_namespace()

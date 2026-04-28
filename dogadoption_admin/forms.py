@@ -8,7 +8,7 @@ from django.urls import reverse_lazy
 
 from .access import STAFF_PERMISSION_FIELDS, clear_admin_access_cache
 from .barangays import BAYAWAN_BARANGAYS, BAYAWAN_BARANGAY_CHOICES
-from .models import Barangay, Citation, Penalty, PenaltySection, Post, VetAdminProfile
+from .models import Barangay, Citation, DeceasedDog, Penalty, PenaltySection, Post, VetAdminProfile
 
 
 class PostForm(forms.ModelForm):
@@ -387,3 +387,45 @@ class ManagedStaffAccountForm(forms.Form):
         VetAdminProfile.objects.update_or_create(user=user, defaults=profile_defaults)
         clear_admin_access_cache(user)
         return user
+
+
+class DeceasedDogLogForm(forms.ModelForm):
+    """Log a deceased dog tied to an existing shelter post (snapshot filled on save)."""
+
+    class Meta:
+        model = DeceasedDog
+        fields = ("post", "deceased_at", "notes")
+        widgets = {
+            "post": forms.Select(attrs={"class": "form-control"}),
+            "deceased_at": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "notes": forms.Textarea(
+                attrs={"rows": 3, "class": "form-control", "placeholder": "Optional notes"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["post"].queryset = Post.objects.order_by("-created_at", "-id").only(
+            "id",
+            "caption",
+            "breed",
+            "breed_other",
+            "age_group",
+            "size_group",
+            "gender",
+            "coat_length",
+            "colors",
+            "color_other",
+            "location",
+            "status",
+            "rescued_date",
+            "created_at",
+        )
+        self.fields["post"].label = "Origin post"
+        self.fields["deceased_at"].label = "Date deceased"
+        self.fields["notes"].label = "Notes"
+        self.fields["notes"].required = False
+        self.fields["post"].label_from_instance = (
+            lambda p: f"#{p.pk} — {p.display_title or p.caption or 'Dog post'}"
+        )
+

@@ -1393,6 +1393,16 @@ class DeceasedDog(models.Model):
     )
     dog_name = models.CharField(max_length=200)
     breed = models.CharField(max_length=200, blank=True, default="")
+    gender = models.CharField(max_length=10, blank=True, default="")
+    age_group = models.CharField(max_length=20, blank=True, default="")
+    size_group = models.CharField(max_length=20, blank=True, default="")
+    coat_length = models.CharField(max_length=20, blank=True, default="")
+    colors_summary = models.TextField(blank=True, default="")
+    location = models.CharField(max_length=255, blank=True, default="")
+    post_status = models.CharField(max_length=20, blank=True, default="")
+    rescued_date = models.DateField(null=True, blank=True)
+    caption_excerpt = models.CharField(max_length=500, blank=True, default="")
+    post_created_at = models.DateTimeField(null=True, blank=True)
     deceased_at = models.DateField()
     notes = models.TextField(blank=True, default="")
     recorded_by = models.ForeignKey(
@@ -1406,13 +1416,36 @@ class DeceasedDog(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "dogadoptionadmin_deceased_dogs"
+        db_table = "dogadoption_admin_deceaseddogs"
         ordering = ("-deceased_at", "-id")
         verbose_name = "Deceased dog"
         verbose_name_plural = "Deceased dogs"
         indexes = [
             models.Index(fields=["deceased_at"], name="deceaseddogs_deceased_at_idx"),
+            models.Index(fields=["dog_name"], name="deceaseddogs_dog_name_idx"),
+            models.Index(fields=["post"], name="deceaseddogs_post_id_idx"),
         ]
 
     def __str__(self):
         return self.dog_name.strip() or f"Deceased dog #{self.pk}"
+
+    @classmethod
+    def build_snapshot_from_post(cls, post: Post) -> dict:
+        """Copy display-oriented fields from the origin post at time of logging."""
+        title = (post.display_title or "").strip() or (post.caption or "").strip() or f"Post {post.pk}"
+        caption = " ".join((post.caption or "").split()).strip()
+        excerpt = caption[:500] if caption else ""
+        return {
+            "dog_name": title[:200],
+            "breed": (post.display_breed or "")[:200],
+            "gender": (post.gender or "")[:10],
+            "age_group": (post.age_group or "")[:20],
+            "size_group": (post.size_group or "")[:20],
+            "coat_length": (post.coat_length or "")[:20],
+            "colors_summary": (post.display_colors or "")[:2000],
+            "location": (post.location or "")[:255],
+            "post_status": (post.status or "")[:20],
+            "rescued_date": post.rescued_date,
+            "caption_excerpt": excerpt,
+            "post_created_at": post.created_at,
+        }

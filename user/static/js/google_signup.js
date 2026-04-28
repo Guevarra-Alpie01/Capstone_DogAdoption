@@ -101,11 +101,6 @@
         return raw;
     }
 
-    function normalizePathname(pathname) {
-        var p = (pathname || "").replace(/\/+$/, "");
-        return p || "/";
-    }
-
     function isStaleOAuthWithoutCredential(form) {
         if ((form.dataset.googleOAuthInProgress || "").trim() !== "1") {
             return false;
@@ -136,12 +131,12 @@
     }
 
     /**
-     * Reset Google button spinner after popup/FedCM dismiss without a credential.
-     * Redirect to user home when cancel happens away from home; on home, close auth modal only.
+     * Popup/FedCM closed without login: hide spinner, clear errors, hard-navigate home (resets modal/UI).
      */
     function finalizeOAuthCancel(form) {
         hideGoogleLoading(form);
         delete form.dataset.googleOAuthInProgress;
+        clearError(form);
 
         var homeUrl = getUserHomeUrl();
         if (!homeUrl) {
@@ -149,22 +144,7 @@
             return;
         }
 
-        var homePath;
-        try {
-            homePath = normalizePathname(new URL(homeUrl, window.location.href).pathname);
-        } catch (e) {
-            hideAuthModalContaining(form);
-            return;
-        }
-
-        var currentPath = normalizePathname(window.location.pathname);
-
-        if (currentPath !== homePath) {
-            window.location.assign(homeUrl);
-            return;
-        }
-
-        hideAuthModalContaining(form);
+        window.location.replace(homeUrl);
     }
 
     function armOAuthCancelRecovery(form) {
@@ -193,9 +173,10 @@
             finalizeOAuthCancel(form);
         }
 
+        /** Yield one task so a successful GIS callback can set the credential before we treat cancel. */
         function scheduleAttempt() {
             window.clearTimeout(debounceTimerId);
-            debounceTimerId = window.setTimeout(attemptFinalize, 820);
+            debounceTimerId = window.setTimeout(attemptFinalize, 0);
         }
 
         function onFocus() {
@@ -381,15 +362,13 @@
                     clearError(form);
 
                     if (!response || !response.credential) {
-                        hideGoogleLoading(form);
-                        setError(form, "Google could not confirm your account. Please try again.");
+                        finalizeOAuthCancel(form);
                         return;
                     }
 
                     const credentialInput = getCredentialInput(form);
                     if (!credentialInput) {
-                        hideGoogleLoading(form);
-                        setError(form, "Google could not confirm your account. Please try again.");
+                        finalizeOAuthCancel(form);
                         return;
                     }
 
@@ -412,15 +391,13 @@
                 clearError(form);
 
                 if (!response || !response.credential) {
-                    hideGoogleLoading(form);
-                    setError(form, "Google could not confirm your account. Please try again.");
+                    finalizeOAuthCancel(form);
                     return;
                 }
 
                 const credentialInput = getCredentialInput(form);
                 if (!credentialInput) {
-                    hideGoogleLoading(form);
-                    setError(form, "Google could not confirm your account. Please try again.");
+                    finalizeOAuthCancel(form);
                     return;
                 }
 

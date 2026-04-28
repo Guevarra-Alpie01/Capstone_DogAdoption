@@ -714,6 +714,12 @@ class PostImage(models.Model):
         on_delete=models.CASCADE
     )
     image = models.ImageField(upload_to='post_images/')
+    pet_photo_opt = models.ImageField(
+        upload_to='post_images/opt/',
+        null=True,
+        blank=True,
+        help_text="JPEG derivative (quality 85); original image field is unchanged.",
+    )
 
     class Meta:
         verbose_name = "POST IMAGES"
@@ -721,6 +727,59 @@ class PostImage(models.Model):
 
     def __str__(self):
         return f"Image for post {self.post.id}"
+
+    def get_photo_url(self):
+        """Prefer optimized JPEG URL; fall back to original image."""
+        try:
+            if self.pet_photo_opt:
+                return self.pet_photo_opt.url
+        except Exception:
+            pass
+        try:
+            if self.image:
+                return self.image.url
+        except Exception:
+            pass
+        return ""
+
+    def _sync_pet_photo_opt(self):
+        from pet_adoption.image_optimizer import build_jpeg_derivative
+
+        if not self.image:
+            if self.pet_photo_opt:
+                try:
+                    self.pet_photo_opt.delete(save=False)
+                except Exception:
+                    pass
+                self.pet_photo_opt = None
+                return True
+            return False
+
+        content, filename = build_jpeg_derivative(self.image, quality=85)
+        if not content or not filename:
+            if self.pet_photo_opt:
+                try:
+                    self.pet_photo_opt.delete(save=False)
+                except Exception:
+                    pass
+                self.pet_photo_opt = None
+                return True
+            return False
+
+        if self.pet_photo_opt:
+            try:
+                self.pet_photo_opt.delete(save=False)
+            except Exception:
+                pass
+            self.pet_photo_opt = None
+
+        self.pet_photo_opt.save(filename, content, save=False)
+        return True
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self._sync_pet_photo_opt():
+            super().save(update_fields=["pet_photo_opt"])
 
 class PostRequest(models.Model):
     VERIFICATION_WINDOW_DAYS = 1

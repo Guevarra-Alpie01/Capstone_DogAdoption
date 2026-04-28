@@ -467,6 +467,12 @@ class UserAdoptionRequest(models.Model):
     valid_id = models.ImageField(upload_to='adoption_docs/ids/', null=True, blank=True)
     vaccination_history = models.ImageField(upload_to='adoption_docs/vaccines/', null=True, blank=True)
     anti_rabies_proof = models.ImageField(upload_to='adoption_docs/anti_rabies/', null=True, blank=True)
+    cert_opt = models.ImageField(
+        upload_to='adoption_docs/vaccines/opt/',
+        null=True,
+        blank=True,
+        help_text="JPEG derivative of vaccination scan (quality 95); original uploads unchanged.",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -479,7 +485,59 @@ class UserAdoptionRequest(models.Model):
 
     def __str__(self):
         return f"{self.requester.username} → {self.post.dog_name}"
-    
+
+    def get_photo_url(self):
+        """Prefer optimized vaccination certificate JPEG URL; fall back to original file."""
+        try:
+            if self.cert_opt:
+                return self.cert_opt.url
+        except Exception:
+            pass
+        try:
+            if self.vaccination_history:
+                return self.vaccination_history.url
+        except Exception:
+            pass
+        return ""
+
+    def _sync_cert_opt(self):
+        from pet_adoption.image_optimizer import build_jpeg_derivative
+
+        if not self.vaccination_history:
+            if self.cert_opt:
+                try:
+                    self.cert_opt.delete(save=False)
+                except Exception:
+                    pass
+                self.cert_opt = None
+                return True
+            return False
+
+        content, filename = build_jpeg_derivative(self.vaccination_history, quality=95)
+        if not content or not filename:
+            if self.cert_opt:
+                try:
+                    self.cert_opt.delete(save=False)
+                except Exception:
+                    pass
+                self.cert_opt = None
+                return True
+            return False
+
+        if self.cert_opt:
+            try:
+                self.cert_opt.delete(save=False)
+            except Exception:
+                pass
+            self.cert_opt = None
+
+        self.cert_opt.save(filename, content, save=False)
+        return True
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self._sync_cert_opt():
+            super().save(update_fields=["cert_opt"])
 
 #post for lost dogs
 

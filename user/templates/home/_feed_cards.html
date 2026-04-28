@@ -86,7 +86,11 @@
         {% with item.main_image as main_image %}
             {% if main_image %}
                 <div class="media-wrap">
-                    <img src="{{ main_image.image.url }}" class="card-img-top main-img">
+                    {% if item.post_type == 'admin' %}
+                    <img src="{{ main_image.get_photo_url }}" class="card-img-top main-img" loading="lazy" decoding="async">
+                    {% else %}
+                    <img src="{{ main_image.image.url }}" class="card-img-top main-img" loading="lazy" decoding="async">
+                    {% endif %}
                 </div>
             {% endif %}
         {% endwith %}
@@ -222,7 +226,11 @@
                                     <div class="carousel-inner">
                                         {% for image in item.gallery_images %}
                                             <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                                <img src="{{ image.image.url }}" class="d-block w-100 modal-img" alt="Dog image">
+                                                {% if item.post_type == 'admin' %}
+                                                <img src="{{ image.get_photo_url }}" class="d-block w-100 modal-img" alt="Dog image" loading="lazy" decoding="async">
+                                                {% else %}
+                                                <img src="{{ image.image.url }}" class="d-block w-100 modal-img" alt="Dog image" loading="lazy" decoding="async">
+                                                {% endif %}
                                             </div>
                                         {% endfor %}
                                     </div>

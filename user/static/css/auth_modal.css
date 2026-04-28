@@ -1209,3 +1209,42 @@
     opacity: 1;
     cursor: wait;
 }
+
+/*
+ * Guest shell: `.app-topbar` uses z-index 1100 (user_theme.css). Bootstrap defaults are
+ * backdrop 1050 / modal 1055 — navbar stays visible above dimmer + dialog.
+ * Inset the modal column so centered dialogs sit below the bar instead of under it.
+ */
+body.user {
+    --user-auth-modal-navbar-offset: calc(env(safe-area-inset-top, 0px) + 68px);
+}
+
+@media (min-width: 992px) {
+    body.user {
+        --user-auth-modal-navbar-offset: calc(env(safe-area-inset-top, 0px) + 72px);
+    }
+}
+
+body.user .modal.auth-modal {
+    z-index: 1055 !important;
+    padding-top: var(--user-auth-modal-navbar-offset);
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+    padding-left: max(0.35rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.35rem, env(safe-area-inset-right, 0px));
+    box-sizing: border-box;
+}
+
+body.user.modal-open .modal-backdrop.show {
+    z-index: 1050 !important;
+}
+
+body.user .modal.auth-modal .modal-dialog.modal-dialog-centered {
+    min-height: calc(
+        100dvh - var(--user-auth-modal-navbar-offset) - max(1.25rem, env(safe-area-inset-bottom, 0px))
+    );
+}
+
+body.user .modal.auth-modal .modal-dialog {
+    margin-top: 0;
+    padding-top: 1rem;
+}

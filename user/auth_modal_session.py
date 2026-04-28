@@ -8,6 +8,8 @@ from django.utils.http import url_has_allowed_host_and_scheme
 
 AUTH_MODAL_LOGIN_ERROR_SESSION_KEY = "auth_modal_login_error"
 AUTH_MODAL_LOGIN_USERNAME_SESSION_KEY = "auth_modal_login_username"
+AUTH_MODAL_SIGNUP_ERROR_SESSION_KEY = "auth_modal_signup_error"
+AUTH_MODAL_SIGNUP_FORM_DATA_SESSION_KEY = "auth_modal_signup_form_data"
 
 
 def safe_next_url(request, raw_value=""):
@@ -50,6 +52,16 @@ def flash_modal_login_error(request, message, username=""):
     request.session.modified = True
 
 
+def flash_modal_signup_error(request, message, signup_form_data=None):
+    """Store signup validation error + safe field echoes for modal reopen on redirect."""
+    request.session[AUTH_MODAL_SIGNUP_ERROR_SESSION_KEY] = message
+    if signup_form_data is not None:
+        request.session[AUTH_MODAL_SIGNUP_FORM_DATA_SESSION_KEY] = dict(signup_form_data)
+    else:
+        request.session.pop(AUTH_MODAL_SIGNUP_FORM_DATA_SESSION_KEY, None)
+    request.session.modified = True
+
+
 def redirect_modal_login_error(request, *, message, username, next_url):
     """Redirect back to ``next`` (or home) with login modal and flashed error in session."""
     flash_modal_login_error(request, message, username)
@@ -57,3 +69,12 @@ def redirect_modal_login_error(request, *, message, username, next_url):
     if safe_next:
         return redirect(merge_query_params(safe_next, {"auth_modal": "login"}))
     return redirect(build_home_auth_modal_url(request, "login", next_url))
+
+
+def redirect_modal_signup_error(request, *, message, signup_form_data, next_url):
+    """Redirect back like login: stay on page (via ?next) and reopen signup with error."""
+    flash_modal_signup_error(request, message, signup_form_data)
+    safe_next = safe_next_url(request, next_url)
+    if safe_next:
+        return redirect(merge_query_params(safe_next, {"auth_modal": "signup"}))
+    return redirect(build_home_auth_modal_url(request, "signup", next_url))

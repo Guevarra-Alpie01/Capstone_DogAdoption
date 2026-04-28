@@ -4,6 +4,8 @@ from django.urls import reverse
 from .auth_modal_session import (
     AUTH_MODAL_LOGIN_ERROR_SESSION_KEY,
     AUTH_MODAL_LOGIN_USERNAME_SESSION_KEY,
+    AUTH_MODAL_SIGNUP_ERROR_SESSION_KEY,
+    AUTH_MODAL_SIGNUP_FORM_DATA_SESSION_KEY,
     safe_next_url,
 )
 from .avatar_cache import DEFAULT_AVATAR_URL, get_cached_profile_avatar_url
@@ -53,7 +55,7 @@ def auth_ui(request):
 
 def auth_modal_gateway(request):
     """
-    Open login/signup modal from ?auth_modal= on any page, and surface one-shot modal login errors.
+    Open login/signup modal from ?auth_modal=, and flash one-shot errors + signup field echoes via session redirects.
     """
     user = getattr(request, "user", None)
     if user and user.is_authenticated:
@@ -74,5 +76,13 @@ def auth_modal_gateway(request):
             uname = request.session.pop(AUTH_MODAL_LOGIN_USERNAME_SESSION_KEY, None)
             if uname is not None:
                 ctx["login_form_data"] = {"username": uname}
+
+    elif modal == "signup":
+        err = request.session.pop(AUTH_MODAL_SIGNUP_ERROR_SESSION_KEY, None)
+        if err:
+            ctx["signup_error"] = err
+        form_data = request.session.pop(AUTH_MODAL_SIGNUP_FORM_DATA_SESSION_KEY, None)
+        if form_data:
+            ctx["signup_form_data"] = form_data
 
     return ctx

@@ -77,6 +77,7 @@ from .avatar_cache import invalidate_cached_profile_avatar
 from .auth_modal_session import (
     build_home_auth_modal_url as _build_home_auth_modal_url_impl,
     redirect_modal_login_error,
+    redirect_modal_signup_error,
 )
 from .notification_utils import (
     build_user_notifications_page_list,
@@ -424,12 +425,11 @@ def _render_signup_error(request, signup_form_data, message):
         return JsonResponse({"ok": False, "error": message}, status=400)
     next_url = _get_safe_next_url(request, request.POST.get("next"))
     if (request.POST.get("auth_source") or "").strip() == "modal":
-        return _render_home_with_auth_modal(
+        return redirect_modal_signup_error(
             request,
-            "signup",
-            auth_next=next_url,
-            signup_error=message,
+            message=message,
             signup_form_data=signup_form_data,
+            next_url=next_url,
         )
     return _render_signup_page(
         request,
@@ -4647,18 +4647,6 @@ def _build_user_home_context(
     }
 
 
-def _render_home_with_auth_modal(request, auth_modal, **extra_context):
-    """Render the home feed while forcing a login or signup modal state."""
-    context = _build_user_home_context(request)
-    context.update({
-        "auth_modal": auth_modal,
-        **_auth_ui_context(),
-        **extra_context,
-    })
-    return render(request, "home/user_home.html", context)
-
-
-def user_home(request):
     """Render the mixed public feed and handle quick post creation from home."""
     # Redirect staff to admin dashboard
     if request.user.is_authenticated and request.user.is_staff:

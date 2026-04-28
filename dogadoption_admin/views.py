@@ -5499,6 +5499,14 @@ def med_record(request, registration_id):
 
     return render(request, "admin_registration/med_record.html", context)
 
+
+def _dog_certificate_page_context(settings_obj):
+    return {
+        "settings": settings_obj,
+        "breed_choices": Post.BREED_CHOICES,
+    }
+
+
 @admin_required
 def dog_certificate(request):
     """Create the base vaccination certificate registration before medical entry."""
@@ -5507,7 +5515,9 @@ def dog_certificate(request):
     if request.method == "POST":
         reg_no = (request.POST.get("reg_no") or "").strip()
         series_prefix = _normalize_certificate_series(reg_no)
-        breed = (request.POST.get("breed") or "").strip()
+        breed_slug = (request.POST.get("breed") or "").strip()
+        breed_other = " ".join((request.POST.get("breed_other") or "").split()).strip()
+        breed_labels = dict(Post.BREED_CHOICES)
         dob_input = (request.POST.get("dob") or "").strip()
         dob_value = parse_date(dob_input) if dob_input else None
         barangay_input = request.POST.get("barangay", "")
@@ -5530,31 +5540,39 @@ def dog_certificate(request):
 
         if not series_prefix:
             messages.error(request, "Please enter a valid registration series.")
-            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+            return render(request, 'admin_registration/dog_certificate.html', _dog_certificate_page_context(settings))
 
-        if not breed:
-            messages.error(request, "Breed is required.")
-            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+        if not breed_slug or breed_slug not in breed_labels:
+            messages.error(request, "Please select a breed.")
+            return render(request, 'admin_registration/dog_certificate.html', _dog_certificate_page_context(settings))
+
+        if breed_slug == Post.BREED_OTHER:
+            if not breed_other:
+                messages.error(request, "Enter the breed when Other is selected.")
+                return render(request, 'admin_registration/dog_certificate.html', _dog_certificate_page_context(settings))
+            resolved_breed = breed_other[:100]
+        else:
+            resolved_breed = breed_labels[breed_slug][:100]
 
         if dob_input and not dob_value:
             messages.error(request, "Please enter a valid Date of Birth.")
-            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+            return render(request, 'admin_registration/dog_certificate.html', _dog_certificate_page_context(settings))
 
         if status not in {"Castrated", "Spayed", "Intact"}:
             messages.error(request, "Please select a valid status.")
-            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+            return render(request, 'admin_registration/dog_certificate.html', _dog_certificate_page_context(settings))
 
         if not owner_name or not owner_name_key:
             messages.error(request, "Owner First and Last Name are required.")
-            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+            return render(request, 'admin_registration/dog_certificate.html', _dog_certificate_page_context(settings))
 
         if (owner_first_name or owner_last_name) and (not owner_first_name or not owner_last_name):
             messages.error(request, "Please provide both owner first name and last name.")
-            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+            return render(request, 'admin_registration/dog_certificate.html', _dog_certificate_page_context(settings))
 
         if not barangay:
             messages.error(request, "Please select a valid barangay from the suggestions.")
-            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+            return render(request, 'admin_registration/dog_certificate.html', _dog_certificate_page_context(settings))
 
         contact_no_input = (request.POST.get("contact_no") or "").strip()
         contact_no_digits = re.sub(r"\D", "", contact_no_input)
@@ -5570,7 +5588,7 @@ def dog_certificate(request):
 
         if not re.match(r"^09\d{9}$", canonical_local):
             messages.error(request, "Use a valid PH mobile number: 09XXXXXXXXX (spaces are allowed).")
-            return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+            return render(request, 'admin_registration/dog_certificate.html', _dog_certificate_page_context(settings))
 
         contact_no = f"+63{canonical_local[1:]}"
 
@@ -5591,7 +5609,7 @@ def dog_certificate(request):
                 # Keep address format standardized: "<Barangay>, Bayawan City, Negros Oriental"
                 reg_no=_build_certificate_registration_number(settings.reg_no),
                 name_of_pet=request.POST.get('name_of_pet'),
-                breed=breed,
+                breed=resolved_breed,
                 dob=dob_value,
                 color_markings=request.POST.get('color_markings'),
                 sex=request.POST.get('sex'),
@@ -5604,7 +5622,7 @@ def dog_certificate(request):
         #  Redirect to medical record with dog ID
         return redirect('dogadoption_admin:med_records', registration_id=registration.id)
 
-    return render(request, 'admin_registration/dog_certificate.html', {'settings': settings})
+    return render(request, 'admin_registration/dog_certificate.html', _dog_certificate_page_context(settings))
 
 # ---------------------------------------------------------------------------
 # Register link 4/5: Vaccination List

@@ -3,7 +3,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/register/registration.css' %}?v=20260328a">
-<link rel="stylesheet" href="{% static 'css/register/dog_certificate.css' %}?v=20260408a">
+<link rel="stylesheet" href="{% static 'css/register/dog_certificate.css' %}?v=20260428a">
 <link rel="stylesheet" href="{% static 'css/register/registration_theme.css' %}?v=20260330d">
 {% endblock extra_css %}
 
@@ -71,9 +71,25 @@
                     </div>
                     <div class="field-group">
                         <label for="breed">Breed</label>
-                        <input type="text" name="breed" id="breed" placeholder="e.g., Aspin / Mongrel" oninput="showBreedSuggestions(this.value)" autocomplete="off" required>
-                        <div id="breed_suggestions" class="suggestions-box breed-suggestions-box" style="display:none;"></div>
+                        <select name="breed" id="breed" required>
+                            <option value="" selected disabled>Select breed</option>
+                            {% for value, label in breed_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
+                </div>
+
+                <div class="field-group" id="breedOtherGroup" hidden>
+                    <label for="breed_other">Other breed</label>
+                    <input
+                        type="text"
+                        name="breed_other"
+                        id="breed_other"
+                        maxlength="100"
+                        autocomplete="off"
+                        placeholder="Describe the breed"
+                    >
                 </div>
 
                 <div class="grid-row three-cols">
@@ -205,6 +221,8 @@
         const petSuggestionsBox = document.getElementById('certificate-pet-suggestions');
         const petSuggestionHint = document.getElementById('certificate-pet-hint');
         const breedInput = document.getElementById('breed');
+        const breedOtherGroup = document.getElementById('breedOtherGroup');
+        const breedOtherInput = document.getElementById('breed_other');
         const dobInput = document.getElementById('dob');
         const sexInput = document.getElementById('sex');
         const statusInput = document.getElementById('status');
@@ -263,11 +281,53 @@
             return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
         }
 
+        function syncBreedOther() {
+            if (!breedInput) {
+                return;
+            }
+            const show = breedInput.value === 'other';
+            if (breedOtherGroup) {
+                breedOtherGroup.hidden = !show;
+            }
+            if (breedOtherInput) {
+                breedOtherInput.required = show;
+                if (!show) {
+                    breedOtherInput.value = '';
+                }
+            }
+        }
+
+        function applyBreedFromPet(pet) {
+            const raw = pet && pet.breed ? String(pet.breed).trim() : '';
+            if (!raw || !breedInput) {
+                syncBreedOther();
+                return;
+            }
+            let matched = false;
+            const lower = raw.toLowerCase();
+            for (let i = 0; i < breedInput.options.length; i += 1) {
+                const opt = breedInput.options[i];
+                if (!opt.value) {
+                    continue;
+                }
+                if (opt.value === raw || opt.textContent.trim().toLowerCase() === lower) {
+                    breedInput.value = opt.value;
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                breedInput.value = 'other';
+                if (breedOtherInput) {
+                    breedOtherInput.value = raw;
+                }
+            }
+            syncBreedOther();
+        }
+
         function applyPetSelection(pet) {
             petNameInput.value = pet.name || '';
-            if (pet.breed) {
-                breedInput.value = pet.breed;
-            }
+            applyBreedFromPet(pet);
             if (pet.dob) {
                 dobInput.value = pet.dob;
             }
@@ -496,133 +556,21 @@
             }
         });
 
+        if (breedInput) {
+            breedInput.addEventListener('change', syncBreedOther);
+            syncBreedOther();
+        }
+
         syncPetHint();
     })();
 
-    const breedList = [
-        "Aspin (Asong Pinoy)",
-        "Askal",
-        "Mongrel",
-        "Shih Tzu",
-        "Chihuahua",
-        "Pomeranian",
-        "Toy Poodle",
-        "Yorkshire Terrier",
-        "Miniature Pinscher",
-        "Dachshund",
-        "Maltese",
-        "Lhasa Apso",
-        "French Bulldog",
-        "Labrador Retriever",
-        "Golden Retriever",
-        "Siberian Husky",
-        "German Shepherd",
-        "Rottweiler",
-        "Doberman Pinscher",
-        "American Bully",
-        "Belgian Malinois",
-        "Border Collie",
-        "Shiba Inu",
-        "Chow Chow",
-        "Great Dane",
-        "Saint Bernard",
-        "Puspin (Pusang Pinoy)",
-        "Persian",
-        "Siamese",
-        "British Shorthair",
-        "Scottish Fold",
-        "Maine Coon",
-        "Ragdoll",
-        "Bengal",
-        "Russian Blue",
-        "American Shorthair",
-        "Exotic Shorthair",
-        "Sphynx"
-    ];
-
-    const breedInput = document.getElementById('breed');
-    const breedSuggestionsBox = document.getElementById('breed_suggestions');
+    (function () {
     const contactInput = document.getElementById('contact_no');
     const certificateForm = document.getElementById('dog-certificate-form');
     const nextStepModal = document.getElementById('certificate-next-modal');
     const confirmNextBtn = document.getElementById('certificate-confirm-next');
     const modalCloseTriggers = document.querySelectorAll('[data-modal-close]');
     let proceedAfterModal = false;
-
-    function cleanInput(value) {
-        return value.replace(/\s+/g, ' ').trim();
-    }
-
-    function normalizeText(value) {
-        return cleanInput(value).toLowerCase().replace(/[^a-z0-9]/g, '');
-    }
-
-    function findExactBreed(value) {
-        const normalized = normalizeText(value);
-        if (!normalized) {
-            return '';
-        }
-        return breedList.find((b) => normalizeText(b) === normalized) || '';
-    }
-
-    function findBreedMatches(value) {
-        const normalized = normalizeText(value);
-        if (!normalized) {
-            return [];
-        }
-        return breedList.filter((b) => normalizeText(b).includes(normalized));
-    }
-
-    function showBreedSuggestions(value) {
-        const cleaned = cleanInput(value);
-        breedInput.value = cleaned;
-
-        if (!normalizeText(cleaned)) {
-            breedSuggestionsBox.style.display = 'none';
-            return;
-        }
-
-        const matches = findBreedMatches(breedInput.value);
-        if (matches.length === 0) {
-            breedSuggestionsBox.style.display = 'none';
-            return;
-        }
-
-        breedSuggestionsBox.innerHTML = matches.map((b) =>
-            `<div class="suggestion-item" onclick="selectBreed('${b.replace(/'/g, "\\'")}')">${b}</div>`
-        ).join('');
-        breedSuggestionsBox.style.display = 'block';
-    }
-
-    function selectBreed(value) {
-        breedInput.value = value;
-        breedSuggestionsBox.style.display = 'none';
-    }
-
-    function selectTopBreedSuggestion() {
-        if (!breedSuggestionsBox || breedSuggestionsBox.style.display === 'none') {
-            return false;
-        }
-
-        const firstSuggestion = breedSuggestionsBox.querySelector('.suggestion-item');
-        if (!firstSuggestion) {
-            return false;
-        }
-
-        const topValue = firstSuggestion.textContent.trim();
-        if (!topValue) {
-            return false;
-        }
-
-        selectBreed(topValue);
-        return true;
-    }
-
-    function normalizeBreedField() {
-        const cleaned = cleanInput(breedInput.value);
-        const exactMatch = findExactBreed(cleaned);
-        breedInput.value = exactMatch || cleaned;
-    }
 
     function formatContactNumber(value) {
         const digitsOnly = value.replace(/\D/g, '');
@@ -657,22 +605,6 @@
             return `0${digits}`;
         }
         return digits;
-    }
-
-    if (breedInput) {
-        breedInput.addEventListener('blur', normalizeBreedField);
-        breedInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Backspace' || e.key === 'Delete') {
-                return;
-            }
-            if (e.key === 'Enter') {
-                if (selectTopBreedSuggestion()) {
-                    e.preventDefault();
-                    return;
-                }
-                normalizeBreedField();
-            }
-        });
     }
 
     if (contactInput) {
@@ -712,8 +644,6 @@
             }
 
             proceedAfterModal = false;
-            normalizeBreedField();
-            breedSuggestionsBox.style.display = 'none';
 
             if (contactInput) {
                 contactInput.value = toCanonicalContactNumber(contactInput.value);
@@ -738,10 +668,6 @@
             if (typeof certificateForm.requestSubmit === 'function') {
                 certificateForm.requestSubmit();
             } else {
-                normalizeBreedField();
-                if (breedSuggestionsBox) {
-                    breedSuggestionsBox.style.display = 'none';
-                }
                 if (contactInput) {
                     contactInput.value = toCanonicalContactNumber(contactInput.value);
                 }
@@ -759,12 +685,7 @@
             closeNextStepModal();
         }
     });
-
-    document.addEventListener('click', (e) => {
-        if (breedSuggestionsBox && !breedSuggestionsBox.contains(e.target) && e.target !== breedInput) {
-            breedSuggestionsBox.style.display = 'none';
-        }
-    });
+    })();
 </script>
 <script src="{% static 'js/barangay_autocomplete.js' %}"></script>
 {% endblock %}

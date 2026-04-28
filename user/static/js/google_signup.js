@@ -51,6 +51,80 @@
         return queryAuthScope(form, ".google-signup-shell");
     }
 
+    function ensureGoogleLoadingOverlay(shell) {
+        if (!shell) {
+            return null;
+        }
+        var existing = shell.querySelector(".google-signup-loading-overlay");
+        if (existing) {
+            return existing;
+        }
+        var overlay = document.createElement("div");
+        overlay.className = "google-signup-loading-overlay";
+        overlay.setAttribute("aria-live", "polite");
+        overlay.innerHTML =
+            '<div class="google-signup-loading-spinner" aria-hidden="true"></div>' +
+            '<span class="google-signup-loading-text"></span>';
+        shell.insertBefore(overlay, shell.firstChild);
+        return overlay;
+    }
+
+    function showGoogleLoading(form) {
+        var shell = getButtonShell(form);
+        var overlay = ensureGoogleLoadingOverlay(shell);
+        if (!overlay) {
+            return;
+        }
+        var mode = getMode(form);
+        var text = mode === "login" ? "Connecting..." : "Signing up...";
+        var textEl = overlay.querySelector(".google-signup-loading-text");
+        if (textEl) {
+            textEl.textContent = text;
+        }
+        shell.classList.add("is-google-loading");
+    }
+
+    function hideGoogleLoading(form) {
+        var shell = getButtonShell(form);
+        if (!shell) {
+            return;
+        }
+        shell.classList.remove("is-google-loading");
+    }
+
+    function armOAuthCancelRecovery(form) {
+        function cleanup() {
+            window.removeEventListener("focus", onFocus);
+            window.clearTimeout(fallbackTimerId);
+        }
+
+        function maybeDismissStaleLoading() {
+            if ((form.dataset.googleOAuthInProgress || "").trim() !== "1") {
+                return;
+            }
+            var inp = getCredentialInput(form);
+            if (inp && inp.value && inp.value.trim()) {
+                return;
+            }
+            hideGoogleLoading(form);
+            delete form.dataset.googleOAuthInProgress;
+        }
+
+        function onFocus() {
+            window.setTimeout(function () {
+                maybeDismissStaleLoading();
+                cleanup();
+            }, 900);
+        }
+
+        window.addEventListener("focus", onFocus);
+
+        var fallbackTimerId = window.setTimeout(function () {
+            maybeDismissStaleLoading();
+            cleanup();
+        }, 120000);
+    }
+
     function getRenderContext(form) {
         const modal = form.closest(".modal");
         if (!modal) {
@@ -193,21 +267,30 @@
             shape: "rectangular",
             logo_alignment: "left",
             width: buttonWidth,
+            click_listener: function () {
+                delete form.dataset.googleOAuthInProgress;
+                showGoogleLoading(form);
+                form.dataset.googleOAuthInProgress = "1";
+                armOAuthCancelRecovery(form);
+            },
         };
 
         if (mode === "login") {
             window.google.accounts.id.initialize({
                 client_id: clientId,
                 callback: function (response) {
+                    delete form.dataset.googleOAuthInProgress;
                     clearError(form);
 
                     if (!response || !response.credential) {
+                        hideGoogleLoading(form);
                         setError(form, "Google could not confirm your account. Please try again.");
                         return;
                     }
 
                     const credentialInput = getCredentialInput(form);
                     if (!credentialInput) {
+                        hideGoogleLoading(form);
                         setError(form, "Google could not confirm your account. Please try again.");
                         return;
                     }
@@ -227,15 +310,18 @@
         window.google.accounts.id.initialize({
             client_id: clientId,
             callback: function (response) {
+                delete form.dataset.googleOAuthInProgress;
                 clearError(form);
 
                 if (!response || !response.credential) {
+                    hideGoogleLoading(form);
                     setError(form, "Google could not confirm your account. Please try again.");
                     return;
                 }
 
                 const credentialInput = getCredentialInput(form);
                 if (!credentialInput) {
+                    hideGoogleLoading(form);
                     setError(form, "Google could not confirm your account. Please try again.");
                     return;
                 }

@@ -2495,7 +2495,7 @@ def post_list(request):
             "finalize_url": reverse("dogadoption_admin:finalize_post", args=[post.id]),
             "finalize_status": "reunited" if section_key == "claim" else "adopted",
             "finalize_label": "Mark as Redeemed" if section_key == "claim" else "Mark as Adopted",
-            "finalize_icon": "bi bi-house" if section_key == "claim" else "bi bi-heart",
+            "finalize_lucide_icon": "house" if section_key == "claim" else "heart",
             "delete_url": reverse("dogadoption_admin:delete_post", args=[post.id]),
             "allow_toggle": allow_toggle,
         }

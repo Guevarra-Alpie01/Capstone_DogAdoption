@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260428active-board-only">
+<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260428lucide-pin">
 
 <div class="post-toolbar-shell">
     <div class="post-toolbar">
@@ -16,7 +16,7 @@
                     title="Create Post"
                     aria-label="Create Post"
                 >
-                    <i class="fas fa-plus-circle" aria-hidden="true"></i>
+                    {% include 'admin_home/includes/lucide_icon.html' with icon='circle-plus' %}
                 </button>
             {% endif %}
             {% if admin_access.is_full_admin %}
@@ -28,7 +28,7 @@
                     title="Set Appointment Date"
                     aria-label="Set Appointment Date"
                 >
-                    <i class="fas fa-calendar-alt" aria-hidden="true"></i>
+                    {% include 'admin_home/includes/lucide_icon.html' with icon='calendar-days' %}
                 </button>
             {% endif %}
             <a
@@ -37,7 +37,7 @@
                 title="User Post Requests"
                 aria-label="User Post Requests"
             >
-                <i class="bi bi-person-lines-fill" aria-hidden="true"></i>
+                {% include 'admin_home/includes/lucide_icon.html' with icon='users' %}
                 {% if user_post_pending_count %}
                     <span class="post-toolbar-badge post-toolbar-badge--requests">{{ user_post_pending_count }}</span>
                 {% endif %}
@@ -49,7 +49,7 @@
                     title="History"
                     aria-label="History"
                 >
-                    <i class="fas fa-history" aria-hidden="true"></i>
+                    {% include 'admin_home/includes/lucide_icon.html' with icon='history' %}
                     <span class="post-toolbar-badge">{{ history_total }}</span>
                 </a>
                 <a
@@ -58,7 +58,7 @@
                     title="User Adoption History"
                     aria-label="User Adoption History"
                 >
-                    <i class="bi bi-person-heart" aria-hidden="true"></i>
+                    {% include 'admin_home/includes/lucide_icon.html' with icon='heart' %}
                 </a>
             {% endif %}
         </div>
@@ -209,7 +209,7 @@
 
                         <div class="form-actions app-btn-row app-btn-row--mobile-stack">
                             <button type="submit" class="btn btn-primary btn-submit app-btn-fit app-btn-mobile-full">
-                                <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                                {% include 'admin_home/includes/lucide_icon.html' with icon='send' %}
                                 <span>Publish Post</span>
                             </button>
                         </div>
@@ -255,11 +255,11 @@
                             </div>
                             <div class="calendar-toolbar">
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="calendar_prev" aria-label="Previous month">
-                                    <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                                    {% include 'admin_home/includes/lucide_icon.html' with icon='chevron-left' %}
                                 </button>
                                 <strong id="month_label"></strong>
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="calendar_next" aria-label="Next month">
-                                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                                    {% include 'admin_home/includes/lucide_icon.html' with icon='chevron-right' %}
                                 </button>
                             </div>
                             <div class="calendar-weekdays" id="weekdays"></div>
@@ -324,7 +324,7 @@
                                                         title="{{ item.pin_label }}"
                                                         aria-label="{{ item.pin_label }}"
                                                     >
-                                                        <i class="bi {% if item.is_pinned %}bi-pin-angle-fill{% else %}bi-pin-angle{% endif %}" aria-hidden="true"></i>
+                                                        {% include 'admin_home/includes/lucide_icon.html' with icon='pin' %}
                                                     </button>
                                                 </form>
                                             </td>
@@ -351,7 +351,7 @@
                                                 <div class="status-dog-cell">
                                                     {% if item.is_pinned %}
                                                         <span class="status-pinned-badge">
-                                                            <i class="bi bi-pin-angle-fill" aria-hidden="true"></i>
+                                                            {% include 'admin_home/includes/lucide_icon.html' with icon='pin' %}
                                                             <span>Pinned on Home</span>
                                                         </span>
                                                     {% endif %}
@@ -369,7 +369,7 @@
                                                     title="{% if item.request_type == 'claim' %}View redeem requests from residents{% else %}View adoption requests from residents{% endif %}"
                                                     aria-label="{% if item.request_type == 'claim' %}View redeem requests, {{ item.request_count }} total{% else %}View adoption requests, {{ item.request_count }} total{% endif %}"
                                                 >
-                                                    <i class="bi bi-people" aria-hidden="true"></i>
+                                                    {% include 'admin_home/includes/lucide_icon.html' with icon='users' %}
                                                     <span>{{ item.request_count }}</span>
                                                 </button>
                                             </td>
@@ -385,7 +385,7 @@
                                                         title="Edit post"
                                                         aria-label="Edit post"
                                                     >
-                                                        <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                                                        {% include 'admin_home/includes/lucide_icon.html' with icon='square-pen' %}
                                                     </a>
                                                     {% if item.allow_toggle %}
                                                         <form
@@ -406,7 +406,7 @@
                                                                 title="{{ item.toggle_label }}"
                                                                 aria-label="{{ item.toggle_label }}"
                                                             >
-                                                                <i class="bi bi-arrow-left-right" aria-hidden="true"></i>
+                                                                {% include 'admin_home/includes/lucide_icon.html' with icon='arrow-left-right' %}
                                                             </button>
                                                         </form>
                                                     {% endif %}
@@ -428,7 +428,7 @@
                                                             title="{{ item.finalize_label }}"
                                                             aria-label="{{ item.finalize_label }}"
                                                         >
-                                                            <i class="{{ item.finalize_icon }}" aria-hidden="true"></i>
+                                                            {% include 'admin_home/includes/lucide_icon.html' with icon=item.finalize_lucide_icon %}
                                                         </button>
                                                     </form>
                                                     <button
@@ -441,7 +441,7 @@
                                                         data-delete-action="{{ item.delete_url }}"
                                                         data-delete-title="{{ post.display_title|default:'Dog Listing'|escape }}"
                                                     >
-                                                        <i class="bi bi-trash3" aria-hidden="true"></i>
+                                                        {% include 'admin_home/includes/lucide_icon.html' with icon='trash-2' %}
                                                     </button>
                                                 </div>
                                             </td>
@@ -456,11 +456,11 @@
                         <div class="card-pagination card-pagination--carousel">
                             {% if section.page_obj.has_previous %}
                                 <a href="?{{ section.prev_qs }}" class="card-page-btn card-page-btn--arrow" aria-label="Previous {{ section.title }} page">
-                                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                                    {% include 'admin_home/includes/lucide_icon.html' with icon='chevron-left' %}
                                 </a>
                             {% else %}
                                 <span class="card-page-btn card-page-btn--arrow disabled" aria-hidden="true">
-                                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                                    {% include 'admin_home/includes/lucide_icon.html' with icon='chevron-left' %}
                                 </span>
                             {% endif %}
                             <div class="card-page-dots" aria-label="{{ section.title }} pages">
@@ -475,11 +475,11 @@
                             </div>
                             {% if section.page_obj.has_next %}
                                 <a href="?{{ section.next_qs }}" class="card-page-btn card-page-btn--arrow" aria-label="Next {{ section.title }} page">
-                                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                                    {% include 'admin_home/includes/lucide_icon.html' with icon='chevron-right' %}
                                 </a>
                             {% else %}
                                 <span class="card-page-btn card-page-btn--arrow disabled" aria-hidden="true">
-                                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                                    {% include 'admin_home/includes/lucide_icon.html' with icon='chevron-right' %}
                                 </span>
                             {% endif %}
                         </div>

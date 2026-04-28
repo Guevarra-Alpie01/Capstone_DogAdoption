@@ -1914,15 +1914,25 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
     }
 
     /*
-     * Citation carousel: avoid 3-column rows (index | title | fee) on narrow slides — the fee column
-     * was clipped or pushed past overflow. Stack: title row, then fee full-width right-aligned.
+     * Citation carousel: avoid 3-column rows on narrow slides. Section 28: index+title row, fee full-width.
+     * Section 29: index+title row, fee under description column (right-aligned).
      */
-    [data-home-fee-carousel] .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__item,
-    [data-home-fee-carousel] .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item {
+    [data-home-fee-carousel] .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__item {
         grid-template-columns: auto minmax(0, 1fr);
         grid-template-areas:
             "fee-idx fee-copy"
             "fee-amt fee-amt";
+        align-items: start;
+        overflow: visible;
+    }
+
+    [data-home-fee-carousel] .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+            "fee-idx fee-copy"
+            ". fee-amt";
+        gap: 2px 10px;
         align-items: start;
         overflow: visible;
     }
@@ -1938,11 +1948,18 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
         min-width: 0;
     }
 
-    [data-home-fee-carousel] .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__fee,
-    [data-home-fee-carousel] .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__fee {
+    [data-home-fee-carousel] .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__fee {
         grid-area: fee-amt;
         justify-self: end;
         margin-top: 2px;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    [data-home-fee-carousel] .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__fee {
+        grid-area: fee-amt;
+        justify-self: end;
+        margin-top: 0;
         max-width: 100%;
         box-sizing: border-box;
     }
@@ -2029,23 +2046,6 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
         font-size: 0.66rem;
     }
 
-}
-
-/* Citation penalties: stack row content on narrow widths */
-@media (min-width: 300px) and (max-width: 600px) {
-    [data-home-fee-carousel] .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item.penalty-card,
-    .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item.penalty-card {
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-        grid-template-columns: none;
-        grid-template-areas: none;
-    }
-
-    [data-home-fee-carousel] .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__fee.fine-amount,
-    .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__fee.fine-amount {
-        margin-top: 0.5rem;
-    }
 }
 
 @media (max-width: 819.98px) {
@@ -2164,9 +2164,8 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
         font-size: 0.72rem;
     }
 
-    /* Section 28/29 use three children; stack fee on its own row (same as citation carousel fixes). */
-    .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__item,
-    .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item {
+    /* Section 28: index + title row, fee full-width row below. */
+    .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__item {
         grid-template-columns: auto minmax(0, 1fr);
         grid-template-areas:
             "fee-idx fee-copy"
@@ -2174,23 +2173,54 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
         overflow: visible;
     }
 
-    .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__index,
-    .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__index {
+    .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__index {
         grid-area: fee-idx;
     }
 
-    .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__item-copy,
+    .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__item-copy {
+        grid-area: fee-copy;
+        min-width: 0;
+    }
+
+    .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__fee {
+        grid-area: fee-amt;
+        grid-column: auto;
+        justify-self: end;
+        margin-top: 4px;
+    }
+
+    /*
+     * Section 29 (small screens): number + description one row (left); fee on row 2 under the
+     * description column only — right-aligned, compact vertical rhythm.
+     */
+    .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+            "fee-idx fee-copy"
+            ". fee-amt";
+        gap: 2px 10px;
+        overflow: visible;
+    }
+
+    .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__index {
+        grid-area: fee-idx;
+        align-self: start;
+        padding-top: 0.12em;
+    }
+
     .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item-copy {
         grid-area: fee-copy;
         min-width: 0;
     }
 
-    .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__fee,
     .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__fee {
         grid-area: fee-amt;
-        grid-column: auto;
         justify-self: end;
-        margin-top: 4px;
+        margin-top: 0;
+        min-height: auto;
+        padding: 2px 6px;
+        font-size: 0.58rem;
     }
 
     .home-ordinance__item-title {
@@ -2200,10 +2230,6 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
     .home-ordinance__card--section-29 .home-ordinance__item-title {
         font-size: 0.76rem;
         line-height: 1.24;
-    }
-
-    .home-ordinance__card--section-29 .home-ordinance__fee {
-        font-size: 0.58rem;
     }
 
     .home-ordinance__split-panel {
@@ -2245,13 +2271,13 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item {
-        align-items: flex-start;
-        padding: 4px 0;
+    .home-ordinance__card--section-29 .home-ordinance__list--cluster {
+        gap: 2px;
     }
 
-    .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__fee {
-        min-height: 26px;
+    .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__item {
+        align-items: flex-start;
+        padding: 2px 0;
     }
 
     .home-ordinance__card--section-28 .home-ordinance__list .home-ordinance__item {
@@ -2299,8 +2325,9 @@ html.home-has-js .home-ordinance__stepper [data-home-ordinance-panel].is-active 
         font-size: 0.72rem;
     }
 
-    .home-ordinance__card--section-29 .home-ordinance__fee {
+    .home-ordinance__card--section-29 .home-ordinance__list--cluster .home-ordinance__fee {
         font-size: 0.56rem;
+        min-height: auto;
     }
 }
 

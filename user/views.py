@@ -4647,6 +4647,7 @@ def _build_user_home_context(
     }
 
 
+def user_home(request):
     """Render the mixed public feed and handle quick post creation from home."""
     # Redirect staff to admin dashboard
     if request.user.is_authenticated and request.user.is_staff:

@@ -157,7 +157,7 @@
 
 
 (function () {
-    const tabs = document.querySelectorAll('.tab-btn');
+    const tabs = document.querySelectorAll('.dog-surrender-stat-tab[data-tab]');
     const panels = document.querySelectorAll('.tab-panel');
 
     function activate(tabName) {

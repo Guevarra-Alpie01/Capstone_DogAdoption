@@ -2,20 +2,102 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/admin_req/admin_request.css' %}?v=20260425surrenderdogs-table-slim">
+<link rel="stylesheet" href="{% static 'css/admin_req/admin_request.css' %}?v=20260428surrender-dashboard">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        corePlugins: {
+            preflight: false,
+        },
+    };
+</script>
+<style>
+    /* Active stat-card tabs (JS toggles .is-active without reload) */
+    .dog-surrender-stat-tab.is-active {
+        transform: translateY(-2px);
+        color: #fff;
+        border-color: transparent !important;
+    }
+    .dog-surrender-stat-tab[data-tab="pending"].is-active {
+        background: linear-gradient(145deg, #f59e0b 0%, #d97706 100%);
+        box-shadow: 0 14px 28px rgba(217, 119, 6, 0.38);
+    }
+    .dog-surrender-stat-tab[data-tab="accepted"].is-active {
+        background: linear-gradient(145deg, #3b82f6 0%, #1d4ed8 100%);
+        box-shadow: 0 14px 28px rgba(37, 99, 235, 0.35);
+    }
+    .dog-surrender-stat-tab[data-tab="declined"].is-active {
+        background: linear-gradient(145deg, #f43f5e 0%, #be123c 100%);
+        box-shadow: 0 14px 28px rgba(225, 29, 72, 0.33);
+    }
+    .dog-surrender-stat-tab.is-active .stat-tab-digit,
+    .dog-surrender-stat-tab.is-active .stat-tab-label-line,
+    .dog-surrender-stat-tab.is-active .stat-tab-sub {
+        color: rgba(255, 255, 255, 0.96) !important;
+    }
+    .dog-surrender-stat-tab.is-active .stat-tab-icon-wrap {
+        background: rgba(255, 255, 255, 0.22) !important;
+        color: #fff !important;
+    }
+</style>
 
 <div class="container">
-    <div class="page-head">
-        <h1>Dog Surrender Requests</h1>
-    </div>
+    <header class="mx-auto mb-6 max-w-6xl rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white to-slate-50 px-5 py-6 shadow-sm">
+        <h1 class="text-3xl font-black tracking-tight text-slate-900">Dog surrender dashboard</h1>
+    </header>
 
     {% if requests %}
         <div class="requests-board">
-            <div class="tab-bar app-btn-row app-btn-row--mobile-stack" role="tablist" aria-label="Request Status Tabs">
-                <button class="tab-btn app-btn-fit app-btn-mobile-full {% if active_tab == 'pending' %}is-active{% endif %}" data-tab="pending" role="tab" aria-selected="{% if active_tab == 'pending' %}true{% else %}false{% endif %}">Pending Requests ({{ pending_total }})</button>
-                <button class="tab-btn app-btn-fit app-btn-mobile-full {% if active_tab == 'accepted' %}is-active{% endif %}" data-tab="accepted" role="tab" aria-selected="{% if active_tab == 'accepted' %}true{% else %}false{% endif %}">Scheduled Requests ({{ accepted_total }})</button>
-                <button class="tab-btn app-btn-fit app-btn-mobile-full {% if active_tab == 'declined' %}is-active{% endif %}" data-tab="declined" role="tab" aria-selected="{% if active_tab == 'declined' %}true{% else %}false{% endif %}">Declined Requests ({{ declined_total }})</button>
+            <div class="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3" role="tablist" aria-label="Dog surrender stages">
+                <button type="button"
+                    class="dog-surrender-stat-tab flex flex-col rounded-2xl border border-amber-200/90 bg-white p-5 text-left shadow-sm ring-offset-2 transition hover:border-amber-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 {% if active_tab == 'pending' %}is-active{% endif %}"
+                    data-tab="pending"
+                    role="tab"
+                    aria-selected="{% if active_tab == 'pending' %}true{% else %}false{% endif %}">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="stat-tab-label-line text-xs font-bold uppercase tracking-wider text-amber-800">Pending <span class="tabular-nums">({{ pending_total }})</span></p>
+                            <p class="stat-tab-digit mt-1 text-4xl font-black tabular-nums text-slate-900">{{ pending_total }}</p>
+                        </div>
+                        <span class="stat-tab-icon-wrap flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700" aria-hidden="true">
+                            <i class="bi bi-hourglass-split text-xl"></i>
+                        </span>
+                    </div>
+                    <p class="stat-tab-sub mt-3 text-sm text-slate-500">Awaiting staff review</p>
+                </button>
+                <button type="button"
+                    class="dog-surrender-stat-tab flex flex-col rounded-2xl border border-blue-200/90 bg-white p-5 text-left shadow-sm transition hover:border-blue-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 {% if active_tab == 'accepted' %}is-active{% endif %}"
+                    data-tab="accepted"
+                    role="tab"
+                    aria-selected="{% if active_tab == 'accepted' %}true{% else %}false{% endif %}">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="stat-tab-label-line text-xs font-bold uppercase tracking-wider text-blue-900">Scheduled <span class="tabular-nums">({{ accepted_total }})</span></p>
+                            <p class="stat-tab-digit mt-1 text-4xl font-black tabular-nums text-slate-900">{{ accepted_total }}</p>
+                        </div>
+                        <span class="stat-tab-icon-wrap flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700" aria-hidden="true">
+                            <i class="bi bi-calendar-event text-xl"></i>
+                        </span>
+                    </div>
+                    <p class="stat-tab-sub mt-3 text-sm text-slate-500">Accepted — appointment set</p>
+                </button>
+                <button type="button"
+                    class="dog-surrender-stat-tab flex flex-col rounded-2xl border border-rose-200/90 bg-white p-5 text-left shadow-sm transition hover:border-rose-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 {% if active_tab == 'declined' %}is-active{% endif %}"
+                    data-tab="declined"
+                    role="tab"
+                    aria-selected="{% if active_tab == 'declined' %}true{% else %}false{% endif %}">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="stat-tab-label-line text-xs font-bold uppercase tracking-wider text-rose-900">Declined <span class="tabular-nums">({{ declined_total }})</span></p>
+                            <p class="stat-tab-digit mt-1 text-4xl font-black tabular-nums text-slate-900">{{ declined_total }}</p>
+                        </div>
+                        <span class="stat-tab-icon-wrap flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-700" aria-hidden="true">
+                            <i class="bi bi-x-circle text-xl"></i>
+                        </span>
+                    </div>
+                    <p class="stat-tab-sub mt-3 text-sm text-slate-500">Closed — not moving forward</p>
+                </button>
             </div>
 
             <div class="tab-panel {% if active_tab == 'pending' %}is-active{% endif %}" data-panel="pending" role="tabpanel">
@@ -450,5 +532,5 @@
 {{ accepted_calendar_dates|json_script:"accepted-calendar-dates-data" }}
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'js/map.js' %}"></script>
+<script src="{% static 'js/map.js' %}?v=20260428surrender-dash-tabs"></script>
 {% endblock %}

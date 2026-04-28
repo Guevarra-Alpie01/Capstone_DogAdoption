@@ -2095,11 +2095,47 @@
     border-color: #bb2d3b !important;
 }
 
+/* Claim / adoption request modals: wider dialog so actions stay on one row (Bootstrap 5.3) */
+.modal-dialog.modal-request-users.modal-xl {
+    --bs-modal-width: min(1320px, calc(100vw - 2rem));
+}
+
+.request-user-table td:last-child {
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
 .request-action-cell {
     display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.request-action-cell form {
+    display: inline-flex;
     align-items: center;
     gap: 6px;
-    flex-wrap: wrap;
+    margin-bottom: 0;
+}
+
+.request-action-hint {
+    flex: 0 1 auto;
+    white-space: nowrap;
+}
+
+.request-user-table .btn-outline-secondary.btn-sm {
+    min-height: 36px;
+    padding: 0.42rem 0.95rem;
+    border-radius: 10px !important;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    white-space: nowrap;
 }
 
 .request-action-form {
@@ -2110,6 +2146,20 @@
 
 .request-action-form .form-select {
     min-width: 145px;
+}
+
+@media (max-width: 992px) {
+    .request-action-cell {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        max-width: min(100vw - 2rem, 1320px);
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .request-user-table td:last-child {
+        white-space: normal;
+    }
 }
 
 @media (max-width: 991px) {

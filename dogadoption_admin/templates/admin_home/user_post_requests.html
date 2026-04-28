@@ -129,14 +129,14 @@
 }
 .upr-table {
     width: 100%;
-    min-width: 980px;
+    min-width: 640px;
     border-collapse: collapse;
 }
 .upr-table th,
 .upr-table td {
     padding: 12px 14px;
     border-bottom: 1px solid #eef2f7;
-    vertical-align: top;
+    vertical-align: middle;
 }
 .upr-table thead th {
     background: #f8fafc;
@@ -169,10 +169,16 @@
     background: #f8fafc;
     font-size: 1.2rem;
 }
-.upr-post-cell {
+.upr-photo-cell {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+.upr-photo-meta {
     display: grid;
-    gap: 8px;
-    max-width: 420px;
+    gap: 6px;
+    min-width: 0;
 }
 .upr-post-title {
     margin: 0;
@@ -206,12 +212,6 @@
     background: #e2e8f0;
     color: #334155;
 }
-.upr-post-desc {
-    margin: 0;
-    color: #64748b;
-    font-size: 0.86rem;
-    line-height: 1.45;
-}
 .upr-owner-name {
     margin: 0;
     color: #0f172a;
@@ -228,49 +228,21 @@
     color: #334155;
     font-size: 0.88rem;
 }
-.upr-status {
-    display: inline-flex;
-    align-items: center;
-    padding: 5px 10px;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 800;
-}
-.upr-status.is-pending {
-    background: #dbeafe;
-    color: #1e40af;
-}
-.upr-status.is-accepted {
-    background: #dcfce7;
-    color: #166534;
-}
-.upr-status.is-declined {
-    background: #fee2e2;
-    color: #b91c1c;
-}
 .upr-actions {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: stretch;
-    min-width: 200px;
-}
-.upr-actions-row {
-    display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
     gap: 8px;
+    min-width: 0;
 }
-.upr-actions-row .upr-btn,
-.upr-actions-row form {
-    flex: 1 1 0;
-    min-width: 108px;
-}
-.upr-actions-row form {
+.upr-actions form {
     margin: 0;
-    display: flex;
+    display: inline-flex;
 }
-.upr-actions-row form .upr-btn {
-    width: 100%;
+.upr-actions .upr-btn {
+    flex-shrink: 0;
 }
 .upr-btn {
     display: inline-flex;
@@ -287,22 +259,42 @@
     cursor: pointer;
 }
 .upr-btn.is-profile {
-    background: #eef2ff;
-    color: #3730a3;
-    border-color: #c7d2fe;
+    background: #ffffff;
+    color: #1e40af;
+    border-color: #93c5fd;
+    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+}
+.upr-btn.is-profile:hover {
+    background: #eff6ff;
+    border-color: #60a5fa;
+    color: #1d4ed8;
 }
 .upr-btn.is-accept {
-    background: #16a34a;
+    background: linear-gradient(180deg, #059669 0%, #047857 100%);
     color: #fff;
+    border-color: #065f46;
+    box-shadow: 0 1px 2px rgba(5, 150, 105, 0.35);
+}
+.upr-btn.is-accept:hover {
+    filter: brightness(1.05);
 }
 .upr-btn.is-decline {
-    background: #f59e0b;
+    background: linear-gradient(180deg, #f43f5e 0%, #e11d48 100%);
     color: #fff;
+    border-color: #be123c;
+    box-shadow: 0 1px 2px rgba(225, 29, 72, 0.35);
+}
+.upr-btn.is-decline:hover {
+    filter: brightness(1.05);
 }
 .upr-btn.is-delete {
-    background: #fff;
-    color: #dc2626;
-    border-color: #fecaca;
+    background: #ffffff;
+    color: #b91c1c;
+    border-color: #fca5a5;
+}
+.upr-btn.is-delete:hover {
+    background: #fef2f2;
+    border-color: #f87171;
 }
 .upr-empty {
     text-align: center;
@@ -404,40 +396,34 @@
             <table class="upr-table">
                 <thead>
                     <tr>
-                        <th>Photo</th>
-                        <th>Post</th>
+                        <th>Dog</th>
                         <th>Owner</th>
-                        <th>Location</th>
                         <th>Submitted</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in page_obj %}
                     <tr>
                         <td>
-                            {% if item.image_url %}
-                                <img src="{{ item.image_url }}" alt="{{ item.dog_name }}" class="upr-thumb" loading="lazy">
-                            {% else %}
-                                <span class="upr-thumb-placeholder"><i class="bi bi-image" aria-hidden="true"></i></span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <div class="upr-post-cell">
-                                <h3 class="upr-post-title">{{ item.dog_name }}</h3>
-                                <div class="upr-post-meta">
-                                    <span class="upr-badge {% if item.post_type == 'adoption' %}is-adoption{% else %}is-missing{% endif %}">
-                                        <i class="bi {% if item.post_type == 'adoption' %}bi-heart{% else %}bi-search{% endif %}" aria-hidden="true"></i>
-                                        {{ item.post_type_label }}
-                                    </span>
-                                    {% if item.breed %}
-                                        <span class="upr-badge is-neutral">{{ item.breed }}</span>
-                                    {% endif %}
-                                </div>
-                                {% if item.description %}
-                                    <p class="upr-post-desc">{{ item.description|truncatechars:110 }}</p>
+                            <div class="upr-photo-cell">
+                                {% if item.image_url %}
+                                    <img src="{{ item.image_url }}" alt="{{ item.dog_name }}" class="upr-thumb" loading="lazy">
+                                {% else %}
+                                    <span class="upr-thumb-placeholder"><i class="bi bi-image" aria-hidden="true"></i></span>
                                 {% endif %}
+                                <div class="upr-photo-meta">
+                                    <h3 class="upr-post-title">{{ item.dog_name }}</h3>
+                                    <div class="upr-post-meta">
+                                        <span class="upr-badge {% if item.post_type == 'adoption' %}is-adoption{% else %}is-missing{% endif %}">
+                                            <i class="bi {% if item.post_type == 'adoption' %}bi-heart{% else %}bi-search{% endif %}" aria-hidden="true"></i>
+                                            {{ item.post_type_label }}
+                                        </span>
+                                        {% if item.breed %}
+                                            <span class="upr-badge is-neutral">{{ item.breed }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </div>
                         </td>
                         <td>
@@ -445,55 +431,41 @@
                             <p class="upr-owner-handle">@{{ item.owner_username }}</p>
                         </td>
                         <td>
-                            <p class="upr-mono">{{ item.location|default:"-" }}</p>
-                        </td>
-                        <td>
                             <p class="upr-mono">{{ item.created_at|date:"M d, Y h:i A" }}</p>
                             <p class="upr-owner-handle">{{ item.created_at|timesince }} ago</p>
                         </td>
-                        <td>
-                            <span class="upr-status {% if item.status == 'pending_review' %}is-pending{% elif item.status == 'declined' %}is-declined{% else %}is-accepted{% endif %}">
-                                {% if item.status == 'pending_review' %}Pending Review{% elif item.status == 'declined' %}Declined{% else %}Published{% endif %}
-                            </span>
-                        </td>
-                        <td>
+                        <td class="text-end">
                             <div class="upr-actions">
-                                <div class="upr-actions-row">
-                                    <a href="{{ item.owner_profile_url }}" class="upr-btn is-profile" title="View owner profile">
-                                        <i class="bi bi-person-badge" aria-hidden="true"></i>
-                                        View Profile
-                                    </a>
-                                    <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'delete' %}"
-                                        data-confirm-modal data-confirm-title="Delete Post" data-confirm-message="Permanently delete this post by {{ item.owner_username }}? This cannot be undone." data-confirm-submit-label="Delete">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                        <button type="submit" class="upr-btn is-delete"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</button>
-                                    </form>
-                                </div>
+                                <a href="{{ item.owner_profile_url }}" class="upr-btn is-profile" title="View owner profile">
+                                    <i class="bi bi-person-badge" aria-hidden="true"></i>
+                                    View Profile
+                                </a>
+                                <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'delete' %}"
+                                    data-confirm-modal data-confirm-title="Delete Post" data-confirm-message="Permanently delete this post by {{ item.owner_username }}? This cannot be undone." data-confirm-submit-label="Delete">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <button type="submit" class="upr-btn is-delete"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</button>
+                                </form>
                                 {% if tab == 'pending' %}
-                                <div class="upr-actions-row">
-                                    <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'accept' %}"
-                                        data-confirm-modal data-confirm-title="Accept Post" data-confirm-message="Accept this post by {{ item.owner_username }}? It will become publicly visible." data-confirm-submit-label="Accept">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                        <button type="submit" class="upr-btn is-accept"><i class="bi bi-check-lg" aria-hidden="true"></i> Accept</button>
-                                    </form>
-                                    <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'decline' %}"
-                                        data-confirm-modal data-confirm-title="Decline Post" data-confirm-message="Decline this post by {{ item.owner_username }}?" data-confirm-submit-label="Decline">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                        <button type="submit" class="upr-btn is-decline"><i class="bi bi-x-lg" aria-hidden="true"></i> Decline</button>
-                                    </form>
-                                </div>
+                                <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'accept' %}"
+                                    data-confirm-modal data-confirm-title="Accept Post" data-confirm-message="Accept this post by {{ item.owner_username }}? It will become publicly visible." data-confirm-submit-label="Accept">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <button type="submit" class="upr-btn is-accept"><i class="bi bi-check-lg" aria-hidden="true"></i> Accept</button>
+                                </form>
+                                <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'decline' %}"
+                                    data-confirm-modal data-confirm-title="Decline Post" data-confirm-message="Decline this post by {{ item.owner_username }}?" data-confirm-submit-label="Decline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <button type="submit" class="upr-btn is-decline"><i class="bi bi-x-lg" aria-hidden="true"></i> Decline</button>
+                                </form>
                                 {% elif tab == 'declined' %}
-                                <div class="upr-actions-row">
-                                    <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'accept' %}"
-                                        data-confirm-modal data-confirm-title="Accept Post" data-confirm-message="Accept this previously declined post by {{ item.owner_username }}?" data-confirm-submit-label="Accept">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                        <button type="submit" class="upr-btn is-accept"><i class="bi bi-check-lg" aria-hidden="true"></i> Accept</button>
-                                    </form>
-                                </div>
+                                <form method="post" action="{% url 'dogadoption_admin:user_post_request_action' item.post_type item.id 'accept' %}"
+                                    data-confirm-modal data-confirm-title="Accept Post" data-confirm-message="Accept this previously declined post by {{ item.owner_username }}?" data-confirm-submit-label="Accept">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <button type="submit" class="upr-btn is-accept"><i class="bi bi-check-lg" aria-hidden="true"></i> Accept</button>
+                                </form>
                                 {% endif %}
                             </div>
                         </td>

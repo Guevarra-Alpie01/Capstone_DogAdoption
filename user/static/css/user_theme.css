@@ -44,6 +44,7 @@
     --view-info-divider: rgba(30, 136, 229, 0.42);
     --view-info-shadow: rgba(30, 136, 229, 0.12);
     --view-info-shadow-deep: rgba(13, 71, 161, 0.14);
+
 }
 
 body {
@@ -68,8 +69,8 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    /* Above Bootstrap modal backdrop (1055) so top bar stays clickable if a stray backdrop remains */
-    z-index: 1080;
+    /* Above drawers/backdrops; stay below Bootstrap modal chrome when present */
+    z-index: 1100;
     isolation: isolate;
     background:
         linear-gradient(180deg, #ffdd4f 0%, #f7c600 58%, #e0ad00 100%) !important;
@@ -1368,7 +1369,7 @@ tbody th,
     width: min(82vw, 320px) !important;
     margin: 0 !important;
     border-radius: 24px 0 0 24px;
-    z-index: 1000;
+    z-index: 1095;
 }
 
 .user-mobile-sidebar .sidebar-menu-list {
@@ -1728,6 +1729,12 @@ tbody th,
         left: 10px;
     }
 
+    /* Close control is in the drawer header; hide navbar toggle while open so there is not two X buttons. */
+    body.user-sidebar-open .sidebar-toggle-btn {
+        visibility: hidden;
+        pointer-events: none;
+    }
+
     .user-mobile-sidebar,
     #sidebar-wrapper.user-mobile-sidebar {
         position: fixed !important;
@@ -1736,8 +1743,9 @@ tbody th,
         right: auto !important;
         bottom: 0 !important;
         width: var(--mobile-sidebar-width, min(82vw, 320px)) !important;
-        height: 100dvh !important;
+        height: auto !important;
         min-height: 100dvh !important;
+        max-height: none !important;
         padding-top: 0 !important;
         box-sizing: border-box;
         margin: 0 !important;
@@ -1752,7 +1760,7 @@ tbody th,
             transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
             opacity 0.22s ease,
             visibility 0s linear 0.28s;
-        z-index: 1040 !important;
+        z-index: 1115 !important;
     }
 
     #wrapper.toggled .user-mobile-sidebar,
@@ -2242,5 +2250,17 @@ tbody th,
         margin-top: 4px;
         font-size: 0.65rem;
         line-height: 1.4;
+    }
+}
+
+/* Bayawan Vet user shell: mobile drawer is full-bleed above content (see #sidebar-wrapper rules). */
+body.user {
+    padding-top: 0;
+}
+
+/* Small screens: backdrop sits above page content but below drawer panel */
+@media (max-width: 768px) {
+    body.user .user-sidebar-backdrop {
+        z-index: 1085;
     }
 }

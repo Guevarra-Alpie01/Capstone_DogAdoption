@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block page_title %}Notifications{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        prefix: 'tw-',
+        corePlugins: { preflight: false },
+    };
+</script>
+<link rel="stylesheet" href="{% static 'css/notifications_page.css' %}?v=20260428a">
+{% endblock %}
+
+{% block content %}
+<div class="notifications-page-wrap">
+    <div class="tw-max-w-5xl tw-mx-auto tw-px-4 tw-py-8 tw-text-slate-900">
+        <div class="tw-flex tw-flex-col tw-gap-4 sm:tw-flex-row sm:tw-items-end sm:tw-justify-between tw-mb-6">
+            <div>
+                <h1 class="tw-text-2xl tw-font-bold tw-tracking-tight tw-text-slate-900">Notifications</h1>
+                <p class="tw-text-sm tw-text-slate-600 tw-mt-1">Unread first, then read. Use sort to reorder within each group.</p>
+            </div>
+            <div class="tw-flex tw-flex-wrap tw-items-center tw-gap-2" role="group" aria-label="Sort notifications">
+                <span class="tw-text-xs tw-font-semibold tw-text-slate-500 tw-uppercase tw-tracking-wide">Sort</span>
+                <a href="{% url 'user:notifications_list' %}?sort=date"
+                    class="tw-inline-flex tw-items-center tw-rounded-full tw-border tw-px-3 tw-py-1.5 tw-text-sm tw-font-semibold tw-transition-colors {% if notifications_sort == 'date' %}tw-border-emerald-600 tw-bg-emerald-50 tw-text-emerald-900{% else %}tw-border-slate-200 tw-bg-white tw-text-slate-700 hover:tw-border-slate-300{% endif %}">
+                    By date
+                </a>
+                <a href="{% url 'user:notifications_list' %}?sort=type"
+                    class="tw-inline-flex tw-items-center tw-rounded-full tw-border tw-px-3 tw-py-1.5 tw-text-sm tw-font-semibold tw-transition-colors {% if notifications_sort == 'type' %}tw-border-emerald-600 tw-bg-emerald-50 tw-text-emerald-900{% else %}tw-border-slate-200 tw-bg-white tw-text-slate-700 hover:tw-border-slate-300{% endif %}">
+                    By type
+                </a>
+            </div>
+        </div>
+
+        {% if not notification_rows %}
+        <div class="tw-rounded-2xl tw-border tw-border-dashed tw-border-slate-200 tw-bg-slate-50 tw-p-10 tw-text-center">
+            <p class="tw-text-slate-600 tw-font-medium">Nothing here yet</p>
+            <p class="tw-text-sm tw-text-slate-500 tw-mt-2">City updates, adoption activity, and vaccination reminders will show up here.</p>
+            <a href="{% url 'user:user_home' %}" class="tw-inline-flex tw-mt-4 tw-text-sm tw-font-semibold tw-text-emerald-700 hover:tw-text-emerald-900">Back to home</a>
+        </div>
+        {% else %}
+
+        <div class="tw-hidden md:tw-grid tw-grid-cols-[minmax(0,88px)_minmax(0,120px)_minmax(0,1fr)_minmax(0,140px)_auto] tw-gap-3 tw-rounded-xl tw-bg-slate-100 tw-px-4 tw-py-3 tw-text-xs tw-font-semibold tw-uppercase tw-tracking-wide tw-text-slate-500">
+            <span>Status</span>
+            <span>Type</span>
+            <span>Summary</span>
+            <span>When</span>
+            <span class="tw-text-right">Action</span>
+        </div>
+
+        <div class="tw-mt-2 tw-flex tw-flex-col tw-gap-3">
+            {% for row in notification_rows %}
+            <article class="notification-row-card tw-rounded-2xl tw-border tw-bg-white tw-shadow-sm tw-overflow-hidden {% if row.is_unread %}notification-row-card--unread tw-border-emerald-200 tw-bg-emerald-50/40{% else %}tw-border-slate-200{% endif %}">
+                <div class="tw-grid tw-grid-cols-1 md:tw-grid-cols-[minmax(0,88px)_minmax(0,120px)_minmax(0,1fr)_minmax(0,140px)_auto] tw-gap-3 tw-p-4 tw-items-start md:tw-items-center">
+                    <div class="tw-flex tw-items-center tw-gap-2">
+                        {% if row.is_unread %}
+                        <span class="tw-inline-flex tw-items-center tw-rounded-full tw-bg-emerald-600 tw-px-2.5 tw-py-0.5 tw-text-[11px] tw-font-bold tw-uppercase tw-tracking-wide tw-text-white">Unread</span>
+                        {% else %}
+                        <span class="tw-inline-flex tw-items-center tw-rounded-full tw-bg-slate-100 tw-px-2.5 tw-py-0.5 tw-text-[11px] tw-font-semibold tw-uppercase tw-tracking-wide tw-text-slate-600">Read</span>
+                        {% endif %}
+                    </div>
+                    <div class="tw-text-sm tw-font-semibold tw-text-slate-800">{{ row.kind_label }}</div>
+                    <div class="tw-min-w-0">
+                        <p class="tw-font-semibold tw-text-slate-900 tw-leading-snug">{{ row.title }}</p>
+                        <p class="tw-text-sm tw-text-slate-600 tw-mt-1 tw-leading-relaxed">{{ row.message }}</p>
+                    </div>
+                    <div class="tw-text-sm tw-text-slate-600">{{ row.created_label }}</div>
+                    <div class="tw-flex md:tw-justify-end">
+                        <a href="{{ row.open_url }}"
+                            class="tw-inline-flex tw-items-center tw-justify-center tw-rounded-xl tw-bg-emerald-700 tw-px-4 tw-py-2 tw-text-sm tw-font-semibold tw-text-white hover:tw-bg-emerald-800 tw-transition-colors">
+                            Open
+                            <i class="bi bi-arrow-up-right tw-ms-2" aria-hidden="true"></i>
+                        </a>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

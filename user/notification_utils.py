@@ -50,7 +50,7 @@ def _payload_cache_key(user_id):
     request_version = _get_version_token(
         USER_NOTIFICATIONS_REQUEST_VERSION_KEY.format(user_id=user_id)
     )
-    return f"user_notifications_summary_v3:{user_id}:{global_version}:{request_version}"
+    return f"user_notifications_summary_v4:{user_id}:{global_version}:{request_version}"
 
 
 def invalidate_user_notification_payload(user_id):
@@ -665,7 +665,7 @@ def build_user_notification_summary(request):
     if not user or not user.is_authenticated or user.is_staff:
         return {"unread_count": 0, "notifications": []}
 
-    payload = build_user_notification_payload(user)
+    payload = build_user_notification_payload(user, limit=USER_NOTIFICATIONS_MAX_ITEMS)
     read_keys = get_user_notification_read_keys(request)
     notifications = []
     unread_count = 0
@@ -694,32 +694,124 @@ def build_user_notification_summary(request):
     }
 
 
-def build_user_notification_payload(user):
+def _notification_kind_label(kind):
+    labels = {
+        "accepted_request": "Request accepted",
+        "incoming_user_request": "Incoming request",
+        "announcement": "Announcement",
+        "admin_post": "City post",
+        "community_post": "Community",
+        "vaccination_expired": "Vaccination",
+        "vaccination_due": "Vaccination",
+        "notification": "Update",
+    }
+    k = (kind or "").strip()
+    return labels.get(k, k.replace("_", " ").title() or "Update")
+
+
+def _notification_row_timestamp(dt):
+    if not dt:
+        return 0.0
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt, timezone.get_current_timezone())
+    try:
+        return dt.timestamp()
+    except Exception:
+        return 0.0
+
+
+def build_user_notifications_page_list(request, *, sort_mode="date"):
+    """
+    Full notification list for the /notifications page: unread rows first, then read rows.
+    Secondary sort: ``date`` = newest first; ``type`` = category A-Z then newest within category.
+    """
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated or user.is_staff:
+        return []
+
+    sort_mode = (sort_mode or "date").strip().lower()
+    if sort_mode not in {"date", "type"}:
+        sort_mode = "date"
+
+    payload = build_user_notification_payload(user, limit=None)
+    read_keys = get_user_notification_read_keys(request)
+    rows = []
+    for item in payload.get("items", []):
+        notification_key = (item.get("key", "") or "").strip()
+        target_url = item.get("url") or reverse("user:user_home")
+        created_at = item.get("created_at")
+        is_unread = bool(notification_key and notification_key not in read_keys)
+        kind = item.get("kind", "notification")
+        rows.append(
+            {
+                "kind": kind,
+                "kind_label": _notification_kind_label(kind),
+                "key": notification_key,
+                "title": item.get("title", ""),
+                "message": item.get("message", ""),
+                "url": target_url,
+                "created_label": item.get("created_label", ""),
+                "created_at": created_at,
+                "is_unread": is_unread,
+                "open_url": "{}?{}".format(
+                    reverse("user:open_notification"),
+                    urlencode({"key": notification_key, "next": target_url}),
+                ),
+            }
+        )
+
+    unread = [r for r in rows if r["is_unread"]]
+    read = [r for r in rows if not r["is_unread"]]
+
+    if sort_mode == "type":
+        unread.sort(
+            key=lambda r: (
+                r["kind_label"].lower(),
+                -_notification_row_timestamp(r["created_at"]),
+            )
+        )
+        read.sort(
+            key=lambda r: (
+                r["kind_label"].lower(),
+                -_notification_row_timestamp(r["created_at"]),
+            )
+        )
+    else:
+        unread.sort(key=lambda r: -_notification_row_timestamp(r["created_at"]))
+        read.sort(key=lambda r: -_notification_row_timestamp(r["created_at"]))
+
+    return unread + read
+
+
+def build_user_notification_payload(user, *, limit=USER_NOTIFICATIONS_MAX_ITEMS):
+    """Aggregated notification items; ``limit=None`` returns every synthesized row (full-page views)."""
     if not user or not user.is_authenticated or user.is_staff:
         return {"items": []}
 
     cache_key = _payload_cache_key(user.id)
     cached = cache.get(cache_key)
-    if cached is not None:
-        return cached
+    if cached is None:
+        items = []
+        seen_keys = set()
+        for bucket in (
+            _build_incoming_user_request_items(user),
+            _build_request_acceptance_items(user),
+            _build_vaccination_reminder_items(user),
+            _build_announcement_items(),
+            _build_admin_post_items(),
+            _build_community_post_items(user),
+        ):
+            for item in bucket:
+                if item["key"] in seen_keys:
+                    continue
+                seen_keys.add(item["key"])
+                items.append(item)
 
-    items = []
-    seen_keys = set()
-    for bucket in (
-        _build_incoming_user_request_items(user),
-        _build_request_acceptance_items(user),
-        _build_vaccination_reminder_items(user),
-        _build_announcement_items(),
-        _build_admin_post_items(),
-        _build_community_post_items(user),
-    ):
-        for item in bucket:
-            if item["key"] in seen_keys:
-                continue
-            seen_keys.add(item["key"])
-            items.append(item)
+        items.sort(key=lambda item: item["created_at"] or timezone.now(), reverse=True)
+        cached = {"items": items}
+        cache.set(cache_key, cached, USER_NOTIFICATIONS_CACHE_TTL_SECONDS)
 
-    items.sort(key=lambda item: item["created_at"] or timezone.now(), reverse=True)
-    payload = {"items": items[:USER_NOTIFICATIONS_MAX_ITEMS]}
-    cache.set(cache_key, payload, USER_NOTIFICATIONS_CACHE_TTL_SECONDS)
-    return payload
+    items = cached["items"]
+    if limit is None:
+        return {"items": list(items)}
+    return {"items": list(items[:limit])}

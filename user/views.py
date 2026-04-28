@@ -79,6 +79,7 @@ from .auth_modal_session import (
     redirect_modal_login_error,
 )
 from .notification_utils import (
+    build_user_notifications_page_list,
     build_user_notification_payload,
     build_user_notification_summary,
     build_user_registered_dog_vaccination_status_map,
@@ -1522,7 +1523,7 @@ def logout_view(request):
 @user_only
 def mark_notifications_seen(request):
     """Mark the latest user notifications as read for the current session."""
-    payload = build_user_notification_payload(request.user)
+    payload = build_user_notification_payload(request.user, limit=None)
     mark_user_notifications_read(
         request,
         [item.get("key", "") for item in payload.get("items", [])],
@@ -1560,10 +1561,27 @@ def notification_summary(request):
 
 
 @user_only
+def notifications_list(request):
+    """Full notifications page: newest first within unread/read groups; optional sort by type."""
+    sort_mode = (request.GET.get("sort") or "date").strip().lower()
+    if sort_mode not in {"date", "type"}:
+        sort_mode = "date"
+    notification_rows = build_user_notifications_page_list(request, sort_mode=sort_mode)
+    return render(
+        request,
+        "notifications/notifications_list.html",
+        {
+            "notification_rows": notification_rows,
+            "notifications_sort": sort_mode,
+        },
+    )
+
+
+@user_only
 def open_notification(request):
     """Mark one user notification as read, then continue to its destination."""
     notification_key = (request.GET.get("key") or "").strip()
-    payload = build_user_notification_payload(request.user)
+    payload = build_user_notification_payload(request.user, limit=None)
     matching_item = next(
         (
             item for item in payload.get("items", [])

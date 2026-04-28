@@ -13,6 +13,7 @@ urlpatterns = [
     path('privacy-policy/', views.privacy_policy, name="privacy_policy"),
     path('data-deletion/', views.data_deletion, name="data_deletion"),
     path('logout/', views.logout_view, name='logout'),
+    path('notifications/', views.notifications_list, name='notifications_list'),
     path('notifications/open/', views.open_notification, name='open_notification'),
     path('notifications/summary/', views.notification_summary, name='notification_summary'),
     path('notifications/read/', views.mark_notification_read, name='mark_notification_read'),

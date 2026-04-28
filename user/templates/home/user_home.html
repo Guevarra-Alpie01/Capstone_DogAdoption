@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
-{% load static humanize %}
+{% load static %}
 
 {% block extra_css %}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..800&family=Rye&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260427fee-carousel-viewport">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..800&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/user_home.css' %}?v=20260419missing-rows-fullwidth">
 <link rel="stylesheet" href="{% static 'css/announcement_feed.css' %}?v=20260403a">
 {% endblock %}
 
@@ -16,44 +16,10 @@
     <section class="home-hero" aria-labelledby="homeHeroTitle">
         <div class="home-hero__inner">
             <div class="home-hero__content">
-                <h1 class="home-hero__title" id="homeHeroTitle" aria-label="They're Waiting for someone Like You.">
-                    <span
-                        class="home-hero__title-typewriter"
-                        data-home-typewriter="They're Waiting for someone Like You."
-                        aria-hidden="true"
-                    >
-                        <span class="home-hero__typewriter-txt"></span><span class="home-hero__typewriter-cursor"></span>
-                    </span>
-                    <noscript>
-                        <span>They're Waiting</span>
-                        <span>for someone Like You.</span>
-                    </noscript>
+                <h1 class="home-hero__title" id="homeHeroTitle">
+                    <span>They're Waiting</span>
+                    <span>for Someone Like You.</span>
                 </h1>
-                <script>
-                (function () {
-                    var wrap = document.querySelector('[data-home-typewriter]');
-                    var txt = document.querySelector('.home-hero__typewriter-txt');
-                    if (!wrap || !txt) return;
-                    var full = wrap.getAttribute('data-home-typewriter') || '';
-                    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                        txt.textContent = full;
-                        return;
-                    }
-                    txt.textContent = '';
-                    var i = 0;
-                    var perChar = 48;
-                    var startDelay = 360;
-                    function step() {
-                        if (i > full.length) return;
-                        txt.textContent = full.slice(0, i);
-                        i += 1;
-                        if (i <= full.length) {
-                            setTimeout(step, perChar);
-                        }
-                    }
-                    setTimeout(step, startDelay);
-                })();
-                </script>
                 <p class="home-hero__text">
                     Give a homeless dog love, safety, and a place to belong.
                     Adopt today or help them find their way home.
@@ -129,26 +95,23 @@
                                         type="button"
                                         class="home-pinned-spotlights__btn home-pinned-spotlights__btn--share js-open-share"
                                         data-share-url="{{ spotlight.share_url }}"
-                                        data-share-title="{{ spotlight.breed_label }} — {{ spotlight.phase_title }}"
-                                        data-share-text="Check out this dog on Bayawan Vet: {{ spotlight.breed_label }} in {{ spotlight.location_label }}."
                                         aria-label="Share {{ spotlight.title }}"
                                     >
-                                        <i class="bi bi-share-fill" aria-hidden="true"></i>
+                                        <span>Share</span>
                                     </button>
-                                    <button
-                                        type="button"
+                                    <a
+                                        href="{{ spotlight.detail_url }}"
                                         class="home-pinned-spotlights__btn home-pinned-spotlights__btn--secondary home-pinned-spotlights__btn--details"
                                         data-home-spotlight-detail-toggle
                                         aria-controls="home-spotlight-{{ forloop.counter0 }}-details"
                                         aria-expanded="false"
-                                        aria-label="View info for {{ spotlight.title }}"
                                     >
-                                        <i class="bi bi-info-circle" aria-hidden="true"></i>
-                                    </button>
+                                        <span>View Info</span>
+                                    </a>
                                 </div>
                             </div>
 
-                            <div class="home-pinned-spotlights__media">
+                            <a href="{{ spotlight.detail_url }}" class="home-pinned-spotlights__media" aria-label="Open {{ spotlight.title }} post">
                                 {% if spotlight.main_image_url %}
                                     <img src="{{ spotlight.main_image_url }}" alt="{{ spotlight.image_alt }}">
                                 {% else %}
@@ -157,7 +120,7 @@
                                         <span>Pinned rescue spotlight</span>
                                     </div>
                                 {% endif %}
-                            </div>
+                            </a>
 
                             <div
                                 class="dog-scale-carousel__details"
@@ -168,6 +131,7 @@
                                 role="dialog"
                                 aria-modal="true"
                                 tabindex="-1"
+                                hidden
                             >
                             <div class="dog-scale-carousel__details-card">
                                     <div class="dog-scale-carousel__details-paws" aria-hidden="true">
@@ -177,8 +141,8 @@
                                     </div>
                                     <div class="dog-scale-carousel__details-head">
                                         <div class="dog-scale-carousel__copy">
-                                            <h3 class="visually-hidden" id="home-spotlight-{{ forloop.counter0 }}-title">{{ spotlight.title }}</h3>
-                                            <p class="visually-hidden">{{ spotlight.location_label }}</p>
+                                            <h3 id="home-spotlight-{{ forloop.counter0 }}-title">{{ spotlight.title }}</h3>
+                                            <p>{{ spotlight.location_label }}</p>
                                         </div>
                                         <button type="button" class="dog-scale-carousel__detail-close" data-home-spotlight-detail-close aria-label="Hide details">
                                             <span aria-hidden="true">&times;</span>
@@ -399,13 +363,12 @@
                                         {% endif %}
                                         <button
                                             type="button"
-                                            class="dog-scale-carousel__btn dog-scale-carousel__btn--secondary dog-scale-carousel__btn--share js-open-share"
+                                            class="dog-scale-carousel__btn dog-scale-carousel__btn--secondary js-open-share"
                                             data-share-url="{{ item.share_url }}"
                                             data-share-title="{{ item.breed_label }} — {{ item.phase_title }}"
                                             data-share-text="Check out this dog on Bayawan Vet: {{ item.breed_label }} in {{ item.location_label }}."
                                             aria-label="Share {{ item.title }}"
                                         >
-                                            <i class="bi bi-share-fill dog-scale-carousel__share-icon" aria-hidden="true"></i>
                                             <span>Share</span>
                                         </button>
                                         <button
@@ -416,7 +379,6 @@
                                             aria-expanded="false"
                                             aria-label="View info for {{ item.title }}"
                                         >
-                                            <i class="bi bi-info-circle dog-scale-carousel__info-icon" aria-hidden="true"></i>
                                             <span data-dog-detail-label>View Info</span>
                                         </button>
                                     </div>
@@ -433,6 +395,7 @@
                             role="dialog"
                             aria-modal="true"
                             tabindex="-1"
+                            hidden
                         >
                             <div class="dog-scale-carousel__details-card">
                                 <div class="dog-scale-carousel__details-paws" aria-hidden="true">
@@ -442,8 +405,8 @@
                                 </div>
                                 <div class="dog-scale-carousel__details-head">
                                     <div class="dog-scale-carousel__copy">
-                                        <h3 class="visually-hidden" id="{{ item.input_id }}-details-title">{{ item.title }}</h3>
-                                        <p class="visually-hidden">{{ item.location_label }}</p>
+                                        <h3 id="{{ item.input_id }}-details-title">{{ item.title }}</h3>
+                                        <p>{{ item.location_label }}</p>
                                     </div>
                                     <button type="button" class="dog-scale-carousel__detail-close" data-dog-detail-close aria-label="Hide info">
                                         <span aria-hidden="true">&times;</span>
@@ -452,6 +415,7 @@
 
                                 <div class="dog-scale-carousel__chips dog-scale-carousel__chips--details">
                                     <span class="dog-scale-carousel__chip dog-scale-carousel__chip--phase">{{ item.phase_title }}</span>
+                                    <span class="dog-scale-carousel__chip">{{ item.time_left_badge }}</span>
                                 </div>
 
                                 <ul class="dog-scale-carousel__facts dog-scale-carousel__facts--finder" role="list">
@@ -513,59 +477,54 @@
 </section>
 
 {% if home_missing_posts %}
-<section class="home-missing-marquee-shell"
-         aria-label="Missing dogs reported by users"
-         style="--home-missing-poster-bg: url('{% static 'images/onepiecebackground.png' %}');">
+<section class="home-missing-marquee-shell" aria-label="Missing dogs reported by users">
     <div class="home-missing-marquee container">
         <div class="content_display">
             <div class="home-missing-marquee__head">
-                <h2 class="home-missing-marquee__title">Help Bring Them Home</h2>
-                <p class="home-missing-marquee__desc">Your neighbors' missing dogs are counting on you.<br class="home-missing-marquee__br"> Spot one? <a href="{% url 'user:missing_dogs_list' %}" class="home-missing-marquee__cta">Report it now.</a></p>
+                <div class="home-missing-marquee__copy">
+                    <span class="home-missing-marquee__eyebrow">
+                        <i class="bi bi-megaphone-fill" aria-hidden="true"></i>
+                        Community Reports
+                    </span>
+                    <h2 class="home-missing-marquee__title">Missing Dogs</h2>
+                    <p class="home-missing-marquee__desc">Reported by residents and tracked by the clinic. If you recognize a dog, contact the owner right away—quick tips save tails.</p>
+                </div>
+                <span class="home-missing-marquee__count">
+                    <span class="home-missing-marquee__count-num">{{ home_missing_posts|length }}</span>
+                    <span class="home-missing-marquee__count-label">report{{ home_missing_posts|length|pluralize }}</span>
+                </span>
             </div>
 
             <div class="home-missing-marquee__track" data-home-marquee>
                 <div class="home-missing-marquee__inner" data-home-marquee-inner>
                     {% for post in home_missing_posts %}
                     <article class="home-missing-card">
-                        <div class="home-missing-card__poster">
-                            <div class="home-missing-card__img-wrap">
-                                <div class="home-missing-card__img-frame">
-                                    {% if post.image %}
-                                    <img src="{{ post.image.url }}" alt="{{ post.dog_name }}" class="home-missing-card__img" loading="lazy">
-                                    {% else %}
-                                    <div class="home-missing-card__placeholder">
-                                        <i class="bi bi-heart-pulse" aria-hidden="true"></i>
-                                    </div>
-                                    {% endif %}
-                                </div>
+                        <div class="home-missing-card__media">
+                            {% if post.image %}
+                            <img src="{{ post.image.url }}" alt="{{ post.dog_name }}" class="home-missing-card__img" loading="lazy">
+                            {% else %}
+                            <div class="home-missing-card__placeholder">
+                                <i class="bi bi-heart-pulse" aria-hidden="true"></i>
                             </div>
-
-                            <div class="home-missing-card__info">
-                                <h3 class="home-missing-card__name">{{ post.dog_name|default:"Unknown Dog" }}</h3>
-                                {% if post.reward %}
-                                <p class="home-missing-card__reward">Reward: ₱{{ post.reward|intcomma }}</p>
-                                {% endif %}
-                            </div>
-
-                            <div class="home-missing-card__actions">
-                                <a href="{% url 'user:report_sighting' post.id %}"
-                                   class="home-missing-card__btn home-missing-card__btn--sighting"
-                                   {% if not request.user.is_authenticated %}
-                                   data-auth-modal-trigger="login"
-                                   data-auth-next-url="{% url 'user:report_sighting' post.id %}"
-                                   {% endif %}>
-                                    <i class="bi bi-flag-fill" aria-hidden="true"></i>
-                                    <span>Report</span>
-                                </a>
-                                <button type="button"
-                                   class="home-missing-card__btn home-missing-card__btn--share js-open-share"
-                                   data-share-url="{% url 'user:missing_dog_public_detail' post.id %}"
-                                   data-share-title="{{ post.dog_name }} — Missing Dog"
-                                   {% if post.image %}data-share-image="{{ post.image.url }}"{% endif %}>
-                                    <i class="bi bi-share" aria-hidden="true"></i>
-                                    <span>Share</span>
-                                </button>
-                            </div>
+                            {% endif %}
+                            <span class="home-missing-card__badge"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i> Missing</span>
+                        </div>
+                        <div class="home-missing-card__body">
+                            <h3 class="home-missing-card__name">{{ post.dog_name }}</h3>
+                            <ul class="home-missing-card__meta">
+                                <li class="home-missing-card__row home-missing-card__row--location">
+                                    <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+                                    <span>{{ post.location|default:"Unknown location" }}</span>
+                                </li>
+                                <li class="home-missing-card__row home-missing-card__row--date">
+                                    <i class="bi bi-calendar-heart" aria-hidden="true"></i>
+                                    <span>Lost {{ post.date_lost|date:"M d, Y" }}</span>
+                                </li>
+                                <li class="home-missing-card__row home-missing-card__row--owner">
+                                    <i class="bi bi-person-hearts" aria-hidden="true"></i>
+                                    <span>{{ post.owner.get_full_name|default:post.owner.username }}</span>
+                                </li>
+                            </ul>
                         </div>
                     </article>
                     {% endfor %}
@@ -601,22 +560,11 @@
             <p class="home-ordinance__ticket-preamble home-ordinance__ticket-preamble--penalty">City Ordinance No. 8 entitled, <cite>Bayawan City Dog Domestication Ordinance of 2022</cite> hereby charges you the following Fines and Penalties:</p>
         </header>
 
-        <div
-            class="home-ordinance__fee-carousel"
-            data-home-fee-carousel
-            role="region"
-            aria-label="Citation fee cards"
-            tabindex="0"
-        >
-            <div class="home-ordinance__fee-carousel-viewport">
-            <button type="button" class="home-ordinance__fee-carousel-btn home-ordinance__fee-carousel-btn--prev" data-fee-slides="prev" aria-label="Previous fee information" disabled>
-                <i class="bi bi-chevron-left" aria-hidden="true"></i>
-            </button>
-        <div class="home-ordinance__grid" data-fee-track>
+        <div class="home-ordinance__grid">
             <article class="home-ordinance__card home-ordinance__card--section-28 home-reveal" style="--home-stagger: 0;">
                 <div class="home-ordinance__card-head">
                     <span class="home-ordinance__card-icon" aria-hidden="true">
-                        <i class="bi bi-syringe"></i>
+                        <i class="bi bi-receipt-cutoff"></i>
                     </span>
                     <div class="home-ordinance__card-copy">
                         <span class="home-ordinance__card-label">Section 28</span>
@@ -680,15 +628,16 @@
             <article class="home-ordinance__card home-ordinance__card--section-29 home-reveal" style="--home-stagger: 1;">
                 <div class="home-ordinance__card-head">
                     <span class="home-ordinance__card-icon" aria-hidden="true">
-                        <svg class="home-ordinance__card-icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 13-8.381 8.38a1 1 0 0 1-3.001-3l8.384-8.381M16 16l6-6m-.5.5-8-8M8 8l6-6M8.5 7.5l8 8"/></svg>
+                        <i class="bi bi-bank2"></i>
                     </span>
                     <div class="home-ordinance__card-copy">
                         <span class="home-ordinance__card-label">Section 29</span>
-                        <h3>Penalties and violations</h3>
-                        <p class="home-ordinance__card-range">Items 1–14</p>
+                        <h3>Penalties and Violations</h3>
                     </div>
                 </div>
 
+                <div class="home-ordinance__stepper" data-home-ordinance-stepper data-penalty-page="1">
+                    <div class="home-ordinance__penalties-columns">
                     <ol class="home-ordinance__list home-ordinance__list--cluster home-ordinance__list--penalties-a" role="list" aria-label="Section 29 penalties, items 1 to 14">
                             <li class="home-ordinance__item">
                                 <span class="home-ordinance__index">1</span>
@@ -796,20 +745,6 @@
                                 <span class="home-ordinance__fee">PHP 5000.00</span>
                             </li>
                     </ol>
-            </article>
-
-            <article class="home-ordinance__card home-ordinance__card--section-29 home-reveal" style="--home-stagger: 2;">
-                <div class="home-ordinance__card-head">
-                    <span class="home-ordinance__card-icon" aria-hidden="true">
-                        <svg class="home-ordinance__card-icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 13-8.381 8.38a1 1 0 0 1-3.001-3l8.384-8.381M16 16l6-6m-.5.5-8-8M8 8l6-6M8.5 7.5l8 8"/></svg>
-                    </span>
-                    <div class="home-ordinance__card-copy">
-                        <span class="home-ordinance__card-label">Section 29</span>
-                        <h3>Penalties and violations</h3>
-                        <p class="home-ordinance__card-range">Items 15–28</p>
-                    </div>
-                </div>
-
                     <ol class="home-ordinance__list home-ordinance__list--cluster home-ordinance__list--penalties-b" role="list" aria-label="Section 29 penalties, items 15 to 28">
                             <li class="home-ordinance__item">
                                 <span class="home-ordinance__index">15</span>
@@ -936,23 +871,24 @@
                                 <span class="home-ordinance__fee">PHP 2500.00</span>
                             </li>
                     </ol>
+                    </div>
+
+                    <div class="home-ordinance__stepper-controls" role="group" aria-label="Section 29 part navigation">
+                        <button type="button" class="home-ordinance__stepper-btn" data-home-ordinance-nav="prev" aria-label="Show previous part">
+                            <span aria-hidden="true">&lt;</span>
+                        </button>
+                        <span class="home-ordinance__stepper-status" data-home-ordinance-status aria-live="polite">Part 1 of 2</span>
+                        <button type="button" class="home-ordinance__stepper-btn" data-home-ordinance-nav="next" aria-label="Show next part">
+                            <span aria-hidden="true">&gt;</span>
+                        </button>
+                    </div>
+                </div>
             </article>
-        </div>
-            <button type="button" class="home-ordinance__fee-carousel-btn home-ordinance__fee-carousel-btn--next" data-fee-slides="next" aria-label="Next fee information">
-                <i class="bi bi-chevron-right" aria-hidden="true"></i>
-            </button>
-            </div>
-        <nav class="home-ordinance__fee-carousel-markers" data-fee-slides-markers aria-label="Fee card position">
-            <button type="button" class="home-ordinance__fee-carousel-marker is-active" data-fee-go="0" aria-label="Section 28, service fees" aria-current="true"></button>
-            <button type="button" class="home-ordinance__fee-carousel-marker" data-fee-go="1" aria-label="Section 29, penalties 1 to 14"></button>
-            <button type="button" class="home-ordinance__fee-carousel-marker" data-fee-go="2" aria-label="Section 29, penalties 15 to 28"></button>
-        </nav>
         </div>
     </div>
 </section>
 <section class="home-city-vet-shell" aria-label="City Vet Street View">
     <div class="home-city-vet home-reveal">
-        <h2 class="home-city-vet__map-heading">Veterinary offices in Bayawan Vet</h2>
         <div class="home-city-vet__map-panel" data-home-map-panel>
             <button type="button" class="home-city-vet__map-backdrop" data-home-map-close aria-label="Close expanded map"></button>
             <div class="home-city-vet__map-wrap" data-home-map-wrap id="homeCityVetMap">
@@ -1105,168 +1041,162 @@
         document.body.classList.remove('home-details-modal-open');
     };
 
-    (function initFeeTicketCarousel() {
-        const track = document.querySelector('[data-fee-track]');
-        const prev = document.querySelector('[data-fee-slides="prev"]');
-        const next = document.querySelector('[data-fee-slides="next"]');
-        const markerRoot = document.querySelector('[data-fee-slides-markers]');
-        const markers = markerRoot ? Array.from(markerRoot.querySelectorAll('[data-fee-go]')) : [];
-        if (!track || !prev || !next) {
+    document.querySelectorAll('[data-home-ordinance-stepper]').forEach((stepper) => {
+        if (stepper.dataset.stepperReady === '1') {
             return;
         }
+        stepper.dataset.stepperReady = '1';
 
-        const mq = window.matchMedia('(min-width: 1024px)');
-        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
-        let idx = 0;
-        const viewport = track.closest('.home-ordinance__fee-carousel-viewport');
-        let slideResizeObserver = null;
+        const prevButton = stepper.querySelector('[data-home-ordinance-nav="prev"]');
+        const nextButton = stepper.querySelector('[data-home-ordinance-nav="next"]');
+        const status = stepper.querySelector('[data-home-ordinance-status]');
+        const unifiedList = stepper.querySelector('.home-ordinance__penalties-columns');
+        const desktopPenaltyListMq = window.matchMedia('(min-width: 1024px)');
 
-        const syncViewportToActiveSlide = () => {
-            if (!viewport) {
-                return;
+        if (unifiedList && prevButton && nextButton) {
+            let penaltyPage = parseInt(stepper.getAttribute('data-penalty-page') || '1', 10);
+            if (penaltyPage < 1 || penaltyPage > 2) {
+                penaltyPage = 1;
             }
-            if (mq.matches) {
-                viewport.style.height = '';
-                return;
-            }
-            const card = track.children[idx];
-            if (!card) {
-                return;
-            }
-            const h = Math.round(card.getBoundingClientRect().height);
-            if (h > 0) {
-                viewport.style.height = `${h}px`;
-            }
-        };
 
-        const attachSlideResizeObserver = () => {
-            if (typeof ResizeObserver === 'undefined' || mq.matches || !viewport) {
-                return;
-            }
-            if (slideResizeObserver) {
-                return;
-            }
-            slideResizeObserver = new ResizeObserver(() => {
-                if (mq.matches) {
+            const syncUnified = () => {
+                if (desktopPenaltyListMq.matches) {
+                    stepper.removeAttribute('data-penalty-page');
+                    if (status) {
+                        status.textContent = '';
+                    }
+                    prevButton.disabled = true;
+                    nextButton.disabled = true;
                     return;
                 }
-                window.requestAnimationFrame(syncViewportToActiveSlide);
-            });
-            Array.from(track.children).forEach((el) => {
-                slideResizeObserver.observe(el);
-            });
-        };
 
-        const syncMarkers = () => {
-            markers.forEach((btn, i) => {
-                const isOn = i === idx;
-                btn.classList.toggle('is-active', isOn);
-                if (isOn) {
-                    btn.setAttribute('aria-current', 'true');
-                } else {
-                    btn.removeAttribute('aria-current');
+                stepper.setAttribute('data-penalty-page', String(penaltyPage));
+                if (status) {
+                    status.textContent = `Part ${penaltyPage} of 2`;
+                }
+                prevButton.disabled = penaltyPage === 1;
+                nextButton.disabled = penaltyPage === 2;
+            };
+
+            prevButton.addEventListener('click', () => {
+                if (desktopPenaltyListMq.matches) {
+                    return;
+                }
+                if (penaltyPage > 1) {
+                    penaltyPage -= 1;
+                    syncUnified();
                 }
             });
-        };
 
-        const apply = () => {
-            if (mq.matches) {
-                track.style.transform = '';
-                if (!reduce.matches) {
-                    track.style.transition = '';
+            nextButton.addEventListener('click', () => {
+                if (desktopPenaltyListMq.matches) {
+                    return;
                 }
-                prev.disabled = true;
-                next.disabled = true;
-                prev.setAttribute('aria-hidden', 'true');
-                next.setAttribute('aria-hidden', 'true');
-                if (markerRoot) {
-                    markerRoot.setAttribute('hidden', '');
-                }
-                syncViewportToActiveSlide();
-                if (slideResizeObserver) {
-                    slideResizeObserver.disconnect();
-                    slideResizeObserver = null;
-                }
-                return;
-            }
-
-            if (markerRoot) {
-                markerRoot.removeAttribute('hidden');
-            }
-            prev.removeAttribute('aria-hidden');
-            next.removeAttribute('aria-hidden');
-            if (reduce.matches) {
-                track.style.transition = 'none';
-            } else {
-                track.style.transition = '';
-            }
-            const stepPct = 100 / 3;
-            track.style.transform = 'translate3d(' + (-idx * stepPct) + '%,0,0)';
-            prev.disabled = idx <= 0;
-            next.disabled = idx >= 2;
-            syncMarkers();
-            window.requestAnimationFrame(() => {
-                window.requestAnimationFrame(syncViewportToActiveSlide);
-            });
-            attachSlideResizeObserver();
-        };
-
-        prev.addEventListener('click', () => {
-            if (idx > 0) {
-                idx -= 1;
-                apply();
-            }
-        });
-        next.addEventListener('click', () => {
-            if (idx < 2) {
-                idx += 1;
-                apply();
-            }
-        });
-
-        markers.forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const n = parseInt(btn.getAttribute('data-fee-go') || '0', 10);
-                if (n >= 0 && n <= 2 && n !== idx) {
-                    idx = n;
-                    apply();
+                if (penaltyPage < 2) {
+                    penaltyPage += 1;
+                    syncUnified();
                 }
             });
-        });
 
-        mq.addEventListener('change', () => {
-            idx = 0;
-            apply();
-        });
-        window.addEventListener('resize', apply);
-        if (document.fonts && document.fonts.ready) {
-            document.fonts.ready.then(() => {
-                if (!mq.matches) {
-                    syncViewportToActiveSlide();
-                }
-            });
-        }
-
-        const root = track.closest('[data-home-fee-carousel]');
-        if (root) {
-            root.addEventListener('keydown', (event) => {
-                if (mq.matches) {
+            stepper.addEventListener('keydown', (event) => {
+                if (desktopPenaltyListMq.matches) {
                     return;
                 }
                 if (event.key === 'ArrowLeft') {
                     event.preventDefault();
-                    prev.click();
+                    prevButton.click();
                     return;
                 }
                 if (event.key === 'ArrowRight') {
                     event.preventDefault();
-                    next.click();
+                    nextButton.click();
                 }
             });
+
+            desktopPenaltyListMq.addEventListener('change', syncUnified);
+            syncUnified();
+            return;
         }
 
-        apply();
-    })();
+        const panels = Array.from(stepper.querySelectorAll('[data-home-ordinance-panel]'));
+        let activeIndex = panels.findIndex((panel) => panel.classList.contains('is-active'));
+
+        if (panels.length <= 1 || !prevButton || !nextButton) {
+            return;
+        }
+
+        if (activeIndex < 0) {
+            activeIndex = 0;
+        }
+
+        const syncStepper = () => {
+            if (desktopPenaltyListMq.matches) {
+                panels.forEach((panel) => {
+                    panel.classList.add('is-active');
+                    panel.setAttribute('aria-hidden', 'false');
+                });
+                if (status) {
+                    status.textContent = '';
+                }
+                prevButton.disabled = true;
+                nextButton.disabled = true;
+                return;
+            }
+
+            panels.forEach((panel, panelIndex) => {
+                const isActive = panelIndex === activeIndex;
+                panel.classList.toggle('is-active', isActive);
+                panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+            });
+
+            const currentPartLabel = panels[activeIndex]?.querySelector('.home-ordinance__split-panel-label')?.textContent?.trim() || `Part ${activeIndex + 1}`;
+            if (status) {
+                status.textContent = `${currentPartLabel} of ${panels.length}`;
+            }
+
+            prevButton.disabled = activeIndex === 0;
+            nextButton.disabled = activeIndex === panels.length - 1;
+        };
+
+        prevButton.addEventListener('click', () => {
+            if (desktopPenaltyListMq.matches) {
+                return;
+            }
+            if (activeIndex > 0) {
+                activeIndex -= 1;
+                syncStepper();
+            }
+        });
+
+        nextButton.addEventListener('click', () => {
+            if (desktopPenaltyListMq.matches) {
+                return;
+            }
+            if (activeIndex < panels.length - 1) {
+                activeIndex += 1;
+                syncStepper();
+            }
+        });
+
+        stepper.addEventListener('keydown', (event) => {
+            if (desktopPenaltyListMq.matches) {
+                return;
+            }
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                prevButton.click();
+                return;
+            }
+
+            if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                nextButton.click();
+            }
+        });
+
+        desktopPenaltyListMq.addEventListener('change', syncStepper);
+        syncStepper();
+    });
 
     if (revealTargets.length) {
         if (prefersReducedMotion || !('IntersectionObserver' in window)) {
@@ -1781,6 +1711,7 @@
 
             if (panel) {
                 panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+                panel.hidden = !isOpen;
             }
         };
         const closeAllSpotlightDetails = () => {
@@ -1811,7 +1742,6 @@
             card.querySelectorAll('[data-home-spotlight-detail-toggle]').forEach((toggle) => {
                 toggle.addEventListener('click', (event) => {
                     event.preventDefault();
-                    event.stopPropagation();
                     if (card.classList.contains('is-details-open')) {
                         closeAllSpotlightDetails();
                     } else {
@@ -1970,23 +1900,20 @@
 
         var count = inner.children.length;
 
-        /* Only a single card: center it; empty space is fine. */
+        /* Only a single card: center it; empty space is fine. Two or more: seamless loop. */
         if (count <= 1) {
             track.classList.add('home-missing-marquee__track--sparse');
             inner.classList.add('home-missing-marquee__inner--sparse');
             return;
         }
 
-        /* 2–3 cards (or reduced-motion preference): no auto-rotate, no cloning.
-           Users can still scroll/swipe horizontally (manual navigation). */
-        if (count <= 3 || prefersReducedMotion) {
+        inner.classList.add('home-missing-marquee__inner--loop');
+        track.classList.add('home-missing-marquee__track--loop');
+
+        if (prefersReducedMotion) {
             track.classList.add('home-missing-marquee__track--reduced-motion');
             return;
         }
-
-        /* 4+ cards: seamless auto-rotating marquee loop. */
-        inner.classList.add('home-missing-marquee__inner--loop');
-        track.classList.add('home-missing-marquee__track--loop');
 
         var clone = inner.cloneNode(true);
         clone.setAttribute('aria-hidden', 'true');

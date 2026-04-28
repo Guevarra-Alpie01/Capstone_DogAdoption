@@ -2,17 +2,44 @@
 {% block content %}
 
 <style>
+    /* ── Popup overlay (used when page is loaded directly) ── */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 18, 35, 0.38);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+        z-index: 1050;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 20px 16px 32px;
+        overflow-y: auto;
+        animation: overlayFadeIn 0.3s ease;
+    }
+    @keyframes overlayFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
     .claim-theme-card {
-        border: 1px solid rgba(36, 94, 40, 0.14);
-        border-radius: 16px;
-        box-shadow: 0 14px 36px rgba(20, 55, 35, 0.1);
-        background: linear-gradient(165deg, #f0f7f3 0%, #e5f2ea 42%, #eaf6ef 100%);
+        width: 100%;
+        max-width: 1080px;
+        margin: auto;
+        border: none;
+        border-radius: 24px;
+        box-shadow: 0 30px 80px rgba(15, 23, 42, 0.18);
+        background: #ffffff;
+        overflow: hidden;
+        animation: cardSlideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes cardSlideIn {
+        from { opacity: 0; transform: translateY(28px) scale(0.96); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
     }
 
     .claim-theme-header {
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(245, 251, 247, 0.9) 100%);
-        border-bottom: 1px solid rgba(36, 94, 40, 0.1);
-        border-radius: 16px 16px 0 0;
+        background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%);
+        border-bottom: 1px solid #e8edf3;
+        padding: 24px 28px 20px;
+        border-radius: 24px 24px 0 0;
     }
 
     .claim-theme-header-row {
@@ -27,23 +54,30 @@
         flex: 1;
     }
 
+    /* Blue square close button — matches Image 2 */
     .claim-theme-close {
         flex-shrink: 0;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 40px;
-        height: 40px;
+        width: 44px;
+        height: 44px;
         margin: -4px -6px 0 0;
         padding: 0;
-        border: 1px solid rgba(36, 94, 40, 0.12);
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.65);
-        color: #475569;
+        border: 1px solid #2563eb;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #4f8df7 0%, #2563eb 100%);
+        color: #ffffff;
         text-decoration: none;
         line-height: 0;
-        transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        transition: all 0.2s ease;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28);
+    }
+
+    .claim-theme-close:hover {
+        background: linear-gradient(180deg, #3b7ef6 0%, #1d4ed8 100%);
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.38);
+        color: #ffffff;
     }
 
     .claim-theme-close svg {
@@ -65,10 +99,79 @@
         outline-offset: 2px;
     }
 
+    /* Left preview panel */
     .claim-preview {
-        border: 1px solid #ececec;
-        border-radius: 12px;
+        background: #f5f7fc;
+        border: 1px solid #e2e8f3;
+        border-radius: 16px;
+        padding: 16px;
+        overflow: hidden;
+    }
+
+    /* Dog photo */
+    .claim-preview-profile {
+        margin-bottom: 14px;
+    }
+
+    .claim-preview-image-wrapper {
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+    }
+
+    .claim-preview-profile-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    /* 2-column attr-card grid */
+    .claim-preview-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .attr-card {
         background: #ffffff;
+        border: 1px solid #e8edf3;
+        border-radius: 10px;
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .attr-card-icon {
+        color: #94a3b8;
+        display: flex;
+        align-items: center;
+        line-height: 0;
+        margin-bottom: 4px;
+    }
+
+    .attr-card-label {
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: #94a3b8;
+        line-height: 1.2;
+        margin: 0;
+    }
+
+    .attr-card-value {
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.35;
+        word-break: break-word;
+        margin: 0;
     }
 
     .claim-content {
@@ -81,11 +184,6 @@
         grid-template-columns: minmax(0, 1fr);
         gap: 14px;
         align-items: start;
-    }
-
-    .claim-preview {
-        border-color: #dbe5f3;
-        overflow: hidden;
     }
 
     .claim-preview-head {
@@ -216,12 +314,18 @@
         font-weight: 700;
     }
 
-    .btn-claim-submit {
-        background: #198754;
-        border-color: #198754;
-        color: #ffffff;
+    .btn-claim-submit,
+    .btn-claim-submit:not(:disabled) {
+        background: #198754 !important;
+        background-color: #198754 !important;
+        border-color: #198754 !important;
+        color: #ffffff !important;
         font-weight: 700;
-        box-shadow: 0 10px 24px rgba(25, 135, 84, 0.28);
+        font-size: 1rem;
+        padding: 12px 36px;
+        border-radius: 12px;
+        box-shadow: 0 8px 22px rgba(25, 135, 84, 0.32) !important;
+        letter-spacing: -0.01em;
     }
 
     .btn-claim-submit:hover {
@@ -239,13 +343,24 @@
 
     @media (min-width: 992px) {
         .claim-layout {
-            grid-template-columns: minmax(280px, 34%) minmax(0, 1fr);
-            gap: 16px;
+            grid-template-columns: minmax(260px, 36%) minmax(0, 1fr);
+            gap: 20px;
         }
-
         .claim-preview {
             position: sticky;
-            top: 84px;
+            top: 16px;
+        }
+        .claim-preview-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 575px) {
+        .claim-preview-grid {
+            grid-template-columns: 1fr;
+        }
+        .claim-preview-image-wrapper {
+            aspect-ratio: 3 / 2;
         }
     }
 
@@ -335,7 +450,7 @@
 
 </style>
 
-<div class="container py-2">
+<div class="modal-overlay" id="claimModalOverlay">
     <div class="claim-theme-card">
         <div class="claim-theme-header px-4 py-3">
             <div class="claim-theme-header-row">
@@ -360,88 +475,58 @@
         <div class="claim-content">
             <div class="claim-layout">
                 <div class="claim-preview">
-                    <div class="claim-preview-head">
-                        <span class="claim-preview-dot"></span>
-                        <h6 class="claim-preview-title">Post Summary</h6>
-                    </div>
-
-                    <div class="claim-summary-list" id="claimSummaryList">
-                        <div class="claim-summary-item">
-                            <span class="claim-summary-label">Breed</span>
-                            <span class="claim-summary-value">{{ post.display_breed|default:post.display_title }}</span>
-                        </div>
-
-                        {% if post.display_age_group %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Age</span>
-                                <span class="claim-summary-value">{{ post.display_age_group }}</span>
-                            </div>
-                        {% endif %}
-
-                        {% if post.display_size_group %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Size</span>
-                                <span class="claim-summary-value">{{ post.display_size_group }}</span>
-                            </div>
-                        {% endif %}
-
-                        {% if post.gender %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Gender</span>
-                                <span class="claim-summary-value">{{ post.get_gender_display }}</span>
-                            </div>
-                        {% endif %}
-
-                        {% if post.display_coat_length %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Coat</span>
-                                <span class="claim-summary-value">{{ post.display_coat_length }}</span>
-                            </div>
-                        {% endif %}
-
-                        {% if post.display_colors %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Color</span>
-                                <span class="claim-summary-value">{{ post.display_colors }}</span>
-                            </div>
-                        {% endif %}
-
-                        {% if post.location %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Location</span>
-                                <span class="claim-summary-value">{{ post.location }}</span>
-                            </div>
-                        {% endif %}
-
-                        {% if post.rescued_date %}
-                            <div class="claim-summary-item">
-                                <span class="claim-summary-label">Rescued On</span>
-                                <span class="claim-summary-value">{{ post.rescued_date|date:"M d, Y" }}</span>
-                            </div>
-                        {% endif %}
-                    </div>
-                    <button
-                        type="button"
-                        class="claim-summary-more-btn"
-                        id="claimSummaryMoreBtn"
-                        aria-expanded="false"
-                        aria-controls="claimSummaryList"
-                        hidden
-                    >
-                        View more
-                    </button>
 
                     {% if post.images.exists %}
-                        <div class="adopt-confirm-photos">
-                            <div class="adopt-confirm-photos-title">Photos</div>
-                            <div class="adopt-confirm-photos-row">
-                                {% for image in post.images.all %}
-                                    <img src="{{ image.image.url }}" alt="{{ post.display_title|default:'Dog photo' }}" width="72" height="72">
-                                {% endfor %}
-                            </div>
+                    <div class="claim-preview-profile">
+                        <div class="claim-preview-image-wrapper">
+                            <img src="{{ post.images.first.image.url }}" alt="{{ post.display_title|default:'Dog photo' }}" class="claim-preview-profile-img">
                         </div>
+                    </div>
                     {% endif %}
 
+                    <div class="claim-preview-grid">
+
+                        <div class="attr-card">
+                            <span class="attr-card-label">Listing</span>
+                            <span class="attr-card-value">{{ post.display_title|default:"Dog Listing" }}</span>
+                        </div>
+
+                        <div class="attr-card">
+                            <span class="attr-card-label">Age</span>
+                            <span class="attr-card-value">{{ post.display_age_group|default:"—" }}</span>
+                        </div>
+
+                        <div class="attr-card">
+                            <span class="attr-card-label">Breed</span>
+                            <span class="attr-card-value">{{ post.display_breed|default:"—" }}</span>
+                        </div>
+
+                        <div class="attr-card">
+                            <span class="attr-card-label">Size</span>
+                            <span class="attr-card-value">{{ post.display_size_group|default:"—" }}</span>
+                        </div>
+
+                        <div class="attr-card">
+                            <span class="attr-card-label">Gender</span>
+                            <span class="attr-card-value">{{ post.get_gender_display|default:"—" }}</span>
+                        </div>
+
+                        <div class="attr-card">
+                            <span class="attr-card-label">Color</span>
+                            <span class="attr-card-value">{{ post.display_colors|default:"—" }}</span>
+                        </div>
+
+                        <div class="attr-card">
+                            <span class="attr-card-label">Location</span>
+                            <span class="attr-card-value">{{ post.location|default:"—" }}</span>
+                        </div>
+
+                        <div class="attr-card">
+                            <span class="attr-card-label">Rescued On</span>
+                            <span class="attr-card-value">{{ post.rescued_date|date:"M d, Y"|default:"—" }}</span>
+                        </div>
+
+                    </div>
                 </div>
 
                 <form

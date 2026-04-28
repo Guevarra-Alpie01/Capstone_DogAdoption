@@ -7,10 +7,10 @@
     --finder-top-action-padding-block: 8px;
     --finder-top-action-padding-inline: 18px;
     --finder-top-action-radius: 14px;
-    --finder-top-action-font-size: clamp(0.75rem, 2.5vw, 0.88rem);
-    --finder-top-action-icon-size: clamp(20px, 6vw, 24px);
+    --finder-top-action-font-size: 0.88rem;
+    --finder-top-action-icon-size: 24px;
     --finder-top-action-icon-radius: 10px;
-    --finder-top-action-icon-font-size: clamp(0.7rem, 2.2vw, 0.84rem);
+    --finder-top-action-icon-font-size: 0.84rem;
     --finder-top-action-caret-size: 16px;
     --finder-top-action-caret-font-size: 0.7rem;
     display: flex;
@@ -115,7 +115,6 @@
     padding: 0;
 }
 
-/* Request Menu Base Styles */
 .finder-request-menu {
     position: relative;
     min-width: 0;
@@ -129,19 +128,17 @@
     gap: 10px;
     min-height: var(--finder-top-action-height);
     padding: var(--finder-top-action-padding-block) var(--finder-top-action-padding-inline);
-    border: 1px solid #166534;
+    border: 1px solid #1f6b4a;
     border-radius: var(--finder-top-action-radius);
-    background: linear-gradient(180deg, #34a06a 0%, #1f6b4a 100%);
+    background: linear-gradient(180deg, #2f855a 0%, #1f6b4a 100%);
     color: #ffffff;
     font-size: var(--finder-top-action-font-size);
     font-weight: 700;
     white-space: nowrap;
-    box-shadow:
-        0 4px 14px rgba(22, 101, 52, 0.28),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(31, 107, 74, 0.15);
     cursor: pointer;
     list-style: none;
-    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, filter 0.16s ease;
+    transition: background 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
 }
 
 .finder-request-menu__summary::-webkit-details-marker {
@@ -156,8 +153,7 @@
     width: var(--finder-top-action-icon-size);
     height: var(--finder-top-action-icon-size);
     border-radius: var(--finder-top-action-icon-radius);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.08) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.2);
     color: #ffffff;
     font-size: var(--finder-top-action-icon-font-size);
 }
@@ -165,8 +161,6 @@
 .finder-request-menu__summary-label {
     min-width: 0;
     line-height: 1.2;
-    font-size: var(--finder-top-action-font-size);
-    font-weight: 700;
 }
 
 .finder-request-menu__summary-caret {
@@ -175,44 +169,96 @@
     justify-content: center;
     width: var(--finder-top-action-caret-size);
     height: var(--finder-top-action-caret-size);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.16);
-    color: rgba(255, 255, 255, 0.95);
     font-size: var(--finder-top-action-caret-font-size);
     transition: transform 0.16s ease;
 }
 
 .finder-request-menu__summary:hover,
 .finder-request-menu__summary:focus-visible {
-    border-color: #14532d;
-    filter: brightness(1.03);
+    border-color: #1a5c3f;
+    background: linear-gradient(180deg, #276f4a 0%, #194f37 100%);
     color: #ffffff;
-    box-shadow:
-        0 6px 18px rgba(22, 101, 52, 0.32),
-        inset 0 1px 0 rgba(255, 255, 255, 0.22);
-}
-
-.finder-request-menu__summary:focus-visible {
-    outline: none;
-    border-color: #bbf7d0;
-    box-shadow:
-        0 0 0 3px rgba(34, 197, 94, 0.45),
-        0 4px 14px rgba(22, 101, 52, 0.28);
-}
-
-.finder-request-menu__summary:hover {
-    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(31, 107, 74, 0.22);
 }
 
 .finder-request-menu[open] .finder-request-menu__summary-caret {
     transform: rotate(180deg);
 }
 
+.finder-request-menu__panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    left: auto;
+    box-sizing: border-box;
+    width: min(320px, calc(100vw - 16px));
+    min-width: 0;
+    max-height: min(60vh, 360px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 10px;
+    border: 1px solid rgba(194, 222, 205, 0.96);
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.14);
+    z-index: 1140;
+    -webkit-overflow-scrolling: touch;
+}
+
 .finder-request-menu[open] {
     z-index: 1150;
 }
 
-/* Post Launcher Styles */
+.finder-request-menu__option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 9px 10px;
+    padding-right: 36px;
+    position: relative;
+    border-radius: 10px;
+    color: #1e293b;
+    font-size: 0.84rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.finder-request-menu__option>span {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    text-align: center;
+}
+
+.finder-request-menu__option+.finder-request-menu__option {
+    margin-top: 4px;
+}
+
+.finder-request-menu__option i {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: rgba(31, 107, 74, 0.12);
+    color: #1f6b4a;
+    font-size: 0.72rem;
+}
+
+.finder-request-menu__option:hover,
+.finder-request-menu__option:focus-visible {
+    background: #eefaf3;
+    color: #14532d;
+}
+
 .finder-post-launcher {
     position: relative;
     z-index: 1020;
@@ -232,16 +278,19 @@
     gap: 10px;
     min-height: var(--finder-top-action-height);
     padding: var(--finder-top-action-padding-block) var(--finder-top-action-padding-inline);
-    border: 1px solid #166534;
+    border: 1px solid #1f6b4a;
     border-radius: var(--finder-top-action-radius);
-    background: linear-gradient(180deg, #34a06a 0%, #1f6b4a 100%);
+    background: linear-gradient(180deg, #33895d 0%, #1f6b4a 100%);
     color: #ffffff;
     text-align: center;
     box-shadow:
-        0 4px 14px rgba(22, 101, 52, 0.28),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        0 4px 14px rgba(31, 107, 74, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
     transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, filter 0.16s ease;
-    cursor: pointer;
+}
+
+.finder-post-trigger--dropdown {
+    min-width: auto;
 }
 
 .finder-post-trigger__icon {
@@ -250,16 +299,30 @@
     justify-content: center;
     width: var(--finder-top-action-icon-size);
     height: var(--finder-top-action-icon-size);
-    border-radius: 999px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.08) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: var(--finder-top-action-icon-radius);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.26) 0%, rgba(195, 235, 214, 0.2) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 10px 18px rgba(15, 23, 42, 0.12);
     color: #ffffff;
     flex: 0 0 auto;
-    font-size: var(--finder-top-action-icon-font-size);
 }
 
 .finder-post-trigger__icon i {
+    font-size: var(--finder-top-action-icon-font-size);
     line-height: 1;
+}
+
+.finder-post-trigger__copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.finder-post-trigger__kicker {
+    display: none;
 }
 
 .finder-post-trigger__label {
@@ -277,492 +340,314 @@
     width: var(--finder-top-action-caret-size);
     height: var(--finder-top-action-caret-size);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.16);
-    color: rgba(255, 255, 255, 0.95);
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.92);
     font-size: var(--finder-top-action-caret-font-size);
-    transition: transform 0.18s ease;
+    flex: 0 0 auto;
+    transition: transform 0.18s ease, background-color 0.18s ease;
+}
+
+.finder-post-trigger,
+.finder-request-menu__summary {
+    letter-spacing: 0;
+}
+
+.finder-request-menu__summary-label {
+    font-size: var(--finder-top-action-font-size);
+    font-weight: 700;
+    line-height: 1;
+}
+
+.finder-request-menu__summary-icon {
+    width: var(--finder-top-action-icon-size);
+    height: var(--finder-top-action-icon-size);
+    font-size: var(--finder-top-action-icon-font-size);
+}
+
+.finder-request-menu__summary-caret {
+    width: var(--finder-top-action-caret-size);
+    height: var(--finder-top-action-caret-size);
+    font-size: var(--finder-top-action-caret-font-size);
 }
 
 .finder-post-launcher.is-open .finder-post-trigger__caret {
     transform: rotate(180deg);
+    background: rgba(255, 255, 255, 0.26);
 }
 
-.finder-post-trigger:hover {
+.finder-post-launcher.is-open .finder-post-trigger__icon {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.33) 0%, rgba(195, 235, 214, 0.26) 100%);
+}
+
+.finder-post-trigger--guest {
+    min-width: auto;
+    flex: 0 0 auto;
+}
+
+.finder-post-trigger:hover,
+.finder-post-trigger:focus-visible {
     transform: translateY(-1px);
-    border-color: #14532d;
-    filter: brightness(1.03);
-    box-shadow:
-        0 6px 18px rgba(22, 101, 52, 0.32),
-        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    border-color: #1a5c3f;
+    filter: saturate(1.04);
+    color: #ffffff;
+    box-shadow: 0 6px 16px rgba(31, 107, 74, 0.24);
 }
 
 .finder-post-trigger:focus-visible {
-    outline: none;
-    border-color: #bbf7d0;
-    box-shadow:
-        0 0 0 3px rgba(34, 197, 94, 0.45),
-        0 4px 14px rgba(22, 101, 52, 0.28);
-}
-
-/* Dropdown Panels */
-.finder-post-menu,
-.finder-request-menu__panel {
-    position: absolute;
-    top: calc(100% + 12px);
-    width: 280px;
-    padding: 8px;
-    border: 1px solid rgba(226, 232, 240, 0.8);
-    border-radius: 20px;
-    background: #ffffff;
-    box-shadow: 
-        0 20px 40px rgba(15, 23, 42, 0.12),
-        0 0 0 1px rgba(0, 0, 0, 0.05);
-    z-index: 1140;
-    overflow: hidden;
+    outline: 3px solid rgba(31, 107, 74, 0.18);
+    outline-offset: 3px;
 }
 
 .finder-post-menu {
+    position: absolute;
+    top: calc(100% + 12px);
     left: 0;
     right: auto;
-}
-
-.finder-request-menu__panel {
-    right: 0;
-    left: auto;
-}
-
-.finder-post-menu::before,
-.finder-request-menu__panel::before {
-    content: "";
-    position: absolute;
-    top: -6px;
-    width: 12px;
-    height: 12px;
-    background: #ffffff;
-    border-top: 1px solid rgba(226, 232, 240, 0.8);
-    border-left: 1px solid rgba(226, 232, 240, 0.8);
-    transform: rotate(45deg);
-    z-index: -1;
+    box-sizing: border-box;
+    width: min(320px, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
+    max-height: min(60vh, 360px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 10px;
+    border: 1px solid rgba(194, 222, 205, 0.96);
+    border-radius: 16px;
+    background:
+        radial-gradient(circle at top left, rgba(247, 255, 235, 0.9) 0%, rgba(247, 255, 235, 0.05) 34%),
+        #ffffff;
+    box-shadow: 0 18px 38px rgba(17, 94, 89, 0.14);
+    z-index: 1140;
+    -webkit-overflow-scrolling: touch;
 }
 
 .finder-post-menu::before {
-    left: 24px;
+    content: "";
+    position: absolute;
+    top: -7px;
+    left: 28px;
+    width: 14px;
+    height: 14px;
+    border-top: 1px solid rgba(194, 222, 205, 0.96);
+    border-left: 1px solid rgba(194, 222, 205, 0.96);
+    background: #ffffff;
+    transform: rotate(45deg);
 }
 
-.finder-request-menu__panel::before {
-    right: 24px;
-}
-
-/* Vertical Option (Shared) */
-.finder-post-menu__option,
-.finder-request-menu__option {
-    display: flex;
+.finder-post-menu__option {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     width: 100%;
-    padding: 12px 14px;
-    border: none;
-    border-radius: 14px;
+    min-height: 40px;
+    padding: 9px 10px;
+    border: 1px solid transparent;
+    border-radius: 10px;
     background: transparent;
-    color: #334155;
+    color: #10243e;
+    text-align: center;
     text-decoration: none;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
+    transition: transform 0.16s ease, border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
 }
 
-.finder-post-menu__option + .finder-post-menu__option,
-.finder-request-menu__option + .finder-request-menu__option {
-    margin-top: 2px;
+.finder-post-menu__option+.finder-post-menu__option {
+    margin-top: 4px;
 }
 
 .finder-post-menu__option:hover,
-.finder-request-menu__option:hover {
-    background-color: #f8fafc;
-    color: #0f172a;
+.finder-post-menu__option:focus-visible {
+    transform: translateY(-1px);
+    border-color: #dce8df;
+    background: #f8fbfd;
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.06);
 }
 
-/* Icons and Copy */
-.finder-post-menu__option-icon,
-.finder-request-menu__option-icon {
-    display: flex;
+.finder-post-menu__option--adoption:hover,
+.finder-post-menu__option--adoption:focus-visible {
+    border-color: #c6ead5;
+    background: #eefaf3;
+}
+
+.finder-post-menu__option--missing:hover,
+.finder-post-menu__option--missing:focus-visible {
+    border-color: #f9c7c7;
+    background: #fff4f4;
+}
+
+.finder-post-menu__option-icon {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    font-size: 1.1rem;
-    flex-shrink: 0;
-    transition: transform 0.2s ease;
-}
-
-.finder-post-menu__option--adoption .finder-post-menu__option-icon {
-    background: #ecfdf5;
-    color: #059669;
+    width: 26px;
+    height: 26px;
+    border-radius: 10px;
+    flex: 0 0 auto;
+    color: #166534;
+    background: rgba(22, 101, 52, 0.12);
 }
 
 .finder-post-menu__option--missing .finder-post-menu__option-icon {
-    background: #fff1f2;
-    color: #e11d48;
+    color: #b91c1c;
+    background: rgba(185, 28, 28, 0.1);
 }
 
-.finder-request-menu__option-icon {
-    background: #f0f9ff;
-    color: #0284c7;
+.finder-post-menu__option-icon i,
+.finder-post-menu__option-arrow {
+    font-size: 0.85rem;
+    line-height: 1;
 }
 
-.finder-post-menu__option:hover .finder-post-menu__option-icon,
-.finder-request-menu__option:hover .finder-request-menu__option-icon {
-    transform: scale(1.05);
-}
-
-.finder-post-menu__option-copy,
-.finder-request-menu__option-label {
-    flex: 1;
+.finder-post-menu__option-copy {
     display: flex;
     flex-direction: column;
-    text-align: left;
+    align-items: center;
+    justify-content: center;
+    justify-self: center;
+    min-width: 0;
+    text-align: center;
 }
 
-.finder-post-menu__option-copy strong,
-.finder-request-menu__option-label {
-    font-size: 0.92rem;
+.finder-post-menu__option-copy strong {
+    color: #0f172a;
+    font-size: 0.84rem;
     font-weight: 700;
-    color: #1e293b;
     line-height: 1.2;
 }
 
-.finder-post-menu__option-copy small {
-    font-size: 0.75rem;
+.finder-post-menu__option-arrow {
     color: #64748b;
-    font-weight: 500;
 }
 
-.finder-post-menu__option-arrow,
-.finder-request-menu__option-arrow {
-    font-size: 0.8rem;
-    color: #cbd5e1;
-    opacity: 0;
-    transform: translateX(-4px);
-    transition: all 0.2s ease;
-}
-
-.finder-post-menu__option:hover .finder-post-menu__option-arrow,
-.finder-request-menu__option:hover .finder-request-menu__option-arrow {
-    opacity: 1;
-    transform: translateX(0);
-}
-
-/* Requests menu: link rows with chevron affordance */
-.finder-request-menu__panel--list {
+/* Create Post dropdown — card row (reference: white tiles + tinted icon circles + chevron) */
+.finder-post-menu.finder-post-menu--picker-cards {
     display: flex;
     flex-direction: column;
-    width: min(268px, calc(100vw - 24px));
-    padding: 0;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 8px;
+    width: max-content;
+    min-width: clamp(260px, calc(100vw - 32px), 320px);
+    max-width: 360px;
+    padding: 12px;
+    border: 1px solid rgba(34, 197, 94, 0.28);
+    border-radius: 18px;
+    background: linear-gradient(180deg, #f3fcf6 0%, #ffffff 48%);
     box-shadow:
-        0 4px 6px -1px rgba(15, 23, 42, 0.06),
-        0 14px 28px -6px rgba(15, 23, 42, 0.12);
+        0 14px 36px rgba(15, 23, 42, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
-.finder-request-menu__panel--list::before {
+.finder-hero--toolstrip .finder-post-menu.finder-post-menu--picker-cards {
+    left: auto;
+    right: 0;
+}
+
+.finder-post-menu.finder-post-menu--picker-cards::before {
+    left: auto;
     right: 22px;
+    border-top-color: rgba(34, 197, 94, 0.35);
+    border-left-color: rgba(34, 197, 94, 0.35);
+    background: linear-gradient(135deg, #f3fcf6 0%, #ffffff 100%);
 }
 
-.finder-request-menu__panel-body {
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option {
     display: flex;
-    flex-direction: column;
-    padding: 6px 4px;
-    gap: 0;
-}
-
-.finder-request-menu__panel-body .finder-request-menu__option--link {
-    display: flex;
+    flex-direction: row;
     align-items: center;
     gap: 10px;
-    width: 100%;
-    margin-top: 0;
-    padding: 11px 10px 11px 12px;
-    border-radius: 10px;
-    border: 1px solid transparent;
-    background: #f8fafc;
-    color: #0f172a;
-    text-decoration: none;
-    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.finder-request-menu__panel-body .finder-request-menu__option--link + .finder-request-menu__option--link {
-    margin-top: 6px;
-}
-
-.finder-request-menu__panel-body .finder-request-menu__option--link:hover {
-    background: #f1f5f9;
-    border-color: #e2e8f0;
-}
-
-.finder-request-menu__panel-body .finder-request-menu__option--link:focus-visible {
-    outline: none;
-    border-color: rgba(22, 101, 52, 0.35);
-    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
-}
-
-.finder-request-menu__option-leading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.finder-request-menu__panel-body .finder-request-menu__option-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    font-size: 1.02rem;
-    background: rgba(22, 101, 52, 0.12);
-    color: #166534;
-}
-
-.finder-request-menu__panel-body .finder-request-menu__option--link:hover .finder-request-menu__option-icon {
-    background: rgba(22, 101, 52, 0.16);
-    color: #14532d;
-}
-
-.finder-request-menu__panel-body .finder-request-menu__option-label {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-width: 0;
-    display: block;
-    font-size: 0.88rem;
-    font-weight: 600;
-    line-height: 1.25;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-height: 52px;
+    margin-top: 0;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07);
     text-align: left;
 }
 
-.finder-request-menu__option-chevron {
-    flex-shrink: 0;
-    font-size: 0.82rem;
-    color: #cbd5e1;
-    transition: color 0.15s ease, transform 0.15s ease;
-}
-
-.finder-request-menu__panel-body .finder-request-menu__option--link:hover .finder-request-menu__option-chevron {
-    color: #94a3b8;
-    transform: translateX(2px);
-}
-
-.finder-request-menu__panel--list .finder-request-menu__option-arrow {
-    display: none;
-}
-
-/* Create Post dropdown: list-style rows (not chunky cards) */
-.finder-post-menu--minimal {
-    width: min(268px, calc(100vw - 24px));
-    padding: 4px;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
-    box-shadow:
-        0 4px 6px -1px rgba(15, 23, 42, 0.06),
-        0 14px 28px -6px rgba(15, 23, 42, 0.12);
-}
-
-.finder-post-menu--minimal::before {
-    left: 22px;
-}
-
-.finder-post-menu--minimal .finder-post-menu__option {
-    gap: 12px;
-    padding: 11px 12px;
-    border-radius: 0;
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option+.finder-post-menu__option {
     margin-top: 0;
 }
 
-.finder-post-menu--minimal .finder-post-menu__option + .finder-post-menu__option {
-    margin-top: 0;
-    border-top: 1px solid #f1f5f9;
-}
-
-.finder-post-menu--minimal .finder-post-menu__option:first-child {
-    border-radius: 8px 8px 0 0;
-}
-
-.finder-post-menu--minimal .finder-post-menu__option:last-child {
-    border-radius: 0 0 8px 8px;
-}
-
-.finder-post-menu--minimal .finder-post-menu__option:only-child {
-    border-radius: 8px;
-}
-
-.finder-post-menu--minimal .finder-post-menu__option-icon {
-    width: 38px;
-    height: 38px;
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option-icon {
+    width: 42px;
+    height: 42px;
     border-radius: 999px;
-    font-size: 1.08rem;
+    font-size: 1.05rem;
 }
 
-.finder-post-menu--minimal .finder-post-menu__option--adoption .finder-post-menu__option-icon {
-    background: rgba(16, 185, 129, 0.12);
-    color: #059669;
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option--adoption .finder-post-menu__option-icon {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid rgba(34, 197, 94, 0.25);
 }
 
-.finder-post-menu--minimal .finder-post-menu__option--missing .finder-post-menu__option-icon {
-    background: rgba(244, 63, 94, 0.1);
-    color: #e11d48;
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option--missing .finder-post-menu__option-icon {
+    background: #ffe4e6;
+    color: #be123c;
+    border: 1px solid rgba(251, 113, 133, 0.45);
 }
 
-.finder-post-menu--minimal .finder-post-menu__option:hover .finder-post-menu__option-icon {
-    transform: scale(1.04);
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option-copy {
+    flex: 1 1 auto;
+    align-items: center;
+    text-align: center;
+    justify-content: center;
 }
 
-.finder-post-menu--minimal .finder-post-menu__option-copy strong {
-    font-size: 0.88rem;
-    font-weight: 700;
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option-copy strong {
+    font-size: 0.92rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #0f172a;
 }
 
-.finder-post-menu--minimal .finder-post-menu__option-copy small {
-    font-size: 0.72rem;
-    color: #64748b;
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option-arrow {
+    flex: 0 0 auto;
+    font-size: 1rem;
+    color: #94a3b8;
 }
 
-.finder-post-menu--minimal .finder-post-menu__option-arrow {
-    display: none;
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option:hover,
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option:focus-visible {
+    transform: translateY(-2px);
+    border-color: #cbd5e1;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.1);
 }
 
-/* Mobile Adjustments */
-@media (max-width: 767.98px) {
-    .finder-filter-shell {
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option--adoption:hover,
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option--adoption:focus-visible {
+    border-color: #86efac;
+    background: #ffffff;
+}
 
-    }
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option--missing:hover,
+.finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option--missing:focus-visible {
+    border-color: #fecdd3;
+    background: #ffffff;
+}
 
-    /* Horizontal inset comes from .finder-filter-shell__head on small screens */
-    .finder-hero--toolstrip .finder-hero__copy {
-        padding-left: 0;
-    }
-
-    .finder-post-menu,
-    .finder-request-menu__panel {
-        position: absolute !important;
-        top: calc(100% + 8px) !important;
-        bottom: auto !important;
-        width: 260px !important; /* Slightly smaller to fit better */
-        max-width: calc(100vw - 32px) !important;
-        z-index: 20000 !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 18px !important;
-        background: #ffffff !important;
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16) !important;
-        animation: fadeInDown 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        display: flex;
+@media (max-width: 520px) {
+    .finder-post-menu.finder-post-menu--picker-cards {
         flex-direction: column;
-        padding: 6px !important;
-    }
-
-    .finder-post-menu {
+        flex-wrap: nowrap;
+        width: min(100vw - 20px, 320px);
+        min-width: 0;
         left: 0 !important;
         right: auto !important;
-        /* Safe margin for left-aligned buttons */
-        margin-left: 4px;
     }
 
-    .finder-post-menu.finder-post-menu--minimal {
-        width: min(288px, calc(100vw - 32px)) !important;
-        border-radius: 12px !important;
-        padding: 4px !important;
+    .finder-post-menu.finder-post-menu--picker-cards .finder-post-menu__option {
+        flex: 1 1 auto;
+        width: 100%;
     }
 
-    .finder-request-menu__panel.finder-request-menu__panel--list {
-        width: min(288px, calc(100vw - 32px)) !important;
-        border-radius: 12px !important;
-        padding: 0 !important;
-    }
-
-    .finder-request-menu__panel {
-        right: 0 !important;
-        left: auto !important;
-        /* Safe margin for right-aligned buttons */
-        margin-right: 4px;
-    }
-
-    .finder-post-menu::before,
-    .finder-request-menu__panel::before {
-        display: block !important;
-    }
-
-    @keyframes fadeInDown {
-        from { transform: translateY(-10px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-    }
-
-    /* Force display when open on mobile */
-    .finder-request-menu[open] .finder-request-menu__panel {
-        display: flex !important;
-    }
-
-    .finder-post-launcher.is-open .finder-post-menu {
-        display: flex !important;
-    }
-
-    /* Responsive Option sizes */
-    .finder-post-menu__option,
-    .finder-request-menu__option {
-        padding: 8px 10px !important;
-        gap: 10px !important;
-    }
-
-    .finder-post-menu__option-icon,
-    .finder-request-menu__option-icon {
-        width: 32px !important;
-        height: 32px !important;
-        font-size: 0.9rem !important;
-    }
-
-    .finder-post-menu__option-copy strong,
-    .finder-request-menu__option-label {
-        font-size: 0.82rem !important;
-    }
-
-    .finder-request-menu__panel-body .finder-request-menu__option--link {
-        padding: 10px 10px 10px 12px !important;
-    }
-
-    .finder-request-menu__panel-body .finder-request-menu__option-icon {
-        width: 34px !important;
-        height: 34px !important;
-        font-size: 0.95rem !important;
-    }
-}
-
-@media (max-width: 480px) {
-    .finder-post-menu,
-    .finder-request-menu__panel {
-        width: 250px !important;
-    }
-
-    .finder-request-menu__panel.finder-request-menu__panel--list {
-        width: min(288px, calc(100vw - 24px)) !important;
-    }
-    
-    .finder-post-menu {
-        left: 50% !important;
-        transform: translateX(-35%) !important;
-        margin-left: 0;
-    }
-
-    .finder-request-menu__panel {
-        right: 50% !important;
-        transform: translateX(35%) !important;
-        margin-right: 0;
-        left: auto !important;
-    }
-    
-    .finder-post-menu::before {
-        left: 35%;
-    }
-    
-    .finder-request-menu__panel::before {
-        right: 35%;
+    .finder-post-menu.finder-post-menu--picker-cards::before {
+        left: 22px !important;
+        right: auto !important;
     }
 }
 
@@ -785,7 +670,7 @@
     gap: 16px;
     padding: 18px 22px;
     border-bottom: 1px solid #e2e8f0;
-    background: #ffffff;
+    background: linear-gradient(135deg, #ecfdf5 0%, #f8fafc 100%);
 }
 
 .finder-post-modal__copy {
@@ -796,21 +681,14 @@
 }
 
 .finder-post-modal__eyebrow {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     margin-top: 2px;
     width: 42px;
     height: 42px;
-    border-radius: 12px;
-    background: linear-gradient(145deg, #f0fdf4 0%, #ecfdf5 100%);
-    border: 1px solid rgba(16, 185, 129, 0.2);
-    color: #047857;
+    border-radius: 14px;
 }
 
 .finder-post-modal__eyebrow i {
-    font-size: 1.15rem;
-    line-height: 1;
+    font-size: 1rem;
 }
 
 .finder-post-modal__title-block {
@@ -827,50 +705,9 @@
 
 .finder-post-modal__title-block p {
     margin: 0;
-    color: #64748b;
-    font-size: 0.86rem;
+    color: #475569;
+    font-size: 0.9rem;
     line-height: 1.45;
-}
-
-/* Finder modal: open form layout (no inner “cards”) */
-.finder-post-modal .post-type-panel {
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    padding: 0;
-    margin: 0;
-}
-
-.finder-post-modal .post-section-title {
-    margin: 0 0 12px;
-    padding: 0 0 10px;
-    width: 100%;
-    font-size: 0.7rem;
-    font-weight: 800;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: #64748b;
-    border-bottom: 1px solid #e2e8f0;
-    gap: 8px;
-}
-
-.finder-post-modal .post-type-panel.adoption-panel .post-section-title,
-.finder-post-modal .post-type-panel.missing-panel .post-section-title {
-    color: #64748b;
-}
-
-.finder-post-modal .post-type-panel.adoption-panel .post-section-title i {
-    color: #059669;
-}
-
-.finder-post-modal .post-type-panel.missing-panel .post-section-title i {
-    color: #e11d48;
-}
-
-.finder-post-modal .post-submit-row {
-    border-top-color: #e2e8f0;
-    margin-top: 14px;
-    padding-top: 14px;
 }
 
 .finder-post-modal__body {
@@ -878,10 +715,6 @@
 }
 
 .finder-post-form {
-    margin-top: 0;
-}
-
-.finder-post-modal .post-create-form {
     margin-top: 0;
 }
 
@@ -1087,61 +920,6 @@
     accent-color: #1d4ed8;
 }
 
-.post-field-horizontal {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 15px;
-    flex-wrap: wrap;
-    margin-top: 5px;
-}
-
-.post-field-horizontal .form-label {
-    margin-bottom: 0 !important;
-    min-width: 150px;
-}
-
-.post-field-horizontal .post-checkbox-options {
-    flex: 1;
-    display: flex;
-    justify-content: flex-start;
-    gap: 30px;
-}
-
-.post-field-horizontal .post-checkbox-option {
-    margin-bottom: 0 !important;
-}
-
-.post-field-horizontal .post-checkbox-option input[type="checkbox"] {
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    width: 20px !important;
-    height: 20px !important;
-    border: 2px solid #fde68a !important;
-    border-radius: 4px !important;
-    background: #fff !important;
-    cursor: pointer;
-    position: relative;
-    transition: all 0.2s ease;
-    margin: 0;
-}
-
-.post-field-horizontal .post-checkbox-option input[type="checkbox"]:checked {
-    background: #f59e0b !important;
-    border-color: #f59e0b !important;
-}
-
-.post-field-horizontal .post-checkbox-option input[type="checkbox"]:checked::after {
-    content: '\F26E';
-    font-family: 'bootstrap-icons';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 12px;
-    color: white;
-}
-
 .post-type-panel .form-label {
     display: block;
     margin: 0 0 6px;
@@ -1245,6 +1023,7 @@
     box-shadow: none;
     overflow: visible;
     align-items: flex-start;
+    isolation: isolate;
 }
 
 .finder-filter-shell__head {
@@ -1258,6 +1037,21 @@
     padding-inline: 0;
     width: 100%;
     max-width: 100%;
+}
+
+@media (max-width: 767.98px) {
+    .finder-filter-shell__head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .finder-hero--toolstrip {
+        order: 1;
+    }
+
+    .finder-filter-shell__actions {
+        order: 2;
+    }
 }
 
 .finder-filter-shell__actions {
@@ -1421,18 +1215,6 @@
     width: 16px;
     height: 16px;
     stroke: currentColor;
-}
-
-/* Bootstrap Icons in filter toolbar (replaces custom SVGs in _finder_icon.html) */
-.finder-filter-bi {
-    display: block;
-    font-size: 1.15rem;
-    line-height: 1;
-    color: inherit;
-}
-
-.finder-purpose-option__icon .finder-filter-bi {
-    font-size: 1.05rem;
 }
 
 .finder-purpose-menu {
@@ -2000,10 +1782,6 @@
     height: 16px;
 }
 
-.finder-toolbar__action-icon .finder-filter-bi {
-    font-size: 1rem;
-}
-
 .finder-toolbar__action-text {
     display: inline;
     font-size: 0.84rem;
@@ -2166,9 +1944,9 @@
 }
 
 .finder-card.is-info-open {
-    border-color: var(--view-info-border-strong);
+    border-color: rgba(244, 114, 182, 0.55);
     box-shadow:
-        0 28px 46px var(--view-info-shadow),
+        0 28px 46px rgba(190, 24, 93, 0.12),
         0 10px 24px rgba(15, 23, 42, 0.07),
         inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
@@ -2228,61 +2006,6 @@
     font-size: 3rem;
     font-weight: 800;
     line-height: 1;
-}
-
-.finder-card__detail-item > strong {
-    font-size: 0.8125rem;
-    font-weight: 700;
-    color: var(--text-dark);
-    word-break: break-word;
-}
-
-/* Health Badges & Grid items */
-.finder-health-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.625rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-
-.finder-health-badge.is-vaccinated {
-    background-color: #ecfdf5;
-    color: #059669;
-    border: 1px solid #10b98144;
-}
-
-.finder-health-badge.is-registered {
-    background-color: #eff6ff;
-    color: #2563eb;
-    border: 1px solid #3b82f644;
-}
-
-.finder-card__detail-health {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.finder-card__detail-health strong {
-    font-size: 0.8125rem;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.finder-card__detail-health .text-success {
-    color: #059669 !important;
-}
-
-.finder-card__detail-health .text-muted {
-    color: #94a3b8 !important;
-    opacity: 0.8;
 }
 
 .finder-card__placeholder small {
@@ -2589,10 +2312,10 @@
     gap: 6px;
     width: 100%;
     min-width: 0;
-    min-height: 32px;
-    padding: 7px 10px;
+    min-height: 36px; /* unified height */
+    padding: 6px 12px; /* unified padding */
     border: 1px solid #2563eb;
-    border-radius: 10px;
+    border-radius: 99px; /* pill shape */
     background: linear-gradient(180deg, #4f8df7 0%, #2563eb 100%);
     color: #ffffff;
     font-size: 0.62rem;
@@ -2659,14 +2382,14 @@
     box-shadow: 0 6px 12px rgba(37, 99, 235, 0.24);
 }
 
-/* Softer blue actions while the info overlay is open (matches panel theme) */
+/* Softer pink actions while the info overlay is open (matches panel theme) */
 .finder-card.is-info-open .finder-card__utility-btn,
 .finder-card.is-info-open .finder-card__utility-btn--share {
-    border-color: var(--view-info-border-medium);
-    background: linear-gradient(180deg, #e3f2fd 0%, #bbdefb 100%);
-    color: var(--view-info-primary-ink);
+    border-color: rgba(219, 39, 119, 0.45);
+    background: linear-gradient(180deg, #fce7f3 0%, #fbcfe8 100%);
+    color: #831843;
     box-shadow:
-        0 8px 18px var(--view-info-shadow),
+        0 8px 18px rgba(190, 24, 93, 0.1),
         inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
@@ -2674,27 +2397,27 @@
 .finder-card.is-info-open .finder-card__utility-btn:focus-visible,
 .finder-card.is-info-open .finder-card__utility-btn--share:hover,
 .finder-card.is-info-open .finder-card__utility-btn--share:focus-visible {
-    border-color: var(--view-info-primary);
-    background: linear-gradient(180deg, #bbdefb 0%, #90caf9 100%);
-    color: var(--view-info-primary-ink);
-    box-shadow: 0 10px 20px var(--view-info-shadow-deep);
+    border-color: #db2777;
+    background: linear-gradient(180deg, #fbcfe8 0%, #f9a8d4 100%);
+    color: #701a35;
+    box-shadow: 0 10px 20px rgba(190, 24, 93, 0.14);
 }
 
 .finder-card.is-info-open .finder-card__utility-btn[aria-expanded="true"],
 .finder-card.is-info-open .finder-card__utility-btn.is-shared {
-    border-color: var(--view-info-primary-dark);
-    background: linear-gradient(180deg, #64b5f6 0%, var(--view-info-primary) 100%);
+    border-color: #db2777;
+    background: linear-gradient(180deg, #f472b6 0%, #db2777 100%);
     color: #ffffff;
-    box-shadow: 0 10px 22px var(--view-info-shadow-deep);
+    box-shadow: 0 10px 22px rgba(190, 24, 93, 0.22);
 }
 
 .finder-card.is-info-open .finder-card__footer .btn-action--primary,
 .finder-card.is-info-open .finder-card__footer .btn-action--reserve {
-    border-color: var(--view-info-primary-dark);
-    background: linear-gradient(180deg, #42a5f5 0%, var(--view-info-primary) 100%);
+    border-color: #be185d;
+    background: linear-gradient(180deg, #f472b6 0%, #db2777 100%);
     color: #ffffff !important;
     box-shadow:
-        0 14px 24px var(--view-info-shadow-deep),
+        0 14px 24px rgba(190, 24, 93, 0.2),
         inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
@@ -2702,8 +2425,8 @@
 .finder-card.is-info-open .finder-card__footer .btn-action--primary:focus-visible,
 .finder-card.is-info-open .finder-card__footer .btn-action--reserve:hover,
 .finder-card.is-info-open .finder-card__footer .btn-action--reserve:focus-visible {
-    border-color: var(--view-info-primary-ink);
-    background: linear-gradient(180deg, var(--view-info-primary) 0%, var(--view-info-primary-dark) 100%);
+    border-color: #9d174d;
+    background: linear-gradient(180deg, #ec4899 0%, #be185d 100%);
     color: #ffffff !important;
 }
 
@@ -2729,9 +2452,9 @@
     padding: 12px 10px 10px 14px;
     border: 0;
     border-radius: 0;
-    background-color: var(--view-info-bg);
+    background-color: #fff5f8;
     background-image:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(230, 240, 255, 0.94) 45%, rgba(230, 240, 255, 0.99) 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 241, 246, 0.97) 48%, rgba(252, 231, 243, 0.98) 100%),
         url("../images/paw-pattern-soft.svg");
     background-repeat: no-repeat, repeat;
     background-size: auto, 112px 112px;
@@ -2757,7 +2480,7 @@
     flex: 0 0 auto;
     display: block;
     opacity: 0.88;
-    filter: drop-shadow(0 2px 4px var(--view-info-shadow));
+    filter: drop-shadow(0 2px 4px rgba(190, 24, 93, 0.12));
 }
 
 .finder-card__details-paw--mirror {
@@ -2769,7 +2492,7 @@
     max-width: 120px;
     height: 2px;
     border-radius: 999px;
-    background: linear-gradient(90deg, transparent, var(--view-info-border-strong), transparent);
+    background: linear-gradient(90deg, transparent, rgba(244, 114, 182, 0.55), transparent);
 }
 
 .finder-card__details[hidden] {
@@ -2779,8 +2502,6 @@
 .finder-card.is-info-open .finder-card__details:not([hidden]) {
     transform: translateY(0);
     opacity: 1;
-    height: 100% !important;
-    max-height: 100% !important;
 }
 
 .finder-card__details-grid {
@@ -2807,7 +2528,7 @@
     padding: 6px 0;
     border: 0;
     border-radius: 0;
-    border-bottom: 1px solid var(--view-info-divider);
+    border-bottom: 1px solid rgba(251, 182, 206, 0.65);
     background: transparent;
     box-shadow: none;
 }
@@ -2820,7 +2541,7 @@
 .finder-card__detail-item span {
     display: block;
     margin-bottom: 0;
-    color: var(--view-info-primary);
+    color: #be185d;
     font-size: 0.58rem;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -2829,7 +2550,7 @@
 
 .finder-card__detail-item strong {
     display: block;
-    color: var(--view-info-primary-dark);
+    color: #831843;
     font-size: 0.76rem;
     font-weight: 800;
     line-height: 1.3;
@@ -2907,10 +2628,10 @@
     gap: 8px;
     margin-top: auto;
     padding: 11px 14px;
-    border: 1px solid var(--view-info-border-soft);
+    border: 1px solid #d7e5ee;
     border-radius: 16px;
-    background: linear-gradient(180deg, #ffffff 0%, var(--view-info-bg) 100%);
-    color: var(--view-info-primary-dark);
+    background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+    color: #1f4d8f;
     font-size: 0.78rem;
     font-weight: 800;
     text-decoration: none;
@@ -2921,9 +2642,9 @@
 
 .finder-card__details-link:hover,
 .finder-card__details-link:focus-visible {
-    border-color: var(--view-info-primary);
-    background: #f5f9ff;
-    color: var(--view-info-primary-ink);
+    border-color: #bfd4e8;
+    background: #f8fbff;
+    color: #1d4d82;
 }
 
 .finder-card__footer {
@@ -3685,83 +3406,6 @@ body.finder-filter-open .site-footer {
     max-width: min(100%, 1180px);
 }
 
-/* Center with top + height only (no translateY) so :active/focus cannot shift vertically. */
-.finder-lightbox__nav {
-    --finder-lb-nav-size: 44px;
-    position: fixed;
-    top: calc(50% - (var(--finder-lb-nav-size) / 2));
-    z-index: 2;
-    width: var(--finder-lb-nav-size);
-    height: var(--finder-lb-nav-size);
-    margin: 0;
-    padding: 0;
-    border: none;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.94);
-    color: #0f172a;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.35rem;
-    line-height: 0;
-    transform: none;
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-    -webkit-user-select: none;
-    user-select: none;
-    touch-action: manipulation;
-    /* Avoid UA / theme :active nudging (e.g. scale/translate) after click. */
-    appearance: none;
-    -webkit-appearance: none;
-    transition: background-color 0.12s ease;
-}
-
-/* Lock the same vertical origin on all states (both arrows share this line). */
-.finder-lightbox__nav:hover,
-.finder-lightbox__nav:focus,
-.finder-lightbox__nav:focus-visible,
-.finder-lightbox__nav:active {
-    top: calc(50% - (var(--finder-lb-nav-size) / 2));
-    transform: none;
-}
-
-/* No filter/box-shadow change — prevents post-click "jump" when hover ends. */
-.finder-lightbox__nav:hover {
-    background: #ffffff;
-}
-
-/* Mouse click: keep base shadow (no focus ring) so the control does not re-paint a new box. */
-.finder-lightbox__nav:focus:not(:focus-visible) {
-    outline: none;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
-}
-
-.finder-lightbox__nav:focus-visible {
-    outline: none;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28), 0 0 0 2px #f59e0b;
-}
-
-.finder-lightbox__nav[hidden] {
-    display: none !important;
-}
-
-.finder-lightbox__nav--prev {
-    left: max(12px, env(safe-area-inset-left, 0px));
-    right: auto;
-}
-
-.finder-lightbox__nav--next {
-    right: max(12px, env(safe-area-inset-right, 0px));
-    left: auto;
-}
-
-.finder-lightbox__nav .bi {
-    display: block;
-    line-height: 1;
-}
-
 .finder-lightbox__img {
     display: block;
     max-width: min(100%, 1180px);
@@ -4077,16 +3721,6 @@ body.finder-filter-open .site-footer {
 }
 
 @media (max-width: 991.98px) {
-
-    /* Fix visual regression: Hide all filter and toolstrip elements when the mobile sidebar is open
-       to prevent overlapping with the navigation drawer. We use both body and wrapper classes for robustness. */
-    body.user-sidebar-open .finder-filter-shell,
-    body.user-sidebar-open .finder-hero--toolstrip,
-    #wrapper.toggled .finder-filter-shell,
-    #wrapper.toggled .finder-hero--toolstrip {
-        display: none !important;
-    }
-
     .finder-page {
         --finder-topbar-offset: 66px;
     }
@@ -4121,7 +3755,7 @@ body.finder-filter-open .site-footer {
 
     .finder-filter-shell {
         padding: 0;
-        z-index: 1030;
+        z-index: 1100;
     }
 
     .finder-filter-shell__head {
@@ -4239,33 +3873,6 @@ body.finder-filter-open .site-footer {
     .finder-filter-shell__head {
         width: 100%;
         margin-bottom: 10px;
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-        justify-content: flex-start;
-        gap: 12px;
-        padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
-        box-sizing: border-box;
-    }
-
-    /* Create Post first, Show Filters second; same left edge as filter toggle */
-    .finder-hero--toolstrip {
-        order: 1;
-        align-self: stretch;
-        width: 100%;
-    }
-
-    .finder-hero--toolstrip .finder-hero__copy {
-        justify-content: flex-start;
-        width: 100%;
-    }
-
-    .finder-filter-shell__actions {
-        order: 2;
-        width: 100%;
-        justify-content: flex-start;
-        align-items: center;
-        gap: 10px;
     }
 
     .finder-post-launcher {
@@ -4313,6 +3920,13 @@ body.finder-filter-open .site-footer {
     .finder-card__footer {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .finder-filter-shell__head {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
     }
 
     .finder-card-grid,
@@ -4385,6 +3999,13 @@ body.finder-filter-open .site-footer {
     .post-submit-btn {
         width: 100%;
         max-width: none;
+    }
+
+    .finder-filter-shell__actions {
+        width: 100%;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
     }
 
     .finder-filter-toggle {
@@ -4721,10 +4342,6 @@ body.finder-filter-open .site-footer {
         height: 22px;
     }
 
-    .finder-toolbar__action-icon .finder-filter-bi {
-        font-size: 1.2rem;
-    }
-
     .finder-toolbar__action-text {
         display: inline;
         font-size: 0.9rem;
@@ -5002,6 +4619,10 @@ body.finder-filter-open .site-footer {
         height: 24px;
     }
 
+    .finder-request-menu__option {
+        padding-right: 34px;
+    }
+
     .finder-request-menu__panel {
         width: calc(100vw - 16px);
         max-width: calc(100vw - 16px);
@@ -5015,18 +4636,6 @@ body.finder-filter-open .site-footer {
     box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.45);
     border-radius: 18px;
     transition: box-shadow 0.35s ease;
-}
-
-.finder-card.finder-card--shared-highlight .finder-card__media-link {
-    cursor: default;
-}
-
-/* Share deep-link target: photo is not a zoom/lightbox control */
-.finder-card__media-link--highlight-static {
-    display: block;
-    width: 100%;
-    height: 100%;
-    cursor: default;
 }
 
 /* Full-image submitted-request reminder (slides up/down over photo — Find a Dog staff cards) */
@@ -5148,42 +4757,3 @@ body.finder-filter-open .site-footer {
         transition-duration: 0.01ms;
     }
 }
-.post-checkbox-options-wrapper {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.post-checkbox-options-hidden {
-    margin-top: 2px;
-}
-
-.btn-see-more-colors {
-    background: transparent;
-    border: none;
-    padding: 4px 0;
-    color: #2563eb;
-    font-size: 0.82rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    width: fit-content;
-    transition: color 0.15s ease;
-}
-
-.btn-see-more-colors:hover {
-    color: #1d4ed8;
-    text-decoration: underline;
-}
-
-.btn-see-more-colors i {
-    font-size: 0.75rem;
-    transition: transform 0.2s ease;
-}
-
-.btn-see-more-colors.is-expanded i {
-    transform: rotate(180deg);
-}
-

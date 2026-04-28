@@ -1321,4 +1321,208 @@
 })();
 </script>
 {% include 'home/_feed_enhancements.html' %}
+
+<!-- ═══ AJAX Adopt/Reserve Confirm Overlay ═══ -->
+<div id="finderConfirmOverlay" class="finder-confirm-overlay" hidden aria-modal="true" role="dialog" aria-label="Confirm adoption">
+    <div class="finder-confirm-overlay__backdrop" id="finderConfirmBackdrop"></div>
+    <div class="finder-confirm-overlay__card-wrap" id="finderConfirmCardWrap">
+        <div class="finder-confirm-overlay__loading" id="finderConfirmLoading">
+            <div class="spinner-border text-primary" role="status" style="width:2.5rem;height:2.5rem;">
+                <span class="visually-hidden">Loading…</span>
+            </div>
+        </div>
+        <div id="finderConfirmContent"></div>
+    </div>
+</div>
+
+<style>
+    .finder-confirm-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1800;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 20px 16px 32px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .finder-confirm-overlay[hidden] { display: none !important; }
+
+    .finder-confirm-overlay__backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 18, 35, 0.40);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        z-index: 0;
+        animation: fcOverlayIn 0.25s ease;
+    }
+    @keyframes fcOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .finder-confirm-overlay__card-wrap {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        max-width: 1080px;
+        margin: auto;
+        animation: fcCardIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes fcCardIn {
+        from { opacity: 0; transform: translateY(24px) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .finder-confirm-overlay__loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 60px;
+        background: #fff;
+        border-radius: 28px;
+    }
+    .finder-confirm-overlay__loading[hidden] { display: none !important; }
+
+    /* Strip fixed/overlay positioning from the injected card */
+    #finderConfirmContent .modal-overlay {
+        position: static !important;
+        display: block !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        padding: 0 !important;
+        animation: none !important;
+        overflow: visible !important;
+    }
+    #finderConfirmContent .claim-theme-card {
+        animation: none !important;
+        width: 100%;
+    }
+
+    /* Responsive overlay padding */
+    @media (max-width: 575px) {
+        .finder-confirm-overlay { padding: 10px 8px 24px; }
+    }
+    @media (min-width: 1200px) {
+        .finder-confirm-overlay { padding: 32px 24px 40px; align-items: center; }
+    }
+</style>
+
+<script>
+(function () {
+    var overlay    = document.getElementById('finderConfirmOverlay');
+    var backdrop   = document.getElementById('finderConfirmBackdrop');
+    var loading    = document.getElementById('finderConfirmLoading');
+    var content    = document.getElementById('finderConfirmContent');
+    var activeHref = null;
+    var STYLE_ATTR = 'data-fc-injected';
+
+    function openOverlay() {
+        overlay.hidden = false;
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeOverlay() {
+        overlay.hidden = true;
+        document.body.style.overflow = '';
+        content.innerHTML = '';
+        loading.hidden = false;
+        activeHref = null;
+        document.querySelectorAll('[' + STYLE_ATTR + ']').forEach(function (el) { el.remove(); });
+    }
+
+    function injectStyles(doc) {
+        doc.querySelectorAll('style').forEach(function (s) {
+            var tag = document.createElement('style');
+            tag.setAttribute(STYLE_ATTR, '1');
+            tag.textContent = s.textContent;
+            document.head.appendChild(tag);
+        });
+    }
+
+    function reRunScripts(container) {
+        container.querySelectorAll('script').forEach(function (old) {
+            var s = document.createElement('script');
+            s.textContent = old.textContent;
+            document.body.appendChild(s);
+        });
+    }
+
+    function loadConfirmPage(href) {
+        if (activeHref === href) return;
+        activeHref = href;
+        loading.hidden = false;
+        content.innerHTML = '';
+        document.querySelectorAll('[' + STYLE_ATTR + ']').forEach(function (el) { el.remove(); });
+        openOverlay();
+
+        fetch(href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.text(); })
+            .then(function (html) {
+                var parser = new DOMParser();
+                var doc    = parser.parseFromString(html, 'text/html');
+
+                /* Inject <style> blocks so grid/attr-card layout renders */
+                injectStyles(doc);
+
+                var modalOuter = doc.querySelector('.modal-overlay');
+                if (!modalOuter) {
+                    window.location.href = href;
+                    return;
+                }
+
+                /* Wire close / cancel links */
+                modalOuter.querySelectorAll('a[href]').forEach(function (a) {
+                    if (a.classList.contains('claim-theme-close') ||
+                        a.textContent.trim().toLowerCase() === 'cancel') {
+                        a.setAttribute('href', '#');
+                        a.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            closeOverlay();
+                        });
+                    }
+                });
+
+                content.appendChild(modalOuter);
+                loading.hidden = true;
+
+                /* Re-run scripts (appointment calendar) */
+                reRunScripts(content);
+
+                /* Let form submit navigate normally */
+                var form = content.querySelector('form');
+                if (form) {
+                    form.addEventListener('submit', function () {
+                        document.body.style.overflow = '';
+                    });
+                }
+            })
+            .catch(function () {
+                window.location.href = href;
+            });
+    }
+
+    /* Intercept Adopt / Reserve Adoption button clicks */
+    document.addEventListener('click', function (e) {
+        var link = e.target.closest('.btn-action--primary, .btn-action--reserve');
+        if (!link) return;
+        if (link.hasAttribute('data-auth-modal-trigger')) return;
+        var href = link.href || link.getAttribute('href');
+        if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        loadConfirmPage(href);
+    });
+
+    /* Close on backdrop click */
+    backdrop && backdrop.addEventListener('click', closeOverlay);
+
+    /* Close on Escape */
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !overlay.hidden) closeOverlay();
+    });
+})();
+</script>
+
 {% endblock %}
+

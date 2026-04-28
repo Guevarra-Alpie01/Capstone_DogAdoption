@@ -798,6 +798,28 @@
         }
     });
 
+    const requestSummary = requestMenu?.querySelector('.finder-request-menu__summary');
+    if (requestSummary && document.body.classList.contains('is-guest')) {
+        requestSummary.addEventListener(
+            'click',
+            function (event) {
+                if (!mobileQuery.matches) {
+                    return;
+                }
+                event.preventDefault();
+                if (requestMenu) {
+                    requestMenu.open = false;
+                }
+                if (typeof window.openAuthModal === 'function') {
+                    window.openAuthModal('login', {
+                        nextUrl: window.location.pathname + window.location.search || '',
+                    });
+                }
+            },
+            true
+        );
+    }
+
     filterToggleButtons.forEach((button) => {
         button.addEventListener('click', () => {
             if (mobileQuery.matches) {

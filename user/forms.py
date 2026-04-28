@@ -163,11 +163,13 @@ class UserAdoptionPostForm(forms.ModelForm):
 
     main_image = forms.ImageField(
         required=True,
-        widget=forms.ClearableFileInput(attrs={
+        label="",
+        widget=MultipleClearableFileInput(attrs={
             "class": "form-control",
             "accept": "image/*",
+            "multiple": True,
         }),
-    )  # single main image
+    )  # first upload is validated here; view persists full list via FILES.getlist()
 
     class Meta:
         model = UserAdoptionPost

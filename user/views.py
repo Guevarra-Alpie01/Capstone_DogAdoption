@@ -3108,14 +3108,11 @@ def _build_home_pinned_rescue_spotlights(request, *, appointment_dates=None):
 
 
 def _create_user_adoption_images(request, post):
-    main_image = request.FILES.get("adoption-main_image") or request.FILES.get("main_image")
-    if main_image:
-        UserAdoptionImage.objects.create(post=post, image=main_image)
-    extra_images = request.FILES.getlist("extra_images")
-    if not extra_images:
-        extra_images = request.FILES.getlist("adoption-extra_images")
-    for img in extra_images:
-        UserAdoptionImage.objects.create(post=post, image=img)
+    """Save adoption gallery images in upload order (same pattern as missing-dog multi-photo)."""
+    photos = request.FILES.getlist("adoption-main_image") or request.FILES.getlist("main_image")
+    for img in photos:
+        if img:
+            UserAdoptionImage.objects.create(post=post, image=img)
 
 
 def _save_missing_dog_photos(request, post):

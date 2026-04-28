@@ -766,6 +766,49 @@
     }
 }
 
+/*
+ * Find a Dog — create post modal (adoption + missing in #finderPostModal):
+ * Keep below fixed `.app-topbar` (z-index 1100). Bootstrap modal/backdrop default 1055/1050.
+ * Dropdown launcher uses z-index up to 1150 — pin below backdrop while any modal is open.
+ */
+body.user {
+    --user-finder-post-modal-offset: calc(env(safe-area-inset-top, 0px) + 68px);
+}
+
+@media (min-width: 992px) {
+    body.user {
+        --user-finder-post-modal-offset: calc(env(safe-area-inset-top, 0px) + 72px);
+    }
+}
+
+body.user .finder-post-modal.modal {
+    z-index: 1055 !important;
+    padding-top: var(--user-finder-post-modal-offset);
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+    padding-left: max(0.35rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.35rem, env(safe-area-inset-right, 0px));
+    box-sizing: border-box;
+}
+
+body.user.modal-open .modal-backdrop.show {
+    z-index: 1050 !important;
+}
+
+body.user.modal-open .finder-post-launcher,
+body.user.modal-open .finder-post-menu {
+    z-index: 1040 !important;
+}
+
+body.user .finder-post-modal .modal-dialog.modal-dialog-centered {
+    min-height: calc(
+        100dvh - var(--user-finder-post-modal-offset) - max(1.25rem, env(safe-area-inset-bottom, 0px))
+    );
+}
+
+body.user .finder-post-modal .modal-dialog {
+    margin-top: 0;
+}
+
 .finder-post-modal .modal-dialog {
     max-width: 920px;
 }
@@ -4291,9 +4334,13 @@ body.finder-filter-open .site-footer {
     }
 
     .finder-post-modal .modal-dialog {
-        margin: 10px auto;
+        margin: 0 auto 10px;
         width: calc(100vw - 16px);
         max-width: none;
+    }
+
+    body.user .finder-post-modal .modal-dialog {
+        margin-top: 0;
     }
 
     .finder-post-modal__header {

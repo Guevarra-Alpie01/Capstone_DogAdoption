@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import include, path, register_converter
 from django.conf import settings
 from django.conf.urls.static import static
+from user import views as user_views
 from .import views
 from dogadoption_admin import views as admin_views
 from .path_converters import (
@@ -46,6 +47,7 @@ register_converter(NotificationIDConverter, "notificationid")
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/auth/signup/', user_views.signup_api_view, name='api_auth_signup'),
     path('', views.root_redirect, name='root'),
     path('health/live/', views.health_live, name='health_live'),
     path('health/ready/', views.health_ready, name='health_ready'),

@@ -13,7 +13,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from django.views.decorators.csrf import csrf_exempt
 import os
 import base64
@@ -24,7 +24,7 @@ import re
 import random
 import secrets
 import shutil
-from django.http import JsonResponse
+from django.http import JsonResponse, QueryDict
 from django.core.files.base import ContentFile
 from django.conf import settings
 from django.core.cache import cache
@@ -42,7 +42,10 @@ from django.utils.http import (
 from django.templatetags.static import static
 from django.utils.html import strip_tags
 from urllib.parse import urlencode
+import logging
 import math
+
+logger = logging.getLogger(__name__)
 
 # Shared models from the admin app
 from dogadoption_admin.access import get_admin_access, get_staff_landing_url, is_route_allowed
@@ -396,8 +399,28 @@ def _merge_social_signup_data(request, signup_form_data=None):
     return merged
 
 
+MODEL_BACKEND = "django.contrib.auth.backends.ModelBackend"
+
+
+def _signup_wants_json(request):
+    return getattr(request, "_signup_wants_json", False)
+
+
+def _as_signup_response(request, response):
+    """Convert redirects to JSON for API signup clients."""
+    if not _signup_wants_json(request):
+        return response
+    status = getattr(response, "status_code", 200)
+    if status in (301, 302, 303, 307, 308):
+        location = response.get("Location") or getattr(response, "url", "") or ""
+        return JsonResponse({"ok": True, "redirect": location})
+    return response
+
+
 def _render_signup_error(request, signup_form_data, message):
     """Re-open the signup modal with a single validation error message."""
+    if _signup_wants_json(request):
+        return JsonResponse({"ok": False, "error": message}, status=400)
     next_url = _get_safe_next_url(request, request.POST.get("next"))
     if (request.POST.get("auth_source") or "").strip() == "modal":
         return _render_home_with_auth_modal(
@@ -4215,6 +4238,8 @@ def barangay_list_api(request):
 def signup_view(request):
     """Create a public account manually, or finish a Google sign-in immediately."""
     if request.user.is_authenticated:
+        if _signup_wants_json(request):
+            return JsonResponse({"ok": False, "error": "Already authenticated."}, status=403)
         if request.user.is_staff:
             return redirect(get_staff_landing_url(request.user))
         return redirect("user:user_home")
@@ -4237,7 +4262,16 @@ def signup_view(request):
                 social_signup_data = _verify_google_signup_credential(google_credential)
             except ValidationError as exc:
                 return _render_signup_error(request, signup_form_data, " ".join(exc.messages))
-            return _complete_google_login(request, social_signup_data, next_url=next_url)
+            try:
+                google_response = _complete_google_login(request, social_signup_data, next_url=next_url)
+            except Exception:
+                logger.exception("signup_google_completion_failed")
+                return _render_signup_error(
+                    request,
+                    signup_form_data,
+                    "Could not finish Google sign-up. Please try again.",
+                )
+            return _as_signup_response(request, google_response)
 
         _clear_signup_session_state(request, delete_temp_faces=True)
         _clear_social_signup_session(request)
@@ -4302,17 +4336,78 @@ def signup_view(request):
                 signup_form_data,
                 "Username already exists. Please choose a different one and sign up again.",
             )
+        except DatabaseError:
+            logger.exception("signup_database_error")
+            return _render_signup_error(
+                request,
+                signup_form_data,
+                "Unable to create your account right now. Please try again in a moment.",
+            )
+        except Exception:
+            logger.exception("signup_manual_account_unexpected")
+            return _render_signup_error(
+                request,
+                signup_form_data,
+                "Something went wrong while creating your account. Please try again.",
+            )
 
-        login(request, user)
+        try:
+            login(request, user, backend=MODEL_BACKEND)
+        except Exception:
+            logger.exception("signup_login_failed")
+            return _render_signup_error(
+                request,
+                signup_form_data,
+                "Your account was created but sign-in failed. Please log in manually.",
+            )
+
         messages.success(request, "Account created. You are now logged in.")
-        if next_url:
-            response = redirect(next_url)
-        else:
-            response = redirect("user:user_home")
-        response.delete_cookie("admin_sessionid")
-        return response
+        try:
+            if next_url:
+                response = redirect(next_url)
+            else:
+                response = redirect("user:user_home")
+            response.delete_cookie("admin_sessionid")
+            return _as_signup_response(request, response)
+        except Exception:
+            logger.exception("signup_redirect_failed")
+            return _render_signup_error(
+                request,
+                signup_form_data,
+                "Account created but redirection failed. Please open the home page.",
+            )
 
     return _render_signup_page(request, next_url=next_url)
+
+
+@require_http_methods(["POST"])
+def signup_api_view(request):
+    """
+    JSON-friendly signup endpoint (same rules as POST ``/user/sign-up/``).
+
+    Send ``Content-Type: application/json`` with the same field names as the HTML form
+    (``username``, ``password``, ``confirm_password``, ``first_name``, ``last_name``,
+    ``address``, ``next``, ``csrfmiddlewaretoken`` optional). Include CSRF token via header
+    ``X-CSRFToken`` (or cookie ``csrftoken`` for same-site requests).
+    """
+    request._signup_wants_json = True
+    content_type = (request.META.get("CONTENT_TYPE") or "").lower()
+    if "application/json" in content_type:
+        try:
+            raw_body = request.body.decode("utf-8") or "{}"
+            payload = json.loads(raw_body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({"ok": False, "error": "Invalid JSON body."}, status=400)
+        if not isinstance(payload, dict):
+            return JsonResponse({"ok": False, "error": "JSON body must be an object."}, status=400)
+
+        q = QueryDict(mutable=True)
+        for key, value in payload.items():
+            if isinstance(value, (dict, list)):
+                continue
+            q[key] = "" if value is None else str(value)
+        request.POST = q
+    return signup_view(request)
 
 
 def verify_email(request, uidb64, token):

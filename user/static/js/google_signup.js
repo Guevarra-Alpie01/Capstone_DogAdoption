@@ -92,36 +92,134 @@
         shell.classList.remove("is-google-loading");
     }
 
+    function getUserHomeUrl() {
+        var body = document.body;
+        if (!body) {
+            return "";
+        }
+        var raw = (body.getAttribute("data-user-home-url") || "").trim();
+        return raw;
+    }
+
+    function normalizePathname(pathname) {
+        var p = (pathname || "").replace(/\/+$/, "");
+        return p || "/";
+    }
+
+    function isStaleOAuthWithoutCredential(form) {
+        if ((form.dataset.googleOAuthInProgress || "").trim() !== "1") {
+            return false;
+        }
+        var inp = getCredentialInput(form);
+        if (inp && inp.value && inp.value.trim()) {
+            return false;
+        }
+        return true;
+    }
+
+    function hideAuthModalContaining(form) {
+        if (!form || !window.bootstrap || !window.bootstrap.Modal) {
+            return;
+        }
+        var modal = form.closest(".modal");
+        if (!modal) {
+            return;
+        }
+        try {
+            var instance = window.bootstrap.Modal.getInstance(modal);
+            if (instance) {
+                instance.hide();
+            }
+        } catch (err) {
+            /* ignore */
+        }
+    }
+
+    /**
+     * Reset Google button spinner after popup/FedCM dismiss without a credential.
+     * Redirect to user home when cancel happens away from home; on home, close auth modal only.
+     */
+    function finalizeOAuthCancel(form) {
+        hideGoogleLoading(form);
+        delete form.dataset.googleOAuthInProgress;
+
+        var homeUrl = getUserHomeUrl();
+        if (!homeUrl) {
+            hideAuthModalContaining(form);
+            return;
+        }
+
+        var homePath;
+        try {
+            homePath = normalizePathname(new URL(homeUrl, window.location.href).pathname);
+        } catch (e) {
+            hideAuthModalContaining(form);
+            return;
+        }
+
+        var currentPath = normalizePathname(window.location.pathname);
+
+        if (currentPath !== homePath) {
+            window.location.assign(homeUrl);
+            return;
+        }
+
+        hideAuthModalContaining(form);
+    }
+
     function armOAuthCancelRecovery(form) {
+        var done = false;
+        var debounceTimerId = 0;
+        var fallbackTimerId = 0;
+
         function cleanup() {
             window.removeEventListener("focus", onFocus);
+            window.removeEventListener("visibilitychange", onVisibility);
+            window.removeEventListener("pageshow", onPageShow);
+            window.clearTimeout(debounceTimerId);
             window.clearTimeout(fallbackTimerId);
         }
 
-        function maybeDismissStaleLoading() {
-            if ((form.dataset.googleOAuthInProgress || "").trim() !== "1") {
+        function attemptFinalize() {
+            if (done) {
                 return;
             }
-            var inp = getCredentialInput(form);
-            if (inp && inp.value && inp.value.trim()) {
+            if (!isStaleOAuthWithoutCredential(form)) {
+                cleanup();
                 return;
             }
-            hideGoogleLoading(form);
-            delete form.dataset.googleOAuthInProgress;
+            done = true;
+            cleanup();
+            finalizeOAuthCancel(form);
+        }
+
+        function scheduleAttempt() {
+            window.clearTimeout(debounceTimerId);
+            debounceTimerId = window.setTimeout(attemptFinalize, 820);
         }
 
         function onFocus() {
-            window.setTimeout(function () {
-                maybeDismissStaleLoading();
-                cleanup();
-            }, 900);
+            scheduleAttempt();
+        }
+
+        function onVisibility() {
+            if (document.visibilityState === "visible") {
+                scheduleAttempt();
+            }
+        }
+
+        function onPageShow(ev) {
+            if (ev && ev.persisted) {
+                scheduleAttempt();
+            }
         }
 
         window.addEventListener("focus", onFocus);
+        window.addEventListener("visibilitychange", onVisibility);
+        window.addEventListener("pageshow", onPageShow);
 
-        var fallbackTimerId = window.setTimeout(function () {
-            maybeDismissStaleLoading();
-            cleanup();
+        fallbackTimerId = window.setTimeout(function () {
+            attemptFinalize();
         }, 120000);
     }
 

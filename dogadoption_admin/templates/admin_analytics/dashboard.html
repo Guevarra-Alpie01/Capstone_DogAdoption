@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/admin_analytics/dashboard.css' %}?v=20260428analytics-emerald-sky">
+<link rel="stylesheet" href="{% static 'css/admin_analytics/dashboard.css' %}?v=20260428vacc-bar-colors">
 {% endblock %}
 
 {% block content %}
@@ -189,7 +189,10 @@
         <div class="chart-card chart-span-2 chart-card--bar">
             <div class="chart-head">
                 <h4 class="chart-title">
-                    <span class="chart-icon icon-vaccine" aria-hidden="true"><i class="bi bi-syringe"></i></span>
+                    <span class="chart-icon icon-bar-vs-expired" aria-hidden="true">
+                        {# Lucide "chart-column" (bar chart) — MIT License https://lucide.dev #}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+                    </span>
                     <span>Vaccinated vs Expired by Barangay</span>
                 </h4>
                 <div class="chart-filters">
@@ -978,20 +981,17 @@
             return a.localeCompare(b);
         });
 
+        const vaccBarBlue = '#3b82f6';
+        const vaccBarRed = '#ef4444';
         return {
             labels: barangays,
             datasets: [
                 {
                     label: 'Total Vaccinated',
                     data: barangays.map((name) => vaccinatedByBarangay.get(name)?.size || 0),
-                    backgroundColor: (ctx) => bar3dGradient(
-                        ctx.chart.ctx,
-                        ctx.chart.chartArea,
-                        '#60a5fa',
-                        '#1d4ed8',
-                    ),
-                    borderColor: 'rgba(255, 255, 255, 0.5)',
-                    borderWidth: 1.2,
+                    backgroundColor: vaccBarBlue,
+                    borderColor: vaccBarBlue,
+                    borderWidth: 0,
                     borderRadius: { topLeft: 9, topRight: 9, bottomLeft: 0, bottomRight: 0 },
                     borderSkipped: false,
                     maxBarThickness: isAnalyticsTinyPhone() ? 20 : isAnalyticsPhone() ? 24 : 32,
@@ -999,14 +999,9 @@
                 {
                     label: 'Expired Vaccination',
                     data: barangays.map((name) => expiredByBarangay.get(name)?.size || 0),
-                    backgroundColor: (ctx) => bar3dGradient(
-                        ctx.chart.ctx,
-                        ctx.chart.chartArea,
-                        '#f87171',
-                        '#b91c1c',
-                    ),
-                    borderColor: 'rgba(255, 255, 255, 0.45)',
-                    borderWidth: 1.2,
+                    backgroundColor: vaccBarRed,
+                    borderColor: vaccBarRed,
+                    borderWidth: 0,
                     borderRadius: { topLeft: 9, topRight: 9, bottomLeft: 0, bottomRight: 0 },
                     borderSkipped: false,
                     maxBarThickness: isAnalyticsTinyPhone() ? 20 : isAnalyticsPhone() ? 24 : 32,
@@ -1038,6 +1033,7 @@
             vaccinationChart.destroy();
         }
 
+        const vaccLegendBase = analyticsLegendOptions();
         vaccinationChart = new Chart(vaccinationCanvas, {
             type: 'bar',
             data,
@@ -1048,31 +1044,67 @@
                 categoryPercentage: 0.78,
                 barPercentage: 0.9,
                 plugins: {
-                    legend: analyticsLegendOptions(),
-                    tooltip: { ...analyticsTooltipBase() },
+                    legend: {
+                        ...vaccLegendBase,
+                        labels: {
+                            ...vaccLegendBase.labels,
+                            color(context) {
+                                const i = typeof context.datasetIndex === 'number'
+                                    ? context.datasetIndex
+                                    : context.index;
+                                return i === 1 ? '#ef4444' : '#3b82f6';
+                            },
+                        },
+                    },
+                    tooltip: {
+                        ...analyticsTooltipBase(),
+                        backgroundColor: '#ffffff',
+                        titleColor: '#000000',
+                        bodyColor: '#000000',
+                        borderColor: 'rgba(0, 0, 0, 0.12)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label(context) {
+                                const value = context.parsed?.y;
+                                return `${context.dataset.label}: ${value}`;
+                            },
+                        },
+                    },
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        grid: { color: 'rgba(148, 163, 184, 0.18)' },
-                        ticks: analyticsAxisTickOptions({ precision: 0 }),
+                        grid: {
+                            display: false,
+                            drawBorder: false,
+                        },
+                        ticks: {
+                            ...analyticsAxisTickOptions({ precision: 0 }),
+                            color: '#3b82f6',
+                        },
                     },
                     x: {
-                        grid: { display: false },
-                        ticks: analyticsAxisTickOptions({
-                            autoSkip: true,
-                            maxRotation: isAnalyticsPhone() ? 0 : 55,
-                            minRotation: isAnalyticsPhone() ? 0 : 35,
-                            maxTicksLimit: isAnalyticsTinyPhone() ? 3 : isAnalyticsPhone() ? 4 : 8,
-                            callback: function(value) {
-                                const label = this.getLabelForValue(value);
-                                const truncateAt = isAnalyticsTinyPhone() ? 8 : 10;
-                                if (!isAnalyticsPhone() || typeof label !== 'string' || label.length <= truncateAt) {
-                                    return label;
-                                }
-                                return `${label.slice(0, truncateAt)}...`;
-                            },
-                        }),
+                        grid: {
+                            display: false,
+                            drawBorder: false,
+                        },
+                        ticks: {
+                            ...analyticsAxisTickOptions({
+                                autoSkip: true,
+                                maxRotation: isAnalyticsPhone() ? 0 : 55,
+                                minRotation: isAnalyticsPhone() ? 0 : 35,
+                                maxTicksLimit: isAnalyticsTinyPhone() ? 3 : isAnalyticsPhone() ? 4 : 8,
+                                callback: function(value) {
+                                    const label = this.getLabelForValue(value);
+                                    const truncateAt = isAnalyticsTinyPhone() ? 8 : 10;
+                                    if (!isAnalyticsPhone() || typeof label !== 'string' || label.length <= truncateAt) {
+                                        return label;
+                                    }
+                                    return `${label.slice(0, truncateAt)}...`;
+                                },
+                            }),
+                            color: '#ef4444',
+                        },
                     }
                 }
             }

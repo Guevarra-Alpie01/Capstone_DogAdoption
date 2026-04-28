@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260428deceased-subnav">
+<link rel="stylesheet" href="{% static 'css/admin_home/post_list.css' %}?v=20260428active-board-only">
 
 <div class="post-toolbar-shell">
     <div class="post-toolbar">
@@ -65,150 +65,6 @@
     </div>
 </div>
 <div class="post-toolbar-spacer" aria-hidden="true"></div>
-
-<nav class="post-board-subnav" aria-label="Post board views">
-    <a
-        href="{% url 'dogadoption_admin:post_list' %}"
-        class="post-board-subnav-link{% if board_view != 'deceased' %} is-active{% endif %}"
-    >Active board</a>
-    <a
-        href="{% url 'dogadoption_admin:post_list' %}?board=deceased"
-        class="post-board-subnav-link{% if board_view == 'deceased' %} is-active{% endif %}"
-    >Deceased dogs</a>
-</nav>
-
-{% if board_view == 'deceased' %}
-<section class="deceased-dogs-board registration-wrapper">
-    <div class="deceased-dogs-head">
-        <h2 class="deceased-dogs-title">Deceased dogs registry</h2>
-        <p class="text-muted small mb-0">
-            Log deaths against the original shelter post. Details are copied from the post when you save.
-        </p>
-    </div>
-
-    {% if admin_access.can_create_posts %}
-    <div class="side-card deceased-dogs-log-card mb-4">
-        <h3 class="h6 mb-3">Log deceased dog</h3>
-        <form
-            method="post"
-            action="{% url 'dogadoption_admin:post_list' %}?board=deceased"
-            class="deceased-dogs-log-form"
-        >
-            {% csrf_token %}
-            <input type="hidden" name="form_type" value="log_deceased">
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label" for="{{ deceased_form.post.id_for_label }}">{{ deceased_form.post.label }}</label>
-                    {{ deceased_form.post }}
-                    {% if deceased_form.post.errors %}
-                        <div class="text-danger small">{{ deceased_form.post.errors|join:", " }}</div>
-                    {% endif %}
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label" for="{{ deceased_form.deceased_at.id_for_label }}">{{ deceased_form.deceased_at.label }}</label>
-                    {{ deceased_form.deceased_at }}
-                    {% if deceased_form.deceased_at.errors %}
-                        <div class="text-danger small">{{ deceased_form.deceased_at.errors|join:", " }}</div>
-                    {% endif %}
-                </div>
-                <div class="col-md-12">
-                    <label class="form-label" for="{{ deceased_form.notes.id_for_label }}">{{ deceased_form.notes.label }}</label>
-                    {{ deceased_form.notes }}
-                </div>
-                <div class="col-12">
-                    <button type="submit" class="btn btn-primary">Save record</button>
-                </div>
-            </div>
-        </form>
-    </div>
-    {% endif %}
-
-    <div class="side-card deceased-dogs-list-card">
-        <form method="get" action="{% url 'dogadoption_admin:post_list' %}" class="deceased-dogs-search medical-record-search-form row g-2 align-items-end mb-3">
-            <input type="hidden" name="board" value="deceased">
-            <div class="col-md-8">
-                <label class="form-label" for="deceased-search-q">Search</label>
-                <input
-                    type="search"
-                    name="q"
-                    id="deceased-search-q"
-                    class="form-control"
-                    placeholder="Name, breed, notes, barangay, post #…"
-                    value="{{ deceased_search_q|default:'' }}"
-                >
-            </div>
-            <div class="col-md-4 d-flex gap-2">
-                <button type="submit" class="btn btn-outline-primary flex-grow-1">Search</button>
-                {% if deceased_search_q %}
-                <a href="{% url 'dogadoption_admin:post_list' %}?board=deceased" class="btn btn-outline-secondary">Clear</a>
-                {% endif %}
-            </div>
-        </form>
-
-        {% if deceased_page_obj.paginator.count %}
-        <div class="table-responsive">
-            <table class="table table-sm deceased-dogs-table mb-0">
-                <thead>
-                    <tr>
-                        <th>Deceased</th>
-                        <th>Dog</th>
-                        <th>Breed</th>
-                        <th>Gender</th>
-                        <th>Age</th>
-                        <th>Barangay</th>
-                        <th>Post</th>
-                        <th>Recorded by</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in deceased_page_obj %}
-                    <tr>
-                        <td>{{ row.deceased_at|date:"M d, Y" }}</td>
-                        <td><strong>{{ row.dog_name }}</strong></td>
-                        <td>{{ row.breed|default:"—" }}</td>
-                        <td>{{ row.gender|default:"—" }}</td>
-                        <td>{{ row.age_group|default:"—" }}</td>
-                        <td>{{ row.location|default:"—" }}</td>
-                        <td>
-                            {% if row.post_id %}
-                            <a href="{% url 'dogadoption_admin:update_post' row.post_id %}">#{{ row.post_id }}</a>
-                            {% else %}
-                            —
-                            {% endif %}
-                        </td>
-                        <td>{% if row.recorded_by %}{{ row.recorded_by.get_username }}{% else %}—{% endif %}</td>
-                    </tr>
-                    {% if row.notes %}
-                    <tr class="deceased-dogs-notes-row">
-                        <td colspan="8" class="text-muted small">{{ row.notes }}</td>
-                    </tr>
-                    {% endif %}
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        {% if deceased_page_obj.paginator.num_pages > 1 %}
-        <div class="certificate-pagination mt-3">
-            {% if deceased_page_obj.has_previous %}
-                <a class="certificate-pagination-btn" href="?board=deceased&amp;page={{ deceased_page_obj.previous_page_number }}{% if deceased_search_q %}&amp;q={{ deceased_search_q|urlencode }}{% endif %}">Previous</a>
-            {% else %}
-                <span class="certificate-pagination-btn disabled">Previous</span>
-            {% endif %}
-            <span class="certificate-pagination-info">Page {{ deceased_page_obj.number }} of {{ deceased_page_obj.paginator.num_pages }}</span>
-            {% if deceased_page_obj.has_next %}
-                <a class="certificate-pagination-btn" href="?board=deceased&amp;page={{ deceased_page_obj.next_page_number }}{% if deceased_search_q %}&amp;q={{ deceased_search_q|urlencode }}{% endif %}">Next</a>
-            {% else %}
-                <span class="certificate-pagination-btn disabled">Next</span>
-            {% endif %}
-        </div>
-        {% endif %}
-        {% else %}
-        <p class="text-muted mb-0">No deceased dog records yet.</p>
-        {% endif %}
-    </div>
-</section>
-{% endif %}
 
 {% if admin_access.can_create_posts %}
 <div class="modal fade create-post-modal" id="createPostModal" tabindex="-1" aria-labelledby="createPostModalLabel" aria-hidden="true">
@@ -421,7 +277,7 @@
 </div>
 {% endif %}
 
-{% if board_view != 'deceased' and admin_access.can_view_status_cards %}
+{% if admin_access.can_view_status_cards %}
 <section class="status-dashboard">
     <h4 class="status-dashboard-title">Active Post Board</h4>
     <div class="status-table-stack">

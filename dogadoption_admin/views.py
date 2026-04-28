@@ -75,7 +75,6 @@ from .citation_subitems import (
 )
 from .forms import (
     CitationForm,
-    DeceasedDogLogForm,
     ManagedStaffAccountForm,
     PenaltyForm,
     PostForm,
@@ -99,7 +98,6 @@ from .models import (
     Barangay,
     CertificateSettings,
     Citation,
-    DeceasedDog,
     DewormingTreatmentRecord,
     DogSurrenderRecord,
     Dog,
@@ -2289,121 +2287,10 @@ def delete_post(request, post_id):
     return _redirect_to_safe_next(request, "dogadoption_admin:post_list")
 
 
-def _render_post_list_deceased(
-    request,
-    access,
-    *,
-    post_form,
-    deceased_form,
-    show_create_modal=False,
-    show_appointment_modal=False,
-):
-    q = " ".join((request.GET.get("q") or "").split()).strip()
-    qs = DeceasedDog.objects.select_related("post", "recorded_by").order_by("-deceased_at", "-id")
-    if q:
-        text_filters = (
-            Q(dog_name__icontains=q)
-            | Q(breed__icontains=q)
-            | Q(notes__icontains=q)
-            | Q(location__icontains=q)
-            | Q(colors_summary__icontains=q)
-            | Q(caption_excerpt__icontains=q)
-            | Q(post__caption__icontains=q)
-            | Q(gender__icontains=q)
-            | Q(age_group__icontains=q)
-        )
-        if q.isdigit():
-            qs = qs.filter(text_filters | Q(post_id=int(q)) | Q(pk=int(q)))
-        else:
-            qs = qs.filter(text_filters)
-    paginator = Paginator(qs, 15)
-    page_obj = paginator.get_page(request.GET.get("page", 1))
-    history_total = len(_get_cached_post_history_ids())
-    user_post_pending_count = (
-        UserAdoptionPost.objects.filter(status="pending_review").count()
-        + MissingDogPost.objects.filter(status="pending_review").count()
-    )
-    appointment_dates = [d.strftime("%Y-%m-%d") for d in Post.active_appointment_dates()]
-    return render(
-        request,
-        "admin_home/post_list.html",
-        {
-            "board_view": "deceased",
-            "deceased_form": deceased_form,
-            "deceased_page_obj": page_obj,
-            "deceased_search_q": q,
-            "all_posts": [],
-            "status_sections": [],
-            "post_form": post_form,
-            "show_create_modal": show_create_modal,
-            "appointment_dates": appointment_dates,
-            "show_appointment_modal": show_appointment_modal,
-            "history_total": history_total,
-            "return_to": request.get_full_path(),
-            "user_post_pending_count": user_post_pending_count,
-        },
-    )
-
-
-def _post_list_deceased_board(request, access):
-    post_form = PostForm()
-    _set_post_form_barangay_source(post_form)
-    show_create_modal = False
-    show_appointment_modal = request.method == "GET" and (
-        request.GET.get("open_appointment", "").lower() in {"1", "true", "yes"}
-    )
-    if show_appointment_modal and not access.get("is_full_admin"):
-        messages.error(request, "Only the admin can set appointment dates.")
-        show_appointment_modal = False
-
-    deceased_form = DeceasedDogLogForm()
-    if request.method == "POST":
-        form_type = (request.POST.get("form_type") or "").strip()
-        if form_type == "log_deceased":
-            deceased_form = DeceasedDogLogForm(request.POST)
-            if not access.get("can_create_posts"):
-                messages.error(
-                    request,
-                    "You do not have permission to log deceased dogs.",
-                    extra_tags="post_list",
-                )
-                deceased_form = DeceasedDogLogForm()
-            elif deceased_form.is_valid():
-                obj = deceased_form.save(commit=False)
-                obj.recorded_by = request.user
-                post = obj.post
-                if post:
-                    snapshot = DeceasedDog.build_snapshot_from_post(post)
-                    for key, value in snapshot.items():
-                        setattr(obj, key, value)
-                obj.save()
-                messages.success(request, "Deceased dog record saved.", extra_tags="post_list")
-                return redirect(f"{reverse('dogadoption_admin:post_list')}?board=deceased")
-            messages.error(
-                request,
-                "Fix the errors below and try again.",
-                extra_tags="post_list",
-            )
-
-    return _render_post_list_deceased(
-        request,
-        access,
-        post_form=post_form,
-        deceased_form=deceased_form,
-        show_create_modal=show_create_modal,
-        show_appointment_modal=show_appointment_modal,
-    )
-
-
 @admin_required
 def post_list(request):
     """Render the post board and handle quick-create or appointment updates."""
     access = getattr(request, "admin_access", get_admin_access(request.user))
-    board_view = (request.GET.get("board") or "active").strip().lower()
-    if board_view not in {"active", "deceased"}:
-        board_view = "active"
-    if board_view == "deceased":
-        return _post_list_deceased_board(request, access)
 
     show_create_modal = False
     show_appointment_modal = request.method == "GET" and (
@@ -2790,7 +2677,6 @@ def post_list(request):
     )
 
     return render(request, 'admin_home/post_list.html', {
-        'board_view': 'active',
         'all_posts': paged_all_posts,
         'status_sections': status_sections,
         'post_form': post_form,

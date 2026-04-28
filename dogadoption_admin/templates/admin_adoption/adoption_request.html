@@ -32,6 +32,23 @@
     {% with req=item.req profile=item.profile %}
     <div class="request-card">
 
+        {% if post_board_profile_fetch_url_template %}
+        <button
+            type="button"
+            class="user-profile-block post-board-profile-hit w-100 text-start border-0 bg-transparent p-0"
+            data-post-board-user-id="{{ req.user_id }}"
+            style="cursor: pointer;"
+            aria-label="View profile for {{ req.user.username }}"
+        >
+            {% if profile and profile.profile_image %}
+            <img src="{{ profile.profile_image.url }}" class="profile-img" alt="Profile">
+            {% endif %}
+            <div class="user-details">
+                <div><strong>{{ req.user.first_name }} {{ req.user.last_name }}{% if profile and profile.middle_initial %} {{ profile.middle_initial }}{% endif %}</strong></div>
+                <div class="text-muted">{% if profile %}{{ profile.address }}{% else %}-{% endif %}</div>
+            </div>
+        </button>
+        {% else %}
         <div class="user-profile-block">
             {% if profile and profile.profile_image %}
             <img src="{{ profile.profile_image.url }}" class="profile-img" alt="Profile">
@@ -41,6 +58,7 @@
                 <div class="text-muted">{% if profile %}{{ profile.address }}{% else %}-{% endif %}</div>
             </div>
         </div>
+        {% endif %}
 
         <div class="request-top">
             <div><strong>Requested on:</strong> {{ req.created_at|date:"M d, Y H:i" }}</div>

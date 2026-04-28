@@ -1160,6 +1160,7 @@ class DogRegistration(models.Model):
         indexes = [
             models.Index(fields=["date_registered"], name="dogreg_date_registered_idx"),
             models.Index(fields=["reg_no"], name="dogreg_reg_no_idx"),
+            models.Index(fields=["status"], name="dogreg_status_idx"),
         ]
         db_table= 'dogadoption_admin_vaccinationcertificate'
     def __str__(self):
@@ -1200,6 +1201,11 @@ class VaccinationRecord(models.Model):
 
     class Meta:
         db_table = 'dogadoption_admin_vaccinationrecord'
+        indexes = [
+            models.Index(fields=["date"], name="vacrec_vaccination_date_idx"),
+            models.Index(fields=["registration_id"], name="vacrec_patient_id_idx"),
+        ]
+
     def __str__(self):
         return f"{self.registration.name_of_pet} - {self.vaccine_name}"
 

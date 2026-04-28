@@ -54,6 +54,16 @@ urlpatterns = [
     path('certificate/<registrationid:pk>/', views.certificate_print, name='certificate_print'),
     path('certificates/', views.certificate_list, name='certificate_list'),
     path('export/pdf/', views.export_certificates_pdf, name='export_certificates_pdf'),
+    path(
+        'export/pdf/jobs/<uuid:job_id>/',
+        views.export_certificates_pdf_job_status,
+        name='export_certificates_pdf_job_status',
+    ),
+    path(
+        'export/pdf/jobs/<uuid:job_id>/download/',
+        views.export_certificates_pdf_job_download,
+        name='export_certificates_pdf_job_download',
+    ),
     path('export/word/', views.export_certificates_word, name='export_certificates_word'),
     path('export/excel/', views.export_certificates_excel, name='export_certificates_excel'),
     path("certificates/bulk-print/", views.bulk_certificate_print, name="bulk_certificate_print"),

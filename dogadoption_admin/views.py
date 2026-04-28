@@ -11,8 +11,10 @@ from functools import wraps
 import hashlib
 import io
 import json
+import os
 import re
 import secrets
+import tempfile
 from types import SimpleNamespace
 from urllib.parse import urlencode
 
@@ -46,7 +48,7 @@ from django.core.paginator import Paginator
 from django.db import DatabaseError, transaction
 from django.db.models import Case, CharField, Count, DateField, F, IntegerField, Max, Min, OuterRef, Prefetch, Q, Subquery, Value, When
 from django.db.models.functions import Cast, Coalesce, Concat, Lower, Substr, Trim, TruncDate
-from django.http import Http404, HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.templatetags.static import static
@@ -75,6 +77,12 @@ from .forms import CitationForm, ManagedStaffAccountForm, PenaltyForm, PostForm,
 from .admin_notification_utils import sync_expiry_notifications
 from .barangays import BAYAWAN_BARANGAYS
 from .cache_utils import ANALYTICS_DASHBOARD_CACHE_KEY
+from .vaccination_list_print_service import (
+    VaccinationCertificatePdfJob,
+    VaccinationListPrintService,
+    pop_job_file_path,
+    vaccination_certificate_export_job_json,
+)
 from .context_processors import (
     ADMIN_NOTIFICATIONS_CACHE_KEY,
     ADMIN_NOTIFICATIONS_CACHE_TTL_SECONDS,
@@ -5655,7 +5663,7 @@ def certificate_list(request):
         )
 
     combined_rows = []
-    for record in medical_records_qs:
+    for record in medical_records_qs.iterator(chunk_size=500):
         reg = record.registration
         combined_rows.append({
             'registration_id': reg.id,
@@ -5740,26 +5748,84 @@ def certificate_list(request):
 
 @admin_required
 def export_certificates_pdf(request):
-    """Export the certificate list as a compact PDF table."""
-    _, _, _, _, _, SimpleDocTemplate, _, Table, _ = _get_reportlab_exports()
-    certificates = DogRegistration.objects.all().order_by('-date_registered')
+    """Export the certificate list as a compact PDF table (sync stream or async job dispatch)."""
+    if request.GET.get("async") == "1":
+        VaccinationListPrintService.refresh_id_cache()
+        job = VaccinationCertificatePdfJob.dispatch(request.user.id)
+        return JsonResponse({"job_id": job.job_id})
 
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="certificates.pdf"'
+    def _stream_file_then_unlink(path: str):
+        try:
+            with open(path, "rb") as handle:
+                while True:
+                    chunk = handle.read(65536)
+                    if not chunk:
+                        break
+                    yield chunk
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
 
-    doc = SimpleDocTemplate(response)
-    data = [["Reg No", "Pet Name", "Owner", "Date Issued"]]
+    VaccinationListPrintService.refresh_id_cache()
+    fd, tmp_path = tempfile.mkstemp(suffix=".pdf", prefix="cert_export_sync_")
+    os.close(fd)
+    try:
+        VaccinationListPrintService.write_registration_pdf(tmp_path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
-    for cert in certificates:
-        data.append([
-            cert.reg_no,
-            cert.name_of_pet,
-            cert.owner_name,
-            cert.date_registered.strftime("%b %d, %Y")
-        ])
+    response = StreamingHttpResponse(
+        _stream_file_then_unlink(tmp_path),
+        content_type="application/pdf",
+    )
+    response["Content-Disposition"] = 'attachment; filename="certificates.pdf"'
+    return response
 
-    table = Table(data)
-    doc.build([table])
+
+@admin_required
+def export_certificates_pdf_job_status(request, job_id):
+    """Poll async PDF job status (JSON)."""
+    payload = vaccination_certificate_export_job_json(str(job_id))
+    if payload.get("status") == "missing":
+        return JsonResponse(payload, status=404)
+    return JsonResponse(payload)
+
+
+@admin_required
+def export_certificates_pdf_job_download(request, job_id):
+    """Stream completed PDF once; removes temp file after streaming."""
+    path = pop_job_file_path(str(job_id), request.user.id)
+    if not path:
+        return JsonResponse(
+            {"error": "Download unavailable (job not ready, wrong user, or already downloaded)."},
+            status=404,
+        )
+
+    def _stream_file_then_unlink():
+        try:
+            with open(path, "rb") as handle:
+                while True:
+                    chunk = handle.read(65536)
+                    if not chunk:
+                        break
+                    yield chunk
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+    response = StreamingHttpResponse(
+        _stream_file_then_unlink(),
+        content_type="application/pdf",
+    )
+    response["Content-Disposition"] = 'attachment; filename="certificates.pdf"'
     return response
 
 @admin_required

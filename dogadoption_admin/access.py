@@ -111,6 +111,8 @@ ADMIN_ROUTE_RULES = {
     "certificate_list": {"any_of": ("can_access_vaccination_list",)},
     "certificate_print": {"any_of": ("can_access_vaccination", "can_access_vaccination_list")},
     "export_certificates_pdf": {"any_of": ("can_access_vaccination_list",)},
+    "export_certificates_pdf_job_status": {"any_of": ("can_access_vaccination_list",)},
+    "export_certificates_pdf_job_download": {"any_of": ("can_access_vaccination_list",)},
     "export_certificates_word": {"any_of": ("can_access_vaccination_list",)},
     "export_certificates_excel": {"any_of": ("can_access_vaccination_list",)},
     "bulk_certificate_print": {"any_of": ("can_access_vaccination_list",)},

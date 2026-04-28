@@ -5,7 +5,8 @@ from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 
 from .cache_utils import invalidate_analytics_dashboard_cache
-from .models import DogSurrenderRecord
+from .models import DogRegistration, DogSurrenderRecord, VaccinationRecord
+from .vaccination_list_print_service import invalidate_vaccination_certificate_export_cache
 from user.models import DogCaptureRequest
 
 User = get_user_model()
@@ -44,6 +45,28 @@ def _connect_analytics_invalidation_signals():
 
 
 _connect_analytics_invalidation_signals()
+
+
+def _invalidate_vaccination_export_cache(**kwargs):
+    invalidate_vaccination_certificate_export_cache()
+
+
+for _sender, _uid in (
+    (DogRegistration, "dogreg_cert_pdf_cache"),
+    (VaccinationRecord, "vacrec_cert_pdf_cache"),
+):
+    post_save.connect(
+        _invalidate_vaccination_export_cache,
+        sender=_sender,
+        weak=False,
+        dispatch_uid=f"cert_pdf_cache_invalidate_save_{_uid}",
+    )
+    post_delete.connect(
+        _invalidate_vaccination_export_cache,
+        sender=_sender,
+        weak=False,
+        dispatch_uid=f"cert_pdf_cache_invalidate_delete_{_uid}",
+    )
 
 
 @receiver(post_save, sender=DogCaptureRequest)

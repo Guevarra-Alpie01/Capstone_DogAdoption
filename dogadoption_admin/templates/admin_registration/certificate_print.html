@@ -9,7 +9,18 @@
     <link rel="stylesheet" href="{% static 'css/register/small_certificate.css' %}">
 </head>
 <body>
+    {% if not certificate_pdf_export %}
     <div class="small-certificate-toolbar">
+        {% if certificate_owner_mode %}
+        <a class="back-link" href="{% url 'user:edit_profile' %}#vaccination" aria-label="Back to profile">
+            <span class="back-link-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M10.79 6.29a1 1 0 0 1 0 1.41L7.5 11H18a1 1 0 1 1 0 2H7.5l3.29 3.29a1 1 0 1 1-1.41 1.41l-5-5a1 1 0 0 1 0-1.41l5-5a1 1 0 0 1 1.41 0z"></path>
+                </svg>
+            </span>
+            <span class="back-link-text">Back to profile</span>
+        </a>
+        {% else %}
         <a class="back-link" href="{% url 'dogadoption_admin:certificate_list' %}" onclick="return goBackToCertificateList(event)" aria-label="Back to Certificate List">
             <span class="back-link-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false">
@@ -18,6 +29,7 @@
             </span>
             <span class="back-link-text">Back to Certificates</span>
         </a>
+        {% endif %}
         <button class="print-btn" type="button" onclick="window.print()">
             <span class="print-btn-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false">
@@ -27,6 +39,7 @@
             <span>Print Certificate</span>
         </button>
     </div>
+    {% endif %}
 
     <main class="small-certificate-stack">
         {% if certificates %}
@@ -40,6 +53,7 @@
         {% endif %}
     </main>
 
+    {% if not certificate_pdf_export %}
     <script>
     function goBackToCertificateList(event) {
         const fallbackUrl = event.currentTarget.href;
@@ -68,5 +82,13 @@
         return true;
     }
     </script>
+    {% if certificate_autoprint %}
+    <script>
+        window.addEventListener("load", function () {
+            window.print();
+        });
+    </script>
+    {% endif %}
+    {% endif %}
 </body>
 </html>

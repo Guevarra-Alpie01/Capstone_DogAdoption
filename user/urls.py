@@ -25,6 +25,16 @@ urlpatterns = [
     # Shared profile and utility routes
     path('barangays/', views.barangay_list_api, name="barangay_list_api"),
     path("profile/edit/", views.edit_profile, name="edit_profile"),
+    path(
+        "profile/vaccination-card/<int:card_id>/download/",
+        views.download_vaccination_card_pdf,
+        name="download_vaccination_card",
+    ),
+    path(
+        "profile/vaccination-certificate/dog/<int:dog_id>/",
+        views.owner_vaccination_certificate,
+        name="owner_vaccination_certificate",
+    ),
     path("profile/view/<userid:user_id>/", views.admin_view_user_profile, name="admin_view_user_profile"),
     path("profile/<userid:user_id>/", views.view_user_profile, name="view_user_profile"),
     path("profile/requester/<userid:user_id>/", views.view_requester_profile, name="view_requester_profile"),

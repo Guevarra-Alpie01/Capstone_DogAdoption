@@ -259,6 +259,34 @@ def _registered_dog_anchor_id(dog_id):
     return f"registered-dog-{dog_id}"
 
 
+def resolve_dog_certificate_registration(dog):
+    """
+    Map a registry Dog row to a vaccination-certificate DogRegistration by the same
+    owner + pet name rules used for the profile vaccination status badge.
+    Returns the newest matching registration or None.
+    """
+    if not dog:
+        return None
+    owner_key = _normalize_person_name(
+        getattr(dog, "owner_name_key", "") or getattr(dog, "owner_name", "")
+    )
+    pet_key = _normalize_person_name(getattr(dog, "name", ""))
+    if not owner_key or not pet_key:
+        return None
+    return (
+        DogRegistration.objects.annotate(
+            owner_name_normalized=Lower(Trim("owner_name")),
+            pet_name_normalized=Lower(Trim("name_of_pet")),
+        )
+        .filter(
+            owner_name_normalized=owner_key,
+            pet_name_normalized=pet_key,
+        )
+        .order_by("-date_registered", "-id")
+        .first()
+    )
+
+
 def _registered_dog_detail_url(dog_id):
     return f"{reverse('user:edit_profile')}#{_registered_dog_anchor_id(dog_id)}"
 

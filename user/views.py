@@ -24,7 +24,7 @@ import re
 import random
 import secrets
 import shutil
-from django.http import JsonResponse, QueryDict
+from django.http import FileResponse, Http404, JsonResponse, QueryDict
 from django.core.files.base import ContentFile
 from django.conf import settings
 from django.core.cache import cache
@@ -56,6 +56,7 @@ from dogadoption_admin.models import (
     AnnouncementComment,
     Barangay,
     Citation,
+    DewormingTreatmentRecord,
     Dog,
     DogAnnouncement,
     DogAnnouncementImage,
@@ -64,6 +65,8 @@ from dogadoption_admin.models import (
     Post,
     PostImage,
     PostRequest,
+    VaccinationCard,
+    VaccinationRecord,
 )
 from dogadoption_admin.context_processors import ADMIN_NOTIFICATIONS_CACHE_KEY
 
@@ -91,8 +94,8 @@ from .notification_utils import (
     invalidate_user_notification_payload,
     mark_user_notification_read,
     mark_user_notifications_read,
+    resolve_dog_certificate_registration,
 )
-
 # Administrative and user models above are shared across multiple public flows.
 # The view module is grouped below by shared helpers and user navigation links.
 
@@ -1195,6 +1198,75 @@ def _build_incoming_profile_requests(profile_user, default_profile_avatar_url):
     }
 
 
+def _profile_owner_vaccination_cards_context(profile_user):
+    """
+    Vaccination artifacts for dogs on this account: uploaded VaccinationCard PDFs plus
+    staff-entered vaccinations on matched DogRegistration (certificate) rows.
+    """
+    registered_dogs_limit = 12
+    dogs_qs = list(
+        Dog.objects.filter(owner_user=profile_user)
+        .prefetch_related(
+            Prefetch(
+                "vaccination_cards",
+                queryset=VaccinationCard.objects.exclude(pdf_file="").order_by("-id"),
+            )
+        )
+        .only(
+            "id",
+            "name",
+            "date_registered",
+            "owner_name",
+            "owner_name_key",
+        )
+        .order_by("-date_registered", "-id")[:registered_dogs_limit]
+    )
+    rows = []
+    total_cards = 0
+    for dog in dogs_qs:
+        card_items = []
+        for vc in dog.vaccination_cards.all():
+            pdf_url = _safe_media_url(vc.pdf_file)
+            if not pdf_url:
+                continue
+            card_items.append({
+                "kind": "pdf",
+                "id": vc.id,
+                "label": f"Uploaded PDF #{vc.id}",
+                "pdf_url": pdf_url,
+                "download_url": reverse("user:download_vaccination_card", kwargs={"card_id": vc.id}),
+            })
+            total_cards += 1
+
+        cert_registration = resolve_dog_certificate_registration(dog)
+        if (
+            cert_registration is not None
+            and VaccinationRecord.objects.filter(registration_id=cert_registration.id).exists()
+        ):
+            view_path = reverse(
+                "user:owner_vaccination_certificate",
+                kwargs={"dog_id": dog.id},
+            )
+            card_items.append({
+                "kind": "certificate",
+                "id": cert_registration.id,
+                "label": (cert_registration.reg_no or "").strip() or f"Certificate #{cert_registration.id}",
+                "view_url": view_path,
+                "print_url": f"{view_path}?autoprint=1",
+            })
+            total_cards += 1
+
+        rows.append({
+            "dog_id": dog.id,
+            "dog_name": dog.name or "Unnamed Dog",
+            "cards": card_items,
+        })
+    return {
+        "vaccination_profile_dogs": rows,
+        "vaccination_cards_total": total_cards,
+    }
+
+
 def _build_profile_registered_dogs(profile_user):
     registered_dogs_limit = 12
     registered_dogs_qs = list(
@@ -1297,6 +1369,8 @@ def _build_profile_dashboard_context(profile_user):
         **_build_incoming_profile_requests(profile_user, default_profile_avatar_url),
         **_build_profile_registered_dogs(profile_user),
         **_build_profile_violation_summary(profile_user),
+        "vaccination_profile_dogs": [],
+        "vaccination_cards_total": 0,
     }
 
 # =============================================================================
@@ -4502,7 +4576,83 @@ def edit_profile(request):
         messages.success(request, "Profile updated successfully")
         return redirect("user:edit_profile")
 
-    return render(request, "edit_profile.html", _build_profile_dashboard_context(user))
+    ctx = _build_profile_dashboard_context(user)
+    ctx.update(_profile_owner_vaccination_cards_context(user))
+    return render(request, "edit_profile.html", ctx)
+
+
+def _owner_vaccination_certificate_payload(user, dog_id):
+    """Build the same certificate dict used for HTML print; 404 unless owner match + vaccinations exist."""
+    dog = get_object_or_404(Dog.objects.filter(owner_user=user), pk=dog_id)
+    registration = resolve_dog_certificate_registration(dog)
+    if registration is None:
+        raise Http404()
+    if not VaccinationRecord.objects.filter(registration_id=registration.id).exists():
+        raise Http404()
+
+    from dogadoption_admin.views import _build_certificate_payload
+
+    vaccinations = VaccinationRecord.objects.filter(registration=registration).order_by("-date")
+    dewormings = DewormingTreatmentRecord.objects.filter(registration=registration).order_by("-date")
+    return _build_certificate_payload(
+        registration,
+        vaccinations=vaccinations,
+        dewormings=dewormings,
+        vac_limit=10,
+        vac_min_rows=10,
+        dew_limit=8,
+        dew_min_rows=8,
+    )
+
+
+@user_only
+@require_http_methods(["GET", "HEAD"])
+def download_vaccination_card_pdf(request, card_id):
+    """Stream a vaccination PDF for download when the viewer owns the dog."""
+    card = get_object_or_404(
+        VaccinationCard.objects.select_related("dog"),
+        pk=card_id,
+    )
+    if card.dog.owner_user_id != request.user.pk:
+        raise Http404()
+
+    pdf = card.pdf_file
+    raw_name = (pdf.name or "").strip()
+    if not raw_name:
+        raise Http404()
+
+    try:
+        file_handle = pdf.open("rb")
+    except FileNotFoundError:
+        raise Http404()
+
+    basename = os.path.basename(raw_name) or f"vaccination-card-{card.id}.pdf"
+    if not basename.lower().endswith(".pdf"):
+        basename = f"{basename}.pdf"
+
+    return FileResponse(
+        file_handle,
+        as_attachment=True,
+        filename=basename,
+    )
+
+
+@user_only
+@require_http_methods(["GET", "HEAD"])
+def owner_vaccination_certificate(request, dog_id):
+    """Printable vaccination certificate for the owner's dog (matched certificate registration)."""
+    certificate = _owner_vaccination_certificate_payload(request.user, dog_id)
+
+    autoprint = (request.GET.get("autoprint") or "").strip() == "1"
+    return render(
+        request,
+        "admin_registration/certificate_print.html",
+        {
+            "certificate": certificate,
+            "certificate_owner_mode": True,
+            "certificate_autoprint": autoprint,
+        },
+    )
 
 
 def _render_profile_preview(request, profile_user, *, back_url="", back_label="Back"):

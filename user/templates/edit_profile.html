@@ -1097,6 +1097,90 @@
         padding: 4px;
     }
 
+    .profile-vaccination-wrap {
+        padding: 12px 16px 18px;
+    }
+
+    .profile-vac-dog-acc {
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        background: #fcfdfd;
+        margin-bottom: 10px;
+        overflow: hidden;
+    }
+
+    .profile-vac-dog-acc summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 12px 14px;
+        font-weight: 800;
+        color: #1f2937;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .profile-vac-dog-acc summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .profile-vac-dog-meta {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #6b7280;
+        white-space: nowrap;
+    }
+
+    .profile-vac-body {
+        padding: 0 14px 14px;
+        border-top: 1px solid #eef2f7;
+    }
+
+    .profile-vac-card-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 10px 0;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.9rem;
+    }
+
+    .profile-vac-card-row:last-child {
+        border-bottom: none;
+        padding-bottom: 4px;
+    }
+
+    .profile-vac-actions {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-left: auto;
+    }
+
+    .profile-vac-actions a {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 700;
+        font-size: 0.82rem;
+        text-decoration: none;
+        color: #1d4ed8;
+    }
+
+    .profile-vac-actions a:hover {
+        text-decoration: underline;
+    }
+
+    .profile-vac-empty {
+        margin: 0;
+        padding: 12px 0 4px;
+        color: #6b7280;
+        font-size: 0.88rem;
+    }
+
     .profile-violation-list {
         display: flex;
         flex-direction: column;
@@ -1869,6 +1953,9 @@
             <button type="button" class="profile-tab is-active" data-tab-target="posts">Posts</button>
             <button type="button" class="profile-tab" data-tab-target="details">Details</button>
             <button type="button" class="profile-tab" data-tab-target="registered">Registered Dogs ({{ registered_dogs_total }})</button>
+            {% if not preview_mode %}
+            <button type="button" class="profile-tab" data-tab-target="vaccination">Vaccination Cards ({{ vaccination_cards_total }})</button>
+            {% endif %}
             <button type="button" class="profile-tab" data-tab-target="violations">Violations ({{ user_violation_count }})</button>
         </div>
 
@@ -2057,6 +2144,71 @@
                 </section>
             </div>
         </div>
+
+        {% if not preview_mode %}
+        <div class="profile-tab-content" data-tab-panel="vaccination">
+            <div class="profile-content-grid profile-content-grid--single">
+                <section class="profile-panel">
+                    <div class="profile-panel-header is-split">
+                        <span>
+                            <i class="bi bi-file-earmark-medical-fill"></i>
+                            Vaccination cards
+                        </span>
+                        <span class="profile-panel-caption">{{ vaccination_cards_total }} item{{ vaccination_cards_total|pluralize }}</span>
+                    </div>
+                    {% if vaccination_profile_dogs %}
+                    <div class="profile-vaccination-wrap">
+                        {% for vd in vaccination_profile_dogs %}
+                        <details class="profile-vac-dog-acc">
+                            <summary>
+                                <span>{{ vd.dog_name }}</span>
+                                <span class="profile-vac-dog-meta">{{ vd.cards|length }} card{{ vd.cards|length|pluralize }}</span>
+                            </summary>
+                            <div class="profile-vac-body">
+                                {% if vd.cards %}
+                                {% for vc in vd.cards %}
+                                <div class="profile-vac-card-row">
+                                    <span>{{ vc.label }}</span>
+                                    <div class="profile-vac-actions">
+                                        {% if vc.kind == "pdf" %}
+                                        <a href="{{ vc.pdf_url }}" target="_blank" rel="noopener noreferrer">
+                                            <i class="bi bi-eye"></i>
+                                            View
+                                        </a>
+                                        <a href="{{ vc.download_url }}">
+                                            <i class="bi bi-download"></i>
+                                            Download
+                                        </a>
+                                        {% elif vc.kind == "certificate" %}
+                                        <a href="{{ vc.view_url }}" target="_blank" rel="noopener noreferrer">
+                                            <i class="bi bi-file-earmark-text"></i>
+                                            View certificate
+                                        </a>
+                                        <a href="{{ vc.print_url }}" target="_blank" rel="noopener noreferrer">
+                                            <i class="bi bi-printer"></i>
+                                            Print / Save as PDF
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                                {% else %}
+                                <p class="profile-vac-empty">No vaccination certificate or uploaded PDF is available for this dog yet. If your dog is listed on the veterinary certificate system, check that the pet name and owner name match your pet registration.</p>
+                                {% endif %}
+                            </div>
+                        </details>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="profile-post-empty">
+                        <i class="bi bi-file-earmark-pdf"></i>
+                        <p>No registered dogs to show vaccination cards for yet.</p>
+                    </div>
+                    {% endif %}
+                </section>
+            </div>
+        </div>
+        {% endif %}
 
         <div class="profile-tab-content is-active" data-tab-panel="posts">
             <div class="profile-content-grid">

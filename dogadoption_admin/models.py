@@ -1171,6 +1171,35 @@ class DogImage(models.Model):
         return f"Dog {self.dog_id} image {self.id}"
 
 
+def vaccination_card_pdf_upload_to(instance, filename):
+    _, ext = os.path.splitext(filename or "")
+    extension = ext.lower() if ext else ".pdf"
+    return f"vaccination_cards/dog_{instance.dog_id}/{uuid4().hex}{extension}"
+
+
+class VaccinationCard(models.Model):
+    dog = models.ForeignKey(
+        Dog,
+        on_delete=models.CASCADE,
+        related_name="vaccination_cards",
+    )
+    pdf_file = models.FileField(upload_to=vaccination_card_pdf_upload_to)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="vaccination_cards_created",
+    )
+
+    class Meta:
+        ordering = ["-id"]
+        db_table = "dogadoption_admin_vaccinationcard"
+
+    def __str__(self):
+        return f"Vaccination card #{self.pk} (dog {self.dog_id})"
+
+
 #dog certification 
 class CertificateSettings(models.Model):
     reg_no = models.CharField(max_length=50, default="REG-001")
